@@ -1,0 +1,61 @@
+- Getting Started
+  - [Overview](getting-started/overview.md)
+  - [Installation](getting-started/installation.md)
+  - [Configuration](getting-started/configuration.md)
+- User Guide
+  - Overview
+    - [Cluster Overview](guide/cluster-overview.md)
+    - [Daily Summary](guide/daily-summary.md)
+    - [Queries](guide/queries.md)
+    - [Tables & Parts](guide/tables-and-parts.md)
+    - [Merges & Mutations](guide/merges-mutations.md)
+    - [DDL & Readonly](guide/ddl-readonly.md)
+  - Tools
+    - [SQL Editor](guide/sql-editor.md)
+    - [Query Profiler](guide/query-profiler.md)
+    - [Processors Profile](guide/processors-profile.md)
+    - [Query Metrics](guide/query-metrics.md)
+  - Dashboards
+    - [Chart Builder](guide/dashboards.md#chart-builder)
+    - [My Dashboards](guide/dashboards.md#dashboards)
+    - [All Charts](guide/dashboards.md#all-charts)
+  - Monitoring
+    - [System Dashboards](guide/monitoring.md#dashboards)
+    - [Playback](guide/monitoring.md#playback)
+    - [Memory Allocator](guide/memory-allocator.md)
+  - Logs
+    - [Crash Log](guide/logs.md#crash-log)
+    - [Error Log](guide/logs.md#error-log)
+    - [Text Log](guide/logs.md#text-log)
+  - Schema
+    - [Schema Visualizer](guide/schema-visualizer.md)
+    - [Data Skipping Indexes](guide/indexes.md#data-skipping-indexes)
+    - [Projections](guide/indexes.md#projections)
+    - [Index Management](guide/indexes.md#index-management)
+  - Alerts
+    - [Alert Rules](guide/alerting.md#alert-rules)
+    - [Channels](guide/alerting.md#alert-channels)
+  - RBAC
+    - [View Grants](guide/rbac.md#view-grants)
+    - [Users](guide/rbac.md#users)
+    - [Roles](guide/rbac.md#roles)
+    - [Settings Profiles](guide/rbac.md#settings-profiles)
+  - Backups
+    - [Data Lifecycle](guide/backups.md)
+  - Administration
+    - [User Management](guide/admin.md#user-management)
+    - [Cluster Management](guide/admin.md#cluster-management)
+    - [Storage Profiles](guide/admin.md#storage-profiles)
+    - [App Data Backup](guide/admin.md#app-data-backup)
+    - [AI API Keys](guide/ai-api-keys.md)
+- Architecture
+  - [Project Structure](architecture/project-structure.md)
+  - [Database Schema](architecture/database-schema.md)
+  - [API Reference](architecture/api-reference.md)
+- Development
+  - [Testing](development/testing.md)
+  - [Contributing](development/contributing.md)
+  - [Building a Binary](development/binary-build.md)
+- Deployment
+  - [Production (Caddy + systemd)](deployment/production.md)
+- [CHOps Pro & Legal](guide/chops-pro.md)
