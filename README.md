@@ -54,40 +54,6 @@ A global page search is available everywhere: open it from the navbar Search but
 
 ---
 
-## Requirements
-
-CHOps itself is lightweight (a single Bun process plus a small SQLite file). The
-main resource cost is optional: Qdrant, the vector store used by the Qurioz AI
-assistant. Sizing below is a practical minimum, not a benchmark - scale up with
-cluster size, dashboard/alert count, and whether you run Qdrant.
-
-### Operating system
-
-| OS | Status | Notes |
-|----|--------|-------|
-| Debian / Ubuntu (x64) | Primary / tested | Native setup instructions below (Bun or the standalone binary; Qdrant via `.deb` + systemd). |
-| Other Linux (x64/arm64) | Supported | Bun and the Linux binary run; adapt the Debian/Ubuntu steps to your package manager. |
-| macOS (Intel / Apple Silicon) | Supported | Run CHOps with Bun/binary; run Qdrant via Docker (see the macOS section). |
-| Windows (x64) | Supported | Use the Windows binary or Bun; Qdrant via Docker. Least documented path. |
-| Any OS with Docker | Supported | `docker compose up -d --build` avoids installing Bun. |
-
-### Hardware
-
-| Resource | Minimum (CHOps only) | Recommended (CHOps + Qurioz/Qdrant) |
-|----------|----------------------|--------------------------------------|
-| CPU | 1 vCPU | 2 vCPU |
-| RAM | 512 MB | 2-4 GB (Qdrant is the driver) |
-| Disk | ~2 GB (app + SQLite; grows with logs/history) | 10+ GB (Qdrant storage + growth) |
-
-Notes:
-- ClickHouse® is NOT counted here - it runs separately (localhost or remote) and
-  has its own requirements.
-- Without Qurioz, you can skip Qdrant entirely and stay at the minimum tier.
-- The SQLite database (`data/chops.db`) and Qdrant storage should be on
-  persistent disk (or a Docker volume, as configured).
-
----
-
 ## Before You Begin
 
 You need two things to run CHOps.
@@ -206,9 +172,9 @@ If the service is running successfully, Qdrant is ready to use.
 sudo journalctl -u qdrant -f
 ```
 
-### Docker
+### macOS (Docker)
 
-If you prefer a containerized setup, running Qdrant with Docker is the recommended approach.
+For macOS, or if you prefer a containerized setup, running Qdrant with Docker is the recommended approach.
 
 Install and start one of the following container runtimes:
 
@@ -669,16 +635,27 @@ ClickHouse® is a registered trademark of ClickHouse, Inc. All uses of the Click
 
 ## License
 
-CHOps follows an **open-core model**.
+CHOps follows an **open-core model**. The core (Community) edition is **dual
+licensed**, and Pro is commercial only.
 
-| Edition       | License                                         | What it includes                                                                                                                                                                       |
-| ------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Community** | GNU Affero General Public License v3.0 (AGPLv3) | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, and more. Free to use, modify, and self-host.                        |
-| **Pro**       | Commercial License                              | Advanced operational features layered on the core: extended alerting, audit logging, scheduled email reports, multi-cluster fleet management via sidecar agents, and priority support. |
+| Edition | License | What it includes |
+| --------------- | --------------------------- | ---------------- |
+| **Community (core)** | **AGPLv3 or Commercial** | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, and more. |
+| **Pro** | **Commercial only** | Advanced operational features layered on the core: extended alerting, audit logging, scheduled email reports, multi-cluster fleet management via sidecar agents, and priority support. |
 
-The community edition in this repository is licensed under the **GNU Affero General Public License, version 3.0**. You are free to use, study, modify, and redistribute it under the terms of that license. See [`LICENSE`](LICENSE) for the full text.
+**Community (core) is dual licensed.** By default it is offered under the GNU
+Affero General Public License, version 3.0 (AGPLv3); the copy in this repository
+is AGPLv3 and you may use, study, modify, and redistribute it under those terms
+(see [`LICENSE`](LICENSE)). If the AGPLv3 obligations do not fit your deployment,
+the same core is also available under a separate **commercial license** with no
+copyleft obligations.
 
-The **Pro** features are not part of this repository and are not covered by the AGPLv3. They are distributed separately under a commercial license that includes terms permitting proprietary, non-source-disclosed use. If the AGPLv3 license does not fit your deployment, you could obtain the pro version with a commercial use license. Visit [ch-ops.io](https://ch-ops.io) or contact Quantrail™ Data for commercial licensing and Pro inquiries.
+**Pro is commercial only.** The Pro features are not part of this repository and
+are not offered under the AGPLv3. They are distributed separately under a
+commercial license permitting proprietary, non-source-disclosed use.
+
+For a commercial license of the core, or for Pro, visit
+[ch-ops.io](https://ch-ops.io) or contact Quantrail™ Data.
 
 ### Copyright
 
