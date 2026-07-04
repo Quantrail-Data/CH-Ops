@@ -1,40 +1,45 @@
 # Cluster Overview
 
-The Cluster Overview is the default landing page after login. It provides a snapshot of your ClickHouse® cluster's health.
+When you log in, this is the first page you land on. Think of it as the health dashboard for your ClickHouse® cluster: a quick, at-a-glance read on whether everything is running smoothly or something needs your attention.
+
+> **Heading note:** You reach this page from the sidebar under **Overview > Cluster Overview**, but the heading inside the page reads **Node Overview**. The figures are scoped to the specific node you are connected to (not aggregated across the whole cluster), so the in-page title reflects that node-level view.
+
 
 ## Status Cards
 
-The top section displays stat cards for key metrics, each fetched from ClickHouse® system tables:
+Across the top, you will find a row of cards, each showing one key number about your cluster. Every card pulls its value live from ClickHouse®'s own system tables, so what you see is always current.
 
-- **Version**: the ClickHouse® server version (`SELECT version()`)
-- **Uptime**: how long the server has been running
-- **Databases**: count of databases
-- **Tables**: count of tables
-- **Queries Running**: active queries from `system.processes`
-- **Merges Running**: active background merges
-- **Mutations Running**: active mutations that are not done or killed
-- **DDL Queue**: items in the distributed DDL queue
-- **Readonly Tables**: count of replicas in readonly state (highlighted in red if greater than zero)
+Here is what each card tells you:
+
+- **Version** is the ClickHouse® server version you are running.
+- **Uptime** shows how long the server has been running since it last started.
+- **Databases** and **Tables** are simple counts of how many of each you have.
+- **Queries Running** is the number of queries executing right now.
+- **Merges Running** shows background merge operations in progress. (Merges are how ClickHouse® tidies up data behind the scenes; this is normal activity.)
+- **Mutations Running** counts active mutations, which are changes to existing data that are still in progress.
+- **DDL Queue** shows how many schema-change commands are waiting in the distributed queue.
+- **Readonly Tables** counts any table replicas that have slipped into a read-only state. If this number is above zero, the card turns red, because it usually means something needs looking into.
 
 ## Disk and RAM
 
-Below the stat cards, two additional cards display:
+Just below the status cards sit two more cards that track your resources.
 
-- **Disk Used**: percentage of disk used across all configured disks, with a progress bar. Turns red above 85%.
-- **RAM (Resident)**: memory tracked by the server process, from `system.asynchronous_metrics`.
+**Disk Used** shows the percentage of disk space in use across all your configured disks, with a progress bar so you can see it at a glance. It turns red once you pass 85 percent, which is your cue to free up space or add more before you run out.
+
+**RAM (Resident)** shows how much memory the server process is currently holding.
 
 ## ClickHouse® Keeper
 
-If the cluster uses ClickHouse® Keeper, its connection details are displayed showing host, port, and leader/follower status.
+If your cluster uses ClickHouse® Keeper to coordinate its replicas, this section shows you its connection details: the host, the port, and whether each Keeper node is currently a leader or a follower.
 
 ## Clusters Table
 
-The Clusters section shows the `system.clusters` table with columns: cluster, name, IP, shard, replica, errors_count, and slowdowns_count. This table always displays, even if only one cluster is configured.
+This section lays out your cluster topology, drawn from the `system.clusters` table. For each entry you can see the cluster and its name, the IP address, which shard and replica it is, and counters for errors and slowdowns. It always appears, even if you have only a single cluster configured, so you have one consistent place to check.
 
 ## Readonly Tables
 
-If any replicated tables are in readonly state, an alert banner appears with the count. Below it, a table lists the affected databases, tables, and when they entered readonly state.
+When a replicated table goes read-only, it can no longer accept writes, so you want to know about it quickly. If any of your tables are in this state, an alert banner appears at the top with a count, and a table below lists exactly which databases and tables are affected, along with when each one entered the read-only state. That timestamp is often the first clue when you are tracking down what went wrong.
 
-## Refresh
+## Refreshing the Data
 
-Data refreshes automatically every 30 seconds. Values are stabilized during refresh to prevent flickering. You can also click the Refresh button in the section header to trigger an immediate refresh.
+The page refreshes itself every 30 seconds, so you can leave it open and trust that the numbers stay current. During each refresh the values hold steady rather than flickering, which makes them easier to read. If you would rather not wait, the Refresh button in the section header pulls fresh data immediately.

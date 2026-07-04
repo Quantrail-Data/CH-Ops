@@ -1,0 +1,148 @@
+/* @author: Sanjeev Kumar G
+/* Queues feature styles. Uses existing CHOps design tokens. */
+
+/* The page shell and tabs reuse the app-wide .page-content / .section-header /
+   .tab-bar / .tab-item styles (see QueuesPage), so no local rules are needed
+   for those here. */
+
+/* Controls (range segments) */
+.queue-controls {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.queue-segment {
+  display: inline-flex; border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 6px); overflow: hidden;
+}
+.queue-seg-btn {
+  padding: 5px 12px; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); background: var(--bg-sunken);
+  border: none; cursor: pointer;
+  border-right: 1px solid var(--border-default);
+}
+.queue-seg-btn:last-child { border-right: none; }
+.queue-seg-btn:hover { color: var(--text-primary); }
+.queue-seg-btn.active { color: #fff; background: var(--accent); }
+
+/* Cards */
+.queue-cards {
+  display: grid; gap: 12px; margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.queue-card {
+  padding: 14px 16px; border-radius: var(--radius-lg, 10px);
+  background: var(--bg-elevated); border: 1px solid var(--border-default);
+  border-left-width: 3px;
+}
+.queue-card.state-ok { border-left-color: var(--color-success); }
+.queue-card.state-warn { border-left-color: var(--color-warning); }
+.queue-card.state-bad { border-left-color: var(--color-danger); }
+.queue-card.state-neutral { border-left-color: var(--border-default); }
+.queue-card-label {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted); margin-bottom: 6px;
+}
+.queue-card-value {
+  font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
+  font-family: var(--font-table);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.queue-card-delta { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.queue-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+/* Panels */
+.queue-panel {
+  background: var(--bg-elevated); border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 10px); padding: 16px; margin-bottom: 16px;
+}
+.queue-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.queue-panel-title {
+  font-size: 15px; font-weight: 700; color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+.queue-panel-head .queue-panel-title { margin: 0; }
+.queue-section-title {
+  font-size: 17px; font-weight: 700; color: var(--text-primary);
+  margin: 8px 0 12px 0;
+}
+.queue-grid-2 {
+  display: grid; gap: 16px; margin-bottom: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 900px) { .queue-grid-2 { grid-template-columns: 1fr; } }
+
+/* Charts */
+.queue-chart { width: 100%; height: 388px; }
+.queue-chart-wrap { position: relative; width: 100%; }
+
+/* "n.a." fallback shown when a section's data is missing or failed to load.
+   Used inline (cards/latency/failures) and as an overlay on top of a chart. */
+.queue-na {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  color: var(--text-muted); font-size: 14px; min-height: 120px;
+  text-align: center;
+}
+.queue-na i { opacity: 0.7; }
+.queue-na-overlay { position: absolute; inset: 0; }
+
+/* Ranked bars */
+.queue-rankedbar { display: flex; flex-direction: column; gap: 8px; }
+.queue-rankedbar-row { display: flex; align-items: center; gap: 10px; }
+.queue-rankedbar-label {
+  width: 200px; font-size: 13px; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.queue-rankedbar-track {
+  flex: 1; height: 8px; background: var(--bg-sunken);
+  border-radius: 999px; overflow: hidden;
+}
+.queue-rankedbar-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.queue-rankedbar-value {
+  font-size: 13px; color: var(--text-primary); min-width: 70px; text-align: right;
+}
+.queue-rankedbar-sub { color: var(--text-muted); font-size: 12px; }
+.queue-rankedbar-empty, .queue-none-good {
+  font-size: 14px; color: var(--text-muted); padding: 8px 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.queue-none-good i { color: var(--color-success); }
+
+/* Filter row + chips */
+.queue-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.queue-filter-row .form-input { width: 200px; }
+.queue-chip {
+  padding: 4px 10px; font-size: 12px; border-radius: 999px;
+  border: 1px solid var(--border-default); background: var(--bg-sunken);
+  color: var(--text-secondary); cursor: pointer;
+}
+.queue-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Search */
+.queue-disclosure {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: var(--text-primary); padding: 0;
+}
+.queue-search { margin-top: 12px; }
+.queue-search-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.queue-search-row .form-input { flex: 1; min-width: 160px; }
+
+/* Loading + empty */
+.queue-loading {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text-secondary); font-size: 14px; padding: 32px;
+}
+.queue-empty {
+  text-align: center; padding: 48px 24px; color: var(--text-muted);
+}
+.queue-empty i { font-size: 36px; opacity: 0.5; }
+.queue-empty-title {
+  font-size: 1rem; font-weight: 700; color: var(--text-secondary);
+  margin: 12px 0 6px;
+}
+.queue-empty-body {
+  font-size: 14px; max-width: 460px; margin: 0 auto; line-height: 1.6;
+}

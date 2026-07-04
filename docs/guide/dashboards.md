@@ -1,38 +1,27 @@
 # Custom Dashboards
 
+Beyond the built-in monitoring pages, CHOps lets you build your own charts from any SQL query and arrange them into dashboards that suit how your team works. This section has three parts: the Chart Builder where you create a chart, your Dashboards where you arrange them, and All Charts where you manage everything in one list.
+
 ## Chart Builder
 
-4-panel collapsible workspace (SQL & Results top, Config & Preview bottom).
+The Chart Builder is your workspace for turning a query into a chart. It is laid out as four panels you can collapse as needed: you write your SQL and see its results up top, then configure the chart and watch a live preview below.
 
 > Not sure how to write the SQL? Qurioz, the built-in AI assistant, turns a plain-English question into ClickHouse® SQL that drops straight into this workspace. An administrator enables it by adding a provider key on the [AI API Keys](ai-api-keys.md) page.
 
-**Features:**
-- A wide range of chart types and subtypes with column type validation
-- X/Y axis labels (auto-populated by chart type)
-- Legend toggle (auto-enabled for multi-series)
-- Fullscreen mode
-- Gauge min/max fields
-- ECharts toolbox on every chart: zoom, reset, save image
+You start by writing a query, then pick how to visualize it. CHOps offers a wide range of chart types, and for several of them a subtype that refines the look, such as a stacked or grouped variation of a bar chart, and it checks that the columns you are mapping make sense for the type you chose, so you are less likely to end up with a broken chart. As you work, the axis labels fill in automatically based on the chart type, a legend appears on its own when your chart has multiple series, and gauge charts give you fields to set their minimum and maximum. Every chart includes a small toolbar for zooming, resetting the view, and saving the chart as an image, and you can expand any chart to fullscreen while you fine-tune it.
 
-### Edit Mode
-Clicking Edit in All Charts navigates to Chart Builder with all params prefilled: SQL, chart type, subtype, column mapping, name, dashboard. Update button calls PUT instead of POST.
+When you are happy with a chart, you can save it on its own or place it onto a dashboard. If you save it to a dashboard, CHOps drops it into the next open slot automatically, filling left to right and then onto the next row, so you do not have to think about positioning.
 
-### Auto-Fill Grid
-When saving to a dashboard, the chart is automatically placed in the next empty grid position (left->right, then next row). No manual row/col input needed.
+To change a chart later, open it from the All Charts list and click Edit. The Chart Builder reopens with everything exactly as you left it, the SQL, the chart type, the column mapping, the name, and the dashboard, ready for you to adjust and save again.
 
 ## Dashboards
 
-Create dashboards with configurable grid columns (1-4).
+A dashboard is a grid of your charts. When you create one, you choose how many columns it should have, from one up to four, depending on how much you want to fit across the screen.
 
-### Drag-and-Drop
-Drag charts to swap positions. Changes are local until **Save Layout** is clicked, which persists all grid positions via API.
+Arranging charts is as simple as dragging them around the grid to swap their positions. Your changes stay on screen as you experiment, and nothing is saved until you click Save Layout, at which point the arrangement is stored so it looks the same next time you open it.
 
-### Chart Tiles
-Each tile has: chart title, fullscreen toggle, delete button. SQL executes against current ClickHouse® connection.
+Each chart sits in its own tile with its title, a button to view it fullscreen, and a button to remove it. The charts run their queries against whichever ClickHouse® connection you currently have selected, so a dashboard always reflects the cluster you are looking at.
 
 ## All Charts
 
-Separate sidebar section (`custom/charts`) listing all charts in a table with: name, type/subtype, dashboard assignment. Click a row to preview. Edit button navigates to Chart Builder with prefilled params.
-
-## Persistence
-SQLite tables: `dashboard` (id, name, columns), `chart` (id, name, dashboard_id FK, grid_row, grid_col, sql_query, chart_type, chart_subtype, config JSON).
+All Charts is a single list of every chart you have created, shown in a table with its name, its type, and which dashboard it belongs to. Click any row to preview the chart, or use the Edit button to jump back into the Chart Builder with all of its settings already filled in. This is the easiest place to find and manage charts once you have built up a collection.

@@ -3,18 +3,21 @@
   - [Installation](getting-started/installation.md)
   - [Configuration](getting-started/configuration.md)
 - User Guide
+  - [Global Search](guide/global-search.md)
   - Overview
     - [Cluster Overview](guide/cluster-overview.md)
     - [Daily Summary](guide/daily-summary.md)
     - [Queries](guide/queries.md)
     - [Tables & Parts](guide/tables-and-parts.md)
     - [Merges & Mutations](guide/merges-mutations.md)
+    - [Queues](guide/queues.md)
     - [DDL & Readonly](guide/ddl-readonly.md)
   - Tools
     - [SQL Editor](guide/sql-editor.md)
     - [Query Profiler](guide/query-profiler.md)
     - [Processors Profile](guide/processors-profile.md)
     - [Query Metrics](guide/query-metrics.md)
+    - [Qurioz AI](guide/ai-api-keys.md)
   - Dashboards
     - [Chart Builder](guide/dashboards.md#chart-builder)
     - [My Dashboards](guide/dashboards.md#dashboards)
@@ -27,6 +30,7 @@
     - [Crash Log](guide/logs.md#crash-log)
     - [Error Log](guide/logs.md#error-log)
     - [Text Log](guide/logs.md#text-log)
+    - [Session Log](guide/logs.md#session-log)
   - Schema
     - [Schema Visualizer](guide/schema-visualizer.md)
     - [Data Skipping Indexes](guide/indexes.md#data-skipping-indexes)
@@ -42,16 +46,12 @@
     - [Settings Profiles](guide/rbac.md#settings-profiles)
   - Backups
     - [Data Lifecycle](guide/backups.md)
-  - Administration
+  - Admin
     - [User Management](guide/admin.md#user-management)
     - [Cluster Management](guide/admin.md#cluster-management)
     - [Storage Profiles](guide/admin.md#storage-profiles)
     - [App Data Backup](guide/admin.md#app-data-backup)
     - [AI API Keys](guide/ai-api-keys.md)
-- Architecture
-  - [Project Structure](architecture/project-structure.md)
-  - [Database Schema](architecture/database-schema.md)
-  - [API Reference](architecture/api-reference.md)
 - Development
   - [Testing](development/testing.md)
   - [Contributing](development/contributing.md)

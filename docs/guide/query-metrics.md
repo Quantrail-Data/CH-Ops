@@ -323,9 +323,9 @@ In the In-Memory Caches, Count charts, compare hits vs misses:
 
 If the **External Operations** category appears, the query exceeded in-memory limits:
 
-- `ExternalSortWritePart` / `ExternalSortMerge` → ORDER BY spilled. Increase `max_bytes_before_external_sort`.
-- `ExternalAggregationWritePart` / `ExternalAggregationMerge` → GROUP BY spilled. Increase `max_bytes_before_external_group_by`.
-- `ExternalJoinWritePart` / `ExternalJoinMerge` → JOIN spilled. Consider a different JOIN algorithm or increase memory limits.
+- `ExternalSortWritePart` / `ExternalSortMerge` means ORDER BY spilled. Increase `max_bytes_before_external_sort`.
+- `ExternalAggregationWritePart` / `ExternalAggregationMerge` means GROUP BY spilled. Increase `max_bytes_before_external_group_by`.
+- `ExternalJoinWritePart` / `ExternalJoinMerge` means JOIN spilled. Consider a different JOIN algorithm or increase memory limits.
 
 Spilling is not an error, it's a safety mechanism. But it is significantly slower than in-memory processing.
 

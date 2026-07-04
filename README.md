@@ -1,0 +1,701 @@
+<div align="center">
+
+# CHOps - Beta
+
+### A web-based administration and monitoring dashboard for ClickHouse® database clusters
+
+[![Homepage](https://img.shields.io/badge/homepage-ch--ops.io-6366f1)](https://ch-ops.io)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPLv3-blue)](#license)
+
+**[Homepage](https://ch-ops.io)** · **[Documentation](https://ch-ops.io/docs)** · **[Report a Bug](https://github.com/Quantrail-Data/CH-Ops/issues)**
+
+If CHOps saves you time or you find it useful, please consider **starring this repository**. It genuinely helps.
+
+</div>
+
+---
+
+## What is CHOps?
+
+If you manage a ClickHouse® database, you probably interact with it through the `clickhouse-client` command line or the HTTP API. CHOps wraps that HTTP interface in a browser UI so you can run SQL, inspect slow queries, configure alerts, manage backups, and control access visually.
+
+CHOps stores its own configuration (alerts, dashboards, users, cluster definitions, and so on) in a small SQLite file on disk. It does not touch your ClickHouse® data or schema unless you explicitly run a query that does.
+
+The application is built on [Bun](https://bun.sh), with a React frontend and an Express backend. It compiles to a single self-contained binary with no runtime dependencies, so deployment is a matter of copying one file to a server.
+
+
+---
+
+## Feature Overview
+
+CHOps organizes its functionality into ten sidebar sections. Each item below is a distinct page or toolset. The [full documentation](https://ch-ops.io/docs) covers every feature in depth; this list is intentionally brief.
+
+A global page search is available everywhere: open it from the navbar Search button, the floating bubble, or Ctrl/Cmd+K, then type a page name, feature, section heading, or on-page text to jump straight there.
+
+**Overview**: cluster health, live query monitor with kill controls, query analytics and log, tables and parts inspection, merges and mutations, distributed DDL queue.
+
+**Tools**: a full SQL editor with autocomplete and nine EXPLAIN types, an interactive flame-graph query profiler, and a per-second query metrics timeline.
+
+**Custom Dashboards**: a chart builder with 10+ chart types, configurable grid dashboards, and a chart browser. Every chart has an HTML control toolbar (zoom, save as PNG, and in-app full screen).
+
+**Indexes**: data-skipping index visualization, projection management, and secondary index creation.
+
+**Logs**: crash, error, and text log viewers with calendar heatmaps and filtered search.
+
+**Monitoring**: Multiple system charts, plus a DVR-style playback mode for replaying historical metrics frame by frame.
+
+**Alerting**: SQL-based alert rules with threshold evaluation, with email notification channel, and a live firing-alert marquee.
+
+**Access Control**: ClickHouse® user and role management, grant visualization, and settings-profile editing.
+
+**Backups**: BACKUP and RESTORE orchestration to S3-compatible storage, backup discovery, and storage profile management.
+
+**Administration**: CHOps user management with four roles, multi-cluster configuration, and application-data backup.
+
+---
+
+## Requirements
+
+CHOps itself is lightweight (a single Bun process plus a small SQLite file). The
+main resource cost is optional: Qdrant, the vector store used by the Qurioz AI
+assistant. Sizing below is a practical minimum, not a benchmark - scale up with
+cluster size, dashboard/alert count, and whether you run Qdrant.
+
+### Operating system
+
+| OS | Status | Notes |
+|----|--------|-------|
+| Debian / Ubuntu (x64) | Primary / tested | Native setup instructions below (Bun or the standalone binary; Qdrant via `.deb` + systemd). |
+| Other Linux (x64/arm64) | Supported | Bun and the Linux binary run; adapt the Debian/Ubuntu steps to your package manager. |
+| macOS (Intel / Apple Silicon) | Supported | Run CHOps with Bun/binary; run Qdrant via Docker (see the macOS section). |
+| Windows (x64) | Supported | Use the Windows binary or Bun; Qdrant via Docker. Least documented path. |
+| Any OS with Docker | Supported | `docker compose up -d --build` avoids installing Bun. |
+
+### Hardware
+
+| Resource | Minimum (CHOps only) | Recommended (CHOps + Qurioz/Qdrant) |
+|----------|----------------------|--------------------------------------|
+| CPU | 1 vCPU | 2 vCPU |
+| RAM | 512 MB | 2-4 GB (Qdrant is the driver) |
+| Disk | ~2 GB (app + SQLite; grows with logs/history) | 10+ GB (Qdrant storage + growth) |
+
+Notes:
+- ClickHouse® is NOT counted here - it runs separately (localhost or remote) and
+  has its own requirements.
+- Without Qurioz, you can skip Qdrant entirely and stay at the minimum tier.
+- The SQLite database (`data/chops.db`) and Qdrant storage should be on
+  persistent disk (or a Docker volume, as configured).
+
+---
+
+## Before You Begin
+
+You need two things to run CHOps.
+
+**1. Bun - 1.3.13**, the JavaScript runtime CHOps is built on. Install it by opening your terminal (Command Prompt on Windows, Terminal on macOS or Linux) and running:
+
+```bash
+curl -fsSL https://bun.com/install | bash -s "bun-v1.3.13"
+```
+
+Close and reopen your terminal afterward, then verify:
+
+```bash
+bun --version
+```
+
+**2. A ClickHouse® server** you can reach over the network (localhost or remote). You need its hostname, HTTP port (usually 8123), and credentials. Confirm it is reachable:
+
+```bash
+curl http://your-clickhouse-host:8123/ping
+# Should print: Ok.
+```
+
+---
+
+## Installation
+
+**1. Get the code:**
+
+```bash
+git clone https://github.com/Quantrail-Data/CH-Ops.git
+cd CH-Ops-main
+```
+
+**2. Qdrant Installation:**
+#### Step 1: Download the Qdrant Debian Package
+
+Download the required Qdrant release package. Replace the version if you want to install a different release.
+
+```bash
+sudo wget https://github.com/qdrant/qdrant/releases/download/v1.17.0/qdrant_1.17.0-1_amd64.deb
+```
+
+#### Step 2: Install Qdrant
+
+Install the downloaded package:
+
+```bash
+sudo dpkg -i qdrant_1.17.0-1_amd64.deb
+```
+
+If any dependency issues occur, resolve them by running:
+
+```bash
+sudo apt-get install -f
+```
+
+#### Step 3: Create a Systemd Service
+
+Create a new systemd service file:
+
+```bash
+sudo nano /etc/systemd/system/qdrant.service
+```
+
+Add the following configuration:
+
+```ini
+[Unit]
+Description=Qdrant Vector Database
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/qdrant --config-path /etc/qdrant/config.yaml
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> **Note:** Verify that the following paths exist after installation:
+>
+> * `/usr/bin/qdrant`
+> * `/etc/qdrant/config.yaml`
+
+#### Step 4: Reload the Systemd Daemon
+
+```bash
+sudo systemctl daemon-reload
+```
+
+#### Step 5: Enable the Service
+
+```bash
+sudo systemctl enable qdrant
+```
+
+#### Step 6: Start the Service
+
+```bash
+sudo systemctl start qdrant
+```
+
+#### Step 7: Verify the Installation
+
+```bash
+sudo systemctl status qdrant
+```
+
+If the service is running successfully, Qdrant is ready to use.
+
+#### Step 8: View Service Logs
+
+```bash
+sudo journalctl -u qdrant -f
+```
+
+### Docker
+
+If you prefer a containerized setup, running Qdrant with Docker is the recommended approach.
+
+Install and start one of the following container runtimes:
+
+* Docker
+* Podman
+
+The examples below use Docker.
+
+Pull the Qdrant image:
+
+```bash
+docker pull qdrant/qdrant
+```
+
+Run Qdrant:
+
+```bash
+docker run -p 6333:6333 \
+    -v $(pwd)/path/to/data:/qdrant/storage \
+    qdrant/qdrant
+```
+
+This command starts Qdrant with the default configuration and persists data in the mounted storage directory.
+
+Once the container is running, Qdrant is available at:
+
+```
+http://localhost:6333
+```
+
+To override the default production configuration:
+
+```bash
+docker run -p 6333:6333 \
+    -v $(pwd)/path/to/data:/qdrant/storage \
+    -v $(pwd)/path/to/custom_config.yaml:/qdrant/config/production.yaml \
+    qdrant/qdrant
+```
+
+Alternatively, specify a custom configuration file explicitly:
+
+```bash
+docker run -p 6333:6333 \
+    -v $(pwd)/path/to/data:/qdrant/storage \
+    -v $(pwd)/path/to/custom_config.yaml:/qdrant/config/custom_config.yaml \
+    qdrant/qdrant \
+    ./qdrant --config-path config/custom_config.yaml
+```
+
+### Docker Compose
+
+Example `docker-compose.yml`:
+
+```yaml
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: always
+
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+
+    expose:
+      - "6333"
+      - "6334"
+      - "6335"
+
+    configs:
+      - source: qdrant_config
+        target: /qdrant/config/production.yaml
+
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+
+configs:
+  qdrant_config:
+    content: |
+      log_level: INFO
+```
+
+Start the container:
+
+```bash
+docker compose up -d
+```
+
+#### Verify the Installation
+
+After Qdrant starts successfully, open the following URL in your browser:
+
+```
+http://localhost:6333
+```
+
+A successful installation displays the Qdrant welcome message, indicating that the server is running and ready to accept requests.
+
+**3. Install dependencies:**
+
+```bash
+bun install
+```
+
+**4. Create your configuration file:**
+
+```bash
+cp .env.example .env
+```
+
+**5. Edit `.env`** in any text editor. Three values are required:
+
+```env
+SUPER_ADMIN_1=admin
+SUPER_ADMIN_1_PASSWORD=your_secure_password_here
+SESSION_SECRET=paste_a_random_string_here
+```
+
+Generate a strong `SESSION_SECRET` with:
+
+```bash
+openssl rand -hex 32
+```
+
+The `SESSION_SECRET` does double duty: it signs session tokens and derives the AES-256-GCM key that encrypts your stored ClickHouse® passwords. Keep it secret and do not change it casually, or existing encrypted credentials become unreadable.
+
+**6. Run the database migration** to create CHOps's internal SQLite tables:
+
+```bash
+bun run db:migrate
+```
+
+You should see "Database migration complete." This creates `data/chops.db`. (The database file keeps its original name for backward compatibility with existing installations.)
+
+---
+
+## Starting the App
+
+**Development mode** (auto-reloads on code changes):
+
+```bash
+bun run dev
+```
+
+This starts the backend API on port 3000 and the Vite frontend dev server on port 5173. Open `http://localhost:5173`.
+
+**Production mode** (optimized, single server):
+
+```bash
+bun run build
+bun src/backend/server.js
+```
+
+Open `http://localhost:3000`.
+
+**Docker** (no Bun installation needed). `SESSION_SECRET` is required (used for
+JWT signing and credential encryption); generate a strong random one.
+
+*Option A - Docker Compose (recommended).* Builds the image and runs it with a
+persistent named volume:
+
+```bash
+export SESSION_SECRET=$(openssl rand -hex 32)
+docker compose up -d --build
+```
+
+Rebuild after pulling new code with `docker compose up -d --build`. Stop with
+`docker compose down` (data survives; it lives in the `chops-data` volume).
+
+*Option B - Build and run the image by hand:*
+
+```bash
+# Build the image
+docker build -t chops:latest .
+
+# Run it (mount a volume so data/chops.db persists)
+docker run -d --name chops -p 3000:3000 \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -v chops-data:/app/data \
+  chops:latest
+```
+
+Open `http://localhost:3000`. Both options persist the SQLite database in the
+`chops-data` volume across restarts and image rebuilds.
+
+To seed a first super-admin on initial startup, also pass
+`-e SUPER_ADMIN_1=you@example.com -e SUPER_ADMIN_1_PASSWORD=...` (or set them in
+the compose environment / your `.env`).
+
+---
+
+## Building a Standalone Binary
+
+CHOps compiles into a single executable with no runtime dependencies on the target machine. This is the recommended way to deploy to a server or distribute to teammates.
+
+```bash
+# Build for your current platform
+bun run build:binary
+
+# Cross-compile for a specific platform
+bun run build:binary:linux      # produces chops-linux-x64
+bun run build:binary:mac        # produces chops-darwin-arm64
+bun run build:binary:windows    # produces chops-windows-x64.exe
+```
+
+During the build, `vite build` compiles the React frontend into static assets under `dist/`, then `bun build --compile` bundles the backend, all dependencies, and `dist/` into one binary.
+
+Run it with the same environment variables the dev server uses:
+
+```bash
+chmod +x chops-linux-x64
+SUPER_ADMIN_1=admin \
+SUPER_ADMIN_1_PASSWORD=secret \
+SESSION_SECRET=abc123 \
+./chops-linux-x64
+```
+
+The binary creates `data/chops.db` in its working directory at startup.
+
+---
+
+## Logging In
+
+Open CHOps in your browser and sign in with the `SUPER_ADMIN_1` username and password from your `.env`. You land on the Cluster Overview page.
+
+---
+
+## Connecting to ClickHouse®
+
+After logging in, CHOps does not yet know where your ClickHouse® server lives. Point it there:
+
+1. Go to **Administration > Cluster Management**.
+2. Click **Add Node** and fill in the node name (a unique friendly label), host or IP, port (usually 8123, the HTTP port, not the native 9000), user, and password. Check **HTTPS** if your server uses TLS.
+3. Click **Test** to verify. On success you see the ClickHouse® version and uptime.
+4. Click **Save**.
+
+The navigation bar updates immediately with no re-login. You can configure up to 3 clusters with a combined maximum of 18 nodes, and switch between them from the dropdown in the top bar.
+
+### Setting Up a Dedicated ClickHouse® User
+
+For production, do not connect CHOps as the ClickHouse® `default` user. Create a dedicated account with only the privileges CHOps needs. This follows the principle of least privilege: if the CHOps connection is compromised, the attacker can read system tables but cannot alter your data.
+
+Run this in your ClickHouse® client, replacing the password:
+
+```sql
+-- Create the user
+CREATE USER IF NOT EXISTS chops IDENTIFIED BY 'your_secure_password';
+
+-- Read access to system tables (monitoring, logs, metadata)
+GRANT SELECT ON system.* TO chops;
+
+-- Read access to user databases (for the SQL editor)
+GRANT SELECT ON *.* TO chops;
+
+-- SHOW commands (SHOW CREATE TABLE, SHOW DATABASES, and so on)
+GRANT SHOW ON *.* TO chops;
+
+-- Monitoring charts use merge() which needs SOURCES
+GRANT SOURCES ON *.* TO chops;
+```
+
+Add optional privileges only as needed:
+
+```sql
+-- Kill running queries from the UI
+GRANT KILL QUERY ON *.* TO chops;
+
+-- Backup and restore
+GRANT BACKUP ON *.* TO chops;
+
+-- Manage ClickHouse® users and roles from the UI
+GRANT ACCESS MANAGEMENT ON *.* TO chops;
+
+-- Create and drop indexes and projections
+GRANT ALTER INDEX ON *.* TO chops;
+GRANT ALTER ADD PROJECTION ON *.* TO chops;
+GRANT ALTER DROP PROJECTION ON *.* TO chops;
+```
+
+A complete grant script with comments ships at [`clickhouse-user-setup.sql`](clickhouse-user-setup.sql) in the project root.
+
+---
+
+## User Roles
+
+CHOps has four application roles, separate from ClickHouse®'s own users.
+
+| Role            | Capabilities                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Super Admin** | Full access. Can be seeded from `.env` for first-time setup or recovery, or created in the UI. Maximum of 3.                                      |
+| **Admin**       | Same access as super admin but UI-created only. Cannot change or delete super admins.                                                             |
+| **Editor**      | All sections except user and cluster management. Can build dashboards and charts and use the SQL editor. Cannot manage alerts, backups, or users. |
+| **Readonly**    | View-only across overview, SQL editor, dashboards, logs, monitoring, and alerts. Cannot create, edit, or delete anything.                         |
+
+Role changes follow a strict hierarchy: super admins can change admins, editors, and readonly users; admins can change editors and readonly users; nobody can change a super admin's role.
+
+---
+
+## Version Scheme
+
+Version strings follow the format `{clickhouseVersion}-{major}.{minor}.{patch}`, for example `26.3-1.4.0`.
+
+The `clickhouseVersion` segment (such as `26.3`) is the ClickHouse® database release CHOps is tested against. CHOps may work with other versions, but this is the tested target. The `major.minor.patch` segment is the CHOps application version following standard semantic versioning.
+
+[`version.json`](version.json) at the project root is the single source of truth for the backend, frontend, and `package.json`.
+
+---
+
+## Security
+
+CHOps ships with several hardening measures. Here is what each does and why it matters.
+
+**Password hashing (Argon2id)**: CHOps account passwords are hashed with Argon2id, a memory-hard algorithm and the current industry recommendation, before storage. Even with the SQLite file in hand, an attacker cannot reverse the hash. Older SHA-256 hashes upgrade automatically on each user's next login.
+
+**Encrypted credentials**: ClickHouse® connection passwords are encrypted with AES-256-GCM (authenticated encryption) before being written to SQLite. The key is derived from `SESSION_SECRET`, so the database file alone is not enough to read them. Legacy plaintext values keep working and are encrypted on the next save.
+
+**Login protection**: After 5 failed attempts for the same username within 15 minutes, that account is temporarily locked. Error messages stay deliberately vague ("Invalid credentials.") so an attacker cannot enumerate usernames.
+
+**Session tokens**: Sessions use JWTs that expire after 2 hours. Each carries a unique revocable ID, so a deleted user's session ends within 2 hours at most.
+
+**Disabling .env login**: By default the `.env` super admin credentials work as a permanent login fallback, which is convenient for setup but acts as a backdoor. To close it after setup, set `DISABLE_ENV_LOGIN=true`. The `.env` credentials then seed the initial migration only.
+
+**HTTP security headers**: Every response carries a Content Security Policy, Strict Transport Security, clickjacking protection, and MIME-sniffing prevention.
+
+**Request size limits**: SQL sent to `/api/query` is capped at 100KB; other endpoints allow up to 2MB.
+
+---
+
+## Running Tests
+
+CHOps has a comprehensive automated test suite covering backend and frontend. Tests need no running ClickHouse® server, S3 bucket, or external service; they exercise the application code in isolation with mocks and static analysis.
+
+```bash
+# Everything (backend then frontend), about 15 to 20 seconds
+bun run test
+
+# Backend only (Bun test runner)
+bun test tests/backend
+
+# Frontend only (Vitest)
+npx vitest run tests/frontend
+```
+
+Backend tests cover password hashing, JWT handling, AES-256-GCM encryption, rate limiting, security headers, alert scheduling, SQL formatting, the Drizzle schema, environment parsing, and the four-tier RBAC system. Frontend tests cover route definitions, chart types, the plugin architecture, heatmap color scales, tree-chart utilities, scrollbar behavior, and UI contracts.
+
+Coverage runs are available too:
+
+```bash
+bun run test:coverage              # backend then frontend
+bun run test:backend:coverage      # backend only
+bun run test:frontend:coverage     # frontend only
+```
+
+Most frontend tests are static analysis, reading source files as strings to verify structure, so runtime line coverage will be low by design.
+
+---
+
+## Backing Up CHOps's Database
+
+CHOps uses SQLite in WAL (Write-Ahead Logging) mode. Do not copy `chops.db` while the server runs, because the WAL file may hold data not yet flushed to the main file. Use the built-in command instead, which is safe during operation:
+
+```bash
+bun run db:backup
+```
+
+This writes a self-contained file to `data/backups/` using SQLite's `VACUUM INTO`. To restore, stop the server, replace `data/chops.db` with the backup (delete any `-wal` and `-shm` files), and restart.
+
+---
+
+## Deploying with Caddy and systemd
+
+For production, run CHOps behind [Caddy](https://caddyserver.com) for automatic HTTPS, as a systemd service for automatic startup and crash recovery.
+
+**1.** Build CHOps (`bun run build` or `bun run build:binary:linux`).
+
+**2.** Create `/etc/systemd/system/chops.service`:
+
+```ini
+[Unit]
+Description=CHOps
+After=network.target
+
+[Service]
+Type=simple
+User=chops
+WorkingDirectory=/opt/chops
+ExecStart=/opt/chops/chops
+Restart=on-failure
+EnvironmentFile=/opt/chops/.env
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/chops/data
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**3.** Configure Caddy at `/etc/caddy/Caddyfile`:
+
+```
+chops.example.com {
+    reverse_proxy localhost:3000
+}
+```
+
+**4.** Enable and start both:
+
+```bash
+sudo systemctl enable --now chops
+sudo systemctl restart caddy
+```
+
+Caddy obtains and renews Let's Encrypt certificates automatically. The full guide with security hardening, IP allowlisting, and automated backups lives at [ch-ops.io/docs](https://ch-ops.io/docs).
+
+---
+
+## Troubleshooting
+
+**Cannot connect to ClickHouse®**: In Administration > Cluster Management, verify host, port, user, and password, then click Test. Make sure the HTTP port (8123) is open, not the native protocol port (9000).
+
+**"Frontend not built" error**: Run `bun run build` before starting the server.
+
+**"Invalid credentials" on login**: Recheck `.env`. Username and password are case-sensitive.
+
+**Backup listing shows "Unable to connect"**: Verify the S3 endpoint and credentials in Storage Profiles. The error message distinguishes authentication, connectivity, and bucket problems.
+
+**Empty monitoring charts**: Click "Load Charts" after selecting a time range. Charts load only for the active tab.
+
+**DDL cards show zeros**: Normal on single-node setups with no distributed DDL queue.
+
+**Port already in use**: Set a different port in `.env` with `PORT=3001`.
+
+**Binary crashes on startup**: Ensure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, and `SESSION_SECRET` are set. The binary needs them just like the dev server does.
+
+---
+
+## Contributing
+
+We are not accepting external code contributions (pull requests) yet. Before we can merge community code, we need a Contributor License Agreement (CLA) in place, and we are still preparing it. Pull requests opened in the meantime may be closed without review, not because the work is unwelcome, but because we cannot legally incorporate it until the CLA exists.
+
+What we **do** welcome right now:
+
+- **Bug reports.** Open an issue with your CHOps version (from `version.json`), your ClickHouse® database version, and clear steps to reproduce.
+- **Feature requests.** Open an issue describing the problem you want solved. Tell us the use case, not just the proposed solution, so we can find the best fit.
+- **Questions and feedback.** If something is confusing or missing from the docs, let us know.
+
+Once the CLA is ready, we will update this section with contribution guidelines and open the project to pull requests.
+
+And if you have read this far and like what you see, **please consider starring the repository**. It genuinely helps.
+
+---
+
+## Trademarks
+
+ClickHouse® is a registered trademark of ClickHouse, Inc. All uses of the ClickHouse® mark in this document refer to the ClickHouse® database management system and are used solely for identification and descriptive purposes under nominative fair use. CHOps is an independent open-source project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with ClickHouse, Inc. Any other product names, logos, and brands referenced are the property of their respective owners and are used for identification purposes only.
+
+---
+
+## License
+
+CHOps follows an **open-core model**.
+
+| Edition       | License                                         | What it includes                                                                                                                                                                       |
+| ------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Community** | GNU Affero General Public License v3.0 (AGPLv3) | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, and more. Free to use, modify, and self-host.                        |
+| **Pro**       | Commercial License                              | Advanced operational features layered on the core: extended alerting, audit logging, scheduled email reports, multi-cluster fleet management via sidecar agents, and priority support. |
+
+The community edition in this repository is licensed under the **GNU Affero General Public License, version 3.0**. You are free to use, study, modify, and redistribute it under the terms of that license. See [`LICENSE`](LICENSE) for the full text.
+
+The **Pro** features are not part of this repository and are not covered by the AGPLv3. They are distributed separately under a commercial license that includes terms permitting proprietary, non-source-disclosed use. If the AGPLv3 license does not fit your deployment, you could obtain the pro version with a commercial use license. Visit [ch-ops.io](https://ch-ops.io) or contact Quantrail™ Data for commercial licensing and Pro inquiries.
+
+### Copyright
+
+Copyright © 2026 Quantrail™ Data Private Limited. All rights reserved.
+
+CHOps is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+CHOps is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along with CHOps. If not, see [https://www.gnu.org/licenses/agpl-3.0.html](https://www.gnu.org/licenses/agpl-3.0.html).
+
+---
+
+<div align="center" >
+
+**[ch-ops.io](https://ch-ops.io)**
+
+Copyright © 2026 Quantrail™ Data Private Limited.
+
+</div>
