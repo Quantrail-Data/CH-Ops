@@ -1,0 +1,40 @@
+name: Run Unit Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install Bun and set up the environment
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest # Or specify a version like "1.1.0"
+
+      # Step 3: Install project dependencies
+      - name: Install Dependencies
+        run: bun install
+
+      # Step 4: Run the test suite
+      - name: Run Tests
+        run: set -o pipefail && bun run test 2>&1 
+
+      - name: Run Lint
+        run: bun run lint
+        continue-on-error: true

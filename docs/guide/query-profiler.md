@@ -33,7 +33,7 @@ You don't need to understand C++ or ClickHouse® internals to use flame graphs. 
 5. Choose a **Trace Type** (start with "CPU Time", the most common choice)
 6. Click **Generate Flame Graph**
 
-The flame graph appears below. Hover over any bar to see the function name and its percentage of total time. Click a bar to zoom into that subtree (everything above it fills the full width). Click the restore button (circular arrow in the top-right toolbox) to zoom back out.
+The flame graph appears below. Hover over any bar to see the function name and its percentage of total time. Click a bar to zoom into that subtree (everything above it fills the full width). Use the Reset zoom button in the toolbar above the graph to zoom back out.
 
 ---
 
@@ -81,9 +81,9 @@ Here's how to interpret what you see:
 
 The query is dominated by a single function. Read the function name, it tells you the bottleneck. Common examples:
 
-- `ReadBufferFromFileDescriptor` → the query is reading from disk (IO-bound). Consider adding indexes or projections to reduce the amount of data scanned.
-- `HashTable::insert` → the query is building a hash table for GROUP BY or JOIN (memory/CPU-bound). Consider reducing the cardinality of the GROUP BY keys or using a different JOIN algorithm.
-- `MergeTreeDataSelectExecutor` → the query is scanning MergeTree data. Check if the WHERE clause aligns with the table's ORDER BY for efficient index usage.
+- `ReadBufferFromFileDescriptor` means the query is reading from disk (IO-bound). Consider adding indexes or projections to reduce the amount of data scanned.
+- `HashTable::insert` means the query is building a hash table for GROUP BY or JOIN (memory/CPU-bound). Consider reducing the cardinality of the GROUP BY keys or using a different JOIN algorithm.
+- `MergeTreeDataSelectExecutor` means the query is scanning MergeTree data. Check if the WHERE clause aligns with the table's ORDER BY for efficient index usage.
 
 #### Scenario 2: Many Narrow Towers
 
@@ -113,8 +113,9 @@ After installing, new queries will have fully resolved function names. Existing 
 |--------|-----|
 | See function details | Hover over any bar |
 | Zoom into a subtree | Click any bar (that function becomes the full width) |
-| Zoom out / reset | Click the restore button (↺) in the top-right toolbox |
-| Download as image | Click the download button (↓) in the top-right toolbox |
+| Zoom out / reset | Click the Reset zoom button in the toolbar above the graph |
+| Download as image | Click the Save button in the toolbar above the graph |
+| Full screen | Click the Full screen button in the toolbar above the graph |
 
 ---
 

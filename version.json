@@ -1,0 +1,9 @@
+{
+  "clickhouseVersion": "26.3",
+  "major": 0,
+  "minor": 1,
+  "patch": 6,
+  "display": "26.3-0.1.6",
+  "version": "26.3-0.1.6",
+  "codename": "chops"
+}

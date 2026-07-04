@@ -69,7 +69,7 @@ SUPER_ADMIN_1=admin SUPER_ADMIN_1_PASSWORD=secret SESSION_SECRET=abc ./chops-lin
 
 ## Database
 
-The SQLite database (`data/chadmin.db`) is created at runtime in the current working directory. It is not embedded in the binary. If you move the binary to a new directory, it creates a fresh database. To preserve settings, alerts, and dashboards, keep the `data/` directory alongside the binary.
+The SQLite database (`data/chops.db`) is created at runtime in the current working directory. It is not embedded in the binary. If you move the binary to a new directory, it creates a fresh database. To preserve settings, alerts, and dashboards, keep the `data/` directory alongside the binary.
 
 ## Binary Size
 

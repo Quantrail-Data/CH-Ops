@@ -122,7 +122,7 @@ Backs up CHOps's SQLite database (all settings, alert rules, channels, dashboard
 2. The snapshot is uploaded to S3 via ClickHouse®'s `s3()` table function (requires at least one cluster node configured).
 3. A JSON manifest is written alongside the backup with metadata: timestamp, app version, file size, and row counts per table.
 
-S3 layout: `{bucket}/chadmin-app-backups/{timestamp}.db` and `{timestamp}.json`.
+S3 layout: `{bucket}/chops-app-backups/{timestamp}.db` and `{timestamp}.json`.
 
 ### Manual Backup
 
@@ -135,8 +135,8 @@ Restore is manual because the server must be stopped. Instructions are shown on 
 
 1. Download the `.db` file from S3 (using `aws s3 cp` or any S3 client).
 2. Stop the CHOps server.
-3. Remove `data/chadmin.db-wal` and `data/chadmin.db-shm`.
-4. Replace `data/chadmin.db` with the downloaded backup file.
+3. Remove `data/chops.db-wal` and `data/chops.db-shm`.
+4. Replace `data/chops.db` with the downloaded backup file.
 5. Restart the server.
 
 The backup file is self-contained. All app state is inside the single `.db` file.

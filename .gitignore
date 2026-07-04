@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+data/
+*.db
+*.sqlite
+*.log
+.DS_Store
+bun.lockb
+prisma/migrations/
+src/backend/embeddedAssets.js
+test-results.xml

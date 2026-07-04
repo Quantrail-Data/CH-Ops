@@ -48,6 +48,7 @@ npx vitest run tests/frontend/backups.test.js    # single module
 | `backups.test.js` | Backup schema, routes, scheduler, S3 layout, UI components | 41 |
 | `api-contract.test.js` | Plugin API contract, heatmap exports, downstream safety | 35 |
 | `heatmaps-logs.test.js` | Unified amber scale, 1000-step interpolation, variance depth, themeKey re-init, download/fullscreen, 3 log pages, dark mode colors | 25 |
+| `chart-toolbar.test.js` | Shared HTML chart toolbar (zoom disabled when not zoomable, themed-background PNG export, arrows full-screen icons), removed ECharts-toolbox helpers, no browser fullscreen, ChartCard strips any option toolbox | 13 |
 | `admin.test.js` | User management with 4 roles, role change confirmation, cluster management, DDL, docs | 25 |
 | `scrollbars.test.js` | Scrollbar CSS and DataTable variants | 22 |
 | `plugin-architecture.test.js` | Plugin loader, registry, manifest format | 21 |
