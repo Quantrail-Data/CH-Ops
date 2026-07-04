@@ -1,0 +1,30 @@
+services:
+  chops:
+    build: .
+    image: chops:latest
+    container_name: chops
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # REQUIRED: set a strong random secret (used for JWT signing and credential encryption)
+      - SESSION_SECRET=${SESSION_SECRET:-changeme-use-a-real-secret}
+      # OPTIONAL: seed a super admin on first run
+      - SUPER_ADMIN_1=${SUPER_ADMIN_1}
+      - SUPER_ADMIN_1_PASSWORD=${SUPER_ADMIN_1_PASSWORD}
+      # OPTIONAL: disable .env login fallback in production
+      # - DISABLE_ENV_LOGIN=true
+    volumes:
+      - chops-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  chops-data:
+    driver: local

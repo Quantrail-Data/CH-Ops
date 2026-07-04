@@ -1,3 +1,6 @@
+/* Custom theme overrides and layout tweaks for the Docsify documentation portal. */
+
+
 .github-corner {
     position: absolute;
     z-index: 40;
@@ -1312,7 +1315,12 @@ main {
 }
 
 .sidebar>h1 .app-name-link {
-    color: var(--sidebar-name-color)
+ display: flex;
+ align-items: center;
+ justify-content: center;
+}
+.sidebar>h1 .app-name-link img {
+    width:120px;
 }
 
 body:not([data-platform^=Mac]) .sidebar::-webkit-scrollbar {
@@ -1824,15 +1832,18 @@ body .sidebar {
 }
 
 .sidebar .search input[type=search]::-moz-placeholder {
-    color: var(--search-input-placeholder-color, #808080)
+    color: var(--search-input-placeholder-color, #808080);
+    font-size:16px;
 }
 
 .sidebar .search input[type=search]::placeholder {
-    color: var(--search-input-placeholder-color, #808080)
+    color: var(--search-input-placeholder-color, #808080);
+    font-size:16px;
 }
 
 .sidebar .search input[type=search]::-webkit-input-placeholder {
-    line-height: normal
+    line-height: normal;
+    font-size:16px;
 }
 
 .sidebar .search input[type=search]:focus {

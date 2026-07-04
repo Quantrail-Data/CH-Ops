@@ -1,41 +1,41 @@
 # Monitoring Dashboards
 
-CHOps provides a comprehensive set of monitoring charts organized into tabs by subsystem. Charts are loaded **per-tab**, so only the active tab's queries execute, reducing load on your ClickHouse® cluster.
+The monitoring dashboards give you a live, visual picture of how your cluster is performing, with dozens of charts grouped into tabs by subsystem so you can focus on one area at a time. To keep things efficient, CHOps only runs the queries for the tab you are actually looking at, which means opening this page does not put unnecessary load on your ClickHouse® cluster.
 
-# Dashboards
+## Dashboards
 
 ## Tabs
 
-| Tab | Description |
+Each tab gathers the charts for one part of the system. Here is what each one covers:
+
+| Tab | What it shows |
 |-----|-------------|
-| Queries | Queries/sec, running, selected bytes/rows, inserted rows, failed |
-| Queries (host) | Same metrics broken down by hostname |
-| CPU | CPU cores, IO wait, CPU wait, OS userspace, OS kernel, load average |
-| CPU (host) | Same metrics broken down by hostname |
-| Memory | Tracked, merges, RSS, jemalloc, primary key, index granularity, caches |
-| Memory (host) | Tracked, merges, RSS, jemalloc per host |
-| Disk & IO | Read from disk/filesystem, per host |
-| Merges & Parts | Merges running, total parts, max parts, per host |
-| Network | Concurrent connections (TCP, MySQL, HTTP, Interserver - multi-series) |
-| Memory Drift | ClickHouse® vs Kernel drift, ClickHouse® vs Allocator drift |
-| Distributed Cache | Read bytes, read/write requests, connections, errors, registry updates |
+| Queries | Queries per second, running and failed queries, rows and bytes selected, rows inserted |
+| Queries (host) | The same query metrics, broken down by individual node |
+| CPU | CPU cores in use, IO wait, CPU wait, user and kernel time, load average |
+| CPU (host) | The same CPU metrics, broken down by node |
+| Memory | Tracked memory, merges, RSS, jemalloc, primary key and index memory, caches |
+| Memory (host) | The same memory metrics, broken down by node |
+| Disk & IO | Reads from disk and filesystem, per node |
+| Merges & Parts | Running merges, total and maximum parts, per node |
+| Network | Concurrent connections across TCP, MySQL, HTTP, and interserver traffic |
+| Memory Drift | How ClickHouse®'s view of memory compares to the kernel's and the allocator's |
+| Distributed Cache | Cache reads, requests, connections, errors, and registry updates |
 
 ## Controls
 
-- **Quick range buttons**: 1h, 6h, 24h, 48h, 7d, 30d
-- **Custom range**: From/To datetime pickers
-- **Rounding**: Aggregation interval in seconds (auto-set by quick range)
-- **Load Charts**: Executes queries for the current tab only
+A few controls at the top let you choose what period to look at and how detailed it should be:
 
-#### SQL Templates
+- **Quick range buttons** jump to a common window: 1 hour, 6 hours, 24 hours, 48 hours, 7 days, or 30 days.
+- **Custom range** lets you set your own start and end times.
+- **Rounding** sets how finely the data is grouped over time, and it adjusts automatically when you pick a quick range.
+- **Load Charts** runs the queries for the tab you are on.
 
-All charts use the exact ClickHouse® monitoring SQL patterns with `WITH FILL STEP` for continuous time series. Data sources:
-- `merge('system', '^metric_log')` for ProfileEvent and CurrentMetric columns
-- `merge('system', '^asynchronous_metric_log')` for async metrics (load average, jemalloc, etc.)
+#### Where the Data Comes From
 
-Per-host charts add `hostname` to GROUP BY for multi-series rendering.
+All of these charts are built from ClickHouse®'s own internal metric tables, the same ones the server uses to track itself. You do not need to know the queries to read the charts, but it is worth knowing that everything you see is drawn directly from ClickHouse®'s live metrics, so it reflects the real state of your cluster. The per-host tabs simply break the same metrics out by node so you can compare one server against another.
 
-# Playback
+## Playback
 
 Playback lets you rewind through your ClickHouse® cluster's history like a DVR. Instead of checking dashboards in real time, you can go back to any point in the past and see exactly what the cluster was doing: CPU usage, memory, queries, errors, log entries, and data part operations, all synchronized on the same timeline.
 
@@ -70,11 +70,11 @@ The controls bar is sticky and stays visible at the top of the page while you sc
 
 | Button | Icon | Keyboard | What It Does |
 |--------|------|----------|-------------|
-| Skip to Start | ⏮ | Home | Jump to the first frame |
-| Step Back | ⏪ | Left Arrow | Go back one frame |
-| Play / Pause | ▶ / ⏸ | Space | Start or stop automatic playback |
-| Step Forward | ⏩ | Right Arrow | Go forward one frame |
-| Skip to End | ⏭ | End | Jump to the last frame |
+| Skip to Start | (start) | Home | Jump to the first frame |
+| Step Back | (back) | Left Arrow | Go back one frame |
+| Play / Pause | (play/pause) | Space | Start or stop automatic playback |
+| Step Forward | (forward) | Right Arrow | Go forward one frame |
+| Skip to End | (end) | End | Jump to the last frame |
 
 #### Speed
 

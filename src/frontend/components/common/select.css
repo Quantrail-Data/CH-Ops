@@ -1,0 +1,88 @@
+/* select.css - Themed dropdown styles for the custom Select / MultiSelect.
+   Opaque, glassy panel that follows the light and dark theme tokens. */
+
+.cui-select { position: relative; display: inline-block; width: 100%; }
+
+/* The control matches the native .form-select footprint so it is a drop-in. */
+.cui-select-control {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; box-sizing: border-box; min-width: 0;
+  padding: 9px 12px; cursor: pointer; text-align: left;
+  background: var(--input-bg); color: var(--text-primary);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm, 6px);
+  font-family: var(--font-table); font-size: 14px; line-height: 1.2;
+  transition: border-color 0.15s var(--ease, ease), box-shadow 0.15s var(--ease, ease);
+}
+.cui-select-control:hover:not(:disabled) { border-color: var(--border-strong, var(--border-default)); }
+.cui-select-control:focus-visible,
+.cui-select.is-open .cui-select-control {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.cui-select-control:disabled { opacity: 0.55; cursor: not-allowed; }
+.cui-select-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Compact size modifier: shrinks the control to line up with small inputs
+   (e.g. 12px/6-8px datetime-local fields). */
+.cui-select.cui-sm .cui-select-control { padding: 6px 8px; font-size: 12px; }
+.cui-select-value.is-placeholder { color: var(--text-muted); }
+.cui-select-caret { flex-shrink: 0; color: var(--text-muted); transition: transform 0.15s var(--ease, ease); }
+.cui-select.is-open .cui-select-caret { transform: rotate(180deg); }
+
+/* The popup menu: portalled to <body> and fixed-positioned by SelectMenu.jsx, so
+   position + z-index are set inline. Opaque (never see-through) with a light
+   glass blur. Grows to fit its widest option, capped to the viewport. */
+.cui-select-menu {
+  margin: 0; padding: 4px; list-style: none;
+  max-height: 280px; overflow-y: auto;
+  max-width: min(520px, calc(100vw - 16px));
+  background: var(--menu-bg, #161e34);
+  border: 1px solid var(--border-strong, var(--border-default));
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+}
+
+.cui-select-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 4px; cursor: pointer;
+  color: var(--text-primary); font-size: 14px; line-height: 1.3;
+  white-space: nowrap; min-width: 0;
+  font-family: var(--font-table);
+}
+.cui-select-opt > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cui-select-opt:hover,
+.cui-select-opt.is-active { background: var(--bg-hover); }
+.cui-select-opt.is-selected { color: var(--accent); font-weight: 600; }
+.cui-select-opt.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.cui-select-opt .cui-opt-check { margin-left: auto; flex-shrink: 0; color: var(--accent); }
+.cui-select-empty { padding: 8px 10px; color: var(--text-muted); font-size: 13px; }
+
+/* MultiSelect chips inside the control */
+.cui-ms-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
+.cui-ms-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 4px 1px 7px; border-radius: 4px; font-size: 12px;
+  background: var(--accent-soft, rgba(99,102,241,0.15)); color: var(--text-primary);
+}
+.cui-ms-chip button { border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: inline-flex; padding: 0; }
+.cui-ms-chip button:hover { color: var(--color-danger, #e5484d); }
+
+/* The light theme uses a more opaque menu so it never looks washed out. */
+[data-theme="light"] .cui-select-menu { background: var(--menu-bg-light, #ffffff); }
+
+/* The real native <select> is the source of truth: screen-reader only and out of
+   flow, but NOT display:none / aria-hidden, so it stays focusable, form-validated,
+   and reachable by getByRole('combobox') / fireEvent.change in tests. The themed
+   button below provides the visible control. */
+.cui-select-native-real {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* When a native-select utility class (e.g. form-select or form-input) lands on
+   the wrapper, the themed button supplies the box, so strip the wrapper's own
+   border/background to avoid a doubled rectangle. */
+.cui-select.form-select,
+.cui-select.form-input {
+  padding: 0 !important; border: 0 !important; background: none !important;
+  height: auto !important; box-shadow: none !important;
+}
