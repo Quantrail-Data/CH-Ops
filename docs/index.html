@@ -1,581 +1,638 @@
-<!DOCTYPE html>
+<!-- Copyright (C) 2026 Quantrail™ Data Private Limited -->
+<!-- author -> (kathir Moorthy, kathir dhasan, Praveen kumar) -->
+<!-- Entry point for the Docsify documentation system, loading and rendering static markdown user guides. -->
+
+<!doctype html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CHOps Documentation</title>
-  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css" /> -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=B612:wght@400;700&family=Red+Hat+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-   <link href="./style.css" rel="stylesheet" />
-  <style>
-    :root {
-      --theme-color: #8b5cf6;
-      --sidebar-width: 260px;
-      --base-font-family: 'Plus Jakarta Sans', sans-serif;
-      --heading-font-family: 'Plus Jakarta Sans', sans-serif;
-      --code-font-family: 'Red Hat Mono', monospace;
-      --base-font-size: 16.5px;
-    }
-
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      line-height: 1.65;
-    }
-
-    .sidebar-nav li a {
-      font-size: 1.02rem;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 500;
-    }
-
-    .app-name-link {
-      font-weight: 700;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      letter-spacing: -0.02em;
-    }
-
-    .markdown-section {
-      max-width: 860px;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 1.05rem;
-      line-height: 1.7;
-    }
-
-    .markdown-section p,
-    .markdown-section li {
-      font-size: 1.05rem;
-    }
-
-    .markdown-section h1,
-    .markdown-section h2,
-    .markdown-section h3 {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 700;
-    }
-
-    .markdown-section table {
-      font-size: 0.9rem;
-    }
-
-    .markdown-section th,
-    .markdown-section td {
-      font-family: 'B612', system-ui, sans-serif;
-    }
-
-    .markdown-section code {
-      font-family: 'Red Hat Mono', monospace;
-      font-size: 0.85em;
-    }
-
-    .markdown-section a {
-      text-decoration: none;
-    }
-
-    /* Dark - exact match to CHOps dark mode */
-    body.dark-mode {
-      --theme-color: #8b5cf6;
-      background: #0a0f1e;
-      color: #f5f7fa;
-      background-image:
-        radial-gradient(ellipse at 20% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 20%, rgba(56, 189, 248, 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 80%, rgba(244, 114, 182, 0.05) 0%, transparent 50%);
-      background-attachment: fixed;
-    }
-
-    body.dark-mode .sidebar {
-      background: rgba(8, 12, 24, 0.25);
-      backdrop-filter: blur(40px) saturate(1.8);
-      -webkit-backdrop-filter: blur(40px) saturate(1.8);
-      border-right: 1px solid rgba(30, 41, 66, 0.25);
-    }
-
-    body.dark-mode .sidebar-nav a {
-      color: #94a3b8;
-    }
-
-    body.dark-mode .sidebar-nav a:hover {
-      color: #cbd5e1;
-    }
-
-    body.dark-mode .sidebar-nav a.active {
-      color: #f0f4f8;
-      font-weight: 600;
-    }
-
-    body.dark-mode .sidebar .app-name-link {
-      color: transparent;
-      background: linear-gradient(135deg, #8b5cf6, #c084fc);
-      -webkit-background-clip: text;
-      background-clip: text;
-    }
-
-    body.dark-mode .markdown-section {
-      color: #f5f7fa;
-    }
-
-    body.dark-mode .markdown-section h1,
-    body.dark-mode .markdown-section h2,
-    body.dark-mode .markdown-section h3 {
-      color: #f5f7fa;
-    }
-
-    body.dark-mode .markdown-section a {
-      color: #8b5cf6;
-    }
-
-    body.dark-mode .markdown-section a:hover {
-      color: #a78bfa;
-    }
-
-    body.dark-mode .markdown-section strong {
-      color: #f5f7fa;
-    }
-
-    body.dark-mode .markdown-section code:not([class*="lang-"]) {
-      background: rgba(22, 30, 52, 0.45);
-      color: #f5f7fa;
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid rgba(51, 65, 95, 0.3);
-    }
-
-    body.dark-mode .markdown-section pre {
-      background: rgba(10, 16, 30, 0.6);
-      border: 1px solid rgba(51, 65, 95, 0.4);
-      border-radius: 8px;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-    }
-
-    body.dark-mode .markdown-section pre code {
-      color: #f5f7fa;
-      background: none;
-      border: none;
-    }
- body.dark-mode .markdown-section table th {
-      background: #1e2536;
-      color: #f1f5f9;
-      border-color: #151616;
-    }
-
-    body.dark-mode .markdown-section tbody tr {
-      border:1px solid rgba(211, 211, 211, 0.045);
-    }
-
-    body.dark-mode .markdown-section tbody tr:nth-child(odd) {
-    
-      color: #ebebeb;
-      background: #0D1425;
-    }
-
-    body.dark-mode .markdown-section td {
-      border-color:rgb(24, 30, 39);
-    }
-
-
-    body.dark-mode pre {
-      color:white;
-    }
-
-
-
-    body.dark-mode .markdown-section tbody tr:nth-child(even) {
-      background:#0D1425;
-    }
-    body.dark-mode .markdown-section blockquote {
-      border-left: 3px solid #8b5cf6;
-      color: #a0b0c4;
-      background: rgba(139, 92, 246, 0.05);
-      padding: 12px 16px;
-      border-radius: 0 6px 6px 0;
-    }
-
-    body.dark-mode .markdown-section hr {
-      border-color: rgba(51, 65, 95, 0.3);
-    }
-
-    body.dark-mode .markdown-section li {
-      color: #a0b0c4;
-    }
-
-    body.dark-mode .sidebar .search input[type=search] {
-      background-image: url("data:image/svg+xml,%3Csvg  height='20px' width='20px' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.8)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' preserveAspectRatio='xMidYMid meet' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10.5' cy='10.5' r='7.5' vector-effect='non-scaling-stroke'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='15.8' y2='15.8' vector-effect='non-scaling-stroke'%3E%3C/line%3E%3C/svg%3E");
-    }
-
-    body.dark-mode .sidebar .search .input-wrap {
-      background-color: transparent;
-      color: white;
-      border: 1px solid rgba(211, 211, 211, 0.662);
-      border-radius: 10px;
-
-    }
-
-
-    body.dark-mode strong {
-      color: white;
-      font-weight: 900;
-    }
-
-    body .sidebar .search .input-wrap {
-
-      color: rgb(0, 0, 0);
-      border: 1px solid rgba(211, 211, 211, 0.182);
-      border-radius: 10px;
-
-    }
-
-    body.dark-mode .sidebar .search input[type=search]::-moz-placeholder {
-      color: lightgray;
-    }
-
-    body.dark-mode .sidebar .search input[type=search]::placeholder {
-      color: lightgray;
-    }
-
-
-
-
-
-
-
-    body.dark-mode .search input[type="search"] .matching-post {
-      background: #161b27;
-    }
-
-
-    body.dark-mode .search .matching-post {
-      background: rgba(15, 20, 38, 0.6);
-      border-bottom: 1px solid rgba(51, 65, 95, 0.3);
-    }
-
-    body.dark-mode .search .matching-post:hover {
-      background: rgba(55, 65, 95, 0.25);
-    }
-
-    body.dark-mode .token.comment {
-      color: #7a8ba0;
-    }
-
-    body.dark-mode .token.keyword {
-      color: #a78bfa;
-      font-weight: 600;
-    }
-
-    body.dark-mode .token.string {
-      color: #34d399;
-    }
-
-    body.dark-mode .token.number {
-      color: #22d3ee;
-    }
-
-    body.dark-mode .token.function {
-      color: #60a5fa;
-    }
-
-    body.dark-mode .token.operator {
-      color: #f87171;
-    }
-
-    body.dark-mode .token.variable {
-      color: #fbbf24;
-    }
-
-    body.dark-mode ::selection {
-      background: rgba(139, 92, 246, 0.35);
-      color: #f0f4f8;
-    }
-
-    /* Light - exact match to CHOps light mode */
-    body:not(.dark-mode) {
-      --theme-color: #6366f1;
-      background: #eef1f6;
-      color: #111827;
-      background-image:
-        radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 20%, rgba(14, 165, 233, 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 80%, rgba(236, 72, 153, 0.05) 0%, transparent 50%);
-      background-attachment: fixed;
-    }
-
-    body:not(.dark-mode) .sidebar {
-      background: rgba(255, 255, 255, 0.25);
-      backdrop-filter: blur(40px) saturate(1.3);
-      -webkit-backdrop-filter: blur(40px) saturate(1.3);
-      border-right: 1px solid rgba(0, 0, 0, 0.04);
-    }
-
-    body:not(.dark-mode) .sidebar-nav a {
-      color: #64748b;
-    }
-
-    body:not(.dark-mode) .sidebar-nav a:hover {
-      color: #334155;
-    }
-
-    body:not(.dark-mode) .sidebar-nav a.active {
-      color: #1a1a2e;
-      font-weight: 600;
-    }
-
-    body:not(.dark-mode) .sidebar .app-name-link {
-      color: transparent;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      -webkit-background-clip: text;
-      background-clip: text;
-    }
-
-    body:not(.dark-mode) .markdown-section {
-      color: #111827;
-    }
-
-    body:not(.dark-mode) .markdown-section h1,
-    body:not(.dark-mode) .markdown-section h2,
-    body:not(.dark-mode) .markdown-section h3 {
-      color: #111827;
-    }
-
-    body:not(.dark-mode) .markdown-section a {
-      color: #6366f1;
-    }
-
-    body:not(.dark-mode) .markdown-section a:hover {
-      color: #4f46e5;
-    }
-
-    body:not(.dark-mode) .markdown-section strong {
-      color: #111827;
-    }
-
-    body:not(.dark-mode) .markdown-section code:not([class*="lang-"]) {
-      background: rgba(255, 255, 255, 0.5);
-      color: #111827;
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-    }
-
-    body:not(.dark-mode) .markdown-section pre {
-      background: rgba(255, 255, 255, 0.4);
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      border-radius: 8px;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-    }
-
-    body:not(.dark-mode) .markdown-section pre code {
-      color: #111827;
-      background: none;
-      border: none;
-    }
-
-    body:not(.dark-mode) .markdown-section table th {
-      background: rgba(255, 255, 255, 0.4);
-      color: #111827;
-      border-color: rgba(0, 0, 0, 0.06);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-    }
-
-    body:not(.dark-mode) .markdown-section table td {
-      border-color: rgba(0, 0, 0, 0.06);
-      color: #374151;
-    }
-
-    body:not(.dark-mode) .markdown-section table tr:hover td {
-      background: rgba(0, 0, 0, 0.02);
-    }
-
-    body:not(.dark-mode) .markdown-section blockquote {
-      border-left: 3px solid #6366f1;
-      color: #6b7280;
-      background: rgba(99, 102, 241, 0.04);
-      padding: 12px 16px;
-      border-radius: 0 6px 6px 0;
-    }
-
-    body:not(.dark-mode) .markdown-section hr {
-      border-color: rgba(0, 0, 0, 0.06);
-    }
-
-    body:not(.dark-mode) .markdown-section li {
-      color: #374151;
-    }
-
-    body:not(.dark-mode) .search input {
-      background: rgba(255, 255, 255, 0.35);
-      color: #111827;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      border-radius: 6px;
-    }
-
-    body:not(.dark-mode) .token.comment {
-      color: #6b7280;
-    }
-
-    body:not(.dark-mode) .token.keyword {
-      color: #7c3aed;
-      font-weight: 600;
-    }
-
-    body:not(.dark-mode) .token.string {
-      color: #16a34a;
-    }
-
-    body:not(.dark-mode) .token.number {
-      color: #0891b2;
-    }
-
-    body:not(.dark-mode) .token.function {
-      color: #2563eb;
-    }
-
-    body:not(.dark-mode) .token.operator {
-      color: #dc2626;
-    }
-
-    body:not(.dark-mode) .token.variable {
-      color: #d97706;
-    }
-
-    body:not(.dark-mode) ::selection {
-      background: rgba(99, 102, 241, 0.25);
-      color: #1a1a2e;
-    }
-
-    /* Theme toggle - glass button */
-    .theme-toggle {
-      position: fixed;
-      top: 12px;
-      right: 16px;
-      z-index: 100;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-      transition: all 0.2s ease;
-    }
-
-    body:not(.dark-mode) .theme-toggle {
-      background: rgba(255, 255, 255, 0.4);
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      color: #374151;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-    }
-
-    body:not(.dark-mode) .theme-toggle:hover {
-      background: rgba(255, 255, 255, 0.6);
-    }
-
-    body.dark-mode .theme-toggle {
-      background: rgba(22, 30, 52, 0.45);
-      border: 1px solid rgba(51, 65, 95, 0.3);
-      color: #f5f7fa;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-    }
-
-    body.dark-mode .theme-toggle:hover {
-      background: rgba(55, 65, 95, 0.4);
-    }
-
-    body.dark-mode .sidebar-toggle .sidebar-toggle-button {
-      background: var(--theme-color);
-      color:white;
-    }
-
-    .content {
-      backdrop-filter: blur(40px) saturate(1.8);
-      -webkit-backdrop-filter: blur(40px) saturate(1.8);
-    }
-
-    /* Caret indicators for collapsible sidebar sections.
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHOps Documentation</title>
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css" /> -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=B612:wght@400;700&family=Red+Hat+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link href="./style.css" rel="stylesheet" />
+    <style>
+      :root {
+        --theme-color: #8b5cf6;
+        --sidebar-width: 260px;
+        --base-font-family: "Plus Jakarta Sans", sans-serif;
+        --heading-font-family: "Plus Jakarta Sans", sans-serif;
+        --code-font-family: "Red Hat Mono", monospace;
+        --base-font-size: 16.5px;
+      }
+
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        line-height: 1.65;
+      }
+
+      .sidebar-nav li a {
+        font-size: 1.02rem;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-weight: 500;
+      }
+
+      .app-name-link {
+        font-weight: 700;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        letter-spacing: -0.02em;
+      }
+
+      .markdown-section {
+        max-width: 860px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 1.05rem;
+        line-height: 1.7;
+      }
+
+      .markdown-section p,
+      .markdown-section li {
+        font-size: 1.05rem;
+      }
+
+      .markdown-section h1,
+      .markdown-section h2,
+      .markdown-section h3 {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-weight: 700;
+      }
+
+      .markdown-section table {
+        font-size: 0.9rem;
+      }
+
+      .markdown-section th,
+      .markdown-section td {
+        font-family: "B612", system-ui, sans-serif;
+      }
+
+      .markdown-section code {
+        font-family: "Red Hat Mono", monospace;
+        font-size: 0.85em;
+      }
+
+      .markdown-section a {
+        text-decoration: none;
+      }
+
+      /* Dark - exact match to CHOps dark mode */
+      body.dark-mode {
+        --theme-color: #8b5cf6;
+        background: #0a0f1e;
+        color: #f5f7fa;
+        background-image:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(139, 92, 246, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(56, 189, 248, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 50% 80%,
+            rgba(244, 114, 182, 0.05) 0%,
+            transparent 50%
+          );
+        background-attachment: fixed;
+      }
+
+      body.dark-mode .sidebar {
+        background: rgba(8, 12, 24, 0.25);
+        backdrop-filter: blur(40px) saturate(1.8);
+        -webkit-backdrop-filter: blur(40px) saturate(1.8);
+        border-right: 1px solid rgba(30, 41, 66, 0.25);
+      }
+
+      body.dark-mode .sidebar-nav a {
+        color: #94a3b8;
+      }
+
+      body.dark-mode .sidebar-nav a:hover {
+        color: #cbd5e1;
+      }
+
+      body.dark-mode .sidebar-nav a.active {
+        color: #f0f4f8;
+        font-weight: 600;
+      }
+
+      body.dark-mode .sidebar .app-name-link {
+        color: transparent;
+        background: linear-gradient(135deg, #8b5cf6, #c084fc);
+        -webkit-background-clip: text;
+        background-clip: text;
+      }
+
+      body.dark-mode .markdown-section {
+        color: #f5f7fa;
+      }
+
+      body.dark-mode .markdown-section h1,
+      body.dark-mode .markdown-section h2,
+      body.dark-mode .markdown-section h3 {
+        color: #f5f7fa;
+      }
+
+      body.dark-mode .markdown-section a {
+        color: #8b5cf6;
+      }
+
+      body.dark-mode .markdown-section a:hover {
+        color: #a78bfa;
+      }
+
+      body.dark-mode .markdown-section strong {
+        color: #f5f7fa;
+      }
+
+      body.dark-mode .markdown-section code:not([class*="lang-"]) {
+        background: rgba(22, 30, 52, 0.45);
+        color: #f5f7fa;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid rgba(51, 65, 95, 0.3);
+      }
+
+      body.dark-mode .markdown-section pre {
+        background: rgba(10, 16, 30, 0.6);
+        border: 1px solid rgba(51, 65, 95, 0.4);
+        border-radius: 8px;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      body.dark-mode .markdown-section pre code {
+        color: #f5f7fa;
+        background: none;
+        border: none;
+      }
+      body.dark-mode .markdown-section table th {
+        background: #1e2536;
+        color: #f1f5f9;
+        border-color: #151616;
+      }
+
+      body.dark-mode .markdown-section tbody tr {
+        border: 1px solid rgba(211, 211, 211, 0.045);
+      }
+
+      body.dark-mode .markdown-section tbody tr:nth-child(odd) {
+        color: #ebebeb;
+        background: #0d1425;
+      }
+
+      body.dark-mode .markdown-section td {
+        border-color: rgb(24, 30, 39);
+      }
+
+      body.dark-mode pre {
+        color: white;
+      }
+
+      body.dark-mode .markdown-section tbody tr:nth-child(even) {
+        background: #0d1425;
+      }
+      body.dark-mode .markdown-section blockquote {
+        border-left: 3px solid #8b5cf6;
+        color: #a0b0c4;
+        background: rgba(139, 92, 246, 0.05);
+        padding: 12px 16px;
+        border-radius: 0 6px 6px 0;
+      }
+
+      body.dark-mode .markdown-section hr {
+        border-color: rgba(51, 65, 95, 0.3);
+      }
+
+      body.dark-mode .markdown-section li {
+        color: #a0b0c4;
+      }
+
+      body.dark-mode .sidebar .search input[type="search"] {
+        background-image: url("data:image/svg+xml,%3Csvg  height='20px' width='20px' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.8)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' preserveAspectRatio='xMidYMid meet' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10.5' cy='10.5' r='7.5' vector-effect='non-scaling-stroke'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='15.8' y2='15.8' vector-effect='non-scaling-stroke'%3E%3C/line%3E%3C/svg%3E");
+      }
+
+      body.dark-mode .sidebar .search .input-wrap {
+        background-color: transparent;
+        color: white;
+        border: 1px solid rgba(211, 211, 211, 0.662);
+        border-radius: 10px;
+      }
+
+      body.dark-mode strong {
+        color: white;
+        font-weight: 900;
+      }
+
+      body .sidebar .search .input-wrap {
+        color: rgb(0, 0, 0);
+        border: 1px solid rgba(211, 211, 211, 0.182);
+        border-radius: 10px;
+      }
+
+      body.dark-mode .sidebar .search input[type="search"]::-moz-placeholder {
+        color: lightgray;
+      }
+
+      body.dark-mode .sidebar .search input[type="search"]::placeholder {
+        color: lightgray;
+      }
+
+      body.dark-mode .search input[type="search"] .matching-post {
+        background: #161b27;
+      }
+
+      body.dark-mode .search .matching-post {
+        background: rgba(15, 20, 38, 0.6);
+        border-bottom: 1px solid rgba(51, 65, 95, 0.3);
+      }
+
+      body.dark-mode .search .matching-post:hover {
+        background: rgba(55, 65, 95, 0.25);
+      }
+
+      body.dark-mode .token.comment {
+        color: #7a8ba0;
+      }
+
+      body.dark-mode .token.keyword {
+        color: #a78bfa;
+        font-weight: 600;
+      }
+
+      body.dark-mode .token.string {
+        color: #34d399;
+      }
+
+      body.dark-mode .token.number {
+        color: #22d3ee;
+      }
+
+      body.dark-mode .token.function {
+        color: #60a5fa;
+      }
+
+      body.dark-mode .token.operator {
+        color: #f87171;
+      }
+
+      body.dark-mode .token.variable {
+        color: #fbbf24;
+      }
+
+      body.dark-mode ::selection {
+        background: rgba(139, 92, 246, 0.35);
+        color: #f0f4f8;
+      }
+
+      /* Light - exact match to CHOps light mode */
+      body:not(.dark-mode) {
+        --theme-color: #6366f1;
+        background: #eef1f6;
+        color: #111827;
+        background-image:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(14, 165, 233, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 50% 80%,
+            rgba(236, 72, 153, 0.05) 0%,
+            transparent 50%
+          );
+        background-attachment: fixed;
+      }
+
+      body:not(.dark-mode) .sidebar {
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(40px) saturate(1.3);
+        -webkit-backdrop-filter: blur(40px) saturate(1.3);
+        border-right: 1px solid rgba(0, 0, 0, 0.04);
+      }
+
+      body:not(.dark-mode) .sidebar-nav a {
+        color: #64748b;
+      }
+
+      body:not(.dark-mode) .sidebar-nav a:hover {
+        color: #334155;
+      }
+
+      body:not(.dark-mode) .sidebar-nav a.active {
+        color: #1a1a2e;
+        font-weight: 600;
+      }
+
+      body:not(.dark-mode) .sidebar .app-name-link {
+        color: transparent;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        -webkit-background-clip: text;
+        background-clip: text;
+      }
+
+      body:not(.dark-mode) .markdown-section {
+        color: #111827;
+      }
+
+      body:not(.dark-mode) .markdown-section h1,
+      body:not(.dark-mode) .markdown-section h2,
+      body:not(.dark-mode) .markdown-section h3 {
+        color: #111827;
+      }
+
+      body:not(.dark-mode) .markdown-section a {
+        color: #6366f1;
+      }
+
+      body:not(.dark-mode) .markdown-section a:hover {
+        color: #4f46e5;
+      }
+
+      body:not(.dark-mode) .markdown-section strong {
+        color: #111827;
+      }
+
+      body:not(.dark-mode) .markdown-section code:not([class*="lang-"]) {
+        background: rgba(255, 255, 255, 0.5);
+        color: #111827;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+      }
+
+      body:not(.dark-mode) .markdown-section pre {
+        background: rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      body:not(.dark-mode) .markdown-section pre code {
+        color: #111827;
+        background: none;
+        border: none;
+      }
+
+      body:not(.dark-mode) .markdown-section table th {
+        background: rgba(255, 255, 255, 0.4);
+        color: #111827;
+        border-color: rgba(0, 0, 0, 0.06);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      body:not(.dark-mode) .markdown-section table td {
+        border-color: rgba(0, 0, 0, 0.06);
+        color: #374151;
+      }
+
+      body:not(.dark-mode) .markdown-section table tr:hover td {
+        background: rgba(0, 0, 0, 0.02);
+      }
+
+      body:not(.dark-mode) .markdown-section blockquote {
+        border-left: 3px solid #6366f1;
+        color: #6b7280;
+        background: rgba(99, 102, 241, 0.04);
+        padding: 12px 16px;
+        border-radius: 0 6px 6px 0;
+      }
+
+      body:not(.dark-mode) .markdown-section hr {
+        border-color: rgba(0, 0, 0, 0.06);
+      }
+
+      body:not(.dark-mode) .markdown-section li {
+        color: #374151;
+      }
+
+      body:not(.dark-mode) .search input {
+        background: rgba(255, 255, 255, 0.35);
+        color: #111827;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 6px;
+      }
+
+      body:not(.dark-mode) .token.comment {
+        color: #6b7280;
+      }
+
+      body:not(.dark-mode) .token.keyword {
+        color: #7c3aed;
+        font-weight: 600;
+      }
+
+      body:not(.dark-mode) .token.string {
+        color: #16a34a;
+      }
+
+      body:not(.dark-mode) .token.number {
+        color: #0891b2;
+      }
+
+      body:not(.dark-mode) .token.function {
+        color: #2563eb;
+      }
+
+      body:not(.dark-mode) .token.operator {
+        color: #dc2626;
+      }
+
+      body:not(.dark-mode) .token.variable {
+        color: #d97706;
+      }
+
+      body:not(.dark-mode) ::selection {
+        background: rgba(99, 102, 241, 0.25);
+        color: #1a1a2e;
+      }
+
+      /* Theme toggle - glass button */
+      .theme-toggle {
+        position: fixed;
+        top: 12px;
+        right: 16px;
+        z-index: 100;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        transition: all 0.2s ease;
+      }
+
+      body:not(.dark-mode) .theme-toggle {
+        background: rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        color: #374151;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      body:not(.dark-mode) .theme-toggle:hover {
+        background: rgba(255, 255, 255, 0.6);
+      }
+
+      body.dark-mode .theme-toggle {
+        background: rgba(22, 30, 52, 0.45);
+        border: 1px solid rgba(51, 65, 95, 0.3);
+        color: #f5f7fa;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      body.dark-mode .theme-toggle:hover {
+        background: rgba(55, 65, 95, 0.4);
+      }
+
+      body.dark-mode .sidebar-toggle .sidebar-toggle-button {
+        background: var(--theme-color);
+        color: white;
+      }
+
+      .content {
+        backdrop-filter: blur(40px) saturate(1.8);
+        -webkit-backdrop-filter: blur(40px) saturate(1.8);
+      }
+
+      /* Caret indicators for collapsible sidebar sections.
        Docsify renders parent sections as <li class="folder">Label<ul>...</ul></li>
        with the label as a bare text node (no <a>/<p>). The collapse plugin adds
        the class "collapse" when the section is currently collapsed and removes it
        when expanded. We draw the caret as a ::before on the folder <li> and flip
        it based on the presence of the "collapse" class. */
-    .sidebar-nav li.folder {
-      position: relative;
-      padding-left: 1.1em;
-      cursor: pointer;
-      list-style: none;
-    }
+      .sidebar-nav li.folder {
+        position: relative;
+        padding-left: 1.1em;
+        cursor: pointer;
+        list-style: none;
+      }
 
-    .sidebar-nav li.folder::before {
-      content: "\203A"; /* › */
-      position: absolute;
-      left: 0.15em;
-      top: 0.18em;
-      font-size: 1.15em;
-      line-height: 1.2;
-      opacity: 0.6;
-      transition: transform 0.15s ease;
-      transform-origin: center;
-    }
+      .sidebar-nav li.folder::before {
+        content: "\203A"; /* › */
+        position: absolute;
+        left: 0.15em;
+        top: 0.18em;
+        font-size: 1.15em;
+        line-height: 1.2;
+        opacity: 0.6;
+        transition: transform 0.15s ease;
+        transform-origin: center;
+      }
 
-    /* Expanded folders carry the "open" class -> caret points down.
+      /* Expanded folders carry the "open" class -> caret points down.
        Default (collapsed, no "open") stays pointing right. This matches the
        plugin's real state classes: "open folder" when expanded, plain "folder"
        or "folder collapse" when not. */
-    .sidebar-nav li.folder.open::before {
-      transform: rotate(90deg);
-    }
+      .sidebar-nav li.folder.open::before {
+        transform: rotate(90deg);
+      }
 
-    /* Nested folders sit one level in; nudge their caret to align */
-    .sidebar-nav li.folder .folder {
-      padding-left: 1.1em;
-    }
-  </style>
-</head>
+      /* Nested folders sit one level in; nudge their caret to align */
+      .sidebar-nav li.folder .folder {
+        padding-left: 1.1em;
+      }
+    </style>
+  </head>
 
-<body>
-  <button class="theme-toggle" onclick="toggleDocsTheme()" title="Toggle dark/light mode"
-    id="docs-theme-btn">&#9790;</button>
-  <div id="app"></div>
-  <script>
-    function applyDocsTheme(dark) {
-      document.body.classList.toggle('dark-mode', dark);
-      var btn = document.getElementById('docs-theme-btn');
-      btn.innerHTML = dark ? '&#9728;' : '&#9790;';
-    }
-    function toggleDocsTheme() {
-      var isDark = document.body.classList.contains('dark-mode');
-      applyDocsTheme(!isDark);
-      try { localStorage.setItem('chadmin_docs_theme', isDark ? 'light' : 'dark'); } catch { }
-    }
-    (function () {
-      var saved = null;
-      try { saved = localStorage.getItem('chadmin_docs_theme') || localStorage.getItem('chadmin_theme'); } catch { }
-      applyDocsTheme(saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches));
-    })();
-    window.$docsify = {
-      name: 'CHOps',
-      repo: '',
-      basePath: '/docs/',
-      loadSidebar: true,
-      subMaxLevel: 3,
-      sidebarDisplayLevel: 1,
-      auto2top: true,
-      search: { placeholder: 'Search documentation', noData: 'No results found.', paths: 'auto' },
-    };
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify-sidebar-collapse@1/dist/docsify-sidebar-collapse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-sql.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
-</body>
+  <body>
+    <button
+      class="theme-toggle"
+      onclick="toggleDocsTheme()"
+      title="Toggle dark/light mode"
+      id="docs-theme-btn"
+    >
+      &#9790;
+    </button>
+    <div id="app"></div>
+    <script>
+      var isDark = document.body.classList.contains("dark-mode");
+      function applyDocsTheme(dark) {
+        document.body.classList.toggle("dark-mode", dark);
+        var btn = document.getElementById("docs-theme-btn");
+        btn.innerHTML = dark ? "&#9728;" : "&#9790;";
+        const imgLogo = document.querySelector("img");
+        if (imgLogo) {
+          imgLogo.src = dark ? "./chops-light.svg" : "./chops-dark.svg";
+        }
+      }
+      function toggleDocsTheme() {
+        var isDark = document.body.classList.contains("dark-mode");
+        applyDocsTheme(!isDark);
+        try {
+          localStorage.setItem("chops_docs_theme", isDark ? "light" : "dark");
+          
+        } catch {}
+      }
+      (function () {
+        var saved = null;
+        try {
+          saved =
+            localStorage.getItem("chops_docs_theme") ||
+            localStorage.getItem("chops_theme");
+        } catch {}
+        applyDocsTheme(
+          saved === "dark" ||
+            (!saved &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches),
+        );
+      })();
+      window.$docsify = {
+        name: " ",
+        repo: "",
+        basePath: "/docs/",
+        loadSidebar: true,
+        subMaxLevel: 3,
+        sidebarDisplayLevel: 1,
+        auto2top: true,
+        search: {
+          placeholder: "Search docs",
+          noData: "No results found.",
+          paths: "auto",
+        },
+        plugins: [
+          function (hook) {
+            hook.doneEach(function () {
+              const anchorTag = document.querySelector(".app-name-link");
 
+              if (anchorTag && !anchorTag.querySelector(".logo-img")) {
+                const imgLogo = document.createElement("img");
+                imgLogo.className = "logo-img";
+                var isDark = document.body.classList.contains("dark-mode");
+                imgLogo.src = isDark ? "./chops-light.svg" : "./chops-dark.svg"; 
+                anchorTag.prepend(imgLogo);
+              }
+            });
+          },
+        ],
+      };
+
+      
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify-sidebar-collapse@1/dist/docsify-sidebar-collapse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+  </body>
 </html>

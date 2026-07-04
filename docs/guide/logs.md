@@ -1,68 +1,29 @@
 # Logs
 
-CHOps provides three log viewers: Crash Log, Error Log, and Text Log. Each has two tabs: **Overview** (calendar heatmap) and **Search** (filterable log viewer with mandatory time range and optional filters, plus a configurable row limit).
+When something goes wrong on your cluster, the logs are where you find out what and when. CHOps gives you four log viewers, each focused on a different kind of event: the Crash Log for serious failures, the Error Log for errors ClickHouse® recorded, the Text Log for the detailed running commentary the server produces, and the Session Log for who signed in and out, and when sign-ins failed.
 
-## Overview Tab (all log pages)
+Each viewer works the same way, with two tabs. The Overview tab gives you a bird's-eye view of when events happened, and the Search tab lets you dig into the individual entries.
 
-Each log page has an Overview tab with a calendar heatmap showing event frequency by date and hour. Select a time range (1h, 6h, 24h, 48h, 7d, 30d) and click Load Heatmap. The heatmap uses a 1000-step amber/orange color scale (same on both themes). Even the smallest non-zero values show a faint warm tint. The color depth automatically adapts to data variance - uniform data uses lighter shades, high-variance data uses the full range from light to deep brown. Download and fullscreen buttons sit above the chart. The chart re-renders automatically when you toggle the theme. Error Log and Text Log additionally offer filter dropdowns (error type or log level) on the Overview tab.
+## The Overview Tab
 
-## Crash Log
+The Overview tab shows a calendar heatmap of how often events occurred, broken down by date and hour. This makes it easy to spot when trouble started or whether a problem is ongoing. Pick a time range using the quick buttons (1 hour, 6 hours, 24 hours, 48 hours, 7 days, or 30 days) and click Load Heatmap.
 
-**Search tab fields:** Start Time (mandatory), End Time (mandatory), Query (free text), Signal Description (free text), Exception Trace (free text)
+Busier periods show up in deeper, warmer colors, and the shading adapts to your data so that patterns stay visible whether events are rare or frequent. You can download the heatmap or view it fullscreen using the buttons above it, and it adjusts automatically when you switch between light and dark mode. For the Error Log and Text Log, the Overview tab also lets you filter by error type or log level so you can focus on what matters.
 
-**Generated query:**
-```sql
-SELECT timestamp_ns, signal, signal_code, query_id, query, signal_description, current_exception_trace_full
-FROM system.crash_log
-WHERE event_time BETWEEN {start} AND {end}
-  AND query LIKE '%{query text}%'
-  AND signal_description LIKE '%{signal desc}%'
-  AND arrayExists(x -> ilike(x, '%{trace text}%'), current_exception_trace)
-ORDER BY event_time DESC LIMIT {row_limit}
-```
+The Overview tab is more than the heatmap alone. Depending on the log, it also shows a breakdown of entries by category (log level for the Text Log, error type for the Error Log), a volume-over-time chart so you can see whether activity is climbing or settling, and a short list of the most frequent messages or top errors so the repeat offenders are obvious without scrolling through every entry. Each of these panels shows a friendly note instead of an empty box when the data behind it is not available, which can happen on older servers or when a system table is not enabled.
 
-## Error Log
+The **Session Log** Overview is built for access auditing rather than a heatmap. It summarises the split of successful logins, failed logins, and logouts, the busiest users, a breakdown by connection interface and by authentication type, login activity over time, and a table of the most common failure reasons with the most recent user and client address for each. Because the `system.session_log` table only exists when session logging is enabled in the server config, the page shows a clear note instead of charts when it is switched off.
 
-**Search tab fields:** Start Time (mandatory), End Time (mandatory), Error Type (multi-select, dynamically populated from `SELECT DISTINCT error FROM system.error_log`), Error Message (free text)
+## The Search Tab
 
-**Generated query:**
-```sql
-SELECT event_time, error, last_error_message, last_error_query_id
-FROM system.error_log
-WHERE event_time BETWEEN {start} AND {end}
-  AND last_error_message LIKE '%{message}%'
-  AND error IN ({selected errors})
-ORDER BY event_time DESC LIMIT {row_limit}
-```
+Every log viewer has a Search tab for finding specific entries. Because these tables can be large, you always set a start time and an end time to keep your search fast and focused. There is also a row limit you can adjust (it starts at 500) to control how many results come back at once.
 
-## Text Log
+Beyond the time range, each log offers filters suited to what it records.
 
-**Search tab fields:** Start Time (mandatory), End Time (mandatory), Log Level (multi-select: Fatal, Critical, Error, Warning, Notice, Information, Debug, Trace, Test), Message (free text)
+The **Crash Log** captures the most serious events, the ones where a ClickHouse® process crashed. You can search it by the query involved, by a description of the crash signal, and by the text of the exception trace, which together help you pin down what failed and why.
 
-**Generated query:**
-```sql
-SELECT event_time_microseconds, level, query_id, logger_name, message, source_file, source_line
-FROM system.text_log
-WHERE event_time BETWEEN {start} AND {end}
-  AND level IN ({selected levels})
-  AND message LIKE '%{message}%'
-ORDER BY event_time DESC LIMIT {row_limit}
-```
+The **Error Log** records errors the server encountered. You can filter by error type, choosing from the specific error kinds that have actually occurred on your system, and search within the error messages themselves.
 
-**Dark mode row colors by level:**
+The **Text Log** is the server's detailed internal log, the running account of what ClickHouse® is doing. Because it is so detailed, you can filter by log level, from the most severe (Fatal and Critical) down through Warning and Information to the most verbose (Debug and Trace), and search within the message text. In the Text Log, entries are color-coded by their level so the serious ones stand out at a glance.
 
-| Level | Text Color | Background |
-|-------|-----------|------------|
-| Test | #86efac | #0a1f0a |
-| Trace | #6ee7b7 | #081208 |
-| Debug | #93c5fd | #0D161C |
-| Information | #60a5fa | #070D14 |
-| Notice | #fde68a | #1F1A0D |
-| Warning | #fdba74 | #1A0F00 |
-| Error | #fca5a5 | #1A0A05 |
-| Critical | #f87171 | #1a0505 |
-| Fatal | #fb7185 | #1a0000 |
-
-Light mode uses darker text on lighter backgrounds (e.g., Trace: #2E7D32 on #e8f5e9).
-
-All three log sections include a Row Limit field (default 500) that controls the LIMIT clause.
+The **Session Log** records every login, logout, and failed sign-in the server saw. You can filter by event type (successful login, failed login, or logout), by user, and by the text of the failure reason, which together make it easy to audit who is connecting and to spot repeated failed sign-ins from the same account.

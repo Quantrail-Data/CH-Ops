@@ -1,103 +1,76 @@
-## SQL Editor
+# SQL Editor
 
-ClickHouse® Play-inspired query workspace with resizable schema explorer, autocomplete, EXPLAIN tree visualization, and query stats.
+The SQL Editor is your workspace for writing and running queries against ClickHouse®. It is built to feel familiar if you have used ClickHouse® Play, with a few extra conveniences: a schema explorer you can browse on the left, autocomplete as you type, visual diagrams of how a query will run, and clear stats after each run. The sections below walk through each part.
 
-## Schema Explorer (Left Panel)
+## Schema Explorer
 
-- **Resizable**: drag the right edge of the explorer panel to resize (160px-500px). Collapsible to a 36px icon-only strip.
-- **Database dropdown**: populated from `system.databases`
-- **Table list**: fetched from `system.tables` with `name` and `engine` fields
-- **Engine icons**: 60+ icons mapped by `engine` field (not table name). Priority order: Views -> MergeTree/Log -> Data Lake (Iceberg/Delta/Hudi) -> Queues (Kafka/RabbitMQ/S3Queue) -> Cloud (S3/GCS/Azure) -> External DB -> others
-- **View DDL button**: code icon next to each table. Opens modal with `SHOW CREATE TABLE` output, Copy button
-- Click table name to insert `db.table` into editor
+The panel on the left lets you browse your databases and tables without leaving the editor, so you do not have to remember exact names.
 
-## Query Editor (Center)
+You can drag its right edge to make it wider or narrower, or collapse it down to a thin strip of icons when you want more room for writing queries. The database dropdown lists every database on your cluster, and choosing one shows its tables underneath.
 
-- Custom textarea+pre overlay with syntax highlighting (zero external deps)
-- **Autocomplete**: from `system.keywords` and `system.functions`, triggered on typing
-- **Ctrl+Enter** to run
-- **Fullscreen mode**: toggle with labeled button
-- Default 10-line height, resizable
+Next to each table is a small icon that hints at the table's engine at a glance, with different icons for views, MergeTree tables, data-lake formats, streaming queues, cloud storage, and external databases. There is also a code icon beside each table that opens its full `CREATE TABLE` definition in a pop-up, complete with a Copy button, which is handy when you want to check a column type or copy the schema. Clicking a table's name drops its fully qualified `database.table` name straight into the editor at your cursor.
 
-## EXPLAIN Button
+## Writing a Query
 
-Dropdown with 9 EXPLAIN types:
+The center of the screen is where you write. As you type, the editor highlights your SQL and offers autocomplete suggestions drawn from ClickHouse®'s own list of keywords and functions, so you spend less time double-checking syntax.
 
-| Option | ClickHouse® Query | CHOps Rendering |
-|--------|-----------------|-------------------|
-| AST | `EXPLAIN AST SELECT ...` | Text table |
-| SYNTAX | `EXPLAIN SYNTAX SELECT ...` | Text table |
-| QUERY TREE | `EXPLAIN QUERY TREE SELECT ...` | Text table |
-| PLAN | `EXPLAIN PLAN SELECT ...` | Text table |
-| PIPELINE | `EXPLAIN PIPELINE SELECT ...` | Text table |
-| ESTIMATE | `EXPLAIN ESTIMATE SELECT ...` | Text table |
-| **AST (graph)** | `EXPLAIN AST graph = 1 SELECT ...` | **ECharts top-to-bottom tree** |
-| **PIPELINE (graph)** | `EXPLAIN PIPELINE graph = 1 SELECT ...` | **ECharts top-to-bottom tree** |
-| **PLAN (JSON)** | `EXPLAIN json = 1, description = 0 SELECT ...` | **Pretty-printed JSON tree** |
+A few things make writing quicker:
 
-#### DOT Graph Rendering
+- Press **Ctrl+Enter** at any time to run your query.
+- The editor opens at a comfortable height and can be resized to fit longer queries.
+- A **Fullscreen** button gives you a distraction-free, full-window editor when you are working on something larger.
 
-When ClickHouse® returns DOT language output (`digraph { ... }`), CHOps parses it into nodes and edges and renders an interactive ECharts tree chart. The graph auto-enters fullscreen mode when detected and is only visible in fullscreen (exiting fullscreen hides it).
+## Seeing How a Query Will Run (EXPLAIN)
 
-Features:
-- Top-to-bottom orientation (`orient: 'TB'`), polyline edges
-- Category-based colors using golden-angle hue spacing (ReadFrom, Filter, Sort/Limit, Aggregate, Join, Transform, Output, Other)
-- Tree built from DAG: finds root nodes (no incoming edges), then DFS traversal
-- `wrapLabel()` splits PascalCase names at camelCase boundaries and wraps at ~18 chars (e.g. `ReadFromMergeTree` becomes two lines). Labels sit below each node, center-aligned.
-- Auto-sized via `treeSizeTB()`: width = `leaves * 160 + 200`, height = `depth * 120 + 280`
-- Chart centered in scroll container with horizontal and vertical scrollbars
-- Button zoom scales chart pixel dimensions and `symbolSize` together. Toolbar: zoom %, +, -, reset, download PNG, fullscreen exit.
-- No mouse wheel zoom (interferes with page scroll). No ECharts roam.
-- "Table View" button to switch to raw text
+Before or instead of running a query, you can ask ClickHouse® to explain how it would carry it out. The EXPLAIN button offers several views, from the raw parsed form of your SQL all the way to the detailed execution plan. Most of these appear as readable text tables.
 
-#### JSON Tree Rendering
+Three of the options are special because CHOps turns them into a visual diagram instead of text:
 
-When ClickHouse® returns JSON output, it's displayed as formatted, indented JSON in a scrollable code block. Fallback parsing unescapes `\n`/`\t` before re-parsing.
+- **AST (graph)** draws the structure of your query as a tree.
+- **PIPELINE (graph)** draws the chain of steps ClickHouse® would run.
+- **PLAN (JSON)** shows the execution plan as neatly formatted, indented text you can expand and read.
 
-## Results Area
+When ClickHouse® returns one of the graph forms, CHOps reads it and draws it as an interactive, top-to-bottom tree diagram. The diagram opens in fullscreen so you have room to explore it. The boxes are color-coded by the kind of work each step does, such as reading data, filtering, sorting, aggregating, or joining, which makes it easy to follow the flow of the query at a glance. Long technical names are wrapped neatly so they stay readable.
 
-- **SELECT/SHOW/DESCRIBE/EXPLAIN**: DataTable with clickable cells (copies to clipboard)
-- **DDL/DML** (CREATE, INSERT, ALTER, DROP, GRANT, REVOKE, SYSTEM, OPTIMIZE, TRUNCATE, KILL): Success message with context-aware text (e.g., "Created successfully.", "Insert executed successfully.")
-- **Errors**: red banner with full error text
-- **Query stats**: read_rows, written_rows, read_bytes, elapsed time (from X-ClickHouse®-Summary header)
-- Row count displayed in status bar
+You can zoom in and out, reset the view, and download the diagram as an image using the toolbar. (Zooming is done with the toolbar buttons rather than the mouse wheel, so scrolling the page never zooms the diagram by accident.) When you are done, a Table View button switches back to the raw text version.
 
-## Query Proxying
+## Reading Your Results
 
-All queries go through `/api/query` -> backend ClickHouse® proxy. `FORMAT JSONEachRow` is appended only to data queries (SELECT, SHOW, DESCRIBE, EXPLAIN, EXISTS, WITH).
+What appears after you run a query depends on the kind of query it was:
+
+- For queries that return data, such as SELECT, SHOW, or DESCRIBE, you get a results table. Click any cell to copy its value to your clipboard.
+- For commands that change things, such as CREATE, INSERT, ALTER, DROP, or GRANT, you get a clear success message written for that specific action, like "Created successfully" or "Insert executed successfully."
+- If something goes wrong, a red banner shows you the full error text so you can see exactly what ClickHouse® reported.
+
+Alongside the results, a status bar summarizes the run: how many rows came back, how many were scanned, how much data was read, how long it took, and how much memory it used.
 
 ## Query History
 
-Every query you run is automatically saved to your browser's local storage. The history panel (accessible via the History button in the toolbar) shows your most recent queries with:
+Every query you run is saved automatically to your browser, so you can always get back to something you ran earlier. Open the history panel from the History button in the toolbar to see your recent queries, each showing its SQL text (click to load it back into the editor), the row count and how long it took, a green check or red X for whether it succeeded, and when you ran it.
 
-- The SQL text (click to reload into the editor)
-- Row count and elapsed time
-- Status indicator (green check for success, red X for errors)
-- Timestamp
-
-History is capped at 100 entries (oldest dropped first). The Clear button removes all entries. History is per-browser and per-device - it does not sync across machines.
+History keeps your most recent queries and drops the oldest as new ones come in. The Clear button empties it. One thing to note: this history lives in the browser on the device you are using, so it does not follow you to another computer.
 
 ## Query Bookmarks
 
-Save frequently-used queries with a name for quick access. Bookmarks are stored on the server (in the app_settings table) so they persist across browsers and sessions.
+When you have a query you reach for often, you can bookmark it with a name instead of rewriting it each time. Unlike history, bookmarks are saved on the server, so they stay with you across browsers and sessions.
 
-To save a bookmark: write your SQL, type a name in the bookmark panel, click Save. To load a bookmark: click it in the list. To delete: click the trash icon.
+To save one, write your SQL, type a name in the bookmark panel, and click Save. To use one later, click it in the list. To remove one, click the trash icon beside it.
 
-Bookmarks are shared across all users (stored as a single JSON array). This is intentional - useful queries like "table sizes" or "slow queries" benefit everyone on the team.
+Bookmarks are shared with everyone on your team. This is deliberate: genuinely useful queries, like one that lists table sizes or surfaces slow queries, are worth having on hand for the whole team.
 
-## Export Results
+## Exporting Results
 
-After a successful SELECT query, three export buttons appear in the toolbar:
+After a SELECT query returns, three export buttons appear in the toolbar so you can take the data with you:
 
-- **CSV** - comma-separated values with RFC 4180 escaping (handles commas, quotes, and newlines in values)
-- **JSON** - pretty-printed JSON array with 2-space indentation
-- **TSV** - tab-separated values (tabs in values replaced with spaces)
+- **CSV** saves comma-separated values, correctly handling any commas, quotes, or line breaks inside your data.
+- **JSON** saves a neatly formatted JSON array.
+- **TSV** saves tab-separated values.
 
-All exports happen client-side in the browser. The data is already in memory from the query response, so there is no additional server request. Files download immediately.
+All three exports happen instantly in your browser using the data already on screen, so there is no extra wait and no additional load on your cluster. The file downloads right away.
 
-# Query Cost Estimation
+## Query Cost Estimation
 
-## What It Does
+### What It Does
 
 The SQL Editor has two buttons for working with queries:
 
@@ -162,24 +135,16 @@ If the estimate looks reasonable, click **Run**. The Estimate panel clears and n
 
 ---
 
-## Action Buttons After Execution
+## Action Buttons After a Query Runs
 
-After a query finishes running, the stats bar shows:
+Once a query finishes, the status bar summarizes how it went: the number of rows returned, how many were scanned, how much data was read, how long it took, and the peak memory it used. (The memory figure is looked up from ClickHouse®'s query log a moment after the query finishes, so it reflects the true peak.)
 
-```
-[ti-check] 2.4M rows returned | 15.2M scanned | 186.4 MB | 1.243s | Mem: 84.2 MB
-[ti-copy query_id] [ti-flame Flame Graph] [ti-git-branch Pipeline] [ti-chart-line Metrics]
-```
+Next to those stats, a row of buttons gives you quick ways to dig deeper into the query you just ran:
 
-**Memory usage** is fetched from `system.query_log` shortly after execution. It shows peak memory consumption.
-
-**query_id** copies the ClickHouse® query ID to your clipboard. Useful for looking up the query in system tables or sharing with your DBA.
-
-**Flame Graph** opens the Query Profiler with this query pre-loaded. Shows which internal functions consumed time. Best for deep performance debugging.
-
-**Pipeline** opens the Processors Profile with this query pre-loaded. Shows the execution pipeline as an interactive DAG diagram with heatmap coloring. Best for understanding where in the query plan time was spent.
-
-**Metrics** opens the Query Metrics page with this query pre-loaded. Shows per-second metric timelines during query execution.
+- **query_id** copies ClickHouse®'s ID for the query to your clipboard, which is useful for looking it up in system tables or passing along to whoever administers your cluster.
+- **Flame Graph** opens the Query Profiler with this query already loaded, showing where it spent its time. This is the one to reach for when you need to dig into performance.
+- **Pipeline** opens the Processors Profile with the query loaded, showing its execution as a visual diagram so you can see which step took the most time.
+- **Metrics** opens the Query Metrics page with the query loaded, showing a second-by-second view of how it used resources while it ran.
 
 ---
 

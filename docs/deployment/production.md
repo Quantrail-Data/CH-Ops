@@ -36,8 +36,8 @@ If you are building a binary instead, you only need Bun on your build machine, n
 
 ```bash
 cd /opt
-git clone https://github.com/quantrail/chops.git
-cd chops
+git clone https://github.com/Quantrail-Data/CH-Ops.git
+cd CH-Ops
 bun install
 cp .env.example .env
 ```
@@ -122,7 +122,7 @@ sudo nano /etc/systemd/system/chops.service
 ```ini
 [Unit]
 Description=CHOps - ClickHouse® Administration Dashboard
-Documentation=https://github.com/quantrail/chops
+Documentation=https://github.com/Quantrail-Data/CH-Ops
 After=network.target
 
 [Service]
@@ -158,7 +158,7 @@ WantedBy=multi-user.target
 ```ini
 [Unit]
 Description=CHOps - ClickHouse® Administration Dashboard
-Documentation=https://github.com/quantrail/chops
+Documentation=https://github.com/Quantrail-Data/CH-Ops
 After=network.target
 
 [Service]
@@ -497,7 +497,7 @@ CHOps ships with a Dockerfile and docker-compose.yml for containerized deploymen
 
 ```bash
 # Clone or extract the project
-cd chops
+cd CH-Ops
 
 # Set your secret (required)
 export SESSION_SECRET=$(openssl rand -hex 32)
@@ -535,12 +535,12 @@ Pass environment variables via `docker compose` environment section or `docker r
 
 ### Data Persistence
 
-The SQLite database is stored at `/app/data/chadmin.db` inside the container. The `docker-compose.yml` maps this to a named volume (`chops-data`) so data survives container restarts and rebuilds.
+The SQLite database is stored at `/app/data/chops.db` inside the container. The `docker-compose.yml` maps this to a named volume (`chops-data`) so data survives container restarts and rebuilds.
 
 To back up the database:
 
 ```bash
-docker cp chops:/app/data/chadmin.db ./chops-backup.db
+docker cp chops:/app/data/chops.db ./chops-backup.db
 ```
 
 ### Updating

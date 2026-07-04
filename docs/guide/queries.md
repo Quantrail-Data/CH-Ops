@@ -1,51 +1,48 @@
 # Queries
 
-The Queries section has three tabs: Current, Analytics, and Query Log.
+This section is where you go to see what your cluster is doing right now, dig into how queries have performed over time, and search through past activity. It is organized into three tabs: Current, Analytics, and Query Log.
 
 ## Current Queries
 
-Displays all currently running queries from `system.processes`. The table auto-refreshes every 5 seconds.
+The Current tab shows you every query running on your cluster at this moment, pulled live from `system.processes`. It refreshes every 5 seconds, so it keeps pace with what is actually happening.
 
-An informational banner at the top reminds users that some listed queries may have already completed, since ClickHouse® processes queries extremely quickly.
+You may notice a banner at the top reminding you that some queries in the list might already be finished. That is not a bug. ClickHouse® is fast enough that a query can complete in the time between one refresh and the next, so a brief overlap is normal.
 
-Each row includes action buttons:
+Each row comes with two action buttons for stopping a query that is misbehaving or taking too long:
 
-- **Kill**: sends a `KILL QUERY` command for the selected query
-- **Kill Sync**: sends a `KILL QUERY ... SYNC` command, which waits for the query to terminate before returning
+- **Kill** asks ClickHouse® to stop the query and moves on without waiting.
+- **Kill Sync** stops the query and waits until it has fully terminated before reporting back, so you know for certain it is gone.
 
-Both buttons use the ClickHouse® credentials from the navbar connection bar.
+Both buttons use whichever ClickHouse® credentials are set in the connection bar at the top of the page.
 
 ## Analytics
 
-Provides calendar heatmaps and analytical tables derived from `system.query_log`. Select a time range using the quick range buttons (1h, 6h, 24h, 48h, 7d, 30d) or set custom start and end times using the datetime pickers. Optionally filter by Query Kind.
+The Analytics tab turns your query history into a visual story. Instead of reading raw logs, you get calendar heatmaps and ranked tables that make patterns easy to spot.
 
-Click Analyze to load the following:
+Start by choosing a time range. You can use the quick buttons (1 hour, 6 hours, 24 hours, 48 hours, 7 days, or 30 days) or set your own start and end times with the date pickers. If you only care about a certain kind of query, you can filter by query kind as well. Then click Analyze to load everything.
 
-**Calendar Heatmaps** (single-column layout, 420px height each):
-- **Query Count**: number of queries per date/hour bucket
-- **Error Count**: queries with non-empty exception per date/hour
-- **Median Memory Usage (MB)**: median memory_usage for QueryFinish events
-- **Median Query Duration (ms)**: median query_duration_ms for queries >0ms
+You will see four heatmaps, each showing a different measure broken down by day and hour, so busy periods and quiet ones stand out at a glance:
 
-Heatmaps use a shared `buildHeatmapEchartsOption` function from `LogHeatmap.jsx`. A single amber/orange 1000-step color scale is used on both themes, starting from a faint warm tint and going to deep brown for the highest values. The depth of the color range automatically adapts to data variance. No slider is shown (`visualMap.show: false`). Empty cells default to 0. X-axis date labels auto-thin for readability. Y-axis shows every 3rd hour.
+- **Query Count** is how many queries ran in each time slot.
+- **Error Count** is how many of them failed.
+- **Median Memory Usage** shows the typical memory a query used.
+- **Median Query Duration** shows how long the typical query took.
 
-**Tables:**
-- **Top 10 Slowest Queries**: table sorted by query_duration_ms
-- **Top 10 Memory-Intensive Queries**: table sorted by memory_usage
+The colors run from a faint warm tint for low values up to a deep brown for the highest ones, and the scale adjusts itself to your data so the contrast stays meaningful whether your numbers are large or small.
+
+Below the heatmaps, two tables rank the queries worth a closer look: the ten slowest queries by duration, and the ten heaviest by memory used. These are usually the first place to look when you are hunting for something to optimize.
 
 ## Query Log Search
 
-A comprehensive search interface for `system.query_log`. Both start time and end time are mandatory since `event_date` and `event_time` are the index columns for this table.
+The Query Log tab is a full search tool for `system.query_log`, the table where ClickHouse® records every query it has run. Because that table is indexed by date and time, you always need to set both a start time and an end time. This keeps your searches fast even when the log is enormous.
 
-Available filters:
+From there, you can narrow things down with as many filters as you need:
 
-- **Query Kind**: dropdown populated from distinct values in query_log
-- **Type**: QueryStart, QueryFinish, ExceptionWhileProcessing, etc.
-- **Exception Code**: dropdown of non-zero exception codes
-- **Exception (text)**: free-text partial match on the exception field
-- **Is Initial Query**: yes/no/any
-- **Initial User**: dropdown of distinct initial_user values
+- **Query Kind** lets you pick a category, with the options drawn from what actually appears in your log.
+- **Type** filters by the stage of a query, such as when it started, when it finished, or whether it threw an exception.
+- **Exception Code** lets you focus on queries that failed with a specific error.
+- **Exception (text)** searches the error messages themselves for any text you type.
+- **Is Initial Query** separates queries a user started directly from ones triggered internally.
+- **Initial User** filters to a particular user.
 
-Results can be sorted by any of these fields in ascending or descending order: event_time, query_duration_ms, read_rows, read_bytes, written_rows, written_bytes, result_rows, result_bytes, memory_usage.
-
-The query is built dynamically based on the selected filters and sort options, always using the date and time index for efficient execution.
+Once you have your results, you can sort them by whatever matters most for what you are investigating, including run time, duration, rows and bytes read or written, result size, and memory used. CHOps builds the search behind the scenes from the filters and sorting you choose, and always uses the date and time index so it runs efficiently.

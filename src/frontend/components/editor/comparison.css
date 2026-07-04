@@ -1,0 +1,223 @@
+/* comparison.css - Styles for the Query Comparison tool (mode switch, split
+   layout, metrics table, and the per-user connect bar). Uses the shared design
+   tokens so light and dark themes work automatically.
+
+   Author: Kathir Moorthy
+   Copyright (C) 2026 Quantrail(TM) Data Private Limited */
+
+/* Mode dropdown (rendered inside each mode's toolbar) */
+.mode-select {
+  cursor: pointer;
+}
+
+/* Split layout */
+.cmp-root {
+  /* The breadcrumb is hidden on editor routes, so the main content area's top
+     padding sits as dead space above the toolbar. Pull up to trim most of it,
+     mirroring how the regular editor cancels the same padding. */
+  margin-top: -20px;
+  padding: 6px 16px 16px;
+}
+.cmp-root.cmp-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  margin: 0; /* the pull-up must not offset a fixed, full-screen overlay */
+  background: var(--bg-page);
+  overflow: auto;
+  padding: 16px 24px;
+}
+.cmp-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .cmp-split {
+    grid-template-columns: 1fr;
+  } /* stack on narrow screens */
+}
+.cmp-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0; /* allows the editor to shrink instead of overflowing */
+}
+.cmp-pane-header {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.cmp-pane-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end; /* Estimate / Execute sit on the right */
+}
+.cmp-pane-error {
+  margin-top: 4px;
+}
+.cmp-pane-estimate {
+  margin-top: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+}
+.cmp-pane-results {
+  margin-top: 8px;
+}
+.cmp-rows-note {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Toolbar (connect on the left, Compare + Fullscreen on the right) */
+.cmp-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.cmp-toolbar-left,
+.cmp-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+/* Stay on the right even if the toolbar wraps the right group onto its own
+   line (auto margin wins over the container's justify-content). */
+.cmp-toolbar-right {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.cmp-connect-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cmp-connect-error {
+  font-size: 12px;
+  color: var(--color-danger);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmp-connect-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Metrics table */
+.cmp-metrics-wrap {
+  margin-top: 20px;
+}
+.cmp-metrics-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.cmp-table th,
+.cmp-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+.cmp-table th {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+.cmp-metric-label {
+  color: var(--text-secondary);
+}
+.cmp-metric-val {
+  font-variant-numeric: tabular-nums;
+}
+.cmp-better {
+  color: var(--color-success);
+  font-weight: 600;
+}
+.cmp-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-success);
+  color: #fff;
+}
+.cmp-delta {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--color-success);
+}
+.cmp-delta-bad {
+  color: var(--color-danger);
+}
+.cmp-error-row {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cmp-error {
+  color: var(--color-danger);
+  font-size: 13px;
+}
+.cmp-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Comparison result tables: prominent scrollbars + mild per-side tint */
+.cmp-pane-results .data-table-wrap {
+  scrollbar-color: var(--text-muted) var(--bg-sunken, rgba(0, 0, 0, 0.04));
+}
+.cmp-pane-results .data-table-wrap::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.cmp-pane-results .data-table-wrap::-webkit-scrollbar-track {
+  background: var(--bg-sunken, rgba(0, 0, 0, 0.04));
+  border-radius: 6px;
+}
+.cmp-pane-results .data-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 6px;
+  border: 2px solid var(--bg-page);
+}
+.cmp-pane-results .data-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+.cmp-pane-results .data-table-wrap::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Mild tint so the left (current) and right (experimental) result tables read
+   as visually distinct. Headers carry the stronger tint, cells a faint wash. */
+.cmp-pane-left .cmp-pane-results .data-table thead th {
+  background: var(--accent-soft, rgba(124, 58, 237, 0.1));
+}
+.cmp-pane-right .cmp-pane-results .data-table thead th {
+  background: var(--bg-hover);
+}
+.cmp-pane-left .cmp-pane-results .data-table-wrap {
+  border-top: 2px solid var(--accent, #7c3aed);
+}
+.cmp-pane-right .cmp-pane-results .data-table-wrap {
+  border-top: 2px solid var(--border-strong, var(--text-muted));
+}
