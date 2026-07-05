@@ -12,7 +12,7 @@
 
 If CHOps saves you time or you find it useful, please consider **starring this repository**. It genuinely helps.
 
-https://github.com/user-attachments/assets/3ec90a02-612d-409c-864d-2ff404a610e1
+[CHOps](https://github.com/user-attachments/assets/500f4237-5b82-46af-a49f-e6d8a20092cf)
 
 </div>
 
