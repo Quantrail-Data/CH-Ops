@@ -1,3 +1,4 @@
+
 <div align="center">
 
 # CHOps - Beta
@@ -10,6 +11,8 @@
 **[Homepage](https://ch-ops.io)** · **[Documentation](https://ch-ops.io/docs)** · **[Report a Bug](https://github.com/Quantrail-Data/CH-Ops/issues)**
 
 If CHOps saves you time or you find it useful, please consider **starring this repository**. It genuinely helps.
+
+https://github.com/user-attachments/assets/3ec90a02-612d-409c-864d-2ff404a610e1
 
 </div>
 
