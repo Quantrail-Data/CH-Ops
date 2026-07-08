@@ -189,6 +189,15 @@ export default function AlertRules() {
     }
   }
 
+    async function name() {
+    try {
+      const check = await runQuery(f.sql)
+      setResult({ ok: true, msg: "Query executed successfully" });
+    } catch (error) {
+      setResult({ ok: false, msg: error.message });
+    }
+  }
+
   async function remove(id) {
     try {
       await apiFetch(`/api/alerts/rules/${id}`, { method: "DELETE", body: {} });
@@ -487,6 +496,15 @@ export default function AlertRules() {
           >
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update" : "Create"}
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={name}
+            disabled={!f.name || !f.sql || !!cronError}
+            style={{marginLeft:"10px"}}
+          >
+            <Icon className="ti ti-send"></Icon>{" "}
+            Test
           </button>
         </div>
       )}
