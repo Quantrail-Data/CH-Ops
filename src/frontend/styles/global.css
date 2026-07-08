@@ -3224,6 +3224,7 @@ background: var(--bg-page);
 
 .profiler-popup-code {
   flex: 1;
+  max-height: 40vh;
   overflow: auto;
   background: var(--bg-surface);
   padding: 14px;
