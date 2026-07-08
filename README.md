@@ -1,3 +1,4 @@
+
 <div align="center">
 
 # CHOps - Beta
@@ -10,6 +11,8 @@
 **[Homepage](https://ch-ops.io)** · **[Documentation](https://ch-ops.io/docs)** · **[Report a Bug](https://github.com/Quantrail-Data/CH-Ops/issues)**
 
 If CHOps saves you time or you find it useful, please consider **starring this repository**. It genuinely helps.
+
+[CHOps](https://github.com/user-attachments/assets/500f4237-5b82-46af-a49f-e6d8a20092cf)
 
 </div>
 
@@ -85,10 +88,118 @@ curl http://your-clickhouse-host:8123/ping
 
 ```bash
 git clone https://github.com/Quantrail-Data/CH-Ops.git
-cd CH-Ops-main
+cd CH-Ops
 ```
 
-**2. Qdrant Installation:**
+**2. Install dependencies:**
+
+```bash
+bun install
+```
+
+**3. Create your configuration file.** CHOps reads its settings from a file named `.env`. Copy the provided example to create your own:
+
+```bash
+cp .env.example .env
+```
+
+This gives you a `.env` file that already contains every setting with comments explaining each one. You only need to change a few of them.
+
+**4. Edit `.env`** in any text editor (for example `nano .env`). Only **three** values are required to start the app; change these:
+
+```env
+SUPER_ADMIN_1=admin
+SUPER_ADMIN_1_PASSWORD=your_secure_password_here
+SESSION_SECRET=paste_a_random_string_here
+```
+
+- `SUPER_ADMIN_1` and `SUPER_ADMIN_1_PASSWORD` are the username and password you will use to log in the first time. Pick a strong password.
+- `SESSION_SECRET` must be a long random string. Generate one with:
+
+  ```bash
+  openssl rand -hex 32
+  ```
+
+  Copy the output and paste it as the value. This secret both signs your login sessions and encrypts the ClickHouse® passwords CHOps stores, so keep it private and do not change it later, or saved credentials become unreadable.
+
+Everything else in `.env` is **optional** and can be left as-is for now:
+
+- **SMTP_*** settings are only needed if you want alert emails.
+- **Qurioz AI / Qdrant** settings (`QDRANTLINK`, `QDRANTSCHEMANAME`, and the `VITE_...` AI URLs) are only needed for the optional AI features. Leave them blank for now; you can enable them later (see "Optional: Enable Qurioz AI" below). The core app runs fine without them.
+
+**5. Run the database migration** to create CHOps's internal SQLite tables:
+
+```bash
+bun run db:migrate
+```
+
+You should see "Database migration complete." This creates `data/chops.db`. (The database file keeps its original name for backward compatibility with existing installations.)
+
+---
+
+## Starting the App
+
+**Development mode** (auto-reloads on code changes):
+
+```bash
+bun run dev
+```
+
+This starts the backend API on port 3000 and the Vite frontend dev server on port 5173. Open `http://localhost:5173`.
+
+**Production mode** (optimized, single server):
+
+```bash
+bun run build
+bun src/backend/server.js
+```
+
+Open `http://localhost:3000`.
+
+**Docker** (no Bun installation needed). `SESSION_SECRET` is required (used for
+JWT signing and credential encryption); generate a strong random one.
+
+*Option A - Docker Compose (recommended).* Builds the image and runs it with a
+persistent named volume:
+
+```bash
+export SESSION_SECRET=$(openssl rand -hex 32)
+docker compose up -d --build
+```
+
+Rebuild after pulling new code with `docker compose up -d --build`. Stop with
+`docker compose down` (data survives; it lives in the `chops-data` volume).
+
+*Option B - Build and run the image by hand:*
+
+```bash
+# Build the image
+docker build -t chops:latest .
+
+# Run it (mount a volume so data/chops.db persists)
+docker run -d --name chops -p 3000:3000 \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -v chops-data:/app/data \
+  chops:latest
+```
+
+Open `http://localhost:3000`. Both options persist the SQLite database in the
+`chops-data` volume across restarts and image rebuilds.
+
+To seed a first super-admin on initial startup, also pass
+`-e SUPER_ADMIN_1=you@example.com -e SUPER_ADMIN_1_PASSWORD=...` (or set them in
+the compose environment / your `.env`).
+
+---
+
+## Optional: Enable Qurioz AI (Qdrant)
+
+Qurioz is CHOps's AI assistant. It is **completely optional**: set up and run the core app first (all the steps above), confirm you can log in, and only then come back here if you want the AI features. Qurioz needs a running [Qdrant](https://qdrant.tech/) vector database.
+
+After Qdrant is running (instructions below), open your `.env` file, fill in the Qurioz AI variables (`QDRANTLINK`, `QDRANTSCHEMANAME`, and the `VITE_...` AI URLs) following the comments in the file, then restart CHOps.
+
+### Linux (Debian/Ubuntu, systemd)
+
 #### Step 1: Download the Qdrant Debian Package
 
 Download the required Qdrant release package. Replace the version if you want to install a different release.
@@ -272,97 +383,6 @@ http://localhost:6333
 ```
 
 A successful installation displays the Qdrant welcome message, indicating that the server is running and ready to accept requests.
-
-**3. Install dependencies:**
-
-```bash
-bun install
-```
-
-**4. Create your configuration file:**
-
-```bash
-cp .env.example .env
-```
-
-**5. Edit `.env`** in any text editor. Three values are required:
-
-```env
-SUPER_ADMIN_1=admin
-SUPER_ADMIN_1_PASSWORD=your_secure_password_here
-SESSION_SECRET=paste_a_random_string_here
-```
-
-Generate a strong `SESSION_SECRET` with:
-
-```bash
-openssl rand -hex 32
-```
-
-The `SESSION_SECRET` does double duty: it signs session tokens and derives the AES-256-GCM key that encrypts your stored ClickHouse® passwords. Keep it secret and do not change it casually, or existing encrypted credentials become unreadable.
-
-**6. Run the database migration** to create CHOps's internal SQLite tables:
-
-```bash
-bun run db:migrate
-```
-
-You should see "Database migration complete." This creates `data/chops.db`. (The database file keeps its original name for backward compatibility with existing installations.)
-
----
-
-## Starting the App
-
-**Development mode** (auto-reloads on code changes):
-
-```bash
-bun run dev
-```
-
-This starts the backend API on port 3000 and the Vite frontend dev server on port 5173. Open `http://localhost:5173`.
-
-**Production mode** (optimized, single server):
-
-```bash
-bun run build
-bun src/backend/server.js
-```
-
-Open `http://localhost:3000`.
-
-**Docker** (no Bun installation needed). `SESSION_SECRET` is required (used for
-JWT signing and credential encryption); generate a strong random one.
-
-*Option A - Docker Compose (recommended).* Builds the image and runs it with a
-persistent named volume:
-
-```bash
-export SESSION_SECRET=$(openssl rand -hex 32)
-docker compose up -d --build
-```
-
-Rebuild after pulling new code with `docker compose up -d --build`. Stop with
-`docker compose down` (data survives; it lives in the `chops-data` volume).
-
-*Option B - Build and run the image by hand:*
-
-```bash
-# Build the image
-docker build -t chops:latest .
-
-# Run it (mount a volume so data/chops.db persists)
-docker run -d --name chops -p 3000:3000 \
-  -e SESSION_SECRET=$(openssl rand -hex 32) \
-  -v chops-data:/app/data \
-  chops:latest
-```
-
-Open `http://localhost:3000`. Both options persist the SQLite database in the
-`chops-data` volume across restarts and image rebuilds.
-
-To seed a first super-admin on initial startup, also pass
-`-e SUPER_ADMIN_1=you@example.com -e SUPER_ADMIN_1_PASSWORD=...` (or set them in
-the compose environment / your `.env`).
 
 ---
 
