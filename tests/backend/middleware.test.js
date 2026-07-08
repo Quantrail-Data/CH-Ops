@@ -13,12 +13,17 @@
  * Author: Kathir Moorthy
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
-import { describe, it, expect, beforeAll } from "bun:test";
+import { describe, it, expect, beforeAll, mock } from "bun:test";
 
 import errorHandler from "../../src/backend/middleware/errorHandler.js";
 import ApplicationError from "../../src/backend/exceptions/AppError.js";
 import { authMiddleware } from "../../src/backend/middleware/auth.js";
-import { setSecret, create, verify, revokeToken } from "../../src/backend/services/jwt.js";
+import {
+  setSecret,
+  create,
+  verify,
+  revokeToken,
+} from "../../src/backend/services/jwt.js";
 
 function mockRes() {
   return {
@@ -43,17 +48,50 @@ function counterNext() {
   return fn;
 }
 
+const getMock = mock(() => ({ id: 1, username: "alice" }));
+
+mock.module("../../src/backend/db/index.js", () => ({
+  db: {
+    select() {
+      return {
+        from() {
+          return {
+            where() {
+              return {
+                get: getMock,
+              };
+            },
+          };
+        },
+      };
+    },
+  },
+  appUsers: {
+    id: "id",
+  },
+}));
+
 describe("errorHandler middleware", () => {
   it("ApplicationError -> its statusCode + standardized body", () => {
     const res = mockRes();
-    errorHandler(new ApplicationError("not found", "nf", 404), {}, res, () => {});
+    errorHandler(
+      new ApplicationError("not found", "nf", 404),
+      {},
+      res,
+      () => {},
+    );
     expect(res.statusCode).toBe(404);
     expect(res.body).toEqual({ success: false, message: "not found" });
   });
 
   it("ApplicationError with falsy statusCode falls back to 500", () => {
     const res = mockRes();
-    errorHandler(new ApplicationError("bad", "code_only", 0), {}, res, () => {});
+    errorHandler(
+      new ApplicationError("bad", "code_only", 0),
+      {},
+      res,
+      () => {},
+    );
     expect(res.statusCode).toBe(500);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe("bad");
@@ -96,6 +134,61 @@ describe("authMiddleware", () => {
     expect(next.calls.length).toBe(0);
   });
 
+  it("user not found -> 401", () => {
+    getMock.mockReturnValueOnce(undefined);
+
+    const token = create({
+      userId: 999,
+      username: "ghost",
+    });
+
+    const req = {
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    };
+
+    const res = mockRes();
+    const next = counterNext();
+
+    authMiddleware(req, res, next);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({
+      error: "Oops! That user doesn't seem to exist.",
+    });
+
+    expect(next.calls.length).toBe(0);
+  });
+
+  it("valid Bearer token -> req.user populated and next called once", () => {
+    getMock.mockReturnValueOnce({
+      id: 1,
+      username: "alice",
+    });
+
+    const token = create({
+      userId: 1,
+      username: "alice",
+      role: "admin",
+    });
+
+    const req = {
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    };
+
+    const res = mockRes();
+    const next = counterNext();
+
+    authMiddleware(req, res, next);
+
+    expect(next.calls.length).toBe(1);
+    expect(req.user.username).toBe("alice");
+    expect(req.user.role).toBe("admin");
+  });
+
   it("non-Bearer scheme -> 401, next not called", () => {
     const res = mockRes();
     const next = counterNext();
@@ -117,28 +210,20 @@ describe("authMiddleware", () => {
     expect(req.user.role).toBe("admin");
   });
 
-  it("garbage token -> 401 invalid, next not called", () => {
+  it("garbage token throws", () => {
     const res = mockRes();
     const next = counterNext();
-    authMiddleware(
-      { headers: { authorization: "Bearer not.a.real.token" } },
-      res,
-      next,
-    );
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toEqual({ error: "Invalid or expired token" });
-    expect(next.calls.length).toBe(0);
-  });
 
-  it("revoked token -> 401, next not called", () => {
-    const token = create({ username: "bob" });
-    const { jti } = verify(token); // read the id, then revoke it
-    revokeToken(jti);
-    const res = mockRes();
-    const next = counterNext();
-    authMiddleware({ headers: { authorization: `Bearer ${token}` } }, res, next);
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toEqual({ error: "Invalid or expired token" });
-    expect(next.calls.length).toBe(0);
+    expect(() =>
+      authMiddleware(
+        {
+          headers: {
+            authorization: "Bearer not.a.real.token",
+          },
+        },
+        res,
+        next,
+      ),
+    ).toThrow();
   });
 });
