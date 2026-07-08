@@ -29,6 +29,8 @@ import { treeSizeTB } from "../../utils/treeChart.js";
 import { useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
+import { isValidSizeSqlQuery } from "../../utils/querySize.js";
+
 // Query history - stored in localStorage, capped at 100 entries
 const HISTORY_KEY = "chops_query_history";
 const HISTORY_MAX = 100;
@@ -736,6 +738,24 @@ export default function QueryEditor({
       return;
     }
 
+    if (!isValidSizeSqlQuery(text)) {
+      toast.warning("SQL content exceeds the 100 KB limit.");
+      setRunning(false);
+      setError(null);
+      setResult(null);
+      setResultCols([]);
+      setSuccessMsg(null);
+      setGraphData(null);
+      setGraphTitle("");
+      setQueryStats(null);
+      setEstimateResult(null);
+      setEstimating(false);
+      setLastQueryId(null);
+      setFeatureQueryId(null);
+      setMemoryUsage(null);
+      return;
+    }
+
     lastSqlRef.current = text;
 
     lastRunMetaRef.current = { written: 0 };
@@ -1404,44 +1424,41 @@ export default function QueryEditor({
                   aria-hidden="true"
                 ></Icon>
                 <div
-                style={{
-                  position:"relative"
-                }}
+                  style={{
+                    position: "relative",
+                  }}
                 >
                   <input
-                  className="form-input"
-                  type={isViewFlag ? "text" : "password"}
-                  style={{
-                    height: 28,
-                    width: 150,
-                    fontSize: "12px",
-                    padding: "0 6px",
-                    paddingRight:"30px"
-                  }}
-                  placeholder="password"
-                  title="ClickHouse password"
-                  aria-label="ClickHouse password"
-                  value={connPassword}
-                  onChange={(e) => setConnPassword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleConnect();
-                  }}
-                  autoComplete="off"
-                />
-                <div
-                onClick={()=>setIsViewFlag(!isViewFlag)}
-                >
-                  <Icon
-                className={isViewFlag ?"ti ti-eye-off" :"ti ti-eye" }
-                style={{
-                  position:"absolute",
-                  right:"10px",
-                  top:"17%",
-                  fontSize:"17px"
-                }}
-                
-                />
-                </div>
+                    className="form-input"
+                    type={isViewFlag ? "text" : "password"}
+                    style={{
+                      height: 28,
+                      width: 150,
+                      fontSize: "12px",
+                      padding: "0 6px",
+                      paddingRight: "30px",
+                    }}
+                    placeholder="password"
+                    title="ClickHouse password"
+                    aria-label="ClickHouse password"
+                    value={connPassword}
+                    onChange={(e) => setConnPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleConnect();
+                    }}
+                    autoComplete="off"
+                  />
+                  <div onClick={() => setIsViewFlag(!isViewFlag)}>
+                    <Icon
+                      className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "17%",
+                        fontSize: "17px",
+                      }}
+                    />
+                  </div>
                 </div>
               </span>
               <button
