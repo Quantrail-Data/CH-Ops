@@ -2,7 +2,7 @@
 // author -> (Ravivarman, Dhivyadharshini)
 // Manages connections to a ClickHouse database, stores successful connections, and handles various connection errors such as invalid host, port, credentials, or database name.
 
-const farmhash = require("farmhash");
+const crypto = require("crypto");
 const {
   ClickHouseInvalidDatabaseError,
   ClickHouseInvalidUsernameError,
@@ -34,7 +34,11 @@ class DatabaseConnectionService {
       `${this.credentials.host}|` +
       `${this.credentials.port}`;
 
-    return farmhash.fingerprint64(identity).toString();
+    return crypto
+     .createHash("sha256")
+     .update(identity)
+     .digest("hex");
+
   }
 
   async registerConnection() {
