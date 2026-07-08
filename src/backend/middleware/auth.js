@@ -16,7 +16,7 @@ export function authMiddleware(req, res, next) {
           .where(eq(appUsers.id, user.userId))
           .get();
 
-  if(!findUser) return res.status(401).json({error:"Oops! That user doesn't seem to exist"})
+  if(!findUser) return res.status(401).json({error:"Oops! That user doesn't seem to exist."})
   try {
     req.user = user
     next();
