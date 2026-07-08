@@ -105,25 +105,25 @@ app.get('/api/version', (req, res) => res.json(appVersion));
 // RBAC (superadmin checks) is handled inside the route files and controllers,
 // not here - so authMiddleware just verifies "is logged in", not "is admin".
 app.use('/api/query', authMiddleware, rateLimiter(10000, 60), express.json({ limit: '100kb' }), queryRoute);
-app.use('/api/editor', authMiddleware, editorRoute);
-app.use('/api/config', authMiddleware, configRoute);
-app.use('/api/settings', authMiddleware, settingsRoute);
-app.use('/api/alerts', authMiddleware, alertsRoute);
-app.use('/api/dashboards', authMiddleware, dashboardsRoute);
-app.use('/api/users', authMiddleware, usersRoute);
-app.use('/api/cluster', authMiddleware, clusterRoute);
-app.use('/api/app-backup', authMiddleware, appBackupRoute);
-app.use('/api/qurioz/api-keys', authMiddleware, apiKeysRoute);
-app.use("/api/table/download", authMiddleware, DownloadRouter);
+app.use('/api/editor', authMiddleware,rateLimiter(10000, 60), editorRoute);
+app.use('/api/config', authMiddleware,rateLimiter(10000, 60), configRoute);
+app.use('/api/settings', authMiddleware,rateLimiter(10000, 60), settingsRoute);
+app.use('/api/alerts', authMiddleware,rateLimiter(10000, 60), alertsRoute);
+app.use('/api/dashboards', authMiddleware,rateLimiter(10000, 60), dashboardsRoute);
+app.use('/api/users', authMiddleware,rateLimiter(10000, 60), usersRoute);
+app.use('/api/cluster', authMiddleware,rateLimiter(10000, 60), clusterRoute);
+app.use('/api/app-backup', authMiddleware,rateLimiter(10000, 60), appBackupRoute);
+app.use('/api/qurioz/api-keys', authMiddleware,rateLimiter(10000, 60), apiKeysRoute);
+app.use("/api/table/download", authMiddleware,rateLimiter(10000, 60), DownloadRouter);
 
 
 
 // AI chat routes use
 // connection of database and deletion of database
-app.use("/api/ai/database", authMiddleware,databaseAIConnection);
+app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
 // Generating the query
-app.use("/api/ai/sql",authMiddleware, sqlAIChat);
-app.use("/api/schema-studio", authMiddleware, schemaStudioRoute);
+app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
+app.use("/api/schema-studio", authMiddleware,rateLimiter(10000, 60), schemaStudioRoute);
 
 // Docs
 
