@@ -482,12 +482,12 @@ A complete grant script with comments ships at [`clickhouse-user-setup.sql`](cli
 
 CHOps has four application roles, separate from ClickHouse®'s own users.
 
-| Role            | Capabilities                                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Super Admin** | Full access. Can be seeded from `.env` for first-time setup or recovery, or created in the UI. Maximum of 3.                                      |
-| **Admin**       | Same access as super admin but UI-created only. Cannot change or delete super admins.                                                             |
-| **Editor**      | All sections except user and cluster management. Can build dashboards and charts and use the SQL editor. Cannot manage alerts, backups, or users. |
-| **Readonly**    | View-only across overview, SQL editor, dashboards, logs, monitoring, and alerts. Cannot create, edit, or delete anything.                         |
+| Role | Capabilities |
+| --- | --- |
+| **Super Admin** | Full access. Can be seeded from `.env` for first-time setup or recovery, or created in the UI. Maximum of 3. |
+| **Admin** | Same access as super admin but UI-created only. Cannot change or delete super admins. |
+| **Editor** | All sections except user and cluster management. Can build dashboards and charts and use the SQL editor. Cannot manage alerts, backups, indexes, projections, or users. |
+| **Readonly** | View-only across overview, SQL editor, dashboards, logs, monitoring, and alerts. Cannot create, edit, or delete anything. |
 
 Role changes follow a strict hierarchy: super admins can change admins, editors, and readonly users; admins can change editors and readonly users; nobody can change a super admin's role.
 
@@ -644,6 +644,12 @@ What we **do** welcome right now:
 Once the CLA is ready, we will update this section with contribution guidelines and open the project to pull requests.
 
 And if you have read this far and like what you see, **please consider starring the repository**. It genuinely helps.
+
+---
+
+## Acknowledgements
+
+We used AI tools to scaffold the initial code, then our team designed, built, tested, and hardened the application from that foundation. CHOps is actively maintained and built for the long run. Found a bug or want a feature? Open an issue and we'll take a look; we're keen to make it work for your setup.
 
 ---
 
