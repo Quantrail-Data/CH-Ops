@@ -974,7 +974,6 @@ export const PAGE_TEXT = {
     "Cancel",
     "Add API Key",
     "No API keys configured yet.",
-    "Add First API Key",
     "Confirm Delete",
     "No, Cancel",
     "Yes, Delete"
