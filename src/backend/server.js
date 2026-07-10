@@ -43,6 +43,8 @@ import clusterRoute from './routes/cluster.js';
 import appBackupRoute from './routes/appBackup.js';
 import apiKeysRoute from './routes/apiKeys.js';
 import DownloadRouter from "./routes/downloadFile.js";
+import ForgetRouter from "./routes/forgetPassword.js";
+
 
 import databaseAIConnection from "./routes/databaseAIConnection.js";
 import sqlAIChat from "./routes/sqlAIChat.js";
@@ -99,7 +101,7 @@ app.use((req, res, next) => { req.env = env; next(); });
 app.use('/api/auth', rateLimiter(100, 60), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/version', (req, res) => res.json(appVersion));
-
+app.use(`/api/forget-password`,ForgetRouter);
 // Protected routes - authMiddleware checks the JWT on every request.
 // /api/query has an extra 100kb body limit to prevent oversized SQL payloads.
 // RBAC (superadmin checks) is handled inside the route files and controllers,
