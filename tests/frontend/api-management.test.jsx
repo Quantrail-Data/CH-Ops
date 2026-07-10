@@ -27,6 +27,14 @@ vi.mock('../../src/frontend/utils/api.js', () => ({
   setGlobalConnection: (...args) => mockSetGlobalConnection(...args),
 }));
 
+vi.mock('../../src/frontend/App.jsx', () => ({
+  useAuth: () => ({
+    auth: {
+      role: 'admin',
+    },
+  }),
+}));
+
 function setupMatchMedia(matches = false, withModernApi = true) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
