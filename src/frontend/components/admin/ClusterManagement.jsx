@@ -7,14 +7,13 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch } from '../../utils/api.js';
 import { useToast } from '../layout/Toast.jsx';
 import { useConnection } from '../../App.jsx';
+import { useAuth } from '../../App.jsx';
 
 const MAX_CLUSTERS = 3;
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
-
-
-function NodeClusterComponent({ n, testNode, i, removeNode, updateNode, tr,editing }) {
+function NodeClusterComponent({ n, testNode, i, removeNode, updateNode, tr, editing }) {
   const [showPassword, setShowPassword] = useState(false);
-
 
   return (<div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 100px 1fr 1fr auto auto auto', gap: 8, marginBottom: 8, alignItems: 'end' }}>
     <div className="form-group"><label className="form-label">Name *</label><input className="form-input" value={n.name} onChange={e => updateNode(i, 'name', e.target.value)} placeholder="node-1" /></div>
@@ -48,8 +47,12 @@ function NodeClusterComponent({ n, testNode, i, removeNode, updateNode, tr,editi
 export default function ClusterManagement() {
   const toast = useToast();
   const { reloadConfig } = useConnection();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [clusters, setClusters] = useState([]);
-  const [editing, setEditing] = useState(null); // cluster id being edited
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', nodes: [] });
   const [showForm, setShowForm] = useState(false);
   const [testResults, setTestResults] = useState({});
@@ -114,7 +117,7 @@ export default function ClusterManagement() {
 
   async function remove(id) {
     try {
-      await apiFetch(`/api/cluster/${id}`, { method: 'DELETE',body:{} });
+      await apiFetch(`/api/cluster/${id}`, { method: 'DELETE', body: {} });
       toast.success('Cluster deleted.');
       load();
       if (reloadConfig) reloadConfig();
@@ -128,7 +131,7 @@ export default function ClusterManagement() {
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
           <button className="btn btn-secondary btn-sm" onClick={load}><Icon className="ti ti-refresh"></Icon></button>
           {!showForm && clusters.length < MAX_CLUSTERS && (
-            <button className="btn btn-primary btn-sm" onClick={startNew}><Icon className="ti ti-plus"></Icon> New Cluster</button>
+            <button className="btn btn-primary btn-sm" onClick={startNew} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> New Cluster</button>
           )}
           {showForm && (
             <button className="btn btn-secondary btn-sm" onClick={() => { setShowForm(false); setEditing(null); }}><Icon className="ti ti-x"></Icon> Cancel</button>
@@ -177,8 +180,8 @@ export default function ClusterManagement() {
                   <span style={{ color: 'var(--text-muted)', fontSize: '13px', marginLeft: 8 }}>{c.nodes.length} node{c.nodes.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => startEdit(c)}><Icon className="ti ti-edit"></Icon> Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => remove(c.id)}><Icon className="ti ti-trash"></Icon></button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => startEdit(c)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-edit"></Icon> Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => remove(c.id)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon></button>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -12,7 +12,9 @@ import DataTable from "../layout/DataTable.jsx";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
+import { useAuth } from "../../App.jsx";
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const ACCESS_TYPES = [
   "SELECT",
   "INSERT",
@@ -59,9 +61,15 @@ function useTableList(db) {
 export default function RbacUsers() {
   const { tab: routeTab = "list" } = useParams();
   const navigate = useNavigate();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
 
   const handleTabChange = (newTab) => {
-    navigate(`/rbac/users/${newTab}`, { replace: true });
+    if (newTab === 'list' || isAdmin) {
+      navigate(`/rbac/users/${newTab}`, { replace: true });
+    }
   };
 
   const usersQ = useQuery(),
@@ -106,13 +114,13 @@ export default function RbacUsers() {
         </h2>
       </div>
       <AlertBanner result={result} setResult={setResult} />
-      {/* {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></button></div>} */}
       <div className="tab-bar">
         {tabs.map((t) => (
           <div
             key={t.id}
             className={`tab-item ${routeTab === t.id ? "active" : ""}`}
             onClick={() => handleTabChange(t.id)}
+            style={t.id !== 'list' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <Icon className={`ti ${t.i}`}></Icon> {t.l}
           </div>
@@ -163,6 +171,10 @@ export default function RbacUsers() {
 }
 
 function CreateUser({ clusters, roles, setResult, onSuccess }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const dbsQ = useDbList();
   const [f, setF] = useState({
     name: "",
@@ -231,6 +243,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             required
             value={f.name}
             onChange={(e) => u("name", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
         </div>
         <div className="form-group">
@@ -239,6 +253,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.authMethod}
             onChange={(e) => u("authMethod", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             {AUTH_METHODS.map((a) => (
               <option key={a.v} value={a.v}>
@@ -247,7 +263,6 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             ))}
           </Select>
         </div>
-        {/* <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" value={f.password} onChange={e => u('password', e.target.value)} disabled={f.authMethod === 'no_password'} /></div> */}
         <div className="form-group">
           <label className="form-label">Password</label>
           <div className="" style={{ width: "100%", position: "relative" }}>
@@ -257,7 +272,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
               style={{ width: "100%", paddingRight: "35px" }}
               value={f.password}
               onChange={(e) => u("password", e.target.value)}
-              disabled={f.authMethod === "no_password"}
+              disabled={f.authMethod === "no_password" || !isAdmin}
             />
             <div
               className="password-eye"
@@ -289,6 +304,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.onCluster}
             onChange={(e) => u("onCluster", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {clusters.map((c) => (
@@ -302,6 +319,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.defaultDb}
             onChange={(e) => u("defaultDb", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">None</option>
             {dbsQ.data?.map((r) => (
@@ -315,6 +334,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.defaultRole}
             onChange={(e) => u("defaultRole", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {roles.map((r) => (
@@ -338,6 +359,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             value={f.hostIp}
             onChange={(e) => u("hostIp", e.target.value)}
             placeholder="optional"
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
         </div>
         <div className="form-group">
@@ -347,12 +370,14 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
             type="datetime-local"
             value={f.validUntil}
             onChange={(e) => u("validUntil", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
         </div>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit">
+        <button className="btn btn-primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-plus"></Icon> Create
         </button>
       </div>
@@ -361,6 +386,10 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
 }
 
 function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const dbsQ = useDbList();
   const [sel, setSel] = useState("");
   const [f, setF] = useState({
@@ -463,6 +492,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             required
             value={sel}
             onChange={(e) => setSel(e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {users.map((u) => (
@@ -476,6 +507,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             className="form-input"
             value={f.rename}
             onChange={(e) => u("rename", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
         </div>
         <div className="form-group">
@@ -484,6 +517,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.onCluster}
             onChange={(e) => u("onCluster", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {clusters.map((c) => (
@@ -506,6 +541,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.authMethod}
             onChange={(e) => u("authMethod", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             {AUTH_METHODS.map((a) => (
               <option key={a.v} value={a.v}>
@@ -514,7 +551,6 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             ))}
           </Select>
         </div>
-        {/* <div className="form-group"><label className="form-label">New Password</label><input className="form-input" type="password" value={f.password} onChange={e => u('password', e.target.value)} disabled={f.authMethod === 'no_password'} /></div> */}
         <div className="form-group">
           <label className="form-label">New Password</label>
 
@@ -525,7 +561,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               type={showPassword ? "text" : "password"}
               value={f.password}
               onChange={(e) => u("password", e.target.value)}
-              disabled={f.authMethod === "no_password"}
+              disabled={f.authMethod === "no_password" || !isAdmin}
             />
             <div
               className="password-eye"
@@ -550,7 +586,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             style={{
               display: "flex",
               gap: 6,
-              cursor: "pointer",
+              cursor: isAdmin ? "pointer" : "not-allowed",
               fontSize: "14px",
             }}
           >
@@ -559,6 +595,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               checked={f.resetAuth}
               onChange={(e) => u("resetAuth", e.target.checked)}
               style={{ accentColor: "var(--accent)" }}
+              disabled={!isAdmin}
             />{" "}
             RESET AUTH
           </label>
@@ -578,6 +615,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.defaultDb}
             onChange={(e) => u("defaultDb", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {dbsQ.data?.map((r) => (
@@ -601,6 +640,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.defaultRole}
             onChange={(e) => u("defaultRole", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {roles.map((r) => (
@@ -631,6 +672,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             className="form-select"
             value={f.hostAction}
             onChange={(e) => u("hostAction", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             <option value="add">ADD HOST</option>
@@ -653,6 +696,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               className="form-input"
               value={f.hostIp}
               onChange={(e) => u("hostIp", e.target.value)}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             />
           </div>
         )}
@@ -663,6 +708,8 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             type="datetime-local"
             value={f.validUntil}
             onChange={(e) => u("validUntil", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
         </div>
       </div>
@@ -682,6 +729,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             onChange={(e) => u("addSettings", e.target.value)}
             placeholder="var = value, ..."
             style={{ fontFamily: "var(--font-code)" }}
+            disabled={!isAdmin}
           />
         </div>
         <div className="form-group">
@@ -692,6 +740,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             onChange={(e) => u("dropSettings", e.target.value)}
             placeholder="var, ..."
             style={{ fontFamily: "var(--font-code)" }}
+            disabled={!isAdmin}
           />
         </div>
         <div className="form-group">
@@ -701,6 +750,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             value={f.addProfiles}
             onChange={(e) => u("addProfiles", e.target.value)}
             placeholder="profile_name"
+            disabled={!isAdmin}
           />
         </div>
         <div className="form-group">
@@ -710,12 +760,13 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             value={f.dropProfiles}
             onChange={(e) => u("dropProfiles", e.target.value)}
             placeholder="profile_name"
+            disabled={!isAdmin}
           />
         </div>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!sel}>
+        <button className="btn btn-primary" type="submit" disabled={!sel || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-edit"></Icon> Alter
         </button>
       </div>
@@ -724,6 +775,10 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
 }
 
 function GrantRevoke({ users, roles, clusters, setResult }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const dbsQ = useDbList();
   const [f, setF] = useState({
     user: "",
@@ -781,6 +836,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
             value={f.user}
             onChange={(e) => u("user", e.target.value)}
             required
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {users.map((u) => (
@@ -794,6 +851,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
             className="form-select"
             value={f.action}
             onChange={(e) => u("action", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="grant">Grant</option>
             <option value="revoke">Revoke</option>
@@ -805,6 +864,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
             className="form-select"
             value={f.accessType}
             onChange={(e) => u("accessType", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             {ACCESS_TYPES.map((a) => (
               <option key={a}>{a}</option>
@@ -820,6 +881,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
               u("database", e.target.value);
               u("table", "*");
             }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="*">* (all)</option>
             {dbsQ.data?.map((r) => (
@@ -833,6 +896,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
             className="form-select"
             value={f.table}
             onChange={(e) => u("table", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="*">* (all)</option>
             {tblsQ.data?.map((r) => (
@@ -846,6 +911,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
             className="form-select"
             value={f.onCluster}
             onChange={(e) => u("onCluster", e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {clusters.map((c) => (
@@ -856,7 +923,7 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!f.user}>
+        <button className="btn btn-primary" type="submit" disabled={!f.user || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-key"></Icon> Execute
         </button>
       </div>
@@ -865,6 +932,10 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
 }
 
 function DropUser({ users, clusters, setResult, onSuccess }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [sel, setSel] = useState("");
   const [onCluster, setOnCluster] = useState("");
   const [confirm, setConfirm] = useState(false);
@@ -915,6 +986,8 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
             className="form-select"
             value={sel}
             onChange={(e) => setSel(e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {users.map((u) => (
@@ -928,6 +1001,8 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
             className="form-select"
             value={onCluster}
             onChange={(e) => setOnCluster(e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {clusters.map((c) => (
@@ -940,8 +1015,9 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
       <div style={{ marginTop: 16 }}>
         <button
           className="btn btn-danger"
-          disabled={!sel}
+          disabled={!sel || !isAdmin}
           onClick={() => setConfirm(true)}
+          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop
         </button>

@@ -7,11 +7,17 @@ import {
   getActiveApiKey,
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import { useAuth } from "../../App.jsx";
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const AI_PROVIDERS = ["GEMINI", "OPEN AI","MISTRAL","CLAUDE"]
 
 export default function ApiManagement() {
   const toast = useToast();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedKeyId, setSelectedKeyId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -502,8 +508,6 @@ export default function ApiManagement() {
     <div className="page-content">
       <div className="section-header">
         <h2 className="section-title">
-          {/* <Icon className="ti ti-api"></Icon> 
-          */}
           <Icon className="ti ti-ai"></Icon>
           API Key Management 
         </h2>
@@ -616,6 +620,8 @@ export default function ApiManagement() {
                         className="btn btn-secondary btn-sm"
                         onClick={() => selectActiveKey(key.id)}
                         title="Set as active"
+                        disabled={!isAdmin}
+                        style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                       >
                         <Icon className="ti ti-check"></Icon>
                       </button>
@@ -624,6 +630,8 @@ export default function ApiManagement() {
                       className="btn btn-secondary btn-sm"
                       onClick={() => editKey(key)}
                       title="Edit key"
+                      disabled={!isAdmin}
+                      style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                     >
                       <Icon className="ti ti-edit"></Icon>
                     </button>
@@ -631,6 +639,8 @@ export default function ApiManagement() {
                       className="btn btn-danger btn-sm"
                       onClick={() => confirmDelete(key.id, key.name)}
                       title="Delete key"
+                      disabled={!isAdmin}
+                      style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                     >
                       <Icon className="ti ti-trash"></Icon>
                     </button>
@@ -651,10 +661,13 @@ export default function ApiManagement() {
                 className="form-input"
                 onChange={(e) => setFormKeyName(e?.target?.value)}
                 value={formKeyName || ""}
+                disabled={!isAdmin}
                 style={{
                   width: "100%",
                   maxWidth: 520,
                   fontSize: "14px",
+                  opacity: !isAdmin ? 0.35 : 1,
+                  cursor: !isAdmin ? 'not-allowed' : 'pointer',
                 }}
               >
                <option value={""} selected>Select AI Provider</option>
@@ -681,10 +694,13 @@ export default function ApiManagement() {
                 placeholder={`${ModelExamplesPlaceholder(formKeyName)}`}
                 required
                 autoFocus
+                disabled={!isAdmin}
                 style={{
                   width: "100%",
                   maxWidth: 520,
                   fontSize: "14px",
+                  opacity: !isAdmin ? 0.35 : 1,
+                  cursor: !isAdmin ? 'not-allowed' : 'auto',
                 }}
               />
             </div>
@@ -704,17 +720,21 @@ export default function ApiManagement() {
                   onChange={(e) => setFormKeyValue(e.target.value)}
                   placeholder="Enter your API key (OpenAI: sk-..., Gemini: AIza..., X.AI: xai-..., HF: hf_...)"
                   required
+                  disabled={!isAdmin}
                   style={{
                     width: "100%",
                     fontFamily: "var(--font-code)",
                     fontSize: "14px",
                     paddingRight: "46px",
+                    opacity: !isAdmin ? 0.35 : 1,
+                    cursor: !isAdmin ? 'not-allowed' : 'auto',
                   }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(!showKey)}
                   title={showKey ? "Hide" : "Show"}
+                  disabled={!isAdmin}
                   style={{
                     position: "absolute",
                     right: "14px",
@@ -725,12 +745,13 @@ export default function ApiManagement() {
                     padding: 0,
                     margin: 0,
                     lineHeight: 1,
-                    cursor: "pointer",
+                    cursor: !isAdmin ? "not-allowed" : "pointer",
                     color: "var(--text-muted)",
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
                     zIndex: 2,
+                    opacity: !isAdmin ? 0.35 : 1,
                   }}
                 >
                   {showKey ? <Icon className="ti ti-eye-off" style={{ fontSize: 20 }} /> : <Icon className="ti ti-eye" style={{ fontSize: 20 }} />}
@@ -750,7 +771,7 @@ export default function ApiManagement() {
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <button className="btn btn-primary" type="submit">
+              <button className="btn btn-primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
                 <Icon className="ti ti-device-floppy"></Icon>{" "}
                 {editingKey ? "Update Key" : "Save Key"}
               </button>
@@ -764,7 +785,7 @@ export default function ApiManagement() {
             </div>
           </form>
         ) : (
-          apiKeys.length < 3 && (
+          apiKeys.length < 3 && isAdmin && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
               <button className="btn btn-primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key
@@ -784,9 +805,6 @@ export default function ApiManagement() {
             >
               No API keys configured yet.
             </p>
-            {/*<button className="btn btn-primary" onClick={startAddNew}>
-             <Icon className="ti ti-plus"></Icon> Add First API Key
-            </button> */}
           </div>
         )}
       </div>
