@@ -72,7 +72,7 @@ describe('Login layout: logo cannot overlap the form', () => {
 
   it('logo image is responsive (capped width, auto height), not a fixed 400px', () => {
     expect(code).toContain('width: "100%"');
-    expect(code).toContain('maxWidth: "400px"');
+    expect(code).toContain('maxWidth: "350px"');
     expect(code).toContain('height: "auto"');
     expect(code).not.toContain('width: "400px", pointerEvents');
   });
