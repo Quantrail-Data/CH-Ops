@@ -37,11 +37,11 @@ describe('DataTable', () => {
     expect(screen.getByText('No data found.')).toBeInTheDocument();
   });
 
-  it('fires onCellClick with cell value', () => {
-    const fn = vi.fn();
-    render(<DataTable rows={[{ x: 'clickme' }]} columns={['x']} onCellClick={fn} />);
-    fireEvent.click(screen.getByText('clickme'));
-    expect(fn).toHaveBeenCalledWith('clickme');
+  it('fires onCellDoubleClick with cell value', () => {     
+    const fn = vi.fn();     
+    render(<DataTable rows={[{ x: 'clickme' }]} columns={['x']} onCellClick={fn} />);     
+    fireEvent.doubleClick(screen.getByText('clickme'));     
+    expect(fn).toHaveBeenCalledWith('clickme');   
   });
 
   it('renders actions column with header', () => {
