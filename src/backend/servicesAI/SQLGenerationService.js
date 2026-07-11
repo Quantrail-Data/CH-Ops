@@ -124,7 +124,12 @@ class SQLGenerationService {
 
         CANNOT_GENERATE_SQL
      `;
-    const sql = await this.AIProvider.ask(prompt);
+    let sql = await this.AIProvider.ask(prompt);
+    sql = sql
+      .trim()
+      .replace(/^```(?:sql)?\s*/i, "") 
+      .replace(/\s*```$/i, "") 
+      .trim();
     if (sql.trim() === "CANNOT_GENERATE_SQL") {
       return {
         success: true,

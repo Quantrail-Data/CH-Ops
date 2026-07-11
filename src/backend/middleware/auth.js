@@ -7,6 +7,7 @@ import { appUsers, db } from '../db/index.js';
 import { verify } from '../services/jwt.js';
 
 export function authMiddleware(req, res, next) {
+  console.log("hi")
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing authorization' });
   const user = verify(auth.slice(7));
@@ -17,6 +18,7 @@ export function authMiddleware(req, res, next) {
           .get();
 
   if(!findUser) return res.status(401).json({error:"Oops! That user doesn't seem to exist."})
+    console.log("hi")
   try {
     req.user = user
     next();

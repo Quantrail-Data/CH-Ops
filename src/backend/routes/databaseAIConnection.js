@@ -55,6 +55,7 @@ router.post("/connect", async (req, res, next) => {
       ingestion: ingestionResult,
     });
   } catch (error) {
+    console.log(error)
     console.log(error?.message);
     next(error);
   }

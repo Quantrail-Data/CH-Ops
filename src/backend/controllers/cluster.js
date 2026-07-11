@@ -163,6 +163,7 @@ export async function testConnection(req, res) {
       uptime: result.rows?.[0]?.uptime,
     });
   } catch (err) {
+    console.log(err)
     res.status(500).json({ ok: false, error: err.message });
   }
 }

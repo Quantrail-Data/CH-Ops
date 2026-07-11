@@ -308,6 +308,7 @@ export default function ApiManagement() {
       await loadApiKeys();
       await updateGlobalActiveKey();
     } catch (err) {
+      console.log(err)
       toast.error("Failed to save API key: " + err.message);
     }
   }
@@ -374,8 +375,8 @@ export default function ApiManagement() {
   }
 
   function startAddNew() {
-    if (apiKeys.length >= 3) {
-      toast.warning("Maximum 3 API keys allowed");
+    if (apiKeys.length >= 5) {
+      toast.warning("Maximum 4 API keys allowed");
       return;
     }
     setShowAddForm(true);
@@ -539,7 +540,7 @@ export default function ApiManagement() {
             }}
           >
             Configure up to 3 API keys for AI-powered query assistance and
-            insights. Supports OpenAI, Google Gemini
+            insights. Supports OpenAI, Google Gemini,Mistral,Claude
           </p>
         </div>
 
@@ -785,7 +786,7 @@ export default function ApiManagement() {
             </div>
           </form>
         ) : (
-          apiKeys.length < 3 && isAdmin && (
+          apiKeys.length < 4 && isAdmin && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
               <button className="btn btn-primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key
