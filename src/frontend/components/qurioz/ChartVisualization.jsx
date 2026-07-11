@@ -15,11 +15,18 @@ import {
 import { initChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import DataTable from "../layout/DataTable";
-import { useQuriozChatContext } from "../../App.jsx";
+import { useQuriozChatContext, useAuth } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
+
 function ChartVisualization({ editChart, data = [], chatMessage }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
+
   const [columns, setColumns] = useState(
     data?.length > 0 ? Object.keys(data[0]) : [],
   );
@@ -202,7 +209,6 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
           });
           toast.success("Chart updated.");
         } else {
-          // Auto-fill: find next available position
           const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
           const dash = dashboards.find((d) => d.id === dashId);
           const cols = dash?.columns || 2;
@@ -246,7 +252,6 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
         setChartOption(null);
         previewRef.current = null;
         previewInst.current = null;
-        // if (onEditDone) onEditDone();
       }
     }
 
@@ -582,7 +587,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                       </div>
                     )}
                 </div>
-                  {chartOption && (
+                  {chartOption && canAddToDashboard && (
                                       <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
                       <div className="form-group" style={{ flex: 1 }}>
                         <label className="form-label">Dashboard *</label>
@@ -602,7 +607,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                       <button
                         className="btn btn-primary"
                         onClick={saveChart}
-                        disabled={!chartOption || !selDashboard} //|| !sql.trim()
+                        disabled={!chartOption || !selDashboard}
                       >
                         <Icon className="ti ti-device-floppy"></Icon>{" "}
                        Save
