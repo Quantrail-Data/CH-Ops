@@ -13,8 +13,24 @@ import {
 } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
 
+// Never send decrypted node passwords to the client. Only expose whether one
+// is set; the frontend leaves the password field blank on edit to keep it
+// unchanged, and updateCluster() below preserves the stored value in that case.
+// Applied to every response that touches cluster/node data (list, create, update) -
+// not just listClusters - since createCluster/updateCluster otherwise echo back
+// the full decrypted node (including passwords merged in from storage).
+function maskClusterPasswords(cluster) {
+  return {
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  };
+}
+
 export function listClusters(req, res) {
-  res.json(getAllClusters());
+  res.json(getAllClusters().map(maskClusterPasswords));
 }
 
 export function createCluster(req, res) {
@@ -74,7 +90,7 @@ export function createCluster(req, res) {
     saveClusters(clusters);
 
 
-    return res.status(201).json(newCluster);
+    return res.status(201).json(maskClusterPasswords(newCluster));
   } catch (error) {
     return res.status(500).json({
       error: error.message || "Internal server error",
@@ -111,7 +127,17 @@ export function updateCluster(req, res) {
     }
     clusters[idx].name = name.trim();
     if (nodes !== undefined) {
-      const nodeArr = Array.isArray(nodes) ? nodes : [];
+      const existingNodes = clusters[idx].nodes || [];
+      // The client never receives decrypted passwords (see listClusters), so a
+      // blank password here means "unchanged" rather than "clear it" - keep the
+      // previously stored password for that node.
+      const nodeArr = (Array.isArray(nodes) ? nodes : []).map((n) => {
+        if (!n.password) {
+          const existing = existingNodes.find((e) => e.name === n.name);
+          if (existing?.password) return { ...n, password: existing.password };
+        }
+        return n;
+      });
       const err = validateNodes(nodeArr, clusters, idx);
       if (err) return res.status(400).json({ error: err });
       clusters[idx].nodes = nodeArr;
@@ -120,7 +146,7 @@ export function updateCluster(req, res) {
     saveClusters(clusters);
 
 
-    res.json(clusters[idx]);
+    res.json(maskClusterPasswords(clusters[idx]));
   } catch (error) {
     res.status(500).json(error.message);
   }

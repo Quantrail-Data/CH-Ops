@@ -25,7 +25,7 @@ function NodeClusterComponent({ n, testNode, i, removeNode, updateNode, tr, edit
 
       <div className='' style={{ width: "100%", position: "relative" }}>
 
-        <input className="form-input" style={{ width: "100%", paddingRight: "35px" }} type={showPassword ? 'text' : 'password'} value={n.password} onChange={e => updateNode(i, 'password', e.target.value)} />
+        <input className="form-input" style={{ width: "100%", paddingRight: "35px" }} type={showPassword ? 'text' : 'password'} value={n.password || ''} onChange={e => updateNode(i, 'password', e.target.value)} placeholder={n.hasPassword ? '(unchanged - enter a new password to replace it)' : ''} />
         <div
           className='password-eye'
           style={{ position: "absolute", right: "15px", top: "22%", cursor: "pointer" }}

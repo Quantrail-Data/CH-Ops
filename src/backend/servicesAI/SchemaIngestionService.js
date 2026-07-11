@@ -44,8 +44,9 @@ class SchemaIngestionService {
     });
 
     const json = await result.json();
-    console.log("SHOW CREATE TABLE RESULT:");
-    console.log(JSON.stringify(json, null, 2));
+    // Not logged: SHOW CREATE TABLE embeds connection strings (incl.
+    // credentials) directly in the DDL for external-engine tables (MySQL,
+    // PostgreSQL, S3, etc.), so dumping this to the server console would leak them.
     return json.data[0].statement;
   }
 

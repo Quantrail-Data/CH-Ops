@@ -4,8 +4,6 @@
 
 class EmbeddingService {
   async embed(text) {
-    console.log("Embedding request:", text);
-
     return new Array(3072).fill(0);
   }
 }
