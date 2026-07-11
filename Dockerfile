@@ -7,7 +7,7 @@
 # Or:     docker compose up
 
 # --- Stage 1: Build ---
-FROM oven/bun:1.3.13-alpine AS builder
+FROM oven/bun:1.3.14-alpine AS builder
 WORKDIR /app
 # Install dependencies first (cached unless package.json changes)
 COPY package.json bun.lock* ./
@@ -19,7 +19,7 @@ RUN bun run build
 RUN rm -rf node_modules && bun install --frozen-lockfile --production
 
 # --- Stage 2: Runtime ---
-FROM oven/bun:1.3.13-alpine
+FROM oven/bun:1.3.14-alpine
 WORKDIR /app
 # Non-root user for security
 RUN addgroup -S chops && adduser -S chops -G chops
