@@ -28,7 +28,7 @@
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {
-    "@clickhouse/client": "^1.21.0",
+    "@clickhouse/client": "^1.23.1",
     "@dagrejs/dagre": "^3.0.0",
     "@fontsource/b612": "^5.2.7",
     "@fontsource/red-hat-mono": "^5.2.8",
