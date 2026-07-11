@@ -42,7 +42,6 @@ export default function AppDataBackup() {
     setLoadingBackups(true);
     try {
       const list = await apiFetch(`/api/app-backup/list?profile=${encodeURIComponent(profile)}`);
-      console.log(list)
       setBackups(Array.isArray(list) ? list : []);
     } catch { setBackups([]); }
     setLoadingBackups(false);

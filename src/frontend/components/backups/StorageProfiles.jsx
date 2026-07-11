@@ -64,7 +64,11 @@ export default function StorageProfiles() {
       await runQuery(testSql);
       setTestResult(prev => ({ ...prev, [p.id]: { ok: true, msg: 'Connection OK' } }));
     } catch (err) {
-      const msg = err.message || 'Failed';
+      // ClickHouse often echoes the failing query back in s3()-related error
+      // text, which would otherwise leak the plaintext secret key onto the screen.
+      let msg = err.message || 'Failed';
+      if (p.accessKey) msg = msg.split(p.accessKey).join('***');
+      if (p.accessKeyId) msg = msg.split(p.accessKeyId).join('***');
       // "not found" or "no such key" means bucket is reachable
       if (msg.includes('not found') || msg.includes('NoSuchKey') || msg.includes('404')) {
         setTestResult(prev => ({ ...prev, [p.id]: { ok: true, msg: 'Bucket reachable (test key not found - expected)' } }));

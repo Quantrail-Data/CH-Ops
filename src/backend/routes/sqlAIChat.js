@@ -47,10 +47,7 @@ router.post("/generate-sql", async (req, res, next) => {
     const result = await service.generateSQL(database_id, user_question);
     return res.json(result);
   } catch (error) {
-    console.log("SQL ERROR:");
-    console.log(error);
-    console.log("ERROR MESSAGE:");
-    console.log(error.message);
+    console.error("SQL generation error:", error.message);
     next(error);
   }
 });

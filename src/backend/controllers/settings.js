@@ -34,10 +34,18 @@ export function listSettings(req, res) {
   const rows = where
     ? db.select().from(appSettings).where(where).all()
     : db.select().from(appSettings).orderBy(appSettings.key).all();
-  res.json(rows);
+
+  // Protected keys (cluster nodes, backup profiles) hold credentials - never
+  // list their values for non-admin callers, same restriction as writes.
+  const role = req.user?.role;
+  const isAdmin = role === "superadmin" || role === "admin";
+  const visible = isAdmin ? rows : rows.filter((r) => !PROTECTED_KEYS.has(r.key));
+  res.json(visible);
 }
 
 export function getSetting(req, res) {
+  if (requireAdminForKey(req, res, req.params.key)) return;
+
   const row = db
     .select()
     .from(appSettings)
