@@ -13,6 +13,9 @@ import { SqlPreview } from '../layout/SharedComponents.jsx';
 import ConfirmModal from '../layout/ConfirmModal.jsx';
 import { AnimatePresence, motion } from "motion/react";
 import AlertBanner from '../layout/AlertBanner.jsx';
+import { useAuth } from '../../App.jsx';
+
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 function SettingGroup({ group, settings, toggleSetting }) {
   const [open, setOpen] = useState(false);
@@ -212,9 +215,15 @@ const SETTING_GROUPS = [
 export default function RbacProfiles() {
   const { tab: routeTab = 'list' } = useParams();
   const navigate = useNavigate();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
 
   const handleTabChange = (newTab) => {
-    navigate(`/rbac/profiles/${newTab}`, { replace: true });
+    if (newTab === 'list' || isAdmin) {
+      navigate(`/rbac/profiles/${newTab}`, { replace: true });
+    }
   };
 
   const profilesQ = useQuery(), detailsQ = useQuery();
@@ -232,12 +241,11 @@ export default function RbacProfiles() {
     <div className="page-content">
       <div className="section-header"><h2 className="section-title"><Icon className="ti ti-settings"></Icon> Settings Profiles</h2></div>
       <AlertBanner result={result} setResult={setResult} />
-      {/* {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></button></div>} */}
-      <div className="tab-bar">{tabs.map(t => <div key={t.id} className={`tab-item ${routeTab === t.id ? 'active' : ''}`} onClick={() => handleTabChange(t.id)}><Icon className={`ti ${t.i}`}></Icon> {t.l}</div>)}</div>
+      <div className="tab-bar">{tabs.map(t => <div key={t.id} className={`tab-item ${routeTab === t.id ? 'active' : ''}`} onClick={() => handleTabChange(t.id)} style={t.id !== 'list' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${t.i}`}></Icon> {t.l}</div>)}</div>
       {routeTab === 'list' && <ProfileList profilesQ={profilesQ} detailsQ={detailsQ} />}
-      {routeTab === 'create' && <ProfileForm action="create" setResult={setResult} onSuccess={load} />}
-      {routeTab === 'alter' && <ProfileForm action="alter" profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} />}
-      {routeTab === 'drop' && <DropProfile profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} navigate={navigate} />}
+      {routeTab === 'create' && isAdmin && <ProfileForm action="create" setResult={setResult} onSuccess={load} />}
+      {routeTab === 'alter' && isAdmin && <ProfileForm action="alter" profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} />}
+      {routeTab === 'drop' && isAdmin && <DropProfile profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} navigate={navigate} />}
     </div>
   );
 }
@@ -246,7 +254,7 @@ function ProfileList({ profilesQ, detailsQ }) {
   return (
     <div>
       <h3 style={{ fontSize: '15px', margin: '8px 0' }}>Profiles</h3>
-      <DataTable rows={profilesQ.data || []} emptyMessage="No profiles." variant="fixed" />
+      <DataTable rows={profilesQ.data || []} emptyMessage="No profiles." variant="single" />
       {detailsQ.data?.length > 0 && <>
         <h3 style={{ fontSize: '15px', margin: '16px 0 8px' }}>Profile Settings</h3>
         <DataTable rows={detailsQ.data} columns={['profile_name', 'setting_name', 'value', 'min', 'max', 'readonly', 'inherit_profile']} variant="fixed" />
@@ -369,7 +377,6 @@ function ProfileForm({ action, profiles, setResult, onSuccess }) {
               gap: 8,
               padding: '10px 14px',
               cursor: 'pointer',
-              // background: 'lightgray', 
               fontSize: '0.75rem',
               color: "gray",
               fontWeight: 600
