@@ -19,9 +19,11 @@ import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import ErrorBoundary from "../layout/ErrorBoundary.jsx";
 import { useToast } from "../layout/Toast.jsx";
+import { useTheme } from "../../App.jsx";
 
 export default function ChartBuilder({ editChart, onEditDone }) {
   const toast = useToast();
+  const { theme } = useTheme();
   const [sql, setSql] = useState("");
   const [data, setData] = useState(null);
   const [columns, setColumns] = useState([]);
@@ -42,6 +44,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const [bottomOpen, setBottomOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
   const previewRef = useRef(null);
   const previewInst = useRef(null);
   const previewTools = useChartTools(() => previewInst.current, {
@@ -52,6 +55,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     apiFetch("/api/dashboards")
       .then(setDashboards)
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Load edit chart
@@ -177,21 +187,86 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       if (!previewInst.current)
         previewInst.current = initChart(previewRef.current);
 
+      const isDarkColor = theme === 'dark' ? 'white' : 'black';
+
+      const hasLegendCheck = chartOption.legend?.show || (Array.isArray(chartOption.series) && chartOption.series.some(s => Array.isArray(s?.data) && s?.data.length > 0));
+
+      const resolvedLegend = previewTools.fullscreen
+        ? {
+            ...chartOption.legend,
+            show: hasLegendCheck,
+            type: 'scroll',
+            orient: 'vertical',
+            left: 0,
+            top: 8,
+            bottom: 8,
+            width: 220,
+            textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+          }
+        : isSmallScreen
+          ? {
+              ...chartOption.legend,
+              show: hasLegendCheck ? showLegend : false,
+              type: 'scroll',
+              orient: 'horizontal',
+              left: 0,
+              right: 0,
+              top: 0,
+              width: '100%',
+              pageIconColor: isDarkColor,
+              pageIconInactiveColor: 'var(--text-muted)',
+              pageTextStyle: { color: isDarkColor },
+              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+            }
+          : {
+              ...chartOption.legend,
+              show: hasLegendCheck,
+              type: 'scroll',
+              left: 0,
+              right: 0,
+              top: 0,
+              orient: "horizontal",
+              pageIconColor: isDarkColor,
+              pageIconInactiveColor: 'var(--text-muted)',
+              pageTextStyle: { color: isDarkColor },
+              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+            };
+
+      const gridTop = previewTools.fullscreen
+        ? 24
+        : isSmallScreen
+          ? (hasLegendCheck && showLegend ? 72 : 24)
+          : hasLegendCheck
+            ? 56
+            : 20;
+
+      const gridLeft = previewTools.fullscreen
+        ? (hasLegendCheck ? 240 : 20)
+        : 20;
+
       const baseOption = withZoomable({
         ...chartOption,
         toolbox: { show: false },
+        legend: resolvedLegend,
       });
+
       const enhancedOption = {
         ...baseOption,
         grid: Array.isArray(baseOption.grid)
           ? baseOption.grid.map((g) => ({
               ...g,
               containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
               bottom: Math.max(parseInt(g?.bottom, 10) || 18, 70),
             }))
           : {
               ...baseOption.grid,
               containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
               bottom: Math.max(
                 parseInt(baseOption?.grid?.bottom, 10) || 18,
                 70,
@@ -206,6 +281,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 ...axis?.axisLabel,
                 margin: Math.max(axis?.axisLabel?.margin || 8, 14),
                 hideOverlap: false,
+                color: isDarkColor,
               },
             }))
           : baseOption.xAxis
@@ -220,9 +296,42 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     14,
                   ),
                   hideOverlap: false,
+                  color: isDarkColor,
                 },
+                nameTextStyle: {
+                  color: isDarkColor,
+                  fontSize: 10,
+                  fontWeight: 'bold'
+                }
               }
             : baseOption.xAxis,
+        yAxis: Array.isArray(baseOption.yAxis)
+          ? baseOption.yAxis.map((axis) => ({
+              ...axis,
+              axisLabel: {
+                ...axis?.axisLabel,
+                color: isDarkColor,
+              },
+              nameTextStyle: {
+                color: isDarkColor,
+                fontSize: 10,
+                fontWeight: 'bold'
+              }
+            }))
+          : baseOption.yAxis
+            ? {
+                ...baseOption.yAxis,
+                axisLabel: {
+                  ...baseOption?.yAxis?.axisLabel,
+                  color: isDarkColor,
+                },
+                nameTextStyle: {
+                  color: isDarkColor,
+                  fontSize: 10,
+                  fontWeight: 'bold'
+                }
+              }
+            : baseOption.yAxis,
       };
 
       previewInst.current.setOption(enhancedOption, true);
@@ -230,11 +339,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     } catch (err) {
       setChartOption({ _error: true, message: err.message });
     }
-  }, [chartOption]);
+  }, [chartOption, previewTools.fullscreen, isSmallScreen, showLegend, theme]);
 
   useEffect(() => {
     setTimeout(() => previewInst.current?.resize(), 150);
-  }, [fullscreen, bottomOpen, previewTools.fullscreen]);
+  }, [fullscreen, bottomOpen, previewTools.fullscreen, isSmallScreen]);
 
   useEffect(
     () => () => {
@@ -610,14 +719,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         </div>
         {bottomOpen && (
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}
+            style={{ display: "grid", gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr", gap: 0 }}
           >
             <div
               style={{
                 padding: 12,
-                borderRight: "1px solid var(--border-default)",
+                borderRight: isSmallScreen ? "none" : "1px solid var(--border-default)",
+                borderBottom: isSmallScreen ? "1px solid var(--border-default)" : "none",
                 overflow: "auto",
-                maxHeight: "60vh",
+                maxHeight: isSmallScreen ? "60vh" : "60vh",
               }}
             >
               <div
@@ -899,7 +1009,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 </div>
               )}
             </div>
-            <div style={{ padding: 12, minHeight: "50vh", overflow: "auto" }}>
+            <div style={{ padding: 12, minHeight: isSmallScreen ? "60vh" : "50vh", overflow: "auto" }}>
               <ErrorBoundary
                 resetKeys={[chartOption]}
                 fallback={(err) => (
@@ -1034,7 +1144,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         style={{
                           height: previewTools.fullscreen
                             ? "calc(100vh - 96px)"
-                            : 430,
+                            : isSmallScreen ? 350 : 430,
                           width: "100%",
                           overflow: "visible",
                           paddingBottom: 30,

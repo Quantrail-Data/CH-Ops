@@ -242,7 +242,7 @@ export default function Sidebar({
               >
                 <Icon
                   className={`ti ${section.icon}`}
-                  style={{ fontSize: 31.5, color: isDark() ? "white" : "var(--accent)" }}
+                  style={{ fontSize:24, color: isDark() ? "white" : "black" }}
                 />
               </span>
               {!isCollapsed && (
@@ -279,9 +279,9 @@ export default function Sidebar({
                     transition: "background 0.2s, color 0.2s",
                   }}
                 >
-                  <Icon
+                                   <Icon
                     className={`ti ${section.icon}`}
-                    style={{ fontSize: 31.5, color: isDark() ? "white" : "var(--accent)" }}
+                    style={{ fontSize:28, color: isDark() ? "white" : "black" }}
                   />
                 </span>
               </div>

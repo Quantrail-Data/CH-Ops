@@ -12,7 +12,8 @@
 
 If CHOps saves you time or you find it useful, please consider **starring this repository**. It genuinely helps.
 
-[CHOps](https://github.com/user-attachments/assets/500f4237-5b82-46af-a49f-e6d8a20092cf)
+<img width="1920" height="1080" alt="CHOps" src="https://github.com/user-attachments/assets/391efbe8-abbe-43d0-b735-05878e0730f1" />
+
 
 </div>
 
