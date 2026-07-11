@@ -63,7 +63,7 @@
     "@types/react-dom": "19.1.5",
     "@vitejs/plugin-react": "4.4.1",
     "@vitest/coverage-istanbul": "3.2.1",
-    "concurrently": "9.1.0",
+    "concurrently": "10.0.3",
     "drizzle-kit": "0.31.1",
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.37.0",
