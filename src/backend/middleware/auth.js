@@ -17,6 +17,16 @@ export function authMiddleware(req, res, next) {
           .get();
 
   if(!findUser) return res.status(401).json({error:"Oops! That user doesn't seem to exist."})
+
+  // Server-side enforcement of the forced password-change gate: the frontend
+  // blocks navigation on this flag, but a still-valid JWT issued before the
+  // change (e.g. a shared temporary password) must not reach any other API.
+  // /api/auth/* (login, logout, change-password) doesn't use this middleware,
+  // so the user can still call change-password while blocked everywhere else.
+  if (findUser.mustChangePassword) {
+    return res.status(403).json({ error: 'Password change required.', code: 'MUST_CHANGE_PASSWORD' });
+  }
+
   try {
     req.user = user
     next();

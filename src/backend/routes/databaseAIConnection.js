@@ -55,7 +55,7 @@ router.post("/connect", async (req, res, next) => {
       ingestion: ingestionResult,
     });
   } catch (error) {
-    console.log(error?.message);
+    console.error("AI database connection error:", error?.message);
     next(error);
   }
 });

@@ -86,8 +86,6 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
 
       let url = null;
 
-      console.log(response)
-
       if (format?.toLowerCase() === "csv") {
         url = window.URL.createObjectURL(new Blob([response]));
       } else if (format?.toLowerCase() === "json") {
@@ -103,8 +101,7 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
       link.remove();
       setShowDownloadingOption(false);
       toast.success(`Successfully ${format?.toUpperCase()} file downloaded `);
-    } catch (err) {
-      console.log(err);
+    } catch {
       toast.error(`Failed to ${format?.toUpperCase()} download `);
     }
   };

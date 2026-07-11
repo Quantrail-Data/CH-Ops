@@ -46,6 +46,15 @@ describe("Backups: S3 Glob Compatibility", () => {
     expect(code).toContain("S3 authentication failed");
     expect(code).toContain("S3 bucket not found");
   });
+
+  it("redacts the S3 secret key from scanS3Manifests errors before they reach the UI", () => {
+    // ClickHouse can echo the failing query (with the embedded secret) back in
+    // error text; scanS3Manifests must strip it before the message is ever
+    // collected into `errors` / rendered via scanErrors.join(...).
+    const fn = code.slice(code.indexOf("async function scanS3Manifests"), code.indexOf("// Deduplicate error messages"));
+    expect(fn).toContain('msg.split(s3.accessKey).join("***")');
+    expect(fn).toContain('msg.split(s3.accessKeyId).join("***")');
+  });
 });
 
 describe("Backups: Frontend UI", () => {

@@ -25,7 +25,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number,
-                body: "⚠️ **Automated Message:** This repository does not accept external Pull Requests. Code contributions are restricted to internal employees. If you have found a bug or have a feature request, please open a standard GitHub Issue instead. Closing this PR."
+                body: "⚠️ **Automated Message:** This repository does not accept external Pull Requests yet. Please see [CONTRIBUTING.md](https://github.com/" + context.repo.owner + "/" + context.repo.repo + "/blob/main/CONTRIBUTING.md) for why, and what we welcome instead (bug reports and feature requests as Issues). Closing this PR."
               });
 
               // 2. Close the PR
