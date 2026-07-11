@@ -3067,6 +3067,35 @@ background: var(--bg-page);
 }
 
 
+
+/* forget-password */
+
+.forget-password-con {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  margin:10px 0px;
+}
+
+.forget-password-con p {
+  font-size:0.8em;
+  font-weight:600;
+  color:lightgray;
+  cursor: pointer;
+}
+
+[data-theme="light"] .forget-password-con p {
+  color:gray;
+}
+
+.forget-password-con p:hover {
+  text-decoration: underline;
+  color:var(--accent);
+}
+
+
+
+
 .logo-conatiner {
   position: absolute;
   top:5px;

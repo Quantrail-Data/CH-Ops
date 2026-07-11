@@ -12,15 +12,22 @@ import { treeSize, treeSeries } from '../../utils/treeChart.js';
 import { SqlPreview } from '../layout/SharedComponents.jsx';
 import ConfirmModal from '../layout/ConfirmModal.jsx';
 import AlertBanner from '../layout/AlertBanner.jsx';
+import { useTheme, useAuth } from "../../App.jsx";
 
-import { useTheme } from "../../App.jsx";
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 export default function Projections() {
   const { tab: routeTab = 'view' } = useParams();
   const navigate = useNavigate();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
 
   const handleTabChange = (newTab) => {
-    navigate(`/indexes/projections/${newTab}`, { replace: true });
+    if (newTab === 'view' || isAdmin) {
+      navigate(`/indexes/projections/${newTab}`, { replace: true });
+    }
   };
 
   const tabs = [
@@ -38,7 +45,8 @@ export default function Projections() {
         {tabs.map(t =>
           <div key={t.id}
             className={`tab-item ${routeTab === t.id ? 'active' : ''}`}
-            onClick={() => handleTabChange(t.id)}>
+            onClick={() => handleTabChange(t.id)}
+            style={t.id !== 'view' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
             <Icon className={`ti ${t.icon}`}></Icon> {t.label}
           </div>)}
       </div>
@@ -50,8 +58,6 @@ export default function Projections() {
     </div>
   );
 }
-
-// Shared hooks
 
 function useMergeTreeDbs() {
   const q = useQuery();
@@ -83,8 +89,6 @@ function useColumns(db, tbl) {
   return q;
 }
 
-// DbTableSelector
-
 function DbTableSelector({ db, setDb, tbl, setTbl, cluster, setCluster, showCluster = false }) {
   const dbsQ = useMergeTreeDbs();
   const tblsQ = useMergeTreeTables(db);
@@ -113,8 +117,6 @@ function DbTableSelector({ db, setDb, tbl, setTbl, cluster, setCluster, showClus
   );
 }
 
-// View Projections (tree)
-
 function ViewProjections() {
   const [db, setDb] = useState('');
   const [tbl, setTbl] = useState('');
@@ -123,7 +125,7 @@ function ViewProjections() {
   const [zoom, setZoom] = useState(1);
   const dbsQ = useQuery(), tblsQ = useQuery(), projQ = useQuery();
   const chartRef = useRef(null), chartInst = useRef(null);
- const { theme } = useTheme();
+  const { theme } = useTheme();
   useEffect(() => { dbsQ.execute('SELECT DISTINCT database FROM system.projections ORDER BY database'); }, []);
   useEffect(() => { if (db) tblsQ.execute(`SELECT DISTINCT table FROM system.projections WHERE database='${db}' ORDER BY table`); }, [db]);
   useEffect(() => {
@@ -172,7 +174,7 @@ function ViewProjections() {
   useEffect(() => () => { if (chartRef.current) disposeChart(chartRef.current); }, []);
 
   function doZoom(f) { setZoom(z => Math.max(0.3, Math.min(3, +(z * f).toFixed(2)))); }
- function downloadChart() {
+  function downloadChart() {
     if (!chartInst.current || !chartRef.current) return;
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     try {
@@ -183,7 +185,7 @@ function ViewProjections() {
         chartInst.current.setOption({ series: [updatedSeries] }, true);
         chartInst.current.resize();
       }
-    } catch (e) {}
+    } catch (e) { }
     const bg = isDark ? '#000000' : '#ffffff';
     const url = chartInst.current.getDataURL({
       type: 'png',
@@ -222,9 +224,11 @@ function ViewProjections() {
   );
 }
 
-// Add Projection
-
 function AddProjection() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [db, setDb] = useState('');
   const [tbl, setTbl] = useState('');
   const [cluster, setCluster] = useState('');
@@ -246,7 +250,6 @@ function AddProjection() {
     if (ifNotExists) parts.push('IF NOT EXISTS');
     parts.push(name.trim());
 
-    // Projections don't support DISTINCT - strip it and warn
     let expr = selectExpr.trim();
     if (expr.toUpperCase().startsWith('DISTINCT ')) expr = expr.substring(9).trim();
     let inner = `SELECT ${expr}`;
@@ -279,8 +282,6 @@ function AddProjection() {
         setResult(null)
       }, 5000)
     }
-
-
   }
 
   return (
@@ -311,15 +312,17 @@ function AddProjection() {
         </div>
 
         <SqlPreview sql={buildSql()} />
-        <div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!buildSql()}><Icon className="ti ti-plus"></Icon> Add Projection</button></div>
+        <div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!buildSql() || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> Add Projection</button></div>
       </form>
     </div>
   );
 }
 
-// Drop Projection
-
 function DropProjection() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [db, setDb] = useState('');
   const [tbl, setTbl] = useState('');
   const [cluster, setCluster] = useState('');
@@ -334,8 +337,7 @@ function DropProjection() {
 
   async function drop() {
     try {
-      await
-        runQuery(sql);
+      await runQuery(sql);
       setResult({ ok: true, msg: `Projection '${projName}' dropped.` });
       setProjName('');
     }
@@ -357,7 +359,6 @@ function DropProjection() {
 
   return (
     <div>
-      {/* changed the default alert into alertBanner component  */}
       <AlertBanner result={result} setResult={setResult} />
       <div className="card" style={{ padding: 20 }}>
         <DbTableSelector db={db} setDb={setDb} tbl={tbl} setTbl={setTbl} cluster={cluster} setCluster={setCluster} showCluster />
@@ -370,16 +371,18 @@ function DropProjection() {
           <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: 22 }}><label style={{ display: 'flex', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}><input type="checkbox" checked={ifExists} onChange={e => setIfExists(e.target.checked)} style={{ accentColor: 'var(--accent)' }} /> IF EXISTS</label></div>
         </div>
         <SqlPreview sql={sql} />
-        <div style={{ marginTop: 16 }}><button className="btn btn-danger" disabled={!sql} onClick={() => setConfirm(true)}><Icon className="ti ti-trash"></Icon> Drop Projection</button></div>
+        <div style={{ marginTop: 16 }}><button className="btn btn-danger" disabled={!sql || !isAdmin} onClick={() => setConfirm(true)} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon> Drop Projection</button></div>
       </div>
       {confirm && <ConfirmModal title="Drop Projection" message={`Drop projection '${projName}' from ${db}.${tbl}?`} onConfirm={drop} onCancel={() => setConfirm(false)} danger />}
     </div>
   );
 }
 
-// Materialize Projection
-
 function MaterializeProjection() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [db, setDb] = useState('');
   const [tbl, setTbl] = useState('');
   const [cluster, setCluster] = useState('');
@@ -394,28 +397,27 @@ function MaterializeProjection() {
 
   async function submit(e) {
     e.preventDefault();
-    try { 
-      await runQuery(sql); 
-      setResult({ ok: true, msg: `Projection '${projName}' materialized.` } );
+    try {
+      await runQuery(sql);
+      setResult({ ok: true, msg: `Projection '${projName}' materialized.` });
       setDb('');
       setTbl('');
       setCluster('');
       setProjName('');
       setIfExists(true);
-      setPartition(''); 
+      setPartition('');
     }
     catch (err) { setResult({ ok: false, msg: err.message }); }
-    finally{
-      setTimeout(()=>{
+    finally {
+      setTimeout(() => {
         setResult(null)
-      },5000)
+      }, 5000)
     }
   }
 
   return (
     <div>
-      <AlertBanner result={result } setResult={setResult} />
-      {/* {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></button></div>} */}
+      <AlertBanner result={result} setResult={setResult} />
       <form onSubmit={submit} className="card" style={{ padding: 20 }}>
         <DbTableSelector db={db} setDb={setDb} tbl={tbl} setTbl={setTbl} cluster={cluster} setCluster={setCluster} showCluster />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
@@ -428,15 +430,17 @@ function MaterializeProjection() {
           <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: 22 }}><label style={{ display: 'flex', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}><input type="checkbox" checked={ifExists} onChange={e => setIfExists(e.target.checked)} style={{ accentColor: 'var(--accent)' }} /> IF EXISTS</label></div>
         </div>
         <SqlPreview sql={sql} />
-        <div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!sql}><Icon className="ti ti-hammer"></Icon> Materialize</button></div>
+        <div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!sql || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-hammer"></Icon> Materialize</button></div>
       </form>
     </div>
   );
 }
 
-// Clear Projection
-
 function ClearProjection() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [db, setDb] = useState('');
   const [tbl, setTbl] = useState('');
   const [cluster, setCluster] = useState('');
@@ -466,16 +470,14 @@ function ClearProjection() {
     }
     finally {
       setConfirm(false);
-      setTimeout(()=>{
+      setTimeout(() => {
         setResult(null);
-      },5000)
+      }, 5000)
     }
   }
 
   return (
     <div>
-      {/* {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></button></div>} */}
-      
       <AlertBanner result={result} setResult={setResult} />
       <div className="card" style={{ padding: 20 }}>
         <DbTableSelector db={db} setDb={setDb} tbl={tbl} setTbl={setTbl} cluster={cluster} setCluster={setCluster} showCluster />
@@ -489,7 +491,7 @@ function ClearProjection() {
           <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: 22 }}><label style={{ display: 'flex', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}><input type="checkbox" checked={ifExists} onChange={e => setIfExists(e.target.checked)} style={{ accentColor: 'var(--accent)' }} /> IF EXISTS</label></div>
         </div>
         <SqlPreview sql={sql} />
-        <div style={{ marginTop: 16 }}><button className="btn btn-danger" disabled={!sql} onClick={() => setConfirm(true)}><Icon className="ti ti-eraser"></Icon> Clear Projection</button></div>
+        <div style={{ marginTop: 16 }}><button className="btn btn-danger" disabled={!sql || !isAdmin} onClick={() => setConfirm(true)} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-eraser"></Icon> Clear Projection</button></div>
       </div>
       {confirm && <ConfirmModal title="Clear Projection" message={`Clear projection data for '${projName}' in ${db}.${tbl}? This removes materialized data but keeps the projection definition.`} onConfirm={execute} onCancel={() => setConfirm(false)} danger />}
     </div>

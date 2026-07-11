@@ -325,8 +325,8 @@ describe('Sidebar: newly added function coverage', () => {
 
   it('styles icons based on theme', () => {
     expect(
-      code.includes('color: isDark() ? "white" : "var(--accent)"') ||
-      code.includes("color: isDark() ? 'white' : 'var(--accent)'")
+      code.includes('color: isDark() ? "white" : "black"') ||
+      code.includes("color: isDark() ? 'white' : 'black'")
     ).toBe(true);
   });
 });
