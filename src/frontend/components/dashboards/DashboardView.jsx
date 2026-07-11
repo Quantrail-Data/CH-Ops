@@ -3,7 +3,7 @@
 // Main container component that layout and renders all dashboard widgets and analytics charts.
 
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
@@ -110,7 +110,7 @@ export default function DashboardView({sidebar}) {
           <Icon className="ti ti-layout-dashboard" style={{ color: selDash?.id === d.id ? 'var(--accent)' : 'var(--icon-color)' }}></Icon>
           <span style={{ fontWeight: selDash?.id === d.id ? 700 : 500 }}>{d.name}</span>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{d.columns}col</span>
-          <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setDel(d.id); }} style={{ padding: 2 }}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+          <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setDel(d.id); }} style={{ padding: 2, marginLeft: 'auto' }}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
         </div>)}
       </div>}
 
@@ -143,9 +143,149 @@ function ChartTile({ chart, onDelete, sidebar, cols,setFss }) {
   const ref = useRef(null);
   const inst = useRef(null);
   const [fs, setFs] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
   // const opt = chart.chartOption;
   const { theme } = useTheme();
   const isDarkColor = theme === 'dark' ? 'white' : 'black';
+
+  useEffect(() => {
+    const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const hasLegend = useMemo(() => {
+    const legend = chart?.chartOption?.legend;
+    const series = chart?.chartOption?.series;
+    if (legend?.show === false) return false;
+    if (!Array.isArray(series) || series.length === 0) return false;
+    return series.some(s => Array.isArray(s?.data) && s?.data.length > 0);
+  }, [chart]);
+
+  useEffect(() => {
+    if (fs) setShowLegend(true);
+    else if (!isSmallScreen) setShowLegend(true);
+    else setShowLegend(false);
+  }, [fs, isSmallScreen, chart?.id]);
+
+  function ChartWidthBasedCols(cols) {
+    if (fs) return "100%";
+    if (isSmallScreen) return "100%";
+    return cols === 4 ? "350px" : "100%";
+  }
+
+  function ColsWidthMethod(col) {
+    if (fs) return "100%";
+    if (isSmallScreen) return "100%";
+    switch (col) {
+      case 4:
+        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 4}px`;
+      case 3:
+        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 3}px`;
+      case 2:
+        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 2}px`;
+      case 1:
+        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 1}px`;
+
+      default:
+        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 4}px`
+    }
+  }
+
+  function ColsHeigthMethod(col) {
+    if (fs) return "calc(100vh - 32px)";
+    if (isSmallScreen) {
+      if (hasLegend && showLegend) return "560px";
+      return "460px";
+    }
+    switch (col) {
+      case 4:
+        return "350px";
+      case 3:
+        return 450;
+      case 2:
+        return "350px";
+      case 1:
+        return "100%";
+
+      default:
+        return "350px"
+    }
+  }
+
+  const resolvedLegend = fs
+    ? {
+        ...chart?.chartOption?.legend,
+        show: hasLegend,
+        type: 'scroll',
+        orient: 'vertical',
+        left: 0,
+        top: 8,
+        bottom: 8,
+        width: 220,
+        textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+      }
+    : isSmallScreen
+      ? {
+          ...chart?.chartOption?.legend,
+          show: hasLegend ? showLegend : false,
+          type: 'scroll',
+          orient: 'horizontal',
+          left: 0,
+          right: 0,
+          top: 0,
+          width: '100%',
+          pageIconColor: isDarkColor,
+          pageIconInactiveColor: 'var(--text-muted)',
+          pageTextStyle: { color: isDarkColor },
+          textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+        }
+      : cols === 4
+        ? {
+            ...chart?.chartOption?.legend,
+            show: hasLegend,
+            type: 'scroll',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            orient: "vertical",
+            width: 135,
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
+            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+          }
+        : {
+            ...chart?.chartOption?.legend,
+            show: hasLegend,
+            type: 'scroll',
+            left: 0,
+            right: 0,
+            top: 0,
+            orient: "horizontal",
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
+            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+          };
+
+  const gridTop = fs
+    ? 24
+    : isSmallScreen
+      ? (hasLegend && showLegend ? 72 : 24)
+      : cols === 4
+        ? 20
+        : hasLegend
+          ? 56
+          : 20;
+
+  const gridLeft = fs
+    ? (hasLegend ? 240 : 20)
+    : !isSmallScreen && cols === 4 && hasLegend
+      ? 145
+      : 20;
 
   const opt = {
     ...chart.chartOption,
@@ -153,22 +293,23 @@ function ChartTile({ chart, onDelete, sidebar, cols,setFss }) {
     maintainAspectRatio: false,
     grid: {
       ...chart?.chartOption?.grid,
-      top: 'center',
-      left: 'center',
-      width: fs ? '100%' : ChartWidthBasedCols(cols),
-      height: fs ? 'calc(100vh - 100px)' : cols === 4 ? "150px" : `200px`
+      top: gridTop,
+      left: gridLeft,
+      right: 24,
+      bottom: 45,
+      containLabel: true,
+      width: fs ? undefined : undefined,
+      height: fs ? undefined : undefined
     },
     toolbox: { show: false },
-    legend: cols === 4 ?
-      { ...chart?.chartOption.legend, left: 0, top: 0, orient: "vertical", textStyle: { color: isDarkColor } } :
-      { ...chart?.chartOption.legend, left: 0, orient: "vertical", textStyle: { color: isDarkColor } },
+    legend: resolvedLegend,
     xAxis: {
       ...chart?.chartOption?.xAxis,
       nameGap: 40,
       position: 'bottom',
       axisLabel: {
         ...chart?.chartOption?.xAxis?.axisLabel,
-        rotate: 0,
+        rotate: isSmallScreen ? 20 : 0,
         align: 'left',
         color: isDarkColor,
 
@@ -199,52 +340,13 @@ function ChartTile({ chart, onDelete, sidebar, cols,setFss }) {
     }
   };
 
-
-
-  function ChartWidthBasedCols(cols) {
-    return cols === 4 ? "350px" : "100%"
-  }
-
-
-  function ColsWidthMethod(col) {
-    switch (col) {
-      case 4:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 4}px`;
-      case 3:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 3}px`;
-      case 2:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 2}px`;
-      case 1:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 1}px`;
-
-      default:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 4}px`
-    }
-  }
-
-  function ColsHeigthMethod(col) {
-    switch (col) {
-      case 4:
-        return "350px";
-      case 3:
-        return 450;
-      case 2:
-        return "350px";
-      case 1:
-        return "100%";
-
-      default:
-        return "350px"
-    }
-  }
-
   useEffect(() => {
     if (!ref.current || !opt || opt._kpi || opt._table || opt._error) return;
     try { inst.current = initChart(ref.current); inst.current.setOption(withZoomable(opt), true); setTimeout(() => inst.current?.resize(), 50); } catch { }
     return () => { if (ref.current) disposeChart(ref.current); };
   }, [opt]);
 
-  useEffect(() => { setTimeout(() => inst.current?.resize(), 150); }, [fs]);
+  useEffect(() => { setTimeout(() => inst.current?.resize(), 150); }, [fs, showLegend, isSmallScreen, cols]);
 
   function zoomIn() {
     if (inst.current) {
@@ -301,27 +403,29 @@ function ChartTile({ chart, onDelete, sidebar, cols,setFss }) {
     }
   }
   const wrap = fs ? { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', padding: 16, overflow: 'auto',cursor:"default" } :
-    { width: ColsWidthMethod(cols), overflow: "auto", height: ColsHeigthMethod(cols) };
+    { width: ColsWidthMethod(cols), overflow: "auto", height: ColsHeigthMethod(cols), paddingRight: isSmallScreen ? 8 : 0 };
   // const wrap = fs ? { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', padding: 16, overflow: 'auto' } : {};
 
-    const pieChartControlsFlags = {
+  const pieChartControlsFlags = {
     zoomFun: false,
     resetFun: false,
     saveFun: true,
     fullscreenFun: true,
+    legendFun: isSmallScreen && hasLegend,
   };
-    const chartControlsFlags = {
+  const chartControlsFlags = {
     zoomFun: true,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
+    legendFun: isSmallScreen && hasLegend,
   };
 
   return (
     <div className="card" style={{ padding: 16, ...wrap }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: '14px', fontWeight: 600 }}>{chart.name}</span>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 }}>
+        <span style={{ fontSize: '14px', fontWeight: 600, minWidth: 0, flex: 1, paddingRight: 8 }}>{chart.name}</span>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
           {opt && !opt._error && !opt._kpi && !opt._table && (
             <ChartToolbar
               zoomable={!!opt?.xAxis}
@@ -331,6 +435,9 @@ function ChartTile({ chart, onDelete, sidebar, cols,setFss }) {
               onZoomReset={resetZoom}
               onSave={() => savePng(inst.current, chart.name)}
               onToggleFullscreen={() => { setFs(!fs); setFss(!fs); }}
+              onToggleLegend={() => setShowLegend(v => !v)}
+              legendVisible={showLegend}
+              style={{ flexWrap: 'nowrap' }}
               isWantFeature={chart.chartType === 'pie' ? pieChartControlsFlags : chartControlsFlags}
             />
           )}
@@ -347,11 +454,13 @@ function ChartTile({ chart, onDelete, sidebar, cols,setFss }) {
         <div
           ref={ref}
           style={{
-            height: fs ? 'calc(100vh - 100px)' : cols === 4 ? "480px" : '480px',
+            height: fs ? 'calc(100vh - 100px)' : cols === 4 ? "480px" : `480px`,
+            minHeight: isSmallScreen ? (hasLegend && showLegend ? '440px' : '390px') : undefined,
             width: fs ? '100%' : ChartWidthBasedCols(cols),
             position: "relative",
             top: "10px",
-            display: "flex"
+            display: "flex",
+            paddingRight: isSmallScreen ? 6 : 0
           }}
         />}
     </div>

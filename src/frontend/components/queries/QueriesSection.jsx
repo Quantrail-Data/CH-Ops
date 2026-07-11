@@ -20,7 +20,9 @@ import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../../App.jsx";
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const pad = (n) => String(n).padStart(2, "0");
 const fmtNow = () => {
   const d = new Date();
@@ -495,7 +497,7 @@ function ScatterChart({ rows, title, note }) {
   const elRef = useRef(null);
   const chartRef = useRef(null);
   const tools = useChartTools(() => chartRef.current, { filename: title || "scatter" });
-  const [popup, setPopup] = useState(null); // { queryId, preview }
+  const [popup, setPopup] = useState(null);
   const [fullText, setFullText] = useState("");
   const [loadingText, setLoadingText] = useState(false);
 
@@ -628,6 +630,10 @@ export default function QueriesSection({ sidebar }) {
 }
 
 function CurrentQueries() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const q = useQuery();
   const [killModal, setKillModal] = useState(null);
   const [killResult, setKillResult] = useState(null);
@@ -699,12 +705,16 @@ function CurrentQueries() {
             <button
               className="btn btn-danger btn-sm"
               onClick={() => setKillModal({ qid: row.query_id, sync: false })}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             >
               <Icon className="ti ti-player-stop"></Icon> Kill
             </button>
             <button
               className="btn btn-danger btn-sm"
               onClick={() => setKillModal({ qid: row.query_id, sync: true })}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             >
               <Icon className="ti ti-player-stop"></Icon> Kill Sync
             </button>
@@ -824,7 +834,6 @@ function QueryAnalytics() {
     setLoading(false);
   }
 
-  // handle the Date change infinity like FROM > TO -->( Kathirdhasan )
   const handleDateOnChange = (date, label) => {
     if (label === "From") {
       setFrom(date);
@@ -1124,7 +1133,6 @@ function QueryLogSearch({ sidebar }) {
     );
   }
 
-  // handle the Date change infinity like FROM > TO -->( Kathirdhasan )
   const handleDateOnChange = (date, label) => {
     if (label === "From") {
       setFrom(date);

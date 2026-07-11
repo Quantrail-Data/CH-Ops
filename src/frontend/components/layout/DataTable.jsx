@@ -333,7 +333,7 @@ export default function DataTable({
       return n;
     });
     setSelectedCell(cellKey);
-    if (onCellClick) onCellClick(value);
+    // if (onCellClick) onCellClick(value);
   }
 
   // Complex cell click: open the modal. Do NOT fire onCellClick, so the
@@ -450,6 +450,7 @@ export default function DataTable({
                       selectedCell === key ? "cell-selected" : ""
                     }`}
                     onClick={() => handlePrimitiveClick(key, val)}
+                    onDoubleClick={()=> {typeof onCellClick === "function" && onCellClick(val)}}
                     style={{
                       whiteSpace:whiteSpaceFlag ? "pre": (expandedCells.has(key) ? "normal" : "nowrap"),
                       wordWrap: "break-word",

@@ -9,6 +9,9 @@ import Icon from "../common/Icon.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import { useToast } from "../layout/Toast.jsx";
+import { useAuth } from "../../App.jsx";
+
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 const pad = (n) => String(n).padStart(2, "0");
 function backupTimestamp() {
@@ -20,6 +23,10 @@ function escSql(str) {
 }
 
 export default function DataLifecycle() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [tab, setTab] = useState("manual");
   const [profiles, setProfiles] = useState([]);
   const [databases, setDatabases] = useState([]);
@@ -46,6 +53,12 @@ export default function DataLifecycle() {
       .catch(() => {});
   }, []);
 
+  const handleTabChange = (newTab) => {
+    if (newTab === 'browse' || isAdmin) {
+      setTab(newTab);
+    }
+  };
+
   return (
     <div className="page-content">
       <div className="section-header">
@@ -62,13 +75,14 @@ export default function DataLifecycle() {
       <div className="tab-bar">
         <div
           className={`tab-item ${tab === "manual" ? "active" : ""}`}
-          onClick={() => setTab("manual")}
+          onClick={() => handleTabChange("manual")}
+          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-upload"></Icon> Manual Backup
         </div>
         <div
           className={`tab-item ${tab === "browse" ? "active" : ""}`}
-          onClick={() => setTab("browse")}
+          onClick={() => handleTabChange("browse")}
         >
           <Icon className="ti ti-cloud-download"></Icon> Available Backups
         </div>
@@ -87,8 +101,6 @@ export default function DataLifecycle() {
   );
 }
 
-// Shared: S3 base URL builder
-
 function getS3Base(profile) {
   if (!profile) return null;
   if (profile.type === "gcs")
@@ -104,8 +116,6 @@ function getS3Base(profile) {
   };
 }
 
-// Shared: Scan S3 for manifests with multiple glob patterns
-
 async function scanS3Manifests(s3, patterns) {
   const allRows = [];
   const errors = [];
@@ -116,7 +126,6 @@ async function scanS3Manifests(s3, patterns) {
       if (r.rows?.length) allRows.push(...r.rows);
     } catch (err) {
       const msg = err.message || "";
-      // These are expected when a glob matches no files - not real errors
       const isExpectedEmpty =
         msg.includes("no files") ||
         msg.includes("NoSuchKey") ||
@@ -127,7 +136,6 @@ async function scanS3Manifests(s3, patterns) {
         msg.includes("TABLE_IS_READ_ONLY") ||
         msg.includes("CANNOT_EXTRACT_TABLE");
       if (!isExpectedEmpty) {
-        // Real error - connection issue, auth failure, bad URL, etc
         const shortPattern = pattern.split("/backups/")[1] || pattern;
         if (
           msg.includes("Unable to connect") ||
@@ -157,7 +165,6 @@ async function scanS3Manifests(s3, patterns) {
     }
   }
 
-  // Deduplicate error messages
   const uniqueErrors = [...new Set(errors)];
 
   const parsed = allRows
@@ -182,9 +189,11 @@ async function scanS3Manifests(s3, patterns) {
   return { backups: unique, errors: uniqueErrors };
 }
 
-// Manual Backup Tab
-
 function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
   const [action, setAction] = useState("backup");
   const [isAsync, setIsAsync] = useState(false);
@@ -392,26 +401,46 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     let patterns = [];
 
     if (scope === "all") {
-      patterns = [`${base}/manual/ALL/*/manifest.json`];
+      patterns = [
+        `${base}/manual/ALL/*/manifest.json`,
+        `${base}/manual/DATABASE/*/manifest.json`,
+        `${base}/manual/DATABASE/*/*/manifest.json`,
+        `${base}/manual/TABLE/*/*/manifest.json`,
+        `${base}/manual/TABLE/*/*/*/manifest.json`,
+      ];
     } else if (scope === "database") {
       if (db) {
         patterns = [
           `${base}/manual/DATABASE/${db}/manifest.json`,
           `${base}/manual/DATABASE/${db}/*/manifest.json`,
+          `${base}/manual/TABLE/${db}.*/manifest.json`,
+          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
         ];
       } else {
         patterns = [
           `${base}/manual/DATABASE/*/manifest.json`,
           `${base}/manual/DATABASE/*/*/manifest.json`,
+          `${base}/manual/TABLE/*/manifest.json`,
+          `${base}/manual/TABLE/*/*/manifest.json`,
         ];
       }
     } else if (scope === "table") {
       if (db && tbl) {
-        patterns = [`${base}/manual/TABLE/${db}/${tbl}/manifest.json`];
+        patterns = [
+          `${base}/manual/TABLE/${db}.${tbl}/manifest.json`,
+          `${base}/manual/TABLE/${db}.${tbl}/*/manifest.json`,
+        ];
       } else if (db) {
-        patterns = [`${base}/manual/TABLE/${db}/*/manifest.json`];
+        patterns = [
+          `${base}/manual/TABLE/${db}.*/manifest.json`,
+          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
+        ];
       } else {
-        patterns = [`${base}/manual/TABLE/*/*/manifest.json`];
+        patterns = [
+          `${base}/manual/TABLE/*/manifest.json`,
+          `${base}/manual/TABLE/*/*/manifest.json`,
+          `${base}/manual/TABLE/*/*/*/manifest.json`,
+        ];
       }
     }
 
@@ -479,6 +508,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               setAvailableBackups([]);
               setScanErrors([]);
             }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="backup">BACKUP</option>
             <option value="restore">RESTORE</option>
@@ -493,6 +524,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               setScope(e.target.value);
               setTbl("");
             }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="all">ALL</option>
             <option value="database">DATABASE</option>
@@ -509,6 +542,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 setDb(e.target.value);
                 setTbl("");
               }}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             >
               <option value="">--</option>
               {databases.map((d) => (
@@ -524,6 +559,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               className="form-select"
               value={tbl}
               onChange={(e) => setTbl(e.target.value)}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             >
               <option value="">--</option>
               {tables.map((t) => (
@@ -538,6 +575,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             className="form-select"
             value={profile}
             onChange={(e) => setProfile(e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {profiles.map((p) => (
@@ -553,6 +592,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             className="form-select"
             value={onCluster}
             onChange={(e) => setOnCluster(e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {clusters.map((c) => (
@@ -573,7 +614,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             style={{
               display: "flex",
               gap: 6,
-              cursor: "pointer",
+              cursor: isAdmin ? "pointer" : "not-allowed",
               fontSize: "14px",
             }}
           >
@@ -582,6 +623,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               checked={isAsync}
               onChange={(e) => setIsAsync(e.target.checked)}
               style={{ accentColor: "var(--accent)" }}
+              disabled={!isAdmin}
             />{" "}
             ASYNC
           </label>
@@ -602,6 +644,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 value={exceptTables}
                 onChange={(e) => setExceptTables(e.target.value)}
                 placeholder="db.table1, db.table2"
+                disabled={!isAdmin}
+                style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
               />
             </div>
             {scope === "all" && (
@@ -611,6 +655,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                   className="form-input"
                   value={exceptDatabases}
                   onChange={(e) => setExceptDatabases(e.target.value)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
               </div>
             )}
@@ -633,7 +679,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             <button
               className="btn btn-secondary btn-sm"
               onClick={listBackups}
-              disabled={loadingBackups || !profile}
+              disabled={loadingBackups || !profile || !isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             >
               {loadingBackups ? (
                 <>
@@ -664,6 +711,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 className="form-select"
                 value={selectedBackup}
                 onChange={(e) => setSelectedBackup(e.target.value)}
+                disabled={!isAdmin}
+                style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
               >
                 <option value="">-- select backup --</option>
                 {availableBackups.map((b, i) => (
@@ -685,26 +734,28 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           value={settingsStr}
           onChange={(e) => setSettingsStr(e.target.value)}
           placeholder="base_backup = ..., compression_method = 'lz4'"
+          disabled={!isAdmin}
+          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         />
         <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
           base_backup, compression_method, s3_storage_class
         </span>
       </div>
       <SqlPreview sql={buildSql()} />
-            <div style={{ height: "22px",marginTop:10, marginBottom:20}}>
-              <div
-                className="alert-banner info"
-                style={{ marginTop: "0px", fontSize: "12px",padding:"6px" }}
-              >
-                <Icon
-                  style={{ fontSize: "15px",paddingTop:"2px" }}
-                  className="ti ti-info-circle"
-                ></Icon>
-                <span>
-                  Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
-                </span>
-              </div>
-          </div>
+      <div style={{ marginBottom: 20 }}>
+        <div
+          className="alert-banner info"
+          style={{ marginTop: 10, marginBottom: 0, fontSize: "12px", padding: "6px" }}
+        >
+          <Icon
+            style={{ fontSize: "15px", paddingTop: "2px" }}
+            className="ti ti-info-circle"
+          ></Icon>
+          <span>
+            Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
+          </span>
+        </div>
+      </div>
       <div style={{ marginTop: 16 }}>
         <button
           className="btn btn-primary"
@@ -712,8 +763,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           disabled={
             !profile ||
             (scope === "database" && !db) ||
-            (scope === "table" && (!tbl || !db))
+            (scope === "table" && (!tbl || !db)) ||
+            !isAdmin
           }
+          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           {executing ? (
             <>
@@ -733,8 +786,11 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   );
 }
 
-// Available Backups Tab
 function AvailableBackupsTab({ profiles }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
   const [profile, setProfile] = useState("");
   const [backups, setBackups] = useState([]);
@@ -760,7 +816,7 @@ function AvailableBackupsTab({ profiles }) {
       patterns.push(`${base}/manual/*/manifest.json`);
       patterns.push(`${base}/manual/*/*/manifest.json`);
       patterns.push(`${base}/manual/*/*/*/manifest.json`);
-      // Legacy paths
+      patterns.push(`${base}/manual/*/*/*/*/manifest.json`);
       patterns.push(`${base}/ALL/*/manifest.json`);
       patterns.push(`${base}/DATABASE/*/*/manifest.json`);
       patterns.push(`${base}/TABLE/*/*/manifest.json`);
