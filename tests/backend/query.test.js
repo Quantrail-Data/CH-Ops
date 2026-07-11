@@ -30,6 +30,10 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 
 mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQuery: mockExecuteQuery,
+  // bun's mock.module replaces this module for the whole test process, not just
+  // this file - stub every real export so whichever test file's mock.module call
+  // happens to win doesn't break other files that need executeQueryWithBody.
+  executeQueryWithBody: mock(),
 }));
 
 const {
@@ -403,6 +407,46 @@ describe("runQuery readonly enforcement", () => {
     mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
     const req = { body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" } };
+    const res = createRes();
+    await runQuery(req, res);
+    expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
+    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({ readOnly: false });
+  });
+
+  test("a 'readonly' app role cannot bypass by omitting readOnly in the request body", async () => {
+    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    const req = { user: { role: "readonly" }, body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" } };
+    const res = createRes();
+    await runQuery(req, res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toMatch(/read-only/i);
+    expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+
+  test("a 'readonly' app role cannot bypass by explicitly setting readOnly: false", async () => {
+    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    const req = { user: { role: "readonly" }, body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1", readOnly: false } };
+    const res = createRes();
+    await runQuery(req, res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toMatch(/read-only/i);
+    expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+
+  test("a 'readonly' app role can still run read queries", async () => {
+    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
+    const req = { user: { role: "readonly" }, body: { sql: "SELECT 1", node: "h1", clusterId: "c1" } };
+    const res = createRes();
+    await runQuery(req, res);
+    expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
+    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({ readOnly: true });
+  });
+
+  test("a non-readonly app role (editor) is not forced into readOnly", async () => {
+    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
+    const req = { user: { role: "editor" }, body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" } };
     const res = createRes();
     await runQuery(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);

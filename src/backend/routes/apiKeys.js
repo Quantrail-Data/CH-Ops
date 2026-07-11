@@ -8,16 +8,17 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
-import { 
-  getAllApiKeys, 
-  getApiKeysWithValues, 
-  createApiKey, 
-  updateApiKey, 
-  deleteApiKey, 
+import {
+  getAllApiKeys,
+  getApiKeysWithValues,
+  createApiKey,
+  updateApiKey,
+  deleteApiKey,
   setActiveApiKey,
   getActiveApiKey,
   getApiKeyById
 } from '../services/apiKeys.js';
+import { requireSuperAdmin } from '../controllers/users.js';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.get('/', (req, res) => {
   }
 });
 
-router.get('/:id/value', (req, res) => {
+router.get('/:id/value', requireSuperAdmin, (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const key = getApiKeyById(id);
@@ -50,13 +51,17 @@ router.get('/active', (req, res) => {
     if (!activeKey) {
       return res.status(404).json({ error: 'No active API key found' });
     }
-    res.json({ apiKey: activeKey });
+    // Only the AI provider name/model is needed client-side to show connection
+    // status; the decrypted key itself is used exclusively server-side (see
+    // SQLGenerationService) and must never reach the browser.
+    const { key, ...safeKey } = activeKey;
+    res.json({ apiKey: safeKey });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/with-values', (req, res) => {
+router.get('/with-values', requireSuperAdmin, (req, res) => {
   try {
     const keys = getApiKeysWithValues();
     const activeKey = getActiveApiKey();
@@ -66,7 +71,7 @@ router.get('/with-values', (req, res) => {
   }
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireSuperAdmin, (req, res) => {
   try {
     const { name, apiKey,model } = req.body;
     if (!name?.trim()) {
@@ -85,7 +90,7 @@ router.post('/', (req, res) => {
   }
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireSuperAdmin, (req, res) => {
   try {
     const { name, apiKey ,model} = req.body;
     if (!name?.trim()) {
@@ -106,7 +111,7 @@ router.put('/:id', (req, res) => {
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireSuperAdmin, (req, res) => {
   try {
     const id = parseInt(req.params.id);
     deleteApiKey(id);
@@ -116,7 +121,7 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-router.post('/select', (req, res) => {
+router.post('/select', requireSuperAdmin, (req, res) => {
   try {
     const { keyId } = req.body;
     if (!keyId) {

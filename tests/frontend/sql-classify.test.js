@@ -118,3 +118,23 @@ describe('sqlClassify: helpers', () => {
     );
   });
 });
+
+describe('sqlClassify: bounded input (loop-bound-injection hardening)', () => {
+  // This module runs client-side too (no request-body size limit applies
+  // there), so its internal loops must not scale unboundedly with attacker-
+  // controlled input length - CodeQL flags exactly this (js/loop-bound-injection).
+  it('analyzeSql completes quickly on a pathologically large statement', () => {
+    const huge = 'SELECT 1; -- ' + 'x'.repeat(5_000_000);
+    const start = Date.now();
+    const result = analyzeSql(huge);
+    expect(Date.now() - start).toBeLessThan(2000);
+    expect(result.statements.length).toBeGreaterThan(0);
+  });
+
+  it('leadingKeyword completes quickly on huge leading whitespace', () => {
+    const huge = ' '.repeat(5_000_000) + 'SELECT 1';
+    const start = Date.now();
+    leadingKeyword(huge);
+    expect(Date.now() - start).toBeLessThan(2000);
+  });
+});
