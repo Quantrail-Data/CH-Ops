@@ -89,6 +89,13 @@ function sessionQuery(sess, { query, body = null, jsonEachRow = true }) {
 
 router.post('/connect', async (req, res) => {
   try {
+    // Schema Studio's only write action is CREATE TABLE. The app's own
+    // 'readonly' role must not be able to reach it just by supplying its own
+    // ClickHouse credentials (this route lets the caller connect as any
+    // ClickHouse user, independent of the app-level role).
+    if (req.user?.role === 'readonly') {
+      return res.status(403).json({ error: 'Read-only accounts cannot use Schema Studio.' });
+    }
     const { clusterId, node, port, user, password } = req.body || {};
     if (!user) return res.status(400).json({ error: 'ClickHouse username is required.' });
 
@@ -239,6 +246,11 @@ router.post('/validate', async (req, res) => {
 // Create
 router.post('/create', async (req, res) => {
   try {
+    // Defense in depth alongside the /connect gate above, in case a session
+    // was established before a role downgrade.
+    if (req.user?.role === 'readonly') {
+      return res.status(403).json({ error: 'Read-only accounts cannot create tables.' });
+    }
     const sess = requireSession(req);
     const statements = (req.body?.statements || []).filter(Boolean);
     if (!statements.length) return res.status(400).json({ error: 'Nothing to create.' });

@@ -115,7 +115,11 @@ async function scanS3Manifests(s3, patterns) {
       const r = await runQuery(sql);
       if (r.rows?.length) allRows.push(...r.rows);
     } catch (err) {
-      const msg = err.message || "";
+      // ClickHouse often echoes the failing query back in s3()-related error
+      // text, which would otherwise leak the plaintext secret key into the UI.
+      let msg = err.message || "";
+      if (s3?.accessKey) msg = msg.split(s3.accessKey).join("***");
+      if (s3?.accessKeyId) msg = msg.split(s3.accessKeyId).join("***");
       // These are expected when a glob matches no files - not real errors
       const isExpectedEmpty =
         msg.includes("no files") ||
@@ -214,6 +218,16 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
 
   const selProfile = profiles.find((p) => p.name === profile);
   const s3 = getS3Base(selProfile);
+
+  // ClickHouse often echoes the failing query back in s3()-related error text,
+  // which would otherwise leak the plaintext secret key into toasts/logs.
+  function redactS3Secret(msg) {
+    if (!msg) return msg;
+    let out = msg;
+    if (s3?.accessKey) out = out.split(s3.accessKey).join("***");
+    if (s3?.accessKeyId) out = out.split(s3.accessKeyId).join("***");
+    return out;
+  }
 
   function buildBackupId() {
     const ts = backupTimestamp();
@@ -324,17 +338,15 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         try {
           await writeManifest(backupId);
         } catch (err) {
-          console.log(err);
-
           toast.warning(
-            `Backup completed, but manifest write failed: ${err.message}`,
+            `Backup completed, but manifest write failed: ${redactS3Secret(err.message)}`,
           );
         }
       }
     } catch (err) {
-      console.log(err);
-
-      const msg = err.message || "Unknown error";
+      // ClickHouse s3()-related errors often echo the failing query back in the
+      // message, which would otherwise leak the plaintext secret key onto the screen.
+      const msg = redactS3Secret(err.message) || "Unknown error";
 
       if (msg.includes("Access Denied") || msg.includes("403")) {
         toast.error(
@@ -448,7 +460,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         );
       }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to scan backups:", redactS3Secret(err.message));
       toast.error("Failed to scan backups.");
     } finally {
       setLoadingBackups(false);

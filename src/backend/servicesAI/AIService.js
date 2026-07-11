@@ -6,7 +6,6 @@ const { decrypt } = require("../services/crypto");
 
 class AIServices {
   constructor(Provider, modelName, APIkey) {
-    console.log(Provider, modelName, APIkey);
     if (!Provider) {
       throw new Error("Provider is missing");
     }

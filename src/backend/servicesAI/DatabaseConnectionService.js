@@ -75,7 +75,10 @@ class DatabaseConnectionService {
         database_id: databaseId,
       };
     } catch (error) {
-      console.error(error);
+      // Log a fixed format string with the message as data, not the raw error
+      // object as the format argument - it can carry connection internals
+      // (host/user, and HTTP-client errors often attach request/config data).
+      console.error("ClickHouse connection registration failed:", error.message);
       const msg = (error.message || "").toLowerCase();
 
       // Invalid Host

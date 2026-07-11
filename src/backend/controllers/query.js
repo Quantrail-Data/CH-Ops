@@ -9,8 +9,16 @@ import { isReadOnlySql } from '../../shared/sqlClassify.js';
 import { getCredSession, CRED_CONTEXTS } from '../services/chCredStore.js';
 
 export async function runQuery(req, res) {
-  const { sql, node, user, password, port, clusterId, strictAuth, readOnly, useSession, context } = req.body;
+  const { sql, node, user, password, port, clusterId, strictAuth, useSession, context } = req.body;
+  let { readOnly } = req.body;
   if (!sql) return res.status(400).json({ error: 'Missing SQL' });
+
+  // Server-side role enforcement: the client-supplied readOnly flag is only a
+  // UX hint. A CHOps user whose app role is 'readonly' must never be able to
+  // escalate to a write query by omitting/flipping this flag in the request body.
+  if (req.user?.role === 'readonly') {
+    readOnly = true;
+  }
 
   // Defense in depth: when the caller asks for a read-only request, reject any
   // non-read statement here before it reaches ClickHouse. The readonly setting
