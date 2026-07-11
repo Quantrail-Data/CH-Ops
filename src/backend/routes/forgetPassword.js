@@ -110,7 +110,6 @@ router.post("/change/password", async (req, res, next) => {
   try {
     const { password, email } = req?.body;
 
-    console.log(password,email)
 
     if (!password || !email)
       return res?.status(400)?.json({

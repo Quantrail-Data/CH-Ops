@@ -145,26 +145,29 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
       return false
       
     }
-
     const webAppName = "CHOPS";
+
+    const escapeEmail = escapeHtml(email);
+    const escapeOtp = escapeHtml(otp);
+    const escapeWebAppName = escapeHtml(webAppName);
 
     const mailOptions = {
       from: config?.from,
       to: email,
       subject: "Password Reset OTP",
-      text: `Hi ${email},\n\nHere is your OTP (One Time PIN) for resetting your password on ${webAppName}:\n\nOTP: ${otp}\n\nThis OTP is valid for 30 seconds.`,
+      text: `Hi ${escapeEmail},\n\nHere is your OTP (One Time PIN) for resetting your password on ${escapeWebAppName}:\n\nOTP: ${escapeOtp}\n\nThis OTP is valid for 30 seconds.`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <div style="background: linear-gradient(135deg, #5D3FD3, #8B5CF6); padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0;">Password Reset OTP</h1>
           </div>
           <div style="padding: 25px; background: #ffffffff; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
-            <p>Hi ${email},</p>
+            <p>Hi ${escapeEmail},</p>
             <p>You requested to reset your password. Here is your OTP (One Time PIN):</p>
             
             <div style="text-align: center; margin: 30px 0;">
               <div style="display: inline-block; background: #5D3FD3; color: white; font-size: 24px; font-weight: bold; letter-spacing: 5px; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                ${otp}
+                ${escapeOtp}
               </div>
             </div>
             
@@ -173,7 +176,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
             <p>If you didn't request this password reset, please ignore this email or contact our support team immediately.</p>
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-              <p style="color: #666; font-size: 14px;">Best regards,<br>The ${webAppName} Team</p>
+              <p style="color: #666; font-size: 14px;">Best regards,<br>The ${escapeWebAppName} Team</p>
             </div>
           </div>
         </div>
@@ -190,7 +193,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
     });
 
     const info = await transport.sendMail(mailOptions);
-    console.log(`Password reset OTP sent to ${email}:`, info.messageId);
+     console.log("Password reset OTP sent to %s: %s", email, info.messageId);
     return true;
   } catch (error) {
     console.error("Error sending OTP email:", error);
