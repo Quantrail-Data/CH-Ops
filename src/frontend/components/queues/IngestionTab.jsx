@@ -104,9 +104,9 @@ export default function IngestionTab({ source = "s3" }) {
     if (failView !== "all") return;
     const to = Math.floor(Date.now() / 1000);
     const from = to - rangeSec;
-    loadFiles(source, from, to, { statusFailed: true }, 500).then((r) =>
-      setRawFailures(r.rows || [])
-    );
+    loadFiles(source, from, to, { statusFailed: true }, 500)
+      .then((r) => setRawFailures(r.rows || []))
+      .catch(() => setRawFailures([]));
   }, [failView, source, rangeSec]);
 
   async function runSearch() {

@@ -24,12 +24,19 @@ export const READ_ONLY_LEADERS = new Set([
   "SELECT", "WITH", "EXPLAIN", "SHOW", "DESCRIBE", "DESC", "EXISTS",
 ]);
 
+// This module runs in the browser as well as the server, so it can't rely on
+// an upstream request-body size limit. Cap the loop bound explicitly instead
+// of trusting the coerced string's .length directly - ordinary SQL is nowhere
+// near this large, and every loop below is O(n) over it.
+const MAX_SQL_LENGTH = 1_000_000;
+
 // Lex the SQL once and return an array of statement strings, split on top-level
 // semicolons. Comments are replaced by a single space (to preserve token
 // boundaries) and string / identifier literals are copied verbatim so that a ';'
 // or keyword-looking text inside them is never treated as structure.
 function splitTopLevel(sql) {
-  const s = String(sql || "");
+  const raw = String(sql || "");
+  const s = raw.length > MAX_SQL_LENGTH ? raw.slice(0, MAX_SQL_LENGTH) : raw;
   const n = s.length;
   const out = [];
   let buf = "";
@@ -96,7 +103,8 @@ function splitTopLevel(sql) {
 // First keyword of a single (already comment-free) statement, skipping leading
 // whitespace and any leading '(' (parenthesized SELECT / UNION forms).
 export function leadingKeyword(statement) {
-  const t = String(statement || "");
+  const raw = String(statement || "");
+  const t = raw.length > MAX_SQL_LENGTH ? raw.slice(0, MAX_SQL_LENGTH) : raw;
   let j = 0;
   while (j < t.length && (t[j] === "(" || /\s/.test(t[j]))) j++;
   const m = /^[A-Za-z_]+/.exec(t.slice(j));

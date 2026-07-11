@@ -10,3 +10,5 @@ bun.lockb
 prisma/migrations/
 src/backend/embeddedAssets.js
 test-results.xml
+coverage/
+coverage-comment.md

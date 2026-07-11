@@ -188,17 +188,19 @@ describe('getActiveApiKey', () => {
   });
 
   it('returns active api key and updates global connection', async () => {
+    // The backend never sends the decrypted key value to the client (it's
+    // only used server-side) - only id/name/model identify the active key.
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ apiKey: { key: 'k1', name: 'primary' } }),
+      json: () => Promise.resolve({ apiKey: { name: 'primary' } }),
     })));
 
     const key = await getActiveApiKey();
 
-    expect(key).toEqual({ key: 'k1', name: 'primary' });
+    expect(key).toEqual({ name: 'primary' });
     const conn = getGlobalConnection();
-    expect(conn.apiKey).toBe('k1');
+    expect(conn.apiKey).toBe(null);
     expect(conn.apiKeyName).toBe('primary');
   });
 

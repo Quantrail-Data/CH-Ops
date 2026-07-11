@@ -100,7 +100,7 @@ router.post("/otp/verify", (req, res, next) => {
 
     return res?.status(201)?.json({ success: true, message: "Done" });
   } catch (err) {
-    console.log(err)
+    console.error("OTP verification error:", err.message)
     return res?.status(500)?.json({success:false,message:"Internal Server Error!"})
   }
 });
