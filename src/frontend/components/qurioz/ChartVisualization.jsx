@@ -16,6 +16,8 @@ import { initChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import DataTable from "../layout/DataTable";
 import { useQuriozChatContext } from "../../App.jsx";
+import { apiFetch } from "../../utils/api.js";
+import { useToast } from "../layout/Toast.jsx";
 
 function ChartVisualization({ editChart, data = [], chatMessage }) {
   const [columns, setColumns] = useState(
@@ -33,11 +35,21 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
   );
   const [validationErrors, setValidationErrors] = useState({});
   const [topOpen, setTopOpen] = useState(true);
+  const [dashboards,setDashboards] = useState([])
+  const [selDashboard, setSelDashboard] = useState("");
   const previewRef = useRef(null);
   const previewInst = useRef(null);
   const tools = useChartTools(() => previewInst.current, { filename: "chart" });
 
   const { replaceChat } = useQuriozChatContext();
+  
+  const toast = useToast();
+
+    useEffect(() => {
+      apiFetch("/api/dashboards")
+        .then(setDashboards)
+        .catch(() => {});
+    }, []);
 
   useEffect(() => {
     if (editChart) {
@@ -166,6 +178,93 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
     setMapping({});
   }
 
+      async function saveChart() {
+      if (!selDashboard) {
+        toast.warning(
+          "Select a dashboard first. Create one in the Dashboards section.",
+        );
+        return;
+      }
+      const dashId = parseInt(selDashboard, 10);
+      const config = { ...mapping, xLabel, yLabel, showLegend };
+      try {
+        if (editChart) {
+          await apiFetch(`/api/dashboards/charts/${editId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              name: chartName || "Untitled",
+              dashboardId: dashId,
+              sqlQuery: chatMessage.sql,
+              chartType,
+              chartSubtype,
+              config,
+            }),
+          });
+          toast.success("Chart updated.");
+        } else {
+          // Auto-fill: find next available position
+          const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
+          const dash = dashboards.find((d) => d.id === dashId);
+          const cols = dash?.columns || 2;
+          const occupied = new Set(
+            existing.map((c) => `${c.gridRow}-${c.gridCol}`),
+          );
+          let row = 0,
+            col = 0;
+          while (occupied.has(`${row}-${col}`)) {
+            col++;
+            if (col >= cols) {
+              col = 0;
+              row++;
+            }
+          }
+          await apiFetch("/api/dashboards/charts", {
+            method: "POST",
+            body: JSON.stringify({
+              name: chartName || "Untitled",
+              dashboardId: dashId,
+              gridRow: row,
+              gridCol: col,
+              sqlQuery: chatMessage.sql,
+              chartType,
+              chartSubtype,
+              config,
+            }),
+          });
+          toast.success("Chart saved to dashboard.");
+        }
+      } catch (e) {
+        toast.error(e.message);
+      } finally {
+        setChartType("bar");
+        setChartSubtype("simple_bar");
+        setChartName("");
+        setMapping({});
+        setXLabel("");
+        setYLabel("");
+        setShowLegend(true);
+        setChartOption(null);
+        previewRef.current = null;
+        previewInst.current = null;
+        // if (onEditDone) onEditDone();
+      }
+    }
+
+      function SeperateNumericColumns(column) {
+    let final = [];
+    if (data?.length > 0) {
+      final = Object.keys(data[0]).filter((c) => {
+        const find = column?.find((c_) => c_ === c);
+
+        if (typeof find !== "undefined" && typeof data[0][find] === "number") {
+          return find;
+        }
+      });
+    }
+
+    return final;
+  }
+
   return (
    <div className="card" style={tools.fullscreen ? { position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", padding: 16, display: "flex", flexDirection: "column" } : { marginBottom: 16, overflow: "hidden" }} >
       {
@@ -249,29 +348,55 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                             {f.label}
                             {f.required ? " *" : ""} ({f.expect})
                           </label>
-                          <Select
-                            className="form-select"
-                            value={mapping[f.key] || ""}
-                            onChange={(e) =>
-                              setMapping((p) => ({
-                                ...p,
-                                [f.key]: e.target.value,
-                              }))
-                            }
-                            style={{
-                              fontSize: "13px",
-                              borderColor: validationErrors[f.key]
-                                ? "var(--color-danger)"
-                                : undefined,
-                            }}
-                          >
-                            <option value="">--</option>
-                            {columns.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </Select>
+                                                    {f?.expect === "numeric" ? (
+                                                        <Select
+                                                          className="form-select"
+                                                          value={mapping[f.key] || ""}
+                                                          onChange={(e) =>
+                                                            setMapping((p) => ({
+                                                              ...p,
+                                                              [f.key]: e.target.value,
+                                                            }))
+                                                          }
+                                                          style={{
+                                                            fontSize: "13px",
+                                                            borderColor: validationErrors[f.key]
+                                                              ? "var(--color-danger)"
+                                                              : undefined,
+                                                          }}
+                                                        >
+                                                          <option value="">--</option>
+                                                          {SeperateNumericColumns(columns).map((c) => (
+                                                            <option key={c} value={c}>
+                                                              {c}
+                                                            </option>
+                                                          ))}
+                                                        </Select>
+                                                      ) : (
+                                                        <Select
+                                                          className="form-select"
+                                                          value={mapping[f.key] || ""}
+                                                          onChange={(e) =>
+                                                            setMapping((p) => ({
+                                                              ...p,
+                                                              [f.key]: e.target.value,
+                                                            }))
+                                                          }
+                                                          style={{
+                                                            fontSize: "13px",
+                                                            borderColor: validationErrors[f.key]
+                                                              ? "var(--color-danger)"
+                                                              : undefined,
+                                                          }}
+                                                        >
+                                                          <option value="">--</option>
+                                                          {columns.map((c) => (
+                                                            <option key={c} value={c}>
+                                                              {c}
+                                                            </option>
+                                                          ))}
+                                                        </Select>
+                                                      )}
                           {validationErrors[f.key] && (
                             <span
                               style={{
@@ -448,7 +573,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                     />
                   )}
                   <div ref={previewRef} style={{ height: tools.fullscreen ? "calc(100vh - 96px)" : 408, width: "100%" }}>
-                    {!chartOption && (
+                    {!chartOption && !previewRef &&(
                       <div className="empty-state" style={{ padding: 24 }}>
                         <Icon className="ti ti-chart-dots"></Icon>
                         <p style={{ fontSize: "13px" }}>
@@ -457,6 +582,33 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                       </div>
                     )}
                 </div>
+                  {chartOption && (
+                                      <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label className="form-label">Dashboard *</label>
+                        <Select
+                          className="form-select"
+                          value={selDashboard}
+                          onChange={(e) => setSelDashboard(e.target.value)}
+                        >
+                          <option value="">--</option>
+                          {dashboards.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        onClick={saveChart}
+                        disabled={!chartOption || !selDashboard} //|| !sql.trim()
+                      >
+                        <Icon className="ti ti-device-floppy"></Icon>{" "}
+                       Save
+                      </button>
+                    </div>
+                    )}
                 </div>
               )}
           </div>

@@ -948,7 +948,7 @@ function InspectionPopup({
     <div className="profiler-popup-overlay" onClick={onClose}>
       <div
         className="playback-inspection-popup"
-        style={{backgroundColor:"white"}}
+        style={{backgroundColor:"var(--bg-page)"}}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="profiler-popup-header">

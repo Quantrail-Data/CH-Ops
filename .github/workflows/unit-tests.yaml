@@ -2,9 +2,9 @@ name: Run Unit Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, testing ]        # replace "testing" with your real branch name
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, testing ]
 
 permissions:
   contents: read
@@ -12,25 +12,31 @@ permissions:
   checks: write
   pull-requests: write
 
+env:
+  # Dummy values for unit tests only. Not real credentials.
+  SUPER_ADMIN_1: test-admin
+  SUPER_ADMIN_1_PASSWORD: test-password-123
+  SESSION_SECRET: test-session-secret
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Check out the repository code
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Step 2: Install Bun and set up the environment
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest # Or specify a version like "1.1.0"
+          bun-version: 1.3.13
 
-      # Step 3: Install project dependencies
       - name: Install Dependencies
         run: bun install
 

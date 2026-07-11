@@ -235,7 +235,7 @@ export default function UserManagement() {
                 <tr key={u.id}>
                   <td style={{ fontWeight: 600 }}>{u.username}</td>
                   <td>
-                    {rolesForTarget.length > 0 ? (
+                    {canManage && rolesForTarget.length > 0 ? (
                       <Select
                         className="form-select"
                         value={u.role}
@@ -251,9 +251,11 @@ export default function UserManagement() {
                   </td>
                   <td>{u.email || '-'}</td>
                   <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '-'}</td>
-                  <td style={{ display: 'flex', gap: 4 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => resetPassword(u.id)} title="Reset Password" disabled={!canManage} style={!canManage ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-key"></Icon></button>
-                    <button className="btn btn-danger btn-sm" onClick={() => setDel(u.id)} title="Delete" disabled={!canManage} style={!canManage ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon></button>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => resetPassword(u.id)} title="Reset Password" disabled={!canManage} style={!canManage ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-key"></Icon></button>
+                      <button className="btn btn-danger btn-sm" onClick={() => setDel(u.id)} title="Delete" disabled={!canManage} style={!canManage ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon></button>
+                    </div>
                   </td>
                 </tr>
               );

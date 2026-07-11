@@ -16,8 +16,10 @@ import { loadEnv } from '../../src/backend/utils/env.js';
 beforeAll(() => {
   process.env.SUPER_ADMIN_1 = 'admin';
   process.env.SUPER_ADMIN_1_PASSWORD = 'secure_pass';
+  process.env.SUPER_ADMIN_1_EMAIL = 'admin@gmail.com'
   process.env.SUPER_ADMIN_2 = 'admin2';
   process.env.SUPER_ADMIN_2_PASSWORD = 'pass2';
+    process.env.SUPER_ADMIN_2_EMAIL = 'admin@gmail.com'
   process.env.SESSION_SECRET = 'long_random_secret_32_chars_min!';
   process.env.SMTP_HOST = 'smtp.example.com';
   process.env.SMTP_PORT = '465';
@@ -51,6 +53,7 @@ describe('Env Loader - super admins', () => {
     delete process.env.SUPER_ADMIN_2_PASSWORD;
     process.env.SUPER_ADMIN = 'legacy_admin';
     process.env.SUPER_ADMIN_PASSWORD = 'legacy_pass';
+    process.env.SUPER_ADMIN_EMAIL = "legacy@gamil.com"
     const env = loadEnv();
     expect(env.superAdmins.length).toBe(1);
     expect(env.superAdmins[0].username).toBe('legacy_admin');
