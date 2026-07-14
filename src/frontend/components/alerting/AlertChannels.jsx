@@ -7,7 +7,9 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
+import { useAuth } from "../../App.jsx";
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const TYPES = [
   {
     key: "email",
@@ -31,6 +33,10 @@ const LABELS = {
 };
 
 export default function AlertChannels() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [channels, setChannels] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -114,6 +120,36 @@ export default function AlertChannels() {
   }
 
   const selType = TYPES.find((t) => t.key === f.type) || TYPES[0];
+
+  if (!loaded) {
+    return (
+      <div className="page-content">
+        <div className="empty-state" style={{ padding: 40 }}>
+          <div className="loading-spinner"></div> Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-send"></Icon> Alert Channels
+          </h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Alert channels management is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>Alert channels management is only available for administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content">
@@ -279,11 +315,7 @@ export default function AlertChannels() {
           </button>
         </div>
       )}
-      {!loaded ? (
-        <div className="empty-state">
-          <p>Loading...</p>
-        </div>
-      ) : channels.length === 0 ? (
+      {channels.length === 0 ? (
         <div className="empty-state">
           <Icon className="ti ti-mail-forward" style={{ fontSize: 36 }}></Icon>
           <p>No channels yet.</p>

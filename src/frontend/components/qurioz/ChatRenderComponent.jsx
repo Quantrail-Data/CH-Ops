@@ -11,18 +11,23 @@ import { AnimatePresence, motion } from "motion/react";
 import ChartVisualization from "./ChartVisualization";
 import { useToast } from "../layout/Toast";
 import { apiFetch } from "../../utils/api";
-import { useQuriozChatContext } from "../../App";
+import { useQuriozChatContext, useAuth } from "../../App";
 import AILoaderComponent from "./AILoaderComponent";
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
+
 function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,index,ReFormQuestionSQLGenerating }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
+
   const [showDownloadOption, setShowDownloadingOption] = useState(false);
   const [showQuestionOption, setShowQuestionOption] = useState(false);
   const [isEditable, setIsEditable] = useState(false);
   const [editMessage, setEditMessage] = useState(null);
 
-  // retry loading
   const [chatReformLoading,setchatReformLoading] = useState(false);
-  // console.log(chatMessage)
 
   const [retryLoading, setRetryLoading] = useState(false);
 
@@ -162,7 +167,6 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                     bottom: "-1.5rem",
                     right: "0rem",
                     paddingTop: "10px",
-                    // backgroundColor:"rgba(239, 239, 239, 0.74)"
                   }}
                 >
                   {
@@ -228,8 +232,6 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                   paddingTop: "10px",
                   right: "0rem",
                   gap:"5px",
-                  
-                  // backgroundColor:"rgba(239, 239, 239, 0.74)"
                 }}
               >
                 <button onClick={cancelEditHandler} className="btn btn-danger">
@@ -313,7 +315,6 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                       className="loading-spinner"
                       style={{
                         borderTopColor: "white",
-                        // marginRight: "",
                         margin:"15px auto"
                       }}
                     ></div>
