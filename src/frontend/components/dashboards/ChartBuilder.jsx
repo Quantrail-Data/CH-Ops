@@ -19,11 +19,18 @@ import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import ErrorBoundary from "../layout/ErrorBoundary.jsx";
 import { useToast } from "../layout/Toast.jsx";
-import { useTheme } from "../../App.jsx";
+import { useTheme, useAuth } from "../../App.jsx";
+
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 export default function ChartBuilder({ editChart, onEditDone }) {
   const toast = useToast();
   const { theme } = useTheme();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const canBuild = myLevel >= ROLE_LEVEL.admin;
+
   const [sql, setSql] = useState("");
   const [data, setData] = useState(null);
   const [columns, setColumns] = useState([]);
@@ -376,7 +383,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         });
         toast.success("Chart updated.");
       } else {
-        // Auto-fill: find next available position
         const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
         const dash = dashboards.find((d) => d.id === dashId);
         const cols = dash?.columns || 2;
@@ -551,12 +557,32 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     saveFun: true,
     fullscreenFun: true,
   };
-    const chartControlsFlags = {
+  const chartControlsFlags = {
     zoomFun: true,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
   };
+
+  if (!canBuild) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-chart-dots-3"></Icon> Chart Builder
+          </h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Chart building is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>Chart building is only available for administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content" style={shellStyle}>
@@ -576,7 +602,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         </button>
       </div>
 
-      {/* TOP: SQL + Results */}
       <div className="card" 
       style={{ marginBottom: 12, overflow: "hidden" }}>
         <div
@@ -679,7 +704,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         )}
       </div>
 
-      {/* BOTTOM: Config + Preview */}
       <div
         className="card"
         style={
@@ -864,60 +888,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           </div>
                         ),
                     )}
-
-                    {/* {fields.map((f) => (
-                      <div key={f.key} className="form-group">
-                        <label
-                          className="form-label"
-                          style={{ fontSize: "12px" }}
-                        >
-                          {f.label}
-                          {f.required ? " *" : ""} ({f.expect})
-                        </label>
-                        <Select
-                          className="form-select"
-                          value={mapping[f.key] || ""}
-                          onChange={(e) =>
-                            setMapping((p) => ({
-                              ...p,
-                              [f.key]: e.target.value,
-                            }))
-                          }
-                          style={{
-                            fontSize: "13px",
-                            borderColor: validationErrors[f.key]
-                              ? "var(--color-danger)"
-                              : undefined,
-                          }}
-                        >
-                          
-
-                          <option value=" ">--</option>
-                          {columns
-                            .filter((c) => {
-                              if (f.expect === "numeric") {
-                                return isNumericColumn(c);
-                              }
-                              return true;
-                            })
-                            .map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                        </Select>
-                        {validationErrors[f.key] && (
-                          <span
-                            style={{
-                              color: "var(--color-danger)",
-                              fontSize: "12px",
-                            }}
-                          >
-                            {validationErrors[f.key]}
-                          </span>
-                        )}
-                      </div>
-                    ))} */}
                   </div>
                 </div>
               )}
@@ -1033,34 +1003,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                     Preview
                   </div>
-                  {/* {chartOption &&
-                  !chartOption._error &&
-                  !chartOption._kpi &&
-                  !chartOption._table && (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={zoomIn}
-                        title="Zoom In"
-                      >
-                        <Icon className="ti ti-zoom-in"></Icon>
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={zoomOut}
-                        title="Zoom Out"
-                      >
-                        <Icon className="ti ti-zoom-out"></Icon>
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={resetZoom}
-                        title="Reset View"
-                      >
-                        <Icon className="ti ti-refresh"></Icon>
-                      </button>
-                    </div>
-                  )} */}
                 </div>
                 {chartOption?._error && (
                   <div
@@ -1167,7 +1109,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         )}
       </div>
 
-      {/* Save */}
       {chartOption && !chartOption._error && (
         <div className="card" style={{ padding: 12 }}>
           <h3 style={{ fontSize: "14px", marginBottom: 10 }}>
