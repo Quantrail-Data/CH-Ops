@@ -285,7 +285,9 @@ function ProcessorsProfileInner( ) {
   const [profileMap, setProfileMap] = useState({});
   const [heatRange, setHeatRange] = useState({ minUs: 0, maxUs: 0 });
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [initialNodes, setInitialNodes] = useNodesState([]);  
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [initialEdges, setInitialEdges] = useEdgesState([]);
   const [loadingPipeline, setLoadingPipeline] = useState(false);
   const [pipelineError, setPipelineError] = useState("");
 
@@ -410,6 +412,8 @@ function ProcessorsProfileInner( ) {
       if (isStale()) return;
       setNodes(coloredNodes);
       setEdges(rfEdges);
+      setInitialNodes(coloredNodes)
+      setInitialEdges(rfEdges)
 
       // Fit the view to show all nodes after a brief layout settle
       setTimeout(() => reactFlowInstance?.fitView({ padding: 0.15 }), 100);
@@ -553,6 +557,13 @@ function ProcessorsProfileInner( ) {
       profile: node.data.profile,
     });
   }, []);
+
+
+  const handleResetView = () =>{
+    setNodes(initialNodes)
+    setEdges(initialEdges);
+    reactFlowInstance?.fitView({ padding: 0.15 });
+  }
 
   // Render
 
@@ -844,8 +855,8 @@ function ProcessorsProfileInner( ) {
           <div style={{ display: "flex", gap: 4 }}>
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => reactFlowInstance?.fitView({ padding: 0.15 })}
-              title="Fit to view"
+              onClick={() => handleResetView}
+              title="Reset"
             >
               <Icon className="ti ti-zoom-reset" />
             </button>
