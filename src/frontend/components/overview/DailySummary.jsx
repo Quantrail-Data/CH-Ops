@@ -1260,7 +1260,7 @@ export default function DailySummary() {
               </div>
 
               {topErrors.length > 0 ? (
-                <div style={{ overflow: "auto", maxHeight: 160 }}>
+                <div style={{ overflow: "auto", maxHeight: 305 }}>
                   <DataTable
                     rows={topErrors}
                     columns={["error_code", "message_preview", "cnt"]}

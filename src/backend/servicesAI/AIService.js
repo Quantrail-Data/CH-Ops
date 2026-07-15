@@ -3,10 +3,13 @@
 // Manages AI provider integrations and prompt execution
 const { GoogleGenAI } = require("@google/genai");
 const { decrypt } = require("../services/crypto");
+const OpenAI = require("openai");
+const {Mistral} = require("@mistralai/mistralai");
+const Anthropic = require("@anthropic-ai/sdk");
 
 class AIServices {
-  constructor(Provider, modelName, APIkey) {
-    if (!Provider) {
+  constructor(provider, modelName, APIkey) {
+    if (!provider) {
       throw new Error("Provider is missing");
     }
 
@@ -18,97 +21,144 @@ class AIServices {
       throw new Error("API key is missing");
     }
 
-    this.client = null;
-    this.provider = Provider;
+    this.provider = provider.toUpperCase();
     this.modelName = modelName;
+    this.apiKey = decrypt(APIkey);
+    this.client = null;
 
-    switch (Provider) {
+    switch (this.provider) {
       case "GEMINI":
-        this.client = this.client = new GoogleGenAI({
-          apiKey: decrypt(APIkey),
+        this.client = new GoogleGenAI({
+          apiKey: this.apiKey,
         });
         break;
+
+      case "MISTRAL":
+        this.client = new Mistral({
+          apiKey: this.apiKey,
+        });
+        break;
+
+      case "CLAUDE":
+        this.client = new Anthropic({
+          apiKey: this.apiKey,
+        });
+        break;
+
       case "OPEN AI":
-        this.client = null;
+        this.client = new OpenAI({
+          apiKey: this.apiKey,
+        });
         break;
 
       default:
-        this.client = null;
-        break;
+        throw new Error(`Unsupported AI provider: ${provider}`);
     }
   }
 
   async ask(prompt) {
-    if (this.provider === "GEMINI") {
-      try {
-        const response = await this.client.models.generateContent({
-          model: this.modelName,
-          contents: prompt,
-        });
-
-        return response.text;
-      } catch (error) {
-        const status = error?.status || error?.code || error?.statusCode;
-        const message = error?.message || "";
-
-        // Rate limit
-        if (status === 429 || message.includes("Resource exhausted")) {
-          // const err = new Error(
-          //   "Gemini API rate limit exceeded. Please try again later.",
-          // );
-          // err.statusCode = 429;
-          throw {
-            statusCode: 504,
-            errorCode: "AI_PROVIDER_RATE_LIMIT_EXCEEDED",
-            message: "Gemini API rate limit exceeded. Please try again later.",
-          };
+    try {
+      switch (this.provider) {
+        case "GEMINI": {
+          const response = await this.client.models.generateContent({
+            model: this.modelName,
+            contents: prompt,
+          });
+          return response.text;
         }
 
-        if (
-          status === 401 ||
-          message.includes("Request had invalid authentication credentials.")
-        ) {
-          //  const err = new Error(
-          //   "Unable to connect to the AI service. The configured API key appears to be invalid. Please update your API key and try again.",
-          // );
-          // err.statusCode = 401;
-          throw {
-            statusCode: 403,
-            errorCode: "AI_AUTHENTICATION_FAILED",
-            message:
-              "AI service authentication failed. Please verify the provider configuration.",
-          };
+        case "MISTRAL": {
+          const response = await this.client.chat.complete({
+            model: this.modelName,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+          });
+
+          return response.choices?.[0]?.message?.content ?? "";
+        }
+        case "CLAUDE": {
+          const response = await this.client.messages.create({
+            model: this.modelName,
+            max_tokens: 8048,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+          });
+          return response.content?.[0]?.text ?? "";
         }
 
-        // Service unavailable / overloaded
-        if (
-          status === 503 ||
-          message.includes("currently experiencing high demand")
-        ) {
-          // const err = new Error(
-          //   "Gemini service is temporarily unavailable. Please try again in a few moments.",
-          // );
-          // err.statusCode = 503;
-          throw {
-            statusCode: 503,
-            errorCode: "AI_SERVICE_UNAVAILABLE",
-            message:
-              "AI service is temporarily unavailable. Please try again in a few moments.",
-          };
+        case "OPEN AI": {
+          const response = await this.client.responses.create({
+            model: this.modelName,
+            input: prompt,
+          });
+          console.log("OpenAI Response:", JSON.stringify(response, null, 2));
+          return response.output_text ?? "";
         }
-
-        console.error("Gemini API Error:", {
-          status,
-          message,
-          stack: error?.stack,
-        });
-
-        const err = new Error("An internal server error occurred.");
-        err.statusCode = 500;
-        throw err;
       }
-    } else if (this.provider === "OPEN AI") {
-      console.log("WANT OT UPDATE!");
+    } catch (error) {
+      const status = error?.status || error?.statusCode || error?.code;
+      const message = error?.message || "";
+
+      // Rate Limit
+      if (
+        status === 429 ||
+        message.toLowerCase().includes("rate limit") ||
+        message.toLowerCase().includes("resource exhausted")
+      ) {
+        throw {
+          statusCode: 504,
+          errorCode: "AI_PROVIDER_RATE_LIMIT_EXCEEDED",
+          message: "AI provider rate limit exceeded. Please try again later.",
+        };
+      }
+
+      // Authentication
+      if (
+        status === 401 ||
+        status === 403 ||
+        message.toLowerCase().includes("authentication") ||
+        message.toLowerCase().includes("invalid api key") ||
+        message.toLowerCase().includes("invalid authentication")
+      ) {
+        throw {
+          statusCode: 403,
+          errorCode: "AI_AUTHENTICATION_FAILED",
+          message:
+            "AI service authentication failed. Please verify the provider configuration.",
+        };
+      }
+
+      // Service unavailable
+      if (
+        status === 503 ||
+        message.toLowerCase().includes("high demand") ||
+        message.toLowerCase().includes("service unavailable")
+      ) {
+        throw {
+          statusCode: 503,
+          errorCode: "AI_SERVICE_UNAVAILABLE",
+          message:
+            "AI service is temporarily unavailable. Please try again later.",
+        };
+      }
+
+      console.error(`${this.provider} API Error:`, {
+        status,
+        message,
+        stack: error?.stack,
+      });
+
+      const err = new Error("An internal server error occurred.");
+      err.statusCode = 500;
+      throw err;
     }
   }
 }
