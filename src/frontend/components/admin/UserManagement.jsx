@@ -39,7 +39,7 @@ export default function UserManagement() {
 
   function creatableRoles() {
     if (myRole === 'superadmin') return ['superadmin', 'admin', 'editor', 'readonly'];
-    if (myRole === 'admin') return ['admin', 'editor', 'readonly'];
+    if (myRole === 'admin') return ['editor', 'readonly'];
     return [];
   }
 
