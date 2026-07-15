@@ -2623,7 +2623,7 @@ input[type="datetime-local"] {
 }
 
 .chat-area {
-  width: 55%;
+  width:45%;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -2726,7 +2726,7 @@ background: var(--bg-page);
   width: 100%;
   position: sticky;
   
-  /* top: calc(5rem + 34px); */
+  top: 0px;
   /* left: 4rem; */
 }
 
