@@ -9,6 +9,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+// const {RD_ShcemaData} = require("./servicesAI/rdService.js");
 // const appVersion = require('../../version.json');
 
 // Embedded static assets (generated at build time for binary mode)
@@ -18,6 +19,14 @@ try {
   const mod = await import('./embeddedAssets.js');
   embeddedAssets = mod.default;
 } catch {}
+
+// let RD_SERVICE = null;
+// try {
+//   RD_SERVICE = new RD_ShcemaData();
+// }
+// catch(err) {
+//   console.error(err?.message)
+// }
 
 import { log } from './services/logger.js';
 
@@ -191,6 +200,7 @@ if (embeddedAssets && embeddedAssets.has('dist/index.html')) {
 
 // Global error handler
 app.use((err, req, res, next) => {
+  console.log(err)
   log.error('Unhandled request error', { error: err.message, path: req.path, method: req.method });
   res.status(err?.statusCode || 500).json({ error: err?.message || 'Internal server error' });
 });
@@ -199,6 +209,10 @@ app.use((err, req, res, next) => {
 // Start services
 startScheduler(env);
 startAppBackupScheduler();
+
+// storing the schema data of database so, we init the setup
+// RD_SERVICE && RD_SERVICE?.RDInit();
+
 
 // const appVersion = { version: env.version || '0.0.0' };
 const port = env.port;
