@@ -9,13 +9,13 @@ import {
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
-const AI_PROVIDERS = ["GEMINI", "OPEN AI","MISTRAL","CLAUDE"]
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 4 };
+const AI_PROVIDERS = ["GEMINI", "OPEN AI", "MISTRAL", "CLAUDE"];
 
 export default function ApiManagement() {
   const toast = useToast();
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [apiKeys, setApiKeys] = useState([]);
@@ -35,7 +35,8 @@ export default function ApiManagement() {
   });
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-
+  const [isValidKey, setISvalidKey] = useState(false);
+  const [isLoadingKey, setIsLoadingKey] = useState(false);
 
   useEffect(() => {
     loadApiKeys();
@@ -309,6 +310,8 @@ export default function ApiManagement() {
       await updateGlobalActiveKey();
     } catch (err) {
       toast.error("Failed to save API key: " + err.message);
+    } finally {
+      setISvalidKey(false);
     }
   }
 
@@ -374,8 +377,8 @@ export default function ApiManagement() {
   }
 
   function startAddNew() {
-    if (apiKeys.length >= 3) {
-      toast.warning("Maximum 3 API keys allowed");
+    if (apiKeys.length >= 5) {
+      toast.warning("Maximum 4 API keys allowed");
       return;
     }
     setShowAddForm(true);
@@ -525,12 +528,50 @@ export default function ApiManagement() {
     }
   }
 
+  async function verifyAPIKeyHandler(e) {
+    e.preventDefault();
+    setISvalidKey(false)
+    if (formKeyName.trim() && formKeyValue.trim() && formModelValue.trim()) {
+      const apiKeys = {
+        name: formKeyName.trim(),
+        apiKey: formKeyValue?.trim(),
+        model: formModelValue?.trim(),
+      };
+      setIsLoadingKey(true);
+      try {
+        const response = await apiFetch("/api/qurioz/api-keys/check", {
+          method: "POST",
+          body: JSON.stringify({ apiKeys }),
+        });
+
+        if (!response?.success) {
+          setISvalidKey(false);
+          toast?.error(
+            "API key validation failed. Please verify your API key and try again.",
+          );
+          return;
+        }
+        setISvalidKey(true);
+        toast?.success(`API key verified successfully. You can now ${editingKey ? 'update' : 'add'} it.`)
+        return;
+      } catch (err) {
+        setISvalidKey(false);
+        toast?.error(err?.message);
+        return;
+      } finally {
+        setIsLoadingKey(false);
+      }
+    } else {
+      toast?.warning(`Some required fields are missing.`);
+    }
+  }
+
   return (
     <div className="page-content">
       <div className="section-header">
         <h2 className="section-title">
           <Icon className="ti ti-ai"></Icon>
-          API Key Management 
+          API Key Management
         </h2>
       </div>
 
@@ -559,7 +600,7 @@ export default function ApiManagement() {
               marginBottom: 0,
             }}
           >
-            Configure up to 3 API keys for AI-powered query assistance and
+            Configure up to 4 API keys for AI-powered query assistance and
             insights. Supports OpenAI, Google Gemini
           </p>
         </div>
@@ -667,7 +708,7 @@ export default function ApiManagement() {
         )}
 
         {showAddForm ? (
-          <form onSubmit={saveApiKey}>
+          <form>
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
                 API Key Name <span style={{ color: "var(--danger)" }}>*</span>
@@ -682,7 +723,9 @@ export default function ApiManagement() {
                   fontSize: "14px",
                 }}
               >
-               <option value={""} selected>Select AI Provider</option>
+                <option value={""} selected>
+                  Select AI Provider
+                </option>
                 {AI_PROVIDERS.map((name, index) => {
                   return (
                     <option value={name} key={index}>
@@ -720,45 +763,99 @@ export default function ApiManagement() {
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div
-                style={{ position: "relative", width: "100%", maxWidth: 520 }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  maxWidth: "520px",
+                  gap: "10px",
+                }}
               >
-                <input
-                  className="form-input"
-                  type={showKey ? "text" : "password"}
-                  value={formKeyValue}
-                  onChange={(e) => setFormKeyValue(e.target.value)}
-                  placeholder="Enter your API key (OpenAI: sk-..., Gemini: AIza..., X.AI: xai-..., HF: hf_...)"
-                  required
-                  style={{
-                    width: "100%",
-                    fontFamily: "var(--font-code)",
-                    fontSize: "14px",
-                    paddingRight: "46px",
-                  }}
-                />
+                <div
+                  style={{ position: "relative", width: "100%", maxWidth: 520 }}
+                >
+                  <input
+                    className="form-input"
+                    type={showKey ? "text" : "password"}
+                    value={formKeyValue}
+                    onChange={(e) => setFormKeyValue(e.target.value)}
+                    placeholder="Enter your API key (OpenAI: sk-..., Gemini: AIza..., X.AI: xai-..., HF: hf_...)"
+                    required
+                    style={{
+                      width: "100%",
+                      fontFamily: "var(--font-code)",
+                      fontSize: "14px",
+                      paddingRight: "46px",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    title={showKey ? "Hide" : "Show"}
+                    style={{
+                      position: "absolute",
+                      right: "14px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      border: "none",
+                      background: "transparent",
+                      padding: 0,
+                      margin: 0,
+                      lineHeight: 1,
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: 2,
+                    }}
+                  >
+                    {showKey ? (
+                      <Icon
+                        className="ti ti-eye-off"
+                        style={{ fontSize: 20 }}
+                      />
+                    ) : (
+                      <Icon className="ti ti-eye" style={{ fontSize: 20 }} />
+                    )}
+                  </button>
+                </div>
                 <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  title={showKey ? "Hide" : "Show"}
+                  className="btn btn-primary"
                   style={{
-                    position: "absolute",
-                    right: "14px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    border: "none",
-                    background: "transparent",
-                    padding: 0,
-                    margin: 0,
-                    lineHeight: 1,
-                    cursor: "pointer",
-                    color: "var(--text-muted)",
-                    display: "inline-flex",
+                    padding: "7px 10px",
+                    borderRadius: "5px",
+                    display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    zIndex: 2,
                   }}
+                  title="Test the API key"
+                  onClick={verifyAPIKeyHandler}
                 >
-                  {showKey ? <Icon className="ti ti-eye-off" style={{ fontSize: 20 }} /> : <Icon className="ti ti-eye" style={{ fontSize: 20 }} />}
+                  {isLoadingKey ? (
+                    
+                     <div className="loading-spinner"></div>
+                    
+                  ) : (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
+                      >
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M10.09 4.01l.496 -.495a2 2 0 0 1 2.828 0l7.071 7.07a2 2 0 0 1 0 2.83l-7.07 7.07a2 2 0 0 1 -2.83 0l-7.07 -7.07a2 2 0 0 1 0 -2.83l3.535 -3.535h-3.988" />
+                        <path d="M7.05 11.038v-3.988" />
+                      </svg>
+                      <p style={{ fontSize: "13px" }}>Verify AI API Key</p>
+                    </>
+                  )}
                 </button>
               </div>
               <p
@@ -769,13 +866,19 @@ export default function ApiManagement() {
                 }}
               >
                 Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI
-                (xai-...), and custom API keys. Keys are
-                encrypted before storage. {apiKeys.length}/3 keys used.
+                (xai-...) Keys are encrypted before storage. {apiKeys.length}/3
+                keys used.
+                <br />
+                Verify the API key successfully before proceeding to add it
               </p>
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <button className="btn btn-primary" type="submit">
+              <button
+                className="btn btn-primary"
+                onClick={saveApiKey}
+                disabled={!isValidKey}
+              >
                 <Icon className="ti ti-device-floppy"></Icon>{" "}
                 {editingKey ? "Update Key" : "Save Key"}
               </button>
@@ -789,7 +892,7 @@ export default function ApiManagement() {
             </div>
           </form>
         ) : (
-          apiKeys.length < 3 && (
+          apiKeys.length < 4 && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
               <button className="btn btn-primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key

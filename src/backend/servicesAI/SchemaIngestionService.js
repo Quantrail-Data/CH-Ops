@@ -5,6 +5,9 @@ const EmbeddingService = require("./EmbeddingService");
 const QdrantService = require("./QdrantService");
 const ConnectionRegistry = require("../dbConfigAI/ConnectionRegistry");
 const ClickHouseClientFactory = require("../dbConfigAI/ClickHouseClientFactory");
+// const { RD_ShcemaData } = require("./rdService");
+
+// const RD_SERVICE = new RD_ShcemaData();
 
 class SchemaIngestionService {
   constructor(databaseId, connection) {
@@ -44,9 +47,8 @@ class SchemaIngestionService {
     });
 
     const json = await result.json();
-    // Not logged: SHOW CREATE TABLE embeds connection strings (incl.
-    // credentials) directly in the DDL for external-engine tables (MySQL,
-    // PostgreSQL, S3, etc.), so dumping this to the server console would leak them.
+    // console.log("SHOW CREATE TABLE RESULT:");
+    // console.log(JSON.stringify(json, null, 2));
     return json.data[0].statement;
   }
 
@@ -120,6 +122,9 @@ ${column.name} (${column.type})
           is_active: true,
         },
       };
+
+      // inserting the database schema and vector info in schemastore json
+      // RD_SERVICE?.appendSchemaData(this.databaseId,point);
       await this.qdrant.upsert(point);
     }
 
