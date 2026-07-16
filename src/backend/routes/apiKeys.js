@@ -7,7 +7,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import { Router } from 'express';
+import { Router } from "express";
 import {
   getAllApiKeys,
   getApiKeysWithValues,
@@ -16,13 +16,60 @@ import {
   deleteApiKey,
   setActiveApiKey,
   getActiveApiKey,
-  getApiKeyById
-} from '../services/apiKeys.js';
-import { requireSuperAdmin } from '../controllers/users.js';
+  getApiKeyById,
+} from "../services/apiKeys.js";
+import { requireSuperAdmin } from "../controllers/users.js";
+import AIServices from "../servicesAI/AIService.js";
+import { db } from "../db/index.js";
+import { apiKeys } from "../db/schema.js";
+import { eq } from "drizzle-orm";
+import { decrypt } from "../services/crypto.js";
 
 const router = Router();
 
-router.get('/', (req, res) => {
+const AIProviderTesting = async (providerID = null,apikey=null) => {
+  try {
+    if (!providerID && apikey) {
+      const {name, apiKey, model} = apikey;
+      const AISer = new AIServices(
+      name,
+      model,
+      apiKey,
+    );
+console.log(apiKey)
+    const response = await AISer?.ask("hi");
+    console.log(response)
+    return response
+      ? { success: true, message: "active" }
+      : { success: false, message: "failed" };
+    }
+
+    const findAPIKEY = db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys?.id, providerID))
+      .get();
+    if (!findAPIKEY) {
+      throw new Error("API KEY not founded!");
+    }
+    const AISer = new AIServices(
+      findAPIKEY?.name,
+      findAPIKEY?.model,
+      decrypt(findAPIKEY?.encryptedKey),
+    );
+
+    const response = await AISer?.ask("hi");
+
+    return response
+      ? { success: true, message: "active" }
+      : { success: false, message: "failed" };
+  } catch (error) {
+    console.error(error)
+    return { success: false, message: "failed" };
+  }
+};
+
+router.get("/", (req, res) => {
   try {
     const keys = getAllApiKeys();
     const activeKey = getActiveApiKey();
@@ -32,12 +79,12 @@ router.get('/', (req, res) => {
   }
 });
 
-router.get('/:id/value', requireSuperAdmin, (req, res) => {
+router.get("/:id/value", requireSuperAdmin, (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const key = getApiKeyById(id);
     if (!key) {
-      return res.status(404).json({ error: 'API key not found' });
+      return res.status(404).json({ error: "API key not found" });
     }
     res.json({ keyValue: key.key });
   } catch (err) {
@@ -45,11 +92,11 @@ router.get('/:id/value', requireSuperAdmin, (req, res) => {
   }
 });
 
-router.get('/active', (req, res) => {
+router.get("/active", (req, res) => {
   try {
     const activeKey = getActiveApiKey();
     if (!activeKey) {
-      return res.status(404).json({ error: 'No active API key found' });
+      return res.status(404).json({ error: "No active API key found" });
     }
     // Only the AI provider name/model is needed client-side to show connection
     // status; the decrypted key itself is used exclusively server-side (see
@@ -61,7 +108,7 @@ router.get('/active', (req, res) => {
   }
 });
 
-router.get('/with-values', requireSuperAdmin, (req, res) => {
+router.get("/with-values", requireSuperAdmin, (req, res) => {
   try {
     const keys = getApiKeysWithValues();
     const activeKey = getActiveApiKey();
@@ -71,47 +118,47 @@ router.get('/with-values', requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post('/', requireSuperAdmin, (req, res) => {
+router.post("/", requireSuperAdmin, (req, res) => {
   try {
-    const { name, apiKey,model } = req.body;
+    const { name, apiKey, model } = req.body;
     if (!name?.trim()) {
-      return res.status(400).json({ error: 'API key name required.' });
+      return res.status(400).json({ error: "API key name required." });
     }
     if (!apiKey?.trim()) {
-      return res.status(400).json({ error: 'API key value required.' });
+      return res.status(400).json({ error: "API key value required." });
     }
     if (!model?.trim()) {
-      return res.status(400).json({ error: 'API key model required.' });
+      return res.status(400).json({ error: "API key model required." });
     }
-    const newKey = createApiKey(name, apiKey,model);
+    const newKey = createApiKey(name, apiKey, model);
     res.status(201).json(newKey);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.put('/:id', requireSuperAdmin, (req, res) => {
+router.put("/:id", requireSuperAdmin, (req, res) => {
   try {
-    const { name, apiKey ,model} = req.body;
+    const { name, apiKey, model } = req.body;
     if (!name?.trim()) {
-      return res.status(400).json({ error: 'API key name required.' });
+      return res.status(400).json({ error: "API key name required." });
     }
     if (!apiKey?.trim()) {
-      return res.status(400).json({ error: 'API key value required.' });
+      return res.status(400).json({ error: "API key value required." });
     }
 
     if (!model?.trim()) {
-      return res.status(400).json({ error: 'API key model required.' });
+      return res.status(400).json({ error: "API key model required." });
     }
     const id = parseInt(req.params.id);
-    const updated = updateApiKey(id, name,apiKey,model);
+    const updated = updateApiKey(id, name, apiKey, model);
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/:id', requireSuperAdmin, (req, res) => {
+router.delete("/:id", requireSuperAdmin, (req, res) => {
   try {
     const id = parseInt(req.params.id);
     deleteApiKey(id);
@@ -121,11 +168,11 @@ router.delete('/:id', requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post('/select', requireSuperAdmin, (req, res) => {
+router.post("/select", requireSuperAdmin, (req, res) => {
   try {
     const { keyId } = req.body;
     if (!keyId) {
-      return res.status(400).json({ error: 'Key ID required.' });
+      return res.status(400).json({ error: "Key ID required." });
     }
     const active = setActiveApiKey(parseInt(keyId));
     res.json(active);
@@ -133,5 +180,20 @@ router.post('/select', requireSuperAdmin, (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+router.post("/check",async (req,res,next)=>{
+  try {
+    const {apiKeys} = req.body;
+    if (!apiKeys) return res.status(422).json({success:false,message:"Provider ID and Model details  must be included!"});
+
+    const responseTesting = await AIProviderTesting(null,apiKeys);
+
+    return res.status(201)?.json(responseTesting);
+  }
+  catch(error) {
+    console.error(error);
+    next(error);
+  }
+})
 
 export default router;

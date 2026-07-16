@@ -32,7 +32,7 @@ CHOps has four roles. Each one controls what the user can see and do:
 | Create/edit alert rules and channels | Yes | Yes | No | No |
 | Create/edit backup schedules | Yes | Yes | No | No |
 | Manage cluster nodes | Yes | Yes | No | No |
-| Create new users | Yes | Yes | No | No |
+| Create new users | Yes | Yes(Editor, Read-only only) | No | No |
 | Reset passwords | Yes | Yes | No | No |
 | Delete users | Yes | Yes (not super admins) | No | No |
 | Change user roles | Yes (admin, editor, readonly) | Yes (editor, readonly) | No | No |

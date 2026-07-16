@@ -35,7 +35,7 @@ describe("Indexes: SecondaryIndexes (Data Skipping)", () => {
     expect(code).toContain("Data Skipping Indexes");
   });
   it("imports treeSize and treeSeries from shared util", () => {
-    expect(code).toContain("from '../../utils/treeChart.js'");
+    expect(code).toContain("from \"../../utils/treeChart.js\"");
   });
   it("has zoom, download, fullscreen buttons", () => {
     expect(code).toContain("ti-zoom-in");
@@ -63,7 +63,7 @@ describe("Indexes: Index Management (CreateIndex)", () => {
 describe("Indexes: Projections", () => {
   const code = read("src/frontend/components/indexes/Projections.jsx");
   it("imports treeSize and treeSeries from shared util", () => {
-    expect(code).toContain("from '../../utils/treeChart.js'");
+    expect(code).toContain("from \"../../utils/treeChart.js\"");
   });
   it("has zoom, download, fullscreen buttons", () => {
     expect(code).toContain("ti-zoom-in");

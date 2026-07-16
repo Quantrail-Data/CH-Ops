@@ -18,7 +18,7 @@ export default function AppDataBackup() {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin;
+  const isSuperAdmin = myRole === 'superadmin';
   const [profiles, setProfiles] = useState([]);
   const [selectedProfile, setSelectedProfile] = useState('');
   const [backups, setBackups] = useState([]);
@@ -78,7 +78,7 @@ export default function AppDataBackup() {
 
   if (!loaded) return <div className="page-content"><div className="empty-state" style={{ padding: 40 }}><div className="loading-spinner"></div> Loading...</div></div>;
 
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="page-content">
         <div className="section-header">
@@ -86,11 +86,11 @@ export default function AppDataBackup() {
         </div>
         <div className="alert-banner info" style={{ marginBottom: 14 }}>
           <Icon className="ti ti-lock"></Icon>
-          <span>App data backup is only available for administrators.</span>
+          <span>App data backup is only available for superadministrators.</span>
         </div>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
-          <p>App data backup is only available for administrators.</p>
+          <p>App data backup is only available for superadministrators.</p>
         </div>
       </div>
     );

@@ -378,7 +378,13 @@ function UserTree() {
                 display: 'flex',
                 flexDirection: 'column',
               }
-            : {}
+            : {
+              padding: 16,
+          marginBottom: 20,
+          height:"35rem",
+          overflow:"auto",
+
+            }
         }
       >
         <div
@@ -676,7 +682,12 @@ function RoleTree() {
                 display: 'flex',
                 flexDirection: 'column',
               }
-            : {}
+            : {
+              padding: 16,
+          marginBottom: 20,
+          height:"35rem",
+          overflow:"auto"
+            }
         }
       >
         <div
