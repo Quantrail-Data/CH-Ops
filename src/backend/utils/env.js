@@ -46,7 +46,5 @@ export function loadEnv() {
       version: process?.env?.VERSION,
       codename: process?.env?.CODENAME,
     },
-    QDRANTLINK:process?.env?.QDRANTLINK,
-    QDRANTSCHEMANAME:process?.env?.QDRANTSCHEMANAME,
   };
 }

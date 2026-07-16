@@ -16,4 +16,4 @@ class ConnectionRegistry {
     return this.connections.has(databaseId);
   }
 }
-module.exports = ConnectionRegistry;
+export default ConnectionRegistry;

@@ -1,12 +1,13 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
-// Validates a database connection, removes its data from Qdrant, deletes it from the registry, and returns success.
-const ConnectionRegistry = require("../dbConfigAI/ConnectionRegistry");
-const QdrantService = require("./QdrantService");
+// Validates a database connection, removes its data from  deletes it from the registry, and returns success.
+import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
+
+import LocalVectorStore from "./LocalVectorStoreService";
 
 class DeleteDatabaseService {
   constructor() {
-    this.qdrant = new QdrantService();
+    this.localdb = new LocalVectorStore();
   }
 
   async deleteDatabase(databaseId) {
@@ -16,7 +17,7 @@ class DeleteDatabaseService {
       throw new Error(`Database connection not found: ${databaseId}`);
     }
 
-    await this.qdrant.deleteDatabaseVectors(databaseId);
+    await this.localdb.deleteDatabaseVectors(databaseId);
 
     ConnectionRegistry.remove(databaseId);
 
@@ -28,4 +29,4 @@ class DeleteDatabaseService {
   }
 }
 
-module.exports = DeleteDatabaseService;
+export default DeleteDatabaseService;

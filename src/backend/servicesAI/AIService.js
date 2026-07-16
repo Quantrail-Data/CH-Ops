@@ -1,15 +1,14 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // Manages AI provider integrations and prompt execution
-const { GoogleGenAI } = require("@google/genai");
-const { decrypt } = require("../services/crypto");
-const OpenAI = require("openai");
-const Mistral=require("@mistralai/mistralai");
-const Anthropic = require("@anthropic-ai/sdk");
+import { GoogleGenAI } from "@google/genai";
+import { decrypt } from "../services/crypto";
+import OpenAI from "openai";
+import { Mistral } from "@mistralai/mistralai";
+import Anthropic from "@anthropic-ai/sdk";
 
 class AIServices {
   constructor(provider, modelName, APIkey) {
-    
     if (!provider) {
       throw new Error("Provider is missing");
     }
@@ -36,14 +35,14 @@ class AIServices {
 
       case "MISTRAL":
         this.client = new Mistral({
-              apiKey: this.apiKey,
-            });
+          apiKey: this.apiKey,
+        });
         break;
 
       case "CLAUDE":
-            this.client = new Anthropic({
-              apiKey: this.apiKey,
-            });
+        this.client = new Anthropic({
+          apiKey: this.apiKey,
+        });
         break;
 
       case "OPEN AI":
@@ -164,4 +163,4 @@ class AIServices {
   }
 }
 
-module.exports = AIServices;
+export default AIServices;

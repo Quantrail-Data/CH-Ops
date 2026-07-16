@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // Defines ClickHouse error classes for handling common errors with consistent codes and responses
-const ApplicationError = require("./AppError");
+import ApplicationError from "./AppError";
 class ClickHouseError extends ApplicationError {
   constructor(message, errorCode, statusCode, details = null) {
     super(message, errorCode, statusCode, details);
@@ -79,7 +79,7 @@ class ClickHouseConnectionError extends ClickHouseError {
   }
 }
 
-module.exports = {
+export {
   ClickHouseError,
   ClickHouseQueryError,
   ClickHouseAuthenticationError,
