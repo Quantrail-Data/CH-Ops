@@ -713,7 +713,7 @@ export default function QueryMetrics() {
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
-    const themedCharts = useMemo(() => {
+  const themedCharts = useMemo(() => {
     if (!groupedCharts.length) return groupedCharts;
     return groupedCharts.map((g) => {
       try {
@@ -850,8 +850,6 @@ export default function QueryMetrics() {
     setGroupedCharts([]);
 
     try {
-      setMetricsProgress("Discovering active metrics...");
-
       let activeColumns;
       let discoveryRows;
       try {
@@ -865,12 +863,16 @@ export default function QueryMetrics() {
           setMetricsError(
             "No metric data found for this query. The query may have been too short (under 1 second) or query_metric_log may not be enabled.",
           );
+          setMetricsProgress("");
+          setMetricsLoading(false);
           return;
         }
         activeColumns = discoverActiveColumns(discoveryRows);
       } catch (discoveryErr) {
         if (fetchIdRef.current !== thisId || !mountedRef.current) return;
         setMetricsError(`Failed to discover metrics: ${discoveryErr.message}`);
+        setMetricsProgress("");
+        setMetricsLoading(false);
         return;
       }
 
@@ -880,6 +882,8 @@ export default function QueryMetrics() {
         setMetricsError(
           "All metrics are zero for this query. The query may have been too simple.",
         );
+        setMetricsProgress("");
+        setMetricsLoading(false);
         return;
       }
 
@@ -978,14 +982,14 @@ export default function QueryMetrics() {
       setGroupedCharts(charts);
       setMetricsProgress("");
       setChartLayoutKey((k) => k + 1);
+      setMetricsLoading(false);
     } catch (err) {
-      if (mountedRef.current)
-        setMetricsError(err.message || "Failed to fetch query metrics");
-    } finally {
-      if (mountedRef.current) setMetricsLoading(false);
+      if (fetchIdRef.current !== thisId || !mountedRef.current) return;
+      setMetricsError(err.message || "Failed to fetch query metrics");
+      setMetricsProgress("");
+      setMetricsLoading(false);
     }
   }, [selectedQueryId]);
-
 
   const handleAutoAdjustTODate = (e) => {
     const from = e.target.value;
@@ -1231,7 +1235,6 @@ export default function QueryMetrics() {
               onClick={() => {
                 setSelectedQueryId("");
                 setMetricsError("");
-                // setMetricsProgress('Discovering active metrics...');
                 setGroupedCharts([]);
                 setChartLayoutKey((k) => k + 1);
               }}
