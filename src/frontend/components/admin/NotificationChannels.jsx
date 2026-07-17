@@ -32,7 +32,7 @@ const LABELS = {
   routing_key: "Integration Key",
 };
 
-export default function AlertChannels() {
+export default function NotificationChannels() {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -136,7 +136,7 @@ export default function AlertChannels() {
       <div className="page-content">
         <div className="section-header">
           <h2 className="section-title">
-            <Icon className="ti ti-send"></Icon> Alert Channels
+            <Icon className="ti ti-send"></Icon> Notification Channels
           </h2>
         </div>
         <div className="alert-banner info" style={{ marginBottom: 14 }}>
@@ -155,7 +155,7 @@ export default function AlertChannels() {
     <div className="page-content">
       <div className="section-header">
         <h2 className="section-title">
-          <Icon className="ti ti-send"></Icon> Alert Channels
+          <Icon className="ti ti-send"></Icon> Notification Channels
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <button className="btn btn-secondary btn-sm" onClick={load}>
