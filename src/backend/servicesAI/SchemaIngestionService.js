@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // schemaIngestion service that retrieves database schemas from ClickHouse, converts them into embeddings, and upserts those embeddings into a vector database.
+<<<<<<< HEAD
 import EmbeddingService from "./EmbeddingService";
 
 import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
@@ -8,6 +9,15 @@ import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
 import crypto from "crypto";
 
 import LocalVectorStore from "./LocalVectorStoreService";
+=======
+const EmbeddingService = require("./EmbeddingService");
+const QdrantService = require("./QdrantService");
+const ConnectionRegistry = require("../dbConfigAI/ConnectionRegistry");
+const ClickHouseClientFactory = require("../dbConfigAI/ClickHouseClientFactory");
+// const { RD_ShcemaData } = require("./rdService");
+
+// const RD_SERVICE = new RD_ShcemaData();
+>>>>>>> bde0a9f83079795ff5851336aedf252ce31ac9ef
 
 class SchemaIngestionService {
   constructor(databaseId, connection) {
@@ -48,8 +58,8 @@ class SchemaIngestionService {
     });
 
     const json = await result.json();
-    console.log("SHOW CREATE TABLE RESULT:");
-    console.log(JSON.stringify(json, null, 2));
+    // console.log("SHOW CREATE TABLE RESULT:");
+    // console.log(JSON.stringify(json, null, 2));
     return json.data[0].statement;
   }
 
@@ -132,7 +142,14 @@ ${column.name} (${column.type})
           is_active: true,
         },
       };
+<<<<<<< HEAD
       await this.localdb.upsert([point]);
+=======
+
+      // inserting the database schema and vector info in schemastore json
+      // RD_SERVICE?.appendSchemaData(this.databaseId,point);
+      await this.qdrant.upsert(point);
+>>>>>>> bde0a9f83079795ff5851336aedf252ce31ac9ef
     }
 
     await this.localdb.save();

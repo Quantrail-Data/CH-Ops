@@ -189,6 +189,28 @@ describe("authMiddleware", () => {
     expect(req.user.role).toBe("admin");
   });
 
+  it("mustChangePassword user -> 403, next not called", () => {
+    getMock.mockReturnValueOnce({
+      id: 1,
+      username: "alice",
+      mustChangePassword: true,
+    });
+
+    const token = create({ userId: 1, username: "alice", role: "admin" });
+    const req = { headers: { authorization: `Bearer ${token}` } };
+    const res = mockRes();
+    const next = counterNext();
+
+    authMiddleware(req, res, next);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({
+      error: "Password change required.",
+      code: "MUST_CHANGE_PASSWORD",
+    });
+    expect(next.calls.length).toBe(0);
+  });
+
   it("non-Bearer scheme -> 401, next not called", () => {
     const res = mockRes();
     const next = counterNext();

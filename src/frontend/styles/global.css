@@ -2623,7 +2623,7 @@ input[type="datetime-local"] {
 }
 
 .chat-area {
-  width: 55%;
+  width:45%;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -2726,7 +2726,7 @@ background: var(--bg-page);
   width: 100%;
   position: sticky;
   
-  /* top: calc(5rem + 34px); */
+  top: 0px;
   /* left: 4rem; */
 }
 
@@ -3065,6 +3065,35 @@ background: var(--bg-page);
 .login-lightbox-close:hover {
   background: var(--bg-hover);
 }
+
+
+
+/* forget-password */
+
+.forget-password-con {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  margin:10px 0px;
+}
+
+.forget-password-con p {
+  font-size:0.8em;
+  font-weight:600;
+  color:lightgray;
+  cursor: pointer;
+}
+
+[data-theme="light"] .forget-password-con p {
+  color:gray;
+}
+
+.forget-password-con p:hover {
+  text-decoration: underline;
+  color:var(--accent);
+}
+
+
 
 
 .logo-conatiner {

@@ -7,6 +7,7 @@ import { setGlobalConnection, getActiveApiKey, logoutRequest } from "./utils/api
 import useIdleTimeout from "./hooks/useIdleTimeout.js";
 import LoginPage from "./components/layout/LoginPage.jsx";
 import MainLayout from "./components/layout/MainLayout.jsx";
+import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
 
 export const AuthContext = createContext(null);
 export function useAuth() {
@@ -230,8 +231,9 @@ export default function App() {
             (c) => c.id === (localStorage.getItem("chops_cluster") || ""),
           ) || clusters[0];
 
+        const nodes = cluster?.nodes || [];
         const first =
-          cluster?.nodes?.filter((n) => n?.name === savedNodename).at(0) ||
+          nodes.filter((n) => n?.name === savedNodename).at(0) ||
           nodes[0] ||
           {};
 
@@ -247,20 +249,12 @@ export default function App() {
           );
         }
       })
-      .catch(() => {
-        return {
-          clusters: [],
-          selectedClusterId: "",
-          nodes: [],
-          selectedNode: "",
-          nodeName: "",
-          user: "",
-          password: "",
-          port: 8123,
-          connected: false,
-          error: null,
-          clusterName: "",
-        };
+      .catch((err) => {
+        // Previously returned a fallback state object here, but nothing ever
+        // consumed loadConfig()'s return value - a fetch failure silently left
+        // the UI on its prior (possibly stale) connection state with no
+        // indication anything went wrong. Surface it instead of swallowing it.
+        console.error("Failed to load cluster config:", err.message);
       });
   }
 
@@ -354,7 +348,11 @@ export default function App() {
               switchCluster,
             }}
           >
-            {auth ? <MainLayout /> : <LoginPage />}
+            {auth ? (
+              auth.mustChangePassword ? <ForceChangePassword /> : <MainLayout />
+            ) : (
+              <LoginPage />
+            )}
           </ConnectionContext.Provider>
         </ThemeContext.Provider>
       </QuriozChatContext.Provider>

@@ -106,6 +106,9 @@ export const PAGE_HEADERS = {
   "admin/api-management": [
     "API Key Management"
   ],
+  "custom/builder": [
+    "Chart Builder"
+  ],
   "custom/charts": [
     "All Charts"
   ]
@@ -644,6 +647,7 @@ export const PAGE_TEXT = {
     "Bookkeeping"
   ],
   "alerting/rules": [
+    "Alert rules management is only available for administrators.",
     "Name",
     "Severity",
     "Schedule (cron)",
@@ -662,9 +666,10 @@ export const PAGE_TEXT = {
     "NO NODES"
   ],
   "alerting/channels": [
+    "Loading...",
+    "Alert channels management is only available for administrators.",
     "Name",
     "Type",
-    "Loading...",
     "No channels yet.",
     "Test"
   ],
@@ -799,13 +804,11 @@ export const PAGE_TEXT = {
     "Database",
     "Table",
     "All",
-    "IF NOT EXISTS",
     "(column list)",
     "GROUP BY (optional)",
     "ORDER BY (optional)",
     "WITH SETTINGS (optional)",
     "Add Projection",
-    "IF EXISTS",
     "Drop Projection",
     "IN PARTITION (optional)",
     "Materialize",
@@ -818,6 +821,7 @@ export const PAGE_TEXT = {
     "Create",
     "Materialize",
     "Drop",
+    "Index management is only available for administrators.",
     "Index Type",
     "minmax",
     "set",
@@ -847,7 +851,6 @@ export const PAGE_TEXT = {
     "Create Index",
     "Materialize Index",
     "-- select --",
-    "ON CLUSTER",
     "Drop Index",
     "expression(str)"
   ],
@@ -860,6 +863,8 @@ export const PAGE_TEXT = {
     "Save Layout"
   ],
   "backups/lifecycle": [
+    "Loading...",
+    "Data lifecycle management is only available for administrators.",
     "No storage profiles configured. Create one in Storage Profiles first.",
     "Manual Backup",
     "Available Backups",
@@ -908,6 +913,7 @@ export const PAGE_TEXT = {
   ],
   "admin/users": [
     "Loading...",
+    "User management is only available for administrators.",
     "Change My Password",
     "Change Password",
     "Update Password",
@@ -927,6 +933,8 @@ export const PAGE_TEXT = {
     "User",
     "Password",
     "HTTPS",
+    "Loading...",
+    "Cluster management is only available for administrators.",
     "New Cluster",
     "Cancel",
     "Add Node",
@@ -935,6 +943,8 @@ export const PAGE_TEXT = {
     "node-1"
   ],
   "admin/app-backup": [
+    "Loading...",
+    "App data backup is only available for administrators.",
     "No storage profiles configured. Go to",
     "to add one.",
     "Manual Backup",
@@ -950,7 +960,6 @@ export const PAGE_TEXT = {
     "Save Schedule",
     "Last run:",
     "Backup History",
-    "Loading...",
     "No backups found for this profile.",
     "Backup ID",
     "Backup Type",
@@ -967,10 +976,13 @@ export const PAGE_TEXT = {
   ],
   "admin/api-management": [
     "Loading...",
+    "API key management is only available for administrators.",
     "Qurioz API Key Manager",
     "Active",
     "API Key Name",
     "Select AI Provider",
+    "Verify AI API Key",
+    "Verify the API key successfully before proceeding to add it",
     "Cancel",
     "Add API Key",
     "No API keys configured yet.",
@@ -1010,6 +1022,7 @@ export const PAGE_TEXT = {
     "Map columns to see preview."
   ],
   "custom/builder": [
+    "Chart building is only available for administrators.",
     "SQL & Results",
     "Running...",
     "Run",

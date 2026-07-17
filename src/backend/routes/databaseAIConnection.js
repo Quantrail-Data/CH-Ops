@@ -39,15 +39,19 @@ router.post("/connect", async (req, res, next) => {
     );
     const result = await connectionService.registerConnection();
     const databaseId = result.database_id;
-
+    
     const connection = db
       ?.select()
       ?.from(aiDatabaseDetails)
       ?.where(eq(aiDatabaseDetails?.database_id, databaseId))
       .get();
 
-    const ingestionService = new SchemaIngestionService(databaseId, connection);
-    const ingestionResult = await ingestionService.synchronizeSchema();
+
+      
+      const ingestionService = new SchemaIngestionService(databaseId, connection);
+      console.log("working 2")
+      const ingestionResult = await ingestionService.synchronizeSchema();
+      
 
     return res.status(200).json({
       success: true,
@@ -55,8 +59,12 @@ router.post("/connect", async (req, res, next) => {
       ingestion: ingestionResult,
     });
   } catch (error) {
+<<<<<<< HEAD
     console.log(error)
     console.log(error?.message);
+=======
+    console.error("AI database connection error:", error?.message);
+>>>>>>> bde0a9f83079795ff5851336aedf252ce31ac9ef
     next(error);
   }
 });

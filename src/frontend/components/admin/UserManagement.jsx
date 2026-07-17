@@ -21,7 +21,7 @@ export default function UserManagement() {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin; // admin or superadmin
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [users, setUsers] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -29,7 +29,7 @@ export default function UserManagement() {
   const [generatedPw, setGeneratedPw] = useState(null);
   const [del, setDel] = useState(null);
   const [changePw, setChangePw] = useState({ show: false, current: { value: '', isView: false }, newPw: { value: '', isView: false }, confirm: { value: '', isView: false } });
-  const [roleChange, setRoleChange] = useState(null); // { userId, username, fromRole, toRole }
+  const [roleChange, setRoleChange] = useState(null);
 
   async function load() {
     try { setUsers(await apiFetch('/api/users')); } catch (e) { toast.error('Failed to load users: ' + e.message); }
@@ -37,21 +37,18 @@ export default function UserManagement() {
   }
   useEffect(() => { load(); }, []);
 
-  // Which roles can the current user assign when creating a user?
   function creatableRoles() {
     if (myRole === 'superadmin') return ['superadmin', 'admin', 'editor', 'readonly'];
-    if (myRole === 'admin') return ['admin', 'editor', 'readonly'];
+    if (myRole === 'admin') return ['editor', 'readonly'];
     return [];
   }
 
-  // Which roles can the current user change a target user TO?
-  // Can't change someone at or above your level. Can't promote to your level or above.
   function assignableRoles(targetRole) {
     const targetLevel = ROLE_LEVEL[targetRole] || 0;
-    if (targetLevel >= myLevel) return []; // can't touch them
+    if (targetLevel >= myLevel) return [];
     return ROLES.filter(r => {
       const newLevel = ROLE_LEVEL[r] || 0;
-      return newLevel < myLevel; // can only assign below own level
+      return newLevel < myLevel;
     });
   }
 
@@ -62,7 +59,6 @@ export default function UserManagement() {
         toast.warning('Username must not exceed 128 characters.');
         return;
       }
-      // const r = await apiFetch('/api/users', { method: 'POST', body: JSON.stringify(form) });
       const r = await apiFetch('/api/users', { method: 'POST', body: JSON.stringify(form) });
       toast.success(`User "${form.username}" created.`);
       setGeneratedPw(r.generatedPassword);
@@ -82,7 +78,6 @@ export default function UserManagement() {
 
   function cancelRoleChange() {
     setRoleChange(null);
-    // No need to revert the select - we re-render from the users array which hasn't changed
   }
 
   async function resetPassword(id) {
@@ -116,6 +111,24 @@ export default function UserManagement() {
   }
 
   if (!loaded) return <div className="page-content"><div className="empty-state" style={{ padding: 40 }}><div className="loading-spinner"></div> Loading...</div></div>;
+
+  if (!isAdmin) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title"><Icon className="ti ti-users"></Icon> User Management</h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>User management is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>User management is only available for administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content">

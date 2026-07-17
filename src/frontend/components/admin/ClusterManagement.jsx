@@ -25,7 +25,7 @@ function NodeClusterComponent({ n, testNode, i, removeNode, updateNode, tr, edit
 
       <div className='' style={{ width: "100%", position: "relative" }}>
 
-        <input className="form-input" style={{ width: "100%", paddingRight: "35px" }} type={showPassword ? 'text' : 'password'} value={n.password} onChange={e => updateNode(i, 'password', e.target.value)} />
+        <input className="form-input" style={{ width: "100%", paddingRight: "35px" }} type={showPassword ? 'text' : 'password'} value={n.password || ''} onChange={e => updateNode(i, 'password', e.target.value)} placeholder={n.hasPassword ? '(unchanged - enter a new password to replace it)' : ''} />
         <div
           className='password-eye'
           style={{ position: "absolute", right: "15px", top: "22%", cursor: "pointer" }}
@@ -56,9 +56,11 @@ export default function ClusterManagement() {
   const [form, setForm] = useState({ name: '', nodes: [] });
   const [showForm, setShowForm] = useState(false);
   const [testResults, setTestResults] = useState({});
+  const [loaded, setLoaded] = useState(false);
 
   async function load() {
     try { const r = await apiFetch('/api/cluster'); setClusters(Array.isArray(r) ? r : []); } catch (e) { toast.error('Failed to load clusters: ' + e.message); }
+    setLoaded(true);
   }
   useEffect(() => { load(); }, []);
 
@@ -124,6 +126,26 @@ export default function ClusterManagement() {
     } catch (err) { toast.error(err.message); }
   }
 
+  if (!loaded) return <div className="page-content"><div className="empty-state" style={{ padding: 40 }}><div className="loading-spinner"></div> Loading...</div></div>;
+
+  if (!isAdmin) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title"><Icon className="ti ti-network"></Icon> Cluster Management</h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Cluster management is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>Cluster management is only available for administrators.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-content">
       <div className="section-header">
@@ -131,7 +153,7 @@ export default function ClusterManagement() {
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
           <button className="btn btn-secondary btn-sm" onClick={load}><Icon className="ti ti-refresh"></Icon></button>
           {!showForm && clusters.length < MAX_CLUSTERS && (
-            <button className="btn btn-primary btn-sm" onClick={startNew} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> New Cluster</button>
+            <button className="btn btn-primary btn-sm" onClick={startNew}><Icon className="ti ti-plus"></Icon> New Cluster</button>
           )}
           {showForm && (
             <button className="btn btn-secondary btn-sm" onClick={() => { setShowForm(false); setEditing(null); }}><Icon className="ti ti-x"></Icon> Cancel</button>
@@ -180,8 +202,8 @@ export default function ClusterManagement() {
                   <span style={{ color: 'var(--text-muted)', fontSize: '13px', marginLeft: 8 }}>{c.nodes.length} node{c.nodes.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => startEdit(c)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-edit"></Icon> Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => remove(c.id)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon></button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => startEdit(c)}><Icon className="ti ti-edit"></Icon> Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => remove(c.id)}><Icon className="ti ti-trash"></Icon></button>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

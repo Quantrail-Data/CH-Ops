@@ -9,6 +9,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+// const {RD_ShcemaData} = require("./servicesAI/rdService.js");
 // const appVersion = require('../../version.json');
 
 // Embedded static assets (generated at build time for binary mode)
@@ -18,6 +19,14 @@ try {
   const mod = await import('./embeddedAssets.js');
   embeddedAssets = mod.default;
 } catch {}
+
+// let RD_SERVICE = null;
+// try {
+//   RD_SERVICE = new RD_ShcemaData();
+// }
+// catch(err) {
+//   console.error(err?.message)
+// }
 
 import { log } from './services/logger.js';
 
@@ -43,6 +52,8 @@ import clusterRoute from './routes/cluster.js';
 import appBackupRoute from './routes/appBackup.js';
 import apiKeysRoute from './routes/apiKeys.js';
 import DownloadRouter from "./routes/downloadFile.js";
+import ForgetRouter from "./routes/forgetPassword.js";
+
 
 import databaseAIConnection from "./routes/databaseAIConnection.js";
 import sqlAIChat from "./routes/sqlAIChat.js";
@@ -99,7 +110,7 @@ app.use((req, res, next) => { req.env = env; next(); });
 app.use('/api/auth', rateLimiter(100, 60), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/version', (req, res) => res.json(appVersion));
-
+app.use(`/api/forget-password`,ForgetRouter);
 // Protected routes - authMiddleware checks the JWT on every request.
 // /api/query has an extra 100kb body limit to prevent oversized SQL payloads.
 // RBAC (superadmin checks) is handled inside the route files and controllers,
@@ -198,6 +209,10 @@ app.use((err, req, res, next) => {
 // Start services
 startScheduler(env);
 startAppBackupScheduler();
+
+// storing the schema data of database so, we init the setup
+// RD_SERVICE && RD_SERVICE?.RDInit();
+
 
 // const appVersion = { version: env.version || '0.0.0' };
 const port = env.port;

@@ -32,6 +32,7 @@ export default function DataLifecycle() {
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState([]);
   const [clusters, setClusters] = useState([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     apiFetch("/api/settings/backup_profiles")
@@ -51,6 +52,7 @@ export default function DataLifecycle() {
     )
       .then((r) => setClusters((r.rows || []).map((r) => r.cluster)))
       .catch(() => {});
+    setLoaded(true);
   }, []);
 
   const handleTabChange = (newTab) => {
@@ -58,6 +60,36 @@ export default function DataLifecycle() {
       setTab(newTab);
     }
   };
+
+  if (!loaded) {
+    return (
+      <div className="page-content">
+        <div className="empty-state" style={{ padding: 40 }}>
+          <div className="loading-spinner"></div> Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-archive-filled"></Icon> Data Lifecycle
+          </h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Data lifecycle management is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>Data lifecycle management is only available for administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content">
@@ -76,7 +108,6 @@ export default function DataLifecycle() {
         <div
           className={`tab-item ${tab === "manual" ? "active" : ""}`}
           onClick={() => handleTabChange("manual")}
-          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-upload"></Icon> Manual Backup
         </div>
@@ -508,8 +539,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               setAvailableBackups([]);
               setScanErrors([]);
             }}
-            disabled={!isAdmin}
-            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="backup">BACKUP</option>
             <option value="restore">RESTORE</option>
@@ -524,8 +553,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               setScope(e.target.value);
               setTbl("");
             }}
-            disabled={!isAdmin}
-            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="all">ALL</option>
             <option value="database">DATABASE</option>
@@ -542,8 +569,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 setDb(e.target.value);
                 setTbl("");
               }}
-              disabled={!isAdmin}
-              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             >
               <option value="">--</option>
               {databases.map((d) => (
@@ -559,8 +584,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               className="form-select"
               value={tbl}
               onChange={(e) => setTbl(e.target.value)}
-              disabled={!isAdmin}
-              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             >
               <option value="">--</option>
               {tables.map((t) => (
@@ -575,8 +598,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             className="form-select"
             value={profile}
             onChange={(e) => setProfile(e.target.value)}
-            disabled={!isAdmin}
-            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {profiles.map((p) => (
@@ -592,8 +613,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             className="form-select"
             value={onCluster}
             onChange={(e) => setOnCluster(e.target.value)}
-            disabled={!isAdmin}
-            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <option value="">--</option>
             {clusters.map((c) => (
@@ -614,7 +633,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             style={{
               display: "flex",
               gap: 6,
-              cursor: isAdmin ? "pointer" : "not-allowed",
+              cursor: "pointer",
               fontSize: "14px",
             }}
           >
@@ -623,7 +642,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               checked={isAsync}
               onChange={(e) => setIsAsync(e.target.checked)}
               style={{ accentColor: "var(--accent)" }}
-              disabled={!isAdmin}
             />{" "}
             ASYNC
           </label>
@@ -644,8 +662,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 value={exceptTables}
                 onChange={(e) => setExceptTables(e.target.value)}
                 placeholder="db.table1, db.table2"
-                disabled={!isAdmin}
-                style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
               />
             </div>
             {scope === "all" && (
@@ -655,8 +671,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                   className="form-input"
                   value={exceptDatabases}
                   onChange={(e) => setExceptDatabases(e.target.value)}
-                  disabled={!isAdmin}
-                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
               </div>
             )}
@@ -679,8 +693,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             <button
               className="btn btn-secondary btn-sm"
               onClick={listBackups}
-              disabled={loadingBackups || !profile || !isAdmin}
-              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              disabled={loadingBackups || !profile}
             >
               {loadingBackups ? (
                 <>
@@ -711,8 +724,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 className="form-select"
                 value={selectedBackup}
                 onChange={(e) => setSelectedBackup(e.target.value)}
-                disabled={!isAdmin}
-                style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
               >
                 <option value="">-- select backup --</option>
                 {availableBackups.map((b, i) => (
@@ -734,8 +745,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           value={settingsStr}
           onChange={(e) => setSettingsStr(e.target.value)}
           placeholder="base_backup = ..., compression_method = 'lz4'"
-          disabled={!isAdmin}
-          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         />
         <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
           base_backup, compression_method, s3_storage_class
@@ -763,10 +772,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           disabled={
             !profile ||
             (scope === "database" && !db) ||
-            (scope === "table" && (!tbl || !db)) ||
-            !isAdmin
+            (scope === "table" && (!tbl || !db))
           }
-          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           {executing ? (
             <>
@@ -787,10 +794,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
 }
 
 function AvailableBackupsTab({ profiles }) {
-  const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
   const [profile, setProfile] = useState("");
   const [backups, setBackups] = useState([]);
