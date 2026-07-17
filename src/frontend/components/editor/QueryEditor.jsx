@@ -69,43 +69,6 @@ function downloadBlob(content, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-function exportCSV(rows, columns) {
-  if (!rows?.length) return;
-  const cols = columns?.length ? columns : Object.keys(rows[0]);
-  const escape = (v) => {
-    const s = String(v ?? "");
-    return s.includes(",") || s.includes('"') || s.includes("\n")
-      ? '"' + s.replace(/"/g, '""') + '"'
-      : s;
-  };
-  const lines = [cols.join(",")];
-  for (const row of rows) lines.push(cols.map((c) => escape(row[c])).join(","));
-  downloadBlob(lines.join("\n"), "query-results.csv", "text/csv");
-}
-
-function exportTSV(rows, columns) {
-  if (!rows?.length) return;
-  const cols = columns?.length ? columns : Object.keys(rows[0]);
-  const lines = [cols.join("\t")];
-  for (const row of rows)
-    lines.push(
-      cols.map((c) => String(row[c] ?? "").replace(/\t/g, " ")).join("\t"),
-    );
-  downloadBlob(
-    lines.join("\n"),
-    "query-results.tsv",
-    "text/tab-separated-values",
-  );
-}
-
-function exportJSON(rows) {
-  if (!rows?.length) return;
-  downloadBlob(
-    JSON.stringify(rows, null, 2),
-    "query-results.json",
-    "application/json",
-  );
-}
 
 function engineIcon(engine) {
   if (!engine) return "ti-table";
@@ -461,6 +424,13 @@ export default function QueryEditor({
       }
     };
   }, [onSidebarStateChange]);
+
+  useEffect(() => {
+  if (ExplainOptionSelector) {
+    doRun(); 
+  }
+}, [ExplainOptionSelector]);
+
 
   // Validate the entered credentials by running a trivial query as that user.
   // Only on success do we store them and unlock the editor.
@@ -1089,6 +1059,111 @@ export default function QueryEditor({
     });
   }
 
+    async function exportCSV(rows, columns) {
+  if (!rows?.length) return;
+
+  const cols = columns?.length ? columns : Object.keys(rows[0]);
+  
+  const escape = (v) => {
+    const s = String(v ?? "");
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+
+  const lines = [cols.join(",")];
+  for (const row of rows) {
+    lines.push(cols.map((c) => escape(row[c])).join(","));
+  }
+  
+  const csvContent = lines.join("\n");
+
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'query-results.csv',
+      types: [{
+        description: 'CSV Files',
+        accept: {
+          'text/csv': ['.csv'],
+        },
+      }],
+    });
+
+    const writable = await handle.createWritable();
+    await writable.write(csvContent);
+    await writable.close();
+    toast.success(`Downloaded ${handle.name}`);
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      toast.error('Export failed:', err);
+    }
+  }
+}
+
+
+async function exportTSV(rows, columns) {
+  if (!rows?.length) return;
+  const cols = columns?.length ? columns : Object.keys(rows[0]);
+  const lines = [cols.join("\t")];
+  for (const row of rows)
+    lines.push(
+      cols.map((c) => String(row[c] ?? "").replace(/\t/g, " ")).join("\t"),
+    );
+  
+  const tsvContent = lines.join("\n");
+
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'query-results.tsv',
+      types: [{
+        description: 'TSV Files',
+        accept: {
+          'text/tab-separated-values': ['.tsv'],
+        },
+      }],
+    });
+
+    const writable = await handle.createWritable();
+    await writable.write(tsvContent);
+    await writable.close();
+    toast.success(`Downloaded ${handle.name}`);
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      toast.error('TSV Export failed:', err);
+    }
+  }
+}
+
+
+async function exportJSON(rows) {
+  if (!rows?.length) return;
+  const jsonContent = JSON.stringify(rows, null, 2);
+
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'query-results.json',
+      types: [{
+        description: 'JSON Files',
+        accept: {
+          'application/json': ['.json'],
+        },
+      }],
+    });
+
+    const writable = await handle.createWritable();
+    await writable.write(jsonContent);
+    await writable.close();
+
+    console.log(handle)
+    console.log(writable)
+    toast.success(`Downloaded ${handle.name}`);
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      toast.error('JSON Export failed:', err);
+    }
+  }
+}
+
   function handleInput(e) {
     const val = e.target.value;
     setSql(val);
@@ -1556,25 +1631,22 @@ export default function QueryEditor({
                   height: 28,
                   fontSize: "12px",
                   padding: "0 6px",
-                  minWidth: "auto",
+                  minWidth: "120px",
                   width: 90,
                 }}
                 onChange={(e) => {
                   if (e.target.value === "csv") {
                     exportCSV(result, resultCols);
-                    toast.success("Downloaded query-results.csv");
                   } else if (e.target.value === "json") {
                     exportJSON(result);
-                    toast.success("Downloaded query-results.json");
                   } else if (e.target.value === "tsv") {
                     exportTSV(result, resultCols);
-                    toast.success("Downloaded query-results.tsv");
                   }
                   e.target.value = "";
                 }}
                 defaultValue=""
               >
-                <option value="">Export...</option>
+                <option value="">Export</option>
                 <option value="csv">CSV</option>
                 <option value="json">JSON</option>
                 <option value="tsv">TSV</option>
@@ -1802,15 +1874,15 @@ export default function QueryEditor({
               width: "200px",
             }}
             onChange={(e) => {
-              if (e.target.value) {
+              if (e.target.value && e.target.value !== "GENERAL RUN") {
                 setExplainOptionSelector(e.target.value);
               }
             }}
             value={ExplainOptionSelector || "GENERAL RUN"}
           >
-            <option value="GENERAL RUN">GENERAL RUN</option>
+            <option value="GENERAL RUN">Select Explain</option>
             <option value="EXPLAIN">EXPLAIN</option>
-            <option value="EXPLAIN AST">AST</option>
+            {/* <option value="EXPLAIN AST">AST</option> */}
             <option value="EXPLAIN SYNTAX">SYNTAX</option>
             <option value="EXPLAIN QUERY TREE">QUERY TREE</option>
             <option value="EXPLAIN PLAN">PLAN</option>
@@ -1842,7 +1914,7 @@ export default function QueryEditor({
 
           <button
             className="btn btn-primary btn-sm"
-            onClick={doRun}
+            onClick={()=>setExplainOptionSelector("GENERAL RUN")}
             disabled={running || !editorConnected}
           >
             {running ? (
