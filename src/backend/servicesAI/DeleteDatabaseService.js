@@ -1,32 +1,23 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
-// Validates a database connection, removes its data from Qdrant, deletes it from the registry, and returns success.
-const ConnectionRegistry = require("../dbConfigAI/ConnectionRegistry");
-const QdrantService = require("./QdrantService");
-// const { RD_ShcemaData } = require("./rdService");
-const {aiDatabaseDetails} = require("../db/schema")
-const {db} = require("../db/index");
-const { eq } = require("drizzle-orm");
-// const RD_SERVICE = new RD_ShcemaData();
+// Validates a database connection, removes its data from  deletes it from the registry, and returns success.
+import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
+
+import LocalVectorStore from "./LocalVectorStoreService";
 
 class DeleteDatabaseService {
   constructor() {
-    this.qdrant = new QdrantService();
+    this.localdb = new LocalVectorStore();
   }
 
   async deleteDatabase(databaseId) {
-    // const exists = ConnectionRegistry.exists(databaseId);
-    const exists =  db?.select()?.from(aiDatabaseDetails).where(eq(aiDatabaseDetails?.database_id,databaseId)).get();
+    const exists = ConnectionRegistry.exists(databaseId);
+
     if (!exists) {
       throw new Error(`Database connection not found: ${databaseId}`);
     }
 
-    // deleting the Database schema data's based on databaseID
-    // RD_SERVICE?.deleteSchemaData(databaseId);
-
-    await this.qdrant.deleteDatabaseVectors(databaseId);
-
-    db?.delete(aiDatabaseDetails).where(eq(aiDatabaseDetails?.database_id,databaseId))?.run();
+    await this.localdb.deleteDatabaseVectors(databaseId);
 
     ConnectionRegistry.remove(databaseId);
 
@@ -38,4 +29,4 @@ class DeleteDatabaseService {
   }
 }
 
-module.exports = DeleteDatabaseService;
+export default DeleteDatabaseService;
