@@ -944,7 +944,7 @@ export const PAGE_TEXT = {
   ],
   "admin/app-backup": [
     "Loading...",
-    "App data backup is only available for administrators.",
+    "App data backup is only available for superadministrators.",
     "No storage profiles configured. Go to",
     "to add one.",
     "Manual Backup",
