@@ -20,5 +20,4 @@ ${schema}
       .join("\n\n");
   }
 }
-
-module.exports = SchemaContextBuilder;
+export default SchemaContextBuilder;
