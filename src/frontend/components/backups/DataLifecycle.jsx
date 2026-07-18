@@ -22,6 +22,18 @@ function escSql(str) {
   return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// ClickHouse often echoes the failing query verbatim in its error message,
+// and these queries embed the storage profile's raw S3 secret key - strip
+// known secret values before the message reaches a log or a toast.
+function redactSecrets(text, ...secrets) {
+  if (typeof text !== "string") return text;
+  let redacted = text;
+  for (const secret of secrets) {
+    if (secret) redacted = redacted.split(secret).join("***");
+  }
+  return redacted;
+}
+
 export default function DataLifecycle() {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
@@ -364,17 +376,23 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         try {
           await writeManifest(backupId);
         } catch (err) {
-          console.log(err);
+          const manifestMsg = redactSecrets(
+            err.message,
+            s3.accessKey,
+            s3.accessKeyId,
+          );
+          console.error("Manifest write failed:", manifestMsg);
 
           toast.warning(
-            `Backup completed, but manifest write failed: ${err.message}`,
+            `Backup completed, but manifest write failed: ${manifestMsg}`,
           );
         }
       }
     } catch (err) {
-      console.log(err);
-
-      const msg = err.message || "Unknown error";
+      const msg =
+        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId) ||
+        "Unknown error";
+      console.error(`${action.toUpperCase()} failed:`, msg);
 
       if (msg.includes("Access Denied") || msg.includes("403")) {
         toast.error(
@@ -508,7 +526,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         );
       }
     } catch (err) {
-      console.error(err);
+      console.error(
+        "Backup scan failed:",
+        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId),
+      );
       toast.error("Failed to scan backups.");
     } finally {
       setLoadingBackups(false);

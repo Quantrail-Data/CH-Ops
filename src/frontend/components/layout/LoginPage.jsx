@@ -541,7 +541,6 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      console.log(data)
       login(data);
     } catch (err) {
       setError(err.message);

@@ -942,8 +942,6 @@ function InspectionPopup({
       ? "Failed Queries"
       : "Error / Critical / Fatal Logs";
 
-      console.log(rows)
-
   return (
     <div className="profiler-popup-overlay" onClick={onClose}>
       <div

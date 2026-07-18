@@ -95,7 +95,7 @@ export default function ThroughputChart({ points }) {
       }, true);
     } catch (e) {
       // Bad/partial data must never crash the page; the overlay covers it.
-      console.error("ThroughputChart render skipped:", e);
+      console.error("ThroughputChart render skipped:", e.message);
     }
   }, [points, has]);
 

@@ -10,7 +10,7 @@ import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 4 };
-const AI_PROVIDERS = ["GEMINI", "OPEN AI", "MISTRAL", "CLAUDE"];
+const AI_PROVIDERS = ["GEMINI", "OPEN AI", "MISTRAL", "CLAUDE", "OLLAMA"];
 
 export default function ApiManagement() {
   const toast = useToast();
@@ -27,6 +27,8 @@ export default function ApiManagement() {
   const [formKeyName, setFormKeyName] = useState("");
   const [formKeyValue, setFormKeyValue] = useState("");
   const [formModelValue, setFormModelValue] = useState("");
+  const [ollamaModels, setOllamaModels] = useState([]);
+  const [isFetchingOllamaModels, setIsFetchingOllamaModels] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     show: false,
@@ -39,6 +41,8 @@ export default function ApiManagement() {
   const [isLoadingKey, setIsLoadingKey] = useState(false);
   const [keyValidationMessage, setKeyValidationMessage] = useState("");
   const [keyValidationStatus, setKeyValidationStatus] = useState(null); // 'success' | 'error' | null
+
+  const isOllama = formKeyName === "OLLAMA";
 
   useEffect(() => {
     loadApiKeys();
@@ -171,7 +175,14 @@ export default function ApiManagement() {
   }
 
   function validateApiKey(keyValue) {
-    if (keyValue.startsWith("sk-")) {
+    if (isOllama) {
+      try {
+        const url = new URL(keyValue.trim());
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    } else if (keyValue.startsWith("sk-")) {
       return keyValue.length >= 20 && keyValue.length <= 500;
     } else if (keyValue.startsWith("AIza")) {
       return keyValue.length >= 35 && keyValue.length <= 200;
@@ -185,6 +196,7 @@ export default function ApiManagement() {
   }
 
   function getApiTypeMessage(keyValue) {
+    if (isOllama) return "Ollama base URL";
     if (keyValue.startsWith("sk-")) return "OpenAI API key";
     if (keyValue.startsWith("AIza")) return "Google Gemini API key";
     if (keyValue.startsWith("xai-")) return "X.AI API key";
@@ -316,6 +328,7 @@ export default function ApiManagement() {
       setISvalidKey(false);
       setKeyValidationMessage("");
       setKeyValidationStatus(null);
+      setOllamaModels([]);
     }
   }
 
@@ -368,6 +381,7 @@ export default function ApiManagement() {
     setShowKey(false);
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
+    setOllamaModels([]);
     const keyValue = await fetchKeyValue(key.id);
     setFormKeyValue(keyValue);
   }
@@ -382,6 +396,7 @@ export default function ApiManagement() {
     setShowKey(false);
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
+    setOllamaModels([]);
   }
 
   function startAddNew() {
@@ -395,6 +410,7 @@ export default function ApiManagement() {
     setFormKeyName("");
     setFormKeyValue("");
     setFormModelValue("");
+    setOllamaModels([]);
     setShowKey(false);
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
@@ -533,8 +549,42 @@ export default function ApiManagement() {
         return "e.g., Model name  claude-haiku-4-5, claude-sonnet-4-6,...";
       case "MISTRAL":
         return "e.g., Model name  mistral-large-latest, mistral-medium-latest,...";
+      case "OLLAMA":
+        return "e.g., Model name  llama3.2:latest, mistral:latest,...";
       default:
         return "Enter the model name!";
+    }
+  }
+
+  async function fetchOllamaModels(e) {
+    e.preventDefault();
+    if (!formKeyValue.trim()) {
+      toast.warning("Enter the Ollama base URL first");
+      return;
+    }
+    setIsFetchingOllamaModels(true);
+    setOllamaModels([]);
+    try {
+      const response = await apiFetch("/api/qurioz/api-keys/ollama/models", {
+        method: "POST",
+        body: JSON.stringify({ baseUrl: formKeyValue.trim() }),
+      });
+      if (response?.success && Array.isArray(response.models)) {
+        setOllamaModels(response.models);
+        if (response.models.length === 0) {
+          toast.warning(
+            "No models found on this Ollama server. Pull a model first (e.g. `ollama pull llama3.2`).",
+          );
+        } else {
+          toast.success(`Found ${response.models.length} model(s).`);
+        }
+      } else {
+        toast.error(response?.message || "Failed to fetch models from Ollama.");
+      }
+    } catch (err) {
+      toast.error(err?.message || "Failed to fetch models from Ollama.");
+    } finally {
+      setIsFetchingOllamaModels(false);
     }
   }
 
@@ -763,25 +813,50 @@ export default function ApiManagement() {
                 {formKeyName} Model Name{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input
-                className="form-input"
-                type="text"
-                value={formModelValue}
-                onChange={(e) => setFormModelValue(e.target.value)}
-                placeholder={`${ModelExamplesPlaceholder(formKeyName)}`}
-                required
-                autoFocus
-                style={{
-                  width: "100%",
-                  maxWidth: 520,
-                  fontSize: "14px",
-                }}
-              />
+              {isOllama ? (
+                <Select
+                  className="form-input"
+                  value={formModelValue || ""}
+                  onChange={(e) => setFormModelValue(e?.target?.value)}
+                  placeholder="Fetch models to choose one"
+                  style={{
+                    width: "100%",
+                    maxWidth: 520,
+                    fontSize: "14px",
+                  }}
+                >
+                  <option value="">Select a model</option>
+                  {ollamaModels.map((m, index) => (
+                    <option value={m} key={index}>
+                      {m}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <input
+                  className="form-input"
+                  type="text"
+                  value={formModelValue}
+                  onChange={(e) => setFormModelValue(e.target.value)}
+                  placeholder={`${ModelExamplesPlaceholder(formKeyName)}`}
+                  required
+                  autoFocus
+                  style={{
+                    width: "100%",
+                    maxWidth: 520,
+                    fontSize: "14px",
+                  }}
+                />
+              )}
             </div>
 
             <div className="form-group" style={{ marginBottom: 20 }}>
               <label className="form-label">
-                {editingKey ? "Edit API Key Value" : "API Key Value"}{" "}
+                {isOllama
+                  ? "Ollama Base URL"
+                  : editingKey
+                    ? "Edit API Key Value"
+                    : "API Key Value"}{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div
@@ -797,50 +872,82 @@ export default function ApiManagement() {
                 >
                   <input
                     className="form-input"
-                    type={showKey ? "text" : "password"}
+                    type={isOllama ? "text" : showKey ? "text" : "password"}
                     value={formKeyValue}
                     onChange={(e) => setFormKeyValue(e.target.value)}
-                    placeholder="Enter your API key (OpenAI: sk-..., Gemini: AIza..., X.AI: xai-..., HF: hf_...)"
+                    placeholder={
+                      isOllama
+                        ? "http://localhost:11434"
+                        : "Enter your API key (OpenAI: sk-..., Gemini: AIza..., X.AI: xai-..., HF: hf_...)"
+                    }
                     required
                     style={{
                       width: "100%",
                       fontFamily: "var(--font-code)",
                       fontSize: "14px",
-                      paddingRight: "46px",
+                      paddingRight: isOllama ? "12px" : "46px",
                     }}
                   />
+                  {!isOllama && (
+                    <button
+                      type="button"
+                      onClick={() => setShowKey(!showKey)}
+                      title={showKey ? "Hide" : "Show"}
+                      style={{
+                        position: "absolute",
+                        right: "14px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        margin: 0,
+                        lineHeight: 1,
+                        cursor: "pointer",
+                        color: "var(--text-muted)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 2,
+                      }}
+                    >
+                      {showKey ? (
+                        <Icon
+                          className="ti ti-eye-off"
+                          style={{ fontSize: 20 }}
+                        />
+                      ) : (
+                        <Icon className="ti ti-eye" style={{ fontSize: 20 }} />
+                      )}
+                    </button>
+                  )}
+                </div>
+                {isOllama && (
                   <button
                     type="button"
-                    onClick={() => setShowKey(!showKey)}
-                    title={showKey ? "Hide" : "Show"}
+                    className="btn btn-secondary"
                     style={{
-                      position: "absolute",
-                      right: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      border: "none",
-                      background: "transparent",
-                      padding: 0,
-                      margin: 0,
-                      lineHeight: 1,
-                      cursor: "pointer",
-                      color: "var(--text-muted)",
-                      display: "inline-flex",
+                      padding: "7px 10px",
+                      borderRadius: "5px",
+                      display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      zIndex: 2,
+                      gap: 6,
+                      alignSelf: "flex-start",
                     }}
+                    onClick={fetchOllamaModels}
+                    disabled={isFetchingOllamaModels}
                   >
-                    {showKey ? (
-                      <Icon
-                        className="ti ti-eye-off"
-                        style={{ fontSize: 20 }}
-                      />
+                    {isFetchingOllamaModels ? (
+                      <div className="loading-spinner"></div>
                     ) : (
-                      <Icon className="ti ti-eye" style={{ fontSize: 20 }} />
+                      <>
+                        <Icon className="ti ti-refresh"></Icon>
+                        <span style={{ fontSize: "13px" }}>Fetch Models</span>
+                      </>
                     )}
                   </button>
-                </div>
+                )}
                 <button
                   className="btn btn-primary"
                   style={{

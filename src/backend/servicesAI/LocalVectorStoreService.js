@@ -55,7 +55,7 @@ class LocalVectorStore {
       this.buildIndexes();
       return true;
     } catch (error) {
-      console.error("Vector store Initializatio failed:", error);
+      console.error("Vector store Initializatio failed:", error.message);
       return false;
     }
   }
@@ -84,7 +84,7 @@ class LocalVectorStore {
       writeFileSync(this.tempFilePath, payload, "utf-8");
       renameSync(this.tempFilePath, this.filePath);
     } catch (error) {
-      console.error("Failed to save vector store:", error);
+      console.error("Failed to save vector store:", error.message);
       throw error;
     }
   }
@@ -125,7 +125,7 @@ class LocalVectorStore {
       };
       this.buildIndexes();
     } catch (error) {
-      console.error("Failed to load vector store:", error);
+      console.error("Failed to load vector store:", error.message);
       throw error;
     }
   }

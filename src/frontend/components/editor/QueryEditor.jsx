@@ -344,7 +344,7 @@ export default function QueryEditor({
       );
       setTimeout(() => graphInst.current?.resize(), 100);
     } catch (err) {
-      console.error("Graph render error:", err);
+      console.error("Graph render error:", err.message);
     }
     return () => {
       if (graphRef.current && graphInst.current) {

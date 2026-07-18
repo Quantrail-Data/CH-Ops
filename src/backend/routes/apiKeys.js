@@ -197,4 +197,46 @@ router.post("/check",async (req,res,next)=>{
   }
 })
 
+router.post("/ollama/models", async (req, res) => {
+  try {
+    const { baseUrl } = req.body;
+    if (!baseUrl?.trim()) {
+      return res.status(422).json({ success: false, message: "Base URL is required." });
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(baseUrl.trim());
+    } catch {
+      return res.status(422).json({ success: false, message: "Enter a valid URL, e.g. http://localhost:11434" });
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return res.status(422).json({ success: false, message: "URL must start with http:// or https://" });
+    }
+
+    const tagsUrl = `${baseUrl.trim().replace(/\/+$/, "")}/api/tags`;
+    let response;
+    try {
+      response = await fetch(tagsUrl, { signal: AbortSignal.timeout(5000) });
+    } catch {
+      // Server not running yet, wrong port, DNS failure, timeout - an expected
+      // state during setup, not a server error.
+      return res.status(200).json({
+        success: false,
+        message: `Could not reach Ollama at ${baseUrl.trim()}. Make sure the server is running and the base URL is correct.`,
+      });
+    }
+    if (!response.ok) {
+      return res.status(200).json({ success: false, message: `Ollama responded with HTTP ${response.status}.` });
+    }
+
+    const data = await response.json().catch(() => null);
+    const models = Array.isArray(data?.models) ? data.models.map((m) => m.name).filter(Boolean) : [];
+    return res.status(200).json({ success: true, models });
+  } catch (error) {
+    console.error("Ollama model listing error:", error.message);
+    return res.status(200).json({ success: false, message: "Failed to fetch Ollama models." });
+  }
+});
+
 export default router;
