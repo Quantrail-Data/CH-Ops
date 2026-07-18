@@ -40,6 +40,12 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
+      # Fails the build if any console.* call looks like it could print a
+      # password, token, API key, or a raw error/response object that might
+      # carry one. See scripts/check-sensitive-logging.mjs for the rules.
+      - name: Check for sensitive data in console logging
+        run: bun run check:sensitive-logging
+
       # Step 4: Run the test suite with coverage
       - name: Run Tests with Coverage
         run: set -o pipefail && bun run test:coverage 2>&1
@@ -86,3 +92,26 @@ jobs:
                 body,
               });
             }
+
+  build:
+    name: Verify Binary Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install Dependencies
+        run: bun install
+
+      # Catches issues release.yml can only surface on a tag push (e.g. a new
+      # dependency whose bundler-time import - like @opentelemetry/api pulled
+      # in by @mistralai/mistralai - can't be resolved), before it reaches main.
+      # Uses the same standalone build script the release pipeline publishes,
+      # so this is a build-only check of the exact thing that ships.
+      - name: Compile binary (build-only check, not published)
+        run: bun run build:standalone:linux
