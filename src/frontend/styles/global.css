@@ -2016,12 +2016,22 @@ input[type="datetime-local"] {
 
 /* COPYRIGHT */
 .copyright-footer {
+  position: relative;
   padding: 8px 16px;
   text-align: center;
   font-size: 11px;
   color: var(--text-muted);
   border-top: 1px solid var(--border-default);
   flex-shrink: 0;
+}
+
+.app-version-badge {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* SQL EDITOR INPUT - 10 visible lines before scroll */

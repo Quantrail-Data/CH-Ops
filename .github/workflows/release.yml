@@ -37,12 +37,18 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
+      # Publicly-visible version string (it's just the tag, e.g. "v1.2.3" ->
+      # "1.2.3") picked up by scripts/generate-version.mjs below - not a
+      # secret, so this is fine to add even though the comment on the next
+      # step warns against adding secrets to this job's environment.
+      - name: Derive VERSION from git tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       # build:standalone:* compiles with `--env=inline`, which bakes whatever
-      # env vars are present in *this* job into the published binary. This
-      # job intentionally sets none (no `env:` block, no `secrets.*`) so
-      # there is nothing but harmless CI runner metadata to inline - never
-      # add a real secret to this job's environment, since the binary it
-      # produces is a public, downloadable GitHub release artifact.
+      # env vars are present in *this* job into the published binary. VERSION
+      # (set above, from the public tag) is fine to inline; never add a real
+      # secret to this job's environment, since the binary it produces is a
+      # public, downloadable GitHub release artifact.
       - name: Build ${{ matrix.name }} binary
         run: bun run ${{ matrix.script }}
 

@@ -87,6 +87,15 @@ setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
 
 const appVersion = loadEnv()?.version;
 
+// Baked in at build/dev-start time (scripts/generate-version.mjs), since a
+// compiled binary has no VERSION env var or git checkout to compute this from
+// on the end user's machine. Falls back to whatever env.js found (usually
+// blank) if the generated file is somehow missing.
+try {
+  const { APP_VERSION } = await import('./version.generated.js');
+  if (APP_VERSION) appVersion.version = APP_VERSION;
+} catch {}
+
 // Database migration (core)
 await import('./db/migrate.js').catch(() => {});
 log.info('Database ready (Drizzle ORM + bun:sqlite)');

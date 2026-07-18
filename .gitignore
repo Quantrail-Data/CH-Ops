@@ -9,6 +9,7 @@ data/
 bun.lockb
 prisma/migrations/
 src/backend/embeddedAssets.js
+src/backend/version.generated.js
 test-results.xml
 coverage/
 coverage-comment.md
