@@ -2,8 +2,6 @@
 
 This guide walks you through deploying CHOps on a Linux server with automatic HTTPS (via Caddy) and automatic startup (via systemd). By the end, CHOps will be running as a background service at `https://your-domain.com`, restarting automatically if it crashes or the server reboots.
 
-If you are new to Linux servers, read every step - nothing is skipped.
-
 ---
 
 ## Prerequisites
@@ -11,9 +9,9 @@ If you are new to Linux servers, read every step - nothing is skipped.
 You need:
 
 - A Linux server (Ubuntu 22.04/24.04, Debian 12, or similar)
-- A domain name pointing to your server's IP address (e.g., `chops.example.com`)
+- A hostname for the server. A public domain (e.g., `chops.example.com`) if you are exposing CHOps to the internet, or an internal DNS name or plain IP address if you are running it on a private network. A domain is not required.
 - SSH access to the server
-- Port 80 and 443 open in your firewall (for HTTPS)
+- If you expose CHOps publicly with automatic HTTPS: ports 80 and 443 reachable from the internet, which Let's Encrypt needs to issue certificates. On a private network this is not required; see the internal TLS options in Step 5.
 - Port 8123 accessible from the server to your ClickHouse® host (not from the internet)
 
 ---
@@ -21,7 +19,7 @@ You need:
 ## Step 1: Install Bun
 
 ```bash
-curl -fsSL https://bun.sh/install | bash
+curl -fsSL https://bun.com/install | bash -s "bun-v1.3.13"
 source ~/.bashrc
 bun --version
 ```
@@ -47,10 +45,13 @@ Edit `/opt/chops/.env`:
 ```env
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_strong_password_here
+SUPER_ADMIN_1_EMAIL=you@example.com
 SESSION_SECRET=paste_a_64_char_random_string_here
 PORT=3000
 NODE_ENV=production
 ```
+
+`SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET` are all required; the server exits on startup if any is missing. See [Configuration](../getting-started/configuration.md) for the full list.
 
 Generate a strong SESSION_SECRET (must be at least 32 characters):
 
@@ -75,9 +76,10 @@ bun src/backend/server.js
 
 ### Option B: Run from binary
 
-Build the binary on your development machine:
+Build the binary on your development machine. Run `bun install` first: it installs dependencies and applies the `@xenova/transformers` patch that keeps the compiled binary self-contained. Building without it produces a binary that crashes at startup on native modules. See [Building a Binary](../development/binary-build.md) for details.
 
 ```bash
+bun install
 bun run build:binary:linux
 ```
 
@@ -260,13 +262,13 @@ sudo journalctl -u chops --since "1 hour ago"
 
 **What is logged:** Every API request (method, path, status, duration, username, IP). Scheduler events (backup started/completed/failed, alert notifications). Server startup. Errors.
 
-**What is NOT logged:** Passwords, tokens, credentials, SQL queries, request bodies, response bodies. The only `console.error` remaining is the fatal config error at startup (before the logger is initialized).
+**What is NOT logged by the request logger:** passwords, tokens, request bodies, or response bodies. Note that unhandled errors and some diagnostic output are still written directly to stdout/stderr outside the structured logger, so treat the journal as potentially containing raw error detail.
 
 ---
 
 ## Step 4: Install Caddy
 
-Caddy is a web server that automatically handles HTTPS certificates (via Let's Encrypt). You do not need to manually generate or renew SSL certificates.
+Caddy is a web server that automatically handles HTTPS certificates (via Let's Encrypt). You do not need to manually generate or renew SSL certificates. Automatic public certificates require the server to be reachable from the internet; for a private-network deployment, Caddy can instead issue certificates from its own local certificate authority, or serve plain HTTP (see Step 5).
 
 ### Ubuntu/Debian
 
@@ -324,6 +326,38 @@ sudo systemctl status caddy
 ```
 
 Open `https://chops.example.com` in your browser. You should see the CHOps login page with a valid HTTPS certificate.
+
+### Running without a public domain (private networks)
+
+If CHOps runs on a private network with no public domain, you do not need Let's Encrypt. Caddy can serve an internal DNS name or an IP address using a certificate from its own local certificate authority. Use `tls internal`:
+
+```
+chops.internal.example {
+    tls internal
+    reverse_proxy localhost:3000
+}
+```
+
+Replace `chops.internal.example` with the internal DNS name your users resolve to the server. You can also use the server's IP directly:
+
+```
+10.0.0.5 {
+    tls internal
+    reverse_proxy localhost:3000
+}
+```
+
+With `tls internal`, Caddy generates its own root CA and issues the certificate locally. Browsers will warn that the certificate is untrusted until you distribute and trust Caddy's root CA on client machines. It lives under Caddy's data directory, typically at `/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt`.
+
+On a trusted internal network where TLS is not needed, you can have Caddy serve plain HTTP by prefixing the address with `http://` (this also disables the automatic HTTP-to-HTTPS redirect):
+
+```
+http://chops.internal.example {
+    reverse_proxy localhost:3000
+}
+```
+
+You can also skip Caddy entirely and expose CHOps directly on its port (`http://server-ip:3000`), though a reverse proxy is still useful for TLS and access control. For browser-trusted certificates on an internal domain without opening ports 80 and 443, use a DNS-challenge certificate, which requires a Caddy build that includes your DNS provider's plugin.
 
 ---
 
@@ -413,8 +447,8 @@ Note: CHOps uses SQLite which does not support multiple writers. Only use this f
 
 Run through this checklist:
 
-1. Open `https://chops.example.com` - should load with a valid HTTPS certificate (padlock icon)
-2. Try `http://chops.example.com` - should redirect to HTTPS automatically
+1. Open your CHOps address (`https://chops.example.com`, an internal DNS name, or the server IP). It should load the login page. With a public domain you get a trusted certificate; with `tls internal` you will see a certificate warning until Caddy's root CA is trusted on the client.
+2. If you configured public HTTPS, `http://chops.example.com` should redirect to HTTPS automatically.
 3. Log in with your super admin credentials
 4. Go to Administration > Cluster Management, add a ClickHouse® node, test the connection
 5. Reboot the server (`sudo reboot`) and verify CHOps comes back automatically
@@ -435,11 +469,13 @@ Add this line:
 0 2 * * * cd /opt/chops && /home/chops/.bun/bin/bun run db:backup
 ```
 
-This runs `bun run db:backup` every day at 2:00 AM. Backups are saved to `/opt/chops/data/backups/`. For binary installs, replace the command with:
+This runs `bun run db:backup` every day at 2:00 AM. Backups are saved to `/opt/chops/data/backups/` as `chops-<timestamp>.db`. The binary does not expose a `db:backup` subcommand (running `./chops` only starts the server), so for binary installs use either the in-app **Administration > App Data Backup** (super admin), or a SQLite backup on a schedule:
 
 ```
-0 2 * * * cd /opt/chops && ./chops db:backup 2>/dev/null || true
+0 2 * * * sqlite3 /opt/chops/data/chops.db ".backup '/opt/chops/data/backups/chops-$(date +\%Y\%m\%d).db'"
 ```
+
+This requires `sqlite3` on the host and that `/opt/chops/data/backups/` exists.
 
 To keep only the last 30 backups, add a cleanup line:
 
@@ -483,6 +519,8 @@ The database migration is safe to run on an existing database - it only creates 
 
 **"SESSION_SECRET must be at least 32 characters"** - Your `.env` file has a SESSION_SECRET shorter than 32 characters. Generate a new one with `openssl rand -hex 32`.
 
+**"Missing required env" on startup** - One of `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, or `SESSION_SECRET` is unset. Under systemd, confirm they are in the `EnvironmentFile`; under Docker, confirm they are passed to the container.
+
 **Permission denied errors** - Make sure the `chops` user owns the data directory: `sudo chown -R chops:chops /opt/chops/data`.
 
 **Port 3000 already in use** - Change the `PORT` in `.env` to something else (e.g., 3001) and update the Caddyfile `reverse_proxy` line to match.
@@ -491,7 +529,7 @@ The database migration is safe to run on an existing database - it only creates 
 
 ## Docker Deployment
 
-CHOps ships with a Dockerfile and docker-compose.yml for containerized deployment. The image uses `oven/bun:1.1-alpine` (lightweight, ~150MB final image) with a multi-stage build.
+CHOps ships with a Dockerfile and docker-compose.yml for containerized deployment. The image uses `oven/bun:1.3.13-alpine` with a multi-stage build.
 
 ### Quick Start
 
@@ -499,8 +537,11 @@ CHOps ships with a Dockerfile and docker-compose.yml for containerized deploymen
 # Clone or extract the project
 cd CH-Ops
 
-# Set your secret (required)
+# Set the required variables
 export SESSION_SECRET=$(openssl rand -hex 32)
+export SUPER_ADMIN_1=admin
+export SUPER_ADMIN_1_PASSWORD=your_strong_password_here
+export SUPER_ADMIN_1_EMAIL=you@example.com
 
 # Build and run
 docker compose up -d
@@ -519,6 +560,9 @@ docker run -d \
   --name chops \
   -p 3000:3000 \
   -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -e SUPER_ADMIN_1=admin \
+  -e SUPER_ADMIN_1_PASSWORD=your_strong_password_here \
+  -e SUPER_ADMIN_1_EMAIL=you@example.com \
   -v chops-data:/app/data \
   chops
 ```
@@ -528,10 +572,12 @@ docker run -d \
 Pass environment variables via `docker compose` environment section or `docker run -e`:
 
 - `SESSION_SECRET` (required) - random string for JWT signing and credential encryption
-- `ADMIN_USER` / `ADMIN_PASSWORD` (optional) - seed a super admin on first startup
+- `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL` (required) - the first super admin, seeded on first startup
 - `DISABLE_ENV_LOGIN=true` (optional) - disable .env login fallback in production
 - `PORT=3000` (default) - HTTP port inside the container
 - `LOG_LEVEL=info` (default) - debug, info, warn, error
+
+The bundled `docker-compose.yml` only forwards `SESSION_SECRET`, `SUPER_ADMIN_1`, and `SUPER_ADMIN_1_PASSWORD`. Because `SUPER_ADMIN_1_EMAIL` is also required, add it to the service's `environment:` list or point the service at your full `.env` with `env_file: .env`.
 
 ### Data Persistence
 
@@ -563,8 +609,7 @@ docker inspect --format='{{.State.Health.Status}}' chops
 
 ### Image Details
 
-- Base: `oven/bun:1.1-alpine` (Alpine Linux + Bun runtime)
+- Base: `oven/bun:1.3.13-alpine` (Alpine Linux + Bun runtime)
 - Multi-stage build: dependencies + frontend build in stage 1, slim runtime in stage 2
 - Non-root user (`chops`) for security
-- Final image size: ~150MB
 - Includes: built React frontend, backend source, production node_modules, docs
