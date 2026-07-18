@@ -1,9 +1,6 @@
-// ForceChangePassword - Mandatory password change gate
-//
-// Rendered instead of MainLayout whenever auth.mustChangePassword is true
-// (set on the backend when an account is first created, or after an
-// admin-triggered password reset). Blocks access to the rest of the app
-// until the user successfully changes their password.
+// ForceChangePassword - Mandatory first-login password change gate
+// Author: Kathir Moorthy
+// Copyright (C) 2026 Quantrail™ Data Private Limited
 import { useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme } from "../../App.jsx";
@@ -15,7 +12,9 @@ export default function ForceChangePassword() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [showPw, setShowPw] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -87,14 +86,25 @@ export default function ForceChangePassword() {
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">Current Password</label>
-            <input
-              className="form-input"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              autoFocus
-            />
+            <div style={{ width: "100%", position: "relative" }}>
+              <input
+                className="form-input"
+                style={{ width: "100%", paddingRight: 35 }}
+                type={showCurrentPw ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                autoFocus
+              />
+              <div
+                className="password-eye"
+                style={{ position: "absolute", right: 15, top: "22%", cursor: "pointer" }}
+                title={showCurrentPw ? "hide" : "show"}
+                onClick={() => setShowCurrentPw(!showCurrentPw)}
+              >
+                {showCurrentPw ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
+              </div>
+            </div>
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">New Password</label>
@@ -102,7 +112,7 @@ export default function ForceChangePassword() {
               <input
                 className="form-input"
                 style={{ width: "100%", paddingRight: 35 }}
-                type={showPw ? "text" : "password"}
+                type={showNewPw ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
@@ -110,29 +120,40 @@ export default function ForceChangePassword() {
               <div
                 className="password-eye"
                 style={{ position: "absolute", right: 15, top: "22%", cursor: "pointer" }}
-                title={showPw ? "hide" : "show"}
-                onClick={() => setShowPw(!showPw)}
+                title={showNewPw ? "hide" : "show"}
+                onClick={() => setShowNewPw(!showNewPw)}
               >
-                {showPw ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
+                {showNewPw ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
               </div>
             </div>
           </div>
           <div className="form-group" style={{ marginBottom: 20 }}>
             <label className="form-label">Confirm New Password</label>
-            <input
-              className="form-input"
-              type={showPw ? "text" : "password"}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-            />
+            <div style={{ width: "100%", position: "relative" }}>
+              <input
+                className="form-input"
+                style={{ width: "100%", paddingRight: 35 }}
+                type={showConfirmPw ? "text" : "password"}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+              />
+              <div
+                className="password-eye"
+                style={{ position: "absolute", right: 15, top: "22%", cursor: "pointer" }}
+                title={showConfirmPw ? "hide" : "show"}
+                onClick={() => setShowConfirmPw(!showConfirmPw)}
+              >
+                {showConfirmPw ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
+              </div>
+            </div>
           </div>
 
           <button
             className="btn btn-primary"
             type="submit"
             disabled={loading}
-            style={{ width: "100%", height: 42 }}
+            style={{ width: "100%", height: 42, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             {loading ? "Changing..." : "Change Password & Continue"}
           </button>
@@ -141,7 +162,7 @@ export default function ForceChangePassword() {
         <button
           className="btn btn-ghost btn-sm"
           onClick={logout}
-          style={{ width: "100%", marginTop: 12 }}
+          style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
         >
           Log out instead
         </button>
