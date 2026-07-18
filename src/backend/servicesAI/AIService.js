@@ -7,6 +7,15 @@ import OpenAI from "openai";
 import { Mistral } from "@mistralai/mistralai";
 import Anthropic from "@anthropic-ai/sdk";
 
+// Plain loop instead of a regex like /\/+$/ - CodeQL flags trailing-quantifier
+// regexes run against user-controlled input (here, the Ollama base URL) as a
+// potential ReDoS vector. A loop is O(n) with no backtracking ambiguity.
+function stripTrailingSlashes(str) {
+  let end = str.length;
+  while (end > 0 && str[end - 1] === "/") end--;
+  return str.slice(0, end);
+}
+
 class AIServices {
   constructor(provider, modelName, APIkey) {
     if (!provider) {
@@ -57,7 +66,7 @@ class AIServices {
         // requires a truthy string, and Ollama ignores whatever is sent.
         this.client = new OpenAI({
           apiKey: "ollama",
-          baseURL: `${this.apiKey.replace(/\/+$/, "")}/v1`,
+          baseURL: `${stripTrailingSlashes(this.apiKey)}/v1`,
         });
         break;
 
