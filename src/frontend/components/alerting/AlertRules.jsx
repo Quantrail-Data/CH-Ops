@@ -678,6 +678,11 @@ export default function AlertRules() {
                   {hasZeroNodes && (
                     <span className="badge badge-amber">NO NODES</span>
                   )}
+                  {(!r.channels || r.channels.length === 0) && (
+                    <span className="badge badge-red" title="This rule will not notify anyone">
+                      NO CHANNELS
+                    </span>
+                  )}
                   {Array.isArray(r.nodes) && r.nodes.length > 0 && (
                     <span
                       style={{ fontSize: "12px", color: "var(--text-muted)" }}

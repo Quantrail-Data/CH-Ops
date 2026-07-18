@@ -1,21 +1,20 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // Manages connections to a ClickHouse database, stores successful connections, and handles various connection errors such as invalid host, port, credentials, or database name.
-
-const crypto = require("crypto");
-const {
+import crypto from "crypto";
+import {
   ClickHouseInvalidDatabaseError,
   ClickHouseInvalidUsernameError,
   ClickHouseInvalidPasswordError,
   ClickHouseInvalidHostError,
   ClickHouseInvalidPortError,
   ClickHouseConnectionError,
-} = require("../exceptions/ClickHouseErrors");
-const ConnectionRegistry = require("../dbConfigAI/ConnectionRegistry");
-const ClickHouseClientFactory = require("../dbConfigAI/ClickHouseClientFactory");
-const { aiDatabaseDetails } = require("../db/schema");
-const { db } = require("../db/index");
-const { eq } = require("drizzle-orm");
+} from "../exceptions/ClickHouseErrors";
+import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
+import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
+import { aiDatabaseDetails } from "../db/schema";
+import { db } from "../db/index";
+import { eq } from "drizzle-orm";
 
 class DatabaseConnectionService {
   constructor(databaseType, credentials) {
@@ -34,11 +33,7 @@ class DatabaseConnectionService {
       `${this.credentials.host}|` +
       `${this.credentials.port}`;
 
-    return crypto
-     .createHash("sha256")
-     .update(identity)
-     .digest("hex");
-
+    return crypto.createHash("sha256").update(identity).digest("hex");
   }
 
   async registerConnection() {
@@ -125,4 +120,4 @@ class DatabaseConnectionService {
   }
 }
 
-module.exports = DatabaseConnectionService;
+export default DatabaseConnectionService;

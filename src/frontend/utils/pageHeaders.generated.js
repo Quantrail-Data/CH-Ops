@@ -61,9 +61,6 @@ export const PAGE_HEADERS = {
   "alerting/rules": [
     "Alert Rules"
   ],
-  "alerting/channels": [
-    "Alert Channels"
-  ],
   "rbac/view": [
     "View Grants"
   ],
@@ -105,6 +102,9 @@ export const PAGE_HEADERS = {
   ],
   "admin/api-management": [
     "API Key Management"
+  ],
+  "admin/channels": [
+    "Notification Channels"
   ],
   "custom/builder": [
     "Chart Builder"
@@ -663,15 +663,8 @@ export const PAGE_TEXT = {
     "Enabled",
     "Disabled",
     "FIRING",
-    "NO NODES"
-  ],
-  "alerting/channels": [
-    "Loading...",
-    "Alert channels management is only available for administrators.",
-    "Name",
-    "Type",
-    "No channels yet.",
-    "Test"
+    "NO NODES",
+    "NO CHANNELS"
   ],
   "rbac/view": [
     "User Grants",
@@ -944,7 +937,7 @@ export const PAGE_TEXT = {
   ],
   "admin/app-backup": [
     "Loading...",
-    "App data backup is only available for administrators.",
+    "App data backup is only available for superadministrators.",
     "No storage profiles configured. Go to",
     "to add one.",
     "Manual Backup",
@@ -989,6 +982,14 @@ export const PAGE_TEXT = {
     "Confirm Delete",
     "No, Cancel",
     "Yes, Delete"
+  ],
+  "admin/channels": [
+    "Loading...",
+    "Alert channels management is only available for administrators.",
+    "Name",
+    "Type",
+    "No channels yet.",
+    "Test"
   ],
   "/qurioz": [
     "Select Database",
