@@ -2,6 +2,8 @@
 
 This guide walks you through deploying CHOps on a Linux server with automatic HTTPS (via Caddy) and automatic startup (via systemd). By the end, CHOps will be running as a background service at `https://your-domain.com`, restarting automatically if it crashes or the server reboots.
 
+If you are new to Linux servers, read every step - nothing is skipped.
+
 ---
 
 ## Prerequisites
@@ -76,7 +78,9 @@ bun src/backend/server.js
 
 ### Option B: Run from binary
 
-Build the binary on your development machine. Run `bun install` first: it installs dependencies and applies the `@xenova/transformers` patch that keeps the compiled binary self-contained. Building without it produces a binary that crashes at startup on native modules. See [Building a Binary](../development/binary-build.md) for details.
+You can download a prebuilt binary instead of building one. Prebuilt binaries and builds for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases); download `chops-linux-x64` and skip to "Copy the binary and `.env` to your server" below (the copy step already renames it to `/opt/chops/chops`).
+
+To build it yourself, do so on your development machine. Run `bun install` first: it installs dependencies and applies the `@xenova/transformers` patch that keeps the compiled binary self-contained. Building without it produces a binary that crashes at startup on native modules. See [Building a Binary](../development/binary-build.md) for details.
 
 ```bash
 bun install
