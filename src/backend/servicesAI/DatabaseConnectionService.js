@@ -48,6 +48,11 @@ class DatabaseConnectionService {
 
       const databaseId = this.generateDatabaseId();
 
+      ConnectionRegistry.add(databaseId, {
+        client,
+        credentials: this.credentials,
+      });
+
       const isExists = db
         ?.select()
         ?.from(aiDatabaseDetails)
