@@ -107,6 +107,10 @@ class SQLGenerationService {
 
     "Generate SQL."
 
+    "What version of ClickHouse is running?"
+
+    "What is the current database?"
+
     3. OUT_OF_DOMAIN
 
     Anything unrelated to the provided database.
@@ -140,7 +144,6 @@ class SQLGenerationService {
 
     Do not return anything else.
     `;
-    console.log(`Prompt to AI for intent classification is ${prompt}`);
     const result = await this.AIProvider.ask(classifierPrompt);
 
     const intent = result.trim().toUpperCase();
@@ -198,7 +201,6 @@ class SQLGenerationService {
       };
     }
 
-    console.log(`The intent of the User Question ${intent}`);
     // Continue only for DATABASE intent
 
     const prompt = `
@@ -212,6 +214,11 @@ class SQLGenerationService {
     - SHOW TABLES queries for table discovery
     - SHOW CREATE TABLE queries for table definitions
     - Queries against ClickHouse system tables for metadata exploration
+    - Schema-independent ClickHouse introspection queries that need no table
+      at all, e.g. SELECT version(), SELECT uptime(), SELECT currentDatabase(),
+      SELECT now(), SELECT hostName() - use these directly for questions about
+      the server itself (version, uptime, current database/user, timezone),
+      even when no table in the provided schema is relevant
 
         ## INPUTS
 
@@ -233,9 +240,10 @@ class SQLGenerationService {
 
         1. Use only tables, columns, and relationships explicitly defined in the provided schema.
         2. Never invent or assume tables, columns, joins, aliases, keys, or relationships that are not present in the schema.
-        3. When multiple tables are required, create joins only when the schema explicitly supports them.
-        4. Prefer explicit column selection; never use SELECT *.
-        5. Use ClickHouse-specific functions and syntax where appropriate.
+        3. Exception: schema-independent ClickHouse introspection functions (version(), uptime(), currentDatabase(), now(), hostName(), etc.) do not require any table and may be used even when the schema has no relevant table - do not invent a system table to answer these instead.
+        4. When multiple tables are required, create joins only when the schema explicitly supports them.
+        5. Prefer explicit column selection; never use SELECT *.
+        6. Use ClickHouse-specific functions and syntax where appropriate.
 
         ## VALIDATION REQUIREMENTS
 
@@ -296,11 +304,7 @@ class SQLGenerationService {
 
         CANNOT_GENERATE_SQL
      `;
-    console.log(`Prompt to AI for SQL Generation is ${prompt}`);
-
     let sql = await this.AIProvider.ask(prompt);
-
-    console.log(`AI generated sql ${sql}`);
 
     sql = sql
       .trim()

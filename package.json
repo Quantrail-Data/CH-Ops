@@ -15,6 +15,9 @@
     "build:binary:linux": "bun run build && bun run embed && bun build src/backend/server.js --compile --target=bun-linux-x64 --outfile chops-linux-x64",
     "build:binary:mac": "bun run build && bun run embed && bun build src/backend/server.js --compile --target=bun-darwin-arm64 --outfile chops-darwin-arm64",
     "build:binary:windows": "bun run build && bun run embed && bun build src/backend/server.js --compile --target=bun-windows-x64 --outfile chops-windows-x64.exe",
+    "build:standalone:mac": "bun run build && bun run embed && bun build src/backend/server.js --compile --env=inline --target=bun-darwin-arm64 --outfile chops-darwin-arm64",
+    "build:standalone:linux": "bun run build && bun run embed && bun build src/backend/server.js --compile --env=inline --target=bun-linux-x64 --outfile chops-linux-x64",
+    "build:standalone:windows": "bun run build && bun run embed && bun build src/backend/server.js --compile --env=inline --target=bun-windows-x64 --outfile chops-windows-x64.exe",
     "test": "bun run test:backend && vitest run tests/frontend",
     "test:backend": "bun test tests/backend",
     "test:coverage": "bun run test:backend:coverage && bun run test:frontend:coverage",
@@ -22,6 +25,7 @@
     "test:frontend:coverage": "vitest run tests/frontend --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
+    "check:sensitive-logging": "node scripts/check-sensitive-logging.mjs",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bun src/backend/db/migrate.js",
     "db:backup": "bun src/backend/db/backup.js",
@@ -50,6 +54,7 @@
     "jsonwebtoken": "9.0.2",
     "motion": "^12.39.0",
     "nodemailer": "6.9.16",
+    "onnxruntime-web": "1.14.0",
     "openai": "^6.47.0",
     "pdfkit": "^0.19.1",
     "react": "19.1.0",
@@ -82,5 +87,8 @@
   "private": true,
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "patchedDependencies": {
+    "@xenova/transformers@2.17.2": "patches/@xenova%2Ftransformers@2.17.2.patch"
   }
 }

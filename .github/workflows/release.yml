@@ -16,13 +16,13 @@ jobs:
       matrix:
         include:
           - name: linux-x64
-            script: build:binary:linux
+            script: build:standalone:linux
             outfile: chops-linux-x64
           - name: darwin-arm64
-            script: build:binary:mac
+            script: build:standalone:mac
             outfile: chops-darwin-arm64
           - name: windows-x64
-            script: build:binary:windows
+            script: build:standalone:windows
             outfile: chops-windows-x64.exe
 
     steps:
@@ -37,6 +37,12 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
+      # build:standalone:* compiles with `--env=inline`, which bakes whatever
+      # env vars are present in *this* job into the published binary. This
+      # job intentionally sets none (no `env:` block, no `secrets.*`) so
+      # there is nothing but harmless CI runner metadata to inline - never
+      # add a real secret to this job's environment, since the binary it
+      # produces is a public, downloadable GitHub release artifact.
       - name: Build ${{ matrix.name }} binary
         run: bun run ${{ matrix.script }}
 

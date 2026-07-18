@@ -33,7 +33,7 @@ router.post("/multiple/file", async (req, res) => {
     res.send(csvContent);
     return;
   } catch (error) {
-    console.error("Error on downloading the multifile :", error);
+    console.error("Error on downloading the multifile :", error.message);
     res.status(500).json({
       success: false,
       message: "Failed to download",

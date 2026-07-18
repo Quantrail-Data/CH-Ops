@@ -18,7 +18,7 @@
     - [Query Profiler](guide/query-profiler.md)
     - [Processors Profile](guide/processors-profile.md)
     - [Query Metrics](guide/query-metrics.md)
-    - [Qurioz AI](guide/ai-api-keys.md)
+    - [Qurioz AI](guide/qurioz.md)
   - Dashboards
     - [Chart Builder](guide/dashboards.md#chart-builder)
     - [My Dashboards](guide/dashboards.md#dashboards)
