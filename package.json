@@ -25,6 +25,7 @@
     "test:frontend:coverage": "vitest run tests/frontend --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
+    "check:sensitive-logging": "node scripts/check-sensitive-logging.mjs",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bun src/backend/db/migrate.js",
     "db:backup": "bun src/backend/db/backup.js",

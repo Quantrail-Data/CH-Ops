@@ -974,6 +974,8 @@ export const PAGE_TEXT = {
     "Active",
     "API Key Name",
     "Select AI Provider",
+    "Select a model",
+    "Fetch Models",
     "Verify AI API Key",
     "Verify the API key successfully before proceeding to add it",
     "Cancel",
@@ -981,7 +983,8 @@ export const PAGE_TEXT = {
     "No API keys configured yet.",
     "Confirm Delete",
     "No, Cancel",
-    "Yes, Delete"
+    "Yes, Delete",
+    "Fetch models to choose one"
   ],
   "admin/channels": [
     "Loading...",

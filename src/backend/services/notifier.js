@@ -196,7 +196,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
      console.log("Password reset OTP sent to %s: %s", email, info.messageId);
     return true;
   } catch (error) {
-    console.error("Error sending OTP email:", error);
+    console.error("Error sending OTP email:", error.message);
     return false;
   }
 };
