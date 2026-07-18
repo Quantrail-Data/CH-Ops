@@ -4,12 +4,14 @@
  * Lets the API Key Management UI fetch the list of models actually pulled on
  * a target Ollama server (via its /api/tags endpoint) before saving a key.
  * Covers: the requireSuperAdmin gate, input validation (missing/malformed/
- * non-http base URL), the SSRF guard that rejects localhost/private/link-local
- * addresses, an unreachable server (network error), a non-2xx response, a
- * malformed JSON body, and the happy path mapping {models:[{name}]} to a flat
- * name list. Non-SSRF-guard failures always resolve with HTTP 200 and a
- * {success, ...} body - an unreachable dev server is an expected setup state,
- * not a server error.
+ * non-http base URL), the SSRF guard (localhost/127.0.0.1/::1 loopback is
+ * allowed - that's the normal way Ollama is run; other private/LAN/link-local
+ * addresses are rejected), DNS-rebinding protection (the fetch is pinned to
+ * the already-validated IP, not re-resolved), an unreachable server (network
+ * error), a non-2xx response, a malformed JSON body, and the happy path
+ * mapping {models:[{name}]} to a flat name list. Non-SSRF-guard failures
+ * always resolve with HTTP 200 and a {success, ...} body - an unreachable dev
+ * server is an expected setup state, not a server error.
  *
  * Author: Kathir Moorthy
  * Copyright (C) 2026 Quantrail™ Data Private Limited
@@ -26,6 +28,9 @@ mock.module("../../src/backend/db/index.js", () => ({
   dashboards: {},
   charts: {},
 }));
+
+const mockLookup = mock();
+mock.module("node:dns/promises", () => ({ lookup: mockLookup }));
 
 const { default: apiKeysRouter } = await import(
   "../../src/backend/routes/apiKeys.js"
@@ -75,6 +80,8 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
   globalThis.fetch = originalFetch;
+  mockLookup.mockReset();
+  mockLookup.mockRejectedValue(new Error("no mock DNS response configured"));
 });
 
 describe("POST /ollama/models - requireSuperAdmin gate", () => {
@@ -164,24 +171,99 @@ describe("POST /ollama/models - validation", () => {
 });
 
 describe("POST /ollama/models - SSRF guard", () => {
-  it("rejects localhost", async () => {
+  it("allows localhost (the normal way Ollama is run - same machine)", async () => {
+    let requestedUrl = null;
+    globalThis.fetch = mock(async (url) => {
+      requestedUrl = url;
+      return { ok: true, json: async () => ({ models: [] }) };
+    });
+
     const req = { body: { baseUrl: "http://localhost:11434" } };
     const res = createRes();
 
     await handler(req, res);
 
-    expect(res.statusCode).toBe(422);
-    expect(res.body.message).toMatch(/must resolve to a public host/);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true, models: [] });
+    // Pinned to the literal loopback IP rather than the "localhost" hostname.
+    expect(requestedUrl).toBe("http://127.0.0.1:11434/api/tags");
   });
 
-  it("rejects a loopback IPv4 address", async () => {
+  it("allows a literal 127.0.0.1 address", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => ({ models: [] }),
+    }));
+
     const req = { body: { baseUrl: "http://127.0.0.1:11434" } };
     const res = createRes();
 
     await handler(req, res);
 
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true, models: [] });
+  });
+
+  it("allows the IPv6 loopback address", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => ({ models: [] }),
+    }));
+
+    const req = { body: { baseUrl: "http://[::1]:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true, models: [] });
+  });
+
+  it("pins the fetch to the resolved IP for a hostname (DNS-rebinding protection)", async () => {
+    mockLookup.mockResolvedValue([{ address: "203.0.113.20", family: 4 }]);
+    let requestedUrl = null;
+    let requestedHeaders = null;
+    globalThis.fetch = mock(async (url, options) => {
+      requestedUrl = url;
+      requestedHeaders = options?.headers;
+      return { ok: true, json: async () => ({ models: [] }) };
+    });
+
+    const req = { body: { baseUrl: "http://ollama.example.com:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    // Connects to the validated IP directly, not the hostname...
+    expect(requestedUrl).toBe("http://203.0.113.20:11434/api/tags");
+    // ...but keeps the original hostname in the Host header.
+    expect(requestedHeaders).toEqual({ Host: "ollama.example.com:11434" });
+  });
+
+  it("rejects a hostname that resolves to a private IP", async () => {
+    mockLookup.mockResolvedValue([{ address: "192.168.1.50", family: 4 }]);
+
+    const req = { body: { baseUrl: "http://internal.example.com:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
     expect(res.statusCode).toBe(422);
-    expect(res.body.message).toMatch(/must resolve to a public host/);
+  });
+
+  it("rejects a hostname if any resolved address is private (partial rebinding)", async () => {
+    mockLookup.mockResolvedValue([
+      { address: "203.0.113.20", family: 4 },
+      { address: "10.0.0.5", family: 4 },
+    ]);
+
+    const req = { body: { baseUrl: "http://mixed.example.com:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
   });
 
   it("rejects a private IPv4 LAN address (192.168.x.x)", async () => {
@@ -204,15 +286,6 @@ describe("POST /ollama/models - SSRF guard", () => {
 
   it("rejects a link-local IPv4 address (169.254.x.x)", async () => {
     const req = { body: { baseUrl: "http://169.254.169.254:11434" } };
-    const res = createRes();
-
-    await handler(req, res);
-
-    expect(res.statusCode).toBe(422);
-  });
-
-  it("rejects the IPv6 loopback address", async () => {
-    const req = { body: { baseUrl: "http://[::1]:11434" } };
     const res = createRes();
 
     await handler(req, res);
