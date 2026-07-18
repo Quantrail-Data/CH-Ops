@@ -248,7 +248,7 @@ export const PAGE_TEXT = {
     "JSON",
     "TSV",
     "Error occurred",
-    "Select Explain",
+    "GENERAL RUN",
     "EXPLAIN",
     "AST",
     "SYNTAX",
