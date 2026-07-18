@@ -66,23 +66,65 @@ function isPublicIp(ip) {
   return false;
 }
 
-async function isSafeOllamaBaseUrl(parsedUrl) {
-  const hostname = parsedUrl.hostname.toLowerCase();
-  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
-    return false;
+// Loopback (same machine as this CHOps server) is allowed even though it's
+// technically "private" - that's the normal way Ollama is run (same host),
+// and it's a materially smaller risk than opening up the rest of the
+// private/LAN address space, which would let this endpoint be used to probe
+// other machines on the network.
+function isLoopbackIp(ip) {
+  const version = isIP(ip);
+  if (version === 4) return ip.split(".")[0] === "127";
+  if (version === 6) return ip.toLowerCase() === "::1";
+  return false;
+}
+
+function isAllowedOllamaIp(ip) {
+  return isLoopbackIp(ip) || isPublicIp(ip);
+}
+
+// Returns the validated IP to actually connect to, or null if unsafe.
+// Resolving here and pinning the later fetch() to this literal IP (instead of
+// letting fetch() re-resolve the hostname itself) closes a DNS-rebinding gap:
+// if we only validated the hostname and then fetched the hostname again, an
+// attacker could point a domain at an allowed IP for this check and rebind it
+// to a disallowed address by the time the actual request's own DNS lookup
+// runs.
+async function resolveSafeOllamaIp(parsedUrl) {
+  // WHATWG URL.hostname keeps the brackets around an IPv6 literal (e.g.
+  // "[::1]"), which net.isIP() does not recognize - strip them before any IP
+  // check, or an IPv6 literal silently falls through to the DNS-lookup path.
+  const rawHostname = parsedUrl.hostname.toLowerCase();
+  const hostname =
+    rawHostname.startsWith("[") && rawHostname.endsWith("]")
+      ? rawHostname.slice(1, -1)
+      : rawHostname;
+
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    return "127.0.0.1";
   }
 
   if (isIP(hostname)) {
-    return isPublicIp(hostname);
+    return isAllowedOllamaIp(hostname) ? hostname : null;
   }
 
   try {
     const records = await lookup(hostname, { all: true, verbatim: true });
-    if (!records.length) return false;
-    return records.every((r) => isPublicIp(r.address));
+    if (!records.length || !records.every((r) => isAllowedOllamaIp(r.address))) {
+      return null;
+    }
+    return records[0].address;
   } catch {
-    return false;
+    return null;
   }
+}
+
+// Rebuilds a URL with the hostname swapped for the pinned IP (bracketing
+// IPv6 literals as the URL authority syntax requires), so the socket
+// connects to exactly the address that was already validated above.
+function buildPinnedUrl(parsedUrl, ip, path) {
+  const host = ip.includes(":") ? `[${ip}]` : ip;
+  const port = parsedUrl.port ? `:${parsedUrl.port}` : "";
+  return `${parsedUrl.protocol}//${host}${port}${path}`;
 }
 
 const AIProviderTesting = async (providerID = null,apikey=null) => {
@@ -272,18 +314,25 @@ router.post("/ollama/models", requireSuperAdmin, async (req, res) => {
       return res.status(422).json({ success: false, message: "URL must start with http:// or https://" });
     }
 
-    const safeDestination = await isSafeOllamaBaseUrl(parsed);
-    if (!safeDestination) {
+    const pinnedIp = await resolveSafeOllamaIp(parsed);
+    if (!pinnedIp) {
       return res.status(422).json({
         success: false,
-        message: "Base URL must resolve to a public host. Private, loopback, and local network addresses are not allowed.",
+        message: "Base URL must resolve to localhost/127.0.0.1 or a public host. Other private and local network addresses are not allowed.",
       });
     }
 
-    const tagsUrl = `${parsed.origin.replace(/\/+$/, "")}/api/tags`;
+    // Connect to the already-validated IP directly, not the hostname, so a
+    // DNS change between validation and this request (DNS rebinding) can't
+    // redirect the request elsewhere; the Host header keeps the request
+    // looking correct to the target server.
+    const tagsUrl = buildPinnedUrl(parsed, pinnedIp, "/api/tags");
     let response;
     try {
-      response = await fetch(tagsUrl, { signal: AbortSignal.timeout(5000) });
+      response = await fetch(tagsUrl, {
+        signal: AbortSignal.timeout(5000),
+        headers: { Host: parsed.host },
+      });
     } catch {
       // Server not running yet, wrong port, DNS failure, timeout - an expected
       // state during setup, not a server error.
