@@ -276,6 +276,9 @@ function MainLayoutInner() {
         >
           Copyright &copy; 2026 Quantrail™ Data Private Limited. All rights
           reserved.
+          <span className="app-version-badge">
+            v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}
+          </span>
         </div>
         <GlobalSearch
           open={searchOpen}

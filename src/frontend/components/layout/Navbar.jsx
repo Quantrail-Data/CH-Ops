@@ -156,19 +156,22 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
   return (
     <header className="navbar">
       {/* Left: Brand */}
-      <div
+      <a
+        href="https://www.ch-ops.io/"
+        target="_blank"
+        rel="noopener noreferrer"
         className="navbar-brand"
         title={`CHOps v${typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}`}
-        style={{ flex: "0 0 auto", minWidth: 0 }}
+        style={{ flex: "0 0 auto", minWidth: 0, textDecoration: "none" }}
       >
         {/* <Icon className="ti ti-database"></Icon>
         <span className="navbar-title">CHOps</span> */}
 
          <img
-          style={{ width: "100px",position:"relative",right:"10px", pointerEvents: "none" }}
+          style={{ width: "100px",position:"relative",right:"10px" }}
           src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
         />
-      </div>
+      </a>
 
       {/* Center: Connection */}
       <div
@@ -270,6 +273,18 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
             {theme === "dark" ? "Light" : "Dark"}
           </span>
         </button>
+        <a
+          href="https://github.com/Quantrail-Data/CH-Ops"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-ghost btn-sm"
+          title="GitHub repository"
+          aria-label="GitHub repository"
+          style={{ textDecoration: "none" }}
+        >
+          <Icon className="ti ti-brand-github"></Icon>
+          <span className="navbar-btn-label">GitHub</span>
+        </a>
 
         {/* User dropdown (rightmost) - contains Sign Out + Text Size */}
         <div style={{ position: "relative", marginLeft: 4 }}>
