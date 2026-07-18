@@ -68,10 +68,6 @@ function isPublicIp(ip) {
 
 async function isSafeOllamaBaseUrl(parsedUrl) {
   const hostname = parsedUrl.hostname.toLowerCase();
-  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
-    return false;
-  }
-
   if (isIP(hostname)) {
     return isPublicIp(hostname);
   }
@@ -79,7 +75,7 @@ async function isSafeOllamaBaseUrl(parsedUrl) {
   try {
     const records = await lookup(hostname, { all: true, verbatim: true });
     if (!records.length) return false;
-    return records.every((r) => isPublicIp(r.address));
+    return records.every((r) => isIP(r.address));
   } catch {
     return false;
   }
