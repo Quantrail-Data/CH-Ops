@@ -1,5 +1,7 @@
 # Building a Standalone Binary
 
+> **You may not need to build one.** Prebuilt binaries and builds for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). Download the asset for your platform (`chops-linux-x64`, `chops-darwin-arm64`, or `chops-windows-x64.exe`) and run it with the required environment variables. Build your own only when you need a custom build; the rest of this page covers that.
+
 CHOps can be compiled into a single self-contained executable using Bun's `--compile` flag. The binary bundles the Bun runtime, all JavaScript code, `node_modules`, the pre-built frontend, and the documentation into one file. The target machine does not need Bun, Node.js, or any other runtime installed.
 
 ## Why build a binary?
