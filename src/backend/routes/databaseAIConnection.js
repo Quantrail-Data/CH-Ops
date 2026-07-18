@@ -8,13 +8,15 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-const {Router} = require("express");
-const DeleteDatabaseService = require("../servicesAI/DeleteDatabaseService");
-const DatabaseConnectionService = require("../servicesAI/DatabaseConnectionService");
-const SchemaIngestionService = require("../servicesAI/SchemaIngestionService");
-const { aiDatabaseDetails } = require("../db/schema");
-const { db } = require("../db/index");
-const { eq } = require("drizzle-orm");
+
+
+import { Router } from "express";
+import DeleteDatabaseService from "../servicesAI/DeleteDatabaseService";
+import DatabaseConnectionService from "../servicesAI/DatabaseConnectionService";
+import SchemaIngestionService from "../servicesAI/SchemaIngestionService";
+import { aiDatabaseDetails } from "../db/schema";
+import { db } from "../db/index";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -80,4 +82,4 @@ router.delete("/delete", async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;
