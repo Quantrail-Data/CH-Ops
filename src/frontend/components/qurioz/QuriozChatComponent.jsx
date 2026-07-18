@@ -15,6 +15,7 @@ import { apiFetch, runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useNavigate } from "react-router-dom";
+import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
 const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
@@ -327,9 +328,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 );
 
                 if (responseAIQuery?.success) {
-                  const responseSQL = responseAIQuery?.generated_sql?.includes(
-                    "--Unable to generate SQL",
-                  );
+                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
+                  //   "--Unable to generate SQL",
+                  // );
+                  const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
 
                   if (responseSQL) {
                     insertMessage({
@@ -444,9 +446,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 );
 
                 if (responseAIQuery?.success) {
-                  const responseSQL = responseAIQuery?.generated_sql?.includes(
-                    "--Unable to generate SQL",
-                  );
+                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
+                  //   "--Unable to generate SQL",
+                  // );
+
+                  const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
 
                   if (responseSQL) {
                     insertMessage({
@@ -628,9 +632,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       });
 
       if (responseAIQuery?.success) {
-        const responseSQL = responseAIQuery?.generated_sql?.includes(
-          "--Unable to generate SQL",
-        );
+        // const responseSQL = responseAIQuery?.generated_sql?.includes(
+        //   "--Unable to generate SQL",
+        // );
+
+        const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
 
         if (responseSQL) {
           UpdatedMessage = {
@@ -758,29 +764,25 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   };
 
-  async function SelectAIProvider(e){
+  async function SelectAIProvider(e) {
+    const llm_provider = e?.target?.value;
+    const { id } = apikeys?.find((val_) => val_?.name === llm_provider);
 
-                const llm_provider = e?.target?.value;
-                const { id } = apikeys?.find(
-                  (val_) => val_?.name === llm_provider,
-                );
-
-                try {
-                  const res = await apiFetch(`/api/qurioz/api-keys/select`, {
-                    method: "POST",
-                    body: JSON.stringify({ keyId: id }),
-                  });
-                  setApiKey({
-                    status: true,
-                    id: res?.id,
-                    serviceName: res?.name,
-                  });
-                  toast?.success(`${res?.name} selected successfully.`)
-                } catch (err) {
-                  setApiKey({ status: false, id: null, serviceName: null });
-                  toast?.error(err?.message)
-                }
-              
+    try {
+      const res = await apiFetch(`/api/qurioz/api-keys/select`, {
+        method: "POST",
+        body: JSON.stringify({ keyId: id }),
+      });
+      setApiKey({
+        status: true,
+        id: res?.id,
+        serviceName: res?.name,
+      });
+      toast?.success(`${res?.name} selected successfully.`);
+    } catch (err) {
+      setApiKey({ status: false, id: null, serviceName: null });
+      toast?.error(err?.message);
+    }
   }
 
   return (
@@ -792,7 +794,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           alignItems: "center",
           justifyContent: "space-between",
           flexDirection: "row",
-          zIndex:10
+          zIndex: 10,
         }}
       >
         <div
@@ -885,7 +887,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                     display: "flex",
                     flexDirection: "row",
                     alignItems: "center",
-                         fontSize: "12px",
+                    fontSize: "12px",
                   }}
                 >
                   {u?.name}

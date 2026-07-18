@@ -184,10 +184,10 @@ function MainLayoutInner() {
 
   function ScrollBottomAuto() {
     mainRef?.current?.scrollTo({
-      top: document.documentElement.scrollHeight + 9000,
+      top: mainRef?.current?.scrollHeight ,
       behavior: "smooth",
     });
-    console.log(mainRef?.current);
+
   }
 
   const fallback = (
