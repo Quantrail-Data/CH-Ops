@@ -242,13 +242,7 @@ export const SEARCH_CATALOG = [
     description: "SQL-condition alert rules with thresholds and schedules.",
     keywords: ["alert rules", "alerting", "thresholds", "sql condition", "notifications", "monitors", "watchdog", "alert schedule"],
   },
-  {
-    id: "alerting/channels",
-    title: "Channels",
-    section: "Alerts",
-    description: "Notification channels: email, Slack, Google Chat, Teams, PagerDuty.",
-    keywords: ["alert channels", "notification channels", "email", "slack", "webhook", "pagerduty", "microsoft teams", "google chat", "notify", "integrations"],
-  },
+
 
   // RBAC
   {
@@ -317,6 +311,13 @@ export const SEARCH_CATALOG = [
     section: "Admin",
     description: "Back up and restore CHOps' own configuration database.",
     keywords: ["app data backup", "chops backup", "export config", "database backup", "settings backup", "restore config"],
+  },
+    {
+    id: "admin/channels",
+    title: "Channels",
+    section: "Alerts",
+    description: "Notification channels: email, Slack, Google Chat, Teams, PagerDuty.",
+    keywords: ["alert channels", "notification channels", "email", "slack", "webhook", "pagerduty", "microsoft teams", "google chat", "notify", "integrations"],
   },
   {
     id: "admin/api-management",
