@@ -236,6 +236,20 @@ describe("Cluster Controller", () => {
       expect(saveClusters).toHaveBeenCalled();
     });
 
+    it("fails when node are empty", () => {
+      getAllClusters.mockReturnValue([]);
+
+      const { req, res } = mockReqRes({
+        name: "new-cluster",
+        nodes: [],
+      });
+
+      createCluster(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.jsonData.error).toBe(`No nodes found. Add at least one node before creating the cluster.`);
+    });
+
     it("fails when node names are duplicated", () => {
       getAllClusters.mockReturnValue([]);
 
@@ -247,7 +261,7 @@ describe("Cluster Controller", () => {
       createCluster(req, res);
 
       expect(res.statusCode).toBe(400);
-      expect(res.jsonData.error).toBe(undefined);
+      expect(res.jsonData.error).toBe(`Node names must be unique within a cluster.`);
     });
 
     it("fails when node name is missing", () => {
@@ -261,7 +275,7 @@ describe("Cluster Controller", () => {
       createCluster(req, res);
 
       expect(res.statusCode).toBe(400);
-      expect(res.jsonData.error).toBe(undefined);
+      expect(res.jsonData.error).toBe(`Node Name is required for all nodes.`);
     });
   });
 
