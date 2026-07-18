@@ -86,3 +86,24 @@ jobs:
                 body,
               });
             }
+
+  build:
+    name: Verify Binary Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install Dependencies
+        run: bun install
+
+      # Catches issues release.yml can only surface on a tag push (e.g. a new
+      # dependency whose bundler-time import - like @opentelemetry/api pulled
+      # in by @mistralai/mistralai - can't be resolved), before it reaches main.
+      - name: Compile binary (build-only check, not published)
+        run: bun run build:binary
