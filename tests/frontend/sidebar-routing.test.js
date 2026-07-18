@@ -102,10 +102,10 @@ describe('Routing: All page components exist', () => {
     'editor/QueryEditor', 'editor/SqlEditorPage', 'profiler/QueryProfiler', 'profiler/QueryMetrics', 'dashboards/ChartBuilder', 'dashboards/DashboardView', 'dashboards/AllCharts',
     'indexes/SecondaryIndexes', 'indexes/Projections', 'indexes/CreateIndex',
     'logs/CrashLog', 'logs/ErrorLog', 'logs/TextLog', 'logs/SessionLog', 'monitoring/MonitoringDashboards', 'monitoring/Playback',
-    'alerting/AlertRules', 'alerting/AlertChannels',
+    'alerting/AlertRules',
     'rbac/RbacViewGrants', 'rbac/RbacUsers', 'rbac/RbacRoles', 'rbac/RbacProfiles',
     'backups/DataLifecycle', 'backups/StorageProfiles',
-    'admin/UserManagement', 'admin/ClusterManagement', 'admin/AppDataBackup',
+    'admin/UserManagement', 'admin/ClusterManagement', 'admin/AppDataBackup', 'admin/NotificationChannels',
     'schema-studio/SchemaStudio', 'schema-studio/StepSource', 'schema-studio/StepSchema', 'schema-studio/StepEngine', 'schema-studio/StepGenerate',
   ];
 
