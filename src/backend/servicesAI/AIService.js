@@ -51,6 +51,16 @@ class AIServices {
         });
         break;
 
+      case "OLLAMA":
+        // this.apiKey holds the decrypted Ollama base URL (e.g.
+        // http://localhost:11434) - Ollama has no real API key, but the SDK
+        // requires a truthy string, and Ollama ignores whatever is sent.
+        this.client = new OpenAI({
+          apiKey: "ollama",
+          baseURL: `${this.apiKey.replace(/\/+$/, "")}/v1`,
+        });
+        break;
+
       default:
         throw new Error(`Unsupported AI provider: ${provider}`);
     }
@@ -99,8 +109,27 @@ class AIServices {
             model: this.modelName,
             input: prompt,
           });
-          console.log("OpenAI Response:", JSON.stringify(response, null, 2));
           return response.output_text ?? "";
+        }
+
+        case "OLLAMA": {
+          // Ollama's OpenAI-compatible layer only implements the Chat
+          // Completions API, not the newer Responses API used above.
+          // temperature: 0 - this call is used for intent classification and
+          // strict schema-bound SQL generation, not open-ended chat; local
+          // models left at Ollama's default (~0.8) sampling produce different
+          // classifications/SQL for the same input from one call to the next.
+          const response = await this.client.chat.completions.create({
+            model: this.modelName,
+            temperature: 0,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+          });
+          return response.choices?.[0]?.message?.content ?? "";
         }
       }
     } catch (error) {
@@ -156,8 +185,12 @@ class AIServices {
         stack: error?.stack,
       });
 
-      const err = new Error("An internal server error occurred.");
-      err.statusCode = 500;
+      // Anything not matched above (bad model name, malformed request, etc.)
+      // still carries a specific, provider-reported reason - surface it
+      // instead of a generic message, so API key validation in the UI can
+      // tell the user what's actually wrong instead of just "failed".
+      const err = new Error(message || "An internal server error occurred.");
+      err.statusCode = Number.isInteger(status) ? status : 500;
       throw err;
     }
   }
