@@ -48,7 +48,7 @@
     "axios": "^1.18.0",
     "drizzle-orm": "0.44.2",
     "echarts": "6.0.0",
-    "express": "5.1.0",
+    "express": "5.2.1",
     "farmhash": "^5.0.1",
     "fuse.js": "^7.4.2",
     "js-yaml": "4.1.0",
