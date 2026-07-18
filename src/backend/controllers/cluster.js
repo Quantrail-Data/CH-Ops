@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Handles multi-cluster management (max 3 clusters, 18 nodes total) with admin-restricted CRUD operations.
 
-
 import {
   getAllClusters,
   saveClusters,
@@ -34,7 +33,6 @@ export function listClusters(req, res) {
 }
 
 export function createCluster(req, res) {
-
   try {
     const role = req.user?.role;
 
@@ -73,9 +71,8 @@ export function createCluster(req, res) {
     const err = validateNodes(nodeArr, clusters);
 
     if (err) {
-
       return res.status(400).json({
-        error: err.message,
+        error: err,
       });
     }
 
@@ -88,7 +85,6 @@ export function createCluster(req, res) {
     clusters.push(newCluster);
 
     saveClusters(clusters);
-
 
     return res.status(201).json(maskClusterPasswords(newCluster));
   } catch (error) {
@@ -145,7 +141,6 @@ export function updateCluster(req, res) {
 
     saveClusters(clusters);
 
-
     res.json(maskClusterPasswords(clusters[idx]));
   } catch (error) {
     res.status(500).json(error.message);
@@ -195,6 +190,8 @@ export async function testConnection(req, res) {
 
 function validateNodes(nodes, allClusters, excludeIdx) {
   if (!Array.isArray(nodes)) return null;
+  if (nodes?.length === 0)
+    return `No nodes found. Add at least one node before creating the cluster.`;
   const missing = nodes.find((n) => !n.name?.trim());
   if (missing) return "Node Name is required for all nodes.";
   const names = nodes.map((n) => n.name.trim().toLowerCase());

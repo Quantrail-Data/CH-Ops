@@ -7,7 +7,7 @@ import Icon from "../common/Icon.jsx";
 import { useState } from "react";
 import { AnimatePresence,motion } from "motion/react";
 
-const VoiceSearchButton = ({ onTranscript, disabled }) => {
+const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
   const {
     hasError,
     isMIC,
@@ -135,6 +135,11 @@ const VoiceSearchButton = ({ onTranscript, disabled }) => {
     }
   };
 
+  const StopListener = ()=>{
+    StopListeningHandler()
+    typeof setAutoFocus === "function" && setAutoFocus()
+  }
+
   if (!isSupportSpeechRecongnition()) {
     return (
       <button
@@ -162,7 +167,7 @@ const VoiceSearchButton = ({ onTranscript, disabled }) => {
   return (
     <div style={styles.container}>
       <motion.button
-        onClick={!listening ? StartlisteningHandler : StopListeningHandler}
+        onClick={!listening ? StartlisteningHandler : StopListener}
         disabled={disabled || hasError}
         style={{
           ...styles.button,
