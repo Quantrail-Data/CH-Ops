@@ -192,6 +192,45 @@ the compose environment / your `.env`).
 
 ---
 
+## Download a Release Binary
+
+If you just want to run CHOps without installing Bun or building from source, download a pre-built binary from the [GitHub Releases page](https://github.com/Quantrail-Data/CH-Ops/releases/latest) for your OS and architecture:
+
+| Platform | File |
+|---|---|
+| Linux (x64) | `chops-linux-x64` |
+| macOS (Apple Silicon / arm64) | `chops-darwin-arm64` |
+| Windows (x64) | `chops-windows-x64.exe` |
+
+On macOS or Linux, mark the file executable after downloading:
+
+```bash
+chmod +x chops-linux-x64
+```
+
+**This still requires a `.env` file** in the same directory as the binary — the binary bundles the app itself, not your configuration, so nothing is pre-filled with real values. Fetch the example file and copy it to `.env`:
+
+```bash
+curl -o .env.example https://raw.githubusercontent.com/Quantrail-Data/CH-Ops/main/.env.example
+cp .env.example .env
+```
+
+Then edit `.env` and replace these **required** values (everything else has a working default):
+
+- `SUPER_ADMIN_1` — replace with the admin username you want to log in with (default is `admin`).
+- `SUPER_ADMIN_1_PASSWORD` — replace `change_me_to_a_strong_password` with a real, strong password.
+- `SESSION_SECRET` — replace `replace_with_a_long_random_secret_32_chars_min` with a random 32+ character string, e.g. the output of `openssl rand -hex 32`. This signs login sessions and encrypts stored ClickHouse® credentials, so keep it private.
+
+Now run the binary from that same directory:
+
+```bash
+./chops-linux-x64
+```
+
+Open `http://localhost:3000` (or whatever `PORT` you set in `.env`). See [Starting the App](#starting-the-app) above for the Docker equivalent, and [Security](#security) below for what `SESSION_SECRET` and `DISABLE_ENV_LOGIN` actually protect.
+
+---
+
 ## Building a Standalone Binary
 
 CHOps compiles into a single executable with no runtime dependencies on the target machine. This is the recommended way to deploy to a server or distribute to teammates.

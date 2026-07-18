@@ -42,7 +42,7 @@ function useSpeechRecognitionHook(onTranscript) {
             setIsMIC(!hasGetUserMedia); // if no getUserMedia, set mic as unavailable
         } catch (err) {
             // If something goes wrong, mark error but try a reasonable fallback
-            console.warn('Microphone permission check failed:', err);
+            console.warn('Microphone permission check failed:', err.message);
             setHasError(true);
             const hasGetUserMedia = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
             setIsMIC(!hasGetUserMedia);
@@ -77,7 +77,7 @@ function useSpeechRecognitionHook(onTranscript) {
                     finalTranscript += transcript + ' ';
                 }
             } catch (e) {
-                console.warn('SpeechRecognition result parsing failed', e);
+                console.warn('SpeechRecognition result parsing failed', e.message);
             }
             if (finalTranscript) {
                 onTranscript(finalTranscript);
@@ -133,7 +133,7 @@ function useSpeechRecognitionHook(onTranscript) {
                 setListening(false);
             }
         } catch (e) {
-            console.warn('Start/Stop speech recognition failed', e);
+            console.warn('Start/Stop speech recognition failed', e.message);
             setHasError(true);
             setListening(false);
         }
@@ -148,7 +148,7 @@ function useSpeechRecognitionHook(onTranscript) {
             RecongnitionRef.current.stop();
             setListening(false);
         } catch (e) {
-            console.warn('Stop speech recognition failed', e);
+            console.warn('Stop speech recognition failed', e.message);
             setHasError(true);
         }
     }

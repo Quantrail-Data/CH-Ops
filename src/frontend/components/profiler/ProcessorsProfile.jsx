@@ -855,7 +855,7 @@ function ProcessorsProfileInner( ) {
           <div style={{ display: "flex", gap: 4 }}>
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => handleResetView}
+              onClick={() => handleResetView()}
               title="Reset"
             >
               <Icon className="ti ti-zoom-reset" />
