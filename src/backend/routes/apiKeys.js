@@ -240,7 +240,7 @@ router.post("/select", requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post("/check",async (req,res,next)=>{
+router.post("/check", requireSuperAdmin, async (req,res,next)=>{
   try {
     const {apiKeys} = req.body;
     if (!apiKeys) return res.status(422).json({success:false,message:"Provider ID and Model details  must be included!"});
@@ -255,7 +255,7 @@ router.post("/check",async (req,res,next)=>{
   }
 })
 
-router.post("/ollama/models", async (req, res) => {
+router.post("/ollama/models", requireSuperAdmin, async (req, res) => {
   try {
     const { baseUrl } = req.body;
     if (!baseUrl?.trim()) {
