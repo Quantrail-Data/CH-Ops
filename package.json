@@ -61,6 +61,7 @@
     "react-dom": "19.1.0",
     "react-otp-input": "^3.1.1",
     "react-router-dom": "7.15.1",
+    "sql-formatter": "^15.8.2",
     "swiper": "^12.2.0"
   },
   "devDependencies": {
