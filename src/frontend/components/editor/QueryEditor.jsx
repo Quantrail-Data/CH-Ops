@@ -5,6 +5,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import { format } from "sql-formatter";
 import {
   runEditorQuery,
   apiFetch,
@@ -13,7 +14,7 @@ import {
   editorDisconnect,
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
-import { useConnection } from "../../App.jsx";
+import { useConnection, useTheme } from "../../App.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
 import ModeSelect from "./ModeSelect.jsx";
@@ -31,9 +32,25 @@ import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
 
+// VITE_SELECTEDAID_DBS=aiselectedid
+const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
+
 // Query history - stored in localStorage, capped at 100 entries
 const HISTORY_KEY = "chops_query_history";
 const HISTORY_MAX = 100;
+
+const LOADING_PHRASES = [
+  "Generating ClickHouse query...",
+  "Optimizing ClickHouse SQL...",
+  "Building analytical query...",
+  "Drafting your columnar query...",
+  "Preparing ClickHouse syntax...",
+  "Generating real-time analytics...",
+  "Calculating sub-second query logic...",
+  "Drafting a high-performance query...",
+  "Aggregating billions of rows of thought...",
+  "Synthesizing blazing-fast SQL...",
+];
 
 function getHistory() {
   try {
@@ -68,7 +85,6 @@ function downloadBlob(content, filename, mimeType) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
 
 function engineIcon(engine) {
   if (!engine) return "ti-table";
@@ -136,8 +152,17 @@ export default function QueryEditor({
 }) {
   const toast = useToast();
   const navigate = useNavigate();
-  // const { selectedClusterId, selectedNode, connected } = useConnection();
-  const { selectedClusterId, selectedNode, connected, port } = useConnection();
+  const {
+    selectedClusterId,
+    selectedNode,
+    connected,
+    port,
+    clusters,
+    clusterName,
+    user,
+    password,
+    nodeName,
+  } = useConnection();
   const [editorCreds, setEditorCreds] = useState(null);
   const editorConnected = !!editorCreds;
   const [connUser, setConnUser] = useState("");
@@ -164,13 +189,34 @@ export default function QueryEditor({
   const [showGraphSqlModal, setShowGraphSqlModal] = useState(false);
   const graphRef = useRef(null);
   const graphInst = useRef(null);
-
+  const [selectedAIDB, setSelectedAIDB] = useState(null);
+  const [selectedAIDBID, setSelectedAIDBID] = useState(null);
+  const [isAILoading, setIsAILoading] = useState(false);
   // Inside the component:
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
+  const [ExplainOptionSelector, setExplainOptionSelector] = useState({type:""}); // for selection explain function dropdown values
+
+  const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
+  const [aiError, setAIError] = useState(null);
+
   // default cred password view flag
   const [isViewFlag, setIsViewFlag] = useState(false);
+
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prevIndex) => (prevIndex + 1) % LOADING_PHRASES.length);
+      if (isAILoadingGenerating) {
+        console.log(LOADING_PHRASES[index]);
+        setSql(LOADING_PHRASES[index]);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Render ECharts tree when graphData changes
   useEffect(() => {
@@ -354,6 +400,115 @@ export default function QueryEditor({
     };
   }, [graphData, graphZoomLevel, graphTitle]);
 
+  async function exportCSV(rows, columns) {
+    if (!rows?.length) return;
+
+    const cols = columns?.length ? columns : Object.keys(rows[0]);
+
+    const escape = (v) => {
+      const s = String(v ?? "");
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? '"' + s.replace(/"/g, '""') + '"'
+        : s;
+    };
+
+    const lines = [cols.join(",")];
+    for (const row of rows) {
+      lines.push(cols.map((c) => escape(row[c])).join(","));
+    }
+
+    const csvContent = lines.join("\n");
+
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "query-results.csv",
+        types: [
+          {
+            description: "CSV Files",
+            accept: {
+              "text/csv": [".csv"],
+            },
+          },
+        ],
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(csvContent);
+      await writable.close();
+      toast.success(`Downloaded ${handle.name}`);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        toast.error("Export failed:", err);
+      }
+    }
+  }
+
+  async function exportTSV(rows, columns) {
+    if (!rows?.length) return;
+    const cols = columns?.length ? columns : Object.keys(rows[0]);
+    const lines = [cols.join("\t")];
+    for (const row of rows)
+      lines.push(
+        cols.map((c) => String(row[c] ?? "").replace(/\t/g, " ")).join("\t"),
+      );
+
+    const tsvContent = lines.join("\n");
+
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "query-results.tsv",
+        types: [
+          {
+            description: "TSV Files",
+            accept: {
+              "text/tab-separated-values": [".tsv"],
+            },
+          },
+        ],
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(tsvContent);
+      await writable.close();
+      toast.success(`Downloaded ${handle.name}`);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        toast.error("TSV Export failed:", err);
+      }
+    }
+  }
+
+  async function exportJSON(rows) {
+    if (!rows?.length) return;
+    const jsonContent = JSON.stringify(rows, null, 2);
+
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "query-results.json",
+        types: [
+          {
+            description: "JSON Files",
+            accept: {
+              "application/json": [".json"],
+            },
+          },
+        ],
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(jsonContent);
+      await writable.close();
+
+      console.log(handle);
+      console.log(writable);
+      toast.success(`Downloaded ${handle.name}`);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        toast.error("JSON Export failed:", err);
+      }
+    }
+  }
+
   function graphDownload() {
     if (!graphInst.current) return;
     const url = graphInst.current.getDataURL({
@@ -398,10 +553,71 @@ export default function QueryEditor({
   const [bookmarkName, setBookmarkName] = useState("");
   const [expandedIdx, setExpandedIdx] = useState(null);
 
-  const [ExplainOptionSelector, setExplainOptionSelector] = useState(null); // for selection explain function dropdown values
-
   const lastSqlRef = useRef("");
   const lastRunMetaRef = useRef({ written: 0 });
+
+  const { theme } = useTheme();
+
+  async function initSetup() {
+    const isExits = localStorage?.getItem(SELECTLSKEY);
+
+    if (isExits === undefined || isExits === null) {
+      let clusterAiId = {};
+      clusters?.forEach((value) => {
+        let nodeObj = {};
+        value?.nodes?.forEach((node) => {
+          nodeObj[node?.name] = [];
+        });
+        clusterAiId[value?.id] = nodeObj;
+      });
+
+      localStorage.setItem(SELECTLSKEY, JSON.stringify(clusterAiId));
+      return;
+    }
+
+    const selectDB = JSON.parse(localStorage?.getItem(SELECTLSKEY));
+    let updateCluster = { ...selectDB };
+
+    clusters.forEach((value) => {
+      const find = Object?.keys(selectDB).includes(value?.id);
+      if (find) {
+        let newNodes = {};
+        value?.nodes?.forEach((node) => {
+          const isInOldNodes = Object.keys(updateCluster[value?.id]).find(
+            (val) => val === node?.name,
+          );
+          if (!isInOldNodes) {
+            newNodes[node?.name] = [];
+          }
+        });
+        updateCluster[value?.id] = { ...selectDB[value?.id], ...newNodes };
+      } else {
+        let nodeObj = {};
+        value?.nodes?.forEach((node) => {
+          nodeObj[node?.name] = [];
+        });
+        updateCluster[value?.id] = nodeObj;
+      }
+    });
+    localStorage?.setItem(SELECTLSKEY, JSON.stringify(updateCluster));
+
+    if (Object.keys(updateCluster).length > 0) {
+      const SelectedClusterAndNode = updateCluster[selectedClusterId][nodeName];
+      SelectedClusterAndNode?.forEach((dbsConnections) => {
+        if (dbsConnections?.isSelected) {
+          setSelectedAIDB(dbsConnections?.dbName);
+          setSelectedAIDBID(dbsConnections?.ai_id);
+        }
+      });
+
+      return;
+    }
+
+    setSelectedAIDB(null);
+    setSelectedAIDBID(null);
+
+    return;
+  }
 
   useEffect(() => {
     featureQueryIdRef.current = featureQueryId;
@@ -415,6 +631,12 @@ export default function QueryEditor({
   }, [qidFromUrl]);
 
   useEffect(() => {
+    if (ExplainOptionSelector.type) {
+      doRun();
+    }
+  }, [ExplainOptionSelector]);
+
+  useEffect(() => {
     if (onSidebarStateChange) {
       onSidebarStateChange(true);
     }
@@ -424,13 +646,6 @@ export default function QueryEditor({
       }
     };
   }, [onSidebarStateChange]);
-
-  useEffect(() => {
-  if (ExplainOptionSelector) {
-    doRun(); 
-  }
-}, [ExplainOptionSelector]);
-
 
   // Validate the entered credentials by running a trivial query as that user.
   // Only on success do we store them and unlock the editor.
@@ -496,18 +711,13 @@ export default function QueryEditor({
     }
   }
 
-  // const loadDbs = useCallback(() => {
-  //   runQuery("SELECT name FROM system.databases ORDER BY name")
-  //     .then((r) => setDbs((r.rows || []).map((r) => r.name)))
-  //     .catch(() => {});
-  // }, []);
-
   const loadDbs = useCallback(() => {
     const creds = editorCredsRef.current;
     if (!creds) return;
     runEditorQuery("SELECT name FROM system.databases ORDER BY name", creds)
       .then((r) => setDbs((r.rows || []).map((r) => r.name)))
       .catch(() => {});
+    initSetup();
   }, []);
 
   async function loadBookmarks() {
@@ -747,10 +957,10 @@ export default function QueryEditor({
 
     try {
       const validExplain =
-        ExplainOptionSelector !== null &&
-        ExplainOptionSelector !== "" &&
-        ExplainOptionSelector !== "GENERAL RUN"
-          ? `${ExplainOptionSelector} ${text}`
+        ExplainOptionSelector.type !== null &&
+        ExplainOptionSelector.type !== "" &&
+        ExplainOptionSelector.type !== "GENERAL RUN"
+          ? `${ExplainOptionSelector.type} ${text}`
           : text;
       const r = await runEditorQuery(validExplain, editorCreds);
       if (r.stats) setQueryStats(r.stats);
@@ -817,10 +1027,10 @@ export default function QueryEditor({
         ) {
           const parsed = parseDotGraph(allText);
           if (parsed.nodes.length > 0) {
-            const isAstGraph = String(ExplainOptionSelector || "")
+            const isAstGraph = String(ExplainOptionSelector.type || "")
               .toUpperCase()
               .includes("EXPLAIN AST");
-            const isPipelineGraph = String(ExplainOptionSelector || "")
+            const isPipelineGraph = String(ExplainOptionSelector.type || "")
               .toUpperCase()
               .includes("EXPLAIN PIPELINE");
             setGraphTitle(
@@ -903,7 +1113,11 @@ export default function QueryEditor({
   }, [sql, ExplainOptionSelector, editorConnected, editorCreds]);
 
   const doEstimate = useCallback(async () => {
-    const text = sql.trim();
+    const text =
+      sql.trim().split("*/").length > 1
+        ? sql.trim().split("*/")[1]
+        : sql?.trim();
+
     if (!text) return;
     if (!editorConnected) {
       setError("Connect with your ClickHouse credentials first.");
@@ -1059,111 +1273,6 @@ export default function QueryEditor({
     });
   }
 
-    async function exportCSV(rows, columns) {
-  if (!rows?.length) return;
-
-  const cols = columns?.length ? columns : Object.keys(rows[0]);
-  
-  const escape = (v) => {
-    const s = String(v ?? "");
-    return s.includes(",") || s.includes('"') || s.includes("\n")
-      ? '"' + s.replace(/"/g, '""') + '"'
-      : s;
-  };
-
-  const lines = [cols.join(",")];
-  for (const row of rows) {
-    lines.push(cols.map((c) => escape(row[c])).join(","));
-  }
-  
-  const csvContent = lines.join("\n");
-
-  try {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: 'query-results.csv',
-      types: [{
-        description: 'CSV Files',
-        accept: {
-          'text/csv': ['.csv'],
-        },
-      }],
-    });
-
-    const writable = await handle.createWritable();
-    await writable.write(csvContent);
-    await writable.close();
-    toast.success(`Downloaded ${handle.name}`);
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      toast.error('Export failed:', err);
-    }
-  }
-}
-
-
-async function exportTSV(rows, columns) {
-  if (!rows?.length) return;
-  const cols = columns?.length ? columns : Object.keys(rows[0]);
-  const lines = [cols.join("\t")];
-  for (const row of rows)
-    lines.push(
-      cols.map((c) => String(row[c] ?? "").replace(/\t/g, " ")).join("\t"),
-    );
-  
-  const tsvContent = lines.join("\n");
-
-  try {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: 'query-results.tsv',
-      types: [{
-        description: 'TSV Files',
-        accept: {
-          'text/tab-separated-values': ['.tsv'],
-        },
-      }],
-    });
-
-    const writable = await handle.createWritable();
-    await writable.write(tsvContent);
-    await writable.close();
-    toast.success(`Downloaded ${handle.name}`);
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      toast.error('TSV Export failed:', err);
-    }
-  }
-}
-
-
-async function exportJSON(rows) {
-  if (!rows?.length) return;
-  const jsonContent = JSON.stringify(rows, null, 2);
-
-  try {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: 'query-results.json',
-      types: [{
-        description: 'JSON Files',
-        accept: {
-          'application/json': ['.json'],
-        },
-      }],
-    });
-
-    const writable = await handle.createWritable();
-    await writable.write(jsonContent);
-    await writable.close();
-
-    console.log(handle)
-    console.log(writable)
-    toast.success(`Downloaded ${handle.name}`);
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      toast.error('JSON Export failed:', err);
-    }
-  }
-}
-
   function handleInput(e) {
     const val = e.target.value;
     setSql(val);
@@ -1222,6 +1331,127 @@ async function exportJSON(rows) {
 
   const effectiveQueryId = featureQueryId || lastQueryId || qidFromUrl || null;
 
+  async function selectHandler(db) {
+    try {
+      const localStorageData = JSON.parse(localStorage?.getItem(SELECTLSKEY));
+      const selected = db;
+
+      let SelectedClusterAndNode =
+        localStorageData[selectedClusterId][nodeName];
+
+      const find = SelectedClusterAndNode?.filter(
+        (db) => db?.dbName === selected,
+      );
+
+      if (find?.length === 0 && !isAILoading) {
+        setIsAILoading(true);
+        const responseData = await await apiFetch(`/api/ai/database/connect`, {
+          method: "POST",
+          body: JSON.stringify({
+            database_type: "clickhouse",
+            credentials: {
+              host: selectedNode,
+              port: port,
+              username: user,
+              password: password,
+              database: selected,
+            },
+            llm_provider: "string",
+            model_name: "string",
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (responseData?.success) {
+          const obj = {
+            dbName: selected,
+            ai_id: responseData?.database_id,
+            isSelected: true,
+          };
+
+          let filtered = SelectedClusterAndNode?.map((db) => ({
+            ...db,
+            isSelected: false,
+          }));
+
+          filtered?.push(obj);
+
+          let filterData = { ...localStorageData };
+          filterData[selectedClusterId][nodeName] = filtered;
+
+          localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
+          setSelectedAIDB(selected);
+          setSelectedAIDBID(responseData?.database_id);
+          toast.success(`Successfully AI database id generated!`);
+        } else {
+          toast.error("Failed to load database ID. Please retry.");
+        }
+      } else {
+        setIsAILoading(true);
+        const filtered = localStorageData[selectedClusterId][nodeName].map(
+          (db) => {
+            if (db?.dbName === selected) {
+              return { ...db, isSelected: true };
+            }
+            return { ...db, isSelected: false };
+          },
+        );
+        let filterData = { ...localStorageData };
+        filterData[selectedClusterId][nodeName] = filtered;
+        localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
+        setSelectedAIDB(selected);
+        setSelectedAIDBID(find[0]?.ai_id);
+      }
+    } catch (err) {
+      toast?.error(`Failed to load database ID. Please retry.`);
+    } finally {
+      setIsAILoading(false);
+    }
+  }
+
+  async function GeneratingSQLHandler() {
+    const message =
+      sql?.trim()?.split("*/")?.length > 1
+        ? sql?.trim()?.split("*/")[1]
+        : sql?.trim();
+
+    if (message?.length > 0) {
+      setSql(LOADING_PHRASES[index]);
+      setIsAILoadingGenerating(true);
+
+      try {
+        const responseAIQuery = await await apiFetch(
+          `/api/ai/sql/generate-sql`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON?.stringify({
+              database_id: selectedAIDBID,
+              user_question: message,
+            }),
+          },
+        );
+
+        if (responseAIQuery?.success) {
+          setSql(
+            `/*\n\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectedAIDB}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+          );
+        }
+      } catch (error) {
+        toast?.error(error?.message);
+        setSql(
+          `/*\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectedAIDB}\n*/\n\n-- Error : ${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+        );
+      } finally {
+        setIsAILoadingGenerating(false);
+      }
+    }
+  }
+
   return (
     <div
       className="editor-shell"
@@ -1275,97 +1505,138 @@ async function exportJSON(rows) {
               </div>
             ) : (
               dbs.map((db) => (
-                <div key={db}>
+                <div key={db} style={{ display: "flex", alignItems: "start" }}>
                   <div
-                    className={
-                      "editor-db-item" + (selectedDb === db ? " active" : "")
-                    }
-                    onClick={() => setSelectedDb(selectedDb === db ? null : db)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyItems: "center",
+                      width: "30px",
+                      height: "30px",
+                      marginTop: "5px",
+                      paddingLeft: "5px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => selectHandler(db)}
+                    title="Select database for work AI"
                   >
-                    <Icon className="ti ti-database-import"></Icon>
-                    <span style={{ flex: 1 }}>{db}</span>
-                    <Icon
-                      className={
-                        "ti ti-chevron-" +
-                        (selectedDb === db ? "down" : "right")
-                      }
-                      style={{ fontSize: 14, opacity: 0.5 }}
-                    ></Icon>
+                    {isAILoading ? (
+                      <div className="loading-spinner"></div>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill={
+                          selectedAIDB === db
+                            ? "var(--accent)"
+                            : theme === "dark"
+                              ? "lightgray"
+                              : "lightgray"
+                        }
+                        className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
+                      >
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M17.964 2.733c.156 .563 .312 1 .484 1.353c.342 .71 .758 1.125 1.47 1.467c.353 .17 .79 .326 1.352 .484c.98 .276 .97 1.668 -.013 1.93a8.3 8.3 0 0 0 -1.34 .481c-.71 .342 -1.127 .757 -1.463 1.453a8 8 0 0 0 -.486 1.352c-.258 .988 -1.658 1 -1.932 .015c-.156 -.565 -.312 -1.002 -.484 -1.354c-.342 -.71 -.758 -1.124 -1.458 -1.46a8 8 0 0 0 -1.374 -.495a.4 .4 0 0 1 -.06 -.02l-.044 -.017l-.045 -.02l-.049 -.025l-.035 -.02a.4 .4 0 0 1 -.049 -.03l-.032 -.023l-.043 -.034l-.033 -.028l-.036 -.035l-.034 -.035l-.028 -.033l-.035 -.043l-.022 -.032a.4 .4 0 0 1 -.032 -.049l-.02 -.035l-.025 -.05l-.02 -.044l-.017 -.043a.4 .4 0 0 1 -.02 -.06l-.01 -.034a.5 .5 0 0 1 -.02 -.098l-.006 -.065l-.005 -.035v-.05a.4 .4 0 0 1 .003 -.085a.5 .5 0 0 1 .013 -.093a.5 .5 0 0 1 .024 -.103a.4 .4 0 0 1 .02 -.06l.017 -.044l.02 -.045l.025 -.049l.02 -.035a.4 .4 0 0 1 .03 -.049l.023 -.032l.034 -.043l.028 -.033l.035 -.036l.035 -.034q .015 -.015 .033 -.028l.043 -.035l.032 -.022a.4 .4 0 0 1 .049 -.032l.035 -.02l.05 -.025l.044 -.02l.043 -.017a.4 .4 0 0 1 .06 -.02l.027 -.008a8.3 8.3 0 0 0 1.339 -.48c.71 -.342 1.127 -.757 1.47 -1.466c.17 -.354 .327 -.792 .483 -1.355c.272 -.976 1.657 -.976 1.928 0" />
+                        <path d="M10.965 6.737q .219 .801 .503 1.574c.856 2.28 1.945 3.363 4.23 4.22q .708 .265 1.571 .506c.976 .272 .974 1.656 -.002 1.927q -.798 .221 -1.568 .504c-2.288 .858 -3.376 1.94 -4.229 4.216a19 19 0 0 0 -.505 1.579c-.268 .983 -1.662 .983 -1.93 0a19 19 0 0 0 -.503 -1.574c-.856 -2.281 -1.944 -3.363 -4.226 -4.219a20 20 0 0 0 -1.594 -.513a.4 .4 0 0 1 -.054 -.018l-.044 -.017l-.043 -.02a.3 .3 0 0 1 -.048 -.024l-.036 -.02a.4 .4 0 0 1 -.048 -.03l-.032 -.024l-.044 -.034l-.033 -.029l-.037 -.034l-.034 -.037l-.03 -.033l-.033 -.044l-.023 -.032a.4 .4 0 0 1 -.03 -.048l-.021 -.036a.3 .3 0 0 1 -.024 -.048l-.02 -.043l-.017 -.044a.4 .4 0 0 1 -.018 -.054a.2 .2 0 0 1 -.01 -.039a.4 .4 0 0 1 -.014 -.059l-.007 -.04l-.007 -.056l-.003 -.044l-.002 -.05v-.05q 0 -.023 .004 -.044q .001 -.03 .007 -.057l.007 -.04a.4 .4 0 0 1 .017 -.076l.007 -.021a.4 .4 0 0 1 .018 -.054l.017 -.044l.02 -.043a.3 .3 0 0 1 .024 -.048l.02 -.036a.4 .4 0 0 1 .03 -.048l.024 -.032l.034 -.044l.029 -.033l.034 -.037l.037 -.034l.033 -.03l.044 -.033l.032 -.023a.4 .4 0 0 1 .048 -.03l.036 -.021a.3 .3 0 0 1 .048 -.024l.043 -.02l.044 -.017a.4 .4 0 0 1 .054 -.018l.021 -.007a20 20 0 0 0 1.568 -.504c2.287 -.858 3.375 -1.94 4.229 -4.216a19 19 0 0 0 .505 -1.579c.268 -.983 1.662 -.983 1.93 0" />
+                      </svg>
+                    )}
                   </div>
-                  {selectedDb === db && (
+                  <div style={{ width: "100%" }}>
                     <div
-                      style={{
-                        borderLeft: "2px solid var(--accent-border)",
-                        marginLeft: 14,
-                      }}
+                      className={
+                        "editor-db-item" + (selectedDb === db ? " active" : "")
+                      }
+                      onClick={() =>
+                        setSelectedDb(selectedDb === db ? null : db)
+                      }
                     >
-                      {tablesLoading ? (
-                        <div
-                          style={{
-                            padding: "8px 12px",
-                            fontSize: "13px",
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          <span
-                            className="loading-spinner"
-                            style={{
-                              width: 12,
-                              height: 12,
-                              display: "inline-block",
-                              verticalAlign: "middle",
-                              marginRight: 6,
-                            }}
-                          ></span>{" "}
-                          Loading...
-                        </div>
-                      ) : tables.length === 0 ? (
-                        <div
-                          style={{
-                            padding: "8px 12px",
-                            fontSize: "13px",
-                            color: "var(--text-muted)",
-                          }}
-                        >
-                          No tables
-                        </div>
-                      ) : (
-                        tables.map((t) => (
-                          <div
-                            key={t.name}
-                            className="editor-table-item"
-                            title={`${t.name} (${t.engine})`}
-                          >
-                            <Icon
-                              className={"ti " + engineIcon(t.engine)}
-                            ></Icon>
-                            <span
-                              style={{ flex: 1, cursor: "pointer" }}
-                              onClick={() =>
-                                insertText(selectedDb + "." + t.name + " ")
-                              }
-                            >
-                              {t.name}
-                            </span>
-                            <Icon
-                              className="ti ti-code"
-                              title="View DDL"
-                              style={{
-                                fontSize: 14,
-                                cursor: "pointer",
-                                opacity: 0.5,
-                                flexShrink: 0,
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                showDdl(selectedDb, t.name);
-                              }}
-                            ></Icon>
-                          </div>
-                        ))
-                      )}
+                      <Icon className="ti ti-database-import"></Icon>
+                      <span style={{ flex: 1 }}>{db}</span>
+                      <Icon
+                        className={
+                          "ti ti-chevron-" +
+                          (selectedDb === db ? "down" : "right")
+                        }
+                        style={{ fontSize: 14, opacity: 0.5 }}
+                      ></Icon>
                     </div>
-                  )}
+                    {selectedDb === db && (
+                      <div
+                        style={{
+                          borderLeft: "2px solid var(--accent-border)",
+                          marginLeft: 14,
+                        }}
+                      >
+                        {tablesLoading ? (
+                          <div
+                            style={{
+                              padding: "8px 12px",
+                              fontSize: "13px",
+                              color: "var(--text-secondary)",
+                            }}
+                          >
+                            <span
+                              className="loading-spinner"
+                              style={{
+                                width: 12,
+                                height: 12,
+                                display: "inline-block",
+                                verticalAlign: "middle",
+                                marginRight: 6,
+                              }}
+                            ></span>{" "}
+                            Loading...
+                          </div>
+                        ) : tables.length === 0 ? (
+                          <div
+                            style={{
+                              padding: "8px 12px",
+                              fontSize: "13px",
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            No tables
+                          </div>
+                        ) : (
+                          tables.map((t) => (
+                            <div
+                              key={t.name}
+                              className="editor-table-item"
+                              title={`${t.name} (${t.engine})`}
+                            >
+                              <Icon
+                                className={"ti " + engineIcon(t.engine)}
+                              ></Icon>
+                              <span
+                                style={{ flex: 1, cursor: "pointer" }}
+                                onClick={() =>
+                                  insertText(selectedDb + "." + t.name + " ")
+                                }
+                              >
+                                {t.name}
+                              </span>
+                              <Icon
+                                className="ti ti-code"
+                                title="View DDL"
+                                style={{
+                                  fontSize: 14,
+                                  cursor: "pointer",
+                                  opacity: 0.5,
+                                  flexShrink: 0,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  showDdl(selectedDb, t.name);
+                                }}
+                              ></Icon>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -1469,7 +1740,7 @@ async function exportJSON(rows) {
                 <Icon
                   className="ti ti-user"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  aria-hidden="true"
+                  // aria-hidden="true"
                 ></Icon>
                 <input
                   className="form-input"
@@ -1496,7 +1767,7 @@ async function exportJSON(rows) {
                 <Icon
                   className="ti ti-lock"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  aria-hidden="true"
+                  // aria-hidden="true"
                 ></Icon>
                 <div
                   style={{
@@ -1644,7 +1915,7 @@ async function exportJSON(rows) {
                   }
                   e.target.value = "";
                 }}
-                defaultValue=""
+                defaultValue="EXPORT"
               >
                 <option value="">Export</option>
                 <option value="csv">CSV</option>
@@ -1682,7 +1953,7 @@ async function exportJSON(rows) {
               <pre
                 ref={highlightRef}
                 className="sql-highlight"
-                aria-hidden="true"
+                // aria-hidden="true"
                 dangerouslySetInnerHTML={{ __html: highlightSQL(sql) + "\n" }}
               />
               <textarea
@@ -1875,12 +2146,13 @@ async function exportJSON(rows) {
             }}
             onChange={(e) => {
               if (e.target.value && e.target.value !== "GENERAL RUN") {
-                setExplainOptionSelector(e.target.value);
+                setExplainOptionSelector({ type: e.target.value });
               }
             }}
-            value={ExplainOptionSelector || "GENERAL RUN"}
+            value={ExplainOptionSelector?.type || "GENERAL RUN"}
+            disabled={isAILoadingGenerating}
           >
-            <option value="GENERAL RUN">Select Explain</option>
+            <option value="GENERAL RUN">GENERAL RUN</option>
             <option value="EXPLAIN">EXPLAIN</option>
             {/* <option value="EXPLAIN AST">AST</option> */}
             <option value="EXPLAIN SYNTAX">SYNTAX</option>
@@ -1898,7 +2170,9 @@ async function exportJSON(rows) {
           <button
             className="btn btn-secondary btn-sm"
             onClick={doEstimate}
-            disabled={estimating || running || !editorConnected}
+            disabled={
+              estimating || running || !editorConnected || isAILoadingGenerating
+            }
             title="Estimate cost without executing (EXPLAIN ESTIMATE + PLAN + Indexes)"
           >
             {estimating ? (
@@ -1913,9 +2187,40 @@ async function exportJSON(rows) {
           </button>
 
           <button
+            className="ai-button "
+            style={{ color: "white" }}
+            onClick={() => GeneratingSQLHandler()}
+            disabled={isAILoadingGenerating}
+          >
+            {isAILoadingGenerating ? (
+              <>
+                {" "}
+                <div className="loading-spinner"></div>
+                <span>Generating...</span>
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill={"white"}
+                  className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
+                >
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M17.964 2.733c.156 .563 .312 1 .484 1.353c.342 .71 .758 1.125 1.47 1.467c.353 .17 .79 .326 1.352 .484c.98 .276 .97 1.668 -.013 1.93a8.3 8.3 0 0 0 -1.34 .481c-.71 .342 -1.127 .757 -1.463 1.453a8 8 0 0 0 -.486 1.352c-.258 .988 -1.658 1 -1.932 .015c-.156 -.565 -.312 -1.002 -.484 -1.354c-.342 -.71 -.758 -1.124 -1.458 -1.46a8 8 0 0 0 -1.374 -.495a.4 .4 0 0 1 -.06 -.02l-.044 -.017l-.045 -.02l-.049 -.025l-.035 -.02a.4 .4 0 0 1 -.049 -.03l-.032 -.023l-.043 -.034l-.033 -.028l-.036 -.035l-.034 -.035l-.028 -.033l-.035 -.043l-.022 -.032a.4 .4 0 0 1 -.032 -.049l-.02 -.035l-.025 -.05l-.02 -.044l-.017 -.043a.4 .4 0 0 1 -.02 -.06l-.01 -.034a.5 .5 0 0 1 -.02 -.098l-.006 -.065l-.005 -.035v-.05a.4 .4 0 0 1 .003 -.085a.5 .5 0 0 1 .013 -.093a.5 .5 0 0 1 .024 -.103a.4 .4 0 0 1 .02 -.06l.017 -.044l.02 -.045l.025 -.049l.02 -.035a.4 .4 0 0 1 .03 -.049l.023 -.032l.034 -.043l.028 -.033l.035 -.036l.035 -.034q .015 -.015 .033 -.028l.043 -.035l.032 -.022a.4 .4 0 0 1 .049 -.032l.035 -.02l.05 -.025l.044 -.02l.043 -.017a.4 .4 0 0 1 .06 -.02l.027 -.008a8.3 8.3 0 0 0 1.339 -.48c.71 -.342 1.127 -.757 1.47 -1.466c.17 -.354 .327 -.792 .483 -1.355c.272 -.976 1.657 -.976 1.928 0" />
+                  <path d="M10.965 6.737q .219 .801 .503 1.574c.856 2.28 1.945 3.363 4.23 4.22q .708 .265 1.571 .506c.976 .272 .974 1.656 -.002 1.927q -.798 .221 -1.568 .504c-2.288 .858 -3.376 1.94 -4.229 4.216a19 19 0 0 0 -.505 1.579c-.268 .983 -1.662 .983 -1.93 0a19 19 0 0 0 -.503 -1.574c-.856 -2.281 -1.944 -3.363 -4.226 -4.219a20 20 0 0 0 -1.594 -.513a.4 .4 0 0 1 -.054 -.018l-.044 -.017l-.043 -.02a.3 .3 0 0 1 -.048 -.024l-.036 -.02a.4 .4 0 0 1 -.048 -.03l-.032 -.024l-.044 -.034l-.033 -.029l-.037 -.034l-.034 -.037l-.03 -.033l-.033 -.044l-.023 -.032a.4 .4 0 0 1 -.03 -.048l-.021 -.036a.3 .3 0 0 1 -.024 -.048l-.02 -.043l-.017 -.044a.4 .4 0 0 1 -.018 -.054a.2 .2 0 0 1 -.01 -.039a.4 .4 0 0 1 -.014 -.059l-.007 -.04l-.007 -.056l-.003 -.044l-.002 -.05v-.05q 0 -.023 .004 -.044q .001 -.03 .007 -.057l.007 -.04a.4 .4 0 0 1 .017 -.076l.007 -.021a.4 .4 0 0 1 .018 -.054l.017 -.044l.02 -.043a.3 .3 0 0 1 .024 -.048l.02 -.036a.4 .4 0 0 1 .03 -.048l.024 -.032l.034 -.044l.029 -.033l.034 -.037l.037 -.034l.033 -.03l.044 -.033l.032 -.023a.4 .4 0 0 1 .048 -.03l.036 -.021a.3 .3 0 0 1 .048 -.024l.043 -.02l.044 -.017a.4 .4 0 0 1 .054 -.018l.021 -.007a20 20 0 0 0 1.568 -.504c2.287 -.858 3.375 -1.94 4.229 -4.216a19 19 0 0 0 .505 -1.579c.268 -.983 1.662 -.983 1.93 0" />
+                </svg>
+                <span>Generate SQL</span>
+              </>
+            )}
+          </button>
+
+          <button
             className="btn btn-primary btn-sm"
-            onClick={()=>setExplainOptionSelector("GENERAL RUN")}
-            disabled={running || !editorConnected}
+            onClick={() => setExplainOptionSelector({ type: "GENERAL RUN" })}
+            disabled={running || !editorConnected || isAILoadingGenerating}
           >
             {running ? (
               <>

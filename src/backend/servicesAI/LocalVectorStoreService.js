@@ -16,8 +16,6 @@ import {
   VECTOR_STORE_FILE,
   MODEL_NAME,
 } from "./constants";
-import { version } from "os";
-import { point } from "drizzle-orm/pg-core";
 
 class LocalVectorStore {
   constructor() {

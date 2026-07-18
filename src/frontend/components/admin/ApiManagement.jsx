@@ -250,12 +250,6 @@ export default function ApiManagement() {
       return;
     }
 
-    if (!validateApiKey(formKeyValue.trim())) {
-      toast.warning(
-        `Invalid ${getApiTypeMessage(formKeyValue.trim())} format. Please check the key and try again.`,
-      );
-      return;
-    }
 
     const isDuplicateNameCheck = isDuplicateName(
       formKeyName.trim(),
@@ -673,7 +667,7 @@ export default function ApiManagement() {
             }}
           >
             Configure up to 4 API keys for AI-powered query assistance and
-            insights. Supports OpenAI, Google Gemini
+            insights. Supports OpenAI, Google Gemini, Mistral, Claude
           </p>
         </div>
 
@@ -1009,8 +1003,7 @@ export default function ApiManagement() {
                   marginTop: 6,
                 }}
               >
-                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI
-                (xai-...) Keys are encrypted before storage. {apiKeys.length}/3
+                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...), Claude, and Mistral keys. Keys are encrypted before storage. {apiKeys.length}/4
                 keys used.
                 <br />
                 Verify the API key successfully before proceeding to add it

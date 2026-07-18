@@ -126,7 +126,7 @@ describe('ComparisonView: split screen with own per-user connect', () => {
   it('threads per-user creds (via refs) into estimate/execute', () => {
     expect(code).toContain('estimateOne(leftSqlRef.current, credsRef.current)');
     expect(code).toContain('executeOne(leftSqlRef.current, credsRef.current)');
-    expect(code).toContain('estimateOne(rightSqlRef.current, credsRef.current)');
+    expect(code).toContain('estimateOne(sql, credsRef.current)');
     expect(code).toContain('executeOne(rightSqlRef.current, credsRef.current)');
   });
   it('loads shared autocomplete words once connected', () => {

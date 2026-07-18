@@ -99,15 +99,28 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   );
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || chartType === "boxplot" || false;
+  
+  // Chart types that support legends
+  const legendSupportedTypes = [
+    'grouped_bar', 'stacked_bar', 
+    'multi_line', 'stacked_line',
+    'pie', 'donut', 'rose', 'nested_pie',
+    'bubble',
+    'multi_category',
+    'funnel',
+    'radar'
+  ];
+  
+  const shouldShowLegend = legendSupportedTypes.includes(chartSubtype) && needsLegend(chartType, chartSubtype);
 
   useEffect(() => {
     if (!editChart) {
       const d = getAxisDefaults(chartType, chartSubtype);
       setXLabel(d.xLabel);
       setYLabel(d.yLabel);
-      setShowLegend(needsLegend(chartType, chartSubtype));
+      setShowLegend(shouldShowLegend);
     }
-  }, [chartType, chartSubtype]);
+  }, [chartType, chartSubtype, shouldShowLegend]);
 
   async function runSql() {
     if (!sql.trim()) return;
@@ -159,7 +172,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         buildChartOption(chartType, chartSubtype, data, mapping, chartName, {
           xLabel,
           yLabel,
-          showLegend,
+          showLegend: shouldShowLegend ? showLegend : false,
         }),
       );
     } catch (err) {
@@ -174,6 +187,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     xLabel,
     yLabel,
     showLegend,
+    shouldShowLegend,
   ]);
 
   useEffect(() => {
@@ -197,11 +211,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const isDarkColor = theme === 'dark' ? 'white' : 'black';
 
       const hasLegendCheck = chartOption.legend?.show || (Array.isArray(chartOption.series) && chartOption.series.some(s => Array.isArray(s?.data) && s?.data.length > 0));
+      
+      const legendVisible = shouldShowLegend && showLegend;
 
       const resolvedLegend = previewTools.fullscreen
         ? {
             ...chartOption.legend,
-            show: hasLegendCheck,
+            show: hasLegendCheck && legendVisible,
             type: 'scroll',
             orient: 'vertical',
             left: 0,
@@ -213,7 +229,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         : isSmallScreen
           ? {
               ...chartOption.legend,
-              show: hasLegendCheck ? showLegend : false,
+              show: hasLegendCheck && legendVisible,
               type: 'scroll',
               orient: 'horizontal',
               left: 0,
@@ -227,7 +243,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             }
           : {
               ...chartOption.legend,
-              show: hasLegendCheck,
+              show: hasLegendCheck && legendVisible,
               type: 'scroll',
               left: 0,
               right: 0,
@@ -242,20 +258,26 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const gridTop = previewTools.fullscreen
         ? 24
         : isSmallScreen
-          ? (hasLegendCheck && showLegend ? 72 : 24)
-          : hasLegendCheck
+          ? (hasLegendCheck && legendVisible ? 72 : 16)
+          : hasLegendCheck && legendVisible
             ? 56
-            : 20;
-
-      const gridLeft = previewTools.fullscreen
-        ? (hasLegendCheck ? 240 : 20)
-        : 20;
+            : 16;
 
       const baseOption = withZoomable({
         ...chartOption,
         toolbox: { show: false },
         legend: resolvedLegend,
       });
+
+      const yHasName = Array.isArray(baseOption.yAxis)
+        ? baseOption.yAxis.some((a) => !!a?.name)
+        : !!baseOption.yAxis?.name;
+
+      const extraLeftForYAxisName = yHasName ? 60 : 20;
+
+      const gridLeft = previewTools.fullscreen
+        ? (hasLegendCheck && legendVisible ? 240 : extraLeftForYAxisName)
+        : (hasLegendCheck && legendVisible ? 20 : extraLeftForYAxisName);
 
       const enhancedOption = {
         ...baseOption,
@@ -319,6 +341,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 ...axis?.axisLabel,
                 color: isDarkColor,
               },
+              nameLocation: axis?.nameLocation || 'middle',
+              nameGap: Math.max(axis?.nameGap || 25, 42),
               nameTextStyle: {
                 color: isDarkColor,
                 fontSize: 10,
@@ -332,6 +356,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   ...baseOption?.yAxis?.axisLabel,
                   color: isDarkColor,
                 },
+                nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
+                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, 42),
                 nameTextStyle: {
                   color: isDarkColor,
                   fontSize: 10,
@@ -346,7 +372,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     } catch (err) {
       setChartOption({ _error: true, message: err.message });
     }
-  }, [chartOption, previewTools.fullscreen, isSmallScreen, showLegend, theme]);
+  }, [chartOption, previewTools.fullscreen, isSmallScreen, showLegend, theme, shouldShowLegend]);
 
   useEffect(() => {
     setTimeout(() => previewInst.current?.resize(), 150);
@@ -367,7 +393,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       return;
     }
     const dashId = parseInt(selDashboard, 10);
-    const config = { ...mapping, xLabel, yLabel, showLegend };
+    const config = { ...mapping, xLabel, yLabel, showLegend: shouldShowLegend ? showLegend : false };
     try {
       if (editId) {
         await apiFetch(`/api/dashboards/charts/${editId}`, {
@@ -924,23 +950,25 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   </div>
                 </div>
               )}
-              <label
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  marginBottom: 12,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={showLegend}
-                  onChange={(e) => setShowLegend(e.target.checked)}
-                  style={{ accentColor: "var(--accent)" }}
-                />{" "}
-                Show Legend
-              </label>
+              {shouldShowLegend && (
+                <label
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    marginBottom: 12,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showLegend}
+                    onChange={(e) => setShowLegend(e.target.checked)}
+                    style={{ accentColor: "var(--accent)" }}
+                  />{" "}
+                  Show Legend
+                </label>
+              )}
               {chartType === "gauge" && (
                 <div
                   style={{
