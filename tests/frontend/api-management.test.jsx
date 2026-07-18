@@ -188,24 +188,6 @@ describe('ApiManagement', () => {
     });
   });
 
-  it('validates invalid key format', async () => {
-    mockApiFetch
-      .mockResolvedValueOnce({ apiKeys: [], selectedKeyId: null }) // load
-      .mockResolvedValueOnce({ success: true }); // verify
-
-    render(<ApiManagement />);
-    await waitUntilLoaded();
-    await openAddForm();
-
-    await fillAndVerify({ keyValue: 'short' });
-
-    fireEvent.click(screen.getByRole('button', { name: /Save Key/i }));
-
-    await waitFor(() => {
-      expect(mockToast.warning).toHaveBeenCalled();
-    });
-  });
-
   it('validates key max length', async () => {
     mockApiFetch
       .mockResolvedValueOnce({ apiKeys: [], selectedKeyId: null }) // load

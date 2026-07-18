@@ -182,13 +182,6 @@ export default function ApiManagement() {
     }
   }
 
-  // function getApiTypeMessage(keyValue) {
-  //   if (keyValue.startsWith("sk-")) return "OpenAI API key";
-  //   if (keyValue.startsWith("AIza")) return "Google Gemini API key";
-  //   if (keyValue.startsWith("xai-")) return "X.AI API key";
-  //   if (keyValue.startsWith("hf_")) return "Hugging Face API key";
-  //   return "Generic API key";
-  // }
 
   function isDuplicateName(name, excludeId = null) {
     return apiKeys.some(
@@ -236,12 +229,6 @@ export default function ApiManagement() {
       return;
     }
 
-    // if (!validateApiKey(formKeyValue.trim())) {
-    //   toast.warning(
-    //     `Invalid ${getApiTypeMessage(formKeyValue.trim())} format. Please check the key and try again.`,
-    //   );
-    //   return;
-    // }
 
     const isDuplicateNameCheck = isDuplicateName(
       formKeyName.trim(),
