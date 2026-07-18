@@ -244,7 +244,7 @@ const ComparePane = memo(function ComparePane({
 
          { side === "right" &&  <button
             className="ai-button "
-            style={{ color: "white" }}
+            style={{ color: theme === "dark" ? "white" : "black" }}
             onClick={() => GeneratingSQLHandler()}
             disabled={isAILoadingGenerating}
           >
@@ -255,7 +255,7 @@ const ComparePane = memo(function ComparePane({
               width="18"
               height="18"
               viewBox="0 0 24 24"
-              fill={"white"}
+              fill={theme === "dark" ? "white" : "black"}
               className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
             >
               <path stroke="none" d="M0 0h24v24H0z" fill="none" />
