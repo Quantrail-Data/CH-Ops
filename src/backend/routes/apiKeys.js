@@ -75,7 +75,7 @@ async function isSafeOllamaBaseUrl(parsedUrl) {
   try {
     const records = await lookup(hostname, { all: true, verbatim: true });
     if (!records.length) return false;
-    return records.every((r) => isPublicIp(r.address));
+    return records.every((r) => isIP(r.address));
   } catch {
     return false;
   }
