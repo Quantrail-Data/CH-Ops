@@ -1,10 +1,10 @@
 # Installation
 
-This guide walks you through setting up CHOps from scratch, connected to your ClickHouse® cluster. There are three ways to install it, and you only need one:
+This guide walks you through setting up CHOps from scratch, connected to your ClickHouse® cluster. There are three ways to install it
 
 - **From source with Bun** is the most flexible and is ideal for development or when you want to run the latest code directly.
 - **Docker** is the fastest way to a running instance and needs no Bun installation on the host.
-- **A standalone binary** is the cleanest way to deploy to a server, since it bundles everything into a single executable with no runtime dependencies.
+- **A standalone binary** is the cleanest way to deploy to a server, since it bundles everything into a single executable with no runtime dependencies. You can download a prebuilt binary from the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases) or build your own.
 
 Whichever route you choose, the same four values are required for CHOps to start, and the same first-login and ClickHouse®-connection steps apply. Read the "Before you begin" and "Required configuration" sections first, then jump to the option you want.
 
@@ -165,6 +165,8 @@ Or pass a full env file with `--env-file .env` instead of the individual `-e` fl
 ---
 
 ## Option C: Standalone binary
+
+> **Prefer not to build?** Prebuilt binaries and builds for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). Download the one for your platform (`chops-linux-x64`, `chops-darwin-arm64`, or `chops-windows-x64.exe`), make it executable, and run it with the required environment variables (see [First login and connecting to ClickHouse®](#first-login-and-connecting-to-clickhouse)). Building from source, described below, is only needed for a custom build.
 
 For deploying to a server or handing to a teammate, CHOps compiles into a single executable with no runtime dependencies on the target machine:
 
