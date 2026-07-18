@@ -45,7 +45,7 @@ describe("Global search: multi-token ranking", () => {
     expect(topIds("compare queries cost")).toContain("editor/query");
   });
   it('"slack notification" surfaces alert Channels', () => {
-    expect(topIds("slack notification")).toContain("alerting/channels");
+    expect(topIds("slack notification")).toContain("admin/channels");
   });
   it('"create table mergetree" surfaces Schema Studio', () => {
     expect(topIds("create table mergetree")).toContain("tools/schema-studio");
