@@ -2434,6 +2434,32 @@ input[type="datetime-local"] {
   box-shadow: 0px 0px 10px rgba(51, 51, 51, 0.334);
 }
 
+
+.ai-button {
+background-color:var(--accent);
+padding: 7px 15px;
+display: flex;
+align-items: center;
+gap: 10px;
+box-sizing: border-box;
+outline: none;
+border:0px;
+cursor: pointer;
+margin:0px 10px;
+border-radius:13px;
+}
+
+.ai-button:hover {
+box-shadow: 0 0 30px 7px rgba(255,125,0,0),
+            0 0 19px -2px rgba(181, 21, 255, 0.46),
+            0 0 30px -8px rgba(184, 118, 255, 0.31);
+}
+
+.ai-button span {
+  font-size:12px;
+  font-weight:600;
+}
+
 .bottom-search-bar {
   width: 700px;
   height: 9rem;
@@ -2513,15 +2539,10 @@ input[type="datetime-local"] {
 
 .chat-body {
   width: 80%;
-  /* background-color: #16a34a; */
   margin: 0% auto;
   margin-bottom: 30rem;
   overflow-y: scroll;
   height: 80%;
-  /* display: flex;
-  flex-direction: column;
-  justify-content:start;
-  align-items: center; */
 }
 
 .chat-body::-webkit-scrollbar {
@@ -2633,15 +2654,15 @@ input[type="datetime-local"] {
 
 .input-area {
   width: 80%;
-  height: 12rem;
-  bottom:36px;
+  height: auto;
+  padding:20px 0px ;
+  bottom: 35px;
   position: fixed;
   display: flex;
   align-items: center;
   justify-content: center;
-background: var(--bg-page);
-  border-radius:20px;
-
+  background: var(--bg-page);
+  border-radius: 20px;
 }
 
 
