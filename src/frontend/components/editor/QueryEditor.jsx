@@ -2188,7 +2188,7 @@ export default function QueryEditor({
 
           <button
             className="ai-button "
-            style={{ color: theme === "dark" ? "white" : "black" }}
+            style={{ color: "white" }}
             onClick={() => GeneratingSQLHandler()}
             disabled={isAILoadingGenerating}
           >
@@ -2205,7 +2205,7 @@ export default function QueryEditor({
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
-                  fill={theme === "dark" ? "white" : "black"}
+                  fill={"white"}
                   className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
