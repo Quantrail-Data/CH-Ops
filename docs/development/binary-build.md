@@ -80,9 +80,6 @@ SUPER_ADMIN_1=admin SUPER_ADMIN_1_PASSWORD=secret SUPER_ADMIN_1_EMAIL=you@exampl
 
 The SQLite database (`data/chops.db`) is created at runtime in the current working directory, along with its write-ahead-log files and the per-install `data/crypto.salt`. None of this is embedded in the binary. If you move the binary to a new directory, it creates a fresh database, so to preserve settings, alerts, dashboards, and stored credentials, keep the `data/` directory alongside the binary.
 
-## Binary size
-
-The binary is typically 60 to 90 MB depending on the platform. This includes the Bun runtime, all application code, all npm dependencies, and the embedded frontend and docs.
 
 ## Troubleshooting
 
