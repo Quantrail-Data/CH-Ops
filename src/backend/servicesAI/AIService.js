@@ -156,8 +156,12 @@ class AIServices {
         stack: error?.stack,
       });
 
-      const err = new Error("An internal server error occurred.");
-      err.statusCode = 500;
+      // Anything not matched above (bad model name, malformed request, etc.)
+      // still carries a specific, provider-reported reason - surface it
+      // instead of a generic message, so API key validation in the UI can
+      // tell the user what's actually wrong instead of just "failed".
+      const err = new Error(message || "An internal server error occurred.");
+      err.statusCode = Number.isInteger(status) ? status : 500;
       throw err;
     }
   }

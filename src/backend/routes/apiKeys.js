@@ -36,9 +36,7 @@ const AIProviderTesting = async (providerID = null,apikey=null) => {
       model,
       apiKey,
     );
-console.log(apiKey)
     const response = await AISer?.ask("hi");
-    console.log(response)
     return response
       ? { success: true, message: "active" }
       : { success: false, message: "failed" };
@@ -64,8 +62,11 @@ console.log(apiKey)
       ? { success: true, message: "active" }
       : { success: false, message: "failed" };
   } catch (error) {
-    console.error(error)
-    return { success: false, message: "failed" };
+    console.error("API key validation failed:", error.message);
+    // Surface the classified message (rate limit / auth failure / etc. from
+    // AIService.ask()) instead of a generic "failed" - the caller can't tell
+    // an invalid key apart from a rate-limited valid one otherwise.
+    return { success: false, message: error.message || "failed" };
   }
 };
 
@@ -191,7 +192,7 @@ router.post("/check",async (req,res,next)=>{
     return res.status(201)?.json(responseTesting);
   }
   catch(error) {
-    console.error(error);
+    console.error("API key check route error:", error.message);
     next(error);
   }
 })

@@ -37,6 +37,8 @@ export default function ApiManagement() {
 
   const [isValidKey, setISvalidKey] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(false);
+  const [keyValidationMessage, setKeyValidationMessage] = useState("");
+  const [keyValidationStatus, setKeyValidationStatus] = useState(null); // 'success' | 'error' | null
 
   useEffect(() => {
     loadApiKeys();
@@ -312,6 +314,8 @@ export default function ApiManagement() {
       toast.error("Failed to save API key: " + err.message);
     } finally {
       setISvalidKey(false);
+      setKeyValidationMessage("");
+      setKeyValidationStatus(null);
     }
   }
 
@@ -362,6 +366,8 @@ export default function ApiManagement() {
     setIsEditing(true);
     setShowAddForm(true);
     setShowKey(false);
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
     const keyValue = await fetchKeyValue(key.id);
     setFormKeyValue(keyValue);
   }
@@ -374,6 +380,8 @@ export default function ApiManagement() {
     setFormModelValue("");
     setShowAddForm(false);
     setShowKey(false);
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
   }
 
   function startAddNew() {
@@ -388,6 +396,8 @@ export default function ApiManagement() {
     setFormKeyValue("");
     setFormModelValue("");
     setShowKey(false);
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
   }
 
   function maskApiKey(key) {
@@ -531,6 +541,8 @@ export default function ApiManagement() {
   async function verifyAPIKeyHandler(e) {
     e.preventDefault();
     setISvalidKey(false)
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
     if (formKeyName.trim() && formKeyValue.trim() && formModelValue.trim()) {
       const apiKeys = {
         name: formKeyName.trim(),
@@ -546,17 +558,27 @@ export default function ApiManagement() {
 
         if (!response?.success) {
           setISvalidKey(false);
-          toast?.error(
-            "API key validation failed. Please verify your API key and try again.",
-          );
+          const reason =
+            response?.message && response.message !== "failed"
+              ? response.message
+              : "API key validation failed. Please verify your API key and try again.";
+          setKeyValidationStatus("error");
+          setKeyValidationMessage(reason);
+          toast?.error(reason);
           return;
         }
         setISvalidKey(true);
-        toast?.success(`API key verified successfully. You can now ${editingKey ? 'update' : 'add'} it.`)
+        const successMessage = `API key verified successfully. You can now ${editingKey ? 'update' : 'add'} it.`;
+        setKeyValidationStatus("success");
+        setKeyValidationMessage(successMessage);
+        toast?.success(successMessage)
         return;
       } catch (err) {
         setISvalidKey(false);
-        toast?.error(err?.message);
+        const reason = err?.message || "API key validation failed. Please verify your API key and try again.";
+        setKeyValidationStatus("error");
+        setKeyValidationMessage(reason);
+        toast?.error(reason);
         return;
       } finally {
         setIsLoadingKey(false);
@@ -828,13 +850,13 @@ export default function ApiManagement() {
                     alignItems: "center",
                     justifyContent: "center",
                   }}
-                  title="Test the API key"
+                  title={keyValidationMessage || "Test the API key"}
                   onClick={verifyAPIKeyHandler}
                 >
                   {isLoadingKey ? (
-                    
+
                      <div className="loading-spinner"></div>
-                    
+
                   ) : (
                     <>
                       <svg
@@ -858,6 +880,21 @@ export default function ApiManagement() {
                   )}
                 </button>
               </div>
+              {keyValidationMessage && (
+                <p
+                  title={keyValidationMessage}
+                  style={{
+                    fontSize: "0.75rem",
+                    color:
+                      keyValidationStatus === "success"
+                        ? "var(--color-success)"
+                        : "var(--color-danger)",
+                    marginTop: 6,
+                  }}
+                >
+                  {keyValidationMessage}
+                </p>
+              )}
               <p
                 style={{
                   fontSize: "0.75rem",
