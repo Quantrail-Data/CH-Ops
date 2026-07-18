@@ -24,8 +24,66 @@ import { db } from "../db/index.js";
 import { apiKeys } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { decrypt } from "../services/crypto.js";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 
 const router = Router();
+
+function isPrivateIpv4(ip) {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a === 0 ||
+    a >= 224
+  );
+}
+
+function isPrivateIpv6(ip) {
+  const normalized = ip.toLowerCase();
+  return (
+    normalized === "::1" ||
+    normalized === "::" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe8") ||
+    normalized.startsWith("fe9") ||
+    normalized.startsWith("fea") ||
+    normalized.startsWith("feb") ||
+    normalized.startsWith("ff")
+  );
+}
+
+function isPublicIp(ip) {
+  const version = isIP(ip);
+  if (version === 4) return !isPrivateIpv4(ip);
+  if (version === 6) return !isPrivateIpv6(ip);
+  return false;
+}
+
+async function isSafeOllamaBaseUrl(parsedUrl) {
+  const hostname = parsedUrl.hostname.toLowerCase();
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
+    return false;
+  }
+
+  if (isIP(hostname)) {
+    return isPublicIp(hostname);
+  }
+
+  try {
+    const records = await lookup(hostname, { all: true, verbatim: true });
+    if (!records.length) return false;
+    return records.every((r) => isPublicIp(r.address));
+  } catch {
+    return false;
+  }
+}
 
 const AIProviderTesting = async (providerID = null,apikey=null) => {
   try {
@@ -214,7 +272,15 @@ router.post("/ollama/models", async (req, res) => {
       return res.status(422).json({ success: false, message: "URL must start with http:// or https://" });
     }
 
-    const tagsUrl = `${baseUrl.trim().replace(/\/+$/, "")}/api/tags`;
+    const safeDestination = await isSafeOllamaBaseUrl(parsed);
+    if (!safeDestination) {
+      return res.status(422).json({
+        success: false,
+        message: "Base URL must resolve to a public host. Private, loopback, and local network addresses are not allowed.",
+      });
+    }
+
+    const tagsUrl = `${parsed.origin.replace(/\/+$/, "")}/api/tags`;
     let response;
     try {
       response = await fetch(tagsUrl, { signal: AbortSignal.timeout(5000) });
