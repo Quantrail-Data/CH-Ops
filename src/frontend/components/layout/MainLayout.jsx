@@ -51,7 +51,7 @@ const MonitoringDashboards = lazy(
 const Playback = lazy(() => import("../monitoring/Playback.jsx"));
 const MemoryAllocator = lazy(() => import("../monitoring/MemoryAllocator.jsx"));
 const AlertRules = lazy(() => import("../alerting/AlertRules.jsx"));
-const AlertChannels = lazy(() => import("../alerting/AlertChannels.jsx"));
+const NotificationChannels = lazy(() => import("../admin/NotificationChannels.jsx"),);
 const RbacViewGrants = lazy(() => import("../rbac/RbacViewGrants.jsx"));
 const RbacUsers = lazy(() => import("../rbac/RbacUsers.jsx"));
 const RbacRoles = lazy(() => import("../rbac/RbacRoles.jsx"));
@@ -97,7 +97,6 @@ const CORE_ROUTES = [
   ["monitoring/playback", Playback],
   ["monitoring/allocator", MemoryAllocator],
   ["alerting/rules", AlertRules],
-  ["alerting/channels", AlertChannels],
   ["rbac/view/:tab?", RbacViewGrants],
   ["rbac/users/:tab?", RbacUsers],
   ["rbac/roles/:tab?", RbacRoles],
@@ -113,6 +112,7 @@ const CORE_ROUTES = [
   ["admin/cluster", ClusterManagement],
   ["admin/app-backup", AppDataBackup],
   ["admin/api-management", ApiManagement],
+  ["admin/channels", NotificationChannels],
   ["/qurioz", QuriozChatComponent],
   
   // ["/qurioz/:session_id?", QuriozChatComponent],
@@ -255,6 +255,11 @@ function MainLayoutInner() {
                   <Route
                     path="/"
                     element={<Navigate to="/overview/cluster" replace />}
+                  />
+                  {/* Channels moved to Administration. Keep old links working. */}
+                  <Route
+                    path="alerting/channels"
+                    element={<Navigate to="/admin/channels" replace />}
                   />
                   <Route
                     path="*"

@@ -87,14 +87,21 @@ const CORE_NAV_ITEMS = [
       { id: "indexes/create", label: "Index Management" },
     ],
   },
+  // {
+  //   id: "alerting",
+  //   label: "Alerts",
+  //   icon: "ti-bell",
+  //   children: [
+  //     { id: "alerting/rules", label: "Alert Rules" },
+  //     { id: "alerting/channels", label: "Channels" },
+  //   ],
+  // },
+
   {
     id: "alerting",
     label: "Alerts",
     icon: "ti-bell",
-    children: [
-      { id: "alerting/rules", label: "Alert Rules" },
-      { id: "alerting/channels", label: "Channels" },
-    ],
+    children: [{ id: "alerting/rules", label: "Alert Rules" }],
   },
   // { id: 'logs', label: 'Logs', icon: 'ti-file-text', children: [
   //   { id: 'logs/crash', label: 'Crash Log' },
@@ -124,6 +131,18 @@ const CORE_NAV_ITEMS = [
   //   { id: 'rbac/roles', label: 'Roles' },
   //   { id: 'rbac/profiles', label: 'Settings Profiles' },
   // ]},
+  // {
+  //   id: "admin",
+  //   label: "Admin",
+  //   icon: "ti-adjustments-horizontal",
+  //   children: [
+  //     { id: "admin/users", label: "User Management" },
+  //     { id: "admin/cluster", label: "Cluster Management" },
+  //     { id: "admin/profiles", label: "Storage Profiles" },
+  //     { id: "admin/app-backup", label: "App Data Backup" },
+  //     { id: "admin/api-management", label: "AI API Keys" },
+  //   ],
+  // },
   {
     id: "admin",
     label: "Admin",
@@ -132,6 +151,7 @@ const CORE_NAV_ITEMS = [
       { id: "admin/users", label: "User Management" },
       { id: "admin/cluster", label: "Cluster Management" },
       { id: "admin/profiles", label: "Storage Profiles" },
+      { id: "admin/channels", label: "Notification Channels" },
       { id: "admin/app-backup", label: "App Data Backup" },
       { id: "admin/api-management", label: "AI API Keys" },
     ],
