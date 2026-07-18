@@ -1,100 +1,100 @@
 # Testing
 
+Run the full suite (backend and frontend) with:
+
 ```bash
 bun run test
 ```
 
-This runs both backend (Bun test) and frontend (Vitest) test suites.
+This runs the backend tests with Bun's built-in test runner and the frontend tests with Vitest.
 
-## Backend Tests
+## Backend tests
 
-Run backend tests only:
+The backend suite runs under `bun test`. Run it on its own, or point it at a single file:
 
 ```bash
 bun test tests/backend
-bun test tests/backend/crypto.test.js         # single file
+bun test tests/backend/crypto.test.js    # single file
 ```
 
-| File | Cases | Description |
-|------|-------|-------------|
-| `rbac.test.js` | 31 | 4-tier role hierarchy, canChangeRole logic for all caller/target combinations (superadmin, admin, editor, readonly), middleware exports (requireAdmin, requireSuperAdmin, requireEditor), user management permission checks |
-| `clickhouse.test.js` | 37 | FORMAT detection for 9 data query types and 11 DDL/DML types, 6 edge cases (comments, semicolons, empty), EXPLAIN raw detection for 9 graph/json variants |
-| `notifier.test.js` | 19 | formatDetails (7 cases for field defaults and formatting), channel validation (7 types including email, slack, google_chat, teams, pagerduty), config flattening (5 string/object/null/malformed cases) |
-| `integration.test.js` | API integration tests: cluster validation (limits, naming, node uniqueness), RBAC access control (role checks), SSRF prevention (node allowlist, webhook URL blocking), protected settings keys, alert node filtering | 36 |
-| `alertScheduler.test.js` | 25 | evalThreshold for all 9 operators, parallel node aggregation (5 cases), per-rule node filtering (8 cases: null/undefined/empty/specific/single/no-match/invalid-JSON/parallel), parallel rule evaluation (3 timing/isolation cases) |
-| `appUsers.test.js` | 10 | User CRUD with default readonly role, all 4 roles (superadmin, admin, editor, readonly), unique username constraint, role updates, superadmin count |
-| `crypto.test.js` | 9 | AES-256-GCM roundtrip, random IV uniqueness, empty input handling, legacy plaintext backward compat, iv:tag:cipher format check, tamper detection, unicode support, 32-char secret minimum, per-install salt file |
-| `drizzle.test.js` | 9 | Core 4 tables CRUD (settings, alerts, channels, junction), cascade deletes, boolean mode |
-| `dashboards.test.js` | 7 | Dashboard and chart CRUD, SET NULL on dashboard delete (charts orphaned, not deleted) |
-| `jwt.test.js` | 7 | Token create/verify roundtrip, jti claim presence, null secret throws, tamper rejection, token revocation via blocklist |
-| `env.test.js` | 7 | Super admin loading from numbered env vars, legacy SUPER_ADMIN fallback, SMTP config parsing, required var validation |
-| `securityHeaders.test.js` | 8 | All 7 headers set, strict CSP for app, relaxed CSP for docs (Docsify CDN), HSTS value, X-Powered-By removed, next() called |
-| `rateLimiter.test.js` | 4 | Requests under limit pass, over limit returns 429, per-IP tracking, rate limit headers set |
+The backend tests live in `tests/backend/` and cover the following areas.
 
-## Frontend Tests
+| Area | Files |
+|------|-------|
+| Authentication, sessions, and security | `auth-logout.test.js`, `jwt.test.js`, `crypto.test.js`, `chCredStore.test.js`, `securityHeaders.test.js`, `rateLimiter.test.js`, `middleware.test.js` |
+| Users and roles (RBAC) | `rbac.test.js`, `users.test.js`, `appUsers.test.js` |
+| ClickHouse® connection and queries | `clickhouse.test.js`, `query.test.js`, `cluster.test.js`, `clusterUtils.test.js` |
+| Alerting and notifications | `alertScheduler.test.js`, `alerts.test.js`, `notifier.test.js` |
+| App data, settings, and the DB layer | `drizzle.test.js`, `dashboards.test.js`, `settings.test.js`, `config.test.js`, `env.test.js` |
+| Schema Studio | `schema-studio.test.js`, `schema-studio-routes.test.js` |
+| Cross-cutting integration and errors | `integration.test.js`, `exceptions.test.js` |
 
-Run frontend tests only:
+Representative coverage across these files includes: the four-tier role hierarchy and `canChangeRole` logic for every caller and target combination; the RBAC middleware (`requireAdmin`, `requireSuperAdmin`, `requireEditor`); AES-256-GCM encrypt and decrypt with random IVs, tamper detection, legacy plaintext fallback, and the per-install salt; JWT create and verify, the `jti` claim, and revocation via the blocklist; the encrypted per-session ClickHouse® credential store; FORMAT detection and EXPLAIN handling in the ClickHouse® client; threshold evaluation and per-node filtering in the alert scheduler; cluster validation (limits, naming, node uniqueness); SSRF prevention through the node allowlist; protected settings keys; and Drizzle CRUD with cascade and set-null behavior.
+
+## Frontend tests
+
+The frontend suite runs under Vitest. Run it on its own, or point it at a single file:
 
 ```bash
-npx vitest run tests/frontend
-npx vitest run tests/frontend/backups.test.js    # single module
+vitest run tests/frontend
+vitest run tests/frontend/backups.test.js    # single file
 ```
 
-| File | Module | Cases |
-|------|--------|-------|
-| `schema-routes.test.js` | Schema (nodes + cluster_id columns), 10 routes, auth, server, security, 4-tier RBAC, SPA catch-all, app backup, logger, request logger, multi-cluster, notifier cluster/timestamp | 124 |
-| `sidebar-routing.test.js` | 10 sidebar sections, all 27 page routes, Storage Profiles under Administration, App Data Backup nav item | 70 |
-| `chartTypes.test.js` | Chart type registry, all 13 builders, DOT graph parser | 48 |
-| `backups.test.js` | Backup schema, routes, scheduler, S3 layout, UI components | 41 |
-| `api-contract.test.js` | Plugin API contract, heatmap exports, downstream safety | 35 |
-| `heatmaps-logs.test.js` | Unified amber scale, 1000-step interpolation, variance depth, themeKey re-init, download/fullscreen, 3 log pages, dark mode colors | 25 |
-| `chart-toolbar.test.js` | Shared HTML chart toolbar (zoom disabled when not zoomable, themed-background PNG export, arrows full-screen icons), removed ECharts-toolbox helpers, no browser fullscreen, ChartCard strips any option toolbox | 13 |
-| `admin.test.js` | User management with 4 roles, role change confirmation, cluster management, DDL, docs | 25 |
-| `scrollbars.test.js` | Scrollbar CSS and DataTable variants | 22 |
-| `plugin-architecture.test.js` | Plugin loader, registry, manifest format | 21 |
-| `sql-editor.test.js` | SQL editor: history (localStorage), bookmarks (server-side), export (CSV/JSON/TSV), autocomplete (keywords + functions + database.table), keyboard shortcuts (Ctrl+Enter, Ctrl+B) | SQL editor: EXPLAIN trees, query stats, explorer, query history, bookmarks, export | 32 |
-| `navbar.test.js` | Navbar layout, font scaling, version info in dropdown, role badges, connection context | 17 |
-| `Toast.test.jsx` | Toast notifications and ConfirmModal (jsdom rendering) | 12 |
-| `indexes.test.js` | Shared treeChart utility (treeSize, treeSeries, treeSizeTB, pixel margins, no roam), indexes, projections, all 4 tree files import shared util | 15 |
-| `DataTable.test.jsx` | DataTable component rendering and variants (jsdom) | 9 |
-| `treeChart.test.js` | Runtime tests for treeChart.js: countLeaves, maxDepth, countAll, treeSize, treeSizeTB, treeSeries | 25 |
-| `apiUtils.test.js` | Runtime tests for api.js: connection state, apiFetch, runQuery | 13 |
-| `components.test.jsx` | Runtime render tests for SqlPreview, StatCard, DateTimePicker, ErrorBoundary (jsdom) | 19 |
+The frontend tests live in `tests/frontend/` and cover the following areas.
 
-**The suite spans backend and frontend test files covering the areas listed above.**
+| Area | Files |
+|------|-------|
+| SQL Editor and query tools | `sql-editor.test.js`, `sql-classify.test.js`, `editor-session.test.js`, `query-compare.test.js`, `query-profiler.test.js`, `query-metrics.test.jsx`, `chart-builder-preview.test.js`, `chart-toolbar.test.js`, `chartTypes.test.js` |
+| Schema Studio and schema routes | `schema-studio-ddl.test.js`, `schema-studio-engine.test.js`, `schema-studio-ui.test.js`, `schema-routes.test.js` |
+| Administration, users, and auth UX | `admin.test.js`, `user-management.test.jsx`, `api-management.test.jsx`, `app-data-backup.test.jsx`, `force-password-change.test.js`, `idle-timeout.test.js`, `login-carousel.test.js` |
+| Navigation, layout, and search | `sidebar-routing.test.js`, `navbar.test.js`, `global-search.test.js`, `session-log.test.js` |
+| Monitoring and logs | `playback.test.js`, `heatmaps-logs.test.js` |
+| Indexes and chart/tree utilities | `indexes.test.js`, `treeChart.test.js` |
+| Backups | `backups.test.js` |
+| Shared components and UI | `DataTable.test.jsx`, `Toast.test.jsx`, `components.test.jsx`, `select-component.test.jsx`, `scrollbars.test.js`, `icon-tabler-only.test.js`, `ui-fixes-jul2026.test.js` |
+| API and utilities | `apiUtils.test.js` |
 
-## Security-Specific Tests
+### Testing approach
 
-The test suite covers security hardening:
+Frontend tests come in two styles. Many read source files as strings and assert on structure (imports, function signatures, route tables, CSS classes). This is intentional: it catches breaking changes without spinning up a browser, and it is why runtime line coverage looks low for those files, since their code paths are not executed. The `.jsx` files (`DataTable.test.jsx`, `Toast.test.jsx`, `components.test.jsx`, `query-metrics.test.jsx`, `api-management.test.jsx`, `app-data-backup.test.jsx`, `select-component.test.jsx`, `user-management.test.jsx`) render components in jsdom, and several `.js` files (`treeChart.test.js`, `apiUtils.test.js`, `sql-classify.test.js`) import and execute source modules directly. Those contribute actual runtime coverage. The jsdom environment and shared setup are configured in `vite.config.js` and `tests/frontend/setup.js`.
 
-- **crypto.test.js**: AES-256-GCM encrypt/decrypt roundtrip, random IV uniqueness, legacy plaintext backward compatibility, tamper detection, per-install salt, 32-char minimum
-- **jwt.test.js**: No default secret (throws), 2h expiry (not 24h), jti claim presence, token revocation via blocklist
-- **securityHeaders.test.js**: Strict CSP for app routes (`script-src 'self'`), relaxed CSP for `/docs/*` (allows CDN scripts for Docsify), HSTS with `max-age=31536000`, `frame-ancestors 'none'`
-- **rbac.test.js**: 4-tier role hierarchy, canChangeRole for every caller/target combination, admin-level middleware allows both admin and superadmin
-- **schema-routes.test.js**: Argon2id usage, brute-force lockout, DISABLE_ENV_LOGIN, credential encrypt/decrypt, SSRF prevention (node validation, webhook URL validation), RBAC on alert/backup/dashboard/settings/user write routes, SQL escaping, WAL mode, pinned dependencies, db:backup script
+## Security-specific tests
 
-## Code Coverage
+Security hardening is exercised across several files:
 
-Run tests with coverage reports:
+- `crypto.test.js`: AES-256-GCM roundtrip, random IV uniqueness, legacy plaintext backward compatibility, tamper detection, per-install salt, and the 32-character secret minimum.
+- `jwt.test.js`: no default secret (throws), the `jti` claim, and token revocation via the blocklist.
+- `securityHeaders.test.js`: strict CSP for app routes (`script-src 'self'`), the relaxed CSP for `/docs/*` that allows the Docsify CDN, HSTS with `max-age=31536000`, and `frame-ancestors 'none'`.
+- `rbac.test.js`: the four-tier role hierarchy, `canChangeRole` for every caller and target combination, and admin-level middleware allowing both admin and superadmin.
+- `chCredStore.test.js` and `rateLimiter.test.js`: the encrypted per-session credential store and the per-IP rate limiter.
+- `integration.test.js` and `schema-routes.test.js`: SSRF prevention (node and webhook URL validation) and RBAC enforcement on alert, backup, dashboard, settings, and user write routes.
+
+## Code coverage
+
+Run both suites with coverage:
 
 ```bash
 bun run test:coverage
 ```
 
-This runs both backend and frontend suites with coverage enabled.
+This runs the backend coverage first, then the frontend coverage.
 
-**Backend coverage** uses Bun's built-in `--coverage` flag. Output shows function and line coverage per source file:
+**Backend coverage** uses Bun's built-in `--coverage` flag, writing a text summary and an LCOV report:
 
 ```bash
 bun run test:backend:coverage
 ```
 
-**Frontend coverage** uses `@vitest/coverage-istanbul`. Must run through Node (`npx`), not Bun, because Bun does not support the `istanbul instrumentation` API that v8 coverage needs:
+**Frontend coverage** uses the Istanbul provider through `@vitest/coverage-istanbul`, configured in `vite.config.js` to write into `coverage/frontend`:
 
 ```bash
 bun run test:frontend:coverage
 # or directly:
-npx vitest run tests/frontend --coverage
+vitest run tests/frontend --coverage
 ```
 
-Most frontend tests read source files as strings to verify code structure (imports, function signatures, CSS classes). This is intentional - it catches breaking changes without needing a full browser environment. But it means runtime line coverage will be low since the code paths are not executed during testing. The jsdom test files (`Toast.test.jsx`, `DataTable.test.jsx`, `components.test.jsx`) and runtime test files (`treeChart.test.js`, `apiUtils.test.js`) do import and execute source modules, contributing actual coverage.
+Because many frontend tests read source as strings rather than executing it, frontend line coverage understates how much is verified; the jsdom and runtime tests noted above are what drive the executed portion.
+
+## Continuous integration
+
+The `Run Unit Tests` GitHub Actions workflow runs on pull requests. It sets up Bun, installs dependencies, runs the full suite with coverage (`bun run test:coverage`), runs the linter (`bun run lint`), and posts a coverage summary as a PR comment via `scripts/coverage-report.mjs`. A separate job verifies that the standalone binary still compiles by running `bun run build:binary`.
