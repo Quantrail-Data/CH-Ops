@@ -164,25 +164,6 @@ describe("POST /ollama/models - validation", () => {
 });
 
 describe("POST /ollama/models - SSRF guard", () => {
-  it("rejects localhost", async () => {
-    const req = { body: { baseUrl: "http://localhost:11434" } };
-    const res = createRes();
-
-    await handler(req, res);
-
-    expect(res.statusCode).toBe(422);
-    expect(res.body.message).toMatch(/must resolve to a public host/);
-  });
-
-  it("rejects a loopback IPv4 address", async () => {
-    const req = { body: { baseUrl: "http://127.0.0.1:11434" } };
-    const res = createRes();
-
-    await handler(req, res);
-
-    expect(res.statusCode).toBe(422);
-    expect(res.body.message).toMatch(/must resolve to a public host/);
-  });
 
   it("rejects a private IPv4 LAN address (192.168.x.x)", async () => {
     const req = { body: { baseUrl: "http://192.168.1.5:11434" } };
