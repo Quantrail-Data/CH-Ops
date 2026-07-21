@@ -1,21 +1,20 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // Manages connections to a ClickHouse database, stores successful connections, and handles various connection errors such as invalid host, port, credentials, or database name.
-
-const farmhash = require("farmhash");
-const {
+import crypto from "crypto";
+import {
   ClickHouseInvalidDatabaseError,
   ClickHouseInvalidUsernameError,
   ClickHouseInvalidPasswordError,
   ClickHouseInvalidHostError,
   ClickHouseInvalidPortError,
   ClickHouseConnectionError,
-} = require("../exceptions/ClickHouseErrors");
-const ConnectionRegistry = require("../dbConfigAI/ConnectionRegistry");
-const ClickHouseClientFactory = require("../dbConfigAI/ClickHouseClientFactory");
-const { aiDatabaseDetails } = require("../db/schema");
-const { db } = require("../db/index");
-const { eq } = require("drizzle-orm");
+} from "../exceptions/ClickHouseErrors";
+import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
+import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
+import { aiDatabaseDetails } from "../db/schema";
+import { db } from "../db/index";
+import { eq } from "drizzle-orm";
 
 class DatabaseConnectionService {
   constructor(databaseType, credentials) {
@@ -34,7 +33,7 @@ class DatabaseConnectionService {
       `${this.credentials.host}|` +
       `${this.credentials.port}`;
 
-    return farmhash.fingerprint64(identity).toString();
+    return crypto.createHash("sha256").update(identity).digest("hex");
   }
 
   async registerConnection() {
@@ -48,6 +47,11 @@ class DatabaseConnectionService {
       await result.json();
 
       const databaseId = this.generateDatabaseId();
+
+      ConnectionRegistry.add(databaseId, {
+        client,
+        credentials: this.credentials,
+      });
 
       const isExists = db
         ?.select()
@@ -71,7 +75,10 @@ class DatabaseConnectionService {
         database_id: databaseId,
       };
     } catch (error) {
-      console.error(error);
+      // Log a fixed format string with the message as data, not the raw error
+      // object as the format argument - it can carry connection internals
+      // (host/user, and HTTP-client errors often attach request/config data).
+      console.error("ClickHouse connection registration failed:", error.message);
       const msg = (error.message || "").toLowerCase();
 
       // Invalid Host
@@ -118,4 +125,4 @@ class DatabaseConnectionService {
   }
 }
 
-module.exports = DatabaseConnectionService;
+export default DatabaseConnectionService;

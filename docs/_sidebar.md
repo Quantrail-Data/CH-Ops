@@ -18,7 +18,8 @@
     - [Query Profiler](guide/query-profiler.md)
     - [Processors Profile](guide/processors-profile.md)
     - [Query Metrics](guide/query-metrics.md)
-    - [Qurioz AI](guide/ai-api-keys.md)
+    - [Schema Studio](guide/schema-studio.md)
+    - [Qurioz AI](guide/qurioz.md)
   - Dashboards
     - [Chart Builder](guide/dashboards.md#chart-builder)
     - [My Dashboards](guide/dashboards.md#dashboards)
@@ -34,7 +35,6 @@
     - [Session Log](guide/logs.md#session-log)
   - Schema
     - [Schema Visualizer](guide/schema-visualizer.md)
-    - [Schema Studio](guide/schema-studio.md)
     - [Data Skipping Indexes](guide/indexes.md#data-skipping-indexes)
     - [Projections](guide/indexes.md#projections)
     - [Index Management](guide/indexes.md#index-management)

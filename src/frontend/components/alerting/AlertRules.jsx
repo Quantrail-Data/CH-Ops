@@ -6,9 +6,10 @@ import React, { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
-import { useConnection } from "../../App.jsx";
+import { useConnection, useAuth } from "../../App.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
 const OPS = [
   { k: "gt", l: "greater than" },
@@ -20,6 +21,10 @@ const OPS = [
 ];
 
 export default function AlertRules() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [rules, setRules] = useState([]);
   const [channels, setChannels] = useState([]);
   const [clusterNodes, setClusterNodes] = useState([]);
@@ -92,13 +97,11 @@ export default function AlertRules() {
     setLoaded(true);
   }
 
-  // Compute available nodes based on the selected cluster in the form
   useEffect(() => {
     if (f.cluster_id) {
       const cluster = (clusters || []).find((c) => c.id === f.cluster_id);
       setClusterNodes(cluster ? cluster.nodes.map((n) => n.host) : []);
     } else {
-      // All nodes from all clusters
       setClusterNodes(
         (clusters || []).flatMap((c) => (c.nodes || []).map((n) => n.host)),
       );
@@ -108,7 +111,6 @@ export default function AlertRules() {
     load();
   }, []);
 
-  // Reload when user returns to this tab (picks up new nodes added in Cluster Management)
   useEffect(() => {
     function onVisible() {
       if (document.visibilityState === "visible") load();
@@ -189,6 +191,15 @@ export default function AlertRules() {
     }
   }
 
+  async function testQuery() {
+    try {
+      const check = await runQuery(f.sql)
+      setResult({ ok: true, msg: "Query executed successfully" });
+    } catch (error) {
+      setResult({ ok: false, msg: error.message });
+    }
+  }
+
   async function remove(id) {
     try {
       await apiFetch(`/api/alerts/rules/${id}`, { method: "DELETE", body: {} });
@@ -245,12 +256,20 @@ export default function AlertRules() {
               resetForm();
               setShowForm(!showForm);
             }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showForm ? "Cancel" : "New Rule"}
           </button>
         </div>
       </div>
+      {!isAdmin && (
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Alert rules management is only available for administrators.</span>
+        </div>
+      )}
       {result && (
         <div
           className={`alert-banner ${result.ok ? "success" : "danger"}`}
@@ -267,7 +286,7 @@ export default function AlertRules() {
           </button>
         </div>
       )}
-      {showForm && (
+      {showForm && isAdmin && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <div
             style={{
@@ -488,11 +507,25 @@ export default function AlertRules() {
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update" : "Create"}
           </button>
+          <button
+            className="btn btn-primary"
+            onClick={testQuery}
+            disabled={!f.name || !f.sql || !!cronError}
+            style={{marginLeft:"10px"}}
+          >
+            <Icon className="ti ti-send"></Icon>{" "}
+            Test
+          </button>
         </div>
       )}
       {!loaded ? (
         <div className="empty-state">
           <p>Loading...</p>
+        </div>
+      ) : !isAdmin ? (
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>Alert rules management is only available for administrators.</p>
         </div>
       ) : rules.length === 0 ? (
         <div className="empty-state">
@@ -645,6 +678,11 @@ export default function AlertRules() {
                   {hasZeroNodes && (
                     <span className="badge badge-amber">NO NODES</span>
                   )}
+                  {(!r.channels || r.channels.length === 0) && (
+                    <span className="badge badge-red" title="This rule will not notify anyone">
+                      NO CHANNELS
+                    </span>
+                  )}
                   {Array.isArray(r.nodes) && r.nodes.length > 0 && (
                     <span
                       style={{ fontSize: "12px", color: "var(--text-muted)" }}
@@ -691,12 +729,16 @@ export default function AlertRules() {
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => edit(r)}
+                    disabled={!isAdmin}
+                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   >
                     <Icon className="ti ti-edit"></Icon>
                   </button>
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => toggleEnabled(r)}
+                    disabled={!isAdmin}
+                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   >
                     <Icon
                       className={`ti ${r.enabled ? "ti-player-pause" : "ti-player-play"}`}
@@ -705,7 +747,9 @@ export default function AlertRules() {
                   </button>
                   <button
                     className="btn btn-danger btn-sm"
-                    onClick={() => setDel(r.id)}
+                    onClick={() => isAdmin && setDel(r.id)}
+                    disabled={!isAdmin}
+                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   >
                     <Icon className="ti ti-trash"></Icon>
                   </button>
@@ -715,7 +759,7 @@ export default function AlertRules() {
           })}
         </div>
       )}
-      {del && (
+      {del && isAdmin && (
         <ConfirmModal
           title="Delete Rule"
           message="Delete this alert rule?"

@@ -1,0 +1,85 @@
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: linux-x64
+            script: build:standalone:linux
+            outfile: chops-linux-x64
+          - name: darwin-arm64
+            script: build:standalone:mac
+            outfile: chops-darwin-arm64
+          - name: windows-x64
+            script: build:standalone:windows
+            outfile: chops-windows-x64.exe
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.13"
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      # Publicly-visible version string (it's just the tag, e.g. "v1.2.3" ->
+      # "1.2.3") picked up by scripts/generate-version.mjs below - not a
+      # secret, so this is fine to add even though the comment on the next
+      # step warns against adding secrets to this job's environment.
+      - name: Derive VERSION from git tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      # build:standalone:* compiles with `--env=inline`, which bakes whatever
+      # env vars are present in *this* job into the published binary. VERSION
+      # (set above, from the public tag) is fine to inline; never add a real
+      # secret to this job's environment, since the binary it produces is a
+      # public, downloadable GitHub release artifact.
+      - name: Build ${{ matrix.name }} binary
+        run: bun run ${{ matrix.script }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.outfile }}
+          path: ${{ matrix.outfile }}
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts into release directory
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

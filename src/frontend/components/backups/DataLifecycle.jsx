@@ -9,6 +9,9 @@ import Icon from "../common/Icon.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import { useToast } from "../layout/Toast.jsx";
+import { useAuth } from "../../App.jsx";
+
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 const pad = (n) => String(n).padStart(2, "0");
 function backupTimestamp() {
@@ -19,12 +22,29 @@ function escSql(str) {
   return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// ClickHouse often echoes the failing query verbatim in its error message,
+// and these queries embed the storage profile's raw S3 secret key - strip
+// known secret values before the message reaches a log or a toast.
+function redactSecrets(text, ...secrets) {
+  if (typeof text !== "string") return text;
+  let redacted = text;
+  for (const secret of secrets) {
+    if (secret) redacted = redacted.split(secret).join("***");
+  }
+  return redacted;
+}
+
 export default function DataLifecycle() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [tab, setTab] = useState("manual");
   const [profiles, setProfiles] = useState([]);
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState([]);
   const [clusters, setClusters] = useState([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     apiFetch("/api/settings/backup_profiles")
@@ -44,7 +64,44 @@ export default function DataLifecycle() {
     )
       .then((r) => setClusters((r.rows || []).map((r) => r.cluster)))
       .catch(() => {});
+    setLoaded(true);
   }, []);
+
+  const handleTabChange = (newTab) => {
+    if (newTab === 'browse' || isAdmin) {
+      setTab(newTab);
+    }
+  };
+
+  if (!loaded) {
+    return (
+      <div className="page-content">
+        <div className="empty-state" style={{ padding: 40 }}>
+          <div className="loading-spinner"></div> Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-archive-filled"></Icon> Data Lifecycle
+          </h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Data lifecycle management is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>Data lifecycle management is only available for administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content">
@@ -62,13 +119,13 @@ export default function DataLifecycle() {
       <div className="tab-bar">
         <div
           className={`tab-item ${tab === "manual" ? "active" : ""}`}
-          onClick={() => setTab("manual")}
+          onClick={() => handleTabChange("manual")}
         >
           <Icon className="ti ti-upload"></Icon> Manual Backup
         </div>
         <div
           className={`tab-item ${tab === "browse" ? "active" : ""}`}
-          onClick={() => setTab("browse")}
+          onClick={() => handleTabChange("browse")}
         >
           <Icon className="ti ti-cloud-download"></Icon> Available Backups
         </div>
@@ -87,8 +144,6 @@ export default function DataLifecycle() {
   );
 }
 
-// Shared: S3 base URL builder
-
 function getS3Base(profile) {
   if (!profile) return null;
   if (profile.type === "gcs")
@@ -104,8 +159,6 @@ function getS3Base(profile) {
   };
 }
 
-// Shared: Scan S3 for manifests with multiple glob patterns
-
 async function scanS3Manifests(s3, patterns) {
   const allRows = [];
   const errors = [];
@@ -116,7 +169,6 @@ async function scanS3Manifests(s3, patterns) {
       if (r.rows?.length) allRows.push(...r.rows);
     } catch (err) {
       const msg = err.message || "";
-      // These are expected when a glob matches no files - not real errors
       const isExpectedEmpty =
         msg.includes("no files") ||
         msg.includes("NoSuchKey") ||
@@ -127,7 +179,6 @@ async function scanS3Manifests(s3, patterns) {
         msg.includes("TABLE_IS_READ_ONLY") ||
         msg.includes("CANNOT_EXTRACT_TABLE");
       if (!isExpectedEmpty) {
-        // Real error - connection issue, auth failure, bad URL, etc
         const shortPattern = pattern.split("/backups/")[1] || pattern;
         if (
           msg.includes("Unable to connect") ||
@@ -157,7 +208,6 @@ async function scanS3Manifests(s3, patterns) {
     }
   }
 
-  // Deduplicate error messages
   const uniqueErrors = [...new Set(errors)];
 
   const parsed = allRows
@@ -182,9 +232,11 @@ async function scanS3Manifests(s3, patterns) {
   return { backups: unique, errors: uniqueErrors };
 }
 
-// Manual Backup Tab
-
 function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
   const [action, setAction] = useState("backup");
   const [isAsync, setIsAsync] = useState(false);
@@ -324,17 +376,23 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         try {
           await writeManifest(backupId);
         } catch (err) {
-          console.log(err);
+          const manifestMsg = redactSecrets(
+            err.message,
+            s3.accessKey,
+            s3.accessKeyId,
+          );
+          console.error("Manifest write failed:", manifestMsg);
 
           toast.warning(
-            `Backup completed, but manifest write failed: ${err.message}`,
+            `Backup completed, but manifest write failed: ${manifestMsg}`,
           );
         }
       }
     } catch (err) {
-      console.log(err);
-
-      const msg = err.message || "Unknown error";
+      const msg =
+        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId) ||
+        "Unknown error";
+      console.error(`${action.toUpperCase()} failed:`, msg);
 
       if (msg.includes("Access Denied") || msg.includes("403")) {
         toast.error(
@@ -392,26 +450,46 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     let patterns = [];
 
     if (scope === "all") {
-      patterns = [`${base}/manual/ALL/*/manifest.json`];
+      patterns = [
+        `${base}/manual/ALL/*/manifest.json`,
+        `${base}/manual/DATABASE/*/manifest.json`,
+        `${base}/manual/DATABASE/*/*/manifest.json`,
+        `${base}/manual/TABLE/*/*/manifest.json`,
+        `${base}/manual/TABLE/*/*/*/manifest.json`,
+      ];
     } else if (scope === "database") {
       if (db) {
         patterns = [
           `${base}/manual/DATABASE/${db}/manifest.json`,
           `${base}/manual/DATABASE/${db}/*/manifest.json`,
+          `${base}/manual/TABLE/${db}.*/manifest.json`,
+          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
         ];
       } else {
         patterns = [
           `${base}/manual/DATABASE/*/manifest.json`,
           `${base}/manual/DATABASE/*/*/manifest.json`,
+          `${base}/manual/TABLE/*/manifest.json`,
+          `${base}/manual/TABLE/*/*/manifest.json`,
         ];
       }
     } else if (scope === "table") {
       if (db && tbl) {
-        patterns = [`${base}/manual/TABLE/${db}/${tbl}/manifest.json`];
+        patterns = [
+          `${base}/manual/TABLE/${db}.${tbl}/manifest.json`,
+          `${base}/manual/TABLE/${db}.${tbl}/*/manifest.json`,
+        ];
       } else if (db) {
-        patterns = [`${base}/manual/TABLE/${db}/*/manifest.json`];
+        patterns = [
+          `${base}/manual/TABLE/${db}.*/manifest.json`,
+          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
+        ];
       } else {
-        patterns = [`${base}/manual/TABLE/*/*/manifest.json`];
+        patterns = [
+          `${base}/manual/TABLE/*/manifest.json`,
+          `${base}/manual/TABLE/*/*/manifest.json`,
+          `${base}/manual/TABLE/*/*/*/manifest.json`,
+        ];
       }
     }
 
@@ -448,7 +526,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         );
       }
     } catch (err) {
-      console.error(err);
+      console.error(
+        "Backup scan failed:",
+        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId),
+      );
       toast.error("Failed to scan backups.");
     } finally {
       setLoadingBackups(false);
@@ -691,20 +772,20 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         </span>
       </div>
       <SqlPreview sql={buildSql()} />
-            <div style={{ height: "22px",marginTop:10, marginBottom:20}}>
-              <div
-                className="alert-banner info"
-                style={{ marginTop: "0px", fontSize: "12px",padding:"6px" }}
-              >
-                <Icon
-                  style={{ fontSize: "15px",paddingTop:"2px" }}
-                  className="ti ti-info-circle"
-                ></Icon>
-                <span>
-                  Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
-                </span>
-              </div>
-          </div>
+      <div style={{ marginBottom: 20 }}>
+        <div
+          className="alert-banner info"
+          style={{ marginTop: 10, marginBottom: 0, fontSize: "12px", padding: "6px" }}
+        >
+          <Icon
+            style={{ fontSize: "15px", paddingTop: "2px" }}
+            className="ti ti-info-circle"
+          ></Icon>
+          <span>
+            Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
+          </span>
+        </div>
+      </div>
       <div style={{ marginTop: 16 }}>
         <button
           className="btn btn-primary"
@@ -733,7 +814,6 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   );
 }
 
-// Available Backups Tab
 function AvailableBackupsTab({ profiles }) {
   const toast = useToast();
   const [profile, setProfile] = useState("");
@@ -760,7 +840,7 @@ function AvailableBackupsTab({ profiles }) {
       patterns.push(`${base}/manual/*/manifest.json`);
       patterns.push(`${base}/manual/*/*/manifest.json`);
       patterns.push(`${base}/manual/*/*/*/manifest.json`);
-      // Legacy paths
+      patterns.push(`${base}/manual/*/*/*/*/manifest.json`);
       patterns.push(`${base}/ALL/*/manifest.json`);
       patterns.push(`${base}/DATABASE/*/*/manifest.json`);
       patterns.push(`${base}/TABLE/*/*/manifest.json`);
