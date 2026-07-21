@@ -28,7 +28,7 @@ const CORE_NAV_ITEMS = [
   },
   {
     id: "tools",
-    label: "Tools",
+    label: "SQL Tools",
     icon: "ti-terminal-2",
     children: [
       { id: "editor/query", label: "SQL Editor" },
@@ -41,7 +41,7 @@ const CORE_NAV_ITEMS = [
   },
   {
     id: "custom",
-    label: "Dashboards",
+    label: "Custom Dashboards",
     icon: "ti-chart-pie",
     children: [
       { id: "custom/builder", label: "Chart Builder" },
@@ -78,7 +78,7 @@ const CORE_NAV_ITEMS = [
   },
   {
     id: "indexes",
-    label: "Schema",
+    label: "Schema Tools",
     icon: "ti-database",
     children: [
       { id: "indexes/visualizer", label: "Schema Visualizer" },
@@ -99,7 +99,7 @@ const CORE_NAV_ITEMS = [
 
   {
     id: "alerting",
-    label: "Alerts",
+    label: "Custom Alerts",
     icon: "ti-bell",
     children: [{ id: "alerting/rules", label: "Alert Rules" }],
   },
@@ -110,7 +110,7 @@ const CORE_NAV_ITEMS = [
   // ]},
   {
     id: "rbac",
-    label: "RBAC",
+    label: "DB RBAC",
     icon: "ti-lock",
     children: [
       { id: "rbac/view", label: "View Grants" },
@@ -145,7 +145,7 @@ const CORE_NAV_ITEMS = [
   // },
   {
     id: "admin",
-    label: "Admin",
+    label: "Control panel",
     icon: "ti-adjustments-horizontal",
     children: [
       { id: "admin/users", label: "User Management" },
