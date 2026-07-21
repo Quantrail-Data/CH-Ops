@@ -49,7 +49,7 @@ export default function DistReplTab({ view = "replication" }) {
       }
     } catch (e) {
       // Never leave the tab stuck on the spinner if a snapshot query fails.
-      console.error("Queue snapshot failed:", e);
+      console.error("Queue snapshot failed:", e.message);
       if (isRepl) setRepl((p) => p ?? { present: false, cards: null, tasks: [], typeMix: [], depth: [] });
       else setDist((p) => p ?? { present: false, cards: null, rows: [] });
     } finally {

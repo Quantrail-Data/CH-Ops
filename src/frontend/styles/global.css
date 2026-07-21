@@ -2016,12 +2016,22 @@ input[type="datetime-local"] {
 
 /* COPYRIGHT */
 .copyright-footer {
+  position: relative;
   padding: 8px 16px;
   text-align: center;
   font-size: 11px;
   color: var(--text-muted);
   border-top: 1px solid var(--border-default);
   flex-shrink: 0;
+}
+
+.app-version-badge {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* SQL EDITOR INPUT - 10 visible lines before scroll */
@@ -2434,6 +2444,32 @@ input[type="datetime-local"] {
   box-shadow: 0px 0px 10px rgba(51, 51, 51, 0.334);
 }
 
+
+.ai-button {
+background-color:var(--accent);
+padding: 7px 15px;
+display: flex;
+align-items: center;
+gap: 10px;
+box-sizing: border-box;
+outline: none;
+border:0px;
+cursor: pointer;
+margin:0px 10px;
+border-radius:13px;
+}
+
+.ai-button:hover {
+box-shadow: 0 0 30px 7px rgba(255,125,0,0),
+            0 0 19px -2px rgba(181, 21, 255, 0.46),
+            0 0 30px -8px rgba(184, 118, 255, 0.31);
+}
+
+.ai-button span {
+  font-size:12px;
+  font-weight:600;
+}
+
 .bottom-search-bar {
   width: 700px;
   height: 9rem;
@@ -2513,15 +2549,10 @@ input[type="datetime-local"] {
 
 .chat-body {
   width: 80%;
-  /* background-color: #16a34a; */
   margin: 0% auto;
   margin-bottom: 30rem;
   overflow-y: scroll;
   height: 80%;
-  /* display: flex;
-  flex-direction: column;
-  justify-content:start;
-  align-items: center; */
 }
 
 .chat-body::-webkit-scrollbar {
@@ -2623,7 +2654,7 @@ input[type="datetime-local"] {
 }
 
 .chat-area {
-  width: 55%;
+  width:45%;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -2633,15 +2664,15 @@ input[type="datetime-local"] {
 
 .input-area {
   width: 80%;
-  height: 12rem;
-  bottom:36px;
+  height: auto;
+  padding:20px 0px ;
+  bottom: 35px;
   position: fixed;
   display: flex;
   align-items: center;
   justify-content: center;
-background: var(--bg-page);
-  border-radius:20px;
-
+  background: var(--bg-page);
+  border-radius: 20px;
 }
 
 
@@ -2726,7 +2757,7 @@ background: var(--bg-page);
   width: 100%;
   position: sticky;
   
-  /* top: calc(5rem + 34px); */
+  top: 0px;
   /* left: 4rem; */
 }
 
@@ -3067,6 +3098,35 @@ background: var(--bg-page);
 }
 
 
+
+/* forget-password */
+
+.forget-password-con {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  margin:10px 0px;
+}
+
+.forget-password-con p {
+  font-size:0.8em;
+  font-weight:600;
+  color:lightgray;
+  cursor: pointer;
+}
+
+[data-theme="light"] .forget-password-con p {
+  color:gray;
+}
+
+.forget-password-con p:hover {
+  text-decoration: underline;
+  color:var(--accent);
+}
+
+
+
+
 .logo-conatiner {
   position: absolute;
   top:5px;
@@ -3224,6 +3284,7 @@ background: var(--bg-page);
 
 .profiler-popup-code {
   flex: 1;
+  max-height: 40vh;
   overflow: auto;
   background: var(--bg-surface);
   padding: 14px;

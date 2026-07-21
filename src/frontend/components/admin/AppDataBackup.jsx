@@ -7,20 +7,26 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from '../../utils/api.js';
 import { useToast } from '../layout/Toast.jsx';
+import { useAuth } from '../../App.jsx';
 
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function AppDataBackup() {
   const toast = useToast();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isSuperAdmin = myRole === 'superadmin';
   const [profiles, setProfiles] = useState([]);
   const [selectedProfile, setSelectedProfile] = useState('');
   const [backups, setBackups] = useState([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [backing, setBacking] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
+  const [loaded, setLoaded] = useState(false);
  
-  // Schedule config
   const [config, setConfig] = useState({ enabled: false, profileName: '', frequency: 'daily', backupHour: 2, weekday: 0 });
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -42,13 +48,12 @@ export default function AppDataBackup() {
     setLoadingBackups(true);
     try {
       const list = await apiFetch(`/api/app-backup/list?profile=${encodeURIComponent(profile)}`);
-      console.log(list)
       setBackups(Array.isArray(list) ? list : []);
     } catch { setBackups([]); }
     setLoadingBackups(false);
   }
 
-  useEffect(() => { loadProfiles(); loadConfig(); }, []);
+  useEffect(() => { loadProfiles(); loadConfig(); setLoaded(true); }, []);
   useEffect(() => { if (selectedProfile) loadBackups(selectedProfile); }, [selectedProfile]);
 
   async function runBackup() {
@@ -71,6 +76,26 @@ export default function AppDataBackup() {
     setSavingConfig(false);
   }
 
+  if (!loaded) return <div className="page-content"><div className="empty-state" style={{ padding: 40 }}><div className="loading-spinner"></div> Loading...</div></div>;
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title"><Icon className="ti ti-database-export"></Icon> App Data Backup</h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>App data backup is only available for superadministrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>App data backup is only available for superadministrators.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-content">
       <div className="section-header">
@@ -84,7 +109,6 @@ export default function AppDataBackup() {
         </div>
       ) : (
         <>
-          {/* Manual Backup */}
           <div className="card" style={{ padding: 20, marginBottom: 20 }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon className="ti ti-upload" style={{ color: 'var(--accent)' }}></Icon> Manual Backup
@@ -105,7 +129,6 @@ export default function AppDataBackup() {
             </div>
           </div>
 
-          {/* Scheduled Backup */}
           <div className="card" style={{ padding: 20, marginBottom: 20 }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon className="ti ti-clock" style={{ color: 'var(--accent)' }}></Icon> Scheduled Backup
@@ -158,7 +181,6 @@ export default function AppDataBackup() {
             )}
           </div>
 
-          {/* Backup History */}
           <div className="card" style={{ padding: 20, marginBottom: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -204,7 +226,6 @@ export default function AppDataBackup() {
             )}
           </div>
 
-          {/* Restore Instructions */}
           <div className="card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>

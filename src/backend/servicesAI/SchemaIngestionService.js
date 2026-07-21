@@ -1,10 +1,13 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // schemaIngestion service that retrieves database schemas from ClickHouse, converts them into embeddings, and upserts those embeddings into a vector database.
-const EmbeddingService = require("./EmbeddingService");
-const QdrantService = require("./QdrantService");
-const ConnectionRegistry = require("../dbConfigAI/ConnectionRegistry");
-const ClickHouseClientFactory = require("../dbConfigAI/ClickHouseClientFactory");
+import EmbeddingService from "./EmbeddingService";
+
+import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
+import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
+import crypto from "crypto";
+
+import LocalVectorStore from "./LocalVectorStoreService";
 
 class SchemaIngestionService {
   constructor(databaseId, connection) {
@@ -18,7 +21,8 @@ class SchemaIngestionService {
     this.client = ClickHouseClientFactory.createClient(this.credentials);
 
     this.embedding = new EmbeddingService();
-    this.qdrant = new QdrantService();
+
+    this.localdb = new LocalVectorStore();
   }
 
   async getTables() {
@@ -44,8 +48,8 @@ class SchemaIngestionService {
     });
 
     const json = await result.json();
-    console.log("SHOW CREATE TABLE RESULT:");
-    console.log(JSON.stringify(json, null, 2));
+    // console.log("SHOW CREATE TABLE RESULT:");
+    // console.log(JSON.stringify(json, null, 2));
     return json.data[0].statement;
   }
 
@@ -92,8 +96,17 @@ ${column.name} (${column.type})
     return schema;
   }
 
+  generatePointId(tableName) {
+    return crypto
+      .createHash("sha256")
+      .update(`${this.databaseId}|${tableName}`)
+      .digest("hex");
+  }
+
   async synchronizeSchema() {
-    await this.qdrant.initCollection();
+    console.log("Initializing local vector store...");
+    await this.localdb.initialize();
+    console.log("Initialization complete.");
     const tables = await this.getTables();
     for (const table of tables) {
       const createTableQuery = await this.getTableSchema(table.name);
@@ -106,7 +119,7 @@ ${column.name} (${column.type})
 
       const embedding = await this.embedding.embed(schemaText);
       const point = {
-        id: Math.floor(Math.random() * 1000000),
+        id: this.generatePointId(table.name),
         vector: embedding,
 
         payload: {
@@ -119,9 +132,10 @@ ${column.name} (${column.type})
           is_active: true,
         },
       };
-      await this.qdrant.upsert(point);
+      await this.localdb.upsert([point]);
     }
 
+    await this.localdb.save();
     return {
       tables_added: tables.length,
       tables_updated: 0,
@@ -132,4 +146,4 @@ ${column.name} (${column.type})
   }
 }
 
-module.exports = SchemaIngestionService;
+export default SchemaIngestionService;

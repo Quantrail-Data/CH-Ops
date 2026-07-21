@@ -1,4 +1,3 @@
-
 <div align="center">
 
 # CHOps - Beta
@@ -12,7 +11,8 @@
 
 If CHOps saves you time or you find it useful, please consider **starring this repository**. It genuinely helps.
 
-[CHOps](https://github.com/user-attachments/assets/500f4237-5b82-46af-a49f-e6d8a20092cf)
+<img width="1920" height="1080" alt="CHOps" src="https://github.com/user-attachments/assets/391efbe8-abbe-43d0-b735-05878e0730f1" />
+
 
 </div>
 
@@ -37,7 +37,7 @@ A global page search is available everywhere: open it from the navbar Search but
 
 **Overview**: cluster health, live query monitor with kill controls, query analytics and log, tables and parts inspection, merges and mutations, distributed DDL queue.
 
-**Tools**: a full SQL editor with autocomplete and nine EXPLAIN types, an interactive flame-graph query profiler, and a per-second query metrics timeline.
+**Tools**: a full SQL editor with autocomplete and nine EXPLAIN types, an interactive flame-graph query profiler, a per-second query metrics timeline, Schema Studio for guided table creation, and Qurioz, an AI assistant that turns plain-English questions into ClickHouse® SQL.
 
 **Custom Dashboards**: a chart builder with 10+ chart types, configurable grid dashboards, and a chart browser. Every chart has an HTML control toolbar (zoom, save as PNG, and in-app full screen).
 
@@ -53,11 +53,13 @@ A global page search is available everywhere: open it from the navbar Search but
 
 **Backups**: BACKUP and RESTORE orchestration to S3-compatible storage, backup discovery, and storage profile management.
 
-**Administration**: CHOps user management with four roles, multi-cluster configuration, and application-data backup.
+**Administration**: CHOps user management with four roles, multi-cluster configuration, application-data backup, and AI provider key management.
 
 ---
 
 ## Before You Begin
+
+> The quickest way to run CHOps is to download a prebuilt binary from the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases), which needs neither Bun nor a build step. See [Building a Standalone Binary](#building-a-standalone-binary). The steps below are for running from source or building your own binary.
 
 You need two things to run CHOps.
 
@@ -105,15 +107,16 @@ cp .env.example .env
 
 This gives you a `.env` file that already contains every setting with comments explaining each one. You only need to change a few of them.
 
-**4. Edit `.env`** in any text editor (for example `nano .env`). Only **three** values are required to start the app; change these:
+**4. Edit `.env`** in any text editor (for example `nano .env`). Only **four** values are required to start the app; change these:
 
 ```env
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_secure_password_here
+SUPER_ADMIN_1_EMAIL=you@example.com
 SESSION_SECRET=paste_a_random_string_here
 ```
 
-- `SUPER_ADMIN_1` and `SUPER_ADMIN_1_PASSWORD` are the username and password you will use to log in the first time. Pick a strong password.
+- `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, and `SUPER_ADMIN_1_EMAIL` are the username, password, and email of the first login account. All three are required. Pick a strong password.
 - `SESSION_SECRET` must be a long random string. Generate one with:
 
   ```bash
@@ -125,7 +128,6 @@ SESSION_SECRET=paste_a_random_string_here
 Everything else in `.env` is **optional** and can be left as-is for now:
 
 - **SMTP_*** settings are only needed if you want alert emails.
-- **Qurioz AI / Qdrant** settings (`QDRANTLINK`, `QDRANTSCHEMANAME`, and the `VITE_...` AI URLs) are only needed for the optional AI features. Leave them blank for now; you can enable them later (see "Optional: Enable Qurioz AI" below). The core app runs fine without them.
 
 **5. Run the database migration** to create CHOps's internal SQLite tables:
 
@@ -164,6 +166,9 @@ persistent named volume:
 
 ```bash
 export SESSION_SECRET=$(openssl rand -hex 32)
+export SUPER_ADMIN_1=admin
+export SUPER_ADMIN_1_PASSWORD=your_secure_password_here
+export SUPER_ADMIN_1_EMAIL=you@example.com
 docker compose up -d --build
 ```
 
@@ -179,6 +184,9 @@ docker build -t chops:latest .
 # Run it (mount a volume so data/chops.db persists)
 docker run -d --name chops -p 3000:3000 \
   -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -e SUPER_ADMIN_1=admin \
+  -e SUPER_ADMIN_1_PASSWORD=your_secure_password_here \
+  -e SUPER_ADMIN_1_EMAIL=you@example.com \
   -v chops-data:/app/data \
   chops:latest
 ```
@@ -186,207 +194,18 @@ docker run -d --name chops -p 3000:3000 \
 Open `http://localhost:3000`. Both options persist the SQLite database in the
 `chops-data` volume across restarts and image rebuilds.
 
-To seed a first super-admin on initial startup, also pass
-`-e SUPER_ADMIN_1=you@example.com -e SUPER_ADMIN_1_PASSWORD=...` (or set them in
-the compose environment / your `.env`).
-
----
-
-## Optional: Enable Qurioz AI (Qdrant)
-
-Qurioz is CHOps's AI assistant. It is **completely optional**: set up and run the core app first (all the steps above), confirm you can log in, and only then come back here if you want the AI features. Qurioz needs a running [Qdrant](https://qdrant.tech/) vector database.
-
-After Qdrant is running (instructions below), open your `.env` file, fill in the Qurioz AI variables (`QDRANTLINK`, `QDRANTSCHEMANAME`, and the `VITE_...` AI URLs) following the comments in the file, then restart CHOps.
-
-### Linux (Debian/Ubuntu, systemd)
-
-#### Step 1: Download the Qdrant Debian Package
-
-Download the required Qdrant release package. Replace the version if you want to install a different release.
-
-```bash
-sudo wget https://github.com/qdrant/qdrant/releases/download/v1.17.0/qdrant_1.17.0-1_amd64.deb
-```
-
-#### Step 2: Install Qdrant
-
-Install the downloaded package:
-
-```bash
-sudo dpkg -i qdrant_1.17.0-1_amd64.deb
-```
-
-If any dependency issues occur, resolve them by running:
-
-```bash
-sudo apt-get install -f
-```
-
-#### Step 3: Create a Systemd Service
-
-Create a new systemd service file:
-
-```bash
-sudo nano /etc/systemd/system/qdrant.service
-```
-
-Add the following configuration:
-
-```ini
-[Unit]
-Description=Qdrant Vector Database
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/qdrant --config-path /etc/qdrant/config.yaml
-Restart=always
-User=root
-
-[Install]
-WantedBy=multi-user.target
-```
-
-> **Note:** Verify that the following paths exist after installation:
->
-> * `/usr/bin/qdrant`
-> * `/etc/qdrant/config.yaml`
-
-#### Step 4: Reload the Systemd Daemon
-
-```bash
-sudo systemctl daemon-reload
-```
-
-#### Step 5: Enable the Service
-
-```bash
-sudo systemctl enable qdrant
-```
-
-#### Step 6: Start the Service
-
-```bash
-sudo systemctl start qdrant
-```
-
-#### Step 7: Verify the Installation
-
-```bash
-sudo systemctl status qdrant
-```
-
-If the service is running successfully, Qdrant is ready to use.
-
-#### Step 8: View Service Logs
-
-```bash
-sudo journalctl -u qdrant -f
-```
-
-### macOS (Docker)
-
-For macOS, or if you prefer a containerized setup, running Qdrant with Docker is the recommended approach.
-
-Install and start one of the following container runtimes:
-
-* Docker
-* Podman
-
-The examples below use Docker.
-
-Pull the Qdrant image:
-
-```bash
-docker pull qdrant/qdrant
-```
-
-Run Qdrant:
-
-```bash
-docker run -p 6333:6333 \
-    -v $(pwd)/path/to/data:/qdrant/storage \
-    qdrant/qdrant
-```
-
-This command starts Qdrant with the default configuration and persists data in the mounted storage directory.
-
-Once the container is running, Qdrant is available at:
-
-```
-http://localhost:6333
-```
-
-To override the default production configuration:
-
-```bash
-docker run -p 6333:6333 \
-    -v $(pwd)/path/to/data:/qdrant/storage \
-    -v $(pwd)/path/to/custom_config.yaml:/qdrant/config/production.yaml \
-    qdrant/qdrant
-```
-
-Alternatively, specify a custom configuration file explicitly:
-
-```bash
-docker run -p 6333:6333 \
-    -v $(pwd)/path/to/data:/qdrant/storage \
-    -v $(pwd)/path/to/custom_config.yaml:/qdrant/config/custom_config.yaml \
-    qdrant/qdrant \
-    ./qdrant --config-path config/custom_config.yaml
-```
-
-### Docker Compose
-
-Example `docker-compose.yml`:
-
-```yaml
-services:
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: qdrant
-    restart: always
-
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-
-    expose:
-      - "6333"
-      - "6334"
-      - "6335"
-
-    configs:
-      - source: qdrant_config
-        target: /qdrant/config/production.yaml
-
-    volumes:
-      - ./qdrant_data:/qdrant/storage
-
-configs:
-  qdrant_config:
-    content: |
-      log_level: INFO
-```
-
-Start the container:
-
-```bash
-docker compose up -d
-```
-
-#### Verify the Installation
-
-After Qdrant starts successfully, open the following URL in your browser:
-
-```
-http://localhost:6333
-```
-
-A successful installation displays the Qdrant welcome message, indicating that the server is running and ready to accept requests.
+The first super admin is required, not optional: `SUPER_ADMIN_1` (the username),
+`SUPER_ADMIN_1_PASSWORD`, and `SUPER_ADMIN_1_EMAIL` must be set alongside
+`SESSION_SECRET`, or the container exits on startup. The bundled
+`docker-compose.yml` forwards only `SESSION_SECRET`, `SUPER_ADMIN_1`, and
+`SUPER_ADMIN_1_PASSWORD`, so add `SUPER_ADMIN_1_EMAIL` to its `environment:` list
+or point the service at your full `.env` with `env_file: .env`.
 
 ---
 
 ## Building a Standalone Binary
+
+> **Prefer a prebuilt binary?** Prebuilt binaries and builds for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). If you just want to run CHOps, download the one for your platform (`chops-linux-x64`, `chops-darwin-arm64`, or `chops-windows-x64.exe`), make it executable, and skip to [Logging In](#logging-in). Build from source only when you need a custom build. Either way you still provide the required environment variables shown below.
 
 CHOps compiles into a single executable with no runtime dependencies on the target machine. This is the recommended way to deploy to a server or distribute to teammates.
 
@@ -408,6 +227,7 @@ Run it with the same environment variables the dev server uses:
 chmod +x chops-linux-x64
 SUPER_ADMIN_1=admin \
 SUPER_ADMIN_1_PASSWORD=secret \
+SUPER_ADMIN_1_EMAIL=you@example.com \
 SESSION_SECRET=abc123 \
 ./chops-linux-x64
 ```
@@ -482,12 +302,12 @@ A complete grant script with comments ships at [`clickhouse-user-setup.sql`](cli
 
 CHOps has four application roles, separate from ClickHouse®'s own users.
 
-| Role            | Capabilities                                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Super Admin** | Full access. Can be seeded from `.env` for first-time setup or recovery, or created in the UI. Maximum of 3.                                      |
-| **Admin**       | Same access as super admin but UI-created only. Cannot change or delete super admins.                                                             |
-| **Editor**      | All sections except user and cluster management. Can build dashboards and charts and use the SQL editor. Cannot manage alerts, backups, or users. |
-| **Readonly**    | View-only across overview, SQL editor, dashboards, logs, monitoring, and alerts. Cannot create, edit, or delete anything.                         |
+| Role | Capabilities |
+| --- | --- |
+| **Super Admin** | Full access. Can be seeded from `.env` for first-time setup or recovery, or created in the UI. Maximum of 3. |
+| **Admin** | Same access as super admin but UI-created only. Cannot change or delete super admins. |
+| **Editor** | All sections except user and cluster management. Can build dashboards and charts and use the SQL editor. Cannot manage alerts, backups, indexes, projections, or users. |
+| **Readonly** | View-only across overview, SQL editor, dashboards, logs, monitoring, and alerts. Cannot create, edit, or delete anything. |
 
 Role changes follow a strict hierarchy: super admins can change admins, editors, and readonly users; admins can change editors and readonly users; nobody can change a super admin's role.
 
@@ -495,7 +315,7 @@ Role changes follow a strict hierarchy: super admins can change admins, editors,
 
 ## Version Scheme
 
-Version strings follow the format `{clickhouseVersion}-{major}.{minor}.{patch}`, for example `26.3-1.4.0`.
+Version strings follow the format `{clickhouseVersion}-{major}.{minor}.{patch}`, for example `26.3-0.1.6`.
 
 The `clickhouseVersion` segment (such as `26.3`) is the ClickHouse® database release CHOps is tested against. CHOps may work with other versions, but this is the tested target. The `major.minor.patch` segment is the CHOps application version following standard semantic versioning.
 
@@ -627,7 +447,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 **Port already in use**: Set a different port in `.env` with `PORT=3001`.
 
-**Binary crashes on startup**: Ensure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, and `SESSION_SECRET` are set. The binary needs them just like the dev server does.
+**Binary crashes on startup**: Ensure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET` are set. The binary needs them just like the dev server does.
 
 ---
 
@@ -647,6 +467,12 @@ And if you have read this far and like what you see, **please consider starring 
 
 ---
 
+## Acknowledgements
+
+We used AI tools to scaffold the initial code, then our team designed, built, tested, and hardened the application from that foundation. CHOps is actively maintained and built for the long run. Found a bug or want a feature? Open an issue and we'll take a look; we're keen to make it work for your setup.
+
+---
+
 ## Trademarks
 
 ClickHouse® is a registered trademark of ClickHouse, Inc. All uses of the ClickHouse® mark in this document refer to the ClickHouse® database management system and are used solely for identification and descriptive purposes under nominative fair use. CHOps is an independent open-source project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with ClickHouse, Inc. Any other product names, logos, and brands referenced are the property of their respective owners and are used for identification purposes only.
@@ -661,7 +487,7 @@ licensed**, and Pro is commercial only.
 | Edition | License | What it includes |
 | --------------- | --------------------------- | ---------------- |
 | **Community (core)** | **AGPLv3 or Commercial** | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, and more. |
-| **Pro** | **Commercial only** | Advanced operational features layered on the core: extended alerting, audit logging, scheduled email reports, multi-cluster fleet management via sidecar agents, and priority support. |
+| **Pro** | **Commercial only** | Advanced operational features layered on the core: scheduled archival to S3-compatible storage, extended alerting, audit logging, scheduled email reports, multi-cluster fleet management via sidecar agents, and priority support. |
 
 **Community (core) is dual licensed.** By default it is offered under the GNU
 Affero General Public License, version 3.0 (AGPLv3); the copy in this repository
