@@ -12,7 +12,7 @@
     - [Merges & Mutations](guide/merges-mutations.md)
     - [Queues](guide/queues.md)
     - [DDL & Readonly](guide/ddl-readonly.md)
-  - Tools
+  - SQL Tools
     - [SQL Editor](guide/sql-editor.md)
     - [Query Comparison](guide/query-comparison.md)
     - [Query Profiler](guide/query-profiler.md)
@@ -20,7 +20,7 @@
     - [Query Metrics](guide/query-metrics.md)
     - [Schema Studio](guide/schema-studio.md)
     - [Qurioz AI](guide/qurioz.md)
-  - Dashboards
+  - Custom Dashboards
     - [Chart Builder](guide/dashboards.md#chart-builder)
     - [My Dashboards](guide/dashboards.md#dashboards)
     - [All Charts](guide/dashboards.md#all-charts)
@@ -33,25 +33,25 @@
     - [Error Log](guide/logs.md#error-log)
     - [Text Log](guide/logs.md#text-log)
     - [Session Log](guide/logs.md#session-log)
-  - Schema
+  - Schema Tools
     - [Schema Visualizer](guide/schema-visualizer.md)
     - [Data Skipping Indexes](guide/indexes.md#data-skipping-indexes)
     - [Projections](guide/indexes.md#projections)
     - [Index Management](guide/indexes.md#index-management)
-  - Alerts
+  - Custom Alerts
     - [Alert Rules](guide/alerting.md#alert-rules)
-    - [Channels](guide/alerting.md#alert-channels)
-  - RBAC
+  - DB RBAC
     - [View Grants](guide/rbac.md#view-grants)
     - [Users](guide/rbac.md#users)
     - [Roles](guide/rbac.md#roles)
     - [Settings Profiles](guide/rbac.md#settings-profiles)
   - Backups
     - [Data Lifecycle](guide/backups.md)
-  - Admin
+  - Control Panel
     - [User Management](guide/admin.md#user-management)
     - [Cluster Management](guide/admin.md#cluster-management)
     - [Storage Profiles](guide/admin.md#storage-profiles)
+    - [Notification Channels](guide/alerting.md#alert-channels)
     - [App Data Backup](guide/admin.md#app-data-backup)
     - [AI API Keys](guide/ai-api-keys.md)
 - Development
