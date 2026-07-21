@@ -30,9 +30,10 @@ export async function getActiveApiKey() {
   try {
     const response = await apiFetch('/api/qurioz/api-keys/active');
     if (response && response.apiKey) {
-      setGlobalConnection({ 
-        apiKey: response.apiKey.key, 
-        apiKeyName: response.apiKey.name 
+      // The backend no longer sends the decrypted key value to the client
+      // (it's only needed server-side); this just tracks which key is active.
+      setGlobalConnection({
+        apiKeyName: response.apiKey.name
       });
       return response.apiKey;
     }
@@ -113,7 +114,13 @@ export async function apiFetch(path, options = {}, type = false) {
     const d = await res.json().catch(() => ({}));
     throw new Error(d.error || "Rate limited. Wait and retry.");
   }
+  if (res?.status === 400) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error(d.error || "Rate limited. Wait and retry.");
+  }
+
   let data = null;
+  
   type
     ? (data = await res.blob().catch(() => ({ error: `HTTP ${res.status}` })))
     : (data = await res.json().catch(() => ({ error: `HTTP ${res.status}` })));

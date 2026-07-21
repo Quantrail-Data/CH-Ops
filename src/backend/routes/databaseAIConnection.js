@@ -8,13 +8,15 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-const {Router} = require("express");
-const DeleteDatabaseService = require("../servicesAI/DeleteDatabaseService");
-const DatabaseConnectionService = require("../servicesAI/DatabaseConnectionService");
-const SchemaIngestionService = require("../servicesAI/SchemaIngestionService");
-const { aiDatabaseDetails } = require("../db/schema");
-const { db } = require("../db/index");
-const { eq } = require("drizzle-orm");
+
+
+import { Router } from "express";
+import DeleteDatabaseService from "../servicesAI/DeleteDatabaseService";
+import DatabaseConnectionService from "../servicesAI/DatabaseConnectionService";
+import SchemaIngestionService from "../servicesAI/SchemaIngestionService";
+import { aiDatabaseDetails } from "../db/schema";
+import { db } from "../db/index";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -39,15 +41,19 @@ router.post("/connect", async (req, res, next) => {
     );
     const result = await connectionService.registerConnection();
     const databaseId = result.database_id;
-
+    
     const connection = db
       ?.select()
       ?.from(aiDatabaseDetails)
       ?.where(eq(aiDatabaseDetails?.database_id, databaseId))
       .get();
 
-    const ingestionService = new SchemaIngestionService(databaseId, connection);
-    const ingestionResult = await ingestionService.synchronizeSchema();
+
+      
+      const ingestionService = new SchemaIngestionService(databaseId, connection);
+      console.log("working 2")
+      const ingestionResult = await ingestionService.synchronizeSchema();
+      
 
     return res.status(200).json({
       success: true,
@@ -55,7 +61,7 @@ router.post("/connect", async (req, res, next) => {
       ingestion: ingestionResult,
     });
   } catch (error) {
-    console.log(error?.message);
+    console.error("AI database connection error:", error?.message);
     next(error);
   }
 });
@@ -76,4 +82,4 @@ router.delete("/delete", async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

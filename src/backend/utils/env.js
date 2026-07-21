@@ -3,9 +3,9 @@
 // Loads environment configs, requiring a super admin and SESSION_SECRET for seeding databases and auth fallbacks.
 
 export function loadEnv() {
-  if (!process.env.SUPER_ADMIN_1 || !process.env.SUPER_ADMIN_1_PASSWORD) {
+  if (!process.env.SUPER_ADMIN_1 || !process.env.SUPER_ADMIN_1_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
     // Backward compat: check legacy single-admin format
-    if (!process.env.SUPER_ADMIN || !process.env.SUPER_ADMIN_PASSWORD) {
+    if (!process.env.SUPER_ADMIN || !process.env.SUPER_ADMIN_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
       throw new Error('Missing required env: SUPER_ADMIN_1 and SUPER_ADMIN_1_PASSWORD');
     }
   }
@@ -16,11 +16,12 @@ export function loadEnv() {
   for (let i = 1; i <= 3; i++) {
     const u = process.env[`SUPER_ADMIN_${i}`];
     const p = process.env[`SUPER_ADMIN_${i}_PASSWORD`];
-    if (u && p) superAdmins.push({ username: u, password: p });
+    const em = process.env[`SUPER_ADMIN_${i}_EMAIL`];
+    if (u && p && em) superAdmins.push({ username: u, password: p,email:em });
   }
   // Legacy fallback for old .env files that use SUPER_ADMIN (no number)
-  if (superAdmins.length === 0 && process.env.SUPER_ADMIN && process.env.SUPER_ADMIN_PASSWORD) {
-    superAdmins.push({ username: process.env.SUPER_ADMIN, password: process.env.SUPER_ADMIN_PASSWORD });
+  if (superAdmins.length === 0 && process.env.SUPER_ADMIN && process.env.SUPER_ADMIN_PASSWORD && process.env.SUPER_ADMIN_EMAIL) {
+    superAdmins.push({ username: process.env.SUPER_ADMIN, password: process.env.SUPER_ADMIN_PASSWORD,email:process.env.SUPER_ADMIN_EMAIL });
   }
 
   return {
@@ -46,7 +47,5 @@ export function loadEnv() {
       version: process?.env?.VERSION,
       codename: process?.env?.CODENAME,
     },
-    QDRANTLINK:process?.env?.QDRANTLINK,
-    QDRANTSCHEMANAME:process?.env?.QDRANTSCHEMANAME,
   };
 }

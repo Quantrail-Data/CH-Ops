@@ -942,13 +942,11 @@ function InspectionPopup({
       ? "Failed Queries"
       : "Error / Critical / Fatal Logs";
 
-      console.log(rows)
-
   return (
     <div className="profiler-popup-overlay" onClick={onClose}>
       <div
         className="playback-inspection-popup"
-        style={{backgroundColor:"white"}}
+        style={{backgroundColor:"var(--bg-page)"}}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="profiler-popup-header">
@@ -1678,10 +1676,10 @@ export default function Playback() {
             <button
               className="btn btn-sm"
               style={{
-                background: "var(--color-danger, #ef4444)",
+                background: "#dc2626",
                 color: "#fff",
                 fontSize: "11px",
-                padding: "2px 8px",
+                padding: "5px 15px",
               }}
               onClick={handleShowFailedQueries}
               disabled={!currentT}
@@ -1699,7 +1697,7 @@ export default function Playback() {
                 background: "#dc2626",
                 color: "#fff",
                 fontSize: "11px",
-                padding: "2px 8px",
+                padding: "5px 15px",
               }}
               onClick={handleShowErrorLogs}
               disabled={!currentT}

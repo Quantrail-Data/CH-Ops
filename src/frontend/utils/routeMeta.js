@@ -81,7 +81,6 @@ export const BREADCRUMB_MAP = {
   "monitoring/playback": ["Monitoring", "Playback"],
   "monitoring/allocator": ["Monitoring", "Memory Allocator"],
   "alerting/rules": ["Alerting", "Alert Rules"],
-  "alerting/channels": ["Alerting", "Alert Channels"],
   "rbac/view": ["Access Control", "View Grants"],
   "rbac/view/users": ["Access Control", "View Grants", "Users"],
   "rbac/view/roles": ["Access Control", "View Grants", "Role Grante"],
@@ -113,4 +112,5 @@ export const BREADCRUMB_MAP = {
   "admin/cluster": ["Administration", "Cluster Management"],
   "admin/app-backup": ["Administration", "App Data Backup"],
   "admin/api-management": ["Administration", "API Management"],
+  "admin/channels": ["Administration", "Notification Channels"],
 };

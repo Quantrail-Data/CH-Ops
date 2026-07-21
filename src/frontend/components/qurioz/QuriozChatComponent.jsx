@@ -2,7 +2,6 @@
 // author -> Praveen kumar
 // Main container managing state, message history, and UI layouts for the AI chat interface.
 
-
 import { useState, useCallback, useEffect } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
@@ -16,6 +15,7 @@ import { apiFetch, runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useNavigate } from "react-router-dom";
+import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
 const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
@@ -53,6 +53,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     id: null,
     serviceName: null,
   });
+  const [apikeys, setApikeys] = useState([]);
 
   const { theme } = useTheme();
 
@@ -73,6 +74,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     const fetchAPIKEY_Details = async () => {
       try {
         const { apiKey } = await apiFetch(`/api/qurioz/api-keys/active`);
+        const apiData = await apiFetch(`/api/qurioz/api-keys`);
+        setApikeys(apiData?.apiKeys);
         setApiKey({
           status: apiKey?.id ? true : false,
           id: apiKey?.id || null,
@@ -325,9 +328,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 );
 
                 if (responseAIQuery?.success) {
-                  const responseSQL = responseAIQuery?.generated_sql?.includes(
-                    "--Unable to generate SQL",
-                  );
+                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
+                  //   "--Unable to generate SQL",
+                  // );
+                  const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
 
                   if (responseSQL) {
                     insertMessage({
@@ -442,9 +446,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 );
 
                 if (responseAIQuery?.success) {
-                  const responseSQL = responseAIQuery?.generated_sql?.includes(
-                    "--Unable to generate SQL",
-                  );
+                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
+                  //   "--Unable to generate SQL",
+                  // );
+
+                  const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
 
                   if (responseSQL) {
                     insertMessage({
@@ -560,7 +566,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
               message:
                 err?.message === "Failed to fetch"
                   ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
-                  : err?.message || "Request failed to load. Please check your internet connection and try again.",
+                  : err?.message ||
+                    "Request failed to load. Please check your internet connection and try again.",
             },
           });
         } finally {
@@ -625,9 +632,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       });
 
       if (responseAIQuery?.success) {
-        const responseSQL = responseAIQuery?.generated_sql?.includes(
-          "--Unable to generate SQL",
-        );
+        // const responseSQL = responseAIQuery?.generated_sql?.includes(
+        //   "--Unable to generate SQL",
+        // );
+
+        const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
 
         if (responseSQL) {
           UpdatedMessage = {
@@ -714,14 +723,15 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           message:
             err?.message === "Failed to fetch"
               ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
-              : err?.message || "Request failed to load. Please check your internet connection and try again.",
+              : err?.message ||
+                "Request failed to load. Please check your internet connection and try again.",
         },
       };
       replaceChat(error);
     }
   };
 
-  const DeleteDatabaseConnectionID = () => {
+  const DeleteDatabaseConnectionID = async () => {
     let findClusterNode = JSON.parse(localStorage?.getItem(SELECTLSKEY));
     if (
       findClusterNode &&
@@ -739,11 +749,41 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       setAIDatabase_id(null);
       setSelectDb(null);
 
-      localStorage.setItem(SELECTLSKEY, JSON.stringify(findClusterNode));
+      try {
+        await apiFetch(`/api/ai/database/delete`, {
+          method: "DELETE",
+          body: JSON.stringify({ database_id: aiDatabase_id }),
+        });
 
-      toast?.success(`Database connection removed successfully.`);
+        localStorage.setItem(SELECTLSKEY, JSON.stringify(findClusterNode));
+
+        toast?.success(`Database connection removed successfully.`);
+      } catch (err) {
+        toast?.error(err?.message);
+      }
     }
   };
+
+  async function SelectAIProvider(e) {
+    const llm_provider = e?.target?.value;
+    const { id } = apikeys?.find((val_) => val_?.name === llm_provider);
+
+    try {
+      const res = await apiFetch(`/api/qurioz/api-keys/select`, {
+        method: "POST",
+        body: JSON.stringify({ keyId: id }),
+      });
+      setApiKey({
+        status: true,
+        id: res?.id,
+        serviceName: res?.name,
+      });
+      toast?.success(`${res?.name} selected successfully.`);
+    } catch (err) {
+      setApiKey({ status: false, id: null, serviceName: null });
+      toast?.error(err?.message);
+    }
+  }
 
   return (
     <div className="chat-layout ">
@@ -754,8 +794,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           alignItems: "center",
           justifyContent: "space-between",
           flexDirection: "row",
-          // width: !sidebar ? "80%" : "90%",
-          // left: !sidebar ? "13%" : "5%",
+          zIndex: 10,
         }}
       >
         <div
@@ -764,7 +803,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             alignItems: "center",
             flexDirection: "row",
             gap: "10px",
-            left: !sidebar ? "15rem" : "0rem",
+            // left: !sidebar ? "15rem" : "0rem",
           }}
         >
           <button
@@ -827,34 +866,66 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           </div>
         </div>
 
-        <div
-          className={`api-details alert-banner ${apikey?.status ? "success" : "danger"} `}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            cursor: "pointer",
-            borderRadius: "5px",
-            gap: "10px",
-            padding: "5px 15px",
-          }}
-          title={
-            apikey?.status
-              ? `Active API key: ${apikey?.serviceName}`
-              : "No AI API key selected."
-          }
-          onClick={() => navigate("/admin/api-management")}
-        >
-          <Icon className="ti ti-key" style={{ fontSize: "13px" }}></Icon>
-          <div className="details">
-            <h6 style={{ fontSize: "10px" }}>
-              {apikey?.serviceName || "NO API key"}{" "}
-            </h6>
+        {apikeys?.length > 0 ? (
+          <div>
+            <Select
+              className="form-input"
+              value={apikey?.serviceName}
+              onChange={SelectAIProvider}
+              style={{
+                width: "150px",
+                padding: "5px",
+                paddingLeft: "10px",
+                fontSize: "10px",
+              }}
+            >
+              {apikeys?.map((u) => (
+                <option
+                  key={u?.id}
+                  value={u?.name}
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    fontSize: "12px",
+                  }}
+                >
+                  {u?.name}
+                </option>
+              ))}
+            </Select>
           </div>
-        </div>
+        ) : (
+          <div
+            className={`api-details alert-banner danger `}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              cursor: "pointer",
+              borderRadius: "5px",
+              gap: "10px",
+              padding: "5px 15px",
+            }}
+            title={
+              apikey?.status
+                ? `Active API key: ${apikey?.serviceName}`
+                : "No AI API key selected."
+            }
+            onClick={() => navigate("/admin/api-management")}
+          >
+            <Icon className="ti ti-key" style={{ fontSize: "13px" }}></Icon>
+            <div className="details">
+              <h6 style={{ fontSize: "10px" }}>{"NO API KEY"} </h6>
+            </div>
+          </div>
+        )}
       </div>
 
       {isNewChat() ? (
-        <IntroChatComponent inputSubmitHandler={userSubmitMessagehandler} isSendDisabled={isConnected} />
+        <IntroChatComponent
+          inputSubmitHandler={userSubmitMessagehandler}
+          isSendDisabled={isConnected}
+        />
       ) : (
         <>
           <div className="chat-area">
@@ -916,4 +987,3 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 // export default ChatLayoutComponent;
 
 export default QuriozChatComponent;
-

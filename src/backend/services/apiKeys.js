@@ -12,7 +12,7 @@ import { apiKeys } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { encrypt, decrypt } from './crypto.js';
 
-const MAX_API_KEYS = 3;
+const MAX_API_KEYS = 4;
 
 export function getAllApiKeys() {
   try {

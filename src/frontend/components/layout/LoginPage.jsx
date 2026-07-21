@@ -7,8 +7,6 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-
-
 import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme } from "../../App.jsx";
@@ -42,11 +40,12 @@ import img_18 from "../../assets/028.png";
 import img_19 from "../../assets/029.png";
 import img_20 from "../../assets/030.png";
 
-
-
-
 import chopsLightLogo from "../../assets/chops-light.svg";
 import chopsDarkLogo from "../../assets/chops-dark.svg";
+
+import OtpInput from "react-otp-input";
+import { apiFetch } from "../../utils/api.js";
+import { useToast } from "./Toast.jsx";
 
 const swiperDatas = [
   {
@@ -106,6 +105,364 @@ const swiperDatas = [
   },
 ];
 
+const OTP_Component = ({ setFormStatus }) => {
+  const [otp, setOpt] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(30);
+  const [status, setStatus] = useState(true);
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    const timers = setInterval(() => {
+      if (timer === 1) {
+        setTimer(0);
+        setStatus(false);
+        clearInterval(timers);
+        setFormStatus("forget-mail");
+        localStorage.removeItem("otp-mail");
+      } else {
+        status && setTimer((prev) => prev - 1);
+      }
+    }, 1000);
+
+    return () => clearInterval(timers);
+  }, [timer]);
+
+  const OPT_verifyHandle = async (e)=>{
+    e.preventDefault();
+    setLoading(true);
+    const email = localStorage?.getItem("otp-mail");
+    try {
+      const res = await apiFetch("/api/forget-password/otp/verify",{method:"POST",body:JSON.stringify({
+        otp,
+        email
+      })});
+      if (res?.success) {
+        setFormStatus("forget-change")
+      }
+    }
+    catch(err) {
+      setError("Unable to verify the OTP. It may be invalid, or a server error occurred. Please try again.")
+    }
+    finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0.2, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5, ease: "easeIn" }}
+      className="form-conatiner"
+    >
+      <div className="top-title-login">
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom: "30px",
+            lineHeight: "30px",
+            width: "300px",
+          }}
+          className="login-title"
+        >
+          <h4
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0px",
+            }}
+          >
+            {"Verify Your Account".toUpperCase()}
+          </h4>
+          <p>Enter the verification code sent to your email</p>
+        </div>
+      </div>
+
+      <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
+      {error && (
+        <div
+          className="alert-banner danger"
+          style={{ marginBottom: "16px", width: "20rem" }}
+        >
+          <Icon className="ti ti-alert-circle"></Icon> {error}
+        </div>
+      )}
+
+      <form className="login-form-con" onSubmit={OPT_verifyHandle}>
+        <div className="form-group" style={{ marginBottom: "14px" }}>
+          {/* <label className="form-label">Email-ID</label> */}
+          <OtpInput
+            value={otp}
+            onChange={setOpt}
+            numInputs={5}
+            inputType="tel"
+            renderSeparator={<span> </span>}
+            renderInput={(props) => (
+              <input
+                {...props}
+                style={{
+                  width: "50px",
+                  height: "50px",
+                  margin: "0px 5px",
+                  backgroundColor: "transparent",
+                  outline: "none",
+                  border: "1px solid gray",
+                  borderRadius: "10px",
+                  color: theme === "dark" ? "white" : "black",
+                  textAlign: "center",
+                }}
+              />
+            )}
+          />
+        </div>
+
+        <div className="form-login-btn">
+          <button
+            className="btn btn-primary"
+            type="submit"
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "45px",
+              fontSize: "15px",
+            }}
+          >
+            {loading ? (
+              <>
+                <span className="loading-spinner"></span> Sending...
+              </>
+            ) : (
+              <span
+                className=""
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: "10px",
+                }}
+              >
+                Send Verification Code
+              </span>
+            )}
+          </button>
+        </div>
+        
+        <div style={{ margin: "15px 0px", fontSize: "11px",fontWeight:"bold",textAlign:"center" }} className="alert-banner info">
+          Verification code is going to expire in 
+          <span style={{color:timer < 10 ? "#ff5454" : theme === "dark" ? "white" : "blue"}}> 00:{timer < 10 ? `0${timer}` : timer}</span>
+          
+        </div>
+        <div style={{height:"1px",width:"100%",backgroundColor:"lightgray",margin:"10px 0px"}}></div>
+        <div style={{textAlign:"center",color:"#ff5454",display:"flex",alignItems:"center",gap:"5px",marginTop:"10px"}} >
+          <Icon className="ti ti-info-circle" style={{color:"#ff5454",fontSize:"13px"}}  />
+          <p className="" style={{fontSize:"10px"}}>Do not refresh this page until OTP verification is complete.</p>
+        </div>
+      </form>
+    </motion.div>
+  );
+};
+
+const ChangePasswordComponent = ({setFormStatus})=>{
+  const [passwords,setPasswords] = useState({newPassword:null,confirmPassword:null});
+  const [showPassword,setShowPassword] = useState({showNewP:false,showCurrP:false});
+  const [error,setError] = useState(null);
+  const [loading,setLoading] = useState(false);
+
+
+  const handleSubmit = async(e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/forget-password/change/password",{method:"POST",body:JSON.stringify({password:passwords?.confirmPassword,email:localStorage?.getItem("otp-mail")})})
+      if (res?.success) {
+        localStorage.removeItem("otp-mail");
+        setFormStatus("login")
+      }
+    }
+    catch(err) {
+      setError(err);
+    } 
+    finally {
+      setLoading(false);
+    }
+  }
+
+
+  return (
+            <motion.div
+              initial={{ opacity: 0.2, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeIn" }}
+              className="form-conatiner"
+              style={{width:"20rem"}}
+            >
+              <div className="top-title-login">
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: "30px",
+                    lineHeight: "30px",
+                  }}
+                  className="login-title"
+                >
+                  <h4
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0px",
+                    }}
+                  >
+                    {"Login".toUpperCase()}
+                  </h4>
+                  <p>Enter your new password and confirm it.</p>
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
+              {error && (
+                <div
+                  className="alert-banner danger"
+                  style={{ marginBottom: "16px", width: "20rem" }}
+                >
+                  <Icon className="ti ti-alert-circle"></Icon> {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="login-form-con">
+                <div
+                  className="form-group "
+                  style={{ marginBottom: "20px", width: "100%" }}
+                >
+                  <label className="form-label">New Password</label>
+                  <div
+                    className=""
+                    style={{ width: "100%", position: "relative" }}
+                  >
+                    <input
+                      className="form-input"
+                      style={{
+                        width: "100%",
+                        paddingRight: "35px",
+                        height: "40px",
+                      }}
+                      type={showPassword?.showNewP ? "text" : "password"}
+                      value={passwords?.newPassword}
+                      onChange={(e) => setPasswords({...passwords,newPassword:e?.target?.value})}
+                      required
+                    />
+                    <div
+                      className="password-eye"
+                      style={{
+                        position: "absolute",
+                        right: "15px",
+                        top: "22%",
+                        cursor: "pointer",
+                      }}
+                      title={showPassword?.showNewP ? "hide" : "show"}
+                      onClick={() => setShowPassword({...showPassword,showNewP:!showPassword?.showNewP})}
+                    >
+                      {showPassword?.showNewP ? (
+                        <Icon className="ti ti-eye-off" />
+                      ) : (
+                        <Icon className="ti ti-eye" />
+                      )}
+                    </div>
+                   
+                  </div>
+                </div>
+                <div
+                  className="form-group "
+                  style={{ marginBottom: "20px", width: "100%" }}
+                >
+                  <label className="form-label">Confirm Password</label>
+                  <div
+                    className=""
+                    style={{ width: "100%", position: "relative", }}
+                  >
+                    <input
+                       className="form-input"
+                      style={{
+                        width: "100%",
+                        paddingRight: "35px",
+                        height: "40px",
+                        border:(passwords?.confirmPassword && (passwords?.confirmPassword !== passwords?.newPassword)) ? "1px solid #ff5454" : ""
+                      }}
+                      type={showPassword?.showCurrP ? "text" : "password"}
+                      value={passwords?.confirmPassword}
+                      onChange={(e) => setPasswords({...passwords,confirmPassword:e.target.value})}
+                      required
+                    />
+                    <div
+                      className="password-eye"
+                      style={{
+                        position: "absolute",
+                        right: "15px",
+                        top: "22%",
+                        cursor: "pointer",
+                      }}
+                      title={showPassword?.showCurrP ? "hide" : "show"}
+                      onClick={() => setShowPassword({...showPassword,showCurrP:!showPassword?.showCurrP})}
+                    >
+                      {showPassword?.showCurrP ? (
+                        <Icon className="ti ti-eye-off" />
+                      ) : (
+                        <Icon className="ti ti-eye" />
+                      )}
+                    </div>
+                    
+                  </div>
+                </div>
+
+                <div className="form-login-btn">
+                  <button
+                    className="btn btn-primary"
+                    type="submit"
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "45px",
+                      fontSize: "15px",
+                    }}
+                    disabled={(passwords?.confirmPassword && (passwords?.confirmPassword !== passwords?.newPassword))}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="loading-spinner"></span> Signing in...
+                      </>
+                    ) : (
+                      <span
+                        className=""
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexDirection: "row",
+                          gap: "10px",
+                        }}
+                      >
+                        Change Password
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+               
+              </form>
+            </motion.div>
+          )
+        }
+
+
 // animation: marquee-scroll 15s linear infinite;
 export default function LoginPage() {
   const { login } = useAuth();
@@ -116,6 +473,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
+
+  const Toast = useToast();
+
+  const [formStatus, setFormStatus] = useState("login");
+
+  const [verfiyEmail,setVerifyEmail] = useState("");
+
+  useEffect(() => {});
 
   // Close the enlarged-image preview on Escape while it is open.
   useEffect(() => {
@@ -182,6 +547,32 @@ export default function LoginPage() {
     }
     setLoading(false);
   }
+
+  async function handleEmailVerifiySubmit(e) {
+    e.preventDefault();
+    setError(null)
+    setLoading(true);
+    setPassword("");
+    setUsername("")
+    try {
+      const res = await apiFetch("/api/forget-password/email/verify",{method:"POST",body:JSON.stringify({email:verfiyEmail})})
+      if (res?.success) {
+        localStorage?.setItem("otp-mail",res?.email);
+        setFormStatus("forget-otp");
+        Toast?.success("OTP generated!")
+        
+      }
+    } 
+    catch(err) {
+      setError("Invalid user. No account is associated with this email address")
+    }
+
+    finally {
+      setLoading(false)
+    }
+  }
+
+
   return (
     <div
       style={{
@@ -192,22 +583,24 @@ export default function LoginPage() {
         background: "var(--bg-page)",
       }}
     >
-      {!lightboxSrc && <button
-        className="btn btn-ghost btn-sm"
-        onClick={toggleTheme}
-        style={{
-          position: "absolute",
-          top: "16px",
-          right: "16px",
-          zIndex: "9999",
-        }}
-        title={theme === "dark" ? "Light mode" : "Dark mode"}
-      >
-        <Icon
-          className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}
-          style={{ fontSize: "20px" }}
-        ></Icon>
-      </button>}
+      {!lightboxSrc && (
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={toggleTheme}
+          style={{
+            position: "absolute",
+            top: "16px",
+            right: "16px",
+            zIndex: "9999",
+          }}
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
+        >
+          <Icon
+            className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}
+            style={{ fontSize: "20px" }}
+          ></Icon>
+        </button>
+      )}
 
       <div className="main-login-container">
         <div
@@ -218,148 +611,154 @@ export default function LoginPage() {
             justifyContent: "start",
           }}
         >
-          <motion.div className="logo-img-container" initial={{ opacity: 0.2, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, ease: "easeIn" }}
-            style={{ marginTop: "10rem" }}>
-             
-            <img
-              style={{ width: "100%", maxWidth: "400px", height: "auto", pointerEvents: "none" }}
-              src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
-            />
-          </motion.div>
           <motion.div
+            className="logo-img-container"
             initial={{ opacity: 0.2, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, ease: "easeIn" }}
-            className="form-conatiner"
+            style={{ marginTop: "10rem" }}
           >
-            <div className="top-title-login">
-            
-              <div
-                style={{ textAlign: "center", marginBottom: "50px",lineHeight:"30px" }}
-                className="login-title"
-              >
-                <h4
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0px",
-                  }}
-                >
-                  {"Login".toUpperCase()}
-                </h4>
-                <p>Enter your username and password to continue</p>
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
-            {error && (
-              <div
-                className="alert-banner danger"
-                style={{ marginBottom: "16px", width: "20rem" }}
-              >
-                <Icon className="ti ti-alert-circle"></Icon> {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="login-form-con">
-              <div className="form-group" style={{ marginBottom: "14px" }}>
-                <label className="form-label">Username</label>
-                <input
-                  className="form-input"
-                  style={{ height: "40px" }}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-              <div
-                className="form-group "
-                style={{ marginBottom: "20px", width: "100%" }}
-              >
-                <label className="form-label">Password</label>
+            <img
+              style={{
+                width: "100%",
+                maxWidth: "350px",
+                height: "auto",
+                pointerEvents: "none",
+              }}
+              src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
+            />
+          </motion.div>
+          {formStatus === "login" && (
+            <motion.div
+              initial={{ opacity: 0.2, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeIn" }}
+              className="form-conatiner"
+            >
+              <div className="top-title-login">
                 <div
-                  className=""
-                  style={{ width: "100%", position: "relative" }}
+                  style={{
+                    textAlign: "center",
+                    marginBottom: "30px",
+                    lineHeight: "30px",
+                  }}
+                  className="login-title"
                 >
+                  <h4
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0px",
+                    }}
+                  >
+                    {"Login".toUpperCase()}
+                  </h4>
+                  <p>Enter your username and password to continue</p>
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
+              {error && (
+                <div
+                  className="alert-banner danger"
+                  style={{ marginBottom: "16px", width: "20rem" }}
+                >
+                  <Icon className="ti ti-alert-circle"></Icon> {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="login-form-con">
+                <div className="form-group" style={{ marginBottom: "14px" }}>
+                  <label className="form-label">Username</label>
                   <input
                     className="form-input"
-                    style={{
-                      width: "100%",
-                      paddingRight: "35px",
-                      height: "40px",
-                    }}
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    style={{ height: "40px" }}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     required
+                    autoFocus
                   />
+                </div>
+                <div
+                  className="form-group "
+                  style={{ marginBottom: "20px", width: "100%" }}
+                >
+                  <label className="form-label">Password</label>
                   <div
-                    className="password-eye"
-                    style={{
-                      position: "absolute",
-                      right: "15px",
-                      top: "22%",
-                      cursor: "pointer",
-                    }}
-                    title={showPassword ? "hide" : "show"}
-                    onClick={() => setShowPassword(!showPassword)}
+                    className=""
+                    style={{ width: "100%", position: "relative" }}
                   >
-                    {showPassword ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
+                    <input
+                      className="form-input"
+                      style={{
+                        width: "100%",
+                        paddingRight: "35px",
+                        height: "40px",
+                      }}
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <div
+                      className="password-eye"
+                      style={{
+                        position: "absolute",
+                        right: "15px",
+                        top: "13%",
+                        cursor: "pointer",
+                      }}
+                      title={showPassword ? "hide" : "show"}
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <Icon className="ti ti-eye-off" />
+                      ) : (
+                        <Icon className="ti ti-eye" />
+                      )}
+                    </div>
+                    <div className="forget-password-con">
+                      <p title="Forget password" onClick={()=>setFormStatus("forget-mail")}>Forget password ?</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* <div className="form-login-rem">
-                <div>
-                  <input type="checkbox" />
-                  <span>Remember me</span>
-                </div>
-                <div>
-                  <a href="">
-                    {" "}
-                    <p>Forgot password</p>
-                  </a>
-                </div>
-              </div> */}
 
-              <div className="form-login-btn">
-                <button
-                  className="btn btn-primary"
-                  type="submit"
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "45px",
-                    fontSize: "15px",
-                  }}
-                >
-                  {loading ? (
-                    <>
-                      <span className="loading-spinner"></span> Signing in...
-                    </>
-                  ) : (
-                    <span
-                      className=""
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexDirection: "row",
-                        gap: "10px",
-                      }}
-                    >
-                      <Icon className="ti ti-login" /> Login
-                    </span>
-                  )}
-                </button>
-              </div>
+                <div className="form-login-btn">
+                  <button
+                    className="btn btn-primary"
+                    type="submit"
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "45px",
+                      fontSize: "15px",
+                    }}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="loading-spinner"></span> Signing in...
+                      </>
+                    ) : (
+                      <span
+                        className=""
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexDirection: "row",
+                          gap: "10px",
+                        }}
+                      >
+                        <Icon className="ti ti-login" /> Login
+                      </span>
+                    )}
+                  </button>
+                </div>
 
-              {/* <>
+                {/* <>
             <button
               className="btn btn-secondary"
               
@@ -369,8 +768,105 @@ export default function LoginPage() {
             </button>
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>or sign in with username and password</div>
           </> */}
-            </form>
-          </motion.div>
+              </form>
+            </motion.div>
+          )}
+          {formStatus === "forget-mail" && (
+            <motion.div
+              initial={{ opacity: 0.2, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeIn" }}
+              className="form-conatiner"
+            >
+              <div className="top-title-login">
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: "30px",
+                    lineHeight: "30px",
+                    width: "300px",
+                  }}
+                  className="login-title"
+                >
+                  <h4
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0px",
+                    }}
+                  >
+                    {"Forget password".toUpperCase()}
+                  </h4>
+                  <p>Enter your email to reset your password.</p>
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
+              {error && (
+                <div
+                  className="alert-banner danger"
+                  style={{ marginBottom: "16px", width: "20rem" }}
+                >
+                  <Icon className="ti ti-alert-circle"></Icon> {error}
+                </div>
+              )}
+
+              <form onSubmit={handleEmailVerifiySubmit} className="login-form-con">
+                <div className="form-group" style={{ marginBottom: "14px" }}>
+                  <label className="form-label">Email-ID</label>
+                  <input
+                    className="form-input"
+                    style={{ height: "40px" }}
+                    value={verfiyEmail}
+                    onChange={(e) => setVerifyEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="form-login-btn">
+                  <button
+                    className="btn btn-primary"
+                    type="submit"
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "45px",
+                      fontSize: "15px",
+                    }}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="loading-spinner"></span> Sending...
+                      </>
+                    ) : (
+                      <span
+                        className=""
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexDirection: "row",
+                          gap: "10px",
+                        }}
+                      >
+                        Send Verification Code
+                      </span>
+                    )}
+                  </button>
+                </div>
+                <div style={{textAlign:"center",margin:"10px 0px"}}>
+                  <p style={{fontSize:"13px"}}>Have an account? <span style={{color:"blue",cursor:"pointer"}} onClick={()=>setFormStatus("login")}>Back to Login</span></p>
+                </div>
+              </form>
+            </motion.div>
+          )}
+          {formStatus === "forget-otp" && <OTP_Component setFormStatus={setFormStatus}/>}
+
+          {formStatus === "forget-change" && <ChangePasswordComponent setFormStatus={setFormStatus} />}
         </div>
         <div className="right-container-login">
           <div className="top-con">

@@ -19,9 +19,18 @@ import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import ErrorBoundary from "../layout/ErrorBoundary.jsx";
 import { useToast } from "../layout/Toast.jsx";
+import { useTheme, useAuth } from "../../App.jsx";
+
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 export default function ChartBuilder({ editChart, onEditDone }) {
   const toast = useToast();
+  const { theme } = useTheme();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const canBuild = myLevel >= ROLE_LEVEL.admin;
+
   const [sql, setSql] = useState("");
   const [data, setData] = useState(null);
   const [columns, setColumns] = useState([]);
@@ -42,6 +51,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const [bottomOpen, setBottomOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
   const previewRef = useRef(null);
   const previewInst = useRef(null);
   const previewTools = useChartTools(() => previewInst.current, {
@@ -52,6 +62,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     apiFetch("/api/dashboards")
       .then(setDashboards)
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Load edit chart
@@ -82,15 +99,28 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   );
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || chartType === "boxplot" || false;
+  
+  // Chart types that support legends
+  const legendSupportedTypes = [
+    'grouped_bar', 'stacked_bar', 
+    'multi_line', 'stacked_line',
+    'pie', 'donut', 'rose', 'nested_pie',
+    'bubble',
+    'multi_category',
+    'funnel',
+    'radar'
+  ];
+  
+  const shouldShowLegend = legendSupportedTypes.includes(chartSubtype) && needsLegend(chartType, chartSubtype);
 
   useEffect(() => {
     if (!editChart) {
       const d = getAxisDefaults(chartType, chartSubtype);
       setXLabel(d.xLabel);
       setYLabel(d.yLabel);
-      setShowLegend(needsLegend(chartType, chartSubtype));
+      setShowLegend(shouldShowLegend);
     }
-  }, [chartType, chartSubtype]);
+  }, [chartType, chartSubtype, shouldShowLegend]);
 
   async function runSql() {
     if (!sql.trim()) return;
@@ -142,7 +172,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         buildChartOption(chartType, chartSubtype, data, mapping, chartName, {
           xLabel,
           yLabel,
-          showLegend,
+          showLegend: shouldShowLegend ? showLegend : false,
         }),
       );
     } catch (err) {
@@ -157,6 +187,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     xLabel,
     yLabel,
     showLegend,
+    shouldShowLegend,
   ]);
 
   useEffect(() => {
@@ -177,21 +208,94 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       if (!previewInst.current)
         previewInst.current = initChart(previewRef.current);
 
+      const isDarkColor = theme === 'dark' ? 'white' : 'black';
+
+      const hasLegendCheck = chartOption.legend?.show || (Array.isArray(chartOption.series) && chartOption.series.some(s => Array.isArray(s?.data) && s?.data.length > 0));
+      
+      const legendVisible = shouldShowLegend && showLegend;
+
+      const resolvedLegend = previewTools.fullscreen
+        ? {
+            ...chartOption.legend,
+            show: hasLegendCheck && legendVisible,
+            type: 'scroll',
+            orient: 'vertical',
+            left: 0,
+            top: 8,
+            bottom: 8,
+            width: 220,
+            textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+          }
+        : isSmallScreen
+          ? {
+              ...chartOption.legend,
+              show: hasLegendCheck && legendVisible,
+              type: 'scroll',
+              orient: 'horizontal',
+              left: 0,
+              right: 0,
+              top: 0,
+              width: '100%',
+              pageIconColor: isDarkColor,
+              pageIconInactiveColor: 'var(--text-muted)',
+              pageTextStyle: { color: isDarkColor },
+              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+            }
+          : {
+              ...chartOption.legend,
+              show: hasLegendCheck && legendVisible,
+              type: 'scroll',
+              left: 0,
+              right: 0,
+              top: 0,
+              orient: "horizontal",
+              pageIconColor: isDarkColor,
+              pageIconInactiveColor: 'var(--text-muted)',
+              pageTextStyle: { color: isDarkColor },
+              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+            };
+
+      const gridTop = previewTools.fullscreen
+        ? 24
+        : isSmallScreen
+          ? (hasLegendCheck && legendVisible ? 72 : 16)
+          : hasLegendCheck && legendVisible
+            ? 56
+            : 16;
+
       const baseOption = withZoomable({
         ...chartOption,
         toolbox: { show: false },
+        legend: resolvedLegend,
       });
+
+      const yHasName = Array.isArray(baseOption.yAxis)
+        ? baseOption.yAxis.some((a) => !!a?.name)
+        : !!baseOption.yAxis?.name;
+
+      const extraLeftForYAxisName = yHasName ? 60 : 20;
+
+      const gridLeft = previewTools.fullscreen
+        ? (hasLegendCheck && legendVisible ? 240 : extraLeftForYAxisName)
+        : (hasLegendCheck && legendVisible ? 20 : extraLeftForYAxisName);
+
       const enhancedOption = {
         ...baseOption,
         grid: Array.isArray(baseOption.grid)
           ? baseOption.grid.map((g) => ({
               ...g,
               containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
               bottom: Math.max(parseInt(g?.bottom, 10) || 18, 70),
             }))
           : {
               ...baseOption.grid,
               containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
               bottom: Math.max(
                 parseInt(baseOption?.grid?.bottom, 10) || 18,
                 70,
@@ -206,6 +310,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 ...axis?.axisLabel,
                 margin: Math.max(axis?.axisLabel?.margin || 8, 14),
                 hideOverlap: false,
+                color: isDarkColor,
               },
             }))
           : baseOption.xAxis
@@ -220,9 +325,46 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     14,
                   ),
                   hideOverlap: false,
+                  color: isDarkColor,
                 },
+                nameTextStyle: {
+                  color: isDarkColor,
+                  fontSize: 10,
+                  fontWeight: 'bold'
+                }
               }
             : baseOption.xAxis,
+        yAxis: Array.isArray(baseOption.yAxis)
+          ? baseOption.yAxis.map((axis) => ({
+              ...axis,
+              axisLabel: {
+                ...axis?.axisLabel,
+                color: isDarkColor,
+              },
+              nameLocation: axis?.nameLocation || 'middle',
+              nameGap: Math.max(axis?.nameGap || 25, 42),
+              nameTextStyle: {
+                color: isDarkColor,
+                fontSize: 10,
+                fontWeight: 'bold'
+              }
+            }))
+          : baseOption.yAxis
+            ? {
+                ...baseOption.yAxis,
+                axisLabel: {
+                  ...baseOption?.yAxis?.axisLabel,
+                  color: isDarkColor,
+                },
+                nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
+                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, 42),
+                nameTextStyle: {
+                  color: isDarkColor,
+                  fontSize: 10,
+                  fontWeight: 'bold'
+                }
+              }
+            : baseOption.yAxis,
       };
 
       previewInst.current.setOption(enhancedOption, true);
@@ -230,11 +372,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     } catch (err) {
       setChartOption({ _error: true, message: err.message });
     }
-  }, [chartOption]);
+  }, [chartOption, previewTools.fullscreen, isSmallScreen, showLegend, theme, shouldShowLegend]);
 
   useEffect(() => {
     setTimeout(() => previewInst.current?.resize(), 150);
-  }, [fullscreen, bottomOpen, previewTools.fullscreen]);
+  }, [fullscreen, bottomOpen, previewTools.fullscreen, isSmallScreen]);
 
   useEffect(
     () => () => {
@@ -251,7 +393,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       return;
     }
     const dashId = parseInt(selDashboard, 10);
-    const config = { ...mapping, xLabel, yLabel, showLegend };
+    const config = { ...mapping, xLabel, yLabel, showLegend: shouldShowLegend ? showLegend : false };
     try {
       if (editId) {
         await apiFetch(`/api/dashboards/charts/${editId}`, {
@@ -267,7 +409,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         });
         toast.success("Chart updated.");
       } else {
-        // Auto-fill: find next available position
         const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
         const dash = dashboards.find((d) => d.id === dashId);
         const cols = dash?.columns || 2;
@@ -442,12 +583,32 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     saveFun: true,
     fullscreenFun: true,
   };
-    const chartControlsFlags = {
+  const chartControlsFlags = {
     zoomFun: true,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
   };
+
+  if (!canBuild) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-chart-dots-3"></Icon> Chart Builder
+          </h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Chart building is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>Chart building is only available for administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content" style={shellStyle}>
@@ -467,7 +628,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         </button>
       </div>
 
-      {/* TOP: SQL + Results */}
       <div className="card" 
       style={{ marginBottom: 12, overflow: "hidden" }}>
         <div
@@ -570,7 +730,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         )}
       </div>
 
-      {/* BOTTOM: Config + Preview */}
       <div
         className="card"
         style={
@@ -610,14 +769,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         </div>
         {bottomOpen && (
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}
+            style={{ display: "grid", gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr", gap: 0 }}
           >
             <div
               style={{
                 padding: 12,
-                borderRight: "1px solid var(--border-default)",
+                borderRight: isSmallScreen ? "none" : "1px solid var(--border-default)",
+                borderBottom: isSmallScreen ? "1px solid var(--border-default)" : "none",
                 overflow: "auto",
-                maxHeight: "60vh",
+                maxHeight: isSmallScreen ? "60vh" : "60vh",
               }}
             >
               <div
@@ -754,60 +914,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           </div>
                         ),
                     )}
-
-                    {/* {fields.map((f) => (
-                      <div key={f.key} className="form-group">
-                        <label
-                          className="form-label"
-                          style={{ fontSize: "12px" }}
-                        >
-                          {f.label}
-                          {f.required ? " *" : ""} ({f.expect})
-                        </label>
-                        <Select
-                          className="form-select"
-                          value={mapping[f.key] || ""}
-                          onChange={(e) =>
-                            setMapping((p) => ({
-                              ...p,
-                              [f.key]: e.target.value,
-                            }))
-                          }
-                          style={{
-                            fontSize: "13px",
-                            borderColor: validationErrors[f.key]
-                              ? "var(--color-danger)"
-                              : undefined,
-                          }}
-                        >
-                          
-
-                          <option value=" ">--</option>
-                          {columns
-                            .filter((c) => {
-                              if (f.expect === "numeric") {
-                                return isNumericColumn(c);
-                              }
-                              return true;
-                            })
-                            .map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                        </Select>
-                        {validationErrors[f.key] && (
-                          <span
-                            style={{
-                              color: "var(--color-danger)",
-                              fontSize: "12px",
-                            }}
-                          >
-                            {validationErrors[f.key]}
-                          </span>
-                        )}
-                      </div>
-                    ))} */}
                   </div>
                 </div>
               )}
@@ -844,23 +950,25 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   </div>
                 </div>
               )}
-              <label
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  marginBottom: 12,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={showLegend}
-                  onChange={(e) => setShowLegend(e.target.checked)}
-                  style={{ accentColor: "var(--accent)" }}
-                />{" "}
-                Show Legend
-              </label>
+              {shouldShowLegend && (
+                <label
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    marginBottom: 12,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showLegend}
+                    onChange={(e) => setShowLegend(e.target.checked)}
+                    style={{ accentColor: "var(--accent)" }}
+                  />{" "}
+                  Show Legend
+                </label>
+              )}
               {chartType === "gauge" && (
                 <div
                   style={{
@@ -899,7 +1007,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 </div>
               )}
             </div>
-            <div style={{ padding: 12, minHeight: "50vh", overflow: "auto" }}>
+            <div style={{ padding: 12, minHeight: isSmallScreen ? "60vh" : "50vh", overflow: "auto" }}>
               <ErrorBoundary
                 resetKeys={[chartOption]}
                 fallback={(err) => (
@@ -923,34 +1031,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                     Preview
                   </div>
-                  {/* {chartOption &&
-                  !chartOption._error &&
-                  !chartOption._kpi &&
-                  !chartOption._table && (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={zoomIn}
-                        title="Zoom In"
-                      >
-                        <Icon className="ti ti-zoom-in"></Icon>
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={zoomOut}
-                        title="Zoom Out"
-                      >
-                        <Icon className="ti ti-zoom-out"></Icon>
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={resetZoom}
-                        title="Reset View"
-                      >
-                        <Icon className="ti ti-refresh"></Icon>
-                      </button>
-                    </div>
-                  )} */}
                 </div>
                 {chartOption?._error && (
                   <div
@@ -1034,7 +1114,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         style={{
                           height: previewTools.fullscreen
                             ? "calc(100vh - 96px)"
-                            : 430,
+                            : isSmallScreen ? 350 : 430,
                           width: "100%",
                           overflow: "visible",
                           paddingBottom: 30,
@@ -1057,7 +1137,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         )}
       </div>
 
-      {/* Save */}
       {chartOption && !chartOption._error && (
         <div className="card" style={{ padding: 12 }}>
           <h3 style={{ fontSize: "14px", marginBottom: 10 }}>

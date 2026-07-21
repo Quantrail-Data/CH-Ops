@@ -11,31 +11,54 @@ import { runQuery } from '../../utils/api.js';
 import { SqlPreview } from '../layout/SharedComponents.jsx';
 import { useToast } from '../layout/Toast.jsx';
 import AlertBanner from "../layout/AlertBanner.jsx"
+import { useAuth } from "../../App.jsx";
+
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 export default function CreateIndex() {
   const { tab: routeTab = 'create' } = useParams();
   const navigate = useNavigate();
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
 
   const handleTabChange = (newTab) => {
-    navigate(`/indexes/create/${newTab}`, { replace: true });
+    if (newTab === 'create' || isAdmin) {
+      navigate(`/indexes/create/${newTab}`, { replace: true });
+    }
   };
 
   return (
     <div className="page-content">
       <div className="section-header"><h2 className="section-title"><Icon className="ti ti-settings-2"></Icon> Index Management</h2></div>
       <div className="tab-bar">
-        <div className={`tab-item ${routeTab === 'create' ? 'active' : ''}`} onClick={() => handleTabChange('create')}><Icon className="ti ti-plus"></Icon> Create</div>
-        <div className={`tab-item ${routeTab === 'materialize' ? 'active' : ''}`} onClick={() => handleTabChange('materialize')}><Icon className="ti ti-hammer"></Icon> Materialize</div>
-        <div className={`tab-item ${routeTab === 'drop' ? 'active' : ''}`} onClick={() => handleTabChange('drop')}><Icon className="ti ti-trash"></Icon> Drop</div>
+        <div className={`tab-item ${routeTab === 'create' ? 'active' : ''}`} onClick={() => handleTabChange('create')} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> Create</div>
+        <div className={`tab-item ${routeTab === 'materialize' ? 'active' : ''}`} onClick={() => handleTabChange('materialize')} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-hammer"></Icon> Materialize</div>
+        <div className={`tab-item ${routeTab === 'drop' ? 'active' : ''}`} onClick={() => handleTabChange('drop')} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon> Drop</div>
       </div>
-      {routeTab === 'create' && <CreateForm />}
-      {routeTab === 'materialize' && <MaterializeForm />}
-      {routeTab === 'drop' && <DropForm />}
+      {isAdmin ? (
+        <>
+          {routeTab === 'create' && <CreateForm />}
+          {routeTab === 'materialize' && <MaterializeForm />}
+          {routeTab === 'drop' && <DropForm />}
+        </>
+      ) : (
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>Index management is only available for administrators.</span>
+        </div>
+      )}
     </div>
   );
 }
 
 function CreateForm() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
+
   const [db, setDb] = useState('');
   const [tbl, setTbl] = useState('');
   const [col, setCol] = useState('');
@@ -44,7 +67,6 @@ function CreateForm() {
   const [granularity, setGranularity] = useState(1);
   const [setN, setSetN] = useState('');
   const [bfRate, setBfRate] = useState('');
-  // Text index params
   const [tokenizer, setTokenizer] = useState('splitByNonAlpha');
   const [splitByStringS, setSplitByStringS] = useState(',');
   const [ngramsN, setNgramsN] = useState(3);
@@ -110,39 +132,122 @@ function CreateForm() {
 
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      {/* {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></button></div>} */}
       <form onSubmit={submit} className="card" style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
-          <div className="form-group"><label className="form-label">Database *</label><Select className="form-select" value={db} onChange={e => { setDb(e.target.value); setTbl(''); setCol(''); }} required><option value="">--</option>{dbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}</Select></div>
-          <div className="form-group"><label className="form-label">Table *</label><Select className="form-select" value={tbl} onChange={e => { setTbl(e.target.value); setCol(''); }} required><option value="">--</option>{tblsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}</Select></div>
-          <div className="form-group"><label className="form-label">Column *</label><Select className="form-select" value={col} onChange={e => setCol(e.target.value)} required><option value="">--</option>{colsQ.data?.map(r => <option key={r.name} value={r.name}>{r.name} ({r.type})</option>)}</Select></div>
+          <div className="form-group">
+            <label className="form-label">Database *</label>
+            <Select 
+              className="form-select" 
+              value={db} 
+              onChange={e => { setDb(e.target.value); setTbl(''); setCol(''); }}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              required
+            >
+              <option value="">--</option>
+              {dbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}
+            </Select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Table *</label>
+            <Select 
+              className="form-select" 
+              value={tbl} 
+              onChange={e => { setTbl(e.target.value); setCol(''); }}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              required
+            >
+              <option value="">--</option>
+              {tblsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}
+            </Select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Column *</label>
+            <Select 
+              className="form-select" 
+              value={col} 
+              onChange={e => setCol(e.target.value)}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              required
+            >
+              <option value="">--</option>
+              {colsQ.data?.map(r => <option key={r.name} value={r.name}>{r.name} ({r.type})</option>)}
+            </Select>
+          </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
-          <div className="form-group"><label className="form-label">Index Name *</label><input className="form-input" required value={name} onChange={e => setName(e.target.value)} placeholder="idx_mycolumn" /></div>
-          <div className="form-group"><label className="form-label">Index Type</label><Select className="form-select" value={idxType} onChange={e => setIdxType(e.target.value)}><option value="minmax">minmax</option><option value="set">set</option><option value="bloom_filter">bloom_filter</option><option value="text">text</option></Select></div>
-          <div className="form-group"><label className="form-label">Granularity</label><input className="form-input" type="number" min={1} value={granularity} onChange={e => setGranularity(parseInt(e.target.value) || 1)} /></div>
+          <div className="form-group">
+            <label className="form-label">Index Name *</label>
+            <input 
+              className="form-input" 
+              required 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              placeholder="idx_mycolumn"
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Index Type</label>
+            <Select 
+              className="form-select" 
+              value={idxType} 
+              onChange={e => setIdxType(e.target.value)}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+            >
+              <option value="minmax">minmax</option>
+              <option value="set">set</option>
+              <option value="bloom_filter">bloom_filter</option>
+              <option value="text">text</option>
+            </Select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Granularity</label>
+            <input 
+              className="form-input" 
+              type="number" 
+              min={1} 
+              value={granularity} 
+              onChange={e => setGranularity(parseInt(e.target.value) || 1)}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+            />
+          </div>
         </div>
 
         {idxType === 'set' && <div className="form-group" style={{ marginBottom: 14, maxWidth: 220 }}>
           <label className="form-label">Set N (max distinct values)</label>
-          <input className="form-input" type="text" value={setN} onChange={e => {
-            const value = e.target.value;
-            if (!isNaN(Number(value))) {
-              if (Number(value) >= 0) {
-                setSetN(Number(value))
+          <input 
+            className="form-input" 
+            type="text" 
+            value={setN} 
+            onChange={e => {
+              const value = e.target.value;
+              if (!isNaN(Number(value))) {
+                if (Number(value) >= 0) {
+                  setSetN(Number(value))
+                } else {
+                  toast?.warning('Value should be greater than 0 !')
+                }
               } else {
-                toast?.warning('Value should be greater than 0 !')
+                toast?.warning('Only numberic value\'s!')
+                setSetN('')
               }
-            } else {
-              toast?.warning('Only numberic value\'s!')
-              setSetN('')
-            }
-          }} />
+            }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+          />
         </div>}
 
         {idxType === 'bloom_filter' && <div className="form-group" style={{ marginBottom: 14, maxWidth: 220 }}>
           <label className="form-label">False Positive Rate</label>
-          <input className="form-input" type="number"
+          <input 
+            className="form-input" 
+            type="number"
             value={bfRate}
             onChange={e => {
               const value = e.target.value;
@@ -157,7 +262,10 @@ function CreateForm() {
                 setBfRate('')
               }
 
-            }} />
+            }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+          />
         </div>
         }
 
@@ -165,32 +273,156 @@ function CreateForm() {
           <div className="card" style={{ padding: 16, marginBottom: 14, background: 'var(--bg-elevated)' }}>
             <h4 style={{ fontSize: '14px', marginBottom: 12 }}><Icon className="ti ti-text-recognition"></Icon> Text Index Parameters</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-              <div className="form-group"><label className="form-label">Tokenizer *</label><Select className="form-select" value={tokenizer} onChange={e => setTokenizer(e.target.value)}>
-                <option value="splitByNonAlpha">splitByNonAlpha</option>
-                <option value="splitByString">splitByString(S)</option>
-                <option value="asciiCJK">asciiCJK</option>
-                <option value="ngrams">ngrams(N)</option>
-                <option value="sparseGrams">sparseGrams(min, max, cutoff)</option>
-                <option value="array">array</option>
-              </Select></div>
-              {tokenizer === 'splitByString' && <div className="form-group"><label className="form-label">Separator</label><input className="form-input" value={splitByStringS} onChange={e => setSplitByStringS(e.target.value)} /></div>}
-              {tokenizer === 'ngrams' && <div className="form-group"><label className="form-label">N</label><input className="form-input" type="number" min={1} value={ngramsN} onChange={e => setNgramsN(parseInt(e.target.value) || 3)} /></div>}
+              <div className="form-group">
+                <label className="form-label">Tokenizer *</label>
+                <Select 
+                  className="form-select" 
+                  value={tokenizer} 
+                  onChange={e => setTokenizer(e.target.value)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                >
+                  <option value="splitByNonAlpha">splitByNonAlpha</option>
+                  <option value="splitByString">splitByString(S)</option>
+                  <option value="asciiCJK">asciiCJK</option>
+                  <option value="ngrams">ngrams(N)</option>
+                  <option value="sparseGrams">sparseGrams(min, max, cutoff)</option>
+                  <option value="array">array</option>
+                </Select>
+              </div>
+              {tokenizer === 'splitByString' && <div className="form-group">
+                <label className="form-label">Separator</label>
+                <input 
+                  className="form-input" 
+                  value={splitByStringS} 
+                  onChange={e => setSplitByStringS(e.target.value)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                />
+              </div>}
+              {tokenizer === 'ngrams' && <div className="form-group">
+                <label className="form-label">N</label>
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  min={1} 
+                  value={ngramsN} 
+                  onChange={e => setNgramsN(parseInt(e.target.value) || 3)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                />
+              </div>}
               {tokenizer === 'sparseGrams' && <>
-                <div className="form-group"><label className="form-label">Min Length</label><input className="form-input" type="number" min={1} value={sparseMin} onChange={e => setSparseMin(parseInt(e.target.value) || 3)} /></div>
-                <div className="form-group"><label className="form-label">Max Length</label><input className="form-input" type="number" min={1} value={sparseMax} onChange={e => setSparseMax(parseInt(e.target.value) || 8)} /></div>
-                <div className="form-group"><label className="form-label">Min Cutoff</label><input className="form-input" type="number" min={1} value={sparseCutoff} onChange={e => setSparseCutoff(parseInt(e.target.value) || 2)} /></div>
+                <div className="form-group">
+                  <label className="form-label">Min Length</label>
+                  <input 
+                    className="form-input" 
+                    type="number" 
+                    min={1} 
+                    value={sparseMin} 
+                    onChange={e => setSparseMin(parseInt(e.target.value) || 3)}
+                    disabled={!isAdmin}
+                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Max Length</label>
+                  <input 
+                    className="form-input" 
+                    type="number" 
+                    min={1} 
+                    value={sparseMax} 
+                    onChange={e => setSparseMax(parseInt(e.target.value) || 8)}
+                    disabled={!isAdmin}
+                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Min Cutoff</label>
+                  <input 
+                    className="form-input" 
+                    type="number" 
+                    min={1} 
+                    value={sparseCutoff} 
+                    onChange={e => setSparseCutoff(parseInt(e.target.value) || 2)}
+                    disabled={!isAdmin}
+                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                  />
+                </div>
               </>}
-              <div className="form-group"><label className="form-label">Preprocessor (optional)</label><input className="form-input" value={preprocessor} onChange={e => setPreprocessor(e.target.value)} placeholder="expression(str)" /></div>
-              <div className="form-group"><label className="form-label">Dict Block Size</label><input className="form-input" type="number" value={dictBlockSize} onChange={e => setDictBlockSize(e.target.value)} /></div>
-              <div className="form-group"><label className="form-label">Dict Frontcoding</label><input className="form-input" type="number" value={dictFrontcoding} onChange={e => setDictFrontcoding(e.target.value)} /></div>
-              <div className="form-group"><label className="form-label">Posting Block Size</label><input className="form-input" type="number" value={postingBlockSize} onChange={e => setPostingBlockSize(e.target.value)} /></div>
-              <div className="form-group"><label className="form-label">Posting Codec</label><Select className="form-select" value={postingCodec} onChange={e => setPostingCodec(e.target.value)}><option value="">default</option><option value="none">none</option><option value="bitpacking">bitpacking</option></Select></div>
+              <div className="form-group">
+                <label className="form-label">Preprocessor (optional)</label>
+                <input 
+                  className="form-input" 
+                  value={preprocessor} 
+                  onChange={e => setPreprocessor(e.target.value)} 
+                  placeholder="expression(str)"
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Dict Block Size</label>
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  value={dictBlockSize} 
+                  onChange={e => setDictBlockSize(e.target.value)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Dict Frontcoding</label>
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  value={dictFrontcoding} 
+                  onChange={e => setDictFrontcoding(e.target.value)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Posting Block Size</label>
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  value={postingBlockSize} 
+                  onChange={e => setPostingBlockSize(e.target.value)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Posting Codec</label>
+                <Select 
+                  className="form-select" 
+                  value={postingCodec} 
+                  onChange={e => setPostingCodec(e.target.value)}
+                  disabled={!isAdmin}
+                  style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                >
+                  <option value="">default</option>
+                  <option value="none">none</option>
+                  <option value="bitpacking">bitpacking</option>
+                </Select>
+              </div>
             </div>
           </div>
         )}
 
         <SqlPreview sql={buildSql()} />
-        <div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit"><Icon className="ti ti-plus"></Icon> Create Index</button></div>
+        <div style={{ marginTop: 16 }}>
+          <button 
+            className="btn btn-primary" 
+            type="submit"
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+          >
+            <Icon className="ti ti-plus"></Icon> Create Index
+          </button>
+        </div>
       </form>
     </div>
 
@@ -199,6 +431,11 @@ function CreateForm() {
 }
 
 function MaterializeForm() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
+
   const [db, setDb] = useState('');
   const [tbl, setTbl] = useState('');
   const [idxName, setIdxName] = useState('');
@@ -231,26 +468,77 @@ function MaterializeForm() {
   return (
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      {/* {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></button></div>} */}
       <form onSubmit={submit} className="card" style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
-          <div className="form-group"><label className="form-label">Database *</label><Select className="form-select" value={db} onChange={e => { setDb(e.target.value); setTbl(''); setIdxName(''); }} required><option value="">--</option>{dbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}</Select></div>
-          <div className="form-group"><label className="form-label">Table *</label><Select className="form-select" value={tbl} onChange={e => { setTbl(e.target.value); setIdxName(''); }} required><option value="">--</option>{tblsQ.data?.map(r => <option key={r.table}>{r.table}</option>)}</Select></div>
-          <div className="form-group"><label className="form-label">Index *</label><Select className="form-select" value={idxName} onChange={e => setIdxName(e.target.value)} required><option value="">--</option>{idxQ.data?.map(r => <option key={r.name}>{r.name}</option>)}</Select></div>
+          <div className="form-group">
+            <label className="form-label">Database *</label>
+            <Select 
+              className="form-select" 
+              value={db} 
+              onChange={e => { setDb(e.target.value); setTbl(''); setIdxName(''); }}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              required
+            >
+              <option value="">--</option>
+              {dbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}
+            </Select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Table *</label>
+            <Select 
+              className="form-select" 
+              value={tbl} 
+              onChange={e => { setTbl(e.target.value); setIdxName(''); }}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              required
+            >
+              <option value="">--</option>
+              {tblsQ.data?.map(r => <option key={r.table}>{r.table}</option>)}
+            </Select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Index *</label>
+            <Select 
+              className="form-select" 
+              value={idxName} 
+              onChange={e => setIdxName(e.target.value)}
+              disabled={!isAdmin}
+              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              required
+            >
+              <option value="">--</option>
+              {idxQ.data?.map(r => <option key={r.name}>{r.name}</option>)}
+            </Select>
+          </div>
         </div>
         <SqlPreview sql={sql} />
-        <div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!sql}><Icon className="ti ti-hammer"></Icon> Materialize Index</button></div>
+        <div style={{ marginTop: 16 }}>
+          <button 
+            className="btn btn-primary" 
+            type="submit" 
+            disabled={!sql || !isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+          >
+            <Icon className="ti ti-hammer"></Icon> Materialize Index
+          </button>
+        </div>
       </form>
     </div>
   );
 }
 
 function DropForm() {
+  const { auth } = useAuth();
+  const myRole = auth?.role || 'readonly';
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
+
   const toast = useToast();
   const [dropDb, setDropDb] = useState('');
   const [dropTbl, setDropTbl] = useState('');
   const [dropIdx, setDropIdx] = useState('');
-  // const [dropOnCluster, setDropOnCluster] = useState('');
   const dropDbsQ = useQuery(), dropTblsQ = useQuery(), dropIdxsQ = useQuery(), clustersQ = useQuery();
 
   useEffect(() => {
@@ -263,7 +551,6 @@ function DropForm() {
   function buildDropSql() {
     if (!dropDb || !dropTbl || !dropIdx) return '-- Select database, table, and index';
     let sql = `ALTER TABLE ${dropDb}.${dropTbl}`;
-    // if (dropOnCluster) sql += ` ON CLUSTER '${dropOnCluster}'`;
     sql += ` DROP INDEX ${dropIdx}`;
     return sql;
   }
@@ -281,22 +568,62 @@ function DropForm() {
       setDropIdx('');
       setDropDb("");
       setDropTbl("");
-      // setDropOnCluster("");
     }
   }
 
   return (
     <div className="card" style={{ padding: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 16 }}>
-        <div className="form-group"><label className="form-label">Database *</label><Select className="form-select" value={dropDb} onChange={e => { setDropDb(e.target.value); setDropTbl(''); setDropIdx(''); }}><option value="">-- select --</option>{dropDbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}</Select></div>
-        <div className="form-group"><label className="form-label">Table *</label><Select className="form-select" value={dropTbl} onChange={e => { setDropTbl(e.target.value); setDropIdx(''); }}><option value="">-- select --</option>{dropTblsQ.data?.map(r => <option key={r.table}>{r.table}</option>)}</Select></div>
         <div className="form-group">
-          <label className="form-label">Index *</label><Select className="form-select" value={dropIdx} onChange={e => setDropIdx(e.target.value)}><option value="">-- select --</option>{dropIdxsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}</Select></div>
-        {/* <div className="form-group"><label className="form-label">ON CLUSTER</label><Select className="form-select" value={dropOnCluster} onChange={e => setDropOnCluster(e.target.value)}><option value="">--</option>{clustersQ.data?.map(r => <option key={r.cluster}>{r.cluster}</option>)}</Select></div> */}
+          <label className="form-label">Database *</label>
+          <Select 
+            className="form-select" 
+            value={dropDb} 
+            onChange={e => { setDropDb(e.target.value); setDropTbl(''); setDropIdx(''); }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+          >
+            <option value="">-- select --</option>
+            {dropDbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}
+          </Select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Table *</label>
+          <Select 
+            className="form-select" 
+            value={dropTbl} 
+            onChange={e => { setDropTbl(e.target.value); setDropIdx(''); }}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+          >
+            <option value="">-- select --</option>
+            {dropTblsQ.data?.map(r => <option key={r.table}>{r.table}</option>)}
+          </Select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Index *</label>
+          <Select 
+            className="form-select" 
+            value={dropIdx} 
+            onChange={e => setDropIdx(e.target.value)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+          >
+            <option value="">-- select --</option>
+            {dropIdxsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}
+          </Select>
+        </div>
       </div>
       <SqlPreview sql={buildDropSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-danger" onClick={executeDrop} disabled={!dropDb || !dropTbl || !dropIdx}><Icon className="ti ti-trash"></Icon> Drop Index</button>
+        <button 
+          className="btn btn-danger" 
+          onClick={executeDrop} 
+          disabled={!dropDb || !dropTbl || !dropIdx || !isAdmin}
+          style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+        >
+          <Icon className="ti ti-trash"></Icon> Drop Index
+        </button>
       </div>
     </div>
   );

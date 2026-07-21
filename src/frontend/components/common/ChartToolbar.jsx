@@ -86,12 +86,15 @@ export default function ChartToolbar({
   onZoomReset,
   onSave,
   onToggleFullscreen,
+  onToggleLegend,
+  legendVisible = false,
   style,
   isWantFeature = {
     zoomFun: true,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
+    legendFun: true,
   },
 }) {
   return (
@@ -103,6 +106,8 @@ export default function ChartToolbar({
         alignItems: "center",
         gap: 4,
         flexShrink: 0,
+        whiteSpace: 'nowrap',
+        overflow: 'visible',
         ...style,
       }}
     >
