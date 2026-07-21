@@ -367,6 +367,88 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             : baseOption.yAxis,
       };
 
+      const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
+      if (Array.isArray(baseOption.series) && (baseOption.series.some(s => s.type === 'pie') || pieSubtypes.includes(chartSubtype))) {
+        enhancedOption.series = baseOption.series.map((s) => {
+          if (s.type !== 'pie') return s;
+          const baseRadius = s.radius || ['40%', '64%'];
+          const finalRadius = previewTools.fullscreen
+            ? baseRadius
+            : isSmallScreen
+              ? ['30%', '56%']
+              : ['28%', '54%'];
+          const finalCenter = previewTools.fullscreen
+            ? (s.center || ['50%', '50%'])
+            : isSmallScreen
+              ? (s.center || ['50%', '55%'])
+              : (s.center || ['50%', '57%']);
+          return {
+            ...s,
+            avoidLabelOverlap: true,
+            label: {
+              ...(s.label || {}),
+              formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
+              color: isDarkColor,
+              fontSize: 11,
+              overflow: 'truncate',
+            },
+            labelLine: {
+              ...(s.labelLine || {}),
+              length: 8,
+              length2: 8,
+              smooth: false,
+            },
+            radius: finalRadius,
+            center: finalCenter,
+          };
+        });
+
+        enhancedOption.legend = {
+          ...(enhancedOption.legend || {}),
+          textStyle: { ...(enhancedOption.legend?.textStyle || {}), fontSize: isSmallScreen ? 10 : 12, color: isDarkColor },
+          itemGap: 12,
+          pageIconColor: isDarkColor,
+        };
+
+        enhancedOption.grid = Array.isArray(enhancedOption.grid)
+          ? enhancedOption.grid.map((g) => ({ ...g, top: previewTools.fullscreen ? g.top : (isSmallScreen ? 72 : 80) }))
+          : { ...(enhancedOption.grid || {}), top: previewTools.fullscreen ? (enhancedOption.grid?.top || gridTop) : (isSmallScreen ? 72 : 80) };
+      }
+
+      if (theme === 'dark') {
+        const shadowlessSeriesTypes = ['sankey', 'sunburst', 'graph', 'tree'];
+        if (Array.isArray(enhancedOption.series)) {
+          const borderColor = 'rgba(0,0,0,0.65)';
+          enhancedOption.series = enhancedOption.series.map((s) => {
+            if (!s || !s.type) return s;
+            if (!shadowlessSeriesTypes.includes(s.type)) return s;
+            const enhanceLabelStyling = (lbl) => {
+              const baseTextStyle = {
+                ...(lbl?.textStyle || {}),
+                color: isDarkColor,
+                textBorderColor: borderColor,
+                textBorderWidth: 2,
+                textShadowColor: 'transparent',
+                textShadowBlur: 0,
+              };
+              if (!lbl) return { textStyle: baseTextStyle };
+              return { ...lbl, textStyle: baseTextStyle };
+            };
+            return {
+              ...s,
+              label: enhanceLabelStyling(s.label),
+              emphasis: s.emphasis ? { ...s.emphasis, label: enhanceLabelStyling(s.emphasis.label) } : s.emphasis,
+              lineStyle: s.lineStyle ? { ...(s.lineStyle || {}), textStyle: { ...(s.lineStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.lineStyle,
+              itemStyle: s.itemStyle ? { ...(s.itemStyle || {}), textStyle: { ...(s.itemStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.itemStyle,
+            };
+          });
+          enhancedOption.legend = {
+            ...(enhancedOption.legend || {}),
+            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 }
+          };
+        }
+      }
+
       previewInst.current.setOption(enhancedOption, true);
       setTimeout(() => previewInst.current?.resize(), 50);
     } catch (err) {
