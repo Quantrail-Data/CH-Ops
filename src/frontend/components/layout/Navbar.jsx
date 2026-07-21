@@ -1,15 +1,19 @@
 // Navbar - Top navigation bar with cluster switching and user controls
 //
 // The main navigation header that sits at the top of every page. It shows
-// the CHOps branding, cluster/node selection dropdowns, connection status
+// the CHOps branding, cluster/node selection dropdowns, and a combined
+// connection-status + live server clock: a green, ticking clock showing the
+// selected node's server time when connected, and a red, frozen clock-off
+// icon (no time) when disconnected.
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
+import { runQuery } from "../../utils/api.js";
 
 import chopsLightLogo from "../../assets/chops-light.svg";
 import chopsDarkLogo from "../../assets/chops-dark.svg";
@@ -56,6 +60,15 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const sliderRef = useRef(null);
 
+  // Server clock: the selected node's timezone plus a one-time skew correction
+  // between the server clock and this browser, so the displayed time is the
+  // real time on the ClickHouse® server regardless of the browser's timezone
+  // or a drifting local clock. Fetched once per connect / node switch, then
+  // it free-runs locally (never hits the server per second).
+  const [serverTz, setServerTz] = useState(null);
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  const [clockTick, setClockTick] = useState(Date.now());
+
   function applyFontScale(val) {
     const v = Math.min(200, Math.max(75, Math.round(val / 5) * 5));
     setFontScale(v);
@@ -74,6 +87,75 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, [userMenuOpen]);
+
+  // Fetch the server timezone and the server's current instant whenever the
+  // connected node (or cluster) changes. serverTimeZone() gives the IANA zone
+  // for the label; toUnixTimestamp(now()) lets us correct for clock skew.
+  // Falls back to timezone() for older ClickHouse® servers.
+  useEffect(() => {
+    if (!connected) {
+      setServerTz(null);
+      return;
+    }
+    let cancelled = false;
+
+    async function loadServerClock() {
+      try {
+        let res;
+        try {
+          res = await runQuery(
+            "SELECT serverTimeZone() AS tz, toUnixTimestamp(now()) AS epoch",
+            { readOnly: true },
+          );
+        } catch {
+          // Older servers may not have serverTimeZone(); timezone() is the alias.
+          res = await runQuery(
+            "SELECT timezone() AS tz, toUnixTimestamp(now()) AS epoch",
+            { readOnly: true },
+          );
+        }
+        const row = res?.rows?.[0] || {};
+        if (cancelled) return;
+        const tz = row.tz || "UTC";
+        const epochMs = Number(row.epoch) * 1000;
+        setServerTz(tz);
+        setServerOffsetMs(Number.isFinite(epochMs) ? epochMs - Date.now() : 0);
+      } catch {
+        if (!cancelled) setServerTz(null);
+      }
+    }
+
+    loadServerClock();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, selectedNode, selectedClusterId]);
+
+  // Tick once a second, but only while connected and with a known timezone, so
+  // the red (disconnected) clock never ticks.
+  useEffect(() => {
+    if (!connected || !serverTz) return;
+    const id = setInterval(() => setClockTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [connected, serverTz]);
+
+  // The formatted server time. Intl renders the current instant in the server
+  // timezone; try/catch guards against an unexpected zone string crashing the
+  // navbar.
+  const serverClock = useMemo(() => {
+    if (!connected || !serverTz) return null;
+    try {
+      return new Intl.DateTimeFormat("en-GB", {
+        timeZone: serverTz,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).format(new Date(clockTick + serverOffsetMs));
+    } catch {
+      return null;
+    }
+  }, [connected, serverTz, serverOffsetMs, clockTick]);
 
   // Mouse wheel on font slider
   function handleSliderWheel(e) {
@@ -161,7 +243,6 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
         target="_blank"
         rel="noopener noreferrer"
         className="navbar-brand"
-        title={`CHOps v${typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}`}
         style={{ flex: "0 0 auto", minWidth: 0, textDecoration: "none" }}
       >
         {/* <Icon className="ti ti-database"></Icon>
@@ -226,10 +307,46 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
             {!nodes.length && <option value="">No nodes</option>}
           </Select>
         </div>
+
+        {/* Connection status + live server clock, combined.
+            Connected    -> green ticking clock + server time.
+            Disconnected -> red, frozen clock-off icon, no time shown. */}
         <div
-          className={`conn-indicator ${connected ? "connected" : "disconnected"}`}
-          title={connected ? "Connected" : error || "Disconnected"}
-        ></div>
+          className="conn-group"
+          title={
+            connected
+              ? `Connected. Server time${serverTz ? ` in ${serverTz}` : ""}. Use this when setting time-range filters.`
+              : error || "Disconnected"
+          }
+        >
+          <span
+            className="conn-label"
+            style={{
+              color: connected
+                ? "var(--color-success)"
+                : "var(--color-danger)",
+              display: "inline-flex",
+            }}
+          >
+            <Icon
+              className={`ti ti-${connected ? "clock" : "clock-off"}`}
+            ></Icon>
+          </span>
+          {serverClock && (
+            <span
+              style={{
+                fontVariantNumeric: "tabular-nums",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "var(--text-primary)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {serverClock}{" "}
+              <span style={{ opacity: 0.6, fontWeight: 400 }}>{serverTz}</span>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Right: Actions + User dropdown */}
