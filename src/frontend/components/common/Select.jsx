@@ -121,7 +121,7 @@ export default function Select({
       <button
         type="button"
         tabIndex={-1}
-        aria-hidden="true"
+        // aria-hidden="true"
         className="cui-select-control"
         disabled={disabled}
         onClick={() => (open ? close() : openMenu())}
@@ -139,7 +139,7 @@ export default function Select({
         onRequestClose={close}
         listRef={menuRef}
         role="listbox"
-        aria-hidden="true"
+        // aria-hidden="true"
       >
         {options.length === 0 && <li className="cui-select-empty">No options</li>}
         {options.map((o, i) => (

@@ -186,8 +186,14 @@ export function listChannels(req, res) {
     .from(alertChannels)
     .orderBy(alertChannels.name)
     .all();
+
+  // config holds webhook URLs / SMTP credentials. Non-admins only need
+  // id/name/type to assign a channel to a rule, not the secret payload.
+  const role = req.user?.role;
+  const isAdmin = role === "superadmin" || role === "admin";
   res.json(
     channels.map((ch) => {
+      if (!isAdmin) return { id: ch.id, name: ch.name, type: ch.type };
       try {
         ch.config = JSON.parse(ch.config);
       } catch {

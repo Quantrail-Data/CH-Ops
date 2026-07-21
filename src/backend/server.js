@@ -9,6 +9,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+// const {RD_ShcemaData} = require("./servicesAI/rdService.js");
 // const appVersion = require('../../version.json');
 
 // Embedded static assets (generated at build time for binary mode)
@@ -18,6 +19,14 @@ try {
   const mod = await import('./embeddedAssets.js');
   embeddedAssets = mod.default;
 } catch {}
+
+// let RD_SERVICE = null;
+// try {
+//   RD_SERVICE = new RD_ShcemaData();
+// }
+// catch(err) {
+//   console.error(err?.message)
+// }
 
 import { log } from './services/logger.js';
 
@@ -43,6 +52,8 @@ import clusterRoute from './routes/cluster.js';
 import appBackupRoute from './routes/appBackup.js';
 import apiKeysRoute from './routes/apiKeys.js';
 import DownloadRouter from "./routes/downloadFile.js";
+import ForgetRouter from "./routes/forgetPassword.js";
+
 
 import databaseAIConnection from "./routes/databaseAIConnection.js";
 import sqlAIChat from "./routes/sqlAIChat.js";
@@ -76,6 +87,15 @@ setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
 
 const appVersion = loadEnv()?.version;
 
+// Baked in at build/dev-start time (scripts/generate-version.mjs), since a
+// compiled binary has no VERSION env var or git checkout to compute this from
+// on the end user's machine. Falls back to whatever env.js found (usually
+// blank) if the generated file is somehow missing.
+try {
+  const { APP_VERSION } = await import('./version.generated.js');
+  if (APP_VERSION) appVersion.version = APP_VERSION;
+} catch {}
+
 // Database migration (core)
 await import('./db/migrate.js').catch(() => {});
 log.info('Database ready (Drizzle ORM + bun:sqlite)');
@@ -99,31 +119,31 @@ app.use((req, res, next) => { req.env = env; next(); });
 app.use('/api/auth', rateLimiter(100, 60), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/version', (req, res) => res.json(appVersion));
-
+app.use(`/api/forget-password`,ForgetRouter);
 // Protected routes - authMiddleware checks the JWT on every request.
 // /api/query has an extra 100kb body limit to prevent oversized SQL payloads.
 // RBAC (superadmin checks) is handled inside the route files and controllers,
 // not here - so authMiddleware just verifies "is logged in", not "is admin".
 app.use('/api/query', authMiddleware, rateLimiter(10000, 60), express.json({ limit: '100kb' }), queryRoute);
-app.use('/api/editor', authMiddleware, editorRoute);
-app.use('/api/config', authMiddleware, configRoute);
-app.use('/api/settings', authMiddleware, settingsRoute);
-app.use('/api/alerts', authMiddleware, alertsRoute);
-app.use('/api/dashboards', authMiddleware, dashboardsRoute);
-app.use('/api/users', authMiddleware, usersRoute);
-app.use('/api/cluster', authMiddleware, clusterRoute);
-app.use('/api/app-backup', authMiddleware, appBackupRoute);
-app.use('/api/qurioz/api-keys', authMiddleware, apiKeysRoute);
-app.use("/api/table/download", authMiddleware, DownloadRouter);
+app.use('/api/editor', authMiddleware,rateLimiter(10000, 60), editorRoute);
+app.use('/api/config', authMiddleware,rateLimiter(10000, 60), configRoute);
+app.use('/api/settings', authMiddleware,rateLimiter(10000, 60), settingsRoute);
+app.use('/api/alerts', authMiddleware,rateLimiter(10000, 60), alertsRoute);
+app.use('/api/dashboards', authMiddleware,rateLimiter(10000, 60), dashboardsRoute);
+app.use('/api/users', authMiddleware,rateLimiter(10000, 60), usersRoute);
+app.use('/api/cluster', authMiddleware,rateLimiter(10000, 60), clusterRoute);
+app.use('/api/app-backup', authMiddleware,rateLimiter(10000, 60), appBackupRoute);
+app.use('/api/qurioz/api-keys', authMiddleware,rateLimiter(10000, 60), apiKeysRoute);
+app.use("/api/table/download", authMiddleware,rateLimiter(10000, 60), DownloadRouter);
 
 
 
 // AI chat routes use
 // connection of database and deletion of database
-app.use("/api/ai/database", authMiddleware,databaseAIConnection);
+app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
 // Generating the query
-app.use("/api/ai/sql",authMiddleware, sqlAIChat);
-app.use("/api/schema-studio", authMiddleware, schemaStudioRoute);
+app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
+app.use("/api/schema-studio", authMiddleware,rateLimiter(10000, 60), schemaStudioRoute);
 
 // Docs
 
@@ -197,6 +217,10 @@ app.use((err, req, res, next) => {
 // Start services
 startScheduler(env);
 startAppBackupScheduler();
+
+// storing the schema data of database so, we init the setup
+// RD_SERVICE && RD_SERVICE?.RDInit();
+
 
 // const appVersion = { version: env.version || '0.0.0' };
 const port = env.port;

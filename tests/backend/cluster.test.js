@@ -34,6 +34,10 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 
 mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQuery,
+  // bun's mock.module replaces this module for the whole test process, not just
+  // this file - stub every real export so whichever test file's mock.module call
+  // happens to win doesn't break other files that need executeQueryWithBody.
+  executeQueryWithBody: mock(() => {}),
 }));
 
 
@@ -100,14 +104,29 @@ beforeEach(() => {
 
 describe("Cluster Controller", () => {
   describe("listClusters", () => {
-    it("returns all clusters", () => {
-      getAllClusters.mockReturnValue(["c1", "c2"]);
+    it("returns clusters with node passwords masked", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "c1",
+          name: "Cluster One",
+          nodes: [{ name: "node1", host: "localhost", port: 8123, user: "default", password: "s3cret", secure: false }],
+        },
+        { id: "c2", name: "Cluster Two", nodes: [] },
+      ]);
 
       const { req, res } = mockReqRes();
 
       listClusters(req, res);
 
-      expect(res.jsonData).toEqual(["c1", "c2"]);
+      expect(res.jsonData).toEqual([
+        {
+          id: "c1",
+          name: "Cluster One",
+          nodes: [{ name: "node1", host: "localhost", port: 8123, user: "default", secure: false, hasPassword: true }],
+        },
+        { id: "c2", name: "Cluster Two", nodes: [] },
+      ]);
+      expect(JSON.stringify(res.jsonData)).not.toContain("s3cret");
     });
   });
 
@@ -181,6 +200,21 @@ describe("Cluster Controller", () => {
       expect(saveClusters).toHaveBeenCalled();
     });
 
+    it("masks node passwords in the create response", () => {
+      getAllClusters.mockReturnValue([]);
+
+      const { req, res } = mockReqRes({
+        name: "new-cluster",
+        nodes: [{ name: "node1", host: "localhost", password: "s3cret" }],
+      });
+
+      createCluster(req, res);
+
+      expect(res.statusCode).toBe(201);
+      expect(JSON.stringify(res.jsonData)).not.toContain("s3cret");
+      expect(res.jsonData.nodes[0].hasPassword).toBe(true);
+    });
+
     it("should return 500 internal server error", () => {
       getAllClusters.mockReturnValue([]);
 
@@ -202,6 +236,20 @@ describe("Cluster Controller", () => {
       expect(saveClusters).toHaveBeenCalled();
     });
 
+    it("fails when node are empty", () => {
+      getAllClusters.mockReturnValue([]);
+
+      const { req, res } = mockReqRes({
+        name: "new-cluster",
+        nodes: [],
+      });
+
+      createCluster(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.jsonData.error).toBe(`No nodes found. Add at least one node before creating the cluster.`);
+    });
+
     it("fails when node names are duplicated", () => {
       getAllClusters.mockReturnValue([]);
 
@@ -213,7 +261,7 @@ describe("Cluster Controller", () => {
       createCluster(req, res);
 
       expect(res.statusCode).toBe(400);
-      expect(res.jsonData.error).toBe(undefined);
+      expect(res.jsonData.error).toBe(`Node names must be unique within a cluster.`);
     });
 
     it("fails when node name is missing", () => {
@@ -227,7 +275,7 @@ describe("Cluster Controller", () => {
       createCluster(req, res);
 
       expect(res.statusCode).toBe(400);
-      expect(res.jsonData.error).toBe(undefined);
+      expect(res.jsonData.error).toBe(`Node Name is required for all nodes.`);
     });
   });
 
@@ -294,6 +342,35 @@ describe("Cluster Controller", () => {
       expect(res.statusCode).toBe(200);
       expect(res.jsonData.name).toBe("new");
       expect(saveClusters).toHaveBeenCalled();
+    });
+
+    it("does not leak decrypted node passwords in the response", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "old",
+          nodes: [{ name: "node1", host: "localhost", port: 8123, user: "default", password: "s3cret", secure: false }],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { name: "new", nodes: [{ name: "node1", host: "localhost", port: 8123, user: "default", password: "", secure: false }] },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(JSON.stringify(res.jsonData)).not.toContain("s3cret");
+      expect(res.jsonData.nodes[0].hasPassword).toBe(true);
+      expect(res.jsonData.nodes[0].password).toBeUndefined();
+      // The stored password must still be preserved (re-encrypted) even though masked in the response.
+      expect(saveClusters).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: "cluster1",
+          nodes: [expect.objectContaining({ password: "s3cret" })],
+        }),
+      ]);
     });
 
     it("should return cluster name required", () => {

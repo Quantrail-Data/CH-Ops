@@ -9,4 +9,12 @@ data/
 bun.lockb
 prisma/migrations/
 src/backend/embeddedAssets.js
+src/backend/version.generated.js
 test-results.xml
+coverage/
+coverage-comment.md
+chops
+chops-linux-x64
+chops-darwin-arm64
+chops-darwin-x64
+chops-windows-x64.exe

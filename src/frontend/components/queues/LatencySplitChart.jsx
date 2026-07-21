@@ -82,7 +82,7 @@ export default function LatencySplitChart({ latency }) {
         ],
       }, true);
     } catch (e) {
-      console.error("LatencySplitChart render skipped:", e);
+      console.error("LatencySplitChart render skipped:", e.message);
     }
   }, [latency, hasAny]);
 

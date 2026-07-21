@@ -289,7 +289,7 @@ function MiniChart({ option, height = 360, fs, onReady }) {
         grid: option.grid
           ? {
               ...option.grid,
-              width: fs ? "80%" : option.grid.width,
+              width: fs ? "100%" : option.grid.width,
               height: fs ? "80%" : option.grid.height,
             }
           : option.grid,
@@ -300,7 +300,19 @@ function MiniChart({ option, height = 360, fs, onReady }) {
     }
   }, [option, fs]);
 
-  return <div ref={ref} style={{ width: "100%", height: fs ? "100%" : height }} />
+  return<div 
+  style={{ 
+    display: "flex", 
+    justifyContent: "end", 
+    alignItems: "center", 
+    width: "100%", 
+    height: fs ? "100vh" : "auto",
+  }}
+> 
+  <div ref={ref} style={{ width: "100%", height: fs ? "100%" : height }} /> 
+</div>
+
+
 }
 
 function SummaryCard({
@@ -1260,7 +1272,7 @@ export default function DailySummary() {
               </div>
 
               {topErrors.length > 0 ? (
-                <div style={{ overflow: "auto", maxHeight: 160 }}>
+                <div style={{ overflow: "auto", maxHeight: 305 }}>
                   <DataTable
                     rows={topErrors}
                     columns={["error_code", "message_preview", "cnt"]}

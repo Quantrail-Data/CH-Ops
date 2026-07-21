@@ -8,11 +8,11 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-const {Router} = require("express");
-const SQLGenerationService = require("../servicesAI/SQLGenerationService");
-const { apiKeys } = require("../db/schema");
-const { db } = require("../db/index");
-const { eq } = require("drizzle-orm");
+import {Router} from "express";
+import SQLGenerationService from "../servicesAI/SQLGenerationService";
+import { apiKeys } from "../db/schema";
+import { db } from "../db/index";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -47,12 +47,10 @@ router.post("/generate-sql", async (req, res, next) => {
     const result = await service.generateSQL(database_id, user_question);
     return res.json(result);
   } catch (error) {
-    console.log("SQL ERROR:");
-    console.log(error);
-    console.log("ERROR MESSAGE:");
-    console.log(error.message);
+    console.error("SQL generation error:", error.message);
     next(error);
   }
 });
 
-module.exports = router;
+
+export default router;

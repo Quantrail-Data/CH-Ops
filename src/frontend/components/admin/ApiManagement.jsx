@@ -7,11 +7,17 @@ import {
   getActiveApiKey,
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import { useAuth } from "../../App.jsx";
 
-const AI_PROVIDERS = ["GEMINI", "OPEN AI","MISTRAL","CLAUDE"]
+const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 4 };
+const AI_PROVIDERS = ["GEMINI", "OPEN AI", "MISTRAL", "CLAUDE", "OLLAMA"];
 
 export default function ApiManagement() {
   const toast = useToast();
+  const { auth } = useAuth();
+  const myRole = auth?.role || "readonly";
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedKeyId, setSelectedKeyId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -21,6 +27,8 @@ export default function ApiManagement() {
   const [formKeyName, setFormKeyName] = useState("");
   const [formKeyValue, setFormKeyValue] = useState("");
   const [formModelValue, setFormModelValue] = useState("");
+  const [ollamaModels, setOllamaModels] = useState([]);
+  const [isFetchingOllamaModels, setIsFetchingOllamaModels] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     show: false,
@@ -29,7 +37,12 @@ export default function ApiManagement() {
   });
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  const [isValidKey, setISvalidKey] = useState(false);
+  const [isLoadingKey, setIsLoadingKey] = useState(false);
+  const [keyValidationMessage, setKeyValidationMessage] = useState("");
+  const [keyValidationStatus, setKeyValidationStatus] = useState(null); // 'success' | 'error' | null
 
+  const isOllama = formKeyName === "OLLAMA";
 
   useEffect(() => {
     loadApiKeys();
@@ -162,7 +175,14 @@ export default function ApiManagement() {
   }
 
   function validateApiKey(keyValue) {
-    if (keyValue.startsWith("sk-")) {
+    if (isOllama) {
+      try {
+        const url = new URL(keyValue.trim());
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    } else if (keyValue.startsWith("sk-")) {
       return keyValue.length >= 20 && keyValue.length <= 500;
     } else if (keyValue.startsWith("AIza")) {
       return keyValue.length >= 35 && keyValue.length <= 200;
@@ -176,6 +196,7 @@ export default function ApiManagement() {
   }
 
   function getApiTypeMessage(keyValue) {
+    if (isOllama) return "Ollama base URL";
     if (keyValue.startsWith("sk-")) return "OpenAI API key";
     if (keyValue.startsWith("AIza")) return "Google Gemini API key";
     if (keyValue.startsWith("xai-")) return "X.AI API key";
@@ -229,12 +250,6 @@ export default function ApiManagement() {
       return;
     }
 
-    if (!validateApiKey(formKeyValue.trim())) {
-      toast.warning(
-        `Invalid ${getApiTypeMessage(formKeyValue.trim())} format. Please check the key and try again.`,
-      );
-      return;
-    }
 
     const isDuplicateNameCheck = isDuplicateName(
       formKeyName.trim(),
@@ -303,6 +318,11 @@ export default function ApiManagement() {
       await updateGlobalActiveKey();
     } catch (err) {
       toast.error("Failed to save API key: " + err.message);
+    } finally {
+      setISvalidKey(false);
+      setKeyValidationMessage("");
+      setKeyValidationStatus(null);
+      setOllamaModels([]);
     }
   }
 
@@ -353,6 +373,9 @@ export default function ApiManagement() {
     setIsEditing(true);
     setShowAddForm(true);
     setShowKey(false);
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
+    setOllamaModels([]);
     const keyValue = await fetchKeyValue(key.id);
     setFormKeyValue(keyValue);
   }
@@ -365,11 +388,14 @@ export default function ApiManagement() {
     setFormModelValue("");
     setShowAddForm(false);
     setShowKey(false);
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
+    setOllamaModels([]);
   }
 
   function startAddNew() {
-    if (apiKeys.length >= 3) {
-      toast.warning("Maximum 3 API keys allowed");
+    if (apiKeys.length >= 5) {
+      toast.warning("Maximum 4 API keys allowed");
       return;
     }
     setShowAddForm(true);
@@ -378,7 +404,10 @@ export default function ApiManagement() {
     setFormKeyName("");
     setFormKeyValue("");
     setFormModelValue("");
+    setOllamaModels([]);
     setShowKey(false);
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
   }
 
   function maskApiKey(key) {
@@ -415,6 +444,27 @@ export default function ApiManagement() {
       <div className="page-content">
         <div className="empty-state" style={{ padding: 40 }}>
           <div className="loading-spinner"></div> Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-ai"></Icon>
+            API Key Management
+          </h2>
+        </div>
+        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+          <Icon className="ti ti-lock"></Icon>
+          <span>API key management is only available for administrators.</span>
+        </div>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p>API key management is only available for administrators.</p>
         </div>
       </div>
     );
@@ -493,8 +543,92 @@ export default function ApiManagement() {
         return "e.g., Model name  claude-haiku-4-5, claude-sonnet-4-6,...";
       case "MISTRAL":
         return "e.g., Model name  mistral-large-latest, mistral-medium-latest,...";
+      case "OLLAMA":
+        return "e.g., Model name  llama3.2:latest, mistral:latest,...";
       default:
         return "Enter the model name!";
+    }
+  }
+
+  async function fetchOllamaModels(e) {
+    e.preventDefault();
+    if (!formKeyValue.trim()) {
+      toast.warning("Enter the Ollama base URL first");
+      return;
+    }
+    setIsFetchingOllamaModels(true);
+    setOllamaModels([]);
+    try {
+      const response = await apiFetch("/api/qurioz/api-keys/ollama/models", {
+        method: "POST",
+        body: JSON.stringify({ baseUrl: formKeyValue.trim() }),
+      });
+      if (response?.success && Array.isArray(response.models)) {
+        setOllamaModels(response.models);
+        if (response.models.length === 0) {
+          toast.warning(
+            "No models found on this Ollama server. Pull a model first (e.g. `ollama pull llama3.2`).",
+          );
+        } else {
+          toast.success(`Found ${response.models.length} model(s).`);
+        }
+      } else {
+        toast.error(response?.message || "Failed to fetch models from Ollama.");
+      }
+    } catch (err) {
+      toast.error(err?.message || "Failed to fetch models from Ollama.");
+    } finally {
+      setIsFetchingOllamaModels(false);
+    }
+  }
+
+  async function verifyAPIKeyHandler(e) {
+    e.preventDefault();
+    setISvalidKey(false)
+    setKeyValidationMessage("");
+    setKeyValidationStatus(null);
+    if (formKeyName.trim() && formKeyValue.trim() && formModelValue.trim()) {
+      const apiKeys = {
+        name: formKeyName.trim(),
+        apiKey: formKeyValue?.trim(),
+        model: formModelValue?.trim(),
+      };
+      setIsLoadingKey(true);
+      try {
+        const response = await apiFetch("/api/qurioz/api-keys/check", {
+          method: "POST",
+          body: JSON.stringify({ apiKeys }),
+        });
+
+        if (!response?.success) {
+          setISvalidKey(false);
+          const reason =
+            response?.message && response.message !== "failed"
+              ? response.message
+              : "API key validation failed. Please verify your API key and try again.";
+          setKeyValidationStatus("error");
+          setKeyValidationMessage(reason);
+          toast?.error(reason);
+          return;
+        }
+        setISvalidKey(true);
+        const successMessage = `API key verified successfully. You can now ${editingKey ? 'update' : 'add'} it.`;
+        setKeyValidationStatus("success");
+        setKeyValidationMessage(successMessage);
+        toast?.success(successMessage)
+        return;
+      } catch (err) {
+        setISvalidKey(false);
+        const reason = err?.message || "API key validation failed. Please verify your API key and try again.";
+        setKeyValidationStatus("error");
+        setKeyValidationMessage(reason);
+        toast?.error(reason);
+        return;
+      } finally {
+        setIsLoadingKey(false);
+      }
+    } else {
+      toast?.warning(`Some required fields are missing.`);
     }
   }
 
@@ -502,10 +636,8 @@ export default function ApiManagement() {
     <div className="page-content">
       <div className="section-header">
         <h2 className="section-title">
-          {/* <Icon className="ti ti-api"></Icon> 
-          */}
           <Icon className="ti ti-ai"></Icon>
-          API Key Management 
+          API Key Management
         </h2>
       </div>
 
@@ -534,8 +666,8 @@ export default function ApiManagement() {
               marginBottom: 0,
             }}
           >
-            Configure up to 3 API keys for AI-powered query assistance and
-            insights. Supports OpenAI, Google Gemini
+            Configure up to 4 API keys for AI-powered query assistance and
+            insights. Supports OpenAI, Google Gemini, Mistral, Claude
           </p>
         </div>
 
@@ -642,7 +774,7 @@ export default function ApiManagement() {
         )}
 
         {showAddForm ? (
-          <form onSubmit={saveApiKey}>
+          <form>
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
                 API Key Name <span style={{ color: "var(--danger)" }}>*</span>
@@ -657,7 +789,9 @@ export default function ApiManagement() {
                   fontSize: "14px",
                 }}
               >
-               <option value={""} selected>Select AI Provider</option>
+                <option value={""} selected>
+                  Select AI Provider
+                </option>
                 {AI_PROVIDERS.map((name, index) => {
                   return (
                     <option value={name} key={index}>
@@ -673,69 +807,195 @@ export default function ApiManagement() {
                 {formKeyName} Model Name{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input
-                className="form-input"
-                type="text"
-                value={formModelValue}
-                onChange={(e) => setFormModelValue(e.target.value)}
-                placeholder={`${ModelExamplesPlaceholder(formKeyName)}`}
-                required
-                autoFocus
-                style={{
-                  width: "100%",
-                  maxWidth: 520,
-                  fontSize: "14px",
-                }}
-              />
+              {isOllama ? (
+                <Select
+                  className="form-input"
+                  value={formModelValue || ""}
+                  onChange={(e) => setFormModelValue(e?.target?.value)}
+                  placeholder="Fetch models to choose one"
+                  style={{
+                    width: "100%",
+                    maxWidth: 520,
+                    fontSize: "14px",
+                  }}
+                >
+                  <option value="">Select a model</option>
+                  {ollamaModels.map((m, index) => (
+                    <option value={m} key={index}>
+                      {m}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <input
+                  className="form-input"
+                  type="text"
+                  value={formModelValue}
+                  onChange={(e) => setFormModelValue(e.target.value)}
+                  placeholder={`${ModelExamplesPlaceholder(formKeyName)}`}
+                  required
+                  autoFocus
+                  style={{
+                    width: "100%",
+                    maxWidth: 520,
+                    fontSize: "14px",
+                  }}
+                />
+              )}
             </div>
 
             <div className="form-group" style={{ marginBottom: 20 }}>
               <label className="form-label">
-                {editingKey ? "Edit API Key Value" : "API Key Value"}{" "}
+                {isOllama
+                  ? "Ollama Base URL"
+                  : editingKey
+                    ? "Edit API Key Value"
+                    : "API Key Value"}{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div
-                style={{ position: "relative", width: "100%", maxWidth: 520 }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  maxWidth: "520px",
+                  gap: "10px",
+                }}
               >
-                <input
-                  className="form-input"
-                  type={showKey ? "text" : "password"}
-                  value={formKeyValue}
-                  onChange={(e) => setFormKeyValue(e.target.value)}
-                  placeholder="Enter your API key (OpenAI: sk-..., Gemini: AIza..., X.AI: xai-..., HF: hf_...)"
-                  required
-                  style={{
-                    width: "100%",
-                    fontFamily: "var(--font-code)",
-                    fontSize: "14px",
-                    paddingRight: "46px",
-                  }}
-                />
+                <div
+                  style={{ position: "relative", width: "100%", maxWidth: 520 }}
+                >
+                  <input
+                    className="form-input"
+                    type={isOllama ? "text" : showKey ? "text" : "password"}
+                    value={formKeyValue}
+                    onChange={(e) => setFormKeyValue(e.target.value)}
+                    placeholder={
+                      isOllama
+                        ? "http://localhost:11434"
+                        : "Enter your API key (OpenAI: sk-..., Gemini: AIza..., X.AI: xai-..., HF: hf_...)"
+                    }
+                    required
+                    style={{
+                      width: "100%",
+                      fontFamily: "var(--font-code)",
+                      fontSize: "14px",
+                      paddingRight: isOllama ? "12px" : "46px",
+                    }}
+                  />
+                  {!isOllama && (
+                    <button
+                      type="button"
+                      onClick={() => setShowKey(!showKey)}
+                      title={showKey ? "Hide" : "Show"}
+                      style={{
+                        position: "absolute",
+                        right: "14px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        margin: 0,
+                        lineHeight: 1,
+                        cursor: "pointer",
+                        color: "var(--text-muted)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 2,
+                      }}
+                    >
+                      {showKey ? (
+                        <Icon
+                          className="ti ti-eye-off"
+                          style={{ fontSize: 20 }}
+                        />
+                      ) : (
+                        <Icon className="ti ti-eye" style={{ fontSize: 20 }} />
+                      )}
+                    </button>
+                  )}
+                </div>
+                {isOllama && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      padding: "7px 10px",
+                      borderRadius: "5px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      alignSelf: "flex-start",
+                    }}
+                    onClick={fetchOllamaModels}
+                    disabled={isFetchingOllamaModels}
+                  >
+                    {isFetchingOllamaModels ? (
+                      <div className="loading-spinner"></div>
+                    ) : (
+                      <>
+                        <Icon className="ti ti-refresh"></Icon>
+                        <span style={{ fontSize: "13px" }}>Fetch Models</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  title={showKey ? "Hide" : "Show"}
+                  className="btn btn-primary"
                   style={{
-                    position: "absolute",
-                    right: "14px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    border: "none",
-                    background: "transparent",
-                    padding: 0,
-                    margin: 0,
-                    lineHeight: 1,
-                    cursor: "pointer",
-                    color: "var(--text-muted)",
-                    display: "inline-flex",
+                    padding: "7px 10px",
+                    borderRadius: "5px",
+                    display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    zIndex: 2,
                   }}
+                  title={keyValidationMessage || "Test the API key"}
+                  onClick={verifyAPIKeyHandler}
                 >
-                  {showKey ? <Icon className="ti ti-eye-off" style={{ fontSize: 20 }} /> : <Icon className="ti ti-eye" style={{ fontSize: 20 }} />}
+                  {isLoadingKey ? (
+
+                     <div className="loading-spinner"></div>
+
+                  ) : (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
+                      >
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M10.09 4.01l.496 -.495a2 2 0 0 1 2.828 0l7.071 7.07a2 2 0 0 1 0 2.83l-7.07 7.07a2 2 0 0 1 -2.83 0l-7.07 -7.07a2 2 0 0 1 0 -2.83l3.535 -3.535h-3.988" />
+                        <path d="M7.05 11.038v-3.988" />
+                      </svg>
+                      <p style={{ fontSize: "13px" }}>Verify AI API Key</p>
+                    </>
+                  )}
                 </button>
               </div>
+              {keyValidationMessage && (
+                <p
+                  title={keyValidationMessage}
+                  style={{
+                    fontSize: "0.75rem",
+                    color:
+                      keyValidationStatus === "success"
+                        ? "var(--color-success)"
+                        : "var(--color-danger)",
+                    marginTop: 6,
+                  }}
+                >
+                  {keyValidationMessage}
+                </p>
+              )}
               <p
                 style={{
                   fontSize: "0.75rem",
@@ -743,14 +1003,19 @@ export default function ApiManagement() {
                   marginTop: 6,
                 }}
               >
-                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI
-                (xai-...), and custom API keys. Keys are
-                encrypted before storage. {apiKeys.length}/3 keys used.
+                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...), Claude, and Mistral keys. Keys are encrypted before storage. {apiKeys.length}/4
+                keys used.
+                <br />
+                Verify the API key successfully before proceeding to add it
               </p>
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <button className="btn btn-primary" type="submit">
+              <button
+                className="btn btn-primary"
+                onClick={saveApiKey}
+                disabled={!isValidKey}
+              >
                 <Icon className="ti ti-device-floppy"></Icon>{" "}
                 {editingKey ? "Update Key" : "Save Key"}
               </button>
@@ -764,7 +1029,7 @@ export default function ApiManagement() {
             </div>
           </form>
         ) : (
-          apiKeys.length < 3 && (
+          apiKeys.length < 4 && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
               <button className="btn btn-primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key
@@ -784,9 +1049,6 @@ export default function ApiManagement() {
             >
               No API keys configured yet.
             </p>
-            {/*<button className="btn btn-primary" onClick={startAddNew}>
-             <Icon className="ti ti-plus"></Icon> Add First API Key
-            </button> */}
           </div>
         )}
       </div>
@@ -845,3 +1107,4 @@ export default function ApiManagement() {
     </div>
   );
 }
+
