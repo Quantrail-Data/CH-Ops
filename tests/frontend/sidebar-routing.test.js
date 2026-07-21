@@ -1,15 +1,32 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> kathir Moorthy
-// Integration tests verifying sidebar sections, renamed labels, routing paths for all 27 pages, and layout integration behaviors.
 
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 function read(f) { return fs.readFileSync(f, 'utf8'); }
 
-describe('Sidebar: 10 Core Sections', () => {
-  const code = read('src/frontend/components/layout/Sidebar.jsx');
+function stripLineComments(s) {
+  return s
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('//'))
+    .join('\n');
+}
 
-  ['Overview', 'Tools', 'Dashboards', 'Schema', 'Monitoring', 'Alerts', 'Backups', 'RBAC', 'Logs', 'Admin'].forEach(s => {
+describe('Sidebar: 10 Core Sections', () => {
+  const code = stripLineComments(read('src/frontend/components/layout/Sidebar.jsx'));
+
+  [
+    'Overview',
+    'SQL Tools',
+    'Custom Dashboards',
+    'Schema Tools',
+    'Monitoring',
+    'Custom Alerts',
+    'Backups',
+    'DB RBAC',
+    'Logs',
+    'Control panel',
+  ].forEach(s => {
     it(`has section "${s}"`, () => {
       expect(
         code.includes(`label: '${s}'`) || code.includes(`label: "${s}"`)
@@ -34,8 +51,73 @@ describe('Sidebar: 10 Core Sections', () => {
   });
 });
 
-describe('Sidebar: Renamed Labels', () => {
-  const code = read('src/frontend/components/layout/Sidebar.jsx');
+describe('Sidebar: Current Labels', () => {
+  const code = stripLineComments(read('src/frontend/components/layout/Sidebar.jsx'));
+
+  it('SQL Tools (not Tools)', () => {
+    expect(
+      code.includes("label: 'SQL Tools'") || code.includes('label: "SQL Tools"')
+    ).toBe(true);
+    expect(code).not.toContain("label: 'Tools'");
+    expect(code).not.toContain('label: "Tools"');
+  });
+
+  it('Custom Dashboards with custom/* ids (not Dashboards / dashboards/*)', () => {
+    expect(
+      code.includes("label: 'Custom Dashboards'") ||
+      code.includes('label: "Custom Dashboards"')
+    ).toBe(true);
+    ['custom/builder', 'custom/dashboards', 'custom/charts'].forEach(id => {
+      expect(code.includes(`id: '${id}'`) || code.includes(`id: "${id}"`)).toBe(true);
+    });
+    expect(code).not.toContain('id: "dashboards/builder"');
+    expect(code).not.toContain("id: 'dashboards/builder'");
+  });
+
+  it('Schema Tools (not Schema)', () => {
+    expect(
+      code.includes("label: 'Schema Tools'") || code.includes('label: "Schema Tools"')
+    ).toBe(true);
+  });
+
+  it('Custom Alerts with only Alert Rules', () => {
+    expect(
+      code.includes("label: 'Custom Alerts'") || code.includes('label: "Custom Alerts"')
+    ).toBe(true);
+    expect(
+      code.includes("id: 'alerting/rules'") || code.includes('id: "alerting/rules"')
+    ).toBe(true);
+    // Channels moved out of Alerts (now under Control panel as Notification Channels).
+    expect(code).not.toContain('id: "alerting/channels"');
+    expect(code).not.toContain("id: 'alerting/channels'");
+  });
+
+  it('DB RBAC with Settings Profiles', () => {
+    expect(
+      code.includes("label: 'DB RBAC'") || code.includes('label: "DB RBAC"')
+    ).toBe(true);
+    expect(
+      code.includes("id: 'rbac/profiles'") || code.includes('id: "rbac/profiles"')
+    ).toBe(true);
+    expect(
+      code.includes("'Settings Profiles'") || code.includes('"Settings Profiles"')
+    ).toBe(true);
+  });
+
+  it('Control panel (not Admin)', () => {
+    expect(
+      code.includes("label: 'Control panel'") || code.includes('label: "Control panel"')
+    ).toBe(true);
+  });
+
+  it('Notification Channels under Control panel', () => {
+    expect(
+      code.includes("id: 'admin/channels'") || code.includes('id: "admin/channels"')
+    ).toBe(true);
+    expect(
+      code.includes("'Notification Channels'") || code.includes('"Notification Channels"')
+    ).toBe(true);
+  });
 
   it('Data Skipping Indexes (not Secondary)', () => {
     expect(
@@ -53,15 +135,16 @@ describe('Sidebar: Renamed Labels', () => {
     expect(code).not.toContain("label: 'Create Index'");
   });
 
-  it('Storage Profiles under Administration (not Backups)', () => {
+  it('Storage Profiles under Control panel (not Backups)', () => {
     expect(
       code.includes("id: 'admin/profiles'") ||
       code.includes('id: "admin/profiles"')
     ).toBe(true);
+    expect(code).not.toContain('id: "backups/profiles"');
     expect(code).not.toContain("id: 'backups/profiles'");
   });
 
-  it('App Data Backup under Administration', () => {
+  it('App Data Backup under Control panel', () => {
     expect(
       code.includes("id: 'admin/app-backup'") ||
       code.includes('id: "admin/app-backup"')
@@ -74,7 +157,8 @@ describe('Sidebar: Renamed Labels', () => {
 });
 
 describe('Routing: Every sidebar item has a page', () => {
-  const sidebar = read('src/frontend/components/layout/Sidebar.jsx');
+  // Strip comments first so ids inside commented-out nav blocks are ignored.
+  const sidebar = stripLineComments(read('src/frontend/components/layout/Sidebar.jsx'));
   const ml = read('src/frontend/components/layout/MainLayout.jsx');
 
   const ids = (sidebar.match(/id:\s*["']([^"']+)["']/g) || [])
