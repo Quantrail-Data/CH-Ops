@@ -342,6 +342,91 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit })
     }
   };
 
+
+  const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
+  const isPie = Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype));
+  if (isPie) {
+    opt.series = opt.series.map((s) => {
+      if (s.type !== 'pie') return s;
+      const baseRadius = s.radius || ['40%', '64%'];
+      const finalRadius = fs
+        ? baseRadius
+        : isSmallScreen
+          ? ['30%', '56%']
+          : ['28%', '54%'];
+      const finalCenter = fs
+        ? (s.center || ['50%', '50%'])
+        : isSmallScreen
+          ? (s.center || ['50%', '55%'])
+          : (s.center || ['50%', '57%']);
+      return {
+        ...s,
+        avoidLabelOverlap: true,
+        label: {
+          ...(s.label || {}),
+          formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
+          color: isDarkColor,
+          fontSize: 11,
+          overflow: 'truncate',
+        },
+        labelLine: {
+          ...(s.labelLine || {}),
+          length: 8,
+          length2: 8,
+          smooth: false,
+        },
+        radius: finalRadius,
+        center: finalCenter,
+      };
+    });
+
+    opt.legend = {
+      ...(opt.legend || {}),
+      textStyle: { ...(opt.legend?.textStyle || {}), fontSize: isSmallScreen ? 10 : 12, color: isDarkColor },
+      itemGap: 12,
+      pageIconColor: isDarkColor,
+    };
+
+    opt.grid = {
+      ...(opt.grid || {}),
+      top: fs ? (opt.grid?.top || gridTop) : (isSmallScreen ? 72 : 80),
+    };
+  }
+
+  if (theme === 'dark') {
+    const shadowlessSeriesTypes = ['sankey', 'sunburst', 'graph', 'tree'];
+    if (Array.isArray(opt.series)) {
+      const borderColor = 'rgba(0,0,0,0.65)';
+      opt.series = opt.series.map((s) => {
+        if (!s || !s.type) return s;
+        if (!shadowlessSeriesTypes.includes(s.type)) return s;
+        const enhanceLabelStyling = (lbl) => {
+          const baseTextStyle = {
+            ...(lbl?.textStyle || {}),
+            color: isDarkColor,
+            textBorderColor: borderColor,
+            textBorderWidth: 2,
+            textShadowColor: 'transparent',
+            textShadowBlur: 0,
+          };
+          if (!lbl) return { textStyle: baseTextStyle };
+          return { ...lbl, textStyle: baseTextStyle };
+        };
+        return {
+          ...s,
+          label: enhanceLabelStyling(s.label),
+          emphasis: s.emphasis ? { ...s.emphasis, label: enhanceLabelStyling(s.emphasis.label) } : s.emphasis,
+          lineStyle: s.lineStyle ? { ...(s.lineStyle || {}), textStyle: { ...(s.lineStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.lineStyle,
+          itemStyle: s.itemStyle ? { ...(s.itemStyle || {}), textStyle: { ...(s.itemStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.itemStyle,
+        };
+      });
+      opt.legend = {
+        ...(opt.legend || {}),
+        textStyle: { ...(opt.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 }
+      };
+    }
+  }
+
   useEffect(() => {
     if (!ref.current || !opt || opt._kpi || opt._table || opt._error) return;
     try { inst.current = initChart(ref.current); inst.current.setOption(withZoomable(opt), true); setTimeout(() => inst.current?.resize(), 50); } catch { }
