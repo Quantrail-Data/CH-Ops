@@ -110,16 +110,13 @@ function escapeHtml(value) {
 function extractAccountDetails(description) {
   const text = String(description || "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .slice(0, 2000);
   
-  const usernameMatch = text.match(/Username:\s*(.*?)\s+(?:New\s+)?Password:/i);
-  const passwordMatch = text.match(/(?:New\s+)?Password:\s*(.*?)\s+Role:/i);
-  const roleMatch = text.match(
-    /Role:\s*(.*?)\s+(Please change your password on first login\.?)/i,
-  );
-  const noteMatch = text.match(
-    /(Please change your password on first login\.?)/i,
-  );
+  const usernameMatch = text.match(/Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i);
+  const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
+  const roleMatch = text.match(/Role:\s*([a-z]+)/i);
+  const noteMatch = text.match(/(Please change your password on first login\.?)/i);
 
   return {
     intro: text.split(/Username:/i)[0].trim(),
