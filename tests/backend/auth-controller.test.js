@@ -209,7 +209,6 @@ describe("User Password Change", async () => {
     it("Verifies Autherization", async () => {
         vi.clearAllMocks()
 
-        vi.clearAllMocks()
 
         await changePassword({
             body: {},
