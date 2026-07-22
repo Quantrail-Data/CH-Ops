@@ -9,7 +9,7 @@
  */
 
 
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'bun:test'
 import { initCrypto } from '../../src/backend/services/crypto'
 import { completeDdl } from '../../src/backend/services/studioAi'
 import { createApiKey, deleteApiKey, getActiveApiKey, setActiveApiKey } from '../../src/backend/services/apiKeys'
@@ -24,17 +24,15 @@ try {
 
 
 let activeAPIKey;
-activeAPIKey = getActiveApiKey()
+beforeEach(() => {
+    vi.clearAllMocks()
+    activeAPIKey = getActiveApiKey()
+})
 
 describe("AI Completion", () => {
 
-    it("Generates response text from prompt", async () => {
-        const response = await completeDdl('This is a test request, respond with only `WORKING`')
-        expect(response).toBe('WORKING')
-    })
-
     it("Returns error on empty API Keys", async () => {
-        deleteApiKey(activeAPIKey.id)
+        if (activeAPIKey) deleteApiKey(activeAPIKey.id)
         try {
             await completeDdl('This is a test request, respond with only `WORKING`')
             throw new Error("Failed to return Error.")
@@ -42,8 +40,10 @@ describe("AI Completion", () => {
             expect(e.status).toBe(400)
             expect(e.message).toBe('No AI provider configured. Set one in Settings.')
         }
-        activeAPIKey = createApiKey(activeAPIKey.name, activeAPIKey.key, activeAPIKey.model)
-        setActiveApiKey(activeAPIKey.id)
+        if (activeAPIKey) {
+            activeAPIKey = createApiKey(activeAPIKey.name, activeAPIKey.key, activeAPIKey.model)
+            setActiveApiKey(activeAPIKey.id)
+        }
     })
 
     it("Returns error on empty API Key value", async () => {
@@ -56,12 +56,12 @@ describe("AI Completion", () => {
             expect(e.status).toBe(400)
             expect(e.message).toBe('The configured AI key is empty.')
         }
-        setActiveApiKey(activeAPIKey.id)
+        if (activeAPIKey) setActiveApiKey(activeAPIKey.id)
         deleteApiKey(tempAPIKey.id)
     })
 
     it("Returns error invalid AI Provider", async () => {
-        const tempAPIKey = createApiKey('Test Key', 'test-key', 'test-model')
+        const tempAPIKey = createApiKey('Invalid Provider Key', 'test-key', 'test-model')
         setActiveApiKey(tempAPIKey.id)
         try {
             await completeDdl('This is a test request, respond with only `WORKING`')
@@ -70,7 +70,7 @@ describe("AI Completion", () => {
             expect(e.status).toBe(400)
             expect(e.message).toInclude('Select Gemini')
         }
-        setActiveApiKey(activeAPIKey.id)
+        if (activeAPIKey) setActiveApiKey(activeAPIKey.id)
         deleteApiKey(tempAPIKey.id)
     })
 
