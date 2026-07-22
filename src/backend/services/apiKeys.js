@@ -83,7 +83,7 @@ export function getApiKeysWithValues() {
 
 
 
-export function createApiKey(name, apiKeyValue,model) {
+export function createApiKey(name, apiKeyValue,model,provider) {
   const existing = db.select().from(apiKeys).all();
   if (existing.length >= MAX_API_KEYS) {
     throw new Error(`Maximum ${MAX_API_KEYS} API keys allowed.`);
@@ -99,6 +99,7 @@ export function createApiKey(name, apiKeyValue,model) {
   const result = db.insert(apiKeys).values({
     name: name.trim(),
     model:model,
+    provider:provider.trim(),
     encryptedKey,
     isActive: existing.length === 0 ? 1 : 0,
     // model:active?.model,
@@ -108,7 +109,7 @@ export function createApiKey(name, apiKeyValue,model) {
   return getApiKeyById(id);
 }
 
-export function updateApiKey(id, name, apiKeyValue,model) {
+export function updateApiKey(id, name, apiKeyValue,model,provider) {
   const existing = db.select().from(apiKeys).where(eq(apiKeys.id, id)).get();
   if (!existing) {
     throw new Error('API key not found.');
@@ -123,7 +124,7 @@ export function updateApiKey(id, name, apiKeyValue,model) {
   const encryptedKey = encrypt(apiKeyValue);
   
   db.update(apiKeys)
-    .set({ name: name.trim(), encryptedKey, updatedAt: new Date().toISOString(),model:model })
+    .set({ name: name.trim(), encryptedKey, provider:provider.trim(), updatedAt: new Date().toISOString(), model:model })
     .where(eq(apiKeys.id, id))
     .run();
 
