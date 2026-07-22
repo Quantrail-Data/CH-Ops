@@ -111,8 +111,9 @@ function extractAccountDetails(description) {
   const text = String(description || "")
     .replace(/\s+/g, " ")
     .trim();
-  const usernameMatch = text.match(/Username:\s*(.*?)\s+Password:/i);
-  const passwordMatch = text.match(/Password:\s*(.*?)\s+Role:/i);
+  
+  const usernameMatch = text.match(/Username:\s*(.*?)\s+(?:New\s+)?Password:/i);
+  const passwordMatch = text.match(/(?:New\s+)?Password:\s*(.*?)\s+Role:/i);
   const roleMatch = text.match(
     /Role:\s*(.*?)\s+(Please change your password on first login\.?)/i,
   );
@@ -227,6 +228,7 @@ export async function sendNotification(channelConfig, alert) {
           : "#8b5cf6";
 
     const isAccountEmail = /account created/i.test(d.name || "");
+    const isPasswordResetEmail = /password reset/i.test(d.name || "");
     const containerBg = "#ffffff";
     const bodyColor = "#0b1220";
     const containerBorder = "rgba(15,23,42,0.06)";
@@ -239,6 +241,10 @@ export async function sendNotification(channelConfig, alert) {
     const env = loadEnv();
 
     const accountDetails = isAccountEmail
+      ? extractAccountDetails(d.description)
+      : null;
+
+    const passwordResetDetails = isPasswordResetEmail
       ? extractAccountDetails(d.description)
       : null;
 
@@ -395,6 +401,161 @@ export async function sendNotification(channelConfig, alert) {
 </body>
 
 </html>
+    ` : isPasswordResetEmail ? `
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset</title>
+</head>
+
+<body
+    style="margin:0;padding:0;background-color:#e6e6e620;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#e6e6e620;padding:40px 0;">
+        <tr>
+            <td align="center">
+
+
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
+                    style="width:600px;max-width:600px;background:#e6e6e620;border-radius:5px;box-shadow:0 0 40px #d6d6d6;font-family:system-ui,-apple-system,sans-serif;">
+
+
+                    <tr>
+                        <td align="center" style="padding:25px 20px;">
+                            <img src="cid:logo-image-123" alt="Company Logo" width="250"
+                                style="display:block;border:0;max-width:250px;width:100%; pointer-events:none;">
+                        </td>
+                    </tr>
+
+
+                    <tr>
+                        <td align="center">
+
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="85%"
+                                style="background:#ffffff;border-radius:5px;">
+
+                                <tr>
+                                    <td style="padding:30px;">
+
+                                        <h1
+                                            style="margin:0 0 20px;font-size:24px;font-family:'Gill Sans','Gill Sans MT',Calibri,sans-serif;color:#440088;font-weight:700;">
+                                            Password Reset
+                                        </h1>
+
+                                        <p
+                                            style="margin:0 0 25px;font-size:13px;line-height:30px;color:#3a3a3a;font-family:Arial,sans-serif;">
+                                            <strong>Hi, ${escapeHtml(passwordResetDetails?.username || "-")}</strong><br>
+                                            Your CH-OPS account password has been reset by an administrator.<br>
+                                            Please use the credentials below to log in and change your password immediately.
+                                        </p>
+
+                                        <!-- Details -->
+                                        <table width="100%" cellpadding="0" cellspacing="0"
+                                            style="border-collapse:collapse;font-size:14px;color:#000;margin:20px 0;">
+
+                                            <tr>
+                                                <td width="140"
+                                                    style="padding:12px 16px;font-weight:600;color:#000;">
+                                                    Username
+                                                </td>
+
+                                                <td id="username"
+                                                    style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
+                                                    ${escapeHtml(passwordResetDetails?.username || "-")}
+                                                </td>
+                                            </tr>
+
+                                            <tr>
+                                                <td
+                                                    style="padding:12px 16px;font-weight:600;color:#000;">
+                                                    Password
+                                                </td>
+
+                                                <td id="password"
+                                                    style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
+                                                    ${escapeHtml(passwordResetDetails?.password || "-")}
+                                                </td>
+                                            </tr>
+
+                                            <tr>
+                                                <td
+                                                    style="padding:12px 16px;font-weight:600;color:#000;">
+                                                    Role
+                                                </td>
+
+                                                <td style="padding:12px 16px;color:#000;">
+                                                    ${escapeHtml(passwordResetDetails?.role || "-")}
+                                                </td>
+                                            </tr>
+
+                                        </table>
+
+                                        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;border-radius:4px;">
+                                            <p style="margin:0;font-size:13px;color:#78350f;">
+                                                <strong>⚠️ Important:</strong> For security reasons, you must change your password on first login.
+                                            </p>
+                                        </div>
+
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+                                        align="center" style="margin:18px auto;">
+                                        <tr>
+                                            <td bgcolor="#8a2be2" align="center" style="border-radius:6px;">
+                                                <a href="${env.frontendLink}" target="_blank"
+                                                    style="
+                                                        display:inline-block;
+                                                        padding:10px 19px;
+                                                        font-size:15px;
+                                                        font-family:Arial,sans-serif;
+                                                        font-weight:700;
+                                                        color:#ffffff;
+                                                        text-decoration:none;
+                                                        border:1px solid #8a2be2;
+                                                        border-radius:6px;
+                                                        line-height:1;
+                                                    ">
+                                                    Login Now
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    </td>
+                                </tr>
+
+                            </table>
+
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td align="center"
+                            style="padding:30px 20px;font-size:12px;font-family:Arial,sans-serif;color:#808080;">
+
+                            <p style="margin:0 0 10px;">
+                                If you didn't request this password reset, please contact your system administrator immediately.
+                            </p>
+
+                            <a href="https://www.ch-ops.io/" 
+                                style="color:#8a2be2;text-decoration:none;font-weight:600;">
+                                Learn more
+                            </a>
+
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+
+</body>
+
+</html>
     ` :
     `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
       <div style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:white;padding:18px 24px"><h2 style="margin:0;font-size:20px">${escapeHtml(d.severity)}: ${escapeHtml(d.name)}</h2><p style="margin:4px 0 0;opacity:0.85;font-size:13px">${escapeHtml(d.timestamp)}</p></div>
@@ -419,12 +580,13 @@ export async function sendNotification(channelConfig, alert) {
         <div style="margin:16px 0 0;padding:12px;background:#000000;border-radius:8px;border:1px solid rgba(0,0,0,0.2)"><div style="font-size:11px;color:#cbd5e1;text-transform:uppercase;margin-bottom:4px">Alert SQL</div><pre style="margin:0;font-family:'Fira Code',monospace;font-size:12px;color:${preColor};white-space:pre-wrap;word-break:break-all;background:transparent">${escapeHtml(d.sql)}</pre></div>
         <p style="color:#94a3b8;font-size:11px;margin:16px 0 0;text-align:center">CHOps Alert Engine - Quantrail™ Data</p>
       </div></div>`;
+
     await transport.sendMail({
       from: config.from || "CHOps <noreply@chops>",
       to: config.to,
-      subject: `[CHOps] ${d.severity}: ${d.name}`,
+      subject: isPasswordResetEmail ? `[CHOps] Password Reset for ${passwordResetDetails?.username || 'User'}` : (isAccountEmail ? `[CHOps] Welcome! Your Account Is Ready` : `[CHOps] ${d.severity}: ${d.name}`),
       html,
-      attachments:isAccountEmail ?  [
+      attachments: (isAccountEmail || isPasswordResetEmail) ? [
         {
           filename: "logo.png",
           path: "src/frontend/assets/chops-dark.png",

@@ -13,6 +13,7 @@ import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
+import Select from "../common/Select.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -147,7 +148,7 @@ function DbTableSelector({
     >
       <div className="form-group">
         <label className="form-label">Database *</label>
-        <select
+        <Select
           className="form-select"
           value={db}
           onChange={(e) => {
@@ -160,11 +161,11 @@ function DbTableSelector({
           {dbsQ.data?.map((r) => (
             <option key={r.database}>{r.database}</option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="form-group">
         <label className="form-label">Table * (MergeTree only)</label>
-        <select
+        <Select
           className="form-select"
           value={tbl}
           onChange={(e) => setTbl(e.target.value)}
@@ -174,12 +175,12 @@ function DbTableSelector({
           {tblsQ.data?.map((r) => (
             <option key={r.name}>{r.name}</option>
           ))}
-        </select>
+        </Select>
       </div>
       {showCluster && (
         <div className="form-group">
           <label className="form-label">ON CLUSTER</label>
-          <select
+          <Select
             className="form-select"
             value={cluster}
             onChange={(e) => setCluster(e.target.value)}
@@ -188,7 +189,7 @@ function DbTableSelector({
             {clustersQ.data?.map((r) => (
               <option key={r.cluster}>{r.cluster}</option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
     </div>
@@ -338,7 +339,7 @@ function ViewProjections() {
       >
         <div className="form-group">
           <label className="form-label">Database</label>
-          <select
+          <Select
             className="form-select"
             value={db}
             onChange={(e) => {
@@ -350,11 +351,11 @@ function ViewProjections() {
             {dbsQ.data?.map((r) => (
               <option key={r.database}>{r.database}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="form-group">
           <label className="form-label">Table</label>
-          <select
+          <Select
             className="form-select"
             value={tbl}
             onChange={(e) => setTbl(e.target.value)}
@@ -363,7 +364,7 @@ function ViewProjections() {
             {tblsQ.data?.map((r) => (
               <option key={r.table}>{r.table}</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
       {projQ.data?.length > 0 ? (
@@ -743,7 +744,7 @@ function DropProjection() {
         >
           <div className="form-group">
             <label className="form-label">Projection *</label>
-            <select
+            <Select
               className="form-select"
               value={projName}
               onChange={(e) => setProjName(e.target.value)}
@@ -752,7 +753,7 @@ function DropProjection() {
               {projsQ.data?.map((r) => (
                 <option key={r.name}>{r.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div
             className="form-group"
@@ -864,7 +865,7 @@ function MaterializeProjection() {
         >
           <div className="form-group">
             <label className="form-label">Projection *</label>
-            <select
+            <Select
               className="form-select"
               value={projName}
               onChange={(e) => setProjName(e.target.value)}
@@ -874,7 +875,7 @@ function MaterializeProjection() {
               {projsQ.data?.map((r) => (
                 <option key={r.name}>{r.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="form-group">
             <label className="form-label">IN PARTITION (optional)</label>
@@ -988,7 +989,7 @@ function ClearProjection() {
         >
           <div className="form-group">
             <label className="form-label">Projection *</label>
-            <select
+            <Select
               className="form-select"
               value={projName}
               onChange={(e) => setProjName(e.target.value)}
@@ -997,7 +998,7 @@ function ClearProjection() {
               {projsQ.data?.map((r) => (
                 <option key={r.name}>{r.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="form-group">
             <label className="form-label">IN PARTITION (optional)</label>
