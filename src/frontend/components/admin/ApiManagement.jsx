@@ -24,7 +24,8 @@ export default function ApiManagement() {
   const [editingKey, setEditingKey] = useState(null);
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [formKeyName, setFormKeyName] = useState("");
+  const [formAPIName, setFormAPIName] = useState("");
+  const [formAIProvider, setFormAIProvider] = useState("");
   const [formKeyValue, setFormKeyValue] = useState("");
   const [formModelValue, setFormModelValue] = useState("");
   const [ollamaModels, setOllamaModels] = useState([]);
@@ -42,7 +43,7 @@ export default function ApiManagement() {
   const [keyValidationMessage, setKeyValidationMessage] = useState("");
   const [keyValidationStatus, setKeyValidationStatus] = useState(null); // 'success' | 'error' | null
 
-  const isOllama = formKeyName === "OLLAMA";
+  const isOllama = formAIProvider === "OLLAMA";
 
   useEffect(() => {
     loadApiKeys();
@@ -229,15 +230,11 @@ export default function ApiManagement() {
 
   async function saveApiKey(e) {
     e.preventDefault();
-    if (!formKeyName.trim()) {
+    if (!formAPIName.trim()) {
       toast.warning("Please enter an API key name");
       return;
     }
-    if (!formModelValue.trim()) {
-      toast.warning("Please enter an API key name");
-      return;
-    }
-    if (formKeyName.length > 100) {
+    if (formAPIName.length > 100) {
       toast.warning("API key name must not exceed 100 characters");
       return;
     }
@@ -252,43 +249,44 @@ export default function ApiManagement() {
 
 
     const isDuplicateNameCheck = isDuplicateName(
-      formKeyName.trim(),
+      formAPIName.trim(),
       editingKey?.id,
     );
     if (isDuplicateNameCheck) {
       if (editingKey) {
         toast.warning(
-          `Cannot update: API key name "${formKeyName.trim()}" already exists`,
+          `Cannot update: API key name "${formAPIName.trim()}" already exists`,
         );
       } else {
         toast.warning(
-          `Cannot create: API key name "${formKeyName.trim()}" already exists`,
+          `Cannot create: API key name "${formAPIName.trim()}" already exists`,
         );
       }
       return;
     }
 
-    const isDuplicateValueCheck = await checkDuplicateValue(
-      formKeyValue.trim(),
-      editingKey?.id,
-    );
-    if (isDuplicateValueCheck) {
-      if (editingKey) {
-        toast.warning(
-          `Cannot update: This API key value already exists for another key`,
-        );
-      } else {
-        toast.warning(`Cannot create: This API key value already exists`);
-      }
-      return;
-    }
+    // const isDuplicateValueCheck = await checkDuplicateValue(
+    //   formKeyValue.trim(),
+    //   editingKey?.id,
+    // );
+    // if (isDuplicateValueCheck) {
+    //   if (editingKey) {
+    //     toast.warning(
+    //       `Cannot update: This API key value already exists for another key`,
+    //     );
+    //   } else {
+    //     toast.warning(`Cannot create: This API key value already exists`);
+    //   }
+    //   return;
+    // }
 
     try {
       if (editingKey) {
         await apiFetch(`/api/qurioz/api-keys/${editingKey.id}`, {
           method: "PUT",
           body: JSON.stringify({
-            name: formKeyName.trim(),
+            name:formAPIName.trim(),
+            provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
           }),
@@ -299,7 +297,8 @@ export default function ApiManagement() {
         await apiFetch("/api/qurioz/api-keys", {
           method: "POST",
           body: JSON.stringify({
-            name: formKeyName.trim(),
+            name:formAPIName.trim(),
+            provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
           }),
@@ -307,7 +306,8 @@ export default function ApiManagement() {
 
         toast.success("API key added successfully");
       }
-      setFormKeyName("");
+      setFormAPIName("")
+      setFormAIProvider("");
       setFormKeyValue("");
       setFormModelValue("");
       setIsEditing(false);
@@ -367,7 +367,7 @@ export default function ApiManagement() {
 
   async function editKey(key) {
     setEditingKey(key);
-    setFormKeyName(key.name);
+    setFormAIProvider(key.name);
     setFormModelValue(key?.model);
     setFormKeyValue("");
     setIsEditing(true);
@@ -383,7 +383,7 @@ export default function ApiManagement() {
   function cancelEdit() {
     setIsEditing(false);
     setEditingKey(null);
-    setFormKeyName("");
+    setFormAIProvider("");
     setFormKeyValue("");
     setFormModelValue("");
     setShowAddForm(false);
@@ -401,7 +401,7 @@ export default function ApiManagement() {
     setShowAddForm(true);
     setIsEditing(false);
     setEditingKey(null);
-    setFormKeyName("");
+    setFormAIProvider("");
     setFormKeyValue("");
     setFormModelValue("");
     setOllamaModels([]);
@@ -587,9 +587,9 @@ export default function ApiManagement() {
     setISvalidKey(false)
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
-    if (formKeyName.trim() && formKeyValue.trim() && formModelValue.trim()) {
+    if (formAIProvider.trim() && formKeyValue.trim() && formModelValue.trim()) {
       const apiKeys = {
-        name: formKeyName.trim(),
+        name: formAIProvider.trim(),
         apiKey: formKeyValue?.trim(),
         model: formModelValue?.trim(),
       };
@@ -777,12 +777,32 @@ export default function ApiManagement() {
           <form>
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
-                API Key Name <span style={{ color: "var(--danger)" }}>*</span>
+                Name{" "}
+                <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={formAPIName}
+                  onChange={(e) => setFormAPIName(e.target.value)}
+                  placeholder="Enter the Name"
+                  required
+                  autoFocus
+                  style={{
+                    width: "100%",
+                    maxWidth: 520,
+                    fontSize: "14px",
+                  }}
+                />
+            </div>
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label className="form-label">
+                AI Provider <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <Select
                 className="form-input"
-                onChange={(e) => setFormKeyName(e?.target?.value)}
-                value={formKeyName || ""}
+                onChange={(e) => setFormAIProvider(e?.target?.value)}
+                value={formAIProvider || ""}
                 style={{
                   width: "100%",
                   maxWidth: 520,
@@ -802,9 +822,10 @@ export default function ApiManagement() {
               </Select>
             </div>
 
+
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
-                {formKeyName} Model Name{" "}
+                {formAIProvider} Model Name{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               {isOllama ? (
@@ -832,7 +853,7 @@ export default function ApiManagement() {
                   type="text"
                   value={formModelValue}
                   onChange={(e) => setFormModelValue(e.target.value)}
-                  placeholder={`${ModelExamplesPlaceholder(formKeyName)}`}
+                  placeholder={`${ModelExamplesPlaceholder(formAIProvider)}`}
                   required
                   autoFocus
                   style={{

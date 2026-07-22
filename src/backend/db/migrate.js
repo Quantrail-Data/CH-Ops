@@ -112,6 +112,7 @@ sqlite.exec(`
   CREATE TABLE IF NOT EXISTS api_key (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    provider TEXT NOT NULL,
     model TEXT NOT NULL,
     encrypted_key TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 0,
