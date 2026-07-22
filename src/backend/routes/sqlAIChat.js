@@ -39,7 +39,7 @@ router.post("/generate-sql", async (req, res, next) => {
       const err = new Error(
         "No AI provider selected. Please choose one to continue.",
       );
-      err.statusCode = 401;
+      err.statusCode = 400;
       throw err;
     }
 

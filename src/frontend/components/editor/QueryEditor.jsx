@@ -27,7 +27,7 @@ import {
 } from "../../utils/costEstimator.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { treeSizeTB } from "../../utils/treeChart.js";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
@@ -1518,7 +1518,7 @@ export default function QueryEditor({
                       cursor: "pointer",
                     }}
                     onClick={() => selectHandler(db)}
-                    title="Select database for work AI"
+                    title="Select Database to work with AI"
                   >
                     {isAILoading ? (
                       <div className="loading-spinner"></div>
@@ -2070,51 +2070,33 @@ export default function QueryEditor({
                     <Icon className="ti ti-copy" style={{ fontSize: 12 }} />{" "}
                     query_id
                   </button>
-                  <button
+                  <Link
+                  to={`/tools/profiler?qid=${encodeURIComponent(effectiveQueryId)}`} target="_blank" rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "11px", padding: "1px 6px" }}
-                    onClick={() => {
-                      navigate(
-                        `/tools/profiler?qid=${encodeURIComponent(effectiveQueryId)}`,
-                      );
-                    }}
                     title="Open in Query Profiler (flame graph)"
                   >
                     <Icon className="ti ti-flame" style={{ fontSize: 12 }} />{" "}
                     Flame Graph
-                  </button>
-                  <button
+                  </Link>
+                  <Link
+                  to={`/tools/pipeline?qid=${encodeURIComponent(effectiveQueryId)}`} target="_blank" rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "11px", padding: "1px 6px" }}
-                    onClick={() => {
-                      navigate(
-                        `/tools/pipeline?qid=${encodeURIComponent(effectiveQueryId)}`,
-                      );
-                    }}
-                    title="Open in Processors Profile (pipeline DAG)"
+                    title="Open in Query Profiler (flame graph)"
                   >
-                    <Icon
-                      className="ti ti-git-branch"
-                      style={{ fontSize: 12 }}
-                    />{" "}
+                    <Icon className="ti ti-git-branch" style={{ fontSize: 12 }} />{" "}
                     Pipeline
-                  </button>
-                  <button
+                  </Link>
+                  <Link
+                  to={`/tools/metrics?qid=${encodeURIComponent(effectiveQueryId)}`} target="_blank" rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "11px", padding: "1px 6px" }}
-                    onClick={() => {
-                      navigate(
-                        `/tools/metrics?qid=${encodeURIComponent(effectiveQueryId)}`,
-                      );
-                    }}
-                    title="Open in Query Metrics"
+                    title="Open in Query Profiler (flame graph)"
                   >
-                    <Icon
-                      className="ti ti-chart-line"
-                      style={{ fontSize: 12 }}
-                    />{" "}
+                    <Icon className="ti ti-chart-line" style={{ fontSize: 12 }} />{" "}
                     Metrics
-                  </button>
+                  </Link>
                 </span>
               )}
             </span>
