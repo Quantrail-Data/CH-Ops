@@ -811,7 +811,11 @@ export const PAGE_TEXT = {
     "Clear Projection",
     "Download PNG",
     "col1, col2, sum(col3) - DISTINCT not supported in projections",
-    "col1, col2"
+    "col1, col2",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Generated SQL",
+    "Cancel",
+    "No options"
   ],
   "indexes/create": [
     "Create",
