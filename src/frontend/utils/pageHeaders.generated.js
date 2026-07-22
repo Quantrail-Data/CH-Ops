@@ -1043,7 +1043,8 @@ export const PAGE_TEXT = {
     "col1, col2",
     "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Generated SQL",
-    "Cancel"
+    "Cancel",
+    "No options"
   ],
   "indexes/create": [
     "Create",
