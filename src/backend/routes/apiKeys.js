@@ -221,9 +221,12 @@ router.get("/with-values", requireSuperAdmin, (req, res) => {
 
 router.post("/", requireSuperAdmin, (req, res) => {
   try {
-    const { name, apiKey, model } = req.body;
+    const { name, apiKey, model, provider } = req.body;
     if (!name?.trim()) {
       return res.status(400).json({ error: "API key name required." });
+    }
+    if (!provider?.trim()) {
+      return res.status(400).json({ error: "API key provider required." });
     }
     if (!apiKey?.trim()) {
       return res.status(400).json({ error: "API key value required." });
@@ -231,7 +234,7 @@ router.post("/", requireSuperAdmin, (req, res) => {
     if (!model?.trim()) {
       return res.status(400).json({ error: "API key model required." });
     }
-    const newKey = createApiKey(name, apiKey, model);
+    const newKey = createApiKey(name, apiKey, model ,provider);
     res.status(201).json(newKey);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -240,9 +243,12 @@ router.post("/", requireSuperAdmin, (req, res) => {
 
 router.put("/:id", requireSuperAdmin, (req, res) => {
   try {
-    const { name, apiKey, model } = req.body;
+    const { name, apiKey, model, provider } = req.body;
     if (!name?.trim()) {
       return res.status(400).json({ error: "API key name required." });
+    }
+    if (!provider?.trim()) {
+      return res.status(400).json({ error: "API key provider required." });
     }
     if (!apiKey?.trim()) {
       return res.status(400).json({ error: "API key value required." });
@@ -252,7 +258,7 @@ router.put("/:id", requireSuperAdmin, (req, res) => {
       return res.status(400).json({ error: "API key model required." });
     }
     const id = parseInt(req.params.id);
-    const updated = updateApiKey(id, name, apiKey, model);
+    const updated = updateApiKey(id, name, apiKey, model,provider);
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
