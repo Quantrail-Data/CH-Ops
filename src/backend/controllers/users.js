@@ -240,6 +240,38 @@ export async function updateUser(req, res) {
       updates.passwordHash = await hashPassword(pw);
       updates.mustChangePassword = true;
       db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+      
+      const env = loadEnv();
+      const smtp = env.smtp;
+      if (smtp.host && target.email) {
+        try {
+          const emailConfig = {
+            type: "email",
+            smtp_host: smtp.host,
+            smtp_port: smtp.port,
+            smtp_user: smtp.user,
+            smtp_pass: smtp.pass,
+            from: smtp.from,
+            to: target.email,
+          };
+          await sendNotification(emailConfig, {
+            name: "CHOps Password Reset",
+            severity: "info",
+            description: `Your CHOps account password has been reset by an administrator.\n\nUsername: ${target.username}\nNew Password: ${pw}\nRole: ${target.role}\n\nPlease change your password on first login.`,
+            sql: "",
+            schedule: "",
+            operator: "eq",
+            threshold: 0,
+            lastValue: 0,
+            lastRunAt: new Date().toISOString(),
+          });
+        } catch (emailErr) {
+          console.error("Failed to send password reset email:", emailErr.message);
+        }
+      } else if (!target.email) {
+        console.log(`User ${target.username} has no email configured, password not sent via email`);
+      }
+      
       return res.json({ ok: true, generatedPassword: pw });
     }
 
