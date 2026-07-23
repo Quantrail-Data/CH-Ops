@@ -17,6 +17,7 @@ env:
   SUPER_ADMIN_1: test-admin
   SUPER_ADMIN_1_PASSWORD: test-password-123
   SESSION_SECRET: test-session-secret
+  SUPER_ADMIN_1_EMAIL: abc@gmail.com
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
