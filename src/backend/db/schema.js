@@ -112,6 +112,7 @@ export const appUsers = sqliteTable("app_user", {
 export const apiKeys = sqliteTable("api_key", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
+  provider: text("provider").notNull(),
   model: text("model").notNull(),
   encryptedKey: text("encrypted_key").notNull(),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
