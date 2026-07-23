@@ -9,10 +9,10 @@
  */
 
 
-import { describe, it, expect, beforeAll, beforeEach, vi } from 'bun:test'
+import { describe, it, expect, beforeEach, vi, mock } from 'bun:test'
+import { completeDdl, getActiveAiConfig, getAiStatus } from '../../src/backend/services/studioAi'
 import { initCrypto } from '../../src/backend/services/crypto'
-import { completeDdl } from '../../src/backend/services/studioAi'
-import { createApiKey, deleteApiKey, getActiveApiKey, setActiveApiKey } from '../../src/backend/services/apiKeys'
+
 
 
 try {
@@ -23,57 +23,210 @@ try {
 }
 
 
-let activeAPIKey;
+const cfg = { name: 'GEMINI', provider: 'GEMINI', model: 'gemini-flash-latest', encryptedKey: 'test' }
+
 beforeEach(() => {
     vi.clearAllMocks()
-    activeAPIKey = getActiveApiKey()
+
 })
 
 describe("AI Completion", () => {
 
-    it("Returns error on empty API Keys", async () => {
-        if (activeAPIKey) deleteApiKey(activeAPIKey.id)
-        try {
-            await completeDdl('This is a test request, respond with only `WORKING`')
-            throw new Error("Failed to return Error.")
-        } catch (e) {
-            expect(e.status).toBe(400)
-            expect(e.message).toBe('No AI provider configured. Set one in Settings.')
-        }
-        if (activeAPIKey) {
-            activeAPIKey = createApiKey(activeAPIKey.name, activeAPIKey.key, activeAPIKey.model)
-            setActiveApiKey(activeAPIKey.id)
-        }
+    it("Generates AI Response", async () => {
+        vi.mock('@google/genai', () => {
+            const Models = class {
+                constructor() {
+                    this.generateContent = () => ({ text: 'WORKING' })
+                }
+            }
+            return {
+                GoogleGenAI: class {
+                    constructor() {
+                        this.models = new Models()
+                    }
+                }
+            }
+        })
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+        const response = await completeDdl()
+        expect(response).toBe('WORKING')
     })
 
-    it("Returns error on empty API Key value", async () => {
-        const tempAPIKey = createApiKey('Test Key', '', 'test-model')
-        setActiveApiKey(tempAPIKey.id)
-        try {
-            await completeDdl('This is a test request, respond with only `WORKING`')
-            throw new Error("Failed to return Error.")
-        } catch (e) {
-            expect(e.status).toBe(400)
-            expect(e.message).toBe('The configured AI key is empty.')
-        }
-        if (activeAPIKey) setActiveApiKey(activeAPIKey.id)
-        deleteApiKey(tempAPIKey.id)
+    it("Throws error on empty API Keys", () => {
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => null })) })) })),
+
+            }
+        }))
+        expect(async () => { await completeDdl() }).toThrow("No AI provider configured. Set one in Settings.")
     })
 
-    it("Returns error invalid AI Provider", async () => {
-        const tempAPIKey = createApiKey('Invalid Provider Key', 'test-key', 'test-model')
-        setActiveApiKey(tempAPIKey.id)
-        try {
-            await completeDdl('This is a test request, respond with only `WORKING`')
-            throw new Error("Failed to return Error.")
-        } catch (e) {
-            expect(e.status).toBe(400)
-            expect(e.message).toInclude('Select Gemini')
-        }
-        if (activeAPIKey) setActiveApiKey(activeAPIKey.id)
-        deleteApiKey(tempAPIKey.id)
+    it("Throws error on empty API Key value", () => {
+        cfg.encryptedKey = ''
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+        expect(async () => { await completeDdl() }).toThrow("The configured AI key is empty.")
+        cfg.encryptedKey = 'test'
+
+
+    })
+
+    it("Throws error invalid AI Provider", () => {
+        cfg.name = 'CLAUDE'
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+        expect(async () => { await completeDdl() }).toThrow(`AI provider "${cfg.name}" is not supported yet. Select Gemini.`)
+        cfg.name = 'GEMINI'
+
+
+    })
+
+    it('Throws error on resource exhaustion', () => {
+        vi.mock('@google/genai', () => {
+            const Models = class {
+                constructor() {
+                    this.generateContent = () => {
+                        const e = new Error('Resource exhausted')
+                        e.status = 429
+                        throw e
+                    }
+                }
+            }
+            return {
+                GoogleGenAI: class {
+                    constructor() {
+                        this.models = new Models()
+                    }
+                }
+            }
+        })
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+
+        expect(async () => { await completeDdl() }).toThrow("AI provider rate limit exceeded. Please try again later.")
+
+
     })
 
 
+
+    it('Throws error on invalid API Key', () => {
+        vi.mock('@google/genai', () => {
+            const Models = class {
+                constructor() {
+                    this.generateContent = () => {
+                        const e = new Error('invalid authentication')
+                        e.status = 401
+                        throw e
+                    }
+                }
+            }
+            return {
+                GoogleGenAI: class {
+                    constructor() {
+                        this.models = new Models()
+                    }
+                }
+            }
+        })
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+
+        expect(async () => { await completeDdl() }).toThrow("AI authentication failed. Please verify the API key in Settings.")
+
+
+    })
+
+
+    it('Throws error for unknown error status', () => {
+        vi.mock('@google/genai', () => {
+            const Models = class {
+                constructor() {
+                    this.generateContent = () => {
+                        const e = new Error('unkonwn error')
+                        e.status = 500
+                        throw e
+                    }
+                }
+            }
+            return {
+                GoogleGenAI: class {
+                    constructor() {
+                        this.models = new Models()
+                    }
+                }
+            }
+        })
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+
+        expect(async () => { await completeDdl() }).toThrow("AI request failed: unkonwn error")
+
+
+    })
+
+})
+
+
+describe("AI Configuration", () => {
+    it("Gets active AI config", () => {
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+        const activeCFG = getActiveAiConfig()
+        expect(activeCFG).toBeDefined()
+    })
+
+
+    it("Returns null on empty API Key", () => {
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => null })) })) })),
+
+            }
+        }))
+        const activeCFG = getActiveAiConfig()
+        expect(activeCFG).toBeNull()
+    })
+
+    it("Gets AI Status from configuration", () => {
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => cfg })) })) })),
+
+            }
+        }))
+        const status = getAiStatus(cfg)
+        expect(status.executable).toBeTrue()
+    })
 
 })
