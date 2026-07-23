@@ -1,30 +1,48 @@
-/**
- * auth-controller.test.js - Unit tests for Auth controller
- *
- * Tests Login, Log out, Password change controllers.
- * Verifies error generation
- *
- * Author: Syed Ashiq
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// /**
+//  * auth-controller.test.js - Unit tests for Auth controller
+//  *
+//  * Tests Login, Log out, Password change controllers.
+//  * Verifies error generation
+//  *
+//  * Author: Syed Ashiq
+//  * Copyright (C) 2026 Quantrail™ Data Private Limited
+//  */
 
 
 
-import { describe, it, expect, vi, mock, afterAll } from 'bun:test'
-import { changePassword, login, logout, } from '../../src/backend/controllers/auth'
+import { describe, it, expect, vi, mock, afterAll, beforeEach } from 'bun:test'
+import { changePassword, checkLockout, hashPassword, login, logout, safeCompare, verifyPassword, } from '../../src/backend/controllers/auth'
 import { setSecret } from '../../src/backend/services/jwt'
 
 const testUser = {
     id: 1,
     username: "TestUser",
     password: "testuser",
-    passwordHash: "$argon2id$v=19$m=65536,t=2,p=1$TOj+am97ogQIygzbFOL+Wtqau3QKkhM5dyiN1eTzORY$ipxnTqTHBTAACVvU9eAUczcDKmKUOGZ0qVPaqUh287U",
+    passwordHash: await hashPassword('testuser'),
     role: "admin",
     mustChangePassword: false,
     updatedAt: new Date(),
     authMethod: ""
 }
 
+const mockedRequest = {
+    body: testUser,
+    headers: { authorization: "" }
+}
+
+const mockedResponse = {
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn().mockReturnThis(),
+}
+
+const mockedChangeRequest = {
+    body: {
+        currentPassword: testUser.password,
+        newPassword: testUser.password,
+    },
+
+    headers: { authorization: "" }
+}
 try {
 
     setSecret('f1e3c0c41c27795bf60b837cf6ba1e68a151a94ce464539feb39432e2057a8f3')
@@ -52,6 +70,12 @@ describe("User Login", () => {
 
     it("Returns error on invalid credentials", async () => {
         vi.clearAllMocks()
+        vi.mock('../../src/backend/db', () => ({
+            db: {
+                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => null })) })) })),
+
+            }
+        }))
         await login({ body: { username: "Testing", password: testUser.passwordHash } }, mockedResponse)
         expect(mockedResponse.json).toHaveBeenCalledWith({ error: "Invalid credentials." })
 
@@ -163,47 +187,31 @@ describe("User Log out", () => {
     })
 })
 
-describe("User Password Change", async () => {
+describe("User Password Change", () => {
 
-    const mockedRequest = {
-        body: testUser,
-        headers: { authorization: "" }
-    }
 
-    const mockedResponse = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn().mockReturnThis(),
-    }
+    beforeEach(async () => {
+        vi.clearAllMocks()
 
-    const mockedChangeRequest = {
-        body: {
-            currentPassword: testUser.password,
-            newPassword: testUser.password,
-        },
+        vi.mock("../../src/backend/utils/env", () => ({
+            loadEnv: () => ({
+                disableEnvLogin: false,
+                superAdmins: [
+                    testUser
+                ]
+            })
+        }))
 
-        headers: { authorization: "" }
-    }
+        await login({
+            body: testUser,
+            headers: { authorization: "" }
+        }, mockedResponse)
 
-    vi.clearAllMocks()
-
-    vi.mock("../../src/backend/utils/env", () => ({
-        loadEnv: () => ({
-            disableEnvLogin: false,
-            superAdmins: [
-                testUser
-            ]
-        })
-    }))
-
-    await login({
-        body: testUser,
-        headers: { authorization: "" }
-    }, mockedResponse)
-
-    const authUser = mockedResponse.json.mock.calls[0][0]
-    const authToken = authUser.token
-    mockedRequest.headers.authorization = "Bearer " + authToken
-    mockedChangeRequest.headers.authorization = "Bearer " + authToken
+        const authUser = mockedResponse.json.mock.calls[0][0]
+        const authToken = authUser.token
+        mockedRequest.headers.authorization = "Bearer " + authToken
+        mockedChangeRequest.headers.authorization = "Bearer " + authToken
+    })
 
 
     it("Verifies Autherization", async () => {
@@ -312,6 +320,7 @@ describe("User Password Change", async () => {
 
 
 
+        testUser.passwordHash = await hashPassword(testUser.password)
         vi.mock('../../src/backend/db', () => ({
             db: {
                 select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => testUser })) })) })),
@@ -350,6 +359,34 @@ describe("User Password Change", async () => {
         await changePassword(mockedChangeRequest, mockedResponse)
         expect(mockedResponse.json).toHaveBeenCalledWith({ ok: true })
     })
+
+})
+
+describe("Password helper functions", () => {
+    it('Hashes password ', async () => {
+        const hash = await hashPassword('testing')
+        const isvalid = await verifyPassword('testing', hash)
+        expect(isvalid).toBeTrue()
+
+        const isSafeEqual = safeCompare('testing-1', 'testing-2')
+        expect(isSafeEqual).toBeFalse()
+    })
+
+    it('Checks User lockout', () => {
+        const isLocked = checkLockout('test')
+        expect(isLocked).not.toBeTrue()
+    })
+
+    it('Verifies valid password', async () => {
+        const isValid = await verifyPassword('tester', '$argon2id$v=19$m=65536,t=2,p=1$DfIapkztNT3BJB8anoD6WDckBdD95/Jfs7cBIuiQA+s$g7XvokdP1VDARIQc+OZW/1KOaYtsue6XGIEiCiJ89E8')
+        expect(isValid).toBeTrue()
+    })
+
+    it('Verifies invalid password', async () => {
+        const isValid = await verifyPassword('test', '$argon2id$v=19$m=65536,t=2,p=1$DfIapkztNT3BJB8anoD6WDckBdD95/Jfs7cBIuiQA+s$g7XvokdP1VDARIQc+OZW/1KOaYtsue6XGIEiCiJ89E8')
+        expect(isValid).toBeFalse()
+    })
+
 })
 
 afterAll(() => {

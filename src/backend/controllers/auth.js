@@ -9,7 +9,7 @@ import { db, appUsers } from "../db/index.js";
 import { create, verify, revokeToken } from "../services/jwt.js";
 import { loadEnv } from "../utils/env.js";
 
-async function hashPassword(pw) {
+export async function hashPassword(pw) {
   return Bun.password.hash(pw, {
     algorithm: "argon2id",
     memoryCost: 65536,
@@ -17,7 +17,7 @@ async function hashPassword(pw) {
   });
 }
 
-async function verifyPassword(pw, hash) {
+export async function verifyPassword(pw, hash) {
   // Old installs stored SHA-256 (64 hex chars, no $ prefix). Detect and handle.
   if (hash && hash.length === 64 && !hash.startsWith("$")) {
     const { createHash } = await import("crypto");
@@ -32,7 +32,7 @@ async function verifyPassword(pw, hash) {
 }
 
 // Timing-safe string comparison for .env fallback (constant-time, no early exit)
-function safeCompare(a, b) {
+export function safeCompare(a, b) {
   try {
     return timingSafeEqual(Buffer.from(String(a)), Buffer.from(String(b)));
   } catch {
@@ -47,7 +47,7 @@ const loginAttempts = new Map();
 const MAX_FAILURES = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
-function checkLockout(username) {
+export function checkLockout(username) {
   const key = username.toLowerCase().trim();
   const entry = loginAttempts.get(key);
   if (!entry) return false;
@@ -152,7 +152,7 @@ export async function login(req, res) {
         }
       }
     }
-  } catch {}
+  } catch { }
 
   recordFailure(username);
   res.status(401).json({ error: "Invalid credentials." });

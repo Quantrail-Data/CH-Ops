@@ -21,6 +21,7 @@ import { describe, it, expect } from "bun:test";
 const {
   getNodeByName,
   getClusterById,
+  getAllClusters,
   saveClusters,
   MAX_CLUSTERS,
   MAX_TOTAL_NODES,
@@ -101,5 +102,11 @@ describe("clusterUtils: saveClusters validation", () => {
     expect(() => saveClusters([{ nodes: ten }, { nodes: ten }])).toThrow(
       "Maximum 18 total nodes across all clusters.",
     );
+  });
+});
+
+describe("clusterUtils: getAllClusters", () => {
+  it("returns an empty array when there is no cluster data", () => {
+    expect(getAllClusters()).toEqual([]);
   });
 });
