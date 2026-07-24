@@ -11,12 +11,46 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { isDataQuery as sqlIsDataQuery, leadingKeyword } from '../../shared/sqlClassify.js';
 
+function validateClickHouseHost(host) {
+  if (typeof host !== 'string') {
+    throw new TypeError('ClickHouse host must be a string');
+  }
+
+  const normalizedHost = host.trim();
+  if (!normalizedHost) {
+    throw new Error('ClickHouse host is required');
+  }
+
+  if (!/^[A-Za-z0-9.-]+$/.test(normalizedHost)) {
+    throw new Error(`Invalid ClickHouse host: ${host}`);
+  }
+
+  if (normalizedHost.startsWith('.') || normalizedHost.endsWith('.') || normalizedHost.includes('..')) {
+    throw new Error(`Invalid ClickHouse host: ${host}`);
+  }
+
+  return normalizedHost;
+}
+
+function buildClickHouseUrl({ host, port, secure, readOnly = false }) {
+  const normalizedHost = validateClickHouseHost(host);
+  const url = new URL(`${secure ? 'https' : 'http'}://127.0.0.1/`);
+  url.hostname = normalizedHost;
+  url.port = String(port);
+
+  if (readOnly) {
+    url.searchParams.set('readonly', '1');
+  }
+
+  return url;
+}
+
 export async function executeQuery({ host, port = 8123, secure = false, user = 'default', password = '', sql, readOnly = false }) {
   const proto = secure ? 'https' : 'http';
   // Apply ClickHouse's readonly setting as the authoritative guard for read-only
   // requests. Restricting yourself to readonly=1 is always allowed, so this is
   // safe to send even if the user's profile is not already read-only.
-  const url = readOnly ? `${proto}://${host}:${port}/?readonly=1` : `${proto}://${host}:${port}/`;
+  const url = buildClickHouseUrl({ host, port, secure, readOnly });
 
   // Strip trailing semicolons and classify (comment/quote-safe) to decide whether
   // to append FORMAT JSONEachRow. Uses the same shared classifier as everywhere.
