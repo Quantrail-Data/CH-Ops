@@ -127,19 +127,19 @@ function buildPinnedUrl(parsedUrl, ip, path) {
   return `${parsedUrl.protocol}//${host}${port}${path}`;
 }
 
-const AIProviderTesting = async (providerID = null,apikey=null) => {
+const AIProviderTesting = async (providerID = null, apikey = null) => {
   try {
     if (!providerID && apikey) {
-      const {name, apiKey, model} = apikey;
+      const { name, apiKey, model } = apikey;
       const AISer = new AIServices(
-      name,
-      model,
-      apiKey,
-    );
-    const response = await AISer?.ask("hi");
-    return response
-      ? { success: true, message: "active" }
-      : { success: false, message: "failed" };
+        name,
+        model,
+        apiKey,
+      );
+      const response = await AISer?.ask("hi");
+      return response
+        ? { success: true, message: "active" }
+        : { success: false, message: "failed" };
     }
 
     const findAPIKEY = db
@@ -234,7 +234,7 @@ router.post("/", requireSuperAdmin, (req, res) => {
     if (!model?.trim()) {
       return res.status(400).json({ error: "API key model required." });
     }
-    const newKey = createApiKey(name, apiKey, model ,provider);
+    const newKey = createApiKey(name, apiKey, model, provider);
     res.status(201).json(newKey);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -258,7 +258,7 @@ router.put("/:id", requireSuperAdmin, (req, res) => {
       return res.status(400).json({ error: "API key model required." });
     }
     const id = parseInt(req.params.id);
-    const updated = updateApiKey(id, name, apiKey, model,provider);
+    const updated = updateApiKey(id, name, apiKey, model, provider);
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -288,16 +288,16 @@ router.post("/select", requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post("/check", requireSuperAdmin, async (req,res,next)=>{
+router.post("/check", requireSuperAdmin, async (req, res, next) => {
   try {
-    const {apiKeys} = req.body;
-    if (!apiKeys) return res.status(422).json({success:false,message:"Provider ID and Model details  must be included!"});
+    const { apiKeys } = req.body;
+    if (!apiKeys) return res.status(422).json({ success: false, message: "Provider ID and Model details  must be included!" });
 
-    const responseTesting = await AIProviderTesting(null,apiKeys);
+    const responseTesting = await AIProviderTesting(null, apiKeys);
 
     return res.status(201)?.json(responseTesting);
   }
-  catch(error) {
+  catch (error) {
     console.error("API key check route error:", error.message);
     next(error);
   }
@@ -314,7 +314,17 @@ router.post("/ollama/models", requireSuperAdmin, async (req, res) => {
     try {
       parsed = new URL(baseUrl.trim());
     } catch {
-      return res.status(422).json({ success: false, message: "Enter a valid URL, e.g. http://localhost:11434" });
+      return res.status(422).json({ success: false, message: "Enter a valid URL" });
+    }
+
+    if (parsed.pathname && parsed.pathname !== "/") {
+      return res.status(422).json({ success: false, message: "Base URL must not contain a path." });
+    }
+    if (parsed.search) {
+      return res.status(422).json({ success: false, message: "Base URL must not contain query parameters." });
+    }
+    if (parsed.hash) {
+      return res.status(422).json({ success: false, message: "Base URL must not contain a fragment." });
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return res.status(422).json({ success: false, message: "URL must start with http:// or https://" });
