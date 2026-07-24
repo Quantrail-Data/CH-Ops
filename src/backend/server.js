@@ -121,7 +121,7 @@ app.use('/api/cluster', authMiddleware,rateLimiter(10000, 60), clusterRoute);
 app.use('/api/app-backup', authMiddleware,rateLimiter(10000, 60), appBackupRoute);
 app.use('/api/qurioz/api-keys', authMiddleware,rateLimiter(10000, 60), apiKeysRoute);
 app.use('/api/export/download', rateLimiter(10000, 60), downloadRouter);
-app.use('/api/export', authMiddleware, rateLimiter(10000, 60), exportRoute);
+app.use('/api/export', rateLimiter(10000, 60), authMiddleware, exportRoute);
 
 
 
