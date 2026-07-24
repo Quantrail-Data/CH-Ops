@@ -2,6 +2,8 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Loads environment configs, requiring a super admin and SESSION_SECRET for seeding databases and auth fallbacks.
 
+import path from "node:path";
+
 export function loadEnv() {
   if (!process.env.SUPER_ADMIN_1 || !process.env.SUPER_ADMIN_1_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
     // Backward compat: check legacy single-admin format
@@ -25,6 +27,15 @@ export function loadEnv() {
   }
 
   return {
+    exportCfg: {
+      dir: process.env.EXPORT_DIR || path.join(process.cwd(), "data", "exports"),
+      maxJobBytes: parseInt(process.env.EXPORT_MAX_JOB_BYTES || String(5 * 1024 * 1024 * 1024), 10),
+      maxTotalBytes: parseInt(process.env.EXPORT_MAX_TOTAL_BYTES || String(20 * 1024 * 1024 * 1024), 10),
+      maxConcurrent: parseInt(process.env.EXPORT_MAX_CONCURRENT || "5", 10),
+      maxPerUser: parseInt(process.env.EXPORT_MAX_PER_USER || "2", 10),
+      idleTtlMs: parseInt(process.env.EXPORT_IDLE_TTL_MS || String(15 * 60 * 1000), 10),
+      warnBytes: parseInt(process.env.EXPORT_WARN_BYTES || String(1024 * 1024 * 1024), 10),
+    },
     superAdmins,
     sessionSecret: process.env.SESSION_SECRET,
     port: parseInt(process.env.PORT || '3000', 10),
