@@ -9,11 +9,6 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-// const {RD_ShcemaData} = require("./servicesAI/rdService.js");
-// const appVersion = require('../../version.json');
-
-// Embedded static assets (generated at build time for binary mode)
-// In dev mode this file does not exist, so we fall back to filesystem serving
 let embeddedAssets = null;
 try {
   const mod = await import('./embeddedAssets.js');
@@ -51,7 +46,8 @@ import usersRoute from './routes/users.js';
 import clusterRoute from './routes/cluster.js';
 import appBackupRoute from './routes/appBackup.js';
 import apiKeysRoute from './routes/apiKeys.js';
-import DownloadRouter from "./routes/downloadFile.js";
+import exportRoute, { downloadRouter } from "./routes/export.js";
+import { initExportStorage, startExportSweeper, cancelJobsForUser } from "./services/exportJobs.js";
 import ForgetRouter from "./routes/forgetPassword.js";
 
 
@@ -65,65 +61,55 @@ import { clearCredSessionByJti, pruneExpired } from './services/chCredStore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load .env and fail fast if required vars are missing
+
 let env;
 try { env = loadEnv(); } catch (err) { console.error(`  Config error: ${err.message}`); process.exit(1); }
 
-// These two must happen before any route handler runs:
-// - setSecret: so JWT tokens can be signed and verified
-// - initCrypto: so encrypted credentials can be read from the database
+
 setSecret(env.sessionSecret);
 initCrypto(env.sessionSecret);
 
-// Tie credential lifetime to the login: when a token is revoked (logout), clear
-// that login's encrypted ClickHouse credential sessions across all contexts.
-onRevoke(clearCredSessionByJti);
 
-// Reap expired / orphaned credential sessions so nothing sits at rest past its
-// TTL, even for logins that were never explicitly logged out (tab close, crash).
+onRevoke(clearCredSessionByJti);
+onRevoke(() => { try { cancelJobsForUser(undefined); } catch {} });
+
+
 pruneExpired();
 setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
 
 
 const appVersion = loadEnv()?.version;
 
-// Baked in at build/dev-start time (scripts/generate-version.mjs), since a
-// compiled binary has no VERSION env var or git checkout to compute this from
-// on the end user's machine. Falls back to whatever env.js found (usually
-// blank) if the generated file is somehow missing.
+
 try {
   const { APP_VERSION } = await import('./version.generated.js');
   if (APP_VERSION) appVersion.version = APP_VERSION;
 } catch {}
 
-// Database migration (core)
+
 await import('./db/migrate.js').catch(() => {});
 log.info('Database ready (Drizzle ORM + bun:sqlite)');
 
 
-// Migrate single-cluster to multi-cluster format if needed
+
 import { migrateClusterData } from './services/clusterUtils.js';
 migrateClusterData();
 
 
 const app = express();
 
-// Security middleware
+
 app.use(securityHeaders);
 app.use(requestLogger);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use((req, res, next) => { req.env = env; next(); });
 
-// Public routes (rate-limited)
+
 app.use('/api/auth', rateLimiter(100, 60), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/version', (req, res) => res.json(appVersion));
 app.use(`/api/forget-password`,ForgetRouter);
-// Protected routes - authMiddleware checks the JWT on every request.
-// /api/query has an extra 100kb body limit to prevent oversized SQL payloads.
-// RBAC (superadmin checks) is handled inside the route files and controllers,
-// not here - so authMiddleware just verifies "is logged in", not "is admin".
 app.use('/api/query', authMiddleware, rateLimiter(10000, 60), express.json({ limit: '100kb' }), queryRoute);
 app.use('/api/editor', authMiddleware,rateLimiter(10000, 60), editorRoute);
 app.use('/api/config', authMiddleware,rateLimiter(10000, 60), configRoute);
@@ -134,22 +120,17 @@ app.use('/api/users', authMiddleware,rateLimiter(10000, 60), usersRoute);
 app.use('/api/cluster', authMiddleware,rateLimiter(10000, 60), clusterRoute);
 app.use('/api/app-backup', authMiddleware,rateLimiter(10000, 60), appBackupRoute);
 app.use('/api/qurioz/api-keys', authMiddleware,rateLimiter(10000, 60), apiKeysRoute);
-app.use("/api/table/download", authMiddleware,rateLimiter(10000, 60), DownloadRouter);
+app.use('/api/export/download', rateLimiter(10000, 60), downloadRouter);
+app.use('/api/export', authMiddleware, rateLimiter(10000, 60), exportRoute);
 
 
 
-// AI chat routes use
-// connection of database and deletion of database
+
 app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
-// Generating the query
 app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
 app.use("/api/schema-studio", authMiddleware,rateLimiter(10000, 60), schemaStudioRoute);
 
-// Docs
 
-// --- Static asset serving ---
-// Binary mode: serve from embedded assets (in-memory, no filesystem needed)
-// Dev/source mode: serve from dist/ and docs/ on disk
 
 function serveEmbedded(prefix) {
   return (req, res, next) => {
@@ -183,7 +164,6 @@ const distDir = path.join(__dirname, '../../dist');
 const distIndex = path.join(distDir, 'index.html');
 
 if (embeddedAssets && embeddedAssets.has('dist/index.html')) {
-  // Binary mode: serve from memory
   app.use(serveEmbedded('dist'));
   app.use((req, res, next) => {
     if (req.path.startsWith('/docs/') || req.path.startsWith('/api/')) return next();
@@ -192,7 +172,6 @@ if (embeddedAssets && embeddedAssets.has('dist/index.html')) {
     res.send(idx.data);
   });
 } else if (fs.existsSync(distDir) && fs.existsSync(distIndex)) {
-  // Source mode: serve from filesystem
   app.use(express.static(distDir));
   app.use((req, res, next) => {
     if (req.path.startsWith('/docs/') || req.path.startsWith('/api/')) return next();
@@ -215,14 +194,15 @@ app.use((err, req, res, next) => {
 
 
 // Start services
+initExportStorage();
+startExportSweeper();
 startScheduler(env);
 startAppBackupScheduler();
 
-// storing the schema data of database so, we init the setup
-// RD_SERVICE && RD_SERVICE?.RDInit();
 
 
-// const appVersion = { version: env.version || '0.0.0' };
+
+
 const port = env.port;
 app.listen(port, () => {
   log.info(`CHOps v${appVersion.version} listening on http://localhost:${port}`, { port, env: env.nodeEnv, docs: `/docs/` });
