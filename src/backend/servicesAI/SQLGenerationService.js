@@ -19,7 +19,7 @@ class SQLGenerationService {
     this.localdb = new LocalVectorStore();
 
     this.AIProvider = new AIServices(
-      currentService?.name,
+      currentService?.provider,
       currentService?.model,
       currentService?.encryptedKey,
     );

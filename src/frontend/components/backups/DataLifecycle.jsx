@@ -238,6 +238,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
+  const [result , setResult] =useState(null)
   const [action, setAction] = useState("backup");
   const [isAsync, setIsAsync] = useState(false);
   const [scope, setScope] = useState("all");
@@ -369,8 +370,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       const sql = buildRealSql();
 
       await runQuery(sql);
-
-      toast.success(`${action.toUpperCase()} executed successfully.`);
+      setResult({ok:true,msg:`${action.toUpperCase()} executed successfully.`})
 
       if (action === "backup" && s3) {
         try {
@@ -383,9 +383,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           );
           console.error("Manifest write failed:", manifestMsg);
 
-          toast.warning(
-            `Backup completed, but manifest write failed: ${manifestMsg}`,
-          );
+          setResult({ok:false, msg:`Backup completed, but manifest write failed: ${manifestMsg}`})
         }
       }
     } catch (err) {
@@ -395,21 +393,24 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       console.error(`${action.toUpperCase()} failed:`, msg);
 
       if (msg.includes("Access Denied") || msg.includes("403")) {
-        toast.error(
-          `S3 access denied. Check your storage profile credentials. Details: ${msg}`,
-        );
+        setResult({ok:false, msg:`S3 access denied. Check your storage profile credentials. Details: ${msg}`})
       } else if (msg.includes("NoSuchBucket") || msg.includes("bucket")) {
-        toast.error(
-          `S3 bucket not found. Verify the bucket name in your storage profile. Details: ${msg}`,
-        );
+        setResult({ok:false, msg:`S3 bucket not found. Verify the bucket name in your storage profile. Details: ${msg}`})
       } else if (msg.includes("connect") || msg.includes("ECONNREFUSED")) {
-        toast.error(
-          `Cannot reach S3 endpoint. Check the endpoint URL in your storage profile. Details: ${msg}`,
-        );
+        setResult({ok:false, msg:`Cannot reach S3 endpoint. Check the endpoint URL in your storage profile. Details: ${msg}`})
       } else {
-        toast.error(`${action.toUpperCase()} failed: ${msg}`);
+        setResult({ok:false, msg:`${action.toUpperCase()} failed: ${msg}`})
       }
     } finally {
+      setScope("all");
+      setDb("");
+      setTbl("");
+      setExceptDatabases("");
+      setExceptTables("");
+      setOnCluster("");
+      setIsAsync(false);
+      setProfile("");
+      setSettingsStr("");
       setExecuting(false);
     }
   }
@@ -537,7 +538,26 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   }
 
   return (
-    <div className="card" style={{ padding: 20 }}>
+    <>
+      {result && (
+        <div
+          className={`alert-banner ${result.ok ? "success" : "danger"}`}
+          style={{ marginBottom: 14 }}
+          >
+          <Icon
+          className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
+          ></Icon>{" "}
+          {result.msg}
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ marginLeft: "auto" }}
+            onClick={() => setResult(null)}
+              >
+            <Icon className="ti ti-x"></Icon>
+            </button>
+        </div>
+        )}
+      <div className="card" style={{ padding: 20 }}>
       <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
         <Icon className="ti ti-settings-filled"></Icon> Manual Backup / Restore
       </h4>
@@ -650,12 +670,16 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             gap: 6,
           }}
         >
+        <div className="form-label">
+
           <label
+          className="switch"
             style={{
               display: "flex",
               gap: 6,
               cursor: "pointer",
               fontSize: "14px",
+              marginRight:"5px"
             }}
           >
             <input
@@ -664,8 +688,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               onChange={(e) => setIsAsync(e.target.checked)}
               style={{ accentColor: "var(--accent)" }}
             />{" "}
-            ASYNC
+            <span class="slider"></span>
           </label>
+          ASYNC
+      </div>
         </div>
       </div>
       {action === "backup" && (
@@ -810,7 +836,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           )}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -948,10 +975,12 @@ function AvailableBackupsTab({ profiles }) {
                       style={{
                         fontFamily: "var(--font-code)",
                         fontSize: "13px",
+                        wordBreak: "break-all",
                       }}
                     >
                       {b.display_name || b.backup_id}
                     </td>
+                    <td>{(b.backup_type || "legacy").toUpperCase()}</td>
                     <td>
                       {b.scope?.toUpperCase()}
                       {b.database ? ` / ${b.database}` : ""}
