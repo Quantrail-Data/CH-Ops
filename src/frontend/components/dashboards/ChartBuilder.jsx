@@ -71,7 +71,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Load edit chart
   useEffect(() => {
     if (editChart) {
       const cfg =
@@ -100,7 +99,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || chartType === "boxplot" || false;
   
-  // Chart types that support legends
   const legendSupportedTypes = [
     'grouped_bar', 'stacked_bar', 
     'multi_line', 'stacked_line',
@@ -214,6 +212,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       
       const legendVisible = shouldShowLegend && showLegend;
 
+      const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
+      const isBarChart = barChartTypes.includes(chartSubtype);
+
       const resolvedLegend = previewTools.fullscreen
         ? {
             ...chartOption.legend,
@@ -288,7 +289,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               top: gridTop,
               left: gridLeft,
               right: 24,
-              bottom: Math.max(parseInt(g?.bottom, 10) || 18, 70),
+              bottom: Math.max(parseInt(g?.bottom, 10) || 18, isBarChart ? 120 : 70),
             }))
           : {
               ...baseOption.grid,
@@ -298,17 +299,19 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               right: 24,
               bottom: Math.max(
                 parseInt(baseOption?.grid?.bottom, 10) || 18,
-                70,
+                isBarChart ? 120 : 70,
               ),
             },
         xAxis: Array.isArray(baseOption.xAxis)
           ? baseOption.xAxis.map((axis) => ({
               ...axis,
               nameLocation: "middle",
-              nameGap: Math.max(axis?.nameGap || 25, 42),
+              nameGap: isBarChart ? 100 : Math.max(axis?.nameGap || 25, 42),
               axisLabel: {
                 ...axis?.axisLabel,
-                margin: Math.max(axis?.axisLabel?.margin || 8, 14),
+                rotate: isBarChart ? 45 : 0,
+                align: isBarChart ? 'right' : 'left',
+                margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
                 hideOverlap: false,
                 color: isDarkColor,
               },
@@ -317,12 +320,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             ? {
                 ...baseOption.xAxis,
                 nameLocation: "middle",
-                nameGap: Math.max(baseOption?.xAxis?.nameGap || 25, 42),
+                nameGap: isBarChart ? 100 : Math.max(baseOption?.xAxis?.nameGap || 25, 42),
                 axisLabel: {
                   ...baseOption?.xAxis?.axisLabel,
+                  rotate: isBarChart ? 45 : 0,
+                  align: isBarChart ? 'right' : 'left',
                   margin: Math.max(
                     baseOption?.xAxis?.axisLabel?.margin || 8,
-                    14,
+                    isBarChart ? 20 : 14,
                   ),
                   hideOverlap: false,
                   color: isDarkColor,
@@ -1033,23 +1038,31 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 </div>
               )}
               {shouldShowLegend && (
-                <label
+                <div
                   style={{
                     display: "flex",
-                    gap: 6,
-                    cursor: "pointer",
-                    fontSize: "14px",
+                    alignItems: "center",
+                    gap: 8,
                     marginBottom: 12,
+                    padding: "8px 0",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={showLegend}
-                    onChange={(e) => setShowLegend(e.target.checked)}
-                    style={{ accentColor: "var(--accent)" }}
-                  />{" "}
-                  Show Legend
-                </label>
+                  <button
+                    onClick={() => setShowLegend(!showLegend)}
+                    className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: '12px',
+                      padding: '4px 8px'
+                    }}
+                    title={showLegend ? 'Hide legend' : 'Show legend'}
+                  >
+                    <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
+                    <span>Legend</span>
+                  </button>
+                </div>
               )}
               {chartType === "gauge" && (
                 <div
