@@ -331,8 +331,8 @@ describe('AppDataBackup', () => {
     render(<AppDataBackup />);
     await screen.findByText('Scheduled Backup');
 
-    const enabledCheckbox = screen.getByRole('checkbox');
-    fireEvent.click(enabledCheckbox);
+    const toggle = document.querySelector('.toggle-switch');
+    fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('button', { name: /Save Schedule/i }));
 
     await waitFor(() => {
