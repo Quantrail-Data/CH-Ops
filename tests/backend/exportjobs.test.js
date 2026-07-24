@@ -181,8 +181,7 @@ describe("cancelling", () => {
 });
 
 describe("download tickets", () => {
-  // A browser download is a plain navigation and cannot carry the login header, so a
-  // short-lived ticket stands in for it.
+
   test("a ticket redeems once the file is ready", () => {
     const job = makeJob();
     job.state = "ready";
