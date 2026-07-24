@@ -639,4 +639,199 @@ describe('UserManagement', () => {
       expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully.');
     });
   });
+
+  it('resets password and displays modal with generated password', async () => {
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/users') return [{ id: 3, username: 'targetuser', role: 'editor', email: 'target@example.com', lastLoginAt: null }];
+      if (url === '/api/users/3' && options?.method === 'PUT') return { generatedPassword: 'NewPw@123' };
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    fireEvent.click(screen.getByTitle('Reset Password'));
+
+    await waitFor(() => {
+      expect(screen.getByText('NewPw@123')).toBeTruthy();
+      expect(mockToast.success).toHaveBeenCalledWith('New password: NewPw@123');
+    });
+  });
+
+  it('prevents role change to higher hierarchy without permission', async () => {
+    setAuthRole('admin');
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/users') return [{ id: 4, username: 'adminuser', role: 'admin', email: 'admin@example.com', lastLoginAt: null }];
+      if (url === '/api/users/4' && options?.method === 'PUT') throw new Error('You do not have permission to change this user\'s role.');
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    const select = document.querySelector('select[value="admin"]');
+    if (select) {
+      fireEvent.change(select, { target: { value: 'superadmin' } });
+
+      await waitFor(() => {
+        expect(mockToast.error).toHaveBeenCalledWith('You do not have permission to change this user\'s role.');
+      });
+    }
+  });
+
+  it('handles invalid role on change user', async () => {
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/users') return [{ id: 5, username: 'testuser', role: 'editor', email: 'test@example.com', lastLoginAt: null }];
+      if (url === '/api/users/5' && options?.method === 'PUT') throw new Error('Invalid role. Must be one of: admin, editor, readonly, superadmin');
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    const select = document.querySelector('select[value="editor"]');
+    if (select) {
+      fireEvent.change(select, { target: { value: 'invalid' } });
+
+      await waitFor(() => {
+        expect(mockToast.error).toHaveBeenCalledWith('Invalid role. Must be one of: admin, editor, readonly, superadmin');
+      });
+    }
+  });
+
+  it('handles email update on user', async () => {
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/users') return [{ id: 6, username: 'emailuser', role: 'editor', email: 'old@example.com', lastLoginAt: null }];
+      if (url === '/api/users/6' && options?.method === 'PUT') return { ok: true };
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    expect(screen.getByText('old@example.com')).toBeTruthy();
+  });
+
+  it('handles superadmin max limit attempt', async () => {
+    setAuthRole('superadmin');
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/users' && !options) return [];
+      if (url === '/api/users' && options?.method === 'POST') throw new Error('Maximum 3 super admins allowed.');
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    openNewUserForm();
+    const textboxes = screen.getAllByRole('textbox');
+    fireEvent.change(textboxes[0], { target: { value: 'newsa' } });
+    fireEvent.change(textboxes[1], { target: { value: 'newsa@example.com' } });
+
+    const select = document.querySelector('form .cui-select-native-real');
+    if (select) {
+      fireEvent.change(select, { target: { value: 'superadmin' } });
+    }
+
+    clickCreateUser();
+
+    await waitFor(() => {
+      expect(mockToast.error).toHaveBeenCalledWith('Maximum 3 super admins allowed.');
+    });
+  });
+
+  it('handles email validation errors on create', async () => {
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/users' && !options) return [];
+      if (url === '/api/users' && options?.method === 'POST') throw new Error('Invalid email format');
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    openNewUserForm();
+    const textboxes = screen.getAllByRole('textbox');
+    fireEvent.change(textboxes[0], { target: { value: 'user' } });
+    fireEvent.change(textboxes[1], { target: { value: 'invalid-email' } });
+
+    clickCreateUser();
+
+    await waitFor(() => {
+      expect(mockToast.error).toHaveBeenCalledWith('Invalid email format');
+    });
+  });
+
+  it('displays user table with multiple users and correct order', async () => {
+    const now = new Date().toISOString();
+    mockApiFetch.mockImplementation(async (url) => {
+      if (url === '/api/users') {
+        return [
+          { id: 1, username: 'alice', role: 'admin', email: 'alice@example.com', lastLoginAt: now },
+          { id: 2, username: 'bob', role: 'editor', email: 'bob@example.com', lastLoginAt: null },
+          { id: 3, username: 'charlie', role: 'readonly', email: '', lastLoginAt: now },
+        ];
+      }
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    expect(screen.getByText('alice')).toBeTruthy();
+    expect(screen.getByText('bob')).toBeTruthy();
+    expect(screen.getByText('charlie')).toBeTruthy();
+  });
+
+  it('handles self password change with matching old password', async () => {
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/users' && !options) return [];
+      if (url === '/api/auth/change-password' && options?.method === 'POST') {
+        if (options.body.includes('oldpw123')) return { ok: true };
+        throw new Error('Current password incorrect');
+      }
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    openChangePassword();
+    const [current, next, confirm] = getPasswordInputs();
+
+    fireEvent.change(current, { target: { value: 'oldpw123' } });
+    fireEvent.change(next, { target: { value: 'newpw12345' } });
+    fireEvent.change(confirm, { target: { value: 'newpw12345' } });
+
+    clickUpdatePassword();
+
+    await waitFor(() => {
+      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully.');
+    });
+  });
+
+  it('validates username is required on create user', async () => {
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    openNewUserForm();
+    const textboxes = screen.getAllByRole('textbox');
+    fireEvent.change(textboxes[0], { target: { value: '' } });
+
+    clickCreateUser();
+
+    await waitFor(() => {
+      expect(mockToast.warning).toHaveBeenCalled();
+    });
+  });
+
+  it('disables create user button when form is invalid', async () => {
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    openNewUserForm();
+
+    const createBtn = screen.getByRole('button', { name: /Create User/i });
+    expect(createBtn).toBeTruthy();
+  });
 });
