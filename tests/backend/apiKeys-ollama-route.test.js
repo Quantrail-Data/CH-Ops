@@ -430,4 +430,213 @@ describe("POST /ollama/models - server responses", () => {
 
     expect(res.body).toEqual({ success: true, models: ["llama3.2"] });
   });
+
+  it("rejects a base URL with a path", async () => {
+    const req = { body: { baseUrl: `${PUBLIC_BASE_URL}/path` } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body.message).toMatch(/must not contain a path/);
+  });
+
+  it("rejects a base URL with query parameters", async () => {
+    const req = { body: { baseUrl: `${PUBLIC_BASE_URL}?key=value` } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body.message).toMatch(/must not contain query parameters/);
+  });
+
+  it("rejects a base URL with a fragment", async () => {
+    const req = { body: { baseUrl: `${PUBLIC_BASE_URL}#section` } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body.message).toMatch(/must not contain a fragment/);
+  });
+
+  it("respects a 5 second timeout when fetching models", async () => {
+    const fetchMock = mock(async (url, options) => {
+      // Verify timeout is set
+      expect(options.signal).toBeDefined();
+      return { ok: true, json: async () => ({ models: [] }) };
+    });
+    globalThis.fetch = fetchMock;
+
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true, models: [] });
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("returns success:false when fetch throws (network error, timeout, etc.)", async () => {
+    globalThis.fetch = mock(() => {
+      throw new Error("Network error");
+    });
+
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/Could not reach Ollama/);
+  });
+
+  it("handles JSON parsing errors gracefully", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => {
+        throw new SyntaxError("Invalid JSON");
+      },
+    }));
+
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true, models: [] });
+  });
+
+  it("returns empty models when models field is not an array", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => ({ models: "not-an-array" }),
+    }));
+
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.body).toEqual({ success: true, models: [] });
+  });
+
+  it("handles multiple models correctly with various data types", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => ({
+        models: [
+          { name: "model1" },
+          { name: "model2", size: 5000 },
+          { name: "model3", modified_at: "2024-01-01" },
+        ],
+      }),
+    }));
+
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      success: true,
+      models: ["model1", "model2", "model3"],
+    });
+  });
+
+  it("connects to IPv6 loopback with correct URL format", async () => {
+    let requestedUrl = null;
+    globalThis.fetch = mock(async (url) => {
+      requestedUrl = url;
+      return { ok: true, json: async () => ({ models: [] }) };
+    });
+
+    const req = { body: { baseUrl: "http://[::1]:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    // IPv6 should be bracketed in the URL
+    expect(requestedUrl).toMatch(/\[::1\]/);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("returns HTTP 500 error response from Ollama", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: false,
+      status: 500,
+    }));
+
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain("HTTP 500");
+  });
+
+  it("returns HTTP 404 error response from Ollama", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: false,
+      status: 404,
+    }));
+
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain("HTTP 404");
+  });
+
+  it("catches and logs unexpected errors", async () => {
+    // Create a scenario that would throw an error during processing
+    const req = { body: { baseUrl: PUBLIC_BASE_URL } };
+    const res = createRes();
+
+    // Mock fetch to return a response that will fail during processing
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => {
+        throw new Error("Unexpected parse error");
+      },
+    }));
+
+    await handler(req, res);
+
+    // Should return empty models on unexpected error
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true, models: [] });
+  });
+
+  it("rejects hostname resolving to 172.16.0.0/12 private range", async () => {
+    mockLookup.mockResolvedValue([{ address: "172.16.1.1", family: 4 }]);
+
+    const req = { body: { baseUrl: "http://private.example.com:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
+  });
+
+  it("rejects hostname resolving to multicast address", async () => {
+    mockLookup.mockResolvedValue([{ address: "224.0.0.1", family: 4 }]);
+
+    const req = { body: { baseUrl: "http://multicast.example.com:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
+  });
 });
