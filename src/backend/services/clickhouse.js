@@ -46,7 +46,6 @@ function buildClickHouseUrl({ host, port, secure, readOnly = false }) {
 }
 
 export async function executeQuery({ host, port = 8123, secure = false, user = 'default', password = '', sql, readOnly = false }) {
-  const proto = secure ? 'https' : 'http';
   // Apply ClickHouse's readonly setting as the authoritative guard for read-only
   // requests. Restricting yourself to readonly=1 is always allowed, so this is
   // safe to send even if the user's profile is not already read-only.
@@ -78,19 +77,19 @@ export async function executeQuery({ host, port = 8123, secure = false, user = '
   try {
     const summaryHeader = res.headers.get('X-ClickHouse-Summary');
     if (summaryHeader) stats = JSON.parse(summaryHeader);
-  } catch {}
+  } catch { }
 
   // The query ID assigned by ClickHouse for this execution.
   // Frontend uses this to link to profiling tools (flame graph, pipeline, metrics).
   const queryId = res.headers.get('X-ClickHouse-Query-Id') || null;
 
-  if (!isDataQuery) return { rows: [], columns: [], stats, queryId};
+  if (!isDataQuery) return { rows: [], columns: [], stats, queryId };
 
   // Raw EXPLAIN output - each line becomes a row with a single "explain" column
   if (isExplainRaw) {
     const lines = text.trim().split('\n').filter(Boolean);
     const rows = lines.map(line => ({ explain: line }));
-    return { rows, columns: ['explain'], stats, queryId};
+    return { rows, columns: ['explain'], stats, queryId };
   }
 
   // Normal data query - parse each line as JSON (JSONEachRow format)
@@ -99,7 +98,7 @@ export async function executeQuery({ host, port = 8123, secure = false, user = '
   }).filter(Boolean);
 
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-  return { rows, columns, stats, queryId};
+  return { rows, columns, stats, queryId };
 
 }
 
@@ -151,8 +150,8 @@ export async function executeQueryWithBody({
 
   const rows = text.trim()
     ? text.trim().split('\n').filter(Boolean).map((line) => {
-        try { return JSON.parse(line); } catch { return null; }
-      }).filter(Boolean)
+      try { return JSON.parse(line); } catch { return null; }
+    }).filter(Boolean)
     : [];
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
   return { rows, columns, queryId };

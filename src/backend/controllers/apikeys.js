@@ -116,9 +116,20 @@ async function resolveSafeOllamaIp(parsedUrl) {
 // IPv6 literals as the URL authority syntax requires), so the socket
 // connects to exactly the address that was already validated above.
 function buildPinnedUrl(parsedUrl, ip, path) {
-    const host = ip.includes(":") ? `[${ip}]` : ip;
-    const port = parsedUrl.port ? `:${parsedUrl.port}` : "";
-    return `${parsedUrl.protocol}//${host}${port}${path}`;
+    const safeProtocol = parsedUrl.protocol === "https:" ? "https:" : "http:";
+    const safeUrl = new URL(path, "http://127.0.0.1");
+
+    safeUrl.protocol = safeProtocol;
+    safeUrl.hostname = ip.includes(":") ? `[${ip}]` : ip;
+
+    if (parsedUrl.port) {
+        safeUrl.port = parsedUrl.port;
+    } else {
+        safeUrl.port = "";
+    }
+
+    safeUrl.pathname = path;
+    return safeUrl;
 }
 
 const AIProviderTesting = async (providerID = null, apikey = null) => {
@@ -156,7 +167,6 @@ const AIProviderTesting = async (providerID = null, apikey = null) => {
             ? { success: true, message: "active" }
             : { success: false, message: "failed" };
     } catch (error) {
-        console.error("API key validation failed:", error.message);
         // Surface the classified message (rate limit / auth failure / etc. from
         // AIService.ask()) instead of a generic "failed" - the caller can't tell
         // an invalid key apart from a rate-limited valid one otherwise.
