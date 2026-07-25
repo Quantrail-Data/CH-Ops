@@ -264,13 +264,59 @@ Unlike history, **bookmarks live on the server**, so they stay with you across b
 
 ## Exporting results
 
-After a query returns rows, an **Export** dropdown appears in the toolbar with three formats:
+The **Export** button in the toolbar opens a short wizard that walks you through three steps and hands you a finished file.
 
-- **CSV**: comma-separated values, correctly escaping any commas, quotes, or line breaks inside your data.
-- **JSON**: a neatly formatted JSON array.
-- **TSV**: tab-separated values.
+The work happens on the CHOps server rather than in your browser. CHOps runs your query again, asks ClickHouse® to produce the file in the format you picked, compresses it, and gives you a link to download. Two things follow from that. An export is no longer limited by what a browser tab can hold, so large results are fine. And you always get the full result of your query, not just the rows currently on screen.
 
-Exports are built **in your browser from the data already on screen**, so there is no extra wait and no additional load on your cluster. Your browser opens a **save dialog** so you can choose where the file goes (on browsers that support the modern save-file picker); pick a location and the file is written. If you close the dialog without choosing, nothing is saved and no error is shown.
+### Step 1: check the query
+
+The wizard shows the SQL it is about to export, exactly as it stands in the editor.
+
+**Estimate rows** tells you roughly how many rows and how large the file will be before you commit to anything. Treat the row count as a guide rather than a promise. It comes from ClickHouse®'s own metadata, which counts rows read from the table rather than rows returned, so a query that groups or aggregates will report a much bigger number than it actually produces. When that fast estimate is not available, CHOps falls back to counting exactly and tells you it has done so.
+
+The size shown is before compression. What you finally download depends on the compression you choose, and that cannot be worked out in advance.
+
+**Next** moves you on. If the estimate looks large you get a warning first, so a huge export is never a surprise.
+
+Two notices can appear on this step. If the statement does not look like a SELECT, the wizard says so and lets you carry on anyway. If the editor holds more than one statement, it reminds you that only the first one is exported.
+
+### Step 2: choose the file
+
+Pick a format, decide whether to compress it, and give it a name. The extension is added for you.
+
+| If you want to | Choose |
+|----------------|--------|
+| Open it in Excel or Google Sheets | CSV or TSV |
+| Feed it into a script or application | JSON |
+| Load it into an analytics or data science tool | Parquet, ORC, Arrow or Avro |
+| Move the data into another database | SQL INSERT statements, or the ClickHouse® native formats |
+| Paste it into a document or ticket | Markdown table |
+
+The common formats sit at the top of the list and the rest are grouped underneath, so the long tail is there when you need it without getting in the way.
+
+For compression you can choose none, gzip, zstd, zip or tar.gz. Zip is the default, because it opens with a double click on any operating system.
+
+For CSV and TSV there is a checkbox to add a byte order mark. Leave it on if the file is headed for Excel on Windows: it is what makes accented and non-English characters display properly instead of turning into nonsense.
+
+**Advanced options** stays collapsed until you want it, and it changes with the format you picked, so you only ever see settings that apply. Choose CSV and you get the column separator, line endings, and how empty values are written. Choose Parquet and those disappear, replaced by the compression codec stored inside the file and the row group size. Anything your ClickHouse® server is too old to support is hidden rather than offered and then failing.
+
+One thing worth knowing: Parquet, ORC and Avro already compress their own contents, so wrapping them in zip or gzip as well buys very little. The wizard mentions it rather than stopping you.
+
+### Step 3: watch and download
+
+A progress bar shows the file being prepared. When it is ready you see the final size and a **Download** button, and your browser takes it from there.
+
+For a long export you do not have to sit and watch. **Run in background** closes the wizard and leaves the job running, and you can carry on working. **Cancel export** stops it and clears up whatever it had written.
+
+Once your browser has started downloading, closing the wizard removes the server's copy but cannot stop a transfer already under way.
+
+### Limits and cleanup
+
+Exports use disk space on the CHOps server, so there are caps on how large a single export can be and how many can run at once, both for you and across the server as a whole. If you run into one, the wizard tells you which and you can try again shortly.
+
+Finished files are removed when you close the wizard, and anything nobody comes back for is cleaned up automatically a little later. Nothing sits on the server indefinitely.
+
+> **A note on spreadsheets.** CHOps writes exactly what is in your database. If a text value happens to begin with an equals sign, Excel and Google Sheets will treat it as a formula when the file is opened. That is worth remembering for any CSV built from data you did not put there yourself.
 
 ---
 

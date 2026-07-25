@@ -955,6 +955,8 @@ export default function MonitoringDashboards() {
         color: SERIES_PALETTE,
         tooltip: { trigger: "item", confine: true },
         legend: { show: true, bottom: 0, textStyle: legendText },
+        xAxis: { show: false },
+        yAxis: { show: false },
         series: [
           {
             type: "pie",
