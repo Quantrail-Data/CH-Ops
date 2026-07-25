@@ -205,7 +205,9 @@ describe("Step 3: preparing and downloading", () => {
       state: "ready", bytesRead: 500, bytesWritten: 400, percent: 100, fileName: "kathir-export.csv.zip",
     });
     await toProgressStep();
-    await waitFor(() => expect(screen.getByText("Download")).toBeTruthy());
+   await waitFor(() =>
+  expect(screen.getByText("Download")).toBeTruthy()
+);
   });
 
   it("releases the idle suspension when the job finishes", async () => {
