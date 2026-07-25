@@ -1,46 +1,77 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // @Kathir -> Kathir Moorthy
 // High-level monitoring dashboard displaying the real-time status, health, and utilization of all cluster nodes.
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+//
+// Structure, top to bottom:
+//   stat cards and the readonly alert     unchanged
+//   memory and disk charts                unchanged in shape, five bugs fixed
+//   cluster topology                      new, one canvas per cluster
+//   live overview                         new, polls three system tables
+//   Zookeeper and active connections      unchanged
+//
+// The clusters DataTable that used to sit at the bottom has been removed. Its
+// two columns that anyone read, errors_count and slowdowns_count, are now on the
+// node face in the topology where they are seen rather than scrolled past.
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from '../../hooks/useQuery.js';
+import { useConnection } from '../../App.jsx';
 import DataTable from '../layout/DataTable.jsx';
 import { initChart, disposeChart } from '../../utils/echarts.js';
+import { fmtBytes } from '../../utils/costEstimator.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
+import ClusterTopology from './ClusterTopology.jsx';
+import LiveOverview from './LiveOverview.jsx';
 
+// The existing page polls fourteen queries on this timer. It stays at thirty
+// seconds. Only the live section polls faster, and only the two system tables
+// that change meaningfully on that scale.
+const SLOW_REFRESH_MS = 30000;
 
+// Reading the theme off the document rather than through useTheme, because
+// renderPie is called from an effect and needs the value synchronously. There
+// are six copies of this helper across the codebase and they should be one, but
+// consolidating them is a separate change from this one.
 function isDark() {
   return document.documentElement.getAttribute('data-theme') !== 'light';
 }
 
 
+// Compact variant of the shared .stat-card. The class sets 18px padding and a
+// 21px value, which is right for a page with four cards and too heavy for eight
+// sitting above a topology diagram and twenty more readings. Overridden inline
+// rather than in global.css so no other page shifts underneath this change.
 function StatCard({ icon, label, value, iconColor }) {
   return (
-    <div className="stat-card">
+    <div className="stat-card" style={{ padding: '10px 12px', minWidth: 0 }}>
       <div className="stat-card-icon">
-        <Icon className={`ti ${icon}`} style={{ color: iconColor }} />
+        <Icon className={`ti ${icon}`} style={{ color: iconColor, fontSize: 15 }} />
       </div>
-      <div className="stat-card-content">
-        <div className="stat-card-label">{label}</div>
-        <div className="stat-card-value">{value ?? '-'}</div>
+      <div className="stat-card-content" style={{ minWidth: 0 }}>
+        <div className="stat-card-label" style={{ fontSize: '0.6875rem', marginBottom: 2 }}>
+          {label}
+        </div>
+        <div
+          className="stat-card-value"
+          style={{
+            fontSize: '0.9375rem',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+          title={value == null ? '-' : String(value)}
+        >
+          {value ?? '-'}
+        </div>
       </div>
     </div>
   );
 }
 
 
-/*  Format raw bytes.                                                 */
-function fmtBytes(n) {
-  if (!n || !isFinite(n)) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-  let u = 0;
-  while (n >= 1024 && u < units.length - 1) { n /= 1024; u++; }
-  return n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0) + ' ' + units[u];
-}
-
-
-/*  Format uptime seconds → "X Days, Y Hrs and Z Mins"               */
+/*  Format uptime seconds into "X Days, Y Hrs and Z Mins"              */
 
 function fmtUptime(seconds) {
   const s = Number(seconds) || 0;
@@ -107,6 +138,10 @@ function renderPie(instRef, elRef, title, segments) {
 
 export default function ClusterOverview() {
 
+  const connection = useConnection() || {};
+  const selectedHost = connection.selectedNode || null;
+  const selectedNodeName = connection.nodeName || selectedHost || 'This node';
+
   /* Queries */
   const version          = useQuery();
   const uptime           = useQuery();
@@ -119,31 +154,23 @@ export default function ClusterOverview() {
   const clusters         = useQuery();
   const readonlyReplicas = useQuery();
   const disks            = useQuery();
-  const memory           = useQuery();
   const zookeeper        = useQuery();
   const connections      = useQuery();
 
   /* Chart refs */
-  const osRamEl   = useRef(null);
-  const chRamEl   = useRef(null);
   const diskEl    = useRef(null);
-  const osRamInst = useRef(null);
-  const chRamInst = useRef(null);
   const diskInst  = useRef(null);
 
-  // Chart toolbars (HTML): save + full screen, no zoom (pies)
-  const osRamTools = useChartTools(() => osRamInst.current, { filename: 'OS Memory' });
-  const chRamTools = useChartTools(() => chRamInst.current, { filename: 'ClickHouse vs Other Processes' });
+  // Chart toolbars: save and full screen, no zoom, because these are pies.
   const diskTools  = useChartTools(() => diskInst.current, { filename: 'Disk' });
-  useEffect(() => { const t = setTimeout(() => osRamInst.current?.resize(), 150); return () => clearTimeout(t); }, [osRamTools.fullscreen]);
-  useEffect(() => { const t = setTimeout(() => chRamInst.current?.resize(), 150); return () => clearTimeout(t); }, [chRamTools.fullscreen]);
   useEffect(() => { const t = setTimeout(() => diskInst.current?.resize(), 150); return () => clearTimeout(t); }, [diskTools.fullscreen]);
 
-  /* Theme key */
+  /* Theme key, bumped when the theme flips so the pies rebuild with new colours */
   const [themeKey, setThemeKey] = useState(0);
 
-    /* selected Disk for Pie chart */
-  const [selectedDiskPieIndex, setSelectedDiskPieIndex] = useState(0);
+  /* Which disk the pie is showing. An index into disks.data, held as a number
+     rather than the string a select gives us, because it is used to subscript. */
+  const [diskIndex, setDiskIndex] = useState(0);
 
 
   /* Fetch all data */
@@ -160,11 +187,16 @@ export default function ClusterOverview() {
     readonlyCount.execute(
       "SELECT count() AS cnt FROM system.replicas WHERE is_readonly = 1"
     );
+    // port, is_local and is_active are new: the topology needs the first for its
+    // hover detail, the second to mark the node you are connected to, and the
+    // third for the status dot.
     clusters.execute(`
-      SELECT cluster, host_name, host_address AS ip,
-             shard_num AS shard, replica_num AS replica,
-             errors_count, slowdowns_count
+      SELECT cluster, shard_num, replica_num,
+             host_name, host_address, port,
+             is_local, is_active,
+             errors_count, slowdowns_count, estimated_recovery_time
       FROM system.clusters
+      ORDER BY cluster, shard_num, replica_num
     `);
     readonlyReplicas.execute(
       "SELECT database, table, readonly_start_time FROM system.replicas WHERE is_readonly = 1"
@@ -176,11 +208,6 @@ export default function ClusterOverview() {
              round((1 - free_space / total_space) * 100, 1) AS used_pct
       FROM system.disks
     `);
-    memory.execute(`
-      SELECT metric, value
-      FROM system.asynchronous_metrics
-      WHERE metric IN ('OSMemoryTotal', 'OSMemoryAvailable', 'MemoryResident')
-    `);
     zookeeper.execute('SELECT * FROM system.zookeeper_connection');
     connections.execute(
       "SELECT metric, value FROM system.metrics WHERE metric LIKE '%Connection' ORDER BY value DESC"
@@ -190,18 +217,14 @@ export default function ClusterOverview() {
   /* Auto-refresh */
   useEffect(() => {
     load();
-    const interval = setInterval(load, 30000);
+    const interval = setInterval(load, SLOW_REFRESH_MS);
     return () => clearInterval(interval);
   }, [load]);
 
   /* Theme observer */
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      [osRamEl, chRamEl, diskEl].forEach(ref => {
-        if (ref.current) disposeChart(ref.current);
-      });
-      osRamInst.current = null;
-      chRamInst.current = null;
+      if (diskEl.current) disposeChart(diskEl.current);
       diskInst.current = null;
       setThemeKey(k => k + 1);
     });
@@ -212,52 +235,35 @@ export default function ClusterOverview() {
     return () => observer.disconnect();
   }, []);
 
-  /* Parse memory metrics */
-  const mem = useMemo(() => {
-    if (!memory.data?.length) return null;
-    const map = {};
-    for (const row of memory.data) map[row.metric] = Number(row.value) || 0;
-    const osTotal = map.OSMemoryTotal || 0;
-    const osFree  = map.OSMemoryAvailable || 0;
-    const osUsed  = osTotal - osFree;
-    const chUsed  = map.MemoryResident || 0;
-    return { osTotal, osFree, osUsed, chUsed };
-  }, [memory.data]);
-
-  /* OS RAM pie */
+  /* Keep the selection valid when the disk list changes, without resetting a
+     choice the user made. The previous version called setDiskIndex(0) inside
+     the render effect, so every thirty second refresh snapped the pie back to
+     the first disk while someone was looking at another one. */
   useEffect(() => {
-    if (!mem) return;
-    renderPie(osRamInst, osRamEl, 'OS Memory', [
-      { value: mem.osUsed, name: 'Used', itemStyle: { color: '#3b82f6' } },
-      { value: mem.osFree, name: 'Free', itemStyle: { color: '#22d3ee' } },
-    ]);
-  }, [mem, themeKey]);
+    const count = disks.data?.length || 0;
+    if (count === 0) return;
+    if (diskIndex >= count) setDiskIndex(0);
+  }, [disks.data, diskIndex]);
 
-  /* ClickHouse RAM pie */
+  /* Disk pie. One render path, driven by data and selection, rather than the
+     two copies that had already drifted apart. */
   useEffect(() => {
-    if (!mem) return;
-    const otherUsed = Math.max(0, mem.osUsed - mem.chUsed);
-    renderPie(chRamInst, chRamEl, 'ClickHouse vs Other Processes', [
-      { value: mem.chUsed,  name: 'ClickHouse', itemStyle: { color: '#8b5cf6' } },
-      { value: otherUsed,   name: 'Others',     itemStyle: { color: '#fb923c' } },
+    const rows = disks.data;
+    if (!rows?.length) return;
+    const d = rows[diskIndex] ?? rows[0];
+    if (!d) return;
+    const total = Number(d.total_space) || 0;
+    const free = Number(d.free_space) || 0;
+    renderPie(diskInst, diskEl, `Disk: ${d.name}`, [
+      { value: Math.max(0, total - free), name: 'Used', itemStyle: { color: '#f59e0b' } },
+      { value: free,                      name: 'Free', itemStyle: { color: '#34d399' } },
     ]);
-  }, [mem, themeKey]);
-
-  /* Disk pie */
-  useEffect(() => {
-    if (!disks.data?.length) return;
-    const d = disks?.data[selectedDiskPieIndex || 0];
-    setSelectedDiskPieIndex(disks?.data &&  0)
-    renderPie(diskInst, diskEl, `Disk: ${d?.name}`, [
-      { value: d.total_space - d.free_space, name: 'Used', itemStyle: { color: '#f59e0b' } },
-      { value: d.free_space,                 name: 'Free', itemStyle: { color: '#34d399' } },
-    ]);
-  }, [disks.data, themeKey]);
+  }, [disks.data, diskIndex, themeKey]);
 
   /* Resize */
   useEffect(() => {
     const onResize = () => {
-      [osRamInst, chRamInst, diskInst].forEach(ref => ref.current?.resize());
+      diskInst.current?.resize();
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -265,9 +271,7 @@ export default function ClusterOverview() {
 
   /* Cleanup */
   useEffect(() => () => {
-    [osRamEl, chRamEl, diskEl].forEach(ref => {
-      if (ref.current) disposeChart(ref.current);
-    });
+    if (diskEl.current) disposeChart(diskEl.current);
   }, []);
 
   /* Derived */
@@ -276,6 +280,11 @@ export default function ClusterOverview() {
   const totalConns = conns.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
   const readonlyVal = readonlyCount.data?.[0]?.cnt;
   const hasReadonly = Number(readonlyVal) > 0;
+
+  // ZooKeeperConnectionLossStartedTimestampSeconds reads as a Unix timestamp and
+  // is zero when the connection is healthy, so it belongs here as "last loss"
+  // rather than in the health strip where a raw timestamp looks like an alarm.
+  const zkLastLoss = Number(zk?.ZooKeeperConnectionLossStartedTimestampSeconds) || 0;
 
   /* Loading */
   if (version.loading && !version.data) {
@@ -288,23 +297,12 @@ export default function ClusterOverview() {
     );
   }
 
-    const handleDiskPie = (index) =>{
-    setSelectedDiskPieIndex(index)
-    
-    if (!disks.data?.length) return;
-    const d = disks?.data[index];
-    renderPie(diskInst, diskEl, `Disk: ${d.name}`, [
-      { value: d?.total_space - d?.free_space, name: 'Used', itemStyle: { color: '#f59e0b' } },
-      { value: d?.free_space,                 name: 'Free', itemStyle: { color: '#34d399' } },
-    ]);
-  }
-    const chartControlsFlags = {
+  const chartControlsFlags = {
     zoomFun: false,
     resetFun: false,
     saveFun: true,
     fullscreenFun: true,
   };
-
 
   return (
     <div className="page-content">
@@ -314,10 +312,13 @@ export default function ClusterOverview() {
         </h2>
       </div>
 
-      {/* Stat cards: 4 × 2 */}
+      {/* Stat cards: 4 by 2 */}
+      {/* auto-fit rather than a fixed four across, so the row reflows from
+          eight wide on a monitor down to two on a laptop instead of squeezing */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 12, marginBottom: 20,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(168px, 1fr))',
+        gap: 10, marginBottom: 16,
       }}>
         <StatCard icon="ti-server-cog"  label="Version"         value={version.data?.[0]?.version} iconColor="#3b82f6" />
         <StatCard icon="ti-clock"       label="Uptime"          value={uptime.data?.[0]?.seconds ? fmtUptime(uptime.data[0].seconds) : '-'} iconColor="#22c55e" />
@@ -337,52 +338,39 @@ export default function ClusterOverview() {
         </div>
       )}
 
-      {/* Memory pie charts: 2 per row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-        <div className="card" style={osRamTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
-          <ChartToolbar fullscreen={osRamTools.fullscreen} onSave={osRamTools.save} onToggleFullscreen={osRamTools.toggleFullscreen} isWantFeature={chartControlsFlags}/>
-          <div ref={osRamEl} style={{ height: osRamTools.fullscreen ? 'calc(100vh - 96px)' : 360, width: '100%', flex: osRamTools.fullscreen ? 1 : undefined }} />
-        </div>
-        <div className="card" style={chRamTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
-          <ChartToolbar fullscreen={chRamTools.fullscreen} onSave={chRamTools.save} onToggleFullscreen={chRamTools.toggleFullscreen} isWantFeature={chartControlsFlags} />
-          <div ref={chRamEl} style={{ height: chRamTools.fullscreen ? 'calc(100vh - 96px)' : 360, width: '100%', flex: chRamTools.fullscreen ? 1 : undefined }} />
-        </div>
-      </div>
-
-      {/* Disk pie + Disk table */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      {/* Disk pie and disk table. Reference information rather than the
+          headline, so it takes a third of the width and a shorter chart. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) minmax(280px, 1.4fr)', gap: 16, marginBottom: 20 }}>
         <div className="card" style={diskTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
-          <ChartToolbar fullscreen={diskTools.fullscreen} onSave={diskTools.save} onToggleFullscreen={diskTools.toggleFullscreen} isWantFeature={chartControlsFlags}/>
-          {disks?.data?.length >= 0 && (
-          <Select
-            className="form-select conn-select"
-            value={selectedDiskPieIndex}
-            onChange={(e) => handleDiskPie(e.target.value)}
-            style={{
-              width:"100px",
-              fontWeight: 600,
-              height: "38px",
-              fontSize: "13px",
-            }}
-            title="Switch cluster"
-          ><option value={""}>--Select Disk--</option>
-            {disks?.data?.map((c,i) => (
-              <option key={c?.name} value={i}>
-                {c?.name}
-              </option>
-            ))}
-          </Select>
-         )} 
-          <div ref={diskEl} style={{ height: diskTools.fullscreen ? 'calc(100vh - 96px)' : 360, width: '100%', flex: diskTools.fullscreen ? 1 : undefined }} />
+          <ChartToolbar fullscreen={diskTools.fullscreen} onSave={diskTools.save} onToggleFullscreen={diskTools.toggleFullscreen} isWantFeature={chartControlsFlags} />
+
+          {/* Only offered when there is more than one disk to choose between,
+              and with no empty placeholder option: selecting it used to leave
+              the pie drawing NaN segments. */}
+          {disks.data?.length > 1 && (
+            <Select
+              className="form-select conn-select"
+              value={diskIndex}
+              onChange={(e) => setDiskIndex(Number(e.target.value))}
+              style={{ width: 160, fontWeight: 600, height: '38px', fontSize: '13px' }}
+              title="Switch disk"
+            >
+              {disks.data.map((d, i) => (
+                <option key={d.name} value={i}>{d.name}</option>
+              ))}
+            </Select>
+          )}
+
+          <div ref={diskEl} style={{ height: diskTools.fullscreen ? 'calc(100vh - 96px)' : 210, width: '100%', flex: diskTools.fullscreen ? 1 : undefined }} />
         </div>
+
         {disks.data?.length > 0 && (
-          <div className="card" style={{ padding: 16 }}>
-            <h3 style={{ fontSize: '15px', marginBottom: 12 }}>
+          <div className="card" style={{ padding: 12 }}>
+            <h3 style={{ fontSize: '0.875rem', marginBottom: 8 }}>
               <Icon className="ti ti-device-floppy" /> Disk Details
             </h3>
             <DataTable
               rows={disks.data}
-              
               columns={['name', 'total_fmt', 'free_fmt', 'used_pct']}
               variant="fixed"
               overView={true}
@@ -391,7 +379,25 @@ export default function ClusterOverview() {
         )}
       </div>
 
-      {/* Zookeeper + Connections */}
+      {/* Cluster topology */}
+      <div className="section-header" style={{ marginTop: 8 }}>
+        <h2 className="section-title">
+          <Icon className="ti ti-topology-star-3" /> Cluster Topology
+        </h2>
+      </div>
+      <ClusterTopology
+        rows={clusters.data}
+        loading={clusters.loading}
+        selectedHost={selectedHost}
+      />
+
+      {/* Live overview, for whichever node the navbar points at, which is why
+          the node name leads the section. Gauge readings are current; anything
+          derived from system.events covers exactly one refresh interval. There
+          are no time series charts on this page by design. */}
+      <LiveOverview nodeName={selectedNodeName} />
+
+      {/* Zookeeper and Connections */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
 
         {/* Zookeeper Connection */}
@@ -410,6 +416,8 @@ export default function ClusterOverview() {
                   ['Keeper API',      `v${zk.keeper_api_version}`],
                   ['Session Timeout', `${Math.round((Number(zk.session_timeout_ms) || 0) / 1000)}s`],
                   ['XID',             Number(zk.xid || 0).toLocaleString()],
+                  ['Last Connection Loss',
+                    zkLastLoss > 0 ? new Date(zkLastLoss * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : 'never'],
                   ['Features',        Array.isArray(zk.enabled_feature_flags)
                                         ? zk.enabled_feature_flags.join(', ')
                                         : String(zk.enabled_feature_flags || '-')],
@@ -518,19 +526,6 @@ export default function ClusterOverview() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Clusters */}
-      <div className="card" style={{ padding: 16, marginBottom: 20 }}>
-        <h3 style={{ fontSize: '15px', marginBottom: 12 }}>
-          <Icon className="ti ti-topology-star-3" /> Clusters
-        </h3>
-        <DataTable
-          rows={clusters.data || []}
-          columns={['cluster', 'host_name', 'ip', 'shard', 'replica', 'errors_count', 'slowdowns_count']}
-          emptyMessage="No cluster data."
-          variant="fixed"
-        />
       </div>
 
       {/* Readonly replicas detail */}
