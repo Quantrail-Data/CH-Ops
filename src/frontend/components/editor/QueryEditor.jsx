@@ -14,10 +14,12 @@ import {
   editorDisconnect,
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
-import { useConnection, useTheme } from "../../App.jsx";
+import { useAuth, useConnection, useTheme } from "../../App.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
 import ModeSelect from "./ModeSelect.jsx";
+import ExportWizard from "./ExportWizard.jsx";
+import "./exportWizard.css";
 import { highlightSQL } from "../../utils/sqlHighlight.js";
 import { isDataQuery, analyzeSql } from "../../../shared/sqlClassify.js";
 import {
@@ -76,15 +78,15 @@ function clearHistory() {
 }
 
 // Export helpers - trigger browser download from in-memory data
-function downloadBlob(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+// function downloadBlob(content, filename, mimeType) {
+//   const blob = new Blob([content], { type: mimeType });
+//   const url = URL.createObjectURL(blob);
+//   const a = document.createElement("a");
+//   a.href = url;
+//   a.download = filename;
+//   a.click();
+//   URL.revokeObjectURL(url);
+// }
 
 function engineIcon(engine) {
   if (!engine) return "ti-table";
@@ -164,6 +166,7 @@ export default function QueryEditor({
     nodeName,
   } = useConnection();
   const [editorCreds, setEditorCreds] = useState(null);
+  const { auth } = useAuth();
   const editorConnected = !!editorCreds;
   const [connUser, setConnUser] = useState("");
   const [connPassword, setConnPassword] = useState("");
@@ -173,6 +176,7 @@ export default function QueryEditor({
     highlightRef = useRef(null),
     selectedRef = useRef(null);
   const [sql, setSql] = useState("SELECT version()");
+  const [exportOpen, setExportOpen] = useState(false);
   const [dbs, setDbs] = useState([]);
   const [selectedDb, setSelectedDb] = useState(null);
   const [tables, setTables] = useState([]);
@@ -192,11 +196,10 @@ export default function QueryEditor({
   const [selectedAIDB, setSelectedAIDB] = useState(null);
   const [selectedAIDBID, setSelectedAIDBID] = useState(null);
   const [isAILoading, setIsAILoading] = useState(false);
-  // Inside the component:
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
-  const [ExplainOptionSelector, setExplainOptionSelector] = useState({type:""}); // for selection explain function dropdown values
+  const [ExplainOptionSelector, setExplainOptionSelector] = useState({type:""}); 
 
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
   const [aiError, setAIError] = useState(null);
@@ -400,114 +403,6 @@ export default function QueryEditor({
     };
   }, [graphData, graphZoomLevel, graphTitle]);
 
-  async function exportCSV(rows, columns) {
-    if (!rows?.length) return;
-
-    const cols = columns?.length ? columns : Object.keys(rows[0]);
-
-    const escape = (v) => {
-      const s = String(v ?? "");
-      return s.includes(",") || s.includes('"') || s.includes("\n")
-        ? '"' + s.replace(/"/g, '""') + '"'
-        : s;
-    };
-
-    const lines = [cols.join(",")];
-    for (const row of rows) {
-      lines.push(cols.map((c) => escape(row[c])).join(","));
-    }
-
-    const csvContent = lines.join("\n");
-
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: "query-results.csv",
-        types: [
-          {
-            description: "CSV Files",
-            accept: {
-              "text/csv": [".csv"],
-            },
-          },
-        ],
-      });
-
-      const writable = await handle.createWritable();
-      await writable.write(csvContent);
-      await writable.close();
-      toast.success(`Downloaded ${handle.name}`);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        toast.error("Export failed:", err);
-      }
-    }
-  }
-
-  async function exportTSV(rows, columns) {
-    if (!rows?.length) return;
-    const cols = columns?.length ? columns : Object.keys(rows[0]);
-    const lines = [cols.join("\t")];
-    for (const row of rows)
-      lines.push(
-        cols.map((c) => String(row[c] ?? "").replace(/\t/g, " ")).join("\t"),
-      );
-
-    const tsvContent = lines.join("\n");
-
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: "query-results.tsv",
-        types: [
-          {
-            description: "TSV Files",
-            accept: {
-              "text/tab-separated-values": [".tsv"],
-            },
-          },
-        ],
-      });
-
-      const writable = await handle.createWritable();
-      await writable.write(tsvContent);
-      await writable.close();
-      toast.success(`Downloaded ${handle.name}`);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        toast.error("TSV Export failed:", err);
-      }
-    }
-  }
-
-  async function exportJSON(rows) {
-    if (!rows?.length) return;
-    const jsonContent = JSON.stringify(rows, null, 2);
-
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: "query-results.json",
-        types: [
-          {
-            description: "JSON Files",
-            accept: {
-              "application/json": [".json"],
-            },
-          },
-        ],
-      });
-
-      const writable = await handle.createWritable();
-      await writable.write(jsonContent);
-      await writable.close();
-
-      console.log(handle);
-      console.log(writable);
-      toast.success(`Downloaded ${handle.name}`);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        toast.error("JSON Export failed:", err);
-      }
-    }
-  }
 
   function graphDownload() {
     if (!graphInst.current) return;
@@ -532,8 +427,6 @@ export default function QueryEditor({
   const [memoryUsage, setMemoryUsage] = useState(null);
   const memoryTimerRef = useRef(null);
   const lastQueryIdRef = useRef(null);
-  // Always-current credentials, for use inside callbacks and effects that would
-  // otherwise capture a stale value.
   const editorCredsRef = useRef(null);
   const featureQueryIdRef = useRef(null);
   const [explorerOpen, setExplorerOpen] = useState(true);
@@ -546,8 +439,8 @@ export default function QueryEditor({
   const [acFiltered, setAcFiltered] = useState([]);
   const [acIndex, setAcIndex] = useState(0);
   const [acPos, setAcPos] = useState({ top: 0, left: 0 });
-  const [ddlModal, setDdlModal] = useState(null); // { name, ddl, loading }
-  const [panel, setPanel] = useState(null); // 'history' | 'bookmarks' | null
+  const [ddlModal, setDdlModal] = useState(null); 
+  const [panel, setPanel] = useState(null); 
   const [history, setHistory] = useState(() => getHistory());
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarkName, setBookmarkName] = useState("");
@@ -647,8 +540,6 @@ export default function QueryEditor({
     };
   }, [onSidebarStateChange]);
 
-  // Validate the entered credentials by running a trivial query as that user.
-  // Only on success do we store them and unlock the editor.
   async function handleConnect() {
     if (!connUser.trim()) {
       setConnError("Username is required.");
@@ -658,8 +549,6 @@ export default function QueryEditor({
     setConnError(null);
     const candidate = { user: connUser.trim(), password: connPassword };
     try {
-      // Validates the credentials and stores them encrypted server-side under
-      // (jti, 'editor'). The password is never held in client state afterwards.
       await editorConnect(candidate);
       setEditorCreds({ user: candidate.user });
       setConnPassword("");
@@ -670,12 +559,11 @@ export default function QueryEditor({
     }
   }
 
-  // Clear the server-side session and any loaded schema so nothing stale remains.
+
   async function handleDisconnect() {
     try {
       await editorDisconnect();
     } catch {
-      /* best effort; clear locally regardless */
     }
     setEditorCreds(null);
     setConnUser("");
@@ -764,14 +652,14 @@ export default function QueryEditor({
     });
   }
 
-  // Clean up the memory lookup timer if the component unmounts
+
   useEffect(() => {
     return () => {
       if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
     };
   }, []);
 
-  // Keep ref in sync with state so async callbacks can check staleness.
+
   useEffect(() => {
     lastQueryIdRef.current = lastQueryId;
   }, [lastQueryId]);
@@ -780,9 +668,7 @@ export default function QueryEditor({
     editorCredsRef.current = editorCreds;
   }, [editorCreds]);
 
-  // After a page reload the (jti, 'editor') credential session may still be live
-  // server-side (it shares the 2h JWT lifetime). Restore the connected state from
-  // it so the user does not have to reconnect. Never carries a password.
+
   useEffect(() => {
     let cancelled = false;
     editorConnectionStatus()
@@ -807,13 +693,11 @@ export default function QueryEditor({
     loadBookmarks();
   }, []);
 
-  // Load schema and autocomplete once the user connects, and again if they
-  // switch node or cluster in the navbar (credentials are kept across switches).
+
   useEffect(() => {
     if (!editorConnected) return;
     loadDbs();
     loadAutocomplete();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorConnected, selectedClusterId, selectedNode]);
 
   useEffect(() => {
@@ -895,9 +779,7 @@ export default function QueryEditor({
     return { nodes: [...nodes.values()], links };
   }
 
-  // If an editor query failed because the server-side credential session expired
-  // (or was revoked), drop the connected state so the reconnect panel appears.
-  // Strict: we never silently fall back to the node/default user.
+
   function handleSessionExpiry(e) {
     if (e?.code === "CRED_SESSION_EXPIRED") {
       setEditorCreds(null);
@@ -965,16 +847,16 @@ export default function QueryEditor({
       const r = await runEditorQuery(validExplain, editorCreds);
       if (r.stats) setQueryStats(r.stats);
 
-      // Capture query_id for profiling deep-links.
+
       const qid = r.queryId || null;
       setLastQueryId(qid);
       setFeatureQueryId(qid);
 
-      // Look up peak memory after ClickHouse flushes query_log (~300ms).
+    
       if (qid) {
         const capturedQid = qid;
         memoryTimerRef.current = setTimeout(async () => {
-          // Bail if a newer query has started or component unmounted.
+          
           if (lastQueryIdRef.current !== capturedQid) return;
           const mem = await lookupMemoryUsage(
             capturedQid,
@@ -1076,9 +958,7 @@ export default function QueryEditor({
         setResult(r.rows);
         setResultCols(r.columns || []);
       } else if (isDataQuery(text)) {
-        // A row-returning statement (SELECT / SHOW / EXPLAIN / DESCRIBE / ...)
-        // that matched nothing. Show the empty result state with "0 row(s)
-        // returned" rather than a DDL-style "executed successfully" message.
+       
         setResult([]);
         setResultCols(r.columns || []);
         setSuccessMsg(null);
@@ -1730,8 +1610,7 @@ export default function QueryEditor({
       <div className="editor-main">
         <div className="editor-toolbar">
           <ModeSelect mode={mode} onChange={onModeChange} />
-          {/* Connect control: lives in the toolbar to save vertical space.
-              Icon-only fields (user/lock) with title + aria-label for access. */}
+          {}
           {!editorConnected ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span
@@ -1894,36 +1773,16 @@ export default function QueryEditor({
           >
             <Icon className="ti ti-star"></Icon> Bookmarks
           </button>
-          {result?.length > 0 && !error && (
-            <span style={{ position: "relative", display: "inline-flex" }}>
-              <Select
-                className="form-select"
-                style={{
-                  height: 28,
-                  fontSize: "12px",
-                  padding: "0 6px",
-                  minWidth: "120px",
-                  width: 90,
-                }}
-                onChange={(e) => {
-                  if (e.target.value === "csv") {
-                    exportCSV(result, resultCols);
-                  } else if (e.target.value === "json") {
-                    exportJSON(result);
-                  } else if (e.target.value === "tsv") {
-                    exportTSV(result, resultCols);
-                  }
-                  e.target.value = "";
-                }}
-                defaultValue="EXPORT"
-              >
-                <option value="">Export</option>
-                <option value="csv">CSV</option>
-                <option value="json">JSON</option>
-                <option value="tsv">TSV</option>
-              </Select>
-            </span>
-          )}
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setExportOpen(true)}
+            disabled={!sql?.trim()}
+            title="Export the results of this query"
+          >
+            <Icon className="ti ti-download"></Icon>
+            <span className="navbar-btn-label">Export</span>
+          </button>
+
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setSqlCollapsed(!sqlCollapsed)}
@@ -2118,9 +1977,9 @@ export default function QueryEditor({
               height: 40,
               fontSize: "10px",
               padding: "0 6px",
-              // border: "1px solid var(--border-default)",
+              
               borderRadius: "5px",
-              // background: "var(--input-bg)",
+
               color: "var(--text-primary)",
               fontFamily: "var(--font-ui)",
               fontWeight: "500",
@@ -2963,6 +2822,13 @@ export default function QueryEditor({
             </div>
           </div>
         </div>
+      )}
+    {exportOpen && (
+        <ExportWizard
+          sql={sql}
+          username={auth?.username}
+          onClose={() => setExportOpen(false)}
+        />
       )}
     </div>
   );

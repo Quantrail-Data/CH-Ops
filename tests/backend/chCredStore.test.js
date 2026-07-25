@@ -9,7 +9,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect,afterAll } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../../src/backend/db/schema.js';
