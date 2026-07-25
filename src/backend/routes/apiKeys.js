@@ -30,7 +30,7 @@ router.delete("/:id", requireSuperAdmin, deleteAPIKey);
 
 router.post("/select", requireSuperAdmin, setActiveAPIKey);
 
-router.post("/check", requireSuperAdmin, testAPIKey)
+router.post("/check", requireSuperAdmin, testAPIKey);
 
 router.post("/ollama/models", requireSuperAdmin, getOllamaModels);
 
