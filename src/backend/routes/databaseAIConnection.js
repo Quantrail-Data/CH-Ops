@@ -48,10 +48,7 @@ router.post("/connect", async (req, res, next) => {
       ?.where(eq(aiDatabaseDetails?.database_id, databaseId))
       .get();
 
-
-      
       const ingestionService = new SchemaIngestionService(databaseId, connection);
-      console.log("working 2")
       const ingestionResult = await ingestionService.synchronizeSchema();
       
 
@@ -71,7 +68,7 @@ router.delete("/delete", async (req, res, next) => {
     const { database_id } = req.body;
     if (database_id === null || database_id === undefined) {
       const error = new Error("Database_id  must be included");
-      error.statusCode(422);
+      error.statusCode=422;
       next(error);
     }
     const service = new DeleteDatabaseService();

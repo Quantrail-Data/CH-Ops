@@ -2,7 +2,7 @@
 // author -> (Ravivarman, Dhivyadharshini)
 // Factory for creating ClickHouse client instances
 
-const { createClient } = require("@clickhouse/client");
+import { createClient } from "@clickhouse/client";
 
 class ClickHouseClientFactory {
   static createClient(credentials) {
@@ -19,5 +19,4 @@ class ClickHouseClientFactory {
     });
   }
 }
-
-module.exports = ClickHouseClientFactory;
+export default ClickHouseClientFactory;

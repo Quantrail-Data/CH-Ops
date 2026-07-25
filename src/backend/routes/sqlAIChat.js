@@ -25,7 +25,7 @@ router.post("/generate-sql", async (req, res, next) => {
       (user_question === undefined || user_question === null)
     ) {
       const error = new Error("Database_id and user_question must be included");
-      error.statusCode(422);
+      error.statusCode=422;
       next(error);
     }
 

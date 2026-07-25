@@ -811,11 +811,7 @@ export const PAGE_TEXT = {
     "Clear Projection",
     "Download PNG",
     "col1, col2, sum(col3) - DISTINCT not supported in projections",
-    "col1, col2",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Generated SQL",
-    "Cancel",
-    "No options"
+    "col1, col2"
   ],
   "indexes/create": [
     "Create",
@@ -990,6 +986,7 @@ export const PAGE_TEXT = {
     "Confirm Delete",
     "No, Cancel",
     "Yes, Delete",
+    "Enter the Name",
     "Fetch models to choose one"
   ],
   "admin/channels": [
