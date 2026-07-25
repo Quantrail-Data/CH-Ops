@@ -13,6 +13,10 @@
 import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 
+import darkLogo from "../../assets/chops-dark.svg"
+import lightLogo from "../../assets/chops-light.svg"
+import { useTheme } from "../../App.jsx";
+
 function isComplexValue(v) {
   return v !== null && typeof v === "object"; // arrays included
 }
@@ -312,12 +316,15 @@ export default function DataTable({
   s_no = false,
   QuriozFlag = false,
   overView=false,
-  whiteSpaceFlag=false
+  whiteSpaceFlag=false,
+  isShowLogo = false,
 }) {
   const [expandedCells, setExpandedCells] = useState(new Set());
   const [selectedCell, setSelectedCell] = useState(null);
   // Which complex cell (if any) is open in the modal.
   const [modalCell, setModalCell] = useState(null); // { columnName, value } | null
+
+    const { theme } = useTheme();
 
   const cols = columns.length
     ? columns
@@ -369,11 +376,15 @@ export default function DataTable({
           <tbody></tbody>
         </table>
 
+        {isShowLogo ? <div  style={{ padding: "32px 16px",width:"",display:"flex", flexDirection:"column", justifyContent:"center",alignItems:"center",height:"20rem"}}>
+          <img style={{width:"13rem",opacity:0.3}}  src={theme === "dark" ? lightLogo : darkLogo} alt="" />
+        </div>
+        :
         <div className="empty-state" style={{ padding: "32px 16px" }}>
           <Icon className="ti ti-inbox"></Icon>
-
           <p>{emptyMessage || "No data found."}</p>
-        </div>
+        </div> 
+        }
       </div>
     );
   }
