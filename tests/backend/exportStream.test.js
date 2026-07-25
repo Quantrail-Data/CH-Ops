@@ -7,6 +7,7 @@ import { describe, test, expect, mock, beforeEach } from "bun:test";
 import {
   startExportStream, measureBytes, killExportQuery,
 } from "../../src/backend/services/exportStream.js";
+import { MessageStream } from "@anthropic-ai/sdk/lib/MessageStream.js";
 
 const NODE = { host: "10.0.0.1", port: 8123, secure: false, user: "chops", password: "pw" };
 let calls = [];
@@ -111,6 +112,23 @@ describe("measureBytes", () => {
     await measureBytes({ ...NODE, sql: "SELECT 1", format: "CSVWithNames" });
     expect(calls[0].url.searchParams.get("max_execution_time")).toBe("30");
   });
+
+  test("Throws error failed response", async () => {
+    global.fetch = mock(async () => ({
+      ok: false, status: 500, body: "stream-placeholder",
+      headers: { get: (k) => headers[k] ?? null },
+      text: async () => body,
+      arrayBuffer: async () => new TextEncoder().encode(body).buffer,
+    }));
+    try {
+
+      await measureBytes({ ...NODE, sql: "SELECT 1", format: "CSVWithNames" })
+      throw new Error('FAILED')
+    } catch (e) {
+      expect(e.message).toBe('ClickHouse HTTP 500')
+    }
+  })
+
 });
 
 describe("killExportQuery", () => {

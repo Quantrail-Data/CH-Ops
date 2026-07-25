@@ -198,7 +198,7 @@ export async function getAPIKeyById(req, res) {
     }
 }
 
-export function getActiveAPIKey(req, res) {
+export function getActiveAPIKey(_, res) {
     try {
         const activeKey = getActiveApiKey();
         if (!activeKey) {
@@ -242,7 +242,7 @@ export function createAPIKey(req, res) {
         const newKey = createApiKey(name, apiKey, model, provider);
         res.status(201).json(newKey);
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        res.status(500).json({ error: err.message });
     }
 }
 
@@ -284,7 +284,7 @@ export function deleteAPIKey(req, res) {
 export function setActiveAPIKey(req, res) {
     try {
         const { keyId } = req.body;
-        if (!keyId) {
+        if (keyId === undefined || keyId === null) {
             return res.status(400).json({ error: "Key ID required." });
         }
         const active = setActiveApiKey(parseInt(keyId));

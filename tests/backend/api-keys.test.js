@@ -9,7 +9,7 @@
  */
 
 
-import { beforeEach, describe, expect, it, mock, vi } from "bun:test"
+import { afterAll, beforeEach, describe, expect, it, mock, vi } from "bun:test"
 import { createApiKey, deleteApiKey, getActiveApiKey, getAllApiKeys, getApiKeyById, getApiKeysWithValues, setActiveApiKey, updateApiKey } from "../../src/backend/services/apiKeys"
 import { initCrypto } from "../../src/backend/services/crypto"
 
@@ -25,17 +25,18 @@ let keys = []
 
 beforeEach(() => {
     vi.clearAllMocks()
-    vi.mock('drizzle-orm', () => ({
-        eq: (_, id) => {
-            return keys.find(k => k.id === id)
-        }
-    }))
+
     vi.mock('../../src/backend/db', () => ({
         db: {
             select: mock(() => ({
                 from: mock(() => ({
                     where: mock((fn) => {
-                        return { get: () => fn, run: () => fn }
+                        const field = fn.queryChunks.at(1).name.replace(
+                            /(?!^)_(.)/g,
+                            (_, char) => char.toUpperCase())
+                        const value = fn.queryChunks.at(3).value
+                        const filtered = keys.find(k => k[field] === value)
+                        return { get: () => filtered, run: () => filtered }
                     }),
                     all: () => keys
                 }))
@@ -49,7 +50,9 @@ beforeEach(() => {
             })),
             delete: mock(() => ({
                 where: mock((fn) => {
-                    keys = keys.filter(k => k.id !== fn.id)
+                    const field = fn.queryChunks.at(1).name
+                    const value = fn.queryChunks.at(3).value
+                    keys = keys.filter(k => k[field] !== value)
                     return { run: vi.fn() }
                 })
             })),
@@ -58,15 +61,16 @@ beforeEach(() => {
 
                     return {
                         where: mock((fn) => {
-                            const id = fn.id
+                            const field = fn.queryChunks.at(1).name
+                            const value = fn.queryChunks.at(3).value
                             keys = keys.map(k => {
-                                if (k.id === id) {
+                                if (k[field] === value) {
                                     return { ...k, ...payload }
                                 } else {
                                     return k
                                 }
                             })
-                            return { get: () => fn, run: () => fn }
+                            return { get: () => keys, run: () => keys }
                         }),
                         run: mock(() => {
                             keys = keys.map(k => {
