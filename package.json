@@ -51,7 +51,7 @@
     "express": "5.1.0",
     "farmhash": "^5.0.1",
     "fflate": "^0.8.3",
-    "fuse.js": "^7.4.2",
+    "fuse.js": "^7.5.0",
     "js-yaml": "4.1.0",
     "jsonwebtoken": "9.0.2",
     "motion": "^12.39.0",
