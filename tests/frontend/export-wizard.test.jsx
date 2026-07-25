@@ -30,6 +30,10 @@ import ExportWizard from "../../src/frontend/components/editor/ExportWizard.jsx"
 
 const SQL = "SELECT id, name FROM sales.orders";
 
+// ExportWizard polls progress on a 1000ms interval, which is exactly waitFor's
+// default timeout. Any assertion that needs a poll result must outlast it.
+const POLL_WAIT = 5000;
+
 function open(sql = SQL) {
   return render(<ExportWizard sql={sql} username="kathir" onClose={vi.fn()} />);
 }
@@ -205,21 +209,26 @@ describe("Step 3: preparing and downloading", () => {
       state: "ready", bytesRead: 500, bytesWritten: 400, percent: 100, fileName: "kathir-export.csv.zip",
     });
     await toProgressStep();
-   await waitFor(() =>
-  expect(screen.getByText("Download")).toBeTruthy()
-);
+    await waitFor(() => expect(screen.getByText("Download")).toBeTruthy(), {
+      timeout: POLL_WAIT,
+    });
   });
 
   it("releases the idle suspension when the job finishes", async () => {
     api.exportProgress.mockResolvedValue({ state: "ready", bytesRead: 1, bytesWritten: 1, percent: 100 });
     await toProgressStep();
-    await waitFor(() => expect(idle.endBusy).toHaveBeenCalled());
+    await waitFor(() => expect(idle.endBusy).toHaveBeenCalled(), {
+      timeout: POLL_WAIT,
+    });
   });
 
   it("shows the reason when a job fails", async () => {
     api.exportProgress.mockResolvedValue({ state: "failed", error: "Not enough export space left." });
     await toProgressStep();
-    await waitFor(() => expect(screen.getByText(/Not enough export space left/i)).toBeTruthy());
+    await waitFor(
+      () => expect(screen.getByText(/Not enough export space left/i)).toBeTruthy(),
+      { timeout: POLL_WAIT },
+    );
   });
 
   it("reports a refused start rather than moving on silently", async () => {
