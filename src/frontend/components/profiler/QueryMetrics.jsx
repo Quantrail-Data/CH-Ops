@@ -506,7 +506,7 @@ function buildGroupChart(label, unit, columns, rows) {
       top: -16,
       itemSize: 10,
       feature: {
-        ...baseChartOption().toolbox.feature,
+        ...baseChartOption().toolbox?.feature,
         dataZoom: {
           show: false,
         },
