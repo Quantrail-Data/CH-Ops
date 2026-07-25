@@ -133,7 +133,7 @@ export default function AppDataBackup() {
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon className="ti ti-clock" style={{ color: 'var(--accent)' }}></Icon> Scheduled Backup
             </h3>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
               <div className="form-group">
                 <label className="form-label">Storage Profile</label>
                 <Select className="form-select" value={config.profileName} onChange={e => setConfig(c => ({ ...c, profileName: e.target.value }))} style={{ minWidth: 200 }}>
@@ -162,13 +162,43 @@ export default function AppDataBackup() {
                   {HOURS.map(h => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}
                 </Select>
               </div>
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: 20 }}>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={config.enabled} onChange={e => setConfig(c => ({ ...c, enabled: e.target.checked }))} style={{ accentColor: 'var(--accent)' }} />
-                  Enabled
+              <div className="form-group">
+                <label className="form-label" style={{ visibility: 'hidden', display: 'block', height: '20px' }}></label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                  <div 
+                    className={`toggle-switch ${config.enabled ? 'active' : ''}`}
+                    onClick={() => setConfig(c => ({ ...c, enabled: !c.enabled }))}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: config.enabled ? 'var(--accent)' : 'var(--bg-sunken)',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      flexShrink: 0
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: config.enabled ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: 500 }}>
+                    {config.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
                 </label>
               </div>
-              <button className="btn btn-primary" onClick={saveConfig} disabled={savingConfig}>
+              <button className="btn btn-primary" onClick={saveConfig} disabled={savingConfig} style={{ alignSelf: 'flex-end', marginTop: '20px' }}>
                 <Icon className="ti ti-device-floppy"></Icon> Save Schedule
               </button>
             </div>

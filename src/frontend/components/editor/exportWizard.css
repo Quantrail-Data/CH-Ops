@@ -1,0 +1,117 @@
+ /* exportWizard.css - Styling for the export wizard. */
+  /* Copyright (C) 2026 Quantrail™ Data Private Limited
+ author -> Sanjeev Kumar G */
+
+.xw-box {
+  width: min(680px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.xw-steps {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.xw-step {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+}
+
+.xw-step.active {
+  color: var(--text-primary);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.xw-sql {
+  font-family: var(--font-code);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.xw-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.xw-field {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+.xw-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.xw-help {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.xw-note {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-sunken);
+  margin-bottom: 12px;
+}
+
+.xw-warn {
+  border-color: var(--color-warning, #d19a24);
+}
+
+.xw-adv {
+  border-top: 1px solid var(--border-default);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.xw-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  overflow: hidden;
+  margin: 6px 0 2px;
+}
+
+.xw-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.xw-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.xw-ext {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}

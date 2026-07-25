@@ -67,6 +67,7 @@ function createRes() {
 }
 
 describe("POST /schema-studio/connect - role gate", () => {
+  
   const handler = getHandler("post", "/connect");
 
   test("rejects readonly role with 403, never touches ClickHouse", async () => {

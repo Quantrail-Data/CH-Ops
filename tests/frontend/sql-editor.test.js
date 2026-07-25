@@ -45,6 +45,7 @@ describe('SQL Editor: ClickHouse® Service', () => {
   const code = read('src/backend/services/clickhouse.js');
   it('sends X-ClickHouse-Summary header for stats', () => { expect(code).toContain('X-ClickHouse-Summary'); });
   it('injects FORMAT for data queries', () => { expect(code).toContain('FORMAT'); });
+  // it('treats the exception-code header as a failure, not just the HTTP status', () => { expect(code).toContain('X-ClickHouse-Exception-Code'); });
 });
 
 describe('SQL Editor: Query History', () => {
@@ -65,13 +66,44 @@ describe('SQL Editor: Query Bookmarks', () => {
   it('loads bookmarks on mount', () => { expect(code).toContain('loadBookmarks'); });
 });
 
-describe('SQL Editor: Export Results', () => {
+
+describe('SQL Editor: Export button opens the wizard', () => {
   const code = read('src/frontend/components/editor/QueryEditor.jsx');
-  it('exports CSV with proper escaping', () => { expect(code).toContain('exportCSV'); expect(code).toContain('query-results.csv'); });
-  it('exports JSON', () => { expect(code).toContain('exportJSON'); expect(code).toContain('query-results.json'); });
-  it('exports TSV', () => { expect(code).toContain('exportTSV'); expect(code).toContain('query-results.tsv'); });
-  it('uses Blob + createObjectURL for browser download', () => { expect(code).toContain('new Blob'); expect(code).toContain('URL.createObjectURL'); expect(code).toContain('URL.revokeObjectURL'); });
-  it('export buttons only visible when results exist', () => { expect(code).toContain("result?.length > 0 && !error"); });
+  it('imports the wizard', () => { expect(code).toContain('ExportWizard'); });
+  it('has open/closed state for the wizard', () => { expect(code).toContain('exportOpen'); expect(code).toContain('setExportOpen'); });
+  it('renders the wizard when open and passes the editor SQL', () => { expect(code).toContain('{exportOpen && ('); expect(code).toContain('sql={sql}'); });
+  it('the button is enabled by SQL, not by results being on screen', () => { expect(code).toContain('disabled={!sql?.trim()}'); });
+});
+
+describe('SQL Editor: old in-browser export is gone', () => {
+  const code = read('src/frontend/components/editor/QueryEditor.jsx');
+  it('no client-side format writers', () => { expect(code).not.toContain('exportCSV'); expect(code).not.toContain('exportTSV'); expect(code).not.toContain('exportJSON'); });
+  it('no fixed query-results filenames', () => { expect(code).not.toContain('query-results.csv'); expect(code).not.toContain('query-results.tsv'); expect(code).not.toContain('query-results.json'); });
+  it('no Chromium-only save picker', () => { expect(code).not.toContain('showSaveFilePicker'); });
+  it('export is no longer gated on rows being on screen', () => { expect(code).not.toContain("result?.length > 0 && !error"); });
+});
+
+describe('SQL Editor: Export wizard and its API', () => {
+  const wizard = read('src/frontend/components/editor/ExportWizard.jsx');
+  const api = read('src/frontend/utils/exportApi.js');
+  const route = read('src/backend/routes/export.js');
+  const server = read('src/backend/server.js');
+
+  it('wizard has three steps', () => { expect(wizard).toContain('1. Query'); expect(wizard).toContain('2. Format'); expect(wizard).toContain('3. Download'); });
+  it('Next is blocked until an estimate has been attempted', () => { expect(wizard).toContain('disabled={!tried}'); });
+  it('warns when the statement is not SELECT-like, without blocking', () => { expect(wizard).toContain('isSelectLike'); expect(wizard).toContain('{!selectLike && ('); });
+  it('warns when more than one statement is present', () => { expect(wizard).toContain('hasMultipleStatements'); });
+  it('offers background running and cancel', () => { expect(wizard).toContain('Run in background'); expect(wizard).toContain('Cancel export'); });
+  it('suspends the idle logout while a job runs', () => { expect(wizard).toContain('beginBusy'); expect(wizard).toContain('endBusy'); });
+
+  it('client calls the export endpoints', () => { expect(api).toContain('/api/export/estimate'); expect(api).toContain('/api/export/jobs'); });
+  it('download uses a one-time ticket, since a browser download cannot send the auth header', () => { expect(api).toContain('/ticket'); expect(api).toContain('/api/export/download/'); });
+
+  it('route exposes estimate, jobs, progress, ticket and cancel', () => { expect(route).toContain('"/estimate"'); expect(route).toContain('"/jobs"'); expect(route).toContain('"/jobs/:id"'); expect(route).toContain('"/jobs/:id/ticket"'); });
+  it('every job read checks the owner', () => { expect(route).toContain('req.user?.username'); });
+  it('only settings from the shared catalogue are forwarded', () => { expect(route).toContain('ALLOWED_SETTINGS'); });
+  it('download route is mounted before the authenticated routes', () => { expect(server.indexOf("'/api/export/download'")).toBeLessThan(server.indexOf("'/api/export'")); });
+  it('old table download route is gone', () => { expect(server).not.toContain('/api/table/download'); });
 });
 
 describe('SQL Editor: Autocomplete', () => {

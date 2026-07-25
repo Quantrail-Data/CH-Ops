@@ -224,7 +224,7 @@ export default function UserManagement() {
         <form onSubmit={createUser} className="card" style={{ padding: 20, marginBottom: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
             <div className="form-group"><label className="form-label">Username *</label><input className="form-input" required value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))} /></div>
-            <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="For password email" /></div>
+            <div className="form-group"><label className="form-label">Email *</label><input className="form-input" type="email" required value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="For password email" /></div>
             <div className="form-group"><label className="form-label">Role</label>
               <Select className="form-select" value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}>
                 {creatableRoles().map(r => <option key={r} value={r}>{r}</option>)}
