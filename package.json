@@ -47,7 +47,7 @@
     "@xyflow/react": "^12.11.0",
     "axios": "^1.18.0",
     "drizzle-orm": "0.44.2",
-    "echarts": "6.0.0",
+    "echarts": "6.1.0",
     "express": "5.1.0",
     "farmhash": "^5.0.1",
     "fflate": "^0.8.3",
