@@ -1,16 +1,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Hover and focus tooltip for a single number or chart.
-//
-// Self-contained on purpose. An earlier version borrowed the class names from
-// schema-studio/studio.css, which only SchemaStudio.jsx imports, so on any other
-// page the positioning and hiding rules never applied and the bubble rendered as
-// ordinary inline content that swallowed the card it was meant to annotate.
-// Nothing here depends on a stylesheet being loaded elsewhere.
-//
-// The bubble is portalled to document.body and positioned fixed rather than
-// absolutely inside the trigger. That matters because these tips sit inside grid
-// cells and cards that clip their overflow, and an absolutely positioned bubble
-// would be cut off by the first ancestor with overflow hidden.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
+
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -46,8 +37,7 @@ export default function InfoTip({ what, read, formula, unit }) {
       Math.max(EDGE, window.innerWidth - BUBBLE_WIDTH - EDGE),
     );
 
-    // Flip above the trigger when there is not enough room below. 220 is a
-    // deliberate overestimate of the tallest bubble this component produces.
+
     const roomBelow = window.innerHeight - rect.bottom;
     const above = roomBelow < 220 && rect.top > roomBelow;
 

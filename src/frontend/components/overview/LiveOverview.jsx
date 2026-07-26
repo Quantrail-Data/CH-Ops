@@ -1,30 +1,13 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // The live section of the Cluster Overview page.
-//
-// Nothing here is a time series. Every number is either a reading taken now or
-// a rate measured over exactly one refresh interval, which is the number in the
-// dropdown, so a reader can check it against a clock.
-//
-// Three tables feed it:
-//
-//   system.metrics                gauges. What the server is doing at this instant.
-//   system.asynchronous_metrics   gauges. The machine and the data. The only
-//                                 source of CPU, memory total, disk capacity
-//                                 and replica lag.
-//   system.events                 counters. Two samples are held, previous and
-//                                 current, and only their difference is shown.
-//                                 No history beyond that.
-//
-// The two-sample rule is the whole design. It is what makes rates possible
-// without a buffer, and it is why the first poll after loading shows dashes
-// rather than zeros: a rate genuinely does not exist yet.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import { runQuery } from "../../utils/api.js";
 import { buildChartOption } from "../dashboards/chartTypes.js";
-import { ChartCard, KpiStrip, HealthStrip, GaugeGroup } from "./OverviewCards.jsx";
+import { ChartCard, KpiStrip, HealthStrip, GaugeGroup, Section } from "./OverviewCards.jsx";
 import { fmtBytes } from "../../utils/costEstimator.js";
 import {
   METRIC_KEYS,
@@ -68,7 +51,7 @@ function readStored(key, fallback) {
   }
 }
 
-export default function LiveOverview({ nodeName }) {
+export function useLiveOverview() {
   const [live, setLive] = useState(() => readStored(LS_LIVE, true));
   const [interval, setIntervalSeconds] = useState(() => readStored(LS_INTERVAL, 5));
   const [m, setM] = useState({}); // system.metrics, gauges
@@ -172,12 +155,8 @@ export default function LiveOverview({ nodeName }) {
   const loaded = Object.keys(m).length > 0;
 
 
-  // --------------------------------------------------- counters, one interval
+  // Every value below covers the last refresh interval
 
-  // Every value below covers the last refresh interval and nothing longer.
-  // hasPair is false on the very first poll and immediately after a restart,
-  // and the cards render a dash rather than a zero, because "no rate yet" and
-  // "a rate of zero" are different answers.
   const hasPair = Boolean(prev && curr);
 
   const ev = useMemo(() => {
@@ -196,8 +175,7 @@ export default function LiveOverview({ nodeName }) {
       cpu_starvation: pr("OSCPUWaitMicroseconds", "RealTimeMicroseconds"),
       cpu_steal: invert(pr("OSCPUVirtualTimeMicroseconds", "RealTimeMicroseconds")),
 
-      // efficiency, all phrased so that low is good, because the gauge bands
-      // are fixed green through red and cannot be flipped per metric
+      // efficiency
       page_cache_miss: pr("OSReadBytes", "OSReadChars"),
       file_reopen_rate: prs(["OpenedFileCacheMisses"], ["OpenedFileCacheHits", "OpenedFileCacheMisses"]),
       unsorted_inserts: invert(pr("MergeTreeDataWriterBlocksAlreadySorted", "MergeTreeDataWriterBlocks")),
@@ -240,8 +218,7 @@ export default function LiveOverview({ nodeName }) {
   }, [hasPair, prev, curr]);
 
   // Where the time goes, as a bar of current thread-equivalents rather than a
-  // time series. Bars are sorted so the dominant activity is at the top, which
-  // is the question the chart exists to answer.
+  // time series.
   const timeBreakdown = useMemo(() => {
     if (!hasPair) return null;
     const rows = TIME_BREAKDOWN.map((item) => ({
@@ -261,7 +238,7 @@ export default function LiveOverview({ nodeName }) {
     );
   }, [hasPair, prev, curr]);
 
-  // ---------------------------------------------------------------- gauges
+  // gauges
 
   const gauges = useMemo(() => {
     const machine = [
@@ -308,7 +285,7 @@ export default function LiveOverview({ nodeName }) {
     return { machine, efficiency };
   }, [m, a, ev]);
 
-  // ---------------------------------------------------------------- charts
+  //charts
 
   const charts = useMemo(() => {
     const bar = (rows, title, showLegend = false) =>
@@ -452,8 +429,7 @@ export default function LiveOverview({ nodeName }) {
           { showLegend: true },
         );
       })(),
-      // Conditional subsystems. Only rendered when in use, which on a plain
-      // install means none of them appear at all.
+      // Conditional subsystems. Only rendered when in use
       tempFiles: (() => {
         const rows = toCategoryRows(m, [
           ["Sort", "TemporaryFilesForSort"],
@@ -499,7 +475,7 @@ export default function LiveOverview({ nodeName }) {
     };
   }, [m, a]);
 
-  // ------------------------------------------------------------------ kpis
+  // kpis
 
   const kpis = useMemo(
     () => [
@@ -541,10 +517,23 @@ export default function LiveOverview({ nodeName }) {
     },
   ]);
 
+  const failingChecks = healthChips.filter((c) => c.value > 0).length;
+  const ageSeconds = lastAt ? Math.round((Date.now() - lastAt) / 1000) : null;
+
+  return {
+    live, setLive, interval, setIntervalSeconds,
+    m, a, ev, hasPair, restarted, error, lastAt, loaded,
+    gauges, charts, kpis, timeBreakdown, healthChips, failingChecks,
+  };
+}
+
+// Node name, live toggle and refresh interval.
+
+export function LiveControlBar({ nodeName, live: s }) {
+  const { live, setLive, interval, setIntervalSeconds, lastAt, error, restarted } = s;
   const ageSeconds = lastAt ? Math.round((Date.now() - lastAt) / 1000) : null;
 
   return (
-    <div style={{ marginBottom: 20 }}>
       <div
         className="card"
         style={{
@@ -603,37 +592,75 @@ export default function LiveOverview({ nodeName }) {
           Readings are current; rates cover the last {interval}s
         </span>
       </div>
+  );
+}
 
+// The machine gauges, on their own so the page can put them directly under the
+// stat cards.
+ 
+export function MachineGauges({ live: s }) {
+  const { loaded, gauges } = s;
+  if (!loaded) return null;
+  return (
+    <Section id="machine" icon="ti-cpu" title="Machine and server">
+      <GaugeGroup items={gauges.machine} />
+    </Section>
+  );
+}
+
+// The rest of the live charts. Controls and machine gauges sit above. 
+export default function LiveOverview({ live: s }) {
+  const {
+    interval, loaded, ev, gauges, charts, kpis, timeBreakdown, healthChips, failingChecks, hasPair,
+  } = s;
+
+  return (
+    <div style={{ marginBottom: 20 }}>
       {!loaded ? (
         <div className="card" style={{ padding: 32, textAlign: "center" }}>
           <span className="loading-spinner" /> Reading system tables...
         </div>
       ) : (
         <>
-          <HealthStrip chips={healthChips} />
+          <Section
+            id="health"
+            icon="ti-shield-check"
+            title="Health checks"
+            defaultOpen={false}
+            summary={
+              failingChecks > 0
+                ? `${failingChecks} failing`
+                : `all ${healthChips.length} clear`
+            }
+          >
+            <HealthStrip chips={healthChips} />
+          </Section>
 
           {/* Every percentage on the page, in one place. Comparing them side by
               side is the point: a saturated pool stands out because everything
               around it does not. */}
-          <GaugeGroup title="Machine and server" items={gauges.machine} />
-          <GaugeGroup
+          <Section
+            id="efficiency-gauges"
+            icon="ti-chart-arrows"
             title="Efficiency"
-            subtitle={`over the last ${interval}s`}
-            items={gauges.efficiency}
-          />
+            summary={`over the last ${interval}s`}
+           defaultOpen={false}>
+            <GaugeGroup items={gauges.efficiency} />
+          </Section>
 
-          <SectionTitle icon="ti-stack-2" text="Background pools" />
-          <ChartCard
-            metricKey="pool_utilization"
-            title="Background pools, in use against limit"
-            option={charts.pools}
-            type="bar"
-            format="count"
-            height={260}
-            emptyMessage="No background pools reported"
-          />
+          <Section id="pools" icon="ti-stack-2" title="Background pools" summary="in use against limit" defaultOpen={false}>
+            <ChartCard
+              metricKey="pool_utilization"
+              title="Background pools, in use against limit"
+              option={charts.pools}
+              type="bar"
+              format="count"
+              height={260}
+              emptyMessage="No background pools reported"
+            />
+          </Section>
 
-          <SectionTitle icon="ti-bolt" text={`Throughput  (last ${interval}s)`} />
+          <Section id="throughput" icon="ti-bolt" title="Throughput" summary={`last ${interval}s`} defaultOpen={false}>
           <KpiStrip
             items={[
               { key: "query_rate", value: ev.query_rate },
@@ -650,8 +677,9 @@ export default function LiveOverview({ nodeName }) {
               { key: "bytes_per_row", value: ev.bytes_per_row },
             ]}
           />
+          </Section>
 
-          <SectionTitle icon="ti-chart-bar" text={`Efficiency and shape  (last ${interval}s)`} />
+          <Section id="shape" icon="ti-chart-bar" title="Efficiency and shape" summary={`last ${interval}s`} defaultOpen={false}>
           <KpiStrip
             items={[
               { key: "read_amplification", value: ev.read_amplification },
@@ -662,7 +690,9 @@ export default function LiveOverview({ nodeName }) {
               { key: "insert_compression", value: ev.insert_compression },
             ]}
           />
+          </Section>
 
+          <Section id="time" icon="ti-clock" title="Where the time goes" summary={`last ${interval}s`} defaultOpen={false}>
           <ChartCard
             metricKey="time_breakdown"
             option={timeBreakdown}
@@ -671,8 +701,9 @@ export default function LiveOverview({ nodeName }) {
             height={300}
             emptyMessage={hasPair ? "Nothing measurable in the last interval" : "Waiting for a second reading"}
           />
+          </Section>
 
-          <SectionTitle icon="ti-activity-heartbeat" text="Activity right now" />
+          <Section id="activity" icon="ti-activity-heartbeat" title="Activity right now" defaultOpen={false}>
           <Grid>
             <ChartCard metricKey="query_activity" option={charts.queryActivity} type="bar" format="count" />
             <ChartCard metricKey="background_activity" option={charts.backgroundActivity} type="bar" format="count" />
@@ -681,25 +712,27 @@ export default function LiveOverview({ nodeName }) {
             <ChartCard title="Threads" option={charts.threads} type="bar" format="count" />
             <ChartCard metricKey="memory_breakdown" option={charts.memory} type="bar" format="bytes" />
           </Grid>
+          </Section>
 
-          <SectionTitle icon="ti-database" text="Storage" />
+          <Section id="storage" icon="ti-database" title="Storage" defaultOpen={false}>
           <Grid>
             <ChartCard metricKey="parts_by_state" option={charts.parts} type="bar" format="count" />
             <ChartCard title="Part format" option={charts.partFormat} type="pie" format="count" />
             <ChartCard metricKey="caches" option={charts.caches} type="pie" format="bytes" emptyMessage="All caches are empty" />
             <ChartCard metricKey="attached_objects" option={charts.objects} type="bar" format="count" />
           </Grid>
+          </Section>
 
-          <SectionTitle icon="ti-list-check" text="Data health" />
-          <KpiStrip items={kpis} />
+          <Section id="data-health" icon="ti-list-check" title="Data health" defaultOpen={false}>
+            <KpiStrip items={kpis} />
+          </Section>
 
           {(charts.tempFiles ||
             charts.distributed ||
             charts.asyncInserts ||
             charts.kafka ||
             charts.replication) && (
-            <>
-              <SectionTitle icon="ti-plug" text="In use on this node" />
+            <Section id="in-use" icon="ti-plug" title="In use on this node" defaultOpen={false}>
               <Grid>
                 {charts.replication && (
                   <ChartCard title="Replication queue" option={charts.replication} type="bar" format="count" />
@@ -717,30 +750,11 @@ export default function LiveOverview({ nodeName }) {
                   <ChartCard title="Kafka" option={charts.kafka} type="bar" format="count" />
                 )}
               </Grid>
-            </>
+            </Section>
           )}
         </>
       )}
     </div>
-  );
-}
-
-function SectionTitle({ icon, text }) {
-  return (
-    <h3
-      style={{
-        fontSize: "0.8125rem",
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-        color: "var(--text-muted)",
-        margin: "20px 0 10px",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      <Icon className={`ti ${icon}`} /> {text}
-    </h3>
   );
 }
 

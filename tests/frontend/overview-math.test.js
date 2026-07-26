@@ -1,10 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Arithmetic behind the Cluster Overview live section.
-//
-// The point of most of these is not that the sums are right, it is that a
-// division with nothing to divide by produces a dash rather than NaN, Infinity
-// or a plausible-looking zero. A monitoring page that cannot tell "nothing
-// happened" from "no reading" is lying about one of them.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
 import { describe, it, expect } from "vitest";
 import {

@@ -1,18 +1,8 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Block diagram of every configured cluster, laid out one column per shard and
-// one row per replica.
-//
-// There are deliberately no edges. Replicas of a shard are peers, not a chain,
-// so any line drawn between two nodes would be inventing a relationship the
-// server does not have. The grid position carries the topology on its own, and
-// a light group container per shard carries the grouping.
-//
-// Colour encodes shard by fill and replica by outline, which is two colour
-// channels doing all the work. That fails for colourblind readers and once the
-// shard count exceeds the palette, so every node also states its position as
-// text. Colour is the fast path; "S1/R2" is the ground truth.
+// Block diagram of every configured cluster, laid out one column per shard and one row per replica.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
-import React, { useMemo, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -24,11 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import Icon from "../common/Icon.jsx";
 
-// @xyflow/react's stylesheet hardcodes a dark text colour on nodes and ships
-// light-theme controls with white backgrounds and dark glyphs. On the dark theme
-// that renders node text and every control icon at almost exactly the background
-// colour. None of it reads a CSS variable, so it is overridden here rather than
-// in global.css, which keeps the fix next to the component that needs it.
+
 const FLOW_THEME_CSS = `
 .chops-topology .react-flow__node { color: var(--text-primary); }
 .chops-topology .react-flow__attribution { display: none; }
@@ -45,9 +31,7 @@ const FLOW_THEME_CSS = `
   width: 26px;
   height: 26px;
 }
-.chops-topology .react-flow__controls-button:hover {
-  background: var(--bg-sunken);
-}
+.chops-topology .react-flow__controls-button:hover { background: var(--bg-sunken); }
 .chops-topology .react-flow__controls-button svg { fill: var(--text-primary); }
 .chops-topology .react-flow__minimap {
   background: var(--bg-sunken);
@@ -57,8 +41,7 @@ const FLOW_THEME_CSS = `
 .chops-topology .react-flow__background { opacity: 0.5; }
 `;
 
-// Eight hues, cycled. Beyond eight shards the text label disambiguates, which
-// is why cycling is acceptable rather than a bug.
+// Eight hues, cycled.
 const SHARD_FILLS = [
   "rgba(59,130,246,0.18)", "rgba(139,92,246,0.18)", "rgba(34,197,94,0.18)",
   "rgba(245,158,11,0.18)", "rgba(236,72,153,0.18)", "rgba(6,182,212,0.18)",
@@ -76,6 +59,45 @@ const ROW_GAP = 26;
 const GROUP_PAD = 16;
 const HEADER = 26;
 
+// The health columns system.clusters carries
+const HEALTH_COLUMNS = [
+  { key: "errors_count", label: "Errors", kind: "count" },
+  { key: "slowdowns_count", label: "Slowdowns", kind: "count" },
+  { key: "estimated_recovery_time", label: "Est. recovery", kind: "seconds" },
+  { key: "recovery_time", label: "Recovery", kind: "millis" },
+  { key: "replication_lag", label: "Replication lag", kind: "count" },
+  { key: "unsynced_after_recovery", label: "Unsynced", kind: "count" },
+];
+
+/** Null and undefined mean "not reported"; zero is a real reading. */
+export function readHealth(row, key) {
+  const raw = row?.[key];
+  if (raw === null || raw === undefined || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Render a health value, keeping "not reported" distinct from zero. */
+export function formatHealth(value, kind) {
+  if (value === null) return "-";
+  if (value === 0) return "0";
+  if (kind === "seconds") return fmtDuration(value);
+  if (kind === "millis") return fmtDuration(value / 1000);
+  return String(value);
+}
+
+function fmtDuration(seconds) {
+  const s = Math.round(Number(seconds) || 0);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+}
+
+/** Anything above zero on any health column is worth surfacing. */
+export function nodeIsUnhealthy(row) {
+  return HEALTH_COLUMNS.some(({ key }) => (readHealth(row, key) ?? 0) > 0);
+}
+
 function TopologyNode({ data }) {
   const {
     hostName, hostAddress, port, shard, replica,
@@ -85,10 +107,7 @@ function TopologyNode({ data }) {
   const fill = SHARD_FILLS[(shard - 1) % SHARD_FILLS.length];
   const stroke = REPLICA_STROKES[(replica - 1) % REPLICA_STROKES.length];
 
-  // isActive is Nullable and only populated for clusters using Keeper-backed
-  // auto discovery. On a statically configured cluster it is null for every
-  // row, so null has to read as "unknown" and never as "down". Painting a
-  // healthy cluster red is a worse failure than saying nothing.
+
   let dot = "var(--text-muted)";
   let dotTitle = "Health unknown. This cluster does not report node liveness.";
   if (errors > 0) {
@@ -170,9 +189,7 @@ function TopologyNode({ data }) {
       {/* Only rendered when something is wrong, so a healthy cluster stays quiet. */}
       {(errors > 0 || slowdowns > 0) && (
         <div style={{ display: "flex", gap: 8, fontSize: "0.6875rem", fontWeight: 600 }}>
-          {errors > 0 && (
-            <span style={{ color: "var(--color-danger)" }}>{errors} errors</span>
-          )}
+          {errors > 0 && <span style={{ color: "var(--color-danger)" }}>{errors} errors</span>}
           {slowdowns > 0 && (
             <span style={{ color: "var(--color-warning)" }}>{slowdowns} slowdowns</span>
           )}
@@ -192,8 +209,7 @@ export function groupByCluster(rows) {
     if (!byName.has(name)) byName.set(name, []);
     byName.get(name).push(row);
   }
-  // Sorted by name, not by health. A card that jumps position while someone is
-  // reading it is worse than one in an unhelpful place.
+  // Sorted by name, not by health.
   return [...byName.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([name, nodes]) => ({ name, nodes }));
@@ -244,8 +260,8 @@ function buildFlow(nodes, selectedHost) {
           port: node.port,
           shard,
           replica: Number(node.replica_num) || 1,
-          errors: Number(node.errors_count) || 0,
-          slowdowns: Number(node.slowdowns_count) || 0,
+          errors: readHealth(node, "errors_count") ?? 0,
+          slowdowns: readHealth(node, "slowdowns_count") ?? 0,
           isLocal: node.is_local === 1 || node.is_local === true,
           isActive: node.is_active,
           selected: node.host_address === selectedHost || node.host_name === selectedHost,
@@ -257,17 +273,105 @@ function buildFlow(nodes, selectedHost) {
   return flowNodes;
 }
 
+// The health table under each diagram.
+
+function HealthTable({ nodes }) {
+  const columns = HEALTH_COLUMNS.filter((c) =>
+    nodes.some((n) => readHealth(n, c.key) !== null),
+  );
+  if (!columns.length) return null;
+
+  const cell = { padding: "4px 8px", fontFamily: "var(--font-code)", fontSize: "0.6875rem" };
+  const head = {
+    ...cell,
+    color: "var(--text-muted)",
+    textAlign: "left",
+    borderBottom: "1px solid var(--border-default)",
+    whiteSpace: "nowrap",
+  };
+
+  return (
+    <div
+      style={{
+        // Sits beside the diagram and wraps under it on a narrow screen. Sized
+        // to its content rather than to a share of the row, because a table of
+        // small integers does not benefit from extra width.
+        flex: "1 1 280px",
+        minWidth: 0,
+        maxWidth: 520,
+        overflowX: "auto",
+      }}
+    >
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th style={head}>Node</th>
+            {columns.map((c) => (
+              <th key={c.key} style={{ ...head, textAlign: "right" }}>
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {nodes.map((n) => (
+            <tr key={`${n.shard_num}-${n.replica_num}-${n.host_address}`}>
+              <td style={{ ...cell, whiteSpace: "nowrap" }}>
+                {n.host_name}
+                <span style={{ color: "var(--text-muted)" }}>
+                  {"  "}S{n.shard_num}/R{n.replica_num}
+                </span>
+              </td>
+              {columns.map((c) => {
+                const v = readHealth(n, c.key);
+                const bad = (v ?? 0) > 0;
+                return (
+                  <td
+                    key={c.key}
+                    style={{
+                      ...cell,
+                      textAlign: "right",
+                      color: bad ? "var(--color-danger)" : "var(--text-muted)",
+                      fontWeight: bad ? 700 : 400,
+                    }}
+                    title={v === null ? "Not reported by this cluster" : undefined}
+                  >
+                    {formatHealth(v, c.kind)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
   const { fitView } = useReactFlow();
+  const [fullscreen, setFullscreen] = useState(false);
+
   const flowNodes = useMemo(
     () => buildFlow(cluster.nodes, selectedHost),
     [cluster.nodes, selectedHost],
   );
 
-  React.useEffect(() => {
+  // fitView after the nodes change, and again after a fullscreen toggle, because
+  // the container has only just been resized when the effect runs.
+  useEffect(() => {
     const timer = setTimeout(() => fitView({ padding: 0.15 }), 80);
     return () => clearTimeout(timer);
-  }, [flowNodes, fitView]);
+  }, [flowNodes, fullscreen, fitView]);
+
+  useEffect(() => {
+    if (!fullscreen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
 
   const onNodeClick = useCallback(
     (_event, node) => {
@@ -277,11 +381,8 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
     [onSelectNode],
   );
 
-  const unhealthy = cluster.nodes.filter((n) => Number(n.errors_count) > 0).length;
+  const unhealthy = cluster.nodes.filter(nodeIsUnhealthy).length;
 
-  // Size the canvas to the tallest shard so a two-replica cluster does not get
-  // the same slab of empty space as a six-replica one. Capped, because past a
-  // point scrolling inside the canvas beats growing the page.
   const shardCounts = cluster.nodes.reduce((acc, n) => {
     const shard = Number(n.shard_num) || 1;
     acc[shard] = (acc[shard] || 0) + 1;
@@ -290,8 +391,21 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
   const tallestShard = Math.max(1, ...Object.values(shardCounts));
   const height = Math.min(560, HEADER + tallestShard * (NODE_HEIGHT + ROW_GAP) + GROUP_PAD + 60);
 
+  const shell = fullscreen
+    ? {
+        padding: 16,
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "var(--bg-page)",
+        display: "flex",
+        flexDirection: "column",
+        marginBottom: 0,
+      }
+    : { padding: 16, marginBottom: 16 };
+
   return (
-    <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+    <div className="card" style={shell}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <h3 style={{ fontSize: "0.9375rem", margin: 0 }}>
           <Icon className="ti ti-topology-star-3" /> {cluster.name}
@@ -310,12 +424,41 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
               borderRadius: 10,
             }}
           >
-            {unhealthy} of {cluster.nodes.length} reporting errors
+            {unhealthy} of {cluster.nodes.length} reporting problems
           </span>
         )}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          style={{ marginLeft: "auto" }}
+          onClick={() => setFullscreen((v) => !v)}
+          title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
+          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+        >
+          <Icon className={`ti ti-${fullscreen ? "arrows-minimize" : "arrows-maximize"}`} />
+        </button>
       </div>
 
-      <div className="chops-topology" style={{ height: Math.max(220, height), width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 16,
+          alignItems: "stretch",
+          flex: fullscreen ? 1 : undefined,
+          minHeight: fullscreen ? 0 : undefined,
+        }}
+      >
+      <div
+        className="chops-topology"
+        style={{
+          // Grows to fill, but never below 380px, at which point the health
+          // table wraps underneath instead of squeezing the diagram flat.
+          flex: "1 1 380px",
+          minWidth: 0,
+          height: fullscreen ? "auto" : Math.max(220, height),
+        }}
+      >
         <ReactFlow
           nodes={flowNodes}
           edges={[]}
@@ -335,60 +478,103 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
           fitViewOptions={{ padding: 0.15 }}
         >
           <Background gap={16} size={1} color="var(--border-default)" />
-          <Controls
-            showInteractive={false}
-            showZoom
-            showFitView
-            position="bottom-right"
-          />
+          <Controls showInteractive={false} showZoom showFitView position="bottom-right" />
           {cluster.nodes.length > 12 && (
-            <MiniMap
-              pannable
-              zoomable
-              nodeColor={() => "var(--text-muted)"}
-              maskColor="rgba(0,0,0,0.35)"
-            />
+            <MiniMap pannable zoomable nodeColor={() => "var(--text-muted)"} maskColor="rgba(0,0,0,0.35)" />
           )}
         </ReactFlow>
+      </div>
+
+        <HealthTable nodes={cluster.nodes} />
       </div>
     </div>
   );
 }
 
 export default function ClusterTopology({ rows, loading, selectedHost, onSelectNode }) {
+  // Collapsed by default.
+  const [open, setOpen] = useState(false);
   const clusters = useMemo(() => groupByCluster(rows), [rows]);
 
-  if (loading && !rows?.length) {
-    return (
-      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-        <span className="loading-spinner" /> Loading topology...
-      </div>
-    );
-  }
+  const totalNodes = clusters.reduce((n, c) => n + c.nodes.length, 0);
+  const unhealthy = (rows || []).filter(nodeIsUnhealthy).length;
 
-  // A stripped configuration can genuinely return nothing. Say so rather than
-  // rendering a blank region that looks like a broken component.
-  if (!clusters.length) {
-    return (
-      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-        <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
-          <Icon className="ti ti-info-circle" /> No clusters are configured on this server.
-        </div>
-      </div>
-    );
-  }
+  const header = (
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      aria-expanded={open}
+      className="btn btn-ghost"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        justifyContent: "flex-start",
+        padding: "10px 12px",
+      }}
+    >
+      <Icon className={`ti ti-chevron-${open ? "up" : "down"}`} />
+      <span style={{ fontWeight: 600 }}>Cluster topology</span>
+      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 400 }}>
+        {loading && !rows
+          ? "loading"
+          : `${clusters.length} ${clusters.length === 1 ? "cluster" : "clusters"}, ${totalNodes} ${
+              totalNodes === 1 ? "node" : "nodes"
+            }`}
+      </span>
+      {/* The summary has to carry the health, or collapsing the section hides a
+          problem the page is meant to surface. */}
+      {unhealthy > 0 && (
+        <span
+          style={{
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            color: "var(--color-danger)",
+            padding: "2px 8px",
+            border: "1px solid var(--color-danger)",
+            borderRadius: 10,
+          }}
+        >
+          {unhealthy} reporting problems
+        </span>
+      )}
+    </button>
+  );
 
   return (
-    <ReactFlowProvider>
+    <div style={{ marginBottom: 16 }}>
       <style>{FLOW_THEME_CSS}</style>
-      {clusters.map((cluster) => (
-        <ClusterCanvas
-          key={cluster.name}
-          cluster={cluster}
-          selectedHost={selectedHost}
-          onSelectNode={onSelectNode}
-        />
-      ))}
-    </ReactFlowProvider>
+      <div className="card" style={{ padding: 0, marginBottom: open ? 12 : 0 }}>
+        {header}
+      </div>
+
+      {open && loading && !rows?.length && (
+        <div className="card" style={{ padding: 24 }}>
+          <span className="loading-spinner" /> Loading topology...
+        </div>
+      )}
+
+      {open && !loading && !clusters.length && (
+        <div className="card" style={{ padding: 24 }}>
+          <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+            <Icon className="ti ti-info-circle" /> No clusters are configured on this server.
+          </div>
+        </div>
+      )}
+
+      {open &&
+        clusters.map((cluster) => (
+          // One provider per canvas. A shared provider is a shared store, which
+          // is what made every cluster render the same nodes and pan together.
+          <ReactFlowProvider key={cluster.name}>
+            <ClusterCanvas
+              cluster={cluster}
+              selectedHost={selectedHost}
+              onSelectNode={onSelectNode}
+            />
+          </ReactFlowProvider>
+        ))}
+    </div>
   );
 }
