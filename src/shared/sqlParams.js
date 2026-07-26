@@ -1,30 +1,12 @@
 // sqlParams.js - typed query parameters and optional filter blocks.
-//
-// Runs in BOTH the browser and the server, so it must not import anything
-// outside src/shared/.
-//
-// Two features live here:
-//   1. {name:Type} placeholders. ClickHouse substitutes these itself from
-//      param_<name> request arguments, so a value never enters the SQL text.
-//   2. /*[ ... ]*/ optional blocks. If every parameter inside has a value the
-//      markers are stripped and the content kept; otherwise the whole block
-//      is removed and its parameters are not sent.
-//
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-// ---------------------------------------------------------------------------
 // Scanner
-// ---------------------------------------------------------------------------
 
-// Walk the SQL once and label every region. Everything else in this file works
-// from these spans, which is why a placeholder inside quotes or an ordinary
-// comment is correctly ignored.
-//
-// Note that an optional block is labelled 'block', not 'comment'. Parameters
-// inside a block ARE real parameters; parameters inside an ordinary comment
-// are not.
+
 function scan(sql) {
   const text = String(sql || "");
   const n = text.length;
@@ -65,6 +47,16 @@ function scan(sql) {
       continue;
     }
 
+    // A {name:Type} placeholder is CODE, all of it, including a type whose
+    // enum members are quoted. 
+    if (c === "{") {
+      const ph = matchPlaceholder(text, i, n);
+      if (ph) {
+        i = ph.end;
+        continue;
+      }
+    }
+
     // 'string literal', "quoted identifier", `backtick identifier`
     if (c === "'" || c === '"' || c === "`") {
       push("code", start, i);
@@ -89,17 +81,8 @@ function scan(sql) {
   return { text, spans };
 }
 
-// ---------------------------------------------------------------------------
 // Placeholder parsing
-// ---------------------------------------------------------------------------
 
-// Try to read a {name:Type} placeholder starting at text[at] === '{'.
-// Returns null if this is not one, so the caller just moves on.
-//
-// The type is copied verbatim and may contain brackets and commas, so we track
-// bracket depth and skip quoted enum members:
-//   {a:Array(Tuple(UInt8, String))}
-//   {b:Enum8('prod'=1,'dev'=2)}
 function matchPlaceholder(text, at, limit) {
   let i = at + 1;
   while (i < limit && /\s/.test(text[i])) i++;
@@ -148,13 +131,8 @@ function collectIn(text, from, to, required, out) {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
 
-// Every distinct parameter, in first-appearance order.
-// required=false means it appears only inside optional blocks, so leaving it
-// blank is a legitimate answer rather than an error.
 export function findParameters(sql) {
   const { text, spans } = scan(sql);
   const found = [];
@@ -264,12 +242,7 @@ export function enumMembers(type) {
 function two(n) { return String(n).padStart(2, "0"); }
 
 // The wire format for each declared type.
-//
-// This is the part most likely to go wrong, and it has bitten this codebase
-// before: the archival scheduler sent 1995-06-23T18:30:00.000Z and ClickHouse
-// rejected it with "Cannot convert string ... to type DateTime".
-//
-// NEVER emit an ISO 8601 string with T and Z for a temporal type.
+
 export function formatValue(type, value) {
   const t = unwrap(type);
 
@@ -296,8 +269,7 @@ export function formatValue(type, value) {
 }
 
 // Resolve optional blocks and return the SQL to send plus the parameters that
-// survived. The returned SQL still contains {name:Type}: only WHICH TEXT is
-// present is decided here, never what the values are.
+// survived. 
 export function materialize(sql, values = {}) {
   const { text, spans } = scan(sql);
   findBlocks(sql);                 // validate, throwing on a malformed block

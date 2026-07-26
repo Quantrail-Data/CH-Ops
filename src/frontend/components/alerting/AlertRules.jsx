@@ -1,5 +1,5 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// @Kathir -> Kathir Moorthy
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Manages and renders the configuration rules for triggering system notification alerts.
 
 import React, { useEffect, useState } from "react";
@@ -8,6 +8,7 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useConnection, useAuth } from "../../App.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
+import SqlEditor from "../editor/SqlEditor.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
@@ -389,13 +390,21 @@ export default function AlertRules() {
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">SQL (single value)</label>
-            <textarea
-              className="form-textarea"
-              rows={3}
-              value={f.sql}
-              onChange={(e) => setF({ ...f, sql: e.target.value })}
-              style={{ fontFamily: "var(--font-code)" }}
-            />
+            <div
+              style={{
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--input-bg)",
+                overflow: "hidden",
+              }}
+            >
+              <SqlEditor
+                value={f.sql}
+                onChange={(next) => setF({ ...f, sql: next })}
+                variant="expression"
+                height="72px"
+              />
+            </div>
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">Description</label>
