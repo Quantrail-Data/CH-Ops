@@ -1,14 +1,10 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Chart post-processing for the Cluster Overview live section.
-//
-// buildChartOption is built for the dashboard builder, where charts are large
-// and stand alone. polish() adapts its output for twenty small cards, and every
-// one of these tests corresponds to something that was visibly wrong on the page
-// before it was written: clipped bar labels, dropped axis labels, a duplicate
-// download icon over the plot, raw byte counts in tooltips, and dials whose
-// colours changed meaning between one card and the next.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
+
 
 import { describe, it, expect } from "vitest";
+import fs from "fs";
 import {
   polish,
   stageGauge,
@@ -142,9 +138,7 @@ describe("polish", () => {
   });
 
   it("wraps y axis categories without rotating them", () => {
-    // A horizontal bar's categories already stack vertically; turning them 45
-    // degrees would make them worse. They still need wrapping, or echarts
-    // truncates them on the left edge.
+    // A horizontal bar's categories already stack vertically; 
     const out = polish(horizontalBarOption(), { type: "bar" });
     expect(out.yAxis.axisLabel.rotate).toBe(0);
     expect(out.yAxis.axisLabel.formatter("Waiting readers")).toBe("Waiting\nreaders");
@@ -163,6 +157,15 @@ describe("polish", () => {
     const out = polish(barOption(), { type: "bar", format: "bytes" });
     expect(out.yAxis.name).toBe("bytes");
     expect(out.yAxis.axisLabel.formatter(1024)).toContain("KB");
+  });
+
+  it("pins the series palette so a chart does not change colour with the theme", () => {
+    // utils/echarts.js registers two palettes and initChart picks by theme, so
+    // without this the same series was cyan on dark and blue on light.
+    const light = polish(barOption(), { type: "bar", dark: false });
+    const dark = polish(barOption(), { type: "bar", dark: true });
+    expect(light.color).toEqual(dark.color);
+    expect(Array.isArray(light.color)).toBe(true);
   });
 
   it("shows a legend only when there is more than one series", () => {
@@ -237,12 +240,77 @@ describe("stageGauge", () => {
     expect(g.series[0].detail.formatter()).toBe("3/32");
   });
 
-  it("draws ticks in the surface colour so they show on either theme", () => {
-    // These were hardcoded white and invisible on the light theme.
-    const light = stageGauge({ value: 0.5, dark: false });
-    const dark = stageGauge({ value: 0.5, dark: true });
-    expect(light.series[0].splitLine.lineStyle.color).not.toBe(
-      dark.series[0].splitLine.lineStyle.color,
+  it("draws identical dials in both themes", () => {
+    // Only the text follows the theme. Bands, ticks and the track are fixed, so
+    // the same reading looks the same to two people on different themes and to
+    // anyone comparing a screenshot against a live page.
+    const light = stageGauge({ value: 0.5, dark: false }).series[0];
+    const dark = stageGauge({ value: 0.5, dark: true }).series[0];
+    expect(light.axisLine.lineStyle.color).toEqual(dark.axisLine.lineStyle.color);
+    expect(light.splitLine.lineStyle.color).toBe(dark.splitLine.lineStyle.color);
+    expect(light.axisTick.lineStyle.color).toBe(dark.axisTick.lineStyle.color);
+  });
+
+  it("changes only the text colour between themes", () => {
+    const light = stageGauge({ value: 0.5, dark: false }).series[0];
+    const dark = stageGauge({ value: 0.5, dark: true }).series[0];
+    expect(light.pointer.itemStyle.color).not.toBe(dark.pointer.itemStyle.color);
+    expect(light.axisLabel.color).not.toBe(dark.axisLabel.color);
+  });
+});
+
+describe("no CSS variables reach the canvas", () => {
+  // This is the guard for a bug that cost several rounds of "the gauge text is
+  // still too small". 
+  it("overviewChart.js contains no raw var(--...) reference", () => {
+    const src = fs.readFileSync(
+      "src/frontend/components/overview/overviewChart.js",
+      "utf8",
     );
+    // Comments are stripped first, or this test fails on the comment above
+    // explaining why it exists.
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1");
+    const offenders = [...code.matchAll(/var\(--[a-z-]+/g)].map((m) => m[0]);
+    expect(offenders, `resolve these through cssVar(): ${offenders.join(", ")}`).toEqual([]);
+  });
+
+  it("the gauge resolves its font family to a real stack", () => {
+    const family = stageGauge({ value: 0.5 }).series[0].detail.fontFamily;
+    expect(family).toBeTruthy();
+    expect(family).not.toContain("var(");
+  });
+
+  it("the gauge scales its text with the dial rather than hardcoding it", () => {
+    const small = stageGauge({ value: 0.5, size: 100 });
+    const large = stageGauge({ value: 0.5, size: 300 });
+    expect(large.series[0].detail.fontSize).toBeGreaterThan(small.series[0].detail.fontSize);
+    expect(large.series[0].axisLabel.fontSize).toBeGreaterThan(small.series[0].axisLabel.fontSize);
+  });
+
+  it("gives the readout and the dial labels a legible size at the real cell height", () => {
+    const g = stageGauge({ value: 0.5, size: 188 }).series[0];
+    expect(g.detail.fontSize).toBeGreaterThanOrEqual(12);
+    expect(g.axisLabel.fontSize).toBeGreaterThanOrEqual(10);
+  });
+
+  it("keeps the readout clear of the 0 and 100 labels", () => {
+    // The scale ends sit 30 degrees below horizontal, so those two labels are at
+    // roughly the same height as the readout and an oversized readout grows
+    // sideways into them.
+    const size = 188;
+    const g = stageGauge({ value: 0.5, size }).series[0];
+    const radius = 0.82 * (size / 2);
+    const band = g.axisLine.lineStyle.width;
+    const CHAR = 0.58; // bold digits run about this share of an em
+
+    const labelRadius = radius - g.axisLabel.distance;
+    const labelX = labelRadius * Math.cos(Math.PI / 6);
+    const readoutHalf = (g.detail.fontSize * CHAR * "100%".length) / 2;
+    const labelHalf = (g.axisLabel.fontSize * CHAR * "100".length) / 2;
+
+    expect(band).toBeGreaterThan(0);
+    expect(labelX - labelHalf - readoutHalf).toBeGreaterThan(6);
   });
 });

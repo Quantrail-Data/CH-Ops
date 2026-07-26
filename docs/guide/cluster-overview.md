@@ -1,15 +1,24 @@
-# Cluster Overview
+# ClNodeuster Overview
 
 When you log in, this is the first page you land on. It answers one question quickly: is this node healthy, and if not, what is wrong with it.
 
-> **A note on the heading.** You reach this page from the sidebar under **Overview > Cluster Overview**, but the heading inside reads **Node Overview**. Almost everything here is scoped to the single node you are connected to, chosen in the navbar, rather than aggregated across the cluster. The topology diagram is the exception: it shows every node in every cluster.
+> Almost everything here is scoped to the single node you are connected to, chosen in the navbar, rather than aggregated across the cluster. The topology diagram is the exception: it shows every node in every cluster.
 
-The page has four parts, top to bottom:
+**Every section collapses, and most start collapsed.** Only the status cards and the Machine and server gauges are open on a first visit, and they sit together at the top. Between them they answer "which node is this, and is it under load", and everything else is a follow-up question.
 
-1. **Status cards and disks**, refreshed every 30 seconds.
-2. **Cluster topology**, a diagram of every configured cluster.
-3. **Live overview**, refreshed every few seconds, and the bulk of the page.
-4. **Keeper and connections**, refreshed with the status cards.
+Click any header to open it, and the page remembers your choice from then on. Which parts matter differs completely between watching a live incident and doing a weekly check, so rather than guessing an order that suits both, you open what you want once and it stays open.
+
+A collapsed header still carries its summary, including anything that needs attention: the health section reads "3 failing" rather than just its title, and the topology reports how many nodes have problems. Folding a section away can never hide a fault.
+
+The page runs top to bottom in order of how often things change:
+
+1. **The control bar**, naming the node and setting the refresh rate. It governs every number below it, which is why it leads.
+2. **Status cards**, refreshed every 30 seconds.
+3. **Machine and server gauges**, refreshed on the live interval. These two together say which node this is and whether it is under load.
+4. **Disks**, refreshed with the status cards.
+5. **Live overview**, the bulk of the page.
+6. **Keeper and connections**.
+7. **Cluster topology**, last, because it changes only when someone edits the cluster configuration.
 
 ---
 
@@ -33,23 +42,6 @@ A donut showing used against free space for one disk, with a table beside it lis
 
 ---
 
-## Cluster topology
-
-A block diagram of every cluster in `system.clusters`, one card each, stacked down the page.
-
-Within a cluster, **each column is a shard and each row is a replica**. There are deliberately no lines drawn between nodes: replicas of a shard are peers rather than a chain, so any line would be inventing a relationship the server does not have. The grid position carries the topology, and a light container groups each shard.
-
-Every node shows:
-
-- A **status dot**: green when healthy, red when the node is reporting connection errors, amber for slowdowns, and grey when the cluster does not report node liveness at all. Only clusters using Keeper-backed auto-discovery report it, so grey means unknown rather than down.
-- The **host name**, and the **address and port** beneath it.
-- Its **position** as `S1/R2`, meaning shard 1, replica 2.
-- **Error and slowdown counts**, but only when they are non-zero, so a healthy cluster stays clean. The card header also carries a summary such as "2 of 6 nodes reporting errors", so a cluster you have scrolled past still announces trouble.
-
-Colour encodes shard by fill and replica by outline, and the node you are currently connected to has a thicker border. The `S1/R2` text carries the same information, so the diagram still works if you cannot distinguish the colours or if you have more shards than the palette.
-
-You can pan, zoom with the scroll wheel or the controls in the corner, and clusters larger than a dozen nodes get a minimap.
-
 ---
 
 ## Live overview
@@ -58,7 +50,7 @@ The largest part of the page, and the part that refreshes fastest.
 
 ### Controls
 
-The node name leads the section, so it is never ambiguous which server the numbers below belong to. Beside it:
+The control bar sits at the very top of the page, not above the charts. It names the node and sets the refresh rate for everything below it, including the status cards, so putting it halfway down would make it look like it governed only the charts that follow. Beside the node name:
 
 - **Live** pauses and resumes. Paused freezes the last reading rather than blanking the page.
 - **Interval** chooses 5, 10, 30 or 60 seconds. Both the toggle and the interval are remembered.
@@ -143,6 +135,42 @@ At the foot of the page, side by side.
 **Active Connections** breaks down current client connections by protocol, with a bar per protocol and a total.
 
 ---
+
+## Cluster topology
+
+Last on the page, and collapsed by default. The diagram changes only when someone edits the cluster configuration, so it has the weakest claim on the space near the top. The collapsed header still carries the summary, including how many nodes are reporting problems, so folding it away never hides a fault.
+
+It draws every cluster in `system.clusters`, one card each, stacked down the page. Each cluster has its own full screen control, and Escape leaves full screen.
+
+Within a cluster, **each column is a shard and each row is a replica**. There are deliberately no lines drawn between nodes: replicas of a shard are peers rather than a chain, so any line would be inventing a relationship the server does not have. The grid position carries the topology, and a light container groups each shard.
+
+Every node shows:
+
+- A **status dot**: green when healthy, red when the node is reporting connection errors, amber for slowdowns, and grey when the cluster does not report node liveness at all. Only clusters using Keeper-backed auto-discovery report it, so grey means unknown rather than down.
+- The **host name**, and the **address and port** beneath it.
+- Its **position** as `S1/R2`, meaning shard 1, replica 2.
+- **Error and slowdown counts**, but only when they are non-zero, so a healthy cluster stays clean.
+
+Colour encodes shard by fill and replica by outline, and the node you are currently connected to has a thicker border. The `S1/R2` text carries the same information, so the diagram still works if you cannot distinguish the colours or if you have more shards than the palette.
+
+You can pan, zoom with the scroll wheel or the controls in the corner, and clusters larger than a dozen nodes get a minimap.
+
+### The health table
+
+Beside each diagram is a table with one row per node, carrying every health column your server reports: errors, slowdowns, estimated recovery time, recovery time, replication lag and unsynced-after-recovery. A diagram is good at shape and bad at columns of numbers, which is why these live in a table rather than being crammed onto the node.
+
+Two conventions in that table are worth knowing:
+
+- **A zero is shown as `0`.** It means the column is reported and there is nothing wrong.
+- **A dash means the column is not reported by this cluster.** Several of these columns only apply to Replicated database clusters and come back as NULL everywhere else. They are different states, and the table keeps them different rather than showing both as blank.
+
+A column that no node in the cluster reports is left out entirely, because a table of six dashes tells you nothing and its absence is itself informative.
+
+---
+
+## Colours
+
+Charts use the same colours in both themes. Only the text changes: light labels on the dark theme, dark labels on the light one. A series keeps its colour whichever theme you are using, so two people comparing the same page, or a screenshot against a live server, are looking at the same thing.
 
 ## Refreshing
 

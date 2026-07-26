@@ -1,17 +1,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// @Kathir -> Kathir Moorthy
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 // High-level monitoring dashboard displaying the real-time status, health, and utilization of all cluster nodes.
-//
-// Structure, top to bottom:
-//   stat cards and the readonly alert     unchanged
-//   memory and disk charts                unchanged in shape, five bugs fixed
-//   cluster topology                      new, one canvas per cluster
-//   live overview                         new, polls three system tables
-//   Zookeeper and active connections      unchanged
-//
-// The clusters DataTable that used to sit at the bottom has been removed. Its
-// two columns that anyone read, errors_count and slowdowns_count, are now on the
-// node face in the topology where they are seen rather than scrolled past.
+
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Select from "../common/Select.jsx";
@@ -23,26 +13,17 @@ import { initChart, disposeChart } from '../../utils/echarts.js';
 import { fmtBytes } from '../../utils/costEstimator.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import ClusterTopology from './ClusterTopology.jsx';
-import LiveOverview from './LiveOverview.jsx';
+import { Section } from './OverviewCards.jsx';
+import { SERIES_COLORS } from './overviewChart.js';
+import LiveOverview, { useLiveOverview, LiveControlBar, MachineGauges } from './LiveOverview.jsx';
 
-// The existing page polls fourteen queries on this timer. It stays at thirty
-// seconds. Only the live section polls faster, and only the two system tables
-// that change meaningfully on that scale.
 const SLOW_REFRESH_MS = 30000;
 
-// Reading the theme off the document rather than through useTheme, because
-// renderPie is called from an effect and needs the value synchronously. There
-// are six copies of this helper across the codebase and they should be one, but
-// consolidating them is a separate change from this one.
+
 function isDark() {
   return document.documentElement.getAttribute('data-theme') !== 'light';
 }
 
-
-// Compact variant of the shared .stat-card. The class sets 18px padding and a
-// 21px value, which is right for a page with four cards and too heavy for eight
-// sitting above a topology diagram and twenty more readings. Overridden inline
-// rather than in global.css so no other page shifts underneath this change.
 function StatCard({ icon, label, value, iconColor }) {
   return (
     <div className="stat-card" style={{ padding: '10px 12px', minWidth: 0 }}>
@@ -138,6 +119,8 @@ function renderPie(instRef, elRef, title, segments) {
 
 export default function ClusterOverview() {
 
+  const liveState = useLiveOverview();
+
   const connection = useConnection() || {};
   const selectedHost = connection.selectedNode || null;
   const selectedNodeName = connection.nodeName || selectedHost || 'This node';
@@ -158,7 +141,13 @@ export default function ClusterOverview() {
   const connections      = useQuery();
 
   /* Chart refs */
+
   const diskEl    = useRef(null);
+  const [diskElVersion, setDiskElVersion] = useState(0);
+  const attachDiskEl = useCallback((node) => {
+    diskEl.current = node;
+    setDiskElVersion((n) => n + 1);
+  }, []);
   const diskInst  = useRef(null);
 
   // Chart toolbars: save and full screen, no zoom, because these are pies.
@@ -168,8 +157,7 @@ export default function ClusterOverview() {
   /* Theme key, bumped when the theme flips so the pies rebuild with new colours */
   const [themeKey, setThemeKey] = useState(0);
 
-  /* Which disk the pie is showing. An index into disks.data, held as a number
-     rather than the string a select gives us, because it is used to subscript. */
+  /* Which disk the pie is showing.*/
   const [diskIndex, setDiskIndex] = useState(0);
 
 
@@ -187,15 +175,9 @@ export default function ClusterOverview() {
     readonlyCount.execute(
       "SELECT count() AS cnt FROM system.replicas WHERE is_readonly = 1"
     );
-    // port, is_local and is_active are new: the topology needs the first for its
-    // hover detail, the second to mark the node you are connected to, and the
-    // third for the status dot.
+    // SELECT * rather than a column list, deliberately.
     clusters.execute(`
-      SELECT cluster, shard_num, replica_num,
-             host_name, host_address, port,
-             is_local, is_active,
-             errors_count, slowdowns_count, estimated_recovery_time
-      FROM system.clusters
+      SELECT * FROM system.clusters
       ORDER BY cluster, shard_num, replica_num
     `);
     readonlyReplicas.execute(
@@ -235,18 +217,13 @@ export default function ClusterOverview() {
     return () => observer.disconnect();
   }, []);
 
-  /* Keep the selection valid when the disk list changes, without resetting a
-     choice the user made. The previous version called setDiskIndex(0) inside
-     the render effect, so every thirty second refresh snapped the pie back to
-     the first disk while someone was looking at another one. */
   useEffect(() => {
     const count = disks.data?.length || 0;
     if (count === 0) return;
     if (diskIndex >= count) setDiskIndex(0);
   }, [disks.data, diskIndex]);
 
-  /* Disk pie. One render path, driven by data and selection, rather than the
-     two copies that had already drifted apart. */
+
   useEffect(() => {
     const rows = disks.data;
     if (!rows?.length) return;
@@ -258,7 +235,7 @@ export default function ClusterOverview() {
       { value: Math.max(0, total - free), name: 'Used', itemStyle: { color: '#f59e0b' } },
       { value: free,                      name: 'Free', itemStyle: { color: '#34d399' } },
     ]);
-  }, [disks.data, diskIndex, themeKey]);
+  }, [disks.data, diskIndex, themeKey, diskElVersion]);
 
   /* Resize */
   useEffect(() => {
@@ -281,9 +258,6 @@ export default function ClusterOverview() {
   const readonlyVal = readonlyCount.data?.[0]?.cnt;
   const hasReadonly = Number(readonlyVal) > 0;
 
-  // ZooKeeperConnectionLossStartedTimestampSeconds reads as a Unix timestamp and
-  // is zero when the connection is healthy, so it belongs here as "last loss"
-  // rather than in the health strip where a raw timestamp looks like an alarm.
   const zkLastLoss = Number(zk?.ZooKeeperConnectionLossStartedTimestampSeconds) || 0;
 
   /* Loading */
@@ -306,13 +280,9 @@ export default function ClusterOverview() {
 
   return (
     <div className="page-content">
-      <div className="section-header">
-        <h2 className="section-title">
-          <Icon className="ti ti-topology-star" /> Node Overview
-        </h2>
-      </div>
+      <LiveControlBar nodeName={selectedNodeName} live={liveState} />
 
-      {/* Stat cards: 4 by 2 */}
+      <Section id="node-cards" icon="ti-topology-star" title="Node Overview">
       {/* auto-fit rather than a fixed four across, so the row reflows from
           eight wide on a monitor down to two on a laptop instead of squeezing */}
       <div style={{
@@ -337,9 +307,16 @@ export default function ClusterOverview() {
           {readonlyVal} readonly replica(s) detected. Check replication status.
         </div>
       )}
+      </Section>
+
+      {/* Directly under the stat cards, and open by default. Together they say
+          which node this is and whether it is under load, which is what the top
+          of the page is for. */}
+      <MachineGauges live={liveState} />
 
       {/* Disk pie and disk table. Reference information rather than the
           headline, so it takes a third of the width and a shorter chart. */}
+      <Section id="disks" icon="ti-device-floppy" title="Disks" defaultOpen={false}>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) minmax(280px, 1.4fr)', gap: 16, marginBottom: 20 }}>
         <div className="card" style={diskTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
           <ChartToolbar fullscreen={diskTools.fullscreen} onSave={diskTools.save} onToggleFullscreen={diskTools.toggleFullscreen} isWantFeature={chartControlsFlags} />
@@ -361,7 +338,7 @@ export default function ClusterOverview() {
             </Select>
           )}
 
-          <div ref={diskEl} style={{ height: diskTools.fullscreen ? 'calc(100vh - 96px)' : 210, width: '100%', flex: diskTools.fullscreen ? 1 : undefined }} />
+          <div ref={attachDiskEl} style={{ height: diskTools.fullscreen ? 'calc(100vh - 96px)' : 210, width: '100%', flex: diskTools.fullscreen ? 1 : undefined }} />
         </div>
 
         {disks.data?.length > 0 && (
@@ -378,26 +355,16 @@ export default function ClusterOverview() {
           </div>
         )}
       </div>
+      </Section>
 
       {/* Cluster topology */}
-      <div className="section-header" style={{ marginTop: 8 }}>
-        <h2 className="section-title">
-          <Icon className="ti ti-topology-star-3" /> Cluster Topology
-        </h2>
-      </div>
-      <ClusterTopology
-        rows={clusters.data}
-        loading={clusters.loading}
-        selectedHost={selectedHost}
-      />
-
-      {/* Live overview, for whichever node the navbar points at, which is why
-          the node name leads the section. Gauge readings are current; anything
-          derived from system.events covers exactly one refresh interval. There
-          are no time series charts on this page by design. */}
-      <LiveOverview nodeName={selectedNodeName} />
+      {/* Gauge readings are current; anything derived from system.events covers
+          exactly one refresh interval. There are no time series charts on this
+          page by design. The controls for all of it are at the top. */}
+      <LiveOverview live={liveState} />
 
       {/* Zookeeper and Connections */}
+      <Section id="keeper-connections" icon="ti-plug-connected" title="Keeper and connections" defaultOpen={false}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
 
         {/* Zookeeper Connection */}
@@ -469,14 +436,18 @@ export default function ClusterOverview() {
             {totalConns > 0 && (
               <span style={{
                 marginLeft: 'auto', fontSize: '13px', fontWeight: 700,
-                fontFamily: 'var(--font-chart)', color: 'var(--accent)',
+                fontFamily: 'var(--font-chart)', color: 'var(--text-primary)',
               }}>{totalConns} total</span>
             )}
           </h3>
           {conns.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {conns.map(c => {
+              {conns.map((c, i) => {
                 const val = Number(c.value) || 0;
+                // Same palette the charts use, one colour per protocol. A single
+                // accent for every bar made this panel look unrelated to
+                // everything else on the page.
+                const barColor = SERIES_COLORS[i % SERIES_COLORS.length];
                 const label = c.metric.replace('Connection', '');
                 const maxVal = Math.max(...conns.map(x => Number(x.value) || 0), 1);
                 const pct = (val / maxVal) * 100;
@@ -495,7 +466,7 @@ export default function ClusterOverview() {
                       {val > 0 && (
                         <div style={{
                           width: `${Math.max(pct, 8)}%`, height: '100%',
-                          background: 'var(--accent)', borderRadius: 4,
+                          background: barColor, borderRadius: 4,
                           transition: 'width 0.3s ease',
                           display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
                           paddingRight: 6,
@@ -527,20 +498,29 @@ export default function ClusterOverview() {
           )}
         </div>
       </div>
+      </Section>
 
       {/* Readonly replicas detail */}
       {hasReadonly && (
+        <Section id="readonly" icon="ti-lock" title="Readonly replicas" summary={`${readonlyVal} affected`} defaultOpen={false}>
         <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: '15px', marginBottom: 12 }}>
-            <Icon className="ti ti-lock" /> Readonly Replicas
-          </h3>
           <DataTable
             rows={readonlyReplicas.data || []}
             columns={['database', 'table', 'readonly_start_time']}
             variant="fixed"
           />
         </div>
+        </Section>
       )}
+
+      {/* Last on the page. The topology changes only when someone edits the
+          cluster configuration, so it has the weakest claim on the space near
+          the top. It collapses itself and stays collapsed by default. */}
+      <ClusterTopology
+        rows={clusters.data}
+        loading={clusters.loading}
+        selectedHost={selectedHost}
+      />
     </div>
   );
 }

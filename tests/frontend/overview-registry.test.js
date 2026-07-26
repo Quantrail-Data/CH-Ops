@@ -1,14 +1,12 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Structural guards for the Cluster Overview live section.
-//
-// These read the source rather than rendering it, in the style of
-// icon-tabler-only.test.js. They exist because the failures they catch are all
-// silent: a tooltip that drifts from the number it describes, a metric computed
-// and never shown, an icon that is not in the sprite and renders as a blank
-// square, or a gauge whose direction contradicts its fixed colour bands.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
 import { describe, it, expect } from "vitest";
+import React from "react";
+import { render } from "@testing-library/react";
 import fs from "fs";
+import Icon from "../../src/frontend/components/common/Icon.jsx";
 import { ICON_NAMES } from "../../src/frontend/assets/iconSprite.js";
 import {
   METRICS,
@@ -41,8 +39,7 @@ describe("metric registry", () => {
 
   it("gives every metric guidance on how to read it", () => {
     // The `read` line is what makes the page teach rather than just report.
-    // "Read amplification: 66.5" tells an expert something and everyone else
-    // nothing.
+
     for (const [key, m] of Object.entries(METRICS)) {
       expect(m.read, `${key} has no interpretation guidance`).toBeTruthy();
       expect(m.read.length, `${key} guidance is too short to be useful`).toBeGreaterThan(40);
@@ -86,9 +83,7 @@ describe("registry and page agree", () => {
 });
 
 describe("gauge direction matches the fixed colour bands", () => {
-  // The bands are green through red, low to high, on every dial. A gauge marked
-  // better-high would therefore read green at its worst value, which is how the
-  // file handle cache came to sit over green at a 0.1 percent hit rate.
+  // The bands are green through red, low to high, on every dial. 
   const gaugeKeys = () => {
     const out = [];
     for (const block of ["machine", "efficiency"]) {
@@ -154,7 +149,41 @@ describe("polled key lists", () => {
   });
 });
 
+/** Every icon name the overview files reference, including ternary forms. */
+function iconsUsed() {
+  const used = new Set();
+  for (const file of FILES) {
+    const src = fs.readFileSync(`${DIR}/${file}`, "utf8");
+    for (const m of src.matchAll(/ti ti-([a-z0-9-]+)"/g)) used.add(m[1]);
+    for (const m of src.matchAll(/icon="ti-([a-z0-9-]+)"/g)) used.add(m[1]);
+    // Names built from a ternary, for example ti-player-${live ? "pause" : "play"}
+    for (const m of src.matchAll(
+      /ti-([a-z0-9-]*)\$\{[^}]*\?\s*"([a-z-]+)"\s*:\s*"([a-z-]+)"\}([a-z0-9-]*)/g,
+    )) {
+      used.add(`${m[1]}${m[2]}${m[4]}`);
+      used.add(`${m[1]}${m[3]}${m[4]}`);
+    }
+  }
+  return [...used];
+}
+
 describe("icons", () => {
+  it("renders every icon from the sprite rather than as a blank placeholder", () => {
+    // Stronger than checking names against ICON_NAMES, because it exercises the
+    // component that actually decides. 
+    const blank = [];
+    for (const name of iconsUsed()) {
+      // createElement rather than JSX: this file is .test.js, and the react
+      // plugin only applies the JSX transform to .jsx.
+      const { container, unmount } = render(
+        React.createElement(Icon, { className: `ti ti-${name}` }),
+      );
+      if (container.querySelector('rect[opacity="0.5"]')) blank.push(name);
+      unmount();
+    }
+    expect(blank, `these icons render blank: ${blank.join(", ")}`).toEqual([]);
+  });
+
   it("uses only icons that are in the generated sprite", () => {
     // An unbundled name renders as a blank square rather than failing loudly,
     // so nothing catches it except a reader noticing the gap.
