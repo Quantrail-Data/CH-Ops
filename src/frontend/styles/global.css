@@ -2,9 +2,6 @@
     author -> (kathir Moorthy, kathir dhasan, Praveen kumar) 
     Defines the global design system, CSS variables, typography reset, and layout styles for the entire application.  */
 
-/* Jakarta Sans - variable weight axis 200..800 in a single woff2. Declaring the
-   real weight range means 600/700 use true bold glyphs (no faux-bold synthesis,
-   the main cause of blurry headings/labels). */
 @font-face {
   font-family: 'Jakarta Sans';
   src: url('../fonts/PlusJakartaSans-Variable.woff2') format('woff2');
@@ -186,7 +183,7 @@ input, button, select, textarea {
 }
 
 /* User-input fields use B612 app-wide (labels stay Jakarta via --font-ui).
-   More specific classes such as .sql-textarea keep their own font. */
+   More specific rules, such as the CodeMirror editor, keep their own font. */
 input, select, textarea {
   font-family: var(--font-table);
 }
@@ -2037,76 +2034,27 @@ input[type="datetime-local"] {
 /* SQL EDITOR INPUT - 10 visible lines before scroll */
 .sql-editor-wrap {
   flex: 0 0 auto;
-  height: calc(10 * 1.55em + 28px);
-  min-height: calc(10 * 1.55em + 28px);
+  /* Height comes from QueryEditor as an inline style, driven by the splitter
+     immediately below this element and remembered in localStorage. No height or
+     max-height here, or the inline value would be fighting a stylesheet.
+
+     The CSS resize property was tried first and is not used: on a flex item it
+     is unreliable, its handle is a 16px corner the editor sits on top of, and
+     it offers no hover affordance. A real splitter is both more reliable and
+     easier to find. */
+  min-height: 90px;
   display: flex;
   overflow: hidden;
+  box-sizing: border-box;
   background: var(--bg-sunken);
-  border-bottom: 1px solid var(--border-default);
   position: relative;
 }
 
-.sql-line-numbers {
-  width: 44px;
-  min-width: 44px;
-  padding: 12px 6px 12px 12px;
-  text-align: right;
-  color: var(--text-muted);
-  font-family: var(--font-code);
-  font-size: 14px;
-  line-height: 1.55;
-  user-select: none;
-  overflow: hidden;
-  background: var(--bg-elevated);
-  border-right: 1px solid var(--border-default);
-  margin: 0;
-  white-space: pre;
-}
 
-.sql-editor-inner {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
 
-.sql-highlight,
-.sql-textarea {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  padding: 12px 16px;
-  margin: 0;
-  border: none;
-  outline: none;
-  font-family: var(--font-code);
-  font-size: 14px;
-  line-height: 1.55;
-  white-space: pre;
-  overflow: auto;
-  tab-size: 2;
-}
 
-.sql-highlight {
-  pointer-events: none;
-  z-index: 1;
-  color: var(--text-primary);
-  background: transparent;
-}
 
-.sql-textarea {
-  z-index: 2;
-  color: transparent;
-  caret-color: var(--accent);
-  background: transparent;
-  resize: none;
-  -webkit-text-fill-color: transparent;
-}
 
-.sql-textarea::selection {
-  background: var(--selection-bg);
-}
 
 .sql-hint {
   position: absolute;
@@ -2120,63 +2068,52 @@ input[type="datetime-local"] {
   font-family: var(--font-code);
 }
 
-.sql-keyword {
-  color: #c084fc;
-  font-weight: 600;
+/* SQL syntax colours.
+   Used by the CodeMirror highlight style in components/editor/sqlEditorSetup.js.
+   These are the same five colours the old .sql-* classes used; they are
+   variables now because CodeMirror themes are CSS, so var() resolves there and
+   both themes are handled here rather than in JavaScript. */
+:root {
+  --sql-keyword: #c084fc;
+  --sql-function: #fb923c;
+  --sql-string: var(--color-success);
+  --sql-number: var(--color-info);
+  --sql-comment: var(--text-muted);
 }
 
-.sql-string {
-  color: var(--color-success);
+[data-theme="light"] {
+  --sql-keyword: #7c3aed;
+  --sql-function: #c2410c;
 }
 
-.sql-number {
-  color: var(--color-info);
+/* CodeMirror fills the wrap, which keeps its height from above and lets the
+   drag handle resize the editor rather than just its container. */
+.sql-editor-wrap .cm-editor {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
 }
 
-.sql-function {
-  color: #fb923c;
+/* One scrollbar, not two. The wrap clips so it can be resizable; the scroller
+   inside it is the only thing that should scroll.
+
+   Note there is deliberately NO padding here. .cm-content carries min-height
+   100%, so any padding on the scroller pushes the content past the viewport and
+   the scrollbar becomes permanent. */
+.sql-editor-wrap .cm-scroller {
+  overflow: auto;
 }
 
-.sql-comment {
-  color: var(--text-muted);
-  font-style: italic;
-}
 
-[data-theme="light"] .sql-keyword {
-  color: #7c3aed;
-}
 
-[data-theme="light"] .sql-function {
-  color: #c2410c;
-}
 
-.sql-autocomplete {
-  position: absolute;
-  z-index: 10;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  max-height: 200px;
-  overflow-y: auto;
-  min-width: 200px;
-}
 
-.sql-ac-item {
-  padding: 5px 12px;
-  font-family: var(--font-code);
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-primary);
-}
 
-.sql-ac-item:hover,
-.sql-ac-item.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
+
+
+
+
+
 
 /* TEXT LOG ROW COLORS */
 .log-row-test {

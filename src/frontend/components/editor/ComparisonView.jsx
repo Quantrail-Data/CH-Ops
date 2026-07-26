@@ -1,26 +1,11 @@
 // ComparisonView - Side-by-side query comparison page
-//
-// Left = current query, right = experimental rewrite. Each side independently
-// runs Estimate (shows that one query's cost estimate, no comparison) or Execute
-// (runs the query and shows up to a capped number of result rows). A separate
-// Compare action estimates BOTH queries together and shows the side-by-side
-// metric comparison. The whole view runs under its own per-user ClickHouse®
-// credentials (a compact connect step), independent of the main editor, and
-// supports a fullscreen mode. Only SELECT queries are allowed (enforced in
-// queryCompare) because Execute really runs on the cluster.
-//
-// Performance: each pane and its result area are memoized, and the run handlers
-// read the live SQL from refs so they keep a stable identity. Typing in one
-// editor therefore re-renders only that editor, never the other pane, the
-// result tables, or the comparison panel.
-//
-// Author: Kathir Moorthy
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import { format } from "sql-formatter";
 import Select from "../common/Select.jsx";
-import SqlInput from "./SqlInput.jsx";
+import SqlEditor from "./SqlEditor.jsx";
 import ComparisonMetrics from "./ComparisonMetrics.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
 import ModeSelect from "./ModeSelect.jsx";
@@ -115,6 +100,7 @@ const ComparePane = memo(function ComparePane({
   sql,
   onChange,
   acWords,
+  dialectData,
   onEstimate,
   onExecute,
   busy,
@@ -232,12 +218,15 @@ const ComparePane = memo(function ComparePane({
         </div>}
       </div>
 
-      <SqlInput
+      <SqlEditor
         value={sql}
         onChange={onChange}
-        acWords={acWords}
+        variant="full"
+        completions={acWords}
+        dialectData={dialectData}
         onRun={onExecute}
         placeholder={placeholder}
+        height="220px"
       />
 
       <div className="cmp-pane-buttons">
@@ -339,6 +328,9 @@ export default function ComparisonView({ mode, onModeChange }) {
   const [fullscreen, setFullscreen] = useState(false);
 
   const [acWords, setAcWords] = useState([]);
+  // The connected server's own keyword and function lists, so highlighting
+  // matches the version in use. Null falls back to the built-in SQL dialect.
+  const [dialectData, setDialectData] = useState(null);
 
   // default cred password view flag
   const [isViewFlag, setIsViewFlag] = useState(false);
@@ -551,6 +543,7 @@ export default function ComparisonView({ mode, onModeChange }) {
     setConnPassword("");
     setConnError(null);
     setAcWords([]);
+    setDialectData(null);
     setLeftEstimate(null);
     setRightEstimate(null);
     setLeftExec(null);
@@ -562,11 +555,14 @@ export default function ComparisonView({ mode, onModeChange }) {
   useEffect(() => {
     if (!editorConnected) {
       setAcWords([]);
+      setDialectData(null);
       return;
     }
     let cancelled = false;
-    loadAcWords(editorCreds).then((words) => {
-      if (!cancelled) setAcWords(words);
+    loadAcWords(editorCreds).then((res) => {
+      if (cancelled) return;
+      setAcWords(res.options || []);
+      setDialectData(res.dialect || null);
     });
     return () => {
       cancelled = true;
@@ -818,6 +814,7 @@ export default function ComparisonView({ mode, onModeChange }) {
           sql={leftSql}
           onChange={onLeftChange}
           acWords={acWords}
+          dialectData={dialectData}
           onEstimate={onEstimateLeft}
           onExecute={onExecuteLeft}
           busy={leftBusy}
@@ -831,6 +828,7 @@ export default function ComparisonView({ mode, onModeChange }) {
           sql={rightSql}
           onChange={onRightChange}
           acWords={acWords}
+          dialectData={dialectData}
           onEstimate={onEstimateRight}
           onExecute={onExecuteRight}
           busy={rightBusy}

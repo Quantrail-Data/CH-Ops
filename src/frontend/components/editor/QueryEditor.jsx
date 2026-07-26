@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// @Kathir -> Kathir Moorthy
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Interactive SQL editor featuring syntax highlighting, query execution, and schema auto-completion.
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { format } from "sql-formatter";
@@ -17,11 +17,15 @@ import { useToast } from "../layout/Toast.jsx";
 import { useAuth, useConnection, useTheme } from "../../App.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
+import QueryPreviewPanel from "./QueryPreviewPanel.jsx";
 import ModeSelect from "./ModeSelect.jsx";
 import ExportWizard from "./ExportWizard.jsx";
 import "./exportWizard.css";
-import { highlightSQL } from "../../utils/sqlHighlight.js";
 import { isDataQuery, analyzeSql } from "../../../shared/sqlClassify.js";
+import { findParameters, hasValue } from "../../../shared/sqlParams.js";
+import ParamStrip from "./ParamStrip.jsx";
+import SqlEditor from "./SqlEditor.jsx";
+import { buildCompletionOptions } from "./sqlEditorSetup.js";
 import {
   runEstimate,
   lookupMemoryUsage,
@@ -33,9 +37,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
-
-import darkLogo from "../../assets/chops-dark.svg"
-import lightLogo from "../../assets/chops-light.svg"
+import ExplainOptions from "./ExplainOptions.jsx";
+import { composeStatement, settingsFor } from "./explainOptions.js";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
 const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
@@ -43,6 +46,38 @@ const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
 // Query history - stored in localStorage, capped at 100 entries
 const HISTORY_KEY = "chops_query_history";
 const HISTORY_MAX = 100;
+
+// Parameter values, keyed by variable name and shared across queries, so a
+// value typed once is prefilled wherever the same name appears. Plaintext, the
+// same exposure as the query history above: never put a secret in one.
+const PARAM_VALUES_KEY = "chops_param_values";
+const EXPLAIN_OPTS_KEY = "chops_explain_options";
+
+// Editor height, dragged by the splitter below the editor. Remembered because
+// the right size depends on what someone is doing, and re-dragging it on every
+// visit is exactly the kind of small friction nobody reports.
+const EDITOR_HEIGHT_KEY = "chops_editor_height";
+const EDITOR_HEIGHT_MIN = 90;
+const EDITOR_HEIGHT_DEFAULT = 240;
+
+function getEditorHeight() {
+  const n = Number(localStorage.getItem(EDITOR_HEIGHT_KEY));
+  return Number.isFinite(n) && n >= EDITOR_HEIGHT_MIN ? n : EDITOR_HEIGHT_DEFAULT;
+}
+
+function getParamValues() {
+  try {
+    return JSON.parse(localStorage.getItem(PARAM_VALUES_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveParamValues(v) {
+  try {
+    localStorage.setItem(PARAM_VALUES_KEY, JSON.stringify(v));
+  } catch {}
+}
 
 const LOADING_PHRASES = [
   "Generating ClickHouse query...",
@@ -175,9 +210,10 @@ export default function QueryEditor({
   const [connPassword, setConnPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [connError, setConnError] = useState(null);
-  const textareaRef = useRef(null),
-    highlightRef = useRef(null),
-    selectedRef = useRef(null);
+  // The editor is a CodeMirror view now, reached through an imperative handle
+  // rather than three DOM refs. insertAtCursor() is the only thing the rest of
+  // this component needs from it.
+  const editorRef = useRef(null);
   const [sql, setSql] = useState("SELECT version()");
   const [exportOpen, setExportOpen] = useState(false);
   const [dbs, setDbs] = useState([]);
@@ -201,7 +237,7 @@ export default function QueryEditor({
   const [isAILoading, setIsAILoading] = useState(false);
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
-  const [showLogo, setShowLogo] = useState(false);
+
   const [ExplainOptionSelector, setExplainOptionSelector] = useState({type:""}); 
 
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
@@ -437,17 +473,34 @@ export default function QueryEditor({
   const [copied, setCopied] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [sqlCollapsed, setSqlCollapsed] = useState(false);
+  // acWords holds tagged completion options now rather than plain strings, so a
+  // candidate keeps its kind all the way to the popup. Everything that drove the
+  // hand-rolled popup is gone: CodeMirror owns that.
   const [acWords, setAcWords] = useState([]);
-  const [acVisible, setAcVisible] = useState(false);
-  const [acFiltered, setAcFiltered] = useState([]);
-  const [acIndex, setAcIndex] = useState(0);
-  const [acPos, setAcPos] = useState({ top: 0, left: 0 });
+  const [sqlDialectData, setSqlDialectData] = useState(null);
   const [ddlModal, setDdlModal] = useState(null); 
   const [panel, setPanel] = useState(null); 
   const [history, setHistory] = useState(() => getHistory());
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarkName, setBookmarkName] = useState("");
+  const [saveDefaults, setSaveDefaults] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState(null);
+  const [paramValues, setParamValues] = useState(() => getParamValues());
+  const [explainTicked, setExplainTicked] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(EXPLAIN_OPTS_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [editorHeight, setEditorHeight] = useState(() => {
+    try {
+      return getEditorHeight();
+    } catch {
+      return EDITOR_HEIGHT_DEFAULT;
+    }
+  });
 
   const lastSqlRef = useRef("");
   const lastRunMetaRef = useRef({ written: 0 });
@@ -637,21 +690,19 @@ export default function QueryEditor({
         creds,
       ).catch(() => ({ rows: [] })),
     ]).then(([kw, fn, tb]) => {
-      const words = [];
-      (kw.rows || []).forEach((r) => {
-        if (r.keyword) words.push(r.keyword.toUpperCase());
-      });
-      (fn.rows || []).forEach((r) => {
-        if (r.name) words.push(r.name);
-      });
-      const dbSet = new Set();
-      (tb.rows || []).forEach((r) => {
-        if (r.database) dbSet.add(r.database);
-        if (r.name) words.push(r.name);
-        if (r.database && r.name) words.push(`${r.database}.${r.name}`);
-      });
-      dbSet.forEach((d) => words.push(d));
-      setAcWords([...new Set(words)].sort());
+      const keywords = (kw.rows || []).map((r) => r.keyword).filter(Boolean);
+      const functions = (fn.rows || []).map((r) => r.name).filter(Boolean);
+      const tables = tb.rows || [];
+
+      // Tagged options rather than a flat string array, so each candidate keeps
+      // its kind: a distinct icon per kind, count() inserted with the caret
+      // inside the parentheses, and fuzzy matching, at no extra cost.
+      setAcWords(buildCompletionOptions({ keywords, functions, tables }));
+
+      // Built from the connected server's own lists, so highlighting matches
+      // the version in use. An empty list means the query failed, and
+      // buildDialect falls back to the built-in dialect.
+      setSqlDialectData({ keywords, functions });
     });
   }
 
@@ -739,21 +790,9 @@ export default function QueryEditor({
       .finally(() => setTablesLoading(false));
   }, [selectedDb, editorConnected]);
 
-  useEffect(() => {
-    setTimeout(() => {
-      selectedRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }, 0);
-  }, [acIndex]);
 
-  function syncScroll() {
-    if (highlightRef.current && textareaRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
-  }
+
+
 
   function parseDotGraph(dotText) {
     const nodes = new Map();
@@ -795,11 +834,48 @@ export default function QueryEditor({
     return false;
   }
 
+ const [paramError, setParamError] = useState(null);
+  const params = useMemo(() => {
+    try {
+      const p = findParameters(sql);
+      setParamError(null);
+      return p;
+    } catch (e) {
+      setParamError(e.message);
+      return [];
+    }
+  }, [sql]);
+
+  const missingRequired = params.some(
+    (p) => p.required && !hasValue(paramValues[p.name]),
+  );
+
+  function setParamValue(name, value) {
+    setParamValues((prev) => {
+      const next = { ...prev, [name]: value };
+      saveParamValues(next);
+      return next;
+    });
+  }
+
+  function toggleExplainOption(key) {
+    setExplainTicked((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem(EXPLAIN_OPTS_KEY, JSON.stringify(next)); } catch {}
+      setExplainOptionSelector((s) => ({ ...s }));
+      return next;
+    });
+  }
+
   const doRun = useCallback(async () => {
     const text = sql.trim();
     if (!text) return;
     if (!editorConnected) {
       setError("Connect with your ClickHouse credentials first.");
+      return;
+    }
+    if (missingRequired) {
+      setError("Fill in every required parameter before running.");
       return;
     }
 
@@ -841,13 +917,20 @@ export default function QueryEditor({
     if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
 
     try {
-      const validExplain =
+      const isExplain =
         ExplainOptionSelector.type !== null &&
         ExplainOptionSelector.type !== "" &&
-        ExplainOptionSelector.type !== "GENERAL RUN"
-          ? `${ExplainOptionSelector.type} ${text}`
-          : text;
-      const r = await runEditorQuery(validExplain, editorCreds);
+        ExplainOptionSelector.type !== "GENERAL RUN";
+      const validExplain = isExplain
+        ? `${composeStatement(ExplainOptionSelector.type, explainTicked)} ${text}`
+        : text;
+
+      // Required settings travel as request settings, never appended to the
+      // user's SQL as a SETTINGS clause.
+      const r = await runEditorQuery(validExplain, editorCreds, {
+        params: paramValues,
+        settings: isExplain ? settingsFor(explainTicked) : undefined,
+      });
       if (r.stats) setQueryStats(r.stats);
 
 
@@ -986,7 +1069,6 @@ export default function QueryEditor({
         setSuccessMsg(baseMsg);
         setResult([]);
         setResultCols([]);
-        setShowLogo(true);
       }
     } catch (e) {
       handleSessionExpiry(e);
@@ -994,7 +1076,7 @@ export default function QueryEditor({
       setFeatureQueryId(null);
     }
     setRunning(false);
-  }, [sql, ExplainOptionSelector, editorConnected, editorCreds]);
+  }, [sql, ExplainOptionSelector, editorConnected, editorCreds, missingRequired, paramValues, explainTicked]);
 
   const doEstimate = useCallback(async () => {
     const text =
@@ -1059,14 +1141,21 @@ export default function QueryEditor({
 
   async function saveBookmark() {
     if (!bookmarkName.trim() || !sql.trim()) return;
-    const updated = [
-      ...bookmarks,
-      {
-        name: bookmarkName.trim(),
-        sql: sql.trim(),
-        createdAt: new Date().toISOString(),
-      },
-    ];
+    // Only write a defaults key when the user opted in, so a bookmark saved
+    // without the checkbox is byte-identical to one saved before this feature.
+    const entry = {
+      name: bookmarkName.trim(),
+      sql: sql.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    if (saveDefaults) {
+      const defaults = {};
+      for (const p of params) {
+        if (hasValue(paramValues[p.name])) defaults[p.name] = paramValues[p.name];
+      }
+      if (Object.keys(defaults).length) entry.defaults = defaults;
+    }
+    const updated = [...bookmarks, entry];
     try {
       await apiFetch("/api/settings/query_bookmarks", {
         method: "PUT",
@@ -1094,113 +1183,20 @@ export default function QueryEditor({
     } catch {}
   }
 
-  function handleKeyDown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      doRun();
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === "b") {
-      e.preventDefault();
-      setPanel(panel === "bookmarks" ? null : "bookmarks");
-      return;
-    }
-    if (e.key === "Tab" && !acVisible) {
-      e.preventDefault();
-      const ta = textareaRef.current;
-      const s = ta.selectionStart;
-      setSql(sql.substring(0, s) + "  " + sql.substring(ta.selectionEnd));
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = s + 2;
-      });
-      return;
-    }
-    if (acVisible) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setAcIndex((i) => Math.min(i + 1, acFiltered.length - 1));
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setAcIndex((i) => Math.max(i - 1, 0));
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        if (acFiltered.length) {
-          e.preventDefault();
-          insertAc(acFiltered[acIndex]);
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        setAcVisible(false);
-        return;
-      }
-    }
-    if (e.key === "Escape" && fullscreen) {
-      setFullscreen(false);
-    }
-  }
 
-  function insertAc(word) {
-    const ta = textareaRef.current;
-    const pos = ta.selectionStart;
-    let ws = pos;
-    while (ws > 0 && /[\w.]/.test(sql[ws - 1])) ws--;
-    const ns = sql.substring(0, ws) + word + " " + sql.substring(pos);
-    setSql(ns);
-    setAcVisible(false);
-    requestAnimationFrame(() => {
-      ta.selectionStart = ta.selectionEnd = ws + word.length + 1;
-      ta.focus();
-    });
-  }
 
-  function handleInput(e) {
-    const val = e.target.value;
-    setSql(val);
-    const pos = e.target.selectionStart;
-    let ws = pos;
-    while (ws > 0 && /[\w.]/.test(val[ws - 1])) ws--;
-    const partial = val.substring(ws, pos);
-    if (partial.length >= 2) {
-      const up = partial.toUpperCase();
-      const filtered = acWords
-        .filter((w) => w.toUpperCase().startsWith(up))
-        .slice(0, 12);
-      if (filtered.length) {
-        setAcFiltered(filtered);
-        setAcIndex(0);
-        setAcVisible(true);
-        const lines = val.substring(0, pos).split("\n");
-        setAcPos({
-          top: lines.length * 21 + 4 - (textareaRef.current?.scrollTop || 0),
-          left:
-            lines[lines.length - 1].length * 8.4 +
-            50 -
-            (textareaRef.current?.scrollLeft || 0),
-        });
-        return;
-      }
-    }
-    setAcVisible(false);
-  }
 
+
+
+
+  // Insert at the caret through the editor's own transaction, so it is ONE
+  // undoable step. Writing through setSql would replace the whole document and
+  // destroy the undo history, which is the bug this phase exists to fix.
+  // Called by the schema explorer when a table name is clicked.
   function insertText(t) {
-    const ta = textareaRef.current;
-    const p = ta.selectionStart;
-    setSql(sql.substring(0, p) + t + sql.substring(p));
-    requestAnimationFrame(() => {
-      ta.selectionStart = ta.selectionEnd = p + t.length;
-      ta.focus();
-    });
+    editorRef.current?.insertAtCursor(t);
   }
 
-  const lineNums = Array.from(
-    { length: sql.split("\n").length },
-    (_, i) => i + 1,
-  ).join("\n");
   const shellStyle = fullscreen
     ? {
         position: "fixed",
@@ -1346,7 +1342,7 @@ export default function QueryEditor({
           className="editor-sidebar"
           style={{
             width: explorerWidth,
-            minWidth: 200,
+            minWidth: 160,
             maxWidth: 500,
             height: fullscreen ? "100%" : "90.5vh",
             position: "relative",
@@ -1437,7 +1433,7 @@ export default function QueryEditor({
                       }
                     >
                       <Icon className="ti ti-database-import"></Icon>
-                      <span style={{ flex: 1 , overflow:"hidden" , textOverflow:"ellipsis",width: "100px"}}>{db}</span>
+                      <span style={{ flex: 1 }}>{db}</span>
                       <Icon
                         className={
                           "ti ti-chevron-" +
@@ -1810,52 +1806,122 @@ export default function QueryEditor({
         </div>
 
         {!sqlCollapsed && (
-          <div className="sql-editor-wrap">
-            <pre className="sql-line-numbers">{lineNums}</pre>
-            <div className="sql-editor-inner">
-              <pre
-                ref={highlightRef}
-                className="sql-highlight"
-                // aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: highlightSQL(sql) + "\n" }}
-              />
-              <textarea
-                ref={textareaRef}
-                className="sql-textarea"
-                value={sql}
-                onChange={handleInput}
-                onKeyDown={handleKeyDown}
-                onScroll={syncScroll}
-                spellCheck={false}
-                autoComplete="off"
-                autoCapitalize="off"
-              />
-              <div className="sql-hint">
-                Ctrl+Enter to run | Ctrl+B bookmarks
-              </div>
-              {acVisible && acFiltered.length > 0 && (
-                <div
-                  className="sql-autocomplete"
-                  style={{ top: acPos.top, left: acPos.left }}
-                >
-                  {acFiltered.map((w, i) => (
-                    <div
-                      key={w}
-                      ref={i === acIndex ? selectedRef : null}
-                      className={
-                        "sql-ac-item" + (i === acIndex ? " active" : "")
-                      }
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        insertAc(w);
-                      }}
-                    >
-                      {w}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          <ParamStrip
+            params={params}
+            values={paramValues}
+            onChange={setParamValue}
+            previewOpen={previewOpen}
+            onPreviewToggle={() => setPreviewOpen((v) => !v)}
+          />
+        )}
+
+        {paramError && !sqlCollapsed && (
+          <div className="alert-banner danger" style={{ margin: "6px 16px" }}>
+            <Icon className="ti ti-alert-circle" /> {paramError}
+          </div>
+        )}
+
+        {!sqlCollapsed && (
+          <div
+            className="sql-editor-wrap"
+            style={{ height: editorHeight, minHeight: EDITOR_HEIGHT_MIN }}
+          >
+            <SqlEditor
+              ref={editorRef}
+              value={sql}
+              onChange={setSql}
+              variant="full"
+              onRun={doRun}
+              onBookmarks={() =>
+                setPanel(panel === "bookmarks" ? null : "bookmarks")
+              }
+              onEscape={() => {
+                if (fullscreen) setFullscreen(false);
+              }}
+              completions={acWords}
+              dialectData={sqlDialectData}
+              height="100%"
+            />
+            <div className="sql-hint">Ctrl+Enter to run | Ctrl+B bookmarks</div>
+          </div>
+        )}
+
+        {/* Splitter between the editor and everything below it.
+            A real drag handle rather than the CSS resize property: resize on a
+            flex item is unreliable, its handle is a 16px corner that the editor
+            sits on top of, and it gives no hover affordance. This mirrors the
+            explorer's column resizer a few hundred lines above. */}
+        {!sqlCollapsed && (
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize the SQL editor"
+            title="Drag to resize. Double click to reset."
+            style={{
+              height: 7,
+              flexShrink: 0,
+              cursor: "row-resize",
+              background: "var(--bg-sunken)",
+              borderBottom: "1px solid var(--border-default)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onDoubleClick={() => {
+              setEditorHeight(EDITOR_HEIGHT_DEFAULT);
+              try {
+                localStorage.setItem(
+                  EDITOR_HEIGHT_KEY,
+                  String(EDITOR_HEIGHT_DEFAULT),
+                );
+              } catch {}
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const startY = e.clientY;
+              const startH = editorHeight;
+              // The editor must not grow past the window, or the results pane
+              // disappears with no way back other than dragging blind.
+              const maxH = Math.max(
+                EDITOR_HEIGHT_MIN,
+                window.innerHeight - 260,
+              );
+              // Selecting text across the page while dragging looks broken.
+              const priorSelect = document.body.style.userSelect;
+              document.body.style.userSelect = "none";
+              document.body.style.cursor = "row-resize";
+
+              const onMove = (ev) => {
+                const h = Math.max(
+                  EDITOR_HEIGHT_MIN,
+                  Math.min(maxH, startH + ev.clientY - startY),
+                );
+                setEditorHeight(h);
+              };
+              const onUp = () => {
+                document.removeEventListener("mousemove", onMove);
+                document.removeEventListener("mouseup", onUp);
+                document.body.style.userSelect = priorSelect;
+                document.body.style.cursor = "";
+                setEditorHeight((h) => {
+                  try {
+                    localStorage.setItem(EDITOR_HEIGHT_KEY, String(h));
+                  } catch {}
+                  return h;
+                });
+              };
+              document.addEventListener("mousemove", onMove);
+              document.addEventListener("mouseup", onUp);
+            }}
+          >
+            <div
+              style={{
+                width: 46,
+                height: 3,
+                borderRadius: 2,
+                background: "var(--border-default)",
+              }}
+            />
           </div>
         )}
 
@@ -1997,7 +2063,7 @@ export default function QueryEditor({
             value={ExplainOptionSelector?.type || "GENERAL RUN"}
             disabled={isAILoadingGenerating}
           >
-            <option value="GENERAL RUN">Select Explain</option>
+            <option value="GENERAL RUN">GENERAL RUN</option>
             <option value="EXPLAIN">EXPLAIN</option>
             {/* <option value="EXPLAIN AST">AST</option> */}
             <option value="EXPLAIN SYNTAX">SYNTAX</option>
@@ -2033,7 +2099,10 @@ export default function QueryEditor({
 
           <button
             className="ai-button "
-            style={{ color: theme === "dark" ? "white" : "black" }}
+            /* The button's background is var(--accent), a purple in both
+               themes, so the label is white in both. It was black on the light
+               theme, which put dark text on a mid-purple fill. */
+            style={{ color: "#fff" }}
             onClick={() => GeneratingSQLHandler()}
             disabled={isAILoadingGenerating}
           >
@@ -2050,7 +2119,7 @@ export default function QueryEditor({
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
-                  fill={theme === "dark" ? "white" : "black"}
+                  fill="#fff"
                   className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -2065,7 +2134,8 @@ export default function QueryEditor({
           <button
             className="btn btn-primary btn-sm"
             onClick={() => setExplainOptionSelector({ type: "GENERAL RUN" })}
-            disabled={running || !editorConnected || isAILoadingGenerating}
+                        disabled={running || !editorConnected || isAILoadingGenerating || missingRequired}
+
           >
             {running ? (
               <>
@@ -2078,6 +2148,14 @@ export default function QueryEditor({
             )}
           </button>
         </div>
+        {ExplainOptionSelector?.type &&
+          ExplainOptionSelector.type !== "GENERAL RUN" && (
+            <ExplainOptions
+              explainType={ExplainOptionSelector.type}
+              ticked={explainTicked}
+              onToggle={toggleExplainOption}
+            />
+          )}
 
         {panel && (
           <div
@@ -2428,6 +2506,18 @@ export default function QueryEditor({
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => {
+                                  function applyBookmarkDefaults(bookmark) {
+                                  const defaults = bookmark.defaults || {};
+                                  setParamValues((prev) => {
+                                    const next = { ...prev };
+                                    for (const [name, value] of Object.entries(defaults)) {
+                                      // Rule 1: a value the user set this session wins over a default.
+                                      if (!hasValue(next[name])) next[name] = value;
+                                    }
+                                    saveParamValues(next);
+                                    return next;
+                                  });
+                                }
                                 setSql(b.sql);
                                 setPanel(null);
                               }}
@@ -2619,6 +2709,10 @@ export default function QueryEditor({
             </div>
           )}
 
+          {previewOpen && !error && (
+            <QueryPreviewPanel sql={sql} values={paramValues} />
+          )}
+
           {estimateResult && !error && (
             <CostEstimatePanel estimate={estimateResult} loading={estimating} />
           )}
@@ -2636,12 +2730,20 @@ export default function QueryEditor({
                   setTimeout(() => setCopied(false), 1500);
                 }
               }}
-              isShowLogo={showLogo}
             />
           )}
           {!result && !running && !error && !estimateResult && (
-            <div  style={{ padding: "32px 16px",width:"",display:"flex", flexDirection:"column", justifyContent:"center",alignItems:"center",height:"20rem"}}>
-              <img style={{width:"13rem",opacity:0.3}}  src={theme === "dark" ? lightLogo : darkLogo} alt="" />
+            <div className="empty-state">
+              <Icon
+                className={
+                  "ti " + (editorConnected ? "ti-terminal-2" : "ti-lock")
+                }
+              ></Icon>
+              <p>
+                {editorConnected
+                  ? "Run a query to see results."
+                  : "Connect with your ClickHouse credentials to begin."}
+              </p>
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// @Kathir -> Kathir Moorthy
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Dynamic utility module for configuring, instantiating, and rendering custom charts.
 
 import React, { useState, useRef, useEffect } from "react";
@@ -20,6 +20,7 @@ import DataTable from "../layout/DataTable.jsx";
 import ErrorBoundary from "../layout/ErrorBoundary.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
+import SqlEditor from "../editor/SqlEditor.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -747,26 +748,25 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 borderRight: "1px solid var(--border-default)",
               }}
             >
-              <textarea
-                value={sql}
-                onChange={(e) => setSql(e.target.value)}
-                placeholder="SELECT ..."
-                spellCheck={false}
+              <div
                 style={{
                   width: "100%",
-                  minHeight: "26vh",
-                  maxHeight: "40vh",
-                  resize: "vertical",
-                  overflow: "auto",
-                  fontFamily: "var(--font-code)",
-                  fontSize: "14px",
-                  padding: 10,
+                  height: "26vh",
+                  overflow: "hidden",
                   background: "var(--input-bg)",
                   border: "1px solid var(--border-default)",
                   borderRadius: "var(--radius-sm)",
-                  color: "var(--text-primary)",
                 }}
-              />
+              >
+                <SqlEditor
+                  value={sql}
+                  onChange={setSql}
+                  variant="compact"
+                  onRun={runSql}
+                  placeholder="SELECT ..."
+                  height="100%"
+                />
+              </div>
               <div
                 style={{
                   display: "flex",
