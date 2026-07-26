@@ -34,6 +34,9 @@ import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
 
+import darkLogo from "../../assets/chops-dark.svg"
+import lightLogo from "../../assets/chops-light.svg"
+
 // VITE_SELECTEDAID_DBS=aiselectedid
 const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
 
@@ -198,7 +201,7 @@ export default function QueryEditor({
   const [isAILoading, setIsAILoading] = useState(false);
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
-
+  const [showLogo, setShowLogo] = useState(false);
   const [ExplainOptionSelector, setExplainOptionSelector] = useState({type:""}); 
 
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
@@ -983,6 +986,7 @@ export default function QueryEditor({
         setSuccessMsg(baseMsg);
         setResult([]);
         setResultCols([]);
+        setShowLogo(true);
       }
     } catch (e) {
       handleSessionExpiry(e);
@@ -1342,7 +1346,7 @@ export default function QueryEditor({
           className="editor-sidebar"
           style={{
             width: explorerWidth,
-            minWidth: 160,
+            minWidth: 200,
             maxWidth: 500,
             height: fullscreen ? "100%" : "90.5vh",
             position: "relative",
@@ -1433,7 +1437,7 @@ export default function QueryEditor({
                       }
                     >
                       <Icon className="ti ti-database-import"></Icon>
-                      <span style={{ flex: 1 }}>{db}</span>
+                      <span style={{ flex: 1 , overflow:"hidden" , textOverflow:"ellipsis",width: "100px"}}>{db}</span>
                       <Icon
                         className={
                           "ti ti-chevron-" +
@@ -1993,7 +1997,7 @@ export default function QueryEditor({
             value={ExplainOptionSelector?.type || "GENERAL RUN"}
             disabled={isAILoadingGenerating}
           >
-            <option value="GENERAL RUN">GENERAL RUN</option>
+            <option value="GENERAL RUN">Select Explain</option>
             <option value="EXPLAIN">EXPLAIN</option>
             {/* <option value="EXPLAIN AST">AST</option> */}
             <option value="EXPLAIN SYNTAX">SYNTAX</option>
@@ -2632,20 +2636,12 @@ export default function QueryEditor({
                   setTimeout(() => setCopied(false), 1500);
                 }
               }}
+              isShowLogo={showLogo}
             />
           )}
           {!result && !running && !error && !estimateResult && (
-            <div className="empty-state">
-              <Icon
-                className={
-                  "ti " + (editorConnected ? "ti-terminal-2" : "ti-lock")
-                }
-              ></Icon>
-              <p>
-                {editorConnected
-                  ? "Run a query to see results."
-                  : "Connect with your ClickHouse credentials to begin."}
-              </p>
+            <div  style={{ padding: "32px 16px",width:"",display:"flex", flexDirection:"column", justifyContent:"center",alignItems:"center",height:"20rem"}}>
+              <img style={{width:"13rem",opacity:0.3}}  src={theme === "dark" ? lightLogo : darkLogo} alt="" />
             </div>
           )}
         </div>
