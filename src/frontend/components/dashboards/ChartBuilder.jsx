@@ -21,6 +21,7 @@ import ErrorBoundary from "../layout/ErrorBoundary.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
+import MaxRowsControl, { clampMaxRows, readMaxRows, MAX_ROWS_KEY } from "../editor/MaxRowsControl.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -37,6 +38,21 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const [columns, setColumns] = useState([]);
   const [error, setError] = useState(null);
   const [running, setRunning] = useState(false);
+  const [maxRows, setMaxRowsState] = useState(() => {
+    try {
+      return readMaxRows();
+    } catch {
+      return 5000;
+    }
+  });
+  function setMaxRows(next) {
+    const v = clampMaxRows(next);
+    setMaxRowsState(v);
+    try {
+      localStorage.setItem(MAX_ROWS_KEY, String(v));
+    } catch {}
+  }
+
   const [chartType, setChartType] = useState("bar");
   const [chartSubtype, setChartSubtype] = useState("simple_bar");
   const [mapping, setMapping] = useState({});
@@ -751,7 +767,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               <div
                 style={{
                   width: "100%",
-                  height: "26vh",
+                  height: "34vh",
                   overflow: "hidden",
                   background: "var(--input-bg)",
                   border: "1px solid var(--border-default)",
@@ -770,10 +786,21 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               <div
                 style={{
                   display: "flex",
+                  alignItems: "center",
                   justifyContent: "flex-end",
+                  gap: 10,
                   marginTop: 8,
                 }}
               >
+                {/* The same control as the SQL Editor, reading and writing the
+                    same preference, because the row limit is one setting shared
+                    by every SQL surface. */}
+                <MaxRowsControl
+                  value={maxRows}
+                  onChange={setMaxRows}
+                  disabled={running}
+                />
+
                 <button
                   className="btn btn-primary btn-sm"
                   onClick={runSql}

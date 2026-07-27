@@ -48,7 +48,7 @@ function scan(sql) {
     }
 
     // A {name:Type} placeholder is CODE, all of it, including a type whose
-    // enum members are quoted. 
+    // enum members are quoted.
     if (c === "{") {
       const ph = matchPlaceholder(text, i, n);
       if (ph) {
@@ -263,13 +263,12 @@ export function formatValue(type, value) {
   if (isNumeric(t)) return String(Number(value));
 
   // Everything else, including String, Identifier, UUID, Enum, Array and Map,
-  // is sent as typed. Array and Map are entered in ClickHouse's own text form
-  // ([1,2,3] and {'a':1}) and passed through unchanged.
+  // is sent as typed.
   return String(value);
 }
 
 // Resolve optional blocks and return the SQL to send plus the parameters that
-// survived. 
+// survived.
 export function materialize(sql, values = {}) {
   const { text, spans } = scan(sql);
   findBlocks(sql);                 // validate, throwing on a malformed block

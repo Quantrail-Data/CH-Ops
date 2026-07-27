@@ -17,6 +17,7 @@ import {
   normalizeForExport, isSelectLike, wrapForCount, wrapForSample,
 } from "../../shared/sqlExport.js";
 import { findFormat, OPTIONS } from "../../shared/exportFormats.js";
+import { materialize } from "../../shared/sqlParams.js";
 
 const router = Router();
 const downloadRouter = Router();
@@ -50,8 +51,16 @@ function onlyKnownSettings(input) {
 
 
 router.post("/estimate", async (req, res) => {
-  const { sql, format } = req.body || {};
-  if (!sql) return res.status(400).json({ error: "Missing SQL." });
+  const { sql: rawSql, format, params } = req.body || {};
+  if (!rawSql) return res.status(400).json({ error: "Missing SQL." });
+
+  // The export path is the SECOND place a query becomes real.
+  let sql;
+  try {
+    sql = materialize(rawSql, params || {}).sql;
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
 
   const fmt = findFormat(format || "CSVWithNames");
   if (!fmt) return res.status(400).json({ error: "Unknown export format." });
@@ -86,6 +95,7 @@ router.post("/estimate", async (req, res) => {
       ...target,
       sql: `EXPLAIN ESTIMATE ${normalizeForExport(sql)}`,
       readOnly: true,
+      noResultLimit: true,
     });
     answer.rows = (est.rows || []).reduce((sum, r) => sum + Number(r.rows || 0), 0);
   } catch {
@@ -94,6 +104,7 @@ router.post("/estimate", async (req, res) => {
         ...target,
         sql: `${wrapForCount(sql)} SETTINGS max_execution_time = 20`,
         readOnly: true,
+      noResultLimit: true,
       });
       answer.rows = Number(counted.rows?.[0]?.c || 0);
       answer.exact = true;
@@ -124,8 +135,15 @@ router.post("/estimate", async (req, res) => {
 
 
 router.post("/jobs", (req, res) => {
-  const { sql, format, compression, filename, bom, settings, estimatedBytes } = req.body || {};
-  if (!sql) return res.status(400).json({ error: "Missing SQL." });
+  const { sql: rawSql, format, compression, filename, bom, settings, estimatedBytes, params } = req.body || {};
+  if (!rawSql) return res.status(400).json({ error: "Missing SQL." });
+
+  let sql;
+  try {
+    sql = materialize(rawSql, params || {}).sql;
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
 
   const picked = resolveNode(req);
   if (picked.error) return res.status(400).json({ error: picked.error });

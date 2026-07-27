@@ -1,9 +1,5 @@
 // ExplainOptions.jsx - checkbox row under the EXPLAIN dropdown.
-//
-// Rendered only when an EXPLAIN type is selected, so it costs no permanent
-// height. With GENERAL RUN chosen, which is the common case, it is not rendered
-// at all.
-//
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 import React from "react";
@@ -20,6 +16,9 @@ export default function ExplainOptions({ explainType, ticked, onToggle }) {
         gap: 14,
         alignItems: "center",
         flexWrap: "wrap",
+        // Right aligned, so the options sit under the actions they modify
+        // rather than starting at the far left of an otherwise empty row.
+        justifyContent: "flex-end",
         padding: "4px 16px",
         borderBottom: "1px solid var(--border-default)",
         background: "var(--bg-sunken)",
