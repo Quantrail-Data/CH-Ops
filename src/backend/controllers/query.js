@@ -6,23 +6,23 @@
 import { getClusterNodes } from '../services/clusterUtils.js';
 import { executeQuery } from '../services/clickhouse.js';
 import { isReadOnlySql } from '../../shared/sqlClassify.js';
+import { materialize } from '../../shared/sqlParams.js';
+import { leadingKeyword } from '../../shared/sqlClassify.js';
 import { getCredSession, CRED_CONTEXTS } from '../services/chCredStore.js';
 
 export async function runQuery(req, res) {
-  const { sql, node, user, password, port, clusterId, strictAuth, useSession, context } = req.body;
+  const { sql, node, user, password, port, clusterId, strictAuth, useSession, context, params } = req.body;
   let { readOnly } = req.body;
   if (!sql) return res.status(400).json({ error: 'Missing SQL' });
 
   // Server-side role enforcement: the client-supplied readOnly flag is only a
-  // UX hint. A CHOps user whose app role is 'readonly' must never be able to
-  // escalate to a write query by omitting/flipping this flag in the request body.
+  // UX hint.
   if (req.user?.role === 'readonly') {
     readOnly = true;
   }
 
   // Defense in depth: when the caller asks for a read-only request, reject any
-  // non-read statement here before it reaches ClickHouse. The readonly setting
-  // passed to executeQuery below is the authoritative enforcement.
+  // non-read statement here before it reaches ClickHouse.
   if (readOnly && !isReadOnlySql(sql)) {
     return res.status(400).json({
       error: 'This request only allows read-only queries (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN, EXISTS).',
@@ -41,23 +41,10 @@ export async function runQuery(req, res) {
     return res.status(400).json({ error: 'Node not found in cluster configuration.' });
   }
 
-  // try {
-  //   const result = await executeQuery({
-  //     host: targetNode.host,
-  //     port: port || targetNode.port || 8123,
-  //     secure: !!targetNode.secure,
-  //     user: user || targetNode.user || 'default',
-  //     password: password ?? targetNode.password ?? '',
-  //     sql,
-  //   });
+  // try { const result = await executeQuery({ host:
 
 
   // Resolve credentials.
-  //  - useSession: the SQL Editor path. Credentials come only from the encrypted
-  //    (jti, context) session; if it is gone the client must reconnect. Never
-  //    falls back to the node or 'default' user.
-  //  - strictAuth: legacy per-request editor auth. Must carry its own username.
-  //  - otherwise: the shared navbar connection, allowed to fall back to the node.
   let resolvedUser, resolvedPassword;
   if (useSession) {
     const sess = getCredSession(req.user?.jti, context || CRED_CONTEXTS.EDITOR);
@@ -81,13 +68,29 @@ export async function runQuery(req, res) {
   }
 
   try {
+    const kw = leadingKeyword(sql);
+    const rowReturning = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN', 'EXISTS'].includes(kw);
+
+    let finalSql = sql;
+    let finalParams = {};
+    if (rowReturning) {
+      try {
+        const m = materialize(sql, params || {});
+        finalSql = m.sql;
+        finalParams = m.params;
+      } catch (e) {
+        return res.status(400).json({ error: e.message });
+      }
+    }
+
     const result = await executeQuery({
       host: targetNode.host,
       port: port || targetNode.port || 8123,
       secure: !!targetNode.secure,
       user: resolvedUser,
       password: resolvedPassword,
-      sql,
+      sql: finalSql,
+      params: finalParams,
       readOnly: !!readOnly,
     });
 

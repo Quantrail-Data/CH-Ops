@@ -1,11 +1,6 @@
 // api.js - Core API client with connection state management
-//
 // Maintains a module-level singleton for ClickHouse connection credentials
 // (node, user, password, port, clusterId) that is shared across all API calls.
-// Provides runQuery() for executing SQL against ClickHouse and apiFetch() for
-// generic backend endpoints with automatic JWT token injection and audit
-// context.
-//
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 let _connection = {
@@ -96,9 +91,8 @@ export async function apiFetch(path, options = {}, type = false) {
   }
 
   if (res.status === 401) {
-    // A ClickHouse credential-session expiry (editor/schema-studio) is NOT an app
-    // auth failure: surface it so the feature can prompt to reconnect, without
-    // logging the user out of the app.
+    // A ClickHouse credential-session expiry (editor/schema-studio) is NOT an
+    // app auth failure:
     const d = await res.json().catch(() => ({}));
     if (d.code === "CRED_SESSION_EXPIRED") {
       const err = new Error(d.error || "Your session expired. Please reconnect.");
@@ -132,6 +126,23 @@ export async function apiFetch(path, options = {}, type = false) {
   return data;
 }
 
+// The editor's row limit, applied to every SQL surface.
+const MAX_ROWS_KEY = "chops_max_rows";
+const MAX_ROWS_FALLBACK = 5000;
+
+function rowLimitSettings(options) {
+  // A caller that genuinely needs every row says so.
+  if (options?.noRowLimit) return undefined;
+  let n = Number(localStorage.getItem(MAX_ROWS_KEY));
+  if (!Number.isFinite(n) || n < 1) n = MAX_ROWS_FALLBACK;
+  return {
+    // One more than the limit, so the caller can tell a full result from a
+    // truncated one without asking a second time.
+    max_result_rows: Math.floor(n) + 1,
+    result_overflow_mode: "break",
+  };
+}
+
 // ClickHouse® query - always sends current connection credentials
 
 export async function runQuery(sql, overrides = {}) {
@@ -147,23 +158,13 @@ export async function runQuery(sql, overrides = {}) {
       port: overrides.port || conn.port,
       clusterId: overrides.clusterId || conn.clusterId,
       readOnly: !!overrides.readOnly,
+      settings: { ...rowLimitSettings(overrides), ...(overrides.settings || {}) },
     }),
   });
 }
 
 
 // ClickHouse® query for the SQL Editor only.
-// Sends the user-entered credentials exactly as given (no fallback to the
-// configured connection) and marks the request strict so the backend will
-// refuse rather than fall back. Host/port/cluster still come from the navbar.
-// SQL Editor / Query Comparison query.
-//
-// Two modes, chosen by whether the caller supplies a password:
-//  - Session mode (SQL Editor): creds carry no password (e.g. { user }). The
-//    password was sent once to editorConnect() and is resolved server-side from
-//    the (jti, 'editor') credential session. Nothing sensitive is sent here.
-//  - Strict mode (Query Comparison): creds carry an explicit password, sent
-//    per-request under strictAuth. That feature keeps its own per-request model.
 export async function runEditorQuery(sql, creds, options = {}) {
   if (!sql || typeof sql !== "string") throw new Error("SQL is required.");
   const conn = getGlobalConnection();
@@ -173,6 +174,12 @@ export async function runEditorQuery(sql, creds, options = {}) {
     port: conn.port, // from navbar
     clusterId: conn.clusterId, // from navbar
     readOnly: !!options.readOnly,
+    // Omitted entirely when absent, so the eleven existing callers send a
+    // request body byte-identical to before this change.
+    params: options.params || undefined,
+    // The caller's settings win, so the editor's own Max rows value overrides
+    // the default read from storage.
+    settings: { ...rowLimitSettings(options), ...(options.settings || {}) },
   };
 
   if (creds && creds.password !== undefined) {

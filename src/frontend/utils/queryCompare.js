@@ -5,7 +5,10 @@
 import { runEditorQuery } from "./api.js";
 import { runEstimate, lookupMemoryUsage } from "./costEstimator.js";
 import { isReadOnlySql } from "../../shared/sqlClassify.js";
-import { buildCompletionOptions } from "../components/editor/sqlEditorSetup.js";
+import {
+  buildCompletionOptions,
+  loadFunctionRows,
+} from "../components/editor/sqlEditorSetup.js";
 
 // Read-only guard for Comparison mode. Allows SELECT / WITH / SHOW / DESCRIBE / EXPLAIN / EXISTS; blocks writes,
 // DDL and admin statements. Name kept for existing callers and tests.
@@ -127,23 +130,23 @@ export async function loadAcWords(creds) {
     runEditorQuery("SELECT keyword FROM system.keywords", creds).catch(() => ({
       rows: [],
     })),
-    runEditorQuery("SELECT name FROM system.functions", creds).catch(() => ({
-      rows: [],
-    })),
+    // Same documented query the main editor uses, through the same helper, so
+    // the two cannot drift apart.
+    loadFunctionRows((q) => runEditorQuery(q, creds)),
     runEditorQuery(
       "SELECT database, name FROM system.tables WHERE database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema') ORDER BY database, name",
       creds,
     ).catch(() => ({ rows: [] })),
   ]);
   const keywords = (kw.rows || []).map((r) => r.keyword).filter(Boolean);
-  const functions = (fn.rows || []).map((r) => r.name).filter(Boolean);
+  const functions = (fn || []).filter((r) => r && r.name);
   const tables = tb.rows || [];
 
   // Tagged options rather than a flat string array, matching the main editor.
 
   return {
     options: buildCompletionOptions({ keywords, functions, tables }),
-    dialect: { keywords, functions },
+    dialect: { keywords, functions: functions.map((r) => r.name) },
   };
 }
 

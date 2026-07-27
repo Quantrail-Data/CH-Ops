@@ -164,7 +164,8 @@ export default function AlertRules() {
         return;
       }
 
-      const checkQuery = await runQuery(f.sql);
+      // noRowLimit: an alert threshold query returns ONE value by definition.
+      const checkQuery = await runQuery(f.sql, { noRowLimit: true });
       const payload = {
         ...f,
         schedule: normalizedSchedule,

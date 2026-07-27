@@ -20,12 +20,25 @@ import CostEstimatePanel from "./CostEstimatePanel.jsx";
 import QueryPreviewPanel from "./QueryPreviewPanel.jsx";
 import ModeSelect from "./ModeSelect.jsx";
 import ExportWizard from "./ExportWizard.jsx";
+import ShareDialog from "./ShareDialog.jsx";
+import BookmarkExport from "./BookmarkExport.jsx";
+import ConfirmDialog from "./ConfirmDialog.jsx";
+import MaxRowsControl, {
+  MAX_ROWS_KEY,
+  MAX_ROWS_WARN,
+  clampMaxRows,
+  readMaxRows,
+} from "./MaxRowsControl.jsx";
+import { readShareFromHash, shareTabName } from "../../utils/shareLink.js";
 import "./exportWizard.css";
 import { isDataQuery, analyzeSql } from "../../../shared/sqlClassify.js";
+import { normalizeForExport } from "../../../shared/sqlExport.js";
 import { findParameters, hasValue } from "../../../shared/sqlParams.js";
 import ParamStrip from "./ParamStrip.jsx";
+import QueryTabs from "./QueryTabs.jsx";
+import { useQueryTabs } from "./useQueryTabs.js";
 import SqlEditor from "./SqlEditor.jsx";
-import { buildCompletionOptions } from "./sqlEditorSetup.js";
+import { buildCompletionOptions, loadFunctionRows } from "./sqlEditorSetup.js";
 import {
   runEstimate,
   lookupMemoryUsage,
@@ -48,14 +61,10 @@ const HISTORY_KEY = "chops_query_history";
 const HISTORY_MAX = 100;
 
 // Parameter values, keyed by variable name and shared across queries, so a
-// value typed once is prefilled wherever the same name appears. Plaintext, the
-// same exposure as the query history above: never put a secret in one.
-const PARAM_VALUES_KEY = "chops_param_values";
-const EXPLAIN_OPTS_KEY = "chops_explain_options";
+// value typed once is prefilled wherever the same name appears.
 
-// Editor height, dragged by the splitter below the editor. Remembered because
-// the right size depends on what someone is doing, and re-dragging it on every
-// visit is exactly the kind of small friction nobody reports.
+// Editor height, dragged by the splitter below the editor.
+
 const EDITOR_HEIGHT_KEY = "chops_editor_height";
 const EDITOR_HEIGHT_MIN = 90;
 const EDITOR_HEIGHT_DEFAULT = 240;
@@ -65,19 +74,7 @@ function getEditorHeight() {
   return Number.isFinite(n) && n >= EDITOR_HEIGHT_MIN ? n : EDITOR_HEIGHT_DEFAULT;
 }
 
-function getParamValues() {
-  try {
-    return JSON.parse(localStorage.getItem(PARAM_VALUES_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
 
-function saveParamValues(v) {
-  try {
-    localStorage.setItem(PARAM_VALUES_KEY, JSON.stringify(v));
-  } catch {}
-}
 
 const LOADING_PHRASES = [
   "Generating ClickHouse query...",
@@ -115,16 +112,8 @@ function clearHistory() {
   } catch {}
 }
 
-// Export helpers - trigger browser download from in-memory data
-// function downloadBlob(content, filename, mimeType) {
-//   const blob = new Blob([content], { type: mimeType });
-//   const url = URL.createObjectURL(blob);
-//   const a = document.createElement("a");
-//   a.href = url;
-//   a.download = filename;
-//   a.click();
-//   URL.revokeObjectURL(url);
-// }
+// Export helpers - trigger browser download from in-memory data function
+// downloadBlob(content,
 
 function engineIcon(engine) {
   if (!engine) return "ti-table";
@@ -186,6 +175,9 @@ function engineIcon(engine) {
 }
 
 export default function QueryEditor({
+  // False while Comparison mode is showing. Both panes stay mounted, so the
+  // hidden one must not answer keyboard shortcuts.
+  active = true,
   onSidebarStateChange,
   mode,
   onModeChange,
@@ -203,6 +195,137 @@ export default function QueryEditor({
     password,
     nodeName,
   } = useConnection();
+  // Everything that used to be a useState above now belongs to a tab. The
+  // aliases below keep the names the rest of this file already uses.
+  const tabs_ = useQueryTabs();
+  const {
+    tabs, activeId, activeTab, runtime, activeRuntime, runningTabs, canAddTab,
+    updateTab, setRuntime, setParam,
+  } = tabs_;
+
+  const sql = activeTab.sql;
+  const setSql = useCallback(
+    (v) =>
+      updateTab(activeId, {
+        sql: typeof v === "function" ? v(activeTab.sql) : v,
+      }),
+    [activeId, activeTab.sql, updateTab],
+  );
+
+  const {
+    result, resultCols, totalRows, truncated, error, successMsg, queryStats, memoryUsage,
+    lastQueryId, featureQueryId, estimateResult, estimating, graphData,
+    graphTitle, running,
+  } = activeRuntime;
+
+  // Setters bound to the ACTIVE tab, for the render tree.
+  const rt = useCallback((patch) => setRuntime(activeId, patch), [activeId, setRuntime]);
+  const setResult = useCallback((v) => rt({ result: v }), [rt]);
+  const setResultCols = useCallback((v) => rt({ resultCols: v }), [rt]);
+  const setError = useCallback((v) => rt({ error: v }), [rt]);
+  const setSuccessMsg = useCallback((v) => rt({ successMsg: v }), [rt]);
+  const setQueryStats = useCallback((v) => rt({ queryStats: v }), [rt]);
+  const setMemoryUsage = useCallback((v) => rt({ memoryUsage: v }), [rt]);
+  const setLastQueryId = useCallback((v) => rt({ lastQueryId: v }), [rt]);
+  const setFeatureQueryId = useCallback((v) => rt({ featureQueryId: v }), [rt]);
+  const setEstimateResult = useCallback((v) => rt({ estimateResult: v }), [rt]);
+  const setEstimating = useCallback((v) => rt({ estimating: v }), [rt]);
+  const setGraphData = useCallback((v) => rt({ graphData: v }), [rt]);
+  const setGraphTitle = useCallback((v) => rt({ graphTitle: v }), [rt]);
+  const setRunning = useCallback((v) => rt({ running: v }), [rt]);
+
+  const paramValues = activeTab.params;
+
+  /* A saved query, ready to drop into whatever is being written. */
+  const asSubquery = useCallback((text) => {
+    const one = normalizeForExport(text || "");
+    return one ? `( ${one} ) ` : "";
+  }, []);
+
+  /* Start a drag carrying plain text. */
+  const startTextDrag = useCallback((e, text, fromPanel = false) => {
+    if (!text) return;
+    e.dataTransfer.setData("text/plain", text);
+    e.dataTransfer.effectAllowed = "copy";
+    // The panel is a modal overlay AT zIndex 400, directly over the editor.
+    if (fromPanel) setPanelDragging(true);
+  }, []);
+
+  const endTextDrag = useCallback((e) => {
+    setPanelDragging(false);
+    // Close the panel once the row has actually landed somewhere.
+    if (e?.dataTransfer?.dropEffect && e.dataTransfer.dropEffect !== "none") {
+      setPanel(null);
+    }
+  }, []);
+
+  /* Open a saved query in a NEW tab rather than over the top of your work. */
+  const openInNewTab = useCallback(
+    (name, text, bookmark) => {
+      const created = tabs_.addTab({ name, sql: text || "" });
+      if (created && bookmark?.defaults) {
+        for (const [k, v] of Object.entries(bookmark.defaults)) {
+          setParam(created.id, k, v);
+        }
+      }
+      setPanel(null);
+      return created;
+    },
+    [tabs_, setParam],
+  );
+
+  const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
+
+  // A shared link, opened into its own tab so whatever the recipient already
+  // had open is untouched.
+  const sharedOpened = useRef(false);
+  useEffect(() => {
+    if (sharedOpened.current) return;
+    const shared = readShareFromHash();
+    if (!shared) return;
+    sharedOpened.current = true;
+
+    const created = tabs_.addTab({
+      name: shareTabName(shared.sql),
+      sql: shared.sql,
+      // Only what the sender chose to include. Absent means the recipient
+      // starts from their own seed, not from an empty strip.
+      params: shared.params || undefined,
+    });
+    if (!created) {
+      // At the tab cap. Say so rather than dropping the link silently.
+      toast.warning("Close a tab to open the shared query.");
+      sharedOpened.current = false;
+      return;
+    }
+    try {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    } catch {}
+  }, [tabs_, toast]);
+  const setParamValue = useCallback(
+    (name, value) => setParam(activeId, name, value),
+    [activeId, setParam],
+  );
+  const explainTicked = activeTab.explainTicked;
+  const ExplainOptionSelector = useMemo(
+    () => ({ type: activeTab.explainType }),
+    [activeTab.explainType],
+  );
+
+  // Live views of the collection, for doRun to read the tab it was asked to run
+  // rather than whichever one happens to be visible when it finishes.
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+  const doRunRef = useRef(null);
+
+  // Per tab, because a query finishing in one must not cancel the pending
+  // memory lookup of another. See hazard 1 in the design note.
+  const memoryTimers = useRef(new Map());
+
   const [editorCreds, setEditorCreds] = useState(null);
   const { auth } = useAuth();
   const editorConnected = !!editorCreds;
@@ -211,24 +334,53 @@ export default function QueryEditor({
   const [connecting, setConnecting] = useState(false);
   const [connError, setConnError] = useState(null);
   // The editor is a CodeMirror view now, reached through an imperative handle
-  // rather than three DOM refs. insertAtCursor() is the only thing the rest of
-  // this component needs from it.
+  // rather than three DOM refs.
   const editorRef = useRef(null);
-  const [sql, setSql] = useState("SELECT version()");
   const [exportOpen, setExportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  // True while a row is being dragged out of the history or bookmarks panel.
+  const [panelDragging, setPanelDragging] = useState(false);
+  // The concurrent-run question.
+  const [runConfirm, setRunConfirm] = useState(null);
+  const [closeConfirm, setCloseConfirm] = useState(null);
+
+  // How many rows to ask for.
+  const [maxRows, setMaxRowsState] = useState(() => {
+    try {
+      return readMaxRows();
+    } catch {
+      return 5000;
+    }
+  });
+  const maxRowsRef = useRef(maxRows);
+  maxRowsRef.current = maxRows;
+  const [rowsWarn, setRowsWarn] = useState(null);
+
+  const setMaxRows = useCallback(
+    (next) => {
+      const v = clampMaxRows(next);
+      // Ask before going somewhere expensive, and only on the way UP. Coming
+      // back down is always safe and never worth interrupting.
+      if (v > MAX_ROWS_WARN && v > maxRowsRef.current) {
+        setRowsWarn(v);
+        return;
+      }
+      setMaxRowsState(v);
+      try {
+        localStorage.setItem(MAX_ROWS_KEY, String(v));
+      } catch {}
+    },
+    [],
+  );
   const [dbs, setDbs] = useState([]);
   const [selectedDb, setSelectedDb] = useState(null);
   const [tables, setTables] = useState([]);
   const [tablesLoading, setTablesLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [resultCols, setResultCols] = useState([]);
-  const [error, setError] = useState(null);
-  const [successMsg, setSuccessMsg] = useState(null);
-  const [queryStats, setQueryStats] = useState(null);
-  const [graphData, setGraphData] = useState(null);
-  const [graphFullscreen, setGraphFullscreen] = useState(false);
+  // One overlay shared by every tab. doRun shadows the setter so a background
+  // tab cannot open it; see hazard 4.
+  const [graphFullscreen, setGraphFullscreenShared] = useState(false);
+  const setGraphFullscreen = setGraphFullscreenShared;
   const [graphZoomLevel, setGraphZoomLevel] = useState(1);
-  const [graphTitle, setGraphTitle] = useState("");
   const [showGraphSqlModal, setShowGraphSqlModal] = useState(false);
   const graphRef = useRef(null);
   const graphInst = useRef(null);
@@ -238,7 +390,6 @@ export default function QueryEditor({
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
-  const [ExplainOptionSelector, setExplainOptionSelector] = useState({type:""}); 
 
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
   const [aiError, setAIError] = useState(null);
@@ -458,13 +609,6 @@ export default function QueryEditor({
   function graphZoom(f) {
     setGraphZoomLevel((z) => Math.max(0.3, Math.min(3, +(z * f).toFixed(2))));
   }
-  const [running, setRunning] = useState(false);
-  const [estimateResult, setEstimateResult] = useState(null);
-  const [estimating, setEstimating] = useState(false);
-  const [lastQueryId, setLastQueryId] = useState(null);
-  const [featureQueryId, setFeatureQueryId] = useState(null);
-  const [memoryUsage, setMemoryUsage] = useState(null);
-  const memoryTimerRef = useRef(null);
   const lastQueryIdRef = useRef(null);
   const editorCredsRef = useRef(null);
   const featureQueryIdRef = useRef(null);
@@ -474,8 +618,7 @@ export default function QueryEditor({
   const [fullscreen, setFullscreen] = useState(false);
   const [sqlCollapsed, setSqlCollapsed] = useState(false);
   // acWords holds tagged completion options now rather than plain strings, so a
-  // candidate keeps its kind all the way to the popup. Everything that drove the
-  // hand-rolled popup is gone: CodeMirror owns that.
+  // candidate keeps its kind all the way to the popup.
   const [acWords, setAcWords] = useState([]);
   const [sqlDialectData, setSqlDialectData] = useState(null);
   const [ddlModal, setDdlModal] = useState(null); 
@@ -485,14 +628,6 @@ export default function QueryEditor({
   const [bookmarkName, setBookmarkName] = useState("");
   const [saveDefaults, setSaveDefaults] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState(null);
-  const [paramValues, setParamValues] = useState(() => getParamValues());
-  const [explainTicked, setExplainTicked] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(EXPLAIN_OPTS_KEY) || "{}");
-    } catch {
-      return {};
-    }
-  });
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editorHeight, setEditorHeight] = useState(() => {
     try {
@@ -504,6 +639,14 @@ export default function QueryEditor({
 
   const lastSqlRef = useRef("");
   const lastRunMetaRef = useRef({ written: 0 });
+
+  useEffect(() => {
+    const timers = memoryTimers.current;
+    return () => {
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+    };
+  }, []);
 
   const { theme } = useTheme();
 
@@ -579,11 +722,8 @@ export default function QueryEditor({
     }
   }, [qidFromUrl]);
 
-  useEffect(() => {
-    if (ExplainOptionSelector.type) {
-      doRun();
-    }
-  }, [ExplainOptionSelector]);
+  // The effect that used to run a query whenever ExplainOptionSelector changed
+  // is gone.
 
   useEffect(() => {
     if (onSidebarStateChange) {
@@ -682,36 +822,30 @@ export default function QueryEditor({
           rows: [],
         }),
       ),
-      runEditorQuery("SELECT name FROM system.functions", creds).catch(() => ({
-        rows: [],
-      })),
+      // Asks for description, syntax and categories as well as the name, and
+      // falls back to bare names if the server does not know those columns.
+      loadFunctionRows((q) => runEditorQuery(q, creds)),
       runEditorQuery(
         "SELECT database, name FROM system.tables WHERE database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema') ORDER BY database, name",
         creds,
       ).catch(() => ({ rows: [] })),
-    ]).then(([kw, fn, tb]) => {
+    ]).then(([kw, fnRows, tb]) => {
       const keywords = (kw.rows || []).map((r) => r.keyword).filter(Boolean);
-      const functions = (fn.rows || []).map((r) => r.name).filter(Boolean);
+      // Whole rows now, so a candidate carries its own documentation.
+      const functions = (fnRows || []).filter((r) => r && r.name);
       const tables = tb.rows || [];
 
-      // Tagged options rather than a flat string array, so each candidate keeps
-      // its kind: a distinct icon per kind, count() inserted with the caret
-      // inside the parentheses, and fuzzy matching, at no extra cost.
+      // Tagged options rather than plain strings, so each candidate keeps its
+      // kind and gets its own icon.
       setAcWords(buildCompletionOptions({ keywords, functions, tables }));
 
       // Built from the connected server's own lists, so highlighting matches
-      // the version in use. An empty list means the query failed, and
-      // buildDialect falls back to the built-in dialect.
-      setSqlDialectData({ keywords, functions });
+      // the version in use.
+      setSqlDialectData({ keywords, functions: functions.map((r) => r.name) });
     });
   }
 
 
-  useEffect(() => {
-    return () => {
-      if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
-    };
-  }, []);
 
 
   useEffect(() => {
@@ -737,11 +871,7 @@ export default function QueryEditor({
     };
   }, []);
 
-  // useEffect(() => {
-  //   loadDbs();
-  //   loadBookmarks();
-  //   loadAutocomplete();
-  // }, []);
+  // useEffect(() => { loadDbs(); loadBookmarks(); loadAutocomplete(); }, []);
 
   useEffect(() => {
     loadBookmarks();
@@ -850,24 +980,78 @@ export default function QueryEditor({
     (p) => p.required && !hasValue(paramValues[p.name]),
   );
 
-  function setParamValue(name, value) {
-    setParamValues((prev) => {
-      const next = { ...prev, [name]: value };
-      saveParamValues(next);
-      return next;
-    });
-  }
 
+  // Per tab, seeded from the shared preference.
   function toggleExplainOption(key) {
-    setExplainTicked((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      try { localStorage.setItem(EXPLAIN_OPTS_KEY, JSON.stringify(next)); } catch {}
-      setExplainOptionSelector((s) => ({ ...s }));
-      return next;
-    });
+    tabs_.toggleExplainOption(activeId, key);
   }
 
-  const doRun = useCallback(async () => {
+
+  /* Run the visible tab. */
+  const runActiveTab = useCallback(() => {
+    const id = activeIdRef.current;
+    const busy = tabsRef.current.filter(
+      (t) => t.id !== id && runtimeRef.current[t.id]?.running,
+    );
+    if (!busy.length) {
+      doRunRef.current?.(id);
+      return;
+    }
+    // Ask, and remember which tab the answer is for.
+    setRunConfirm({ id, names: busy.map((t) => t.name).join(", ") });
+  }, []);
+
+  const doRun = useCallback(async (runTabId) => {
+    // EVERYTHING BELOW IS SCOPED TO ONE TAB.
+    const tabId = runTabId || activeIdRef.current;
+    const runTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
+    const rowCap = maxRowsRef.current;
+
+    const sql = runTab.sql;
+    const paramValues = runTab.params;
+    const explainTicked = runTab.explainTicked;
+    const ExplainOptionSelector = { type: runTab.explainType };
+    const missingRequired = findParameters(sql).some(
+      (p) => p.required && !hasValue(paramValues[p.name]),
+    );
+
+    const set = (patch) => setRuntime(tabId, patch);
+    // Caps what is HELD, not what is shown.
+    const setResult = (v) => {
+      if (!Array.isArray(v)) {
+        set({ result: v, totalRows: 0, truncated: false });
+        return;
+      }
+      // The request asks for one more than the cap, so receiving that extra row
+      // is how we know the server had more to give.
+      const truncated = v.length > rowCap;
+      set({
+        result: truncated ? v.slice(0, rowCap) : v,
+        totalRows: truncated ? rowCap : v.length,
+        truncated,
+        // Remembered per result, so the notice reports the limit that was in
+        // force when it ran rather than whatever the control says now.
+        rowCap,
+      });
+    };
+    const setResultCols = (v) => set({ resultCols: v });
+    const setError = (v) => set({ error: v });
+    const setSuccessMsg = (v) => set({ successMsg: v });
+    const setQueryStats = (v) => set({ queryStats: v });
+    const setMemoryUsage = (v) => set({ memoryUsage: v });
+    const setLastQueryId = (v) => set({ lastQueryId: v });
+    const setFeatureQueryId = (v) => set({ featureQueryId: v });
+    const setEstimateResult = (v) => set({ estimateResult: v });
+    const setEstimating = (v) => set({ estimating: v });
+    const setGraphData = (v) => set({ graphData: v });
+    const setGraphTitle = (v) => set({ graphTitle: v });
+    const setRunning = (v) => set({ running: v });
+
+    // HAZARD 4.
+    const setGraphFullscreen = (v) => {
+      if (tabId === activeIdRef.current) setGraphFullscreenShared(v);
+    };
+
     const text = sql.trim();
     if (!text) return;
     if (!editorConnected) {
@@ -914,7 +1098,8 @@ export default function QueryEditor({
     setLastQueryId(null);
     setFeatureQueryId(null);
     setMemoryUsage(null);
-    if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
+    const tPrev = memoryTimers.current.get(tabId);
+    if (tPrev) clearTimeout(tPrev);
 
     try {
       const isExplain =
@@ -929,7 +1114,14 @@ export default function QueryEditor({
       // user's SQL as a SETTINGS clause.
       const r = await runEditorQuery(validExplain, editorCreds, {
         params: paramValues,
-        settings: isExplain ? settingsFor(explainTicked) : undefined,
+        settings: {
+          ...(isExplain ? settingsFor(explainTicked) : {}),
+          // STOP THE SERVER SENDING ROWS WE ARE GOING TO THROW AWAY.
+          max_result_rows: rowCap + 1,
+          // Stop cleanly at the limit instead of raising
+          // TOO_MANY_ROWS_OR_BYTES, which is what the default does.
+          result_overflow_mode: "break",
+        },
       });
       if (r.stats) setQueryStats(r.stats);
 
@@ -941,17 +1133,16 @@ export default function QueryEditor({
     
       if (qid) {
         const capturedQid = qid;
-        memoryTimerRef.current = setTimeout(async () => {
-          
-          if (lastQueryIdRef.current !== capturedQid) return;
-          const mem = await lookupMemoryUsage(
-            capturedQid,
-            editorCredsRef.current,
-          );
-          if (lastQueryIdRef.current === capturedQid && mem != null) {
-            setMemoryUsage(mem);
-          }
-        }, 300);
+        // HAZARDS 1 and 2.
+        memoryTimers.current.set(
+          tabId,
+          setTimeout(async () => {
+            const cur = () => runtimeRef.current[tabId]?.lastQueryId;
+            if (cur() !== capturedQid) return;
+            const mem = await lookupMemoryUsage(capturedQid, editorCredsRef.current);
+            if (cur() === capturedQid && mem != null) setMemoryUsage(mem);
+          }, 300),
+        );
       }
 
       const extractWritten = (res) => {
@@ -1076,9 +1267,37 @@ export default function QueryEditor({
       setFeatureQueryId(null);
     }
     setRunning(false);
-  }, [sql, ExplainOptionSelector, editorConnected, editorCreds, missingRequired, paramValues, explainTicked]);
 
-  const doEstimate = useCallback(async () => {
+    // History, written HERE rather than in an effect.
+    if (lastSqlRef.current) {
+      const finished = runtimeRef.current[tabId] || {};
+      addHistory({
+        sql: lastSqlRef.current,
+        timestamp: new Date().toISOString(),
+        rows: finished.totalRows || lastRunMetaRef.current?.written || 0,
+        status: finished.error ? "error" : "ok",
+        error: finished.error ? String(finished.error).substring(0, 200) : null,
+        elapsed: finished.queryStats?.elapsed_ns
+          ? (Number(finished.queryStats.elapsed_ns) / 1e9).toFixed(3) + "s"
+          : null,
+      });
+      setHistory(getHistory());
+      lastSqlRef.current = "";
+      lastRunMetaRef.current = { written: 0 };
+    }
+  }, [editorConnected, editorCreds, activeTab, setRuntime, toast]);
+  doRunRef.current = doRun;
+
+  const doEstimate = useCallback(async (estTabId) => {
+    // Scoped to one tab like doRun, so switching tabs mid-estimate does not
+    // drop the answer into the visible tab.
+    const tabId = estTabId || activeIdRef.current;
+    const estTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
+    const sql = estTab.sql;
+    const set = (patch) => setRuntime(tabId, patch);
+    const setEstimateResult = (v) => set({ estimateResult: v });
+    const setEstimating = (v) => set({ estimating: v });
+    const setError = (v) => set({ error: v });
     const text =
       sql.trim().split("*/").length > 1
         ? sql.trim().split("*/")[1]
@@ -1113,31 +1332,9 @@ export default function QueryEditor({
     } finally {
       setEstimating(false);
     }
-  }, [sql, editorConnected, editorCreds]);
+  }, [editorConnected, editorCreds, activeTab, setRuntime]);
 
-  useEffect(() => {
-    if (lastSqlRef.current === "") return;
-    if (running) return;
-    const text = lastSqlRef.current;
-    if (!text) return;
-    const rowsCount =
-      result && Array.isArray(result) && result.length > 0
-        ? result.length
-        : lastRunMetaRef.current?.written || 0;
-    addHistory({
-      sql: text,
-      timestamp: new Date().toISOString(),
-      rows: rowsCount,
-      status: error ? "error" : "ok",
-      error: error ? String(error).substring(0, 200) : null,
-      elapsed: queryStats?.elapsed_ns
-        ? (Number(queryStats.elapsed_ns) / 1e9).toFixed(3) + "s"
-        : null,
-    });
-    setHistory(getHistory());
-    lastSqlRef.current = "";
-    lastRunMetaRef.current = { written: 0 };
-  }, [result, error, running, queryStats]);
+  // The history effect that used to live here is gone.
 
   async function saveBookmark() {
     if (!bookmarkName.trim() || !sql.trim()) return;
@@ -1169,6 +1366,24 @@ export default function QueryEditor({
     } catch {}
   }
 
+  /* Write the whole bookmark list. */
+  async function writeBookmarks(updated) {
+    try {
+      await apiFetch("/api/settings/query_bookmarks", {
+        method: "PUT",
+        body: JSON.stringify({
+          value: JSON.stringify(updated),
+          category: "editor",
+        }),
+      });
+      setBookmarks(updated);
+      return true;
+    } catch {
+      toast.error("Could not save your bookmarks.");
+      return false;
+    }
+  }
+
   async function deleteBookmark(idx) {
     const updated = bookmarks.filter((_, i) => i !== idx);
     try {
@@ -1190,9 +1405,7 @@ export default function QueryEditor({
 
 
   // Insert at the caret through the editor's own transaction, so it is ONE
-  // undoable step. Writing through setSql would replace the whole document and
-  // destroy the undo history, which is the bug this phase exists to fix.
-  // Called by the schema explorer when a table name is clicked.
+  // undoable step.
   function insertText(t) {
     editorRef.current?.insertAtCursor(t);
   }
@@ -1207,7 +1420,10 @@ export default function QueryEditor({
         width: "100%",
         height: "100%",
       }
-    : { height: "90.5vh" };
+    : // NO HEIGHT HERE.
+      // This was 90.5vh, an inline style, which beats the stylesheet and is why
+      // fixing .editor-shell in global.css changed nothing at all.
+      {};
 
   const effectiveQueryId = featureQueryId || lastQueryId || qidFromUrl || null;
 
@@ -1344,7 +1560,8 @@ export default function QueryEditor({
             width: explorerWidth,
             minWidth: 160,
             maxWidth: 500,
-            height: fullscreen ? "100%" : "90.5vh",
+            // Fills the shell rather than guessing at the viewport again.
+            height: "100%",
             position: "relative",
             marginLeft: 0,
           }}
@@ -1485,6 +1702,10 @@ export default function QueryEditor({
                               key={t.name}
                               className="editor-table-item"
                               title={`${t.name} (${t.engine})`}
+                              draggable
+                              onDragStart={(e) =>
+                                startTextDrag(e, `${selectedDb}.${t.name} `)
+                              }
                             >
                               <Icon
                                 className={"ti " + engineIcon(t.engine)}
@@ -1584,26 +1805,36 @@ export default function QueryEditor({
             background: "var(--sidebar-bg)",
           }}
         >
-          <div style={{ flex: 1 }}></div>
-          <div
+          {/* AT THE TOP, not the bottom.
+              
+              This used to sit under a flex: 1 spacer, which pinned it to the
+              bottom of a full-height rail. Anything that pushed the rail past
+              the fold took the only way back with it, so collapsing the explorer
+              could hide it permanently. The top of a column is the one place
+              that is always reachable. */}
+          <button
+            type="button"
+            onClick={() => setExplorerOpen(true)}
+            title="Open Explorer"
+            aria-label="Open Explorer"
             style={{
-              padding: "8px 0",
-              borderTop: "1px solid var(--sidebar-border)",
               display: "flex",
+              alignItems: "center",
               justifyContent: "center",
+              width: "100%",
+              height: 36,
+              padding: 0,
+              border: "none",
+              borderBottom: "1px solid var(--sidebar-border)",
+              background: "transparent",
+              color: "var(--icon-color)",
+              cursor: "pointer",
+              flexShrink: 0,
             }}
           >
-            <Icon
-              className="ti ti-folder-open"
-              style={{
-                fontSize: 18,
-                color: "var(--icon-color)",
-                cursor: "pointer",
-              }}
-              onClick={() => setExplorerOpen(true)}
-              title="Open Explorer"
-            ></Icon>
-          </div>
+            <Icon className="ti ti-folder-open" style={{ fontSize: 18 }}></Icon>
+          </button>
+          <div style={{ flex: 1, minHeight: 0 }}></div>
         </div>
       )}
 
@@ -1775,6 +2006,16 @@ export default function QueryEditor({
           </button>
           <button
             className="btn btn-ghost btn-sm"
+            onClick={() => setShareOpen(true)}
+            disabled={!sql?.trim()}
+            title="Copy a link to this query"
+          >
+            <Icon className="ti ti-link"></Icon>
+            <span className="navbar-btn-label">Share</span>
+          </button>
+
+          <button
+            className="btn btn-ghost btn-sm"
             onClick={() => setExportOpen(true)}
             disabled={!sql?.trim()}
             title="Export the results of this query"
@@ -1805,6 +2046,23 @@ export default function QueryEditor({
           </button>
         </div>
 
+        {/* The strip sits above the parameter row and carries the hint that
+            used to live under the editor, so tabs add a row and remove one. */}
+        {!sqlCollapsed && (
+          <QueryTabs
+            keyboardEnabled={active}
+            tabs={tabs}
+            activeId={activeId}
+            runtime={runtime}
+            canAdd={canAddTab}
+            onSelect={tabs_.selectTab}
+            onAdd={tabs_.addTab}
+            onClose={tabs_.closeTab}
+            confirmClose={(tab) => setCloseConfirm(tab)}
+            onRename={tabs_.renameTab}
+          />
+        )}
+
         {!sqlCollapsed && (
           <ParamStrip
             params={params}
@@ -1828,10 +2086,12 @@ export default function QueryEditor({
           >
             <SqlEditor
               ref={editorRef}
+              docKey={activeId}
+              docKeys={tabIds}
               value={sql}
               onChange={setSql}
               variant="full"
-              onRun={doRun}
+              onRun={runActiveTab}
               onBookmarks={() =>
                 setPanel(panel === "bookmarks" ? null : "bookmarks")
               }
@@ -1842,7 +2102,6 @@ export default function QueryEditor({
               dialectData={sqlDialectData}
               height="100%"
             />
-            <div className="sql-hint">Ctrl+Enter to run | Ctrl+B bookmarks</div>
           </div>
         )}
 
@@ -1930,6 +2189,9 @@ export default function QueryEditor({
             display: "flex",
             gap: "10px",
             alignItems: "center",
+            // Wraps rather than overflowing.
+            flexWrap: "wrap",
+            rowGap: 6,
             padding: "6px 16px",
             borderBottom: "1px solid var(--border-default)",
             background: "var(--glass-bg)",
@@ -1966,7 +2228,16 @@ export default function QueryEditor({
                     className="ti ti-check"
                     style={{ color: "var(--color-success)", fontSize: 16 }}
                   />
-                  {result.length.toLocaleString()} row(s) returned
+                  {(totalRows || result.length).toLocaleString()} row(s)
+                  {truncated ? "+" : ""} returned
+                  {truncated && (
+                    <span
+                      style={{ color: "var(--color-warning)", marginLeft: 6 }}
+                      title={`The editor asked for at most ${(activeRuntime.rowCap || maxRows).toLocaleString()} rows, so a large result stays responsive. Raise Max rows, or use Export for the whole thing.`}
+                    >
+                      (first {(activeRuntime.rowCap || maxRows).toLocaleString()}, use Export for all)
+                    </span>
+                  )}
                 </>
               )}
               {queryStats && (
@@ -2042,45 +2313,19 @@ export default function QueryEditor({
             </span>
           )}
           {!result && !error && <span style={{ flex: 1 }}></span>}
-          <Select
-            style={{
-              height: 40,
-              fontSize: "10px",
-              padding: "0 6px",
-              
-              borderRadius: "5px",
-
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-ui)",
-              fontWeight: "500",
-              width: "200px",
-            }}
-            onChange={(e) => {
-              if (e.target.value && e.target.value !== "GENERAL RUN") {
-                setExplainOptionSelector({ type: e.target.value });
-              }
-            }}
-            value={ExplainOptionSelector?.type || "GENERAL RUN"}
-            disabled={isAILoadingGenerating}
-          >
-            <option value="GENERAL RUN">GENERAL RUN</option>
-            <option value="EXPLAIN">EXPLAIN</option>
-            {/* <option value="EXPLAIN AST">AST</option> */}
-            <option value="EXPLAIN SYNTAX">SYNTAX</option>
-            <option value="EXPLAIN QUERY TREE">QUERY TREE</option>
-            <option value="EXPLAIN PLAN">PLAN</option>
-            <option value="EXPLAIN PIPELINE">PIPELINE</option>
-            <option value="EXPLAIN ESTIMATE">ESTIMATE</option>
-            <option value="EXPLAIN AST graph = 1">AST (graph)</option>
-            <option value="EXPLAIN PIPELINE graph = 1">PIPELINE (graph)</option>
-            <option value="EXPLAIN json = 1, description = 0">
-              PLAN (JSON)
-            </option>
-          </Select>
+          {/* ORDER: max rows, cost, generate, mode, go.
+              Left to right this reads as: how much, what will it cost, help me
+              write it, what kind of run, do it. The thing that acts is last and
+              on its own, which is where a primary action belongs. */}
+          <MaxRowsControl value={maxRows} onChange={setMaxRows} disabled={running} />
 
           <button
-            className="btn btn-secondary btn-sm"
-            onClick={doEstimate}
+            className="btn btn-secondary btn-sm sql-action-control"
+            /* NOT onClick={doEstimate}. That passes the click EVENT as the
+               first argument, which doEstimate takes as a tab id, so every
+               result was written under a key no tab has and the button looked
+               dead. */
+            onClick={() => doEstimate()}
             disabled={
               estimating || running || !editorConnected || isAILoadingGenerating
             }
@@ -2092,20 +2337,40 @@ export default function QueryEditor({
               </>
             ) : (
               <>
-                <Icon className="ti ti-calculator"></Icon> Estimate
+                <Icon className="ti ti-calculator"></Icon> Cost
               </>
             )}
           </button>
 
           <button
-            className="ai-button "
+            className="ai-button sql-action-control"
             /* The button's background is var(--accent), a purple in both
                themes, so the label is white in both. It was black on the light
-               theme, which put dark text on a mid-purple fill. */
-            style={{ color: "#fff" }}
+               theme, which put dark text on a mid-purple fill.
+
+               nowrap and a tighter gap so the label cannot wrap as the row
+               fills up. The text is shortened rather than squeezed: a button
+               whose label wraps to two lines changes the height of the whole
+               row. */
+            /* Matched to btn-sm so it lines up with Cost and Go. It was sized
+               by .ai-button's own rules and came out noticeably shorter than
+               everything beside it. */
+            style={{
+              color: "#fff",
+              whiteSpace: "nowrap",
+              gap: 5,
+              padding: "0 12px",
+              fontSize: "0.8125rem",
+              lineHeight: 1,
+              display: "inline-flex",
+              alignItems: "center",
+              flexShrink: 0,
+            }}
             onClick={() => GeneratingSQLHandler()}
             disabled={isAILoadingGenerating}
+            title="Generate SQL from a question, using the selected AI database"
           >
+
             {isAILoadingGenerating ? (
               <>
                 {" "}
@@ -2131,11 +2396,67 @@ export default function QueryEditor({
             )}
           </button>
 
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setExplainOptionSelector({ type: "GENERAL RUN" })}
-                        disabled={running || !editorConnected || isAILoadingGenerating || missingRequired}
+          <Select
+            className="sql-action-control"
+            style={{
+              // Smaller, because the labels are longer now that each one names
+              // the EXPLAIN it performs.
+              fontSize: "10.5px",
+              padding: "0 6px",
+              borderRadius: "5px",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-ui)",
+              fontWeight: "500",
+              // Shrinkable rather than fixed, so it gives way before the row
+              // has to wrap.
+              width: "auto",
+              boxSizing: "border-box",
+              // Both raised by 40px to hold "Explain pipeline (graph)" without
+              // reaching for the ellipsis on every EXPLAIN type.
+              minWidth: "160px",
+              maxWidth: "210px",
+              flexShrink: 1,
+            }}
+            /* Choosing a mode NO LONGER RUNS ANYTHING.
+               It used to run on change, which meant the dropdown was two
+               controls in one: a setting and a trigger. It also had a guard
+               that skipped the update for "GENERAL RUN", so once you picked an
+               EXPLAIN you could never get back to a plain run. Both are gone:
+               this sets the mode, Go performs it. */
+            onChange={(e) => updateTab(activeId, { explainType: e.target.value })}
+            value={ExplainOptionSelector?.type || "GENERAL RUN"}
+            disabled={isAILoadingGenerating || running}
+            title="What Go will do with this query"
+          >
+            {/* The VALUE stays "GENERAL RUN". It is a stored constant: it lives
+                in every persisted tab and is compared against in doRun and in
+                explainOptions.js. Only the label changes. */}
+            {/* Sentence case rather than shouting, with SQL, AST and JSON left
+                alone. Taking "the remaining letters in lowercase" literally
+                would give "Ast" and "(json)", which reads as a mistake rather
+                than as a style. */}
+            <option value="GENERAL RUN">Execute SQL</option>
+            <option value="EXPLAIN">Explain</option>
+            <option value="EXPLAIN SYNTAX">Explain syntax</option>
+            <option value="EXPLAIN QUERY TREE">Explain query tree</option>
+            <option value="EXPLAIN PLAN">Explain plan</option>
+            <option value="EXPLAIN PIPELINE">Explain pipeline</option>
+            <option value="EXPLAIN ESTIMATE">Explain estimate</option>
+            <option value="EXPLAIN AST graph = 1">Explain AST (graph)</option>
+            <option value="EXPLAIN PIPELINE graph = 1">Explain pipeline (graph)</option>
+            <option value="EXPLAIN json = 1, description = 0">Explain plan (JSON)</option>
+          </Select>
 
+          <button
+            className="btn btn-primary btn-sm sql-action-control"
+            /* The ONLY thing that runs a query. It performs whatever the
+               dropdown says, and does not change it: forcing GENERAL RUN here
+               would silently discard the mode the user had just chosen. */
+            onClick={() => runActiveTab()}
+            disabled={
+              running || !editorConnected || isAILoadingGenerating || missingRequired
+            }
+            title="Run this query"
           >
             {running ? (
               <>
@@ -2143,7 +2464,7 @@ export default function QueryEditor({
               </>
             ) : (
               <>
-                <Icon className="ti ti-player-play"></Icon> Run
+                <Icon className="ti ti-player-play"></Icon> Go
               </>
             )}
           </button>
@@ -2161,7 +2482,13 @@ export default function QueryEditor({
           <div
             className="modal-overlay"
             onClick={() => setPanel(null)}
-            style={{ zIndex: 400 }}
+            style={{
+              zIndex: 400,
+              // Out of the way while dragging, so the drop reaches the editor.
+              pointerEvents: panelDragging ? "none" : undefined,
+              opacity: panelDragging ? 0.25 : undefined,
+              transition: "opacity 0.12s var(--ease)",
+            }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -2242,6 +2569,10 @@ export default function QueryEditor({
                       {history.map((h, i) => (
                         <div
                           key={i}
+                          draggable
+                          onDragStart={(e) => startTextDrag(e, asSubquery(h.sql), true)}
+                          onDragEnd={endTextDrag}
+                          title="Drag into the editor to insert as a subquery"
                           style={{
                             padding: "6px 8px",
                             borderRadius: "var(--radius-sm)",
@@ -2331,11 +2662,8 @@ export default function QueryEditor({
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setSql(h.sql);
-                                setPanel(null);
-                              }}
-                              title="Load into editor"
+                              onClick={() => openInNewTab("History", h.sql)}
+                              title="Open in a new tab"
                               style={{
                                 padding: "2px 8px",
                                 fontSize: "12px",
@@ -2410,6 +2738,30 @@ export default function QueryEditor({
                       <Icon className="ti ti-star"></Icon> Save
                     </button>
                   </div>
+
+                  {/* The other half of bookmark defaults. The save path has
+                      read saveDefaults since phase 1, but nothing ever rendered
+                      a way to set it, so the whole feature was unreachable from
+                      both ends. */}
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 10,
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      cursor: "pointer",
+                    }}
+                    title="Store the current parameter values with this bookmark, so opening it later starts from them"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={saveDefaults}
+                      onChange={(e) => setSaveDefaults(e.target.checked)}
+                    />
+                    Save current parameter values as defaults
+                  </label>
                   {bookmarks.length === 0 ? (
                     <div
                       style={{
@@ -2432,6 +2784,10 @@ export default function QueryEditor({
                       {bookmarks.map((b, i) => (
                         <div
                           key={i}
+                          draggable
+                          onDragStart={(e) => startTextDrag(e, asSubquery(b.sql), true)}
+                          onDragEnd={endTextDrag}
+                          title="Drag into the editor to insert as a subquery"
                           style={{
                             padding: "6px 8px",
                             borderRadius: "var(--radius-sm)",
@@ -2505,23 +2861,8 @@ export default function QueryEditor({
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                  function applyBookmarkDefaults(bookmark) {
-                                  const defaults = bookmark.defaults || {};
-                                  setParamValues((prev) => {
-                                    const next = { ...prev };
-                                    for (const [name, value] of Object.entries(defaults)) {
-                                      // Rule 1: a value the user set this session wins over a default.
-                                      if (!hasValue(next[name])) next[name] = value;
-                                    }
-                                    saveParamValues(next);
-                                    return next;
-                                  });
-                                }
-                                setSql(b.sql);
-                                setPanel(null);
-                              }}
-                              title="Load into editor"
+                              onClick={() => openInNewTab(b.name, b.sql, b)}
+                              title="Open in a new tab"
                               style={{
                                 padding: "2px 8px",
                                 fontSize: "12px",
@@ -2552,6 +2893,14 @@ export default function QueryEditor({
                       ))}
                     </div>
                   )}
+
+                  <BookmarkExport
+                    bookmarks={bookmarks}
+                    onImport={async (merged) => {
+                      const ok = await writeBookmarks(merged);
+                      if (ok) toast.success("Bookmarks imported.");
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -2921,6 +3270,73 @@ export default function QueryEditor({
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={rowsWarn != null}
+        tone="danger"
+        title="That is a lot of rows to hold in a browser"
+        message={
+          rowsWarn
+            ? `Asking for ${rowsWarn.toLocaleString()} rows can make the editor slow to scroll and slow to switch tabs, and the whole result is held in memory.`
+            : ""
+        }
+        detail="Export writes the full result to a file without any of that, in any format ClickHouse supports."
+        confirmLabel="Use it anyway"
+        onCancel={() => setRowsWarn(null)}
+        onConfirm={() => {
+          const v = rowsWarn;
+          setRowsWarn(null);
+          setMaxRowsState(v);
+          try {
+            localStorage.setItem(MAX_ROWS_KEY, String(v));
+          } catch {}
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!closeConfirm}
+        tone="danger"
+        title="Close this tab?"
+        message={
+          closeConfirm
+            ? `"${closeConfirm.name}" has not been run, so it is not in your history.`
+            : ""
+        }
+        detail="The text in it will be lost."
+        confirmLabel="Close it"
+        onCancel={() => setCloseConfirm(null)}
+        onConfirm={() => {
+          const id = closeConfirm?.id;
+          setCloseConfirm(null);
+          if (id) tabs_.closeTab(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!runConfirm}
+        title="Another query is running"
+        message={
+          runConfirm
+            ? `A query is still running in ${runConfirm.names}. Run this one as well?`
+            : ""
+        }
+        detail="It may have finished while you were reading this."
+        confirmLabel="Run anyway"
+        onCancel={() => setRunConfirm(null)}
+        onConfirm={() => {
+          const id = runConfirm?.id;
+          setRunConfirm(null);
+          if (id) doRunRef.current?.(id);
+        }}
+      />
+
+      {shareOpen && (
+        <ShareDialog
+          sql={sql}
+          params={paramValues}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
     {exportOpen && (
         <ExportWizard
           sql={sql}

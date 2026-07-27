@@ -1,22 +1,51 @@
 // clickhouse.js - ClickHouse HTTP client with JSON parsing
-//
-// Sends SQL queries to ClickHouse over its HTTP interface using
-// X-ClickHouse-User/Key headers for authentication. Appends
-// FORMAT JSONEachRow to data-returning queries (SELECT, SHOW, etc.)
-// and parses the response. Returns X-ClickHouse-Query-Id and
-// X-ClickHouse-Summary headers for profiling and stats. EXPLAIN
-// with graph=1 or json=1 is handled as raw text output.
-//
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { isDataQuery as sqlIsDataQuery, leadingKeyword } from '../../shared/sqlClassify.js';
 
-export async function executeQuery({ host, port = 8123, secure = false, user = 'default', password = '', sql, readOnly = false }) {
+// The ceiling on how much a single query may return to the application.
+const DEFAULT_MAX_RESULT_BYTES = 128 * 1024 * 1024;
+
+function maxResultBytes() {
+  const n = Number(process.env.MAX_RESULT_BYTES);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_MAX_RESULT_BYTES;
+}
+
+export async function executeQuery({
+  host, port = 8123, secure = false, user = 'default', password = '',
+  sql, readOnly = false, params = {}, settings = {},
+  // Export streams to a file and must never be truncated. Every other caller
+  // hands its result to a browser, and gets the ceiling.
+  noResultLimit = false,
+  }) {
   const proto = secure ? 'https' : 'http';
-  // Apply ClickHouse's readonly setting as the authoritative guard for read-only
-  // requests. Restricting yourself to readonly=1 is always allowed, so this is
-  // safe to send even if the user's profile is not already read-only.
-  const url = readOnly ? `${proto}://${host}:${port}/?readonly=1` : `${proto}://${host}:${port}/`;
+  // Apply ClickHouse's readonly setting as the authoritative guard for read-
+  // only requests.
+    const url = new URL(`${proto}://${host}:${port}/`);
+  if (readOnly) url.searchParams.set('readonly', '1');
+
+  // Parameter and setting names become part of the request URL, so they are
+  // validated before use.
+  const SAFE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  for (const [k, v] of Object.entries(params || {})) {
+    if (!SAFE_NAME.test(k)) throw new Error(`Invalid parameter name: ${k}`);
+    if (v === undefined || v === null) continue;
+    url.searchParams.set(`param_${k}`, String(v));
+  }
+  // The ceiling goes on FIRST, so an explicit setting from the caller still
+  // wins. That matters for the editor, which sends its own row limit alongside.
+  if (!noResultLimit) {
+    url.searchParams.set('max_result_bytes', String(maxResultBytes()));
+    // Stop cleanly at the limit rather than raising TOO_MANY_ROWS_OR_BYTES,
+    url.searchParams.set('result_overflow_mode', 'break');
+  }
+
+  for (const [k, v] of Object.entries(settings || {})) {
+    if (!SAFE_NAME.test(k)) throw new Error(`Invalid setting name: ${k}`);
+    if (v === undefined || v === null || v === '') continue;
+    url.searchParams.set(k, String(v));
+  }
 
   // Strip trailing semicolons and classify (comment/quote-safe) to decide whether
   // to append FORMAT JSONEachRow. Uses the same shared classifier as everywhere.
@@ -71,14 +100,6 @@ export async function executeQuery({ host, port = 8123, secure = false, user = '
 
 // executeQueryWithBody - run a query with the SQL in the URL parameter and an
 // optional raw request body, used by Schema Studio.
-//
-// The standard executeQuery() above sends the SQL as the POST body, which
-// cannot also carry a data payload. Schema Studio needs both for binary-format
-// inference (Parquet/ORC): the query goes in the ?query= parameter and the file
-// bytes are the POST body. The same path serves text queries (body = null).
-// Safety limits cap execution time and memory so a bad inference cannot hammer
-// the server. Set jsonEachRow false for statements that are not data queries
-// (CREATE TABLE, EXPLAIN AST), where parsing is not needed.
 export async function executeQueryWithBody({
   host,
   port = 8123,

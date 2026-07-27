@@ -16,6 +16,35 @@ import {
 } from "../../utils/exportApi.js";
 import { beginBusy, endBusy } from "../../hooks/useIdleTimeout.js";
 
+// A running export outlives the browser:
+const ACTIVE_EXPORT_KEY = "chops_active_export";
+
+function rememberExport(job, fileName) {
+  try {
+    localStorage.setItem(
+      ACTIVE_EXPORT_KEY,
+      JSON.stringify({ jobId: job.jobId, fileName, startedAt: Date.now() }),
+    );
+  } catch {}
+}
+
+function forgetExport() {
+  try {
+    localStorage.removeItem(ACTIVE_EXPORT_KEY);
+  } catch {}
+}
+
+function recallExport() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_EXPORT_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    return v && typeof v.jobId === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 function defaultFileName(username) {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -98,6 +127,59 @@ export default function ExportWizard({ sql, username, onClose }) {
     setStep(2);
   }
 
+  const startPolling = React.useCallback((jobId) => {
+    beginBusy();
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const p = await exportProgress(jobId);
+        setProgress(p);
+        if (p.state !== "running") {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          endBusy();
+          // A failed export has no file to collect, so nothing is left to
+          // come back to.
+          if (p.state !== "ready") forgetExport();
+        }
+      } catch {
+        // The job is gone: collected by the sweeper, or lost to a restart,
+        // which wipes both the registry and the export directory. Stop asking.
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        endBusy();
+        forgetExport();
+      }
+    }, 1000);
+  }, []);
+
+  // Pick up an export left running by a previous visit.
+  useEffect(() => {
+    const saved = recallExport();
+    if (!saved) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const p = await exportProgress(saved.jobId);
+        if (cancelled) return;
+        if (p.state === "failed" || p.state === "cancelled") {
+          forgetExport();
+          return;
+        }
+        setJob({ jobId: saved.jobId, fileName: saved.fileName });
+        setProgress(p);
+        setStep(3);
+        if (p.state === "running") startPolling(saved.jobId);
+      } catch {
+        // 404: the job is gone. Clear the pointer and start clean.
+        forgetExport();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [startPolling]);
+
   async function begin() {
     try {
       const started = await startExport({
@@ -111,22 +193,10 @@ export default function ExportWizard({ sql, username, onClose }) {
       });
       setJob(started);
       setStep(3);
-      beginBusy();
-      pollRef.current = setInterval(async () => {
-        try {
-          const p = await exportProgress(started.jobId);
-          setProgress(p);
-          if (p.state !== "running") {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-            endBusy();
-          }
-        } catch {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-          endBusy();
-        }
-      }, 1000);
+      // Written BEFORE polling starts, so a crash a moment later still leaves a
+      // way back to the job.
+      rememberExport(started, started.fileName || fileName);
+      startPolling(started.jobId);
     } catch (err) {
       toast.error(err.message || "Could not start the export.");
     }
@@ -134,16 +204,21 @@ export default function ExportWizard({ sql, username, onClose }) {
 
   async function handleClose() {
     if (job && progress?.state === "running") {
+      // The offer is now true. Leaving it running keeps the stored pointer, so
+      // reopening the wizard comes back to this progress view.
       const stop = window.confirm(
-        "This export is still running. Press OK to cancel it, or Cancel to leave it running in the background.",
+        "This export is still running.\n\n" +
+          "OK cancels it.\n" +
+          "Cancel leaves it running; reopen Export to come back to it.",
       );
       if (stop) {
-        try { await cancelExport(job.jobId); } catch {  }
+        try { await cancelExport(job.jobId); } catch {}
+        forgetExport();
       }
-    } else if (job) {
-      try { await cancelExport(job.jobId); } catch {  }
     }
+    // A READY job is deliberately left alone.
     if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
     endBusy();
     onClose();
   }
@@ -411,7 +486,14 @@ export default function ExportWizard({ sql, username, onClose }) {
                 {progress?.state === "running" ? "Cancel export" : "Close"}
               </button>
               {progress?.state === "ready" && (
-                <button className="btn btn-primary" onClick={() => downloadExport(job.jobId)}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    downloadExport(job.jobId);
+                    // Collected. Nothing left to come back to.
+                    forgetExport();
+                  }}
+                >
                   <Icon className="ti ti-download" /> Download
                 </button>
               )}

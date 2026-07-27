@@ -5,11 +5,12 @@
 
 import { useEffect, useState } from "react";
 import { Compartment, Prec } from "@codemirror/state";
-import { EditorView, keymap } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, keymap, tooltips } from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
 import { sql, SQLDialect } from "@codemirror/lang-sql";
 import { autocompletion } from "@codemirror/autocomplete";
 import { search, searchKeymap } from "@codemirror/search";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 
 // The completion list cap.
@@ -49,21 +50,57 @@ export function useIsDarkTheme() {
 
 // Build a SQL dialect from the connected server's own keyword and function lists, so highlighting matches the version actually in use.
 
+/* Enough SQL to parse a statement when the server's keyword list is missing. */
+const BASELINE_KEYWORDS =
+  "select from where group by having order limit offset as distinct all " +
+  "and or not in is null true false between like ilike case when then else end " +
+  "join inner left right full outer cross on using union intersect except " +
+  "insert into values update set delete create alter drop table database view " +
+  "index if exists with prewhere final sample settings format engine " +
+  "partition primary key order asc desc array";
+
 export function buildDialect(dialectData) {
-  if (!dialectData?.keywords?.length) return sql();
+  const serverKeywords = dialectData?.keywords || [];
+  const functions = dialectData?.functions || [];
+  const keywords = serverKeywords.length
+    ? serverKeywords
+    : functions.length
+      ? BASELINE_KEYWORDS.split(" ")
+      : [];
+
+  // EITHER list is enough.
+  if (!keywords.length && !functions.length) return sql();
+
   try {
     const dialect = SQLDialect.define({
-      keywords: dialectData.keywords.join(" ").toLowerCase(),
-      builtin: (dialectData.functions || []).join(" "),
+      keywords: keywords.join(" ").toLowerCase(),
+      builtin: functions.join(" "),
     });
     return sql({ dialect, upperCaseKeywords: true });
   } catch {
-    // A malformed keyword list should degrade to plain SQL, never break the page.
+    // A malformed list should degrade to plain SQL, never break the page.
     return sql();
   }
 }
 
 // The completion source.
+
+/* Where tooltips are rendered. */
+const TOOLTIP_HOST_ID = "chops-cm-tooltip-host";
+
+function tooltipHost() {
+  if (typeof document === "undefined") return undefined;
+  let el = document.getElementById(TOOLTIP_HOST_ID);
+  if (!el) {
+    el = document.createElement("div");
+    el.id = TOOLTIP_HOST_ID;
+    // Fixed and zero-sized, so it contributes nothing to layout. The tooltips
+    // inside are absolutely positioned by CodeMirror and are unaffected.
+    el.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;z-index:9999";
+    document.body.appendChild(el);
+  }
+  return el;
+}
 
 export function makeCompletionSource(optionsRef) {
   return function chopsCompletions(context) {
@@ -86,22 +123,74 @@ export function makeCompletionSource(optionsRef) {
 // Syntax colours.
 
 const chopsHighlight = HighlightStyle.define([
+  // Keywords: SELECT, FROM, JOIN, GROUP BY.
   { tag: t.keyword, color: "var(--sql-keyword)", fontWeight: "600" },
-  {
-    tag: [t.function(t.variableName), t.standard(t.variableName), t.typeName],
-    color: "var(--sql-function)",
-  },
-  { tag: [t.string, t.special(t.string)], color: "var(--sql-string)" },
+
+  // FUNCTIONS.
+  { tag: t.standard(t.name), color: "var(--sql-function)", fontWeight: "500" },
+
+  // Tables, columns and aliases. Untagged before, so they inherited the
+  // foreground colour and the whole query read as undifferentiated text.
+  { tag: t.name, color: "var(--sql-identifier)" },
+
+  // `db` in db.table.
+  { tag: t.special(t.name), color: "var(--sql-qualifier)" },
+
+  // Column types in a CREATE TABLE.
+  { tag: t.typeName, color: "var(--sql-type)" },
+
+  // A "quoted identifier" is a name, not a string, and colouring it as a string
+  // makes `SELECT "count"` look like data.
+  { tag: t.special(t.string), color: "var(--sql-identifier)" },
+
+  { tag: t.string, color: "var(--sql-string)" },
   { tag: [t.number, t.bool, t.null], color: "var(--sql-number)" },
   {
     tag: [t.lineComment, t.blockComment],
     color: "var(--sql-comment)",
     fontStyle: "italic",
   },
-  { tag: t.operator, color: "var(--text-secondary, var(--text-primary))" },
-  { tag: t.punctuation, color: "var(--text-muted)" },
+  { tag: t.operator, color: "var(--sql-operator)" },
+  { tag: [t.punctuation, t.paren], color: "var(--sql-punctuation)" },
   { tag: t.invalid, color: "var(--color-danger)" },
 ]);
+
+/* Colour the database qualifier in `db.table` differently from the table. */
+const qualifierMark = Decoration.mark({ class: "cm-sql-qualifier" });
+
+function qualifierDecorations(view) {
+  const builder = new RangeSetBuilder();
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter(node) {
+        if (node.name !== "CompositeIdentifier") return;
+        const first = node.node.firstChild;
+        // Only when there is something after it. A lone identifier that happens
+        // to be wrapped is a table, not a qualifier.
+        if (first && first.name === "Identifier" && first.nextSibling) {
+          builder.add(first.from, first.to, qualifierMark);
+        }
+      },
+    });
+  }
+  return builder.finish();
+}
+
+export const sqlQualifierHighlight = ViewPlugin.fromClass(
+  class {
+    constructor(view) {
+      this.decorations = qualifierDecorations(view);
+    }
+    update(update) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = qualifierDecorations(update.view);
+      }
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
 
 // The visual theme.
 
@@ -112,7 +201,7 @@ export function makeEditorTheme(dark) {
     color: "var(--text-primary)",
     backgroundColor: "transparent",
     height: "100%",
-    // The editor sizes ITSELF to its container rather than relying on a rule in global.css. 
+    // The editor sizes ITSELF to its container rather than relying on a rule in global.css.
     width: "100%",
     flex: "1 1 auto",
     minWidth: 0,
@@ -137,7 +226,8 @@ export function makeEditorTheme(dark) {
 
     boxSizing: "border-box",
     minHeight: "100%",
-    // flex-grow alone is not enough here; see the note on .cm-scroller above.
+    // flex-grow alone is not enough; one container above with a non-stretch
+    // alignment collapses this to the text width.
     width: "100%",
     flexGrow: 1,
   },
@@ -168,6 +258,8 @@ export function makeEditorTheme(dark) {
     outline: "1px solid var(--accent)",
   },
   ".cm-nonmatchingBracket": { outline: "1px solid var(--color-danger)" },
+  // Set by sqlQualifierHighlight on the "db" half of db.table.
+  ".cm-sql-qualifier": { color: "var(--sql-qualifier) !important" },
   ".cm-foldPlaceholder": {
     backgroundColor: "var(--bg-sunken)",
     border: "1px solid var(--border-default)",
@@ -259,15 +351,19 @@ export function extraExtensions({
   dark = true,
 }) {
   const ext = [
+    // Render tooltips into the body rather than inside the editor.
+    tooltips({ parent: tooltipHost() }),
     languageCompartment.of(language),
     // In a compartment for the same reason the dialect is: switching the app
     // theme must not rebuild the view and lose undo history.
     themeCompartment.of(makeEditorTheme(dark)),
     syntaxHighlighting(chopsHighlight),
+    sqlQualifierHighlight,
     EditorView.lineWrapping,
   ];
 
-  // basicSetupFor turns searchKeymap off so the binding is ours to place. 
+  // basicSetupFor turns searchKeymap off, so Ctrl+F has to be bound here or it
+  // falls through to the browser's find bar.
   if (variant === "full") {
     ext.push(search({ top: true }));
     ext.push(keymap.of(searchKeymap));
@@ -289,7 +385,7 @@ export function extraExtensions({
     ext.push(EditorView.editable.of(false));
   }
 
-  // Prec.highest so the editor does not swallow these. 
+  // Prec.highest so the editor does not swallow these.
   const keys = [];
   if (onRun) {
     keys.push({
@@ -328,6 +424,47 @@ export function extraExtensions({
 
 // Turn the three system-table queries into tagged completion options.
 
+/* The two forms of the functions query. */
+export const FUNCTIONS_QUERY_FULL =
+  "SELECT name, description, syntax, categories FROM system.functions";
+export const FUNCTIONS_QUERY_BASIC = "SELECT name FROM system.functions";
+
+/* Ask for the documented form, fall back to bare names. */
+export async function loadFunctionRows(run) {
+  try {
+    const r = await run(FUNCTIONS_QUERY_FULL);
+    if (r && Array.isArray(r.rows)) return r.rows;
+  } catch {
+    // Most likely an unknown column on an older server. Try the plain form.
+  }
+  try {
+    const r = await run(FUNCTIONS_QUERY_BASIC);
+    return (r && r.rows) || [];
+  } catch {
+    return [];
+  }
+}
+
+/* The documentation panel for one function. */
+function functionInfo(row) {
+  return () => {
+    const el = document.createElement("div");
+    el.className = "cm-fn-doc";
+    if (row.syntax) {
+      const code = document.createElement("code");
+      code.textContent = row.syntax;
+      el.appendChild(code);
+    }
+    if (row.description) {
+      const p = document.createElement("p");
+      p.textContent = row.description;
+      el.appendChild(p);
+    }
+    return el;
+  };
+}
+
+/* @param functions either bare names, */
 export function buildCompletionOptions({ keywords = [], functions = [], tables = [] }) {
   const options = [];
   const seen = new Set();
@@ -339,7 +476,18 @@ export function buildCompletionOptions({ keywords = [], functions = [], tables =
 
   for (const k of keywords) add({ label: String(k).toUpperCase(), type: "keyword" });
   for (const f of functions) {
-    add({ label: f, type: "function", apply: `${f}()`, detail: "function" });
+    const row = typeof f === "string" ? { name: f } : f || {};
+    if (!row.name) continue;
+    add({
+      label: row.name,
+      type: "function",
+      apply: `${row.name}()`,
+      // The category reads better in the narrow detail column than the word
+      // "function" repeated down the whole list.
+      detail: String(row.categories || "function").split(",")[0].trim(),
+      // Only when there is something to show: an empty panel is worse than none.
+      info: row.description || row.syntax ? functionInfo(row) : undefined,
+    });
   }
 
   const dbs = new Set();

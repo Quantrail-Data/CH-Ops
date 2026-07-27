@@ -26,9 +26,7 @@ import { runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { apiFetch } from "../../utils/api.js";
 
-// Keep at most this many result rows in the DOM, and show roughly ten at a time
-// inside a scrollable area (vertical scroll for the rest, horizontal for width).
-// Height = header (~37px) + 10 data rows (~35px each).
+// Keep at most this many result rows in the DOM,
 const RESULT_MAX_ROWS = 100;
 const RESULT_MAX_HEIGHT = "390px";
 
@@ -49,8 +47,7 @@ const LOADING_PHRASES = [
 ];
 
 // Memoized result area for one side: estimate panel or execute table, or the
-// matching error banner. Memoized so typing in the editor (which does not change
-// `estimate`/`exec`) never re-renders the result table or the cost panel.
+// matching error banner.
 const PaneResults = memo(function PaneResults({ estimate, exec }) {
   return (
     <>
@@ -171,7 +168,21 @@ const ComparePane = memo(function ComparePane({
 
   return (
     <div className={"cmp-pane cmp-pane-" + side}>
-      <div className="cmp-pane-header" style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:"100px"}}>
+      {/* Was a fixed 100px block. The old editor needed the room; CodeMirror
+          does not, and the leftover showed as a band of empty space above every
+          pane. It sizes to its contents now and the editor takes what it gave
+          back. */}
+      <div
+        className="cmp-pane-header"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          flexWrap: "wrap",
+          minHeight: 34,
+        }}
+      >
         <span>{title}</span>
         {side === "right" && <div>
           <div
@@ -226,7 +237,9 @@ const ComparePane = memo(function ComparePane({
         dialectData={dialectData}
         onRun={onExecute}
         placeholder={placeholder}
-        height="220px"
+        // Grows with the window rather than sitting at a fixed 220px, which was
+        // chosen when a fixed header sat above it.
+        height="clamp(260px, 42vh, 560px)"
       />
 
       <div className="cmp-pane-buttons">
@@ -276,7 +289,7 @@ const ComparePane = memo(function ComparePane({
   );
 });
 
-export default function ComparisonView({ mode, onModeChange }) {
+export default function ComparisonView({ mode, onModeChange, active = true }) {
   const { selectedNode, port ,selectedClusterId,
     connected,
     clusters,
@@ -494,9 +507,8 @@ export default function ComparisonView({ mode, onModeChange }) {
     }
   }
 
-  // After a page reload the (jti, 'editor') credential session may still be live
-  // server-side (it shares the 2h JWT lifetime). Restore the connected state from
-  // it so the user does not have to reconnect. Never carries a password.
+  // After a page reload the (jti, 'editor') credential session may still be
+  // live server-side (it shares the 2h JWT lifetime).
   useEffect(() => {
     let cancelled = false;
     editorConnectionStatus()
@@ -553,6 +565,7 @@ export default function ComparisonView({ mode, onModeChange }) {
 
   // Load autocomplete words once connected (under the editor credentials).
   useEffect(() => {
+    if (!active) return;
     if (!editorConnected) {
       setAcWords([]);
       setDialectData(null);
@@ -567,7 +580,7 @@ export default function ComparisonView({ mode, onModeChange }) {
     return () => {
       cancelled = true;
     };
-  }, [editorConnected, editorCreds]);
+  }, [editorConnected, editorCreds, active]);
 
   // Exit fullscreen on Escape.
   useEffect(() => {

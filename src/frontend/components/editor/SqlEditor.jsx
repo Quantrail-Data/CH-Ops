@@ -12,6 +12,9 @@ import React, {
   useRef,
 } from "react";
 import CodeMirror from "@uiw/react-codemirror";
+import { basicSetup } from "@uiw/codemirror-extensions-basic-setup";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import {
   basicSetupFor,
   buildDialect,
@@ -22,22 +25,8 @@ import {
   useIsDarkTheme,
 } from "./sqlEditorSetup.js";
 
-/**
- * @param {string}   value          the SQL
- * @param {function} onChange       receives the new string, not an event
- * @param {string}   variant        'full' | 'compact' | 'expression' | 'viewer'
- * @param {function} onRun          Ctrl+Enter
- * @param {function} onBookmarks    Ctrl+B
- * @param {function} onEscape       Escape, after CodeMirror has had its chance
- * @param {Array}    completions    tagged options from buildCompletionOptions()
- * @param {object}   dialectData    { keywords, functions } from the server
- * @param {boolean}  readOnly
- * @param {string}   height         any CSS length; '100%' fills its container
- * @param {string}   placeholder
- *
- * Exposes an imperative handle with insertAtCursor(text) and focus(), used by
- * the schema explorer and, later, by drag and drop.
- */
+/* @param {string} value the SQL @param {function} onChange receives the new
+   string, */
 const SqlEditor = forwardRef(function SqlEditor(
   {
     value = "",
@@ -52,12 +41,36 @@ const SqlEditor = forwardRef(function SqlEditor(
     height = "100%",
     placeholder = "",
     autoFocus = false,
+    // Tab mode.
+    docKey = null,
+    docKeys = null,
   },
   ref,
 ) {
   const viewRef = useRef(null);
 
-  // Completions change on every connection. 
+  // One EditorState per document key.
+  const statesRef = useRef(new Map());
+  const keyRef = useRef(docKey);
+
+  // The document used to seed a key that has not been seen before.
+  const seedRef = useRef(value);
+  seedRef.current = value;
+
+  // In tab mode the wrapper must never see the value change.
+  const frozenValue = useRef(value);
+  const cmValue = docKey ? frozenValue.current : value;
+
+  // The last text handed upward, so an echo from a controlled parent is not
+  // reported a second time.
+  const lastEmitted = useRef(value);
+
+  // In a ref so the update listener above can stay part of a stable extension
+  // array.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Completions change on every connection.
   const optionsRef = useRef(completions);
   useEffect(() => {
     optionsRef.current = completions;
@@ -92,11 +105,32 @@ const SqlEditor = forwardRef(function SqlEditor(
         onBookmarks: onBookmarks ? () => bookmarksRef.current?.() : undefined,
         onEscape: onEscape ? () => escapeRef.current?.() : undefined,
       }),
-    // Deliberately excludes completions, dialectData and the callbacks. 
+    // Deliberately excludes completions, dialectData and the callbacks.
     [variant, languageCompartment, themeCompartment],
   );
 
-  const basicSetup = useMemo(() => basicSetupFor(variant), [variant]);
+  // ONE extension array, owned here rather than split between this file and the
+  // wrapper's basicSetup.
+  const allExtensions = useMemo(
+    () => [
+      ...basicSetup(basicSetupFor(variant)),
+      ...extensions,
+      // Saves the live state under the current key, and reports changes.
+      EditorView.updateListener.of((u) => {
+        if (keyRef.current && (u.docChanged || u.selectionSet)) {
+          statesRef.current.set(keyRef.current, u.state);
+        }
+        if (!u.docChanged) return;
+        const text = u.state.doc.toString();
+        // Guarded so a controlled parent echoing the value straight back does
+        // Skip the echo when a controlled parent hands the same text back.
+        if (text === lastEmitted.current) return;
+        lastEmitted.current = text;
+        onChangeRef.current?.(text);
+      }),
+    ],
+    [variant, extensions],
+  );
 
   // Swap the dialect when the connection changes, without rebuilding the view.
 
@@ -144,16 +178,35 @@ const SqlEditor = forwardRef(function SqlEditor(
 
   const handleCreate = useCallback((view) => {
     viewRef.current = view;
+    if (keyRef.current) statesRef.current.set(keyRef.current, view.state);
   }, []);
 
-  const handleChange = useCallback(
-    (next) => {
-      onChange?.(next);
-    },
-    [onChange],
-  );
+  // Swap documents when the key changes. The outgoing state is already in the
+  // map, put there by the update listener above.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !docKey || keyRef.current === docKey) return;
+    keyRef.current = docKey;
+    const saved = statesRef.current.get(docKey);
+    view.setState(
+      saved ||
+        EditorState.create({ doc: seedRef.current ?? "", extensions: allExtensions }),
+    );
+    statesRef.current.set(docKey, view.state);
+  }, [docKey, allExtensions]);
 
-  // Own flex container, so the editor does not depend on whatever it is dropped into being laid out sensibly. 
+  // Drop states for keys that no longer exist, or a long session of opening and
+  // closing tabs holds every document it ever showed.
+  useEffect(() => {
+    if (!docKeys) return;
+    const live = new Set(docKeys);
+    for (const k of statesRef.current.keys()) {
+      if (!live.has(k)) statesRef.current.delete(k);
+    }
+  }, [docKeys]);
+
+
+  // Own flex container, so the editor does not depend on whatever it is dropped into being laid out sensibly.
   
   return (
     <div
@@ -167,14 +220,14 @@ const SqlEditor = forwardRef(function SqlEditor(
       }}
     >
     <CodeMirror
-      value={value}
-      onChange={handleChange}
+      value={cmValue}
+      // No onChange here. The update listener in allExtensions does it, so the
+      // behaviour is identical before and after a setState.
       onCreateEditor={handleCreate}
-      extensions={extensions}
-      basicSetup={basicSetup}
-      // 'none' rather than 'light'/'dark': the look comes entirely from
-      // chopsEditorTheme, which reads CSS variables and therefore follows the
-      // application theme with no branching here.
+      extensions={allExtensions}
+      // The wrapper builds nothing: allExtensions above is the complete list.
+      basicSetup={false}
+      // 'none' rather than 'light'/'dark':
       theme="none"
       editable={!readOnly && variant !== "viewer"}
       readOnly={readOnly || variant === "viewer"}
@@ -184,9 +237,7 @@ const SqlEditor = forwardRef(function SqlEditor(
       // two-space insert. Off for viewer so Tab still moves focus.
       indentWithTab={variant !== "viewer"}
       autoFocus={autoFocus}
-      // The wrapper renders one div around the editor. It needs the same
-      // treatment for the same reason: in a flex container it would otherwise
-      // shrink to its content.
+      // The wrapper renders one div around the editor.
       style={{ height: "100%", width: "100%", flex: "1 1 auto", minWidth: 0 }}
     />
     </div>
