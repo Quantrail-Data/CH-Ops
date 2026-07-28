@@ -1,8 +1,12 @@
-// Lives in tests/no-mocks: it exercises the REAL services/clickhouse.js.
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// resultLimits.test.js - the max_result_bytes ceiling applied to every query
+// Contributors - Praveen kumar, Kathir Moorthy
 
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
 
+// The backend ceiling. maxResultBytes() reads process.env on every call rather
+// than caching it at module load, so setting the variable immediately before the
+// call is enough - no module reset needed.
 const NODE = { host: "h", port: 8123, secure: false, user: "u", password: "p" };
 let calls = [];
 

@@ -1,17 +1,7 @@
-/**
- * users.test.js - Unit tests for user management controller
- *
- * Tests user CRUD operations with RBAC enforcement. Covers listing users,
- * creating users (admin/superadmin only, duplicate username rejection,
- * superadmin creation restricted), updating users (reset password, email,
- * role changes with hierarchy checks), deleting users (self-deletion
- * blocked, higher role deletion blocked). Middleware tests for requireAdmin,
- * and requireEditor. Edge cases like invalid roles,
- * DB errors, and 404 responses are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// users.test.js - unit tests for user management controller
+// Contributors - Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { describe, it, expect, beforeEach, beforeAll, mock } from "bun:test";
 
 const fakeDB = {

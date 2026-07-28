@@ -1,18 +1,7 @@
-/**
- * rbac.test.js - Unit tests for role-based access control logic
- *
- * Tests the RBAC hierarchy by extracting and testing the canChangeRole
- * function logic from users.js. Verifies that superadmin can change any
- * role except superadmin and cannot promote to superadmin; admin can
- * change editor/readonly but cannot change admin or superadmin; editor
- * and readonly have no change permissions. Also tests middleware exports
- * (requireAdmin, requireEditor) and user management
- * permissions (admin-only create, superadmin-only superadmin creation,
- * max 3 superadmins, delete privilege checks).
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// rbac.test.js - unit tests for role-based access control logic
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathirdhasan, Kathir Moorthy, Praveen kumar
+
 import { describe, it, expect } from 'bun:test';
 import fs from 'fs';
 

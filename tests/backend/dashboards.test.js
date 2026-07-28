@@ -1,16 +1,7 @@
-/**
- * dashboards.test.js - Unit tests for dashboard and chart controllers
- *
- * Tests CRUD operations for dashboards and charts using an in-memory
- * mock database. Dashboard tests cover creation with validation, listing,
- * updating, deletion, and fetching charts by dashboard ID. Chart tests
- * cover creation with required fields, listing, updating with config
- * parsing, and deletion. Edge cases like missing fields, invalid config
- * JSON, and DB errors are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// dashboards.test.js - unit tests for dashboard and chart controllers
+// Contributors - Praveen kumar, Kathirdhasan
+
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 const fakeDB = {

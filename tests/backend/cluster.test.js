@@ -1,16 +1,7 @@
-/**
- * cluster.test.js - Unit tests for cluster management controller
- *
- * Tests the cluster CRUD operations with mock clusterUtils and clickhouse
- * services. Covers listing clusters, creating with validation (max 3 clusters,
- * unique names, node name validation), updating cluster name and nodes,
- * deleting clusters, and testing node connections. Permission checks are
- * also tested (non-admin gets 403). Various edge cases like DB errors,
- * missing fields, and duplicate names are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Contributors - Kathir Moorthy, Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// cluster.test.js - unit tests for cluster management controller
+
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 const getAllClusters = mock(()=>{});

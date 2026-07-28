@@ -1,5 +1,5 @@
-// dashboard-filters-wiring.test.js - structural contracts for DashboardView.
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Contributors - Praveen kumar, Kathir Moorthy
+// dashboard-filters-wiring.test.js - structural contracts for DashboardView
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { describe, it, expect } from "vitest";

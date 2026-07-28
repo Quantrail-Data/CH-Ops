@@ -1,16 +1,7 @@
-/**
- * schema-studio-routes.test.js - RBAC gate tests for the Schema Studio router
- *
- * Schema Studio's /connect lets the caller authenticate as any ClickHouse
- * user of their choosing (independent of the CHOps app role), and /create
- * is its only write action (a guarded CREATE TABLE). Both must reject the
- * app's 'readonly' role server-side, mirroring the same enforcement already
- * covered for query.js. This does not re-test the full feature (inference,
- * AI generation, etc.) - see schema-studio.test.js for the pure-logic helpers.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// schema-studio-routes.test.js - RBAC gate tests for the Schema Studio router
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Praveen kumar, Kathir Moorthy
+
 import { describe, test, expect, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";

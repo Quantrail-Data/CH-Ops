@@ -1,18 +1,7 @@
-/**
- * config.test.js - Unit tests for configuration controller
- *
- * Tests the getConnection endpoint which returns the cluster configuration the
- * frontend uses to populate its node and cluster selectors.
- *
- * The load-bearing assertion here is that node passwords never appear in the
- * response. This endpoint previously returned getAllClusters() verbatim, which
- * decrypts stored passwords, so every authenticated user - including a readonly
- * one - received the ClickHouse credentials for every configured node. The
- * sibling /api/cluster endpoints masked them correctly; this one did not.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// config.test.js - unit tests for configuration controller
+// Contributors - Kathirdhasan, Kathir Moorthy
+
 import { describe, it, expect, mock } from "bun:test";
 
 const CLUSTERS = [

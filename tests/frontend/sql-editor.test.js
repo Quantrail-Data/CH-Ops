@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Test suite validating SQL editor layouts, DAG-to-tree parsing, history tracking, autocomplete engines, and ClickHouse query executions.
+// Contributors - Kathir Moorthy, Kathirdhasan
+// sql-editor.test.js - the SQL Editor: EXPLAIN tree, history, bookmarks and autocomplete
 
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
@@ -90,7 +90,11 @@ describe('SQL Editor: Export wizard and its API', () => {
   const server = read('src/backend/server.js');
 
   it('wizard has three steps', () => { expect(wizard).toContain('1. Query'); expect(wizard).toContain('2. Format'); expect(wizard).toContain('3. Download'); });
-  it('Next is blocked until an estimate has been attempted', () => { expect(wizard).toContain('disabled={!tried}'); });
+  it('Next is blocked until an estimate has been attempted', () => {
+    // Also blocked when the SQL declares a required parameter: export does not
+    // carry parameter values, so the placeholder would reach ClickHouse unset.
+    expect(wizard).toContain('disabled={!tried || blockedByParams}');
+  });
   it('warns when the statement is not SELECT-like, without blocking', () => { expect(wizard).toContain('isSelectLike'); expect(wizard).toContain('{!selectLike && ('); });
   it('warns when more than one statement is present', () => { expect(wizard).toContain('hasMultipleStatements'); });
   it('offers background running and cancel', () => { expect(wizard).toContain('Run in background'); expect(wizard).toContain('Cancel export'); });
@@ -102,7 +106,16 @@ describe('SQL Editor: Export wizard and its API', () => {
   it('route exposes estimate, jobs, progress, ticket and cancel', () => { expect(route).toContain('"/estimate"'); expect(route).toContain('"/jobs"'); expect(route).toContain('"/jobs/:id"'); expect(route).toContain('"/jobs/:id/ticket"'); });
   it('every job read checks the owner', () => { expect(route).toContain('req.user?.username'); });
   it('only settings from the shared catalogue are forwarded', () => { expect(route).toContain('ALLOWED_SETTINGS'); });
-  it('download route is mounted before the authenticated routes', () => { expect(server.indexOf("'/api/export/download'")).toBeLessThan(server.indexOf("'/api/export'")); });
+  it('download route is mounted before the authenticated routes', () => {
+    // Compare against the ROUTER mount. A body-size cap is also mounted on
+    // '/api/export', earlier in the file, and it calls next() rather than
+    // handling the request - so a plain indexOf finds the wrong line.
+    const downloadAt = server.indexOf("'/api/export/download'");
+    const routerAt = server.indexOf("app.use('/api/export', rateLimiter");
+    expect(downloadAt).toBeGreaterThan(-1);
+    expect(routerAt).toBeGreaterThan(-1);
+    expect(downloadAt).toBeLessThan(routerAt);
+  });
   it('old table download route is gone', () => { expect(server).not.toContain('/api/table/download'); });
 });
 

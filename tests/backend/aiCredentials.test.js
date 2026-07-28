@@ -1,6 +1,7 @@
-//aiCredentials.test.js - Unit tests for the Qurioz AI credential helper.
+// Contributors - Kathir Moorthy, Kathirdhasan
+// aiCredentials.test.js - unit tests for the Qurioz AI credential helper
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+
 import { describe, it, expect, beforeAll, mock } from "bun:test";
 
 const getClusterNodes = mock(() => []);

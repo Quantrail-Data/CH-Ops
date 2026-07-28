@@ -1,8 +1,6 @@
-// Guards for the Chart Builder preview: a bad chart configuration must surface
-// the exception in the preview area, never crash the page.
-//
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
+// chart-builder-preview.test.js - the Chart Builder preview never taking the page down
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathir Moorthy
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';

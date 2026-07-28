@@ -1,16 +1,7 @@
-/**
- * crypto.test.js - Unit tests for AES-256-GCM encryption service
- *
- * Tests the crypto module with a fixed test secret. Verifies that
- * encrypt/decrypt round-trip works, each encryption produces different
- * ciphertext (random IV), empty/null inputs are handled, and legacy
- * plaintext values are returned as-is. Also tests tampered ciphertext
- * detection, Unicode/special character support, and the 32-character
- * minimum secret requirement. Confirms per-install salt file usage.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Contributors - Kathirdhasan
+// crypto.test.js - unit tests for AES-256-GCM encryption service
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { initCrypto, encrypt, decrypt } from '../../src/backend/services/crypto.js';
 

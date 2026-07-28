@@ -1,6 +1,6 @@
+// Contributors - Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> kathir Moorthy
-// Suite validating chart registries, column types, SQL string/graph transformations, and auto-layout algorithms.
+// chartTypes.test.js - the chart type registry, column validation and axis defaults
 
 import { describe, it, expect } from "vitest";
 import {
