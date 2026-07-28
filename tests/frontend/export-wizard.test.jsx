@@ -1,6 +1,6 @@
-// export-wizard.test.jsx - the three-step export wizard, including its parameter guard
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors - Kathirdhasan, Kathir Moorthy
+// Contributors - Kathir Moorthy, Praveen kumar
+// export-wizard.test.jsx - the three-step export wizard, from estimate through download
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -47,6 +47,11 @@ async function toFormatStep() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The wizard writes an "active export" pointer to localStorage when a job
+  // starts, and reads it on open so a refresh resumes the download. Without
+  // clearing it, every test after the first one that starts an export opened
+  // straight into step 3, so there was no Next button to find.
+  localStorage.clear();
   api.estimateExport.mockResolvedValue({
     selectLike: true, rows: 1000, bytes: 50000, exact: false, warnBytes: 1024 ** 3,
   });

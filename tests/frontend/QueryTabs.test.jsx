@@ -1,4 +1,6 @@
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Contributors - Praveen kumar, Kathir Moorthy, Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// QueryTabs.test.jsx - the SQL Editor tab strip: rendering, selection, renaming and the busy marker
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
@@ -200,19 +202,18 @@ describe("renaming", () => {
 });
 
 describe("busy indicator", () => {
+  // The real Icon renders an <svg class="ti ti-loader-2 ..."> with no test id;
+  // the old query assumed a mocked Icon that this file never installed. Match
+  // the class the component actually emits.
+  const spinners = () => [...document.querySelectorAll(".ti-loader-2")];
+
   it("marks only the running tab", () => {
     mount({ runtime: { b: { running: true } } });
-    const spinners = screen.getAllByTestId("icon").filter(
-      (n) => (n.getAttribute("data-icon") || "").includes("loader"),
-    );
-    expect(spinners).toHaveLength(1);
+    expect(spinners()).toHaveLength(1);
   });
   it("shows nothing when nothing is running", () => {
     mount();
-    const spinners = screen.getAllByTestId("icon").filter(
-      (n) => (n.getAttribute("data-icon") || "").includes("loader"),
-    );
-    expect(spinners).toHaveLength(0);
+    expect(spinners()).toHaveLength(0);
   });
 });
 

@@ -9,24 +9,76 @@ import LoginPage from "./components/layout/LoginPage.jsx";
 import MainLayout from "./components/layout/MainLayout.jsx";
 import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
 
-export const AuthContext = createContext(null);
+// Each context defaults to an inert value with the SAME SHAPE the provider
+// supplies, rather than to null.
+//
+// Every consumer destructures immediately - `const { auth } = useAuth()`,
+// `const { theme } = useTheme()`, `const { selectedClusterId } = useConnection()`
+// - so a null default turns "rendered outside its provider" into a hard crash
+// at the first line of the component. That is the worst possible failure for a
+// context whose whole job is ambient state: the component cannot render at all,
+// and the stack points at the destructure rather than at the missing provider.
+//
+// The defaults below let such a component render in its logged-out, unconnected,
+// light-theme state instead. Nothing silently half-works: `auth` is null, so
+// anything gated on a user still behaves as though there is none.
+
+const NO_AUTH = Object.freeze({
+  auth: null,
+  login: () => {},
+  logout: () => {},
+});
+
+const NO_THEME = Object.freeze({
+  theme: "light",
+  toggleTheme: () => {},
+});
+
+// Mirrors the initial connection state plus the actions the provider adds.
+const NO_CONNECTION = Object.freeze({
+  clusters: [],
+  selectedClusterId: "",
+  nodes: [],
+  selectedNode: "",
+  nodeName: "",
+  user: "",
+  port: 8123,
+  connected: false,
+  error: null,
+  clusterName: "",
+  setConnection: () => {},
+  testConnection: () => {},
+  reloadConfig: () => {},
+  switchCluster: () => {},
+});
+
+const NO_QURIOZ_CHAT = Object.freeze({
+  replaceChat: () => {},
+  quriozMessage: [],
+  insertMessage: () => {},
+  deleteAllChatMessage: () => {},
+  isNewChat: false,
+  QURIOZLENGTH: 0,
+});
+
+export const AuthContext = createContext(NO_AUTH);
 export function useAuth() {
-  return useContext(AuthContext);
+  return useContext(AuthContext) ?? NO_AUTH;
 }
 
-export const ThemeContext = createContext(null);
+export const ThemeContext = createContext(NO_THEME);
 export function useTheme() {
-  return useContext(ThemeContext);
+  return useContext(ThemeContext) ?? NO_THEME;
 }
 
-export const ConnectionContext = createContext(null);
+export const ConnectionContext = createContext(NO_CONNECTION);
 export function useConnection() {
-  return useContext(ConnectionContext);
+  return useContext(ConnectionContext) ?? NO_CONNECTION;
 }
 
-export const QuriozChatContext = createContext(null);
+export const QuriozChatContext = createContext(NO_QURIOZ_CHAT);
 export function useQuriozChatContext() {
-  return useContext(QuriozChatContext);
+  return useContext(QuriozChatContext) ?? NO_QURIOZ_CHAT;
 }
 
 const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY;

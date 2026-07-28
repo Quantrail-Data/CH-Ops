@@ -22,7 +22,7 @@
     "test": "bun run test:backend && vitest run tests/frontend",
     "test:backend": "bun test tests/backend && bun test tests/isolated && bun test tests/no-mocks",
     "test:coverage": "bun run test:backend:coverage && bun run test:frontend:coverage",
-    "test:backend:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage/backend tests/backend",
+    "test:backend:coverage": "bun test tests/backend --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage/backend && bun test tests/isolated && bun test tests/no-mocks",
     "test:frontend:coverage": "vitest run tests/frontend --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
