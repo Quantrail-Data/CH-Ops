@@ -20,19 +20,26 @@ router.post("/generate-sql", async (req, res, next) => {
   try {
     const { database_id, user_question } = req.body;
 
+    // Three bugs lived in this block. It used && where it meant ||, so it only
+    // complained when BOTH were missing. It called error.statusCode(422) - a
+    // number is not a function, so the guard threw a TypeError instead of
+    // reporting a 422. And it did not return after next(), so execution
+    // continued into the handler regardless.
     if (
-      (database_id === undefined || database_id === null) &&
-      (user_question === undefined || user_question === null)
+      database_id === undefined || database_id === null ||
+      user_question === undefined || user_question === null
     ) {
-      const error = new Error("Database_id and user_question must be included");
-      error.statusCode(422);
-      next(error);
+      const error = new Error("database_id and user_question are required.");
+      error.statusCode = 422;
+      return next(error);
     }
 
     const currentService = db
       ?.select()
       ?.from(apiKeys)
-      ?.where(eq(apiKeys?.isActive, 1))
+      // isActive is declared { mode: "boolean" }; passing a raw 1 bypasses
+      // Drizzle's mapping. It works on SQLite and would not on Postgres.
+      ?.where(eq(apiKeys?.isActive, true))
       ?.get();
 
     if (!currentService) {

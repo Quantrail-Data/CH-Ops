@@ -1,97 +1,12 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> Praveen kumar
+// Contributors - Praveen kumar, Kathir Moorthy, Kathirdhasan
 // Inline SQL editor embedded within the chat interface for modifying and executing AI-generated queries.
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
+import SqlEditor from "../editor/SqlEditor.jsx";
 import Icon from "../common/Icon.jsx";
 import {useQuriozChatContext} from "../../App"
 
-// SQL Editor with Line Numbers Component
-const SQLEditorWithLines = ({ value, onChange, onKeyDown }) => {
-  const textareaRef = useRef(null);
-  const lineNumbersRef = useRef(null);
-
-  const lines = value.split('\n');
-
-  const handleScroll = () => {
-    if (textareaRef.current && lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
-    }
-  };
-
-  const handleChange = (e) => {
-    onChange(e);
-    handleScroll();
-  };
-
-  return (
-    <div
-  style={{
-    display: "flex",
-    backgroundColor: "#1f2937",
-    borderRadius: "6px",
-    overflow: "hidden",
-    border: "1px solid #4b5563",
-  }}
->
-  {/* Line Numbers */}
-  <div
-    ref={lineNumbersRef}
-    style={{
-      backgroundColor: "#111827",
-      color: "#9ca3af",
-      textAlign: "right",
-      padding: "12px 8px",
-      fontFamily: "var(--font-code)",
-      fontSize: "12px",
-      userSelect: "none",
-      overflow: "hidden",
-      minWidth: "30px",
-      width: "auto",
-      lineHeight: "1.5",
-    }}
-  >
-    {lines.map((_, index) => (
-      <div
-        key={index + 1}
-        style={{
-          paddingRight: "8px",
-        }}
-      >
-        {index + 1}
-      </div>
-    ))}
-  </div>
-
-
-  <textarea
-    ref={textareaRef}
-    value={value}
-    onChange={handleChange}
-    onKeyDown={onKeyDown}
-    onScroll={handleScroll}
-    spellCheck={false}
-    style={{
-      flex: 1,
-      backgroundColor: "#1f2937",
-      color: "#f3f4f6",
-      padding: "12px",
-      fontFamily: "var(--font-code)",
-      fontSize: "12px",
-      resize: "vertical",
-      minHeight: "120px",
-      outline: "none",
-      border: "none",
-      overflowWrap: "anywhere",
-      wordBreak: "break-word",
-      lineHeight: "1.4",
-      scrollbarWidth: "thin",
-      scrollbarColor: "#4B5563 #1F2937",
-    }}
-  />
-</div>
-  );
-};
 
 const SQLQueryEditorComponent = ({ chat,RunSqlQueryhandler }) => {
   const [editingSql, setEditingSql] = useState({
@@ -116,10 +31,6 @@ const SQLQueryEditorComponent = ({ chat,RunSqlQueryhandler }) => {
     }
   }
 
-
-
-
-
   const handleEditSql = () => {
     setEditingSql({
       isEditing: true,
@@ -136,10 +47,11 @@ const SQLQueryEditorComponent = ({ chat,RunSqlQueryhandler }) => {
     });
   };
 
-  const handleSqlChange = (e) => {
+  // SqlEditor passes the new text, not an event.
+  const handleSqlChange = (next) => {
     setEditingSql(prev => ({
       ...prev,
-      sql: e.target.value
+      sql: next
     }));
   };
 
@@ -165,12 +77,8 @@ const SQLQueryEditorComponent = ({ chat,RunSqlQueryhandler }) => {
   };
 
 
-  const handleSqlKeyDown = (e) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
-      e.preventDefault();
-      handleUpdateSql();
-    }
-  };
+  // Ctrl+Enter is registered inside the editor at Prec.highest rather than as a
+  // DOM listener: CodeMirror sees the key first and would otherwise swallow it.
 
   return (
    <div style={{ marginBottom: "16px", width: "90%", }}>
@@ -256,18 +164,20 @@ const SQLQueryEditorComponent = ({ chat,RunSqlQueryhandler }) => {
   {editingSql.isEditing ? (
     <div
       style={{
-        backgroundColor: "#111827",
-        color: "#f3f4f6",
+        backgroundColor: "var(--bg-sunken)",
+        color: "var(--text-primary)",
         borderBottomLeftRadius: "6px",
         borderBottomRightRadius: "6px",
         overflow: "hidden",
         width: "100%",
       }}
     >
-      <SQLEditorWithLines
+      <SqlEditor
         value={editingSql.sql}
         onChange={handleSqlChange}
-        onKeyDown={handleSqlKeyDown}
+        variant="compact"
+        onRun={handleUpdateSql}
+        height="160px"
       />
 
       <div

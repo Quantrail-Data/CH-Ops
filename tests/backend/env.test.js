@@ -1,15 +1,7 @@
-/**
- * env.test.js - Unit tests for environment variable loader
- *
- * Tests the loadEnv() function with various environment configurations.
- * Verifies that multiple super admins are collected from numbered env vars
- * (SUPER_ADMIN_1, SUPER_ADMIN_2, etc.), legacy SUPER_ADMIN fallback works,
- * SMTP config is read correctly, and validation throws errors when required
- * variables (super admin, SESSION_SECRET) are missing.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// env.test.js - unit tests for environment variable loader
+
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test';
 import { loadEnv } from '../../src/backend/utils/env.js';
 
@@ -63,6 +55,46 @@ describe('Env Loader - super admins', () => {
     process.env.SUPER_ADMIN_1_PASSWORD = saved1p;
     process.env.SUPER_ADMIN_2 = saved2;
     process.env.SUPER_ADMIN_2_PASSWORD = saved2p;
+  });
+
+  it('accepts a purely legacy configuration', () => {
+    // The legacy branch checked SUPER_ADMIN_1_EMAIL instead of
+    // SUPER_ADMIN_EMAIL, so a config using only the old variable names threw
+    // even though it was complete.
+    const saved = {
+      u1: process.env.SUPER_ADMIN_1,
+      p1: process.env.SUPER_ADMIN_1_PASSWORD,
+      e1: process.env.SUPER_ADMIN_1_EMAIL,
+      u2: process.env.SUPER_ADMIN_2,
+      p2: process.env.SUPER_ADMIN_2_PASSWORD,
+      e2: process.env.SUPER_ADMIN_2_EMAIL,
+    };
+    delete process.env.SUPER_ADMIN_1;
+    delete process.env.SUPER_ADMIN_1_PASSWORD;
+    delete process.env.SUPER_ADMIN_1_EMAIL;
+    delete process.env.SUPER_ADMIN_2;
+    delete process.env.SUPER_ADMIN_2_PASSWORD;
+    delete process.env.SUPER_ADMIN_2_EMAIL;
+
+    process.env.SUPER_ADMIN = 'legacy_admin';
+    process.env.SUPER_ADMIN_PASSWORD = 'legacy_pass';
+    process.env.SUPER_ADMIN_EMAIL = 'legacy@example.com';
+
+    expect(() => loadEnv()).not.toThrow();
+    const env = loadEnv();
+    expect(env.superAdmins.length).toBe(1);
+    expect(env.superAdmins[0].username).toBe('legacy_admin');
+    expect(env.superAdmins[0].email).toBe('legacy@example.com');
+
+    delete process.env.SUPER_ADMIN;
+    delete process.env.SUPER_ADMIN_PASSWORD;
+    delete process.env.SUPER_ADMIN_EMAIL;
+    process.env.SUPER_ADMIN_1 = saved.u1;
+    process.env.SUPER_ADMIN_1_PASSWORD = saved.p1;
+    process.env.SUPER_ADMIN_1_EMAIL = saved.e1;
+    process.env.SUPER_ADMIN_2 = saved.u2;
+    process.env.SUPER_ADMIN_2_PASSWORD = saved.p2;
+    process.env.SUPER_ADMIN_2_EMAIL = saved.e2;
   });
 
   it('reads SMTP config from env', () => {

@@ -4,6 +4,7 @@
 import EmbeddingService from "./EmbeddingService";
 
 import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
+import { deserialize } from "./aiCredentials.js";
 import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
 import crypto from "crypto";
 
@@ -17,7 +18,7 @@ class SchemaIngestionService {
       throw new Error(`Connection not found for ${databaseId}`);
     }
 
-    this.credentials = JSON.parse(connection?.credentials);
+    this.credentials = deserialize(connection?.credentials);
     this.client = ClickHouseClientFactory.createClient(this.credentials);
 
     this.embedding = new EmbeddingService();

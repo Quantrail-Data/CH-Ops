@@ -1,7 +1,6 @@
+// schema-routes.test.js - the SQLite schema, route mounting and auth coverage
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Backend suite validating schemas, router injection, multi-tier RBAC, secure crypto pipelines, SSRF blocks, and ClickHouse ingestion services.
-
+// Contributors - Kathir Moorthy
 
 import { describe, it, expect } from "vitest";
 import fs from "fs";
@@ -150,9 +149,8 @@ describe("Routes: Users RBAC (4-tier)", () => {
     expect(code).toContain("readonly: 0");
     expect(code).toContain("superadmin: 3");
   });
-  it("exports requireAdmin, requireSuperAdmin, requireEditor", () => {
+  it("exports requireAdmin and requireEditor", () => {
     expect(code).toContain("export function requireAdmin");
-    expect(code).toContain("export function requireSuperAdmin");
     expect(code).toContain("export function requireEditor");
   });
   it("DELETE route uses requireAdmin", () => {
@@ -291,7 +289,7 @@ describe("Routes: App Backup", () =>{
     expect(code).toContain('router.put("/config"');
   });
   it("requires superadmin for all routes", () => {
-    expect(code).toContain("requireSuperAdmin");
+    expect(code).toContain("requireAdmin");
   });
 });
 
@@ -347,15 +345,22 @@ describe("Security: SSRF Prevention", () => {
 describe("Security: RBAC on Write Operations", () => {
   const alertRoutes = read("src/backend/routes/alerts.js");
   it("alert write routes require admin level", () => {
-    expect(alertRoutes).toContain("requireSuperAdmin, createRule");
-    expect(alertRoutes).toContain("requireSuperAdmin, createChannel");
+    expect(alertRoutes).toContain("requireAdmin, createRule");
+    expect(alertRoutes).toContain("requireAdmin, createChannel");
   });
 
   const dashRoutes = read("src/backend/routes/dashboards.js");
   it("dashboard write routes require editor level", () => {
     expect(dashRoutes).toContain("requireEditor, createDashboard");
     expect(dashRoutes).toContain("requireEditor, createChart");
-    expect(dashRoutes).toContain("requireEditor, deleteChart");
+    expect(dashRoutes).toContain("requireEditor, updateChart");
+  });
+  it("dashboard delete routes require admin", () => {
+    // Deleting a dashboard detaches every chart on it, and deleting a chart is
+    // unrecoverable, so both sit a level above create and edit.
+    expect(dashRoutes).toContain("requireAdmin, deleteDashboard");
+    expect(dashRoutes).toContain("requireAdmin, deleteChart");
+    expect(dashRoutes).not.toContain("requireEditor, deleteChart");
   });
   it("dashboard read routes are open", () => {
     const listLine = dashRoutes
@@ -445,8 +450,14 @@ describe("Server: Safety", () => {
   it("initializes crypto from session secret", () => {
     expect(code).toContain("initCrypto(env.sessionSecret)");
   });
-  it("query endpoint has 100kb body limit", () => {
-    expect(code).toContain("limit: '100kb'");
+  it("SQL endpoints have a 512kb body limit mounted before the global parser", () => {
+    const tight = code.indexOf("app.use('/api/query', express.json({ limit: '512kb' }))");
+    const global = code.indexOf("app.use(express.json({ limit: '2mb' }))");
+    expect(tight).toBeGreaterThan(-1);
+    expect(code).toContain("app.use('/api/export', express.json({ limit: '512kb' }))");
+    // Order is the whole point: body-parser skips once req._body is set, so a
+    // tighter limit mounted after the global one never applies.
+    expect(tight).toBeLessThan(global);
   });
   it("SPA catch-all skips /docs/ so Docsify can fetch .md files", () => {
     expect(code).toContain("req.path.startsWith('/docs/')");
@@ -490,10 +501,15 @@ describe("Server: Auth middleware on all routes except login", () => {
     "users",
   ].forEach((r) => {
     it(`/api/${r} requires authMiddleware`, () => {
-      const line = sv
+      // Some paths carry a body-size cap mounted ahead of the router on the
+      // same path, so take the line that mounts the route handler rather than
+      // the first line mentioning the path.
+      const lines = sv
         .split("\n")
-        .find((l) => (l.includes(`'/api/${r}'`) || l.includes(`"/api/${r}"`)) && l.includes("app.use"));
-      expect(line).toContain("authMiddleware");
+        .filter((l) => (l.includes(`'/api/${r}'`) || l.includes(`"/api/${r}"`)) && l.includes("app.use"));
+      expect(lines.length).toBeGreaterThan(0);
+      const mount = lines.find((l) => !/express\.json\([^)]*\)\s*\)\s*;?\s*$/.test(l)) || lines[lines.length - 1];
+      expect(mount).toContain("authMiddleware");
     });
   });
 });

@@ -1,16 +1,12 @@
 // DataTable - Tabular data renderer with complex cell expansion
-//
 // The primary table component for displaying query results and tabular data
-// throughout CHOps. Handles both primitive values (strings, numbers, booleans)
-// and complex structures (arrays, objects, maps) with click-to-expand modal
-// support. Complex cells show a preview and open a detailed modal on click.
-// Supports column customization, row actions, serial numbers.
-//
-// Author: Kathir Moorthy
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import Icon from "../common/Icon.jsx";
 
 import darkLogo from "../../assets/chops-dark.svg"
@@ -79,8 +75,7 @@ function innerCellText(v) {
 /* Inner views for the modal (tiered by the value's actual shape) */
 
 // Array of plain objects -> table with the UNION of keys across all elements
-// (so heterogeneous objects, e.g. JSON columns or flatten_nested=0 Nested,
-// don't silently drop columns). Missing keys render blank.
+// (so heterogeneous objects, e.g.
 function ArrayOfObjectsTable({ arr }) {
   const keys = [];
   const seen = new Set();
@@ -309,6 +304,12 @@ export default function DataTable({
   actions,
   cellRenderers,
   maxRows = 1000,
+  // Above this many rows the table renders only what is on screen.
+  virtualizeAbove = 100,
+  // A row is measured after it renders, so this only has to be close enough to
+  // put the scrollbar roughly the right size before the first paint.
+  estimatedRowHeight = 34,
+  allowFullscreen = true,
   maxHeight,
   emptyMessage,
   onCellClick,
@@ -331,6 +332,59 @@ export default function DataTable({
     : rows.length
       ? Object.keys(rows[0])
       : [];
+
+  // Only the rows on screen are rendered, so the cost follows the window
+  // rather than the size of the result.
+  const scrollRef = useRef(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const virtualize = rows.length > virtualizeAbove;
+
+  // Without virtualisation the old ceiling still applies, because a short table
+  // renders every row it is given.
+  const shownRows = virtualize
+    ? rows.length
+    : Math.max(1, Math.min(maxRows, rows.length));
+  const truncated = rows.length > shownRows;
+
+  const visibleRows = useMemo(
+    () => (virtualize ? rows : rows.slice(0, shownRows)),
+    [rows, virtualize, shownRows],
+  );
+
+  const virtualizer = useVirtualizer({
+    count: virtualize ? visibleRows.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => estimatedRowHeight,
+    // Rows are not a fixed height: a cell can be expanded, and text can wrap.
+    // Measuring after render keeps the scrollbar honest instead of guessing.
+    measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
+    overscan: 12,
+  });
+
+  const virtualRows = virtualize ? virtualizer.getVirtualItems() : [];
+
+  // A virtualiser that has not measured a viewport yet returns nothing, and
+  // rendering nothing means a blank table.
+  const unmeasured = virtualize && virtualRows.length === 0 && rows.length > 0;
+  const FALLBACK_ROWS = 60;
+  const padTop = virtualRows.length ? virtualRows[0].start : 0;
+  const padBottom = virtualRows.length
+    ? virtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+    : 0;
+
+  // Escape leaves fullscreen. Registered only while it is open, so it cannot
+  // swallow Escape from anything else on the page.
+  useEffect(() => {
+    if (!fullscreen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  const renderRow = useCallback((row, ri) => row, []);
 
   // Primitive cell click: preserve existing behavior (toggle wrap + copy/toast).
   function handlePrimitiveClick(cellKey, value) {
@@ -389,13 +443,31 @@ export default function DataTable({
     );
   }
 
-  return (
+  const table = (
     <div
-      className={wrapClass}
-      style={{
-        maxHeight: maxHeight ?? (QuriozFlag ? "15rem" : undefined),
-        ...(maxHeight ? { overflow: "auto" } : null),
-      }}
+      className={wrapClass + (fullscreen ? " data-table-fullscreen" : "")}
+      ref={scrollRef}
+      style={
+        fullscreen
+          ? {
+              // Sized by the portal host below, not by the viewport directly.
+              height: "100%",
+              maxHeight: "none",
+              overflow: "auto",
+              background: "var(--bg-page)",
+              padding: "38px 0 0",
+              border: 0,
+              borderRadius: 0,
+            }
+          : {
+              // A virtualised table cannot be sized by its content: it has to
+              // scroll for there to be anything to virtualise.
+              maxHeight:
+                maxHeight ?? (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
+              ...(maxHeight || virtualize ? { overflow: "auto" } : null),
+              position: "relative",
+            }
+      }
     >
       <table className="data-table">
         <thead style={{ zIndex: QuriozFlag && 0 }}>
@@ -409,83 +481,124 @@ export default function DataTable({
               ))}
 
             {actions && <th>Actions</th>}
+
+            {/* The fullscreen control lives in the header's rightmost cell
+                rather than floating over the table. A floating button is inside
+                the scroll container and slides away the moment you scroll; the
+                header is sticky, so this one does not. */}
+            {allowFullscreen && rows.length > 0 && (
+              <th className="dt-fs-col" aria-label="">
+                <button
+                  type="button"
+                  className="data-table-fs-btn"
+                  onClick={() => setFullscreen((f) => !f)}
+                  title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+                  aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+                >
+                  <Icon className={`ti ${fullscreen ? "ti-minimize" : "ti-maximize"}`} />
+                </button>
+              </th>
+            )}
           </tr>
         </thead>
 
         <tbody>
-          {rows.slice(0, maxRows).map((row, ri) => (
-            <tr key={ri}>
-              {s_no && <td>{ri + 1}</td>}
+          {/* Spacer above. Two empty rows stand in for everything scrolled
+              past, which keeps the scrollbar and the row positions honest
+              without those rows existing. */}
+          {virtualize && padTop > 0 && (
+            <tr aria-hidden="true">
+              <td colSpan={cols.length + (s_no ? 1 : 0) + (actions ? 1 : 0) + (allowFullscreen && rows.length > 0 ? 1 : 0)} style={{ height: padTop, padding: 0, border: 0 }} />
+            </tr>
+          )}
 
-              {cols.map((c, ci) => {
-                const key = `${ri}-${ci}`;
-                const raw = row[c];
+          {(virtualize && !unmeasured
+            ? virtualRows.map((v) => [visibleRows[v.index], v.index])
+            : (unmeasured ? rows.slice(0, FALLBACK_ROWS) : visibleRows).map((r, i) => [r, i])
+          ).map(([row, ri]) => (
+              <tr
+              key={ri}
+              data-index={ri}
+              ref={virtualize ? virtualizer.measureElement : undefined}
+            >
+                {s_no && <td>{ri + 1}</td>}
 
-                // Custom per-column renderer (opt-in). Takes precedence over the
-                // default primitive/complex handling and carries no click state.
-                if (cellRenderers && cellRenderers[c]) {
-                  return (
-                    <td key={c} style={{ whiteSpace: "nowrap" }}>
-                      {cellRenderers[c](raw, row)}
-                    </td>
-                  );
-                }
+                {cols.map((c, ci) => {
+                  const key = `${ri}-${ci}`;
+                  const raw = row[c];
 
-                const complex = isComplexValue(raw);
+                  // Custom per-column renderer (opt-in). Takes precedence over the
+                  // default primitive/complex handling and carries no click state.
+                  if (cellRenderers && cellRenderers[c]) {
+                    return (
+                      <td key={c} style={{ whiteSpace: "nowrap" }}>
+                        {cellRenderers[c](raw, row)}
+                      </td>
+                    );
+                  }
 
-                if (complex) {
+                  const complex = isComplexValue(raw);
+
+                  if (complex) {
+                    return (
+                      <td
+                        key={c}
+                        className={`dt-complex${
+                          selectedCell === key ? " cell-selected" : ""
+                        }`}
+                        onClick={() => handleComplexClick(key, c, raw)}
+                        title="Click to expand"
+                        style={{ whiteSpace: "nowrap", cursor: "pointer" }}
+                      >
+                        <span className="dt-complex-caret">▸</span>
+                        <span className="dt-complex-preview">
+                          {complexPreview(raw)}
+                        </span>
+                      </td>
+                    );
+                  }
+
+                  // Primitive cell (unchanged behavior)
+                  const val = raw ?? "";
                   return (
                     <td
                       key={c}
-                      className={`dt-complex${
-                        selectedCell === key ? " cell-selected" : ""
+                      className={`${expandedCells.has(key) ? "expanded" : ""} ${
+                        selectedCell === key ? "cell-selected" : ""
                       }`}
-                      onClick={() => handleComplexClick(key, c, raw)}
-                      title="Click to expand"
-                      style={{ whiteSpace: "nowrap", cursor: "pointer" }}
+                      onClick={() => handlePrimitiveClick(key, val)}
+                      onDoubleClick={()=> {typeof onCellClick === "function" && onCellClick(val)}}
+                      style={{
+                        whiteSpace:whiteSpaceFlag ? "pre": (expandedCells.has(key) ? "normal" : "nowrap"),
+                        wordWrap: "break-word",
+                      }}
                     >
-                      <span className="dt-complex-caret">▸</span>
-                      <span className="dt-complex-preview">
-                        {complexPreview(raw)}
-                      </span>
+                      {formatPrimitive(raw)}
                     </td>
                   );
-                }
+                })}
 
-                // Primitive cell (unchanged behavior)
-                const val = raw ?? "";
-                return (
+                {actions && (
                   <td
-                    key={c}
-                    className={`${expandedCells.has(key) ? "expanded" : ""} ${
-                      selectedCell === key ? "cell-selected" : ""
-                    }`}
-                    onClick={() => handlePrimitiveClick(key, val)}
-                    onDoubleClick={()=> {typeof onCellClick === "function" && onCellClick(val)}}
-                    style={{
-                      whiteSpace:whiteSpaceFlag ? "pre": (expandedCells.has(key) ? "normal" : "nowrap"),
-                      wordWrap: "break-word",
-                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ whiteSpace: "nowrap" }}
                   >
-                    {formatPrimitive(raw)}
+                    {actions(row)}
                   </td>
-                );
-              })}
-
-              {actions && (
-                <td
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ whiteSpace: "nowrap" }}
-                >
-                  {actions(row)}
-                </td>
-              )}
+                )}
+                {allowFullscreen && rows.length > 0 && <td className="dt-fs-col" />}
             </tr>
           ))}
+
+          {virtualize && padBottom > 0 && (
+            <tr aria-hidden="true">
+              <td colSpan={cols.length + (s_no ? 1 : 0) + (actions ? 1 : 0) + (allowFullscreen && rows.length > 0 ? 1 : 0)} style={{ height: padBottom, padding: 0, border: 0 }} />
+            </tr>
+          )}
         </tbody>
       </table>
 
-      {rows.length > maxRows && (
+      {truncated && (
         <div
           style={{
             padding: "8px 14px",
@@ -493,7 +606,7 @@ export default function DataTable({
             color: "var(--text-muted)",
           }}
         >
-          Showing {maxRows} of {rows.length} rows
+          Showing {shownRows.toLocaleString()} of {rows.length.toLocaleString()} rows
         </div>
       )}
 
@@ -505,5 +618,24 @@ export default function DataTable({
         />
       )}
     </div>
+  );
+
+  // PORTALLED WHEN FULLSCREEN.
+  if (!fullscreen) return table;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 900,
+        background: "var(--bg-page)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {table}
+    </div>,
+    document.body,
   );
 }

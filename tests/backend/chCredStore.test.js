@@ -1,14 +1,7 @@
-// chCredStore.test.js - Integration tests for the encrypted CH credential store
-//
-// Runs against an in-memory SQLite database injected via __setDb, so it never
-// touches real data and does not depend on file execution order. Verifies the
-// encrypt-at-rest round trip, that the status view never leaks the password,
-// the (jti, context) composite key (context isolation + one row per key),
-// replacement on reconnect, expiry handling, clearing one context, clearing an
-// entire login by jti, and pruning expired rows.
-//
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
+// Contributors - Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// chCredStore.test.js - integration tests for the encrypted CH credential store
+
 import { describe, it, expect,afterAll } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
@@ -61,7 +54,11 @@ describe('chCredStore', () => {
     store.setCredSession({ jti: 'j-bob', context: EDITOR, appUser: 'bob', node: 'n', chUser: 'u', password: 'plaintextpw' });
     const row = sqlite.query("SELECT encrypted_password FROM ch_cred_session WHERE jti = 'j-bob'").get();
     expect(row.encrypted_password).not.toBe('plaintextpw');
-    expect(row.encrypted_password.split(':').length).toBe(3); // iv:tag:ciphertext
+    // v1:iv:tag:ciphertext - the version prefix lets decrypt() tell a genuine
+    // failure from a legacy plaintext value instead of silently returning the
+    // ciphertext (see services/crypto.js).
+    expect(row.encrypted_password.startsWith('v1:')).toBe(true);
+    expect(row.encrypted_password.split(':').length).toBe(4);
   });
 
   it('status view never includes the password', () => {

@@ -1,17 +1,7 @@
-/**
- * users.test.js - Unit tests for user management controller
- *
- * Tests user CRUD operations with RBAC enforcement. Covers listing users,
- * creating users (admin/superadmin only, duplicate username rejection,
- * superadmin creation restricted), updating users (reset password, email,
- * role changes with hierarchy checks), deleting users (self-deletion
- * blocked, higher role deletion blocked). Middleware tests for requireAdmin,
- * requireEditor, and requireSuperAdmin. Edge cases like invalid roles,
- * DB errors, and 404 responses are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// users.test.js - unit tests for user management controller
+// Contributors - Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { describe, it, expect, beforeEach, beforeAll, mock } from "bun:test";
 
 const fakeDB = {
@@ -108,7 +98,6 @@ let updateUser;
 let deleteUser;
 let requireAdmin;
 let requireEditor;
-let requireSuperAdmin;
 
 // Register mocks and load the controller inside beforeAll so that
 // mock.module() is guaranteed to run before the dynamic import is
@@ -138,7 +127,6 @@ beforeAll(async () => {
   deleteUser = mod.deleteUser;
   requireAdmin = mod.requireAdmin;
   requireEditor = mod.requireEditor;
-  requireSuperAdmin = mod.requireSuperAdmin;
 });
 
 describe("Users Controller", () => {
@@ -482,8 +470,8 @@ describe("Users Controller", () => {
     expect(nextMock).toHaveBeenCalled();
   });
 
-  it("requireSuperAdmin allows admin", () => {
-    requireSuperAdmin({ user: { role: "admin" } }, {}, nextMock);
+  it("requireAdmin allows admin", () => {
+    requireAdmin({ user: { role: "admin" } }, {}, nextMock);
     expect(nextMock).toHaveBeenCalled();
   });
 

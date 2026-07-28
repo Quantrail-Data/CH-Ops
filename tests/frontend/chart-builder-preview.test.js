@@ -1,8 +1,6 @@
-// Guards for the Chart Builder preview: a bad chart configuration must surface
-// the exception in the preview area, never crash the page.
-//
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
+// chart-builder-preview.test.js - the Chart Builder preview never taking the page down
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathir Moorthy
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
@@ -30,7 +28,24 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('keeps the read-only guard on the query run', () => {
     expect(code).toContain('isReadOnlySql(sql)');
-    expect(code).toContain('runQuery(sql.trim(), { readOnly: true })');
+    // The call gained a params argument so a parameterized chart can be
+    // previewed with its defaults; readOnly is still non-negotiable.
+    expect(code).toContain('runQuery(sql.trim(), {');
+    expect(code).toContain('readOnly: true');
+  });
+
+  it('previews a parameterized chart with its defaults', () => {
+    expect(code).toContain('paramDefaults');
+    expect(code).toContain('findParameters');
+    // A required parameter with no default is explained rather than sent, so
+    // the author does not get ClickHouse's substitution error instead.
+    expect(code).toContain('to preview this chart');
+  });
+
+  it('warns when a parameter sits outside an optional block', () => {
+    expect(code).toContain('outside an optional');
+    // A warning, never a block: some filters genuinely should be mandatory.
+    expect(code).toContain('alert-banner warning');
   });
 
   it('has no leftover debug logging', () => {
