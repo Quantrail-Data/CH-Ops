@@ -18,7 +18,8 @@ const ROLE_BADGE = { superadmin: 'badge-amber', admin: 'badge-purple', editor: '
 
 export default function UserManagement() {
   const toast = useToast();
-  const { auth } = useAuth();
+  const authContext = useAuth();
+  const auth = authContext?.auth;
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
@@ -95,19 +96,32 @@ export default function UserManagement() {
 
   async function selfChangePassword(e) {
     e.preventDefault();
-    if (changePw.newPw.length < 8) { toast.error('Password must be at least 8 characters.'); return; }
-
-    if (changePw.newPw.length > 256) {
+    if (changePw.newPw.value !== changePw.confirm.value) { 
+      toast.error('Passwords do not match.'); 
+      return; 
+    }
+    if (changePw.newPw.value.length < 8) { 
+      toast.error('Password must be at least 8 characters.'); 
+      return; 
+    }
+    if (changePw.newPw.value.length > 256) {
       toast.warning('Password must not exceed 256 characters.');
       return;
     }
-    if (changePw.newPw?.value !== changePw.confirm?.value) { toast.error('Passwords do not match.'); return; }
-    if (changePw.newPw?.value.length < 8) { toast.error('Password must be at least 8 characters.'); return; }
+    if (changePw.newPw.value === changePw.current.value) {
+      toast.error('New password must be different from current password.');
+      return;
+    }
     try {
-      await apiFetch('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword: changePw.current?.value, newPassword: changePw.newPw?.value }) });
-      toast.success('Password changed successfully.');
-      setChangePw({ show: false, current: { value: '', isView: false }, newPw: { value: '', isView: false }, confirm: { value: '', isView: false } });
-    } catch (err) { toast.error(err.message); }
+      await apiFetch('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword: changePw.current.value, newPassword: changePw.newPw.value }) });
+      toast.success('Password changed successfully. Please login again.');
+      localStorage.removeItem('chops_session');
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+    } catch (err) { 
+      toast.error(err.message); 
+    }
   }
 
   if (!loaded) return <div className="page-content"><div className="empty-state" style={{ padding: 40 }}><div className="loading-spinner"></div> Loading...</div></div>;
@@ -211,7 +225,12 @@ export default function UserManagement() {
                   {changePw?.confirm?.isView ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
                 </div>
               </div>
-
+              {changePw.newPw.value && changePw.confirm.value && changePw.newPw.value === changePw.confirm.value && (
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--success)', fontSize: '13px' }}>
+                  <Icon className="ti ti-check" style={{ fontSize: '18px', color: 'var(--success)' }} />
+                  <span>Passwords match</span>
+                </div>
+              )}
             </div>
             <button className="btn btn-primary" type="submit"><Icon className="ti ti-check"></Icon> Update Password</button>
           </form>

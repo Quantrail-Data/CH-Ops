@@ -21,6 +21,10 @@ export default function ForceChangePassword() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    if (newPassword !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
     if (newPassword.length < 8) {
       setError("New password must be at least 8 characters.");
       return;
@@ -29,8 +33,8 @@ export default function ForceChangePassword() {
       setError("New password must not exceed 256 characters.");
       return;
     }
-    if (newPassword !== confirm) {
-      setError("Passwords do not match.");
+    if (newPassword === currentPassword) {
+      setError("New password must be different from current password.");
       return;
     }
     setLoading(true);
@@ -126,6 +130,12 @@ export default function ForceChangePassword() {
                 {showNewPw ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
               </div>
             </div>
+            {newPassword && confirm && newPassword === confirm && (
+              <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--success)', fontSize: '12px' }}>
+                <Icon className="ti ti-check" style={{ fontSize: '14px' }} />
+                <span>Passwords match</span>
+              </div>
+            )}
           </div>
           <div className="form-group" style={{ marginBottom: 20 }}>
             <label className="form-label">Confirm New Password</label>

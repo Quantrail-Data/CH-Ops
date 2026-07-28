@@ -43,7 +43,6 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     nodes,
     selectedNode,
     user,
-    password,
     connected,
     error,
     clusterName,
@@ -192,11 +191,10 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
         ...prev,
         selectedNode: host,
         user: node.user || "default",
-        password: node.password || "",
         port: node.port || 8123,
         nodeName:node?.name
       }));
-      await testConnection(node?.host, node?.user, node?.password, node?.port);
+      await testConnection(node?.host, node?.user, node?.port);
       onRefresh();
       setConnecting(false);
     } else setConnection((prev) => ({ ...prev, selectedNode: host }));
@@ -205,12 +203,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
   async function handleConnect() {
     setConnecting(true);
     const node = nodes.find((n) => n.host === selectedNode) || nodes[0];
-    await testConnection(
-      selectedNode || node?.host,
-      user,
-      password,
-      node?.port,
-    );
+    await testConnection(selectedNode || node?.host, user, node?.port);
     setConnecting(false);
   }
 
@@ -224,12 +217,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     if (nodes?.length > 0) {
       const firstNode = nodes[0];
       setConnecting(true);
-      await testConnection(
-        firstNode?.host,
-        firstNode?.user,
-        firstNode?.password,
-        firstNode?.port,
-      );
+      await testConnection(firstNode?.host, firstNode?.user, firstNode?.port);
       onRefresh();
       setConnecting(false);
     }

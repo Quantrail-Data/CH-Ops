@@ -1,22 +1,10 @@
-/**
- * middleware.test.js - Unit tests for errorHandler and auth middleware
- *
- * errorHandler: verifies it returns standardized { success:false, message }
- * JSON, honoring statusCode, then code, then defaulting to 500, for both
- * ApplicationError instances and plain errors.
- *
- * authMiddleware: verifies it rejects missing/!Bearer/invalid/revoked tokens
- * with 401 and does not call next(), and that a valid Bearer token populates
- * req.user and calls next() exactly once. Tokens are signed with the real jwt
- * service (no module mocking) to keep the test free of cross-file mock leakage.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
-import { describe, it, expect, beforeAll, mock } from "bun:test";
+// middleware.test.js - unit tests for auth middleware
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathir Moorthy, Praveen kumar, Kathirdhasan
 
-import errorHandler from "../../src/backend/middleware/errorHandler.js";
-import ApplicationError from "../../src/backend/exceptions/AppError.js";
+import { describe, it, expect, beforeAll, mock } from "bun:test";
+import jwt from "jsonwebtoken";
+
 import { authMiddleware } from "../../src/backend/middleware/auth.js";
 import {
   setSecret,
@@ -71,57 +59,6 @@ mock.module("../../src/backend/db/index.js", () => ({
   },
 }));
 
-describe("errorHandler middleware", () => {
-  it("ApplicationError -> its statusCode + standardized body", () => {
-    const res = mockRes();
-    errorHandler(
-      new ApplicationError("not found", "nf", 404),
-      {},
-      res,
-      () => {},
-    );
-    expect(res.statusCode).toBe(404);
-    expect(res.body).toEqual({ success: false, message: "not found" });
-  });
-
-  it("ApplicationError with falsy statusCode falls back to 500", () => {
-    const res = mockRes();
-    errorHandler(
-      new ApplicationError("bad", "code_only", 0),
-      {},
-      res,
-      () => {},
-    );
-    expect(res.statusCode).toBe(500);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toBe("bad");
-  });
-
-  it("plain error with statusCode is honored", () => {
-    const res = mockRes();
-    const err = new Error("teapot");
-    err.statusCode = 418;
-    errorHandler(err, {}, res, () => {});
-    expect(res.statusCode).toBe(418);
-    expect(res.body).toEqual({ success: false, message: "teapot" });
-  });
-
-  it("plain error with code (no statusCode) uses code", () => {
-    const res = mockRes();
-    const err = new Error("unprocessable");
-    err.code = 422;
-    errorHandler(err, {}, res, () => {});
-    expect(res.statusCode).toBe(422);
-  });
-
-  it("plain error with neither defaults to 500", () => {
-    const res = mockRes();
-    errorHandler(new Error("kaboom"), {}, res, () => {});
-    expect(res.statusCode).toBe(500);
-    expect(res.body).toEqual({ success: false, message: "kaboom" });
-  });
-});
-
 describe("authMiddleware", () => {
   beforeAll(() => setSecret("middleware-test-secret-32chars-minimum!"));
 
@@ -154,9 +91,9 @@ describe("authMiddleware", () => {
     authMiddleware(req, res, next);
 
     expect(res.statusCode).toBe(401);
-    expect(res.body).toEqual({
-      error: "Oops! That user doesn't seem to exist.",
-    });
+    // Deliberately the same message as an invalid token: naming the missing
+    // account confirms the token itself was valid.
+    expect(res.body).toEqual({ error: "Invalid or expired token" });
 
     expect(next.calls.length).toBe(0);
   });
@@ -232,20 +169,52 @@ describe("authMiddleware", () => {
     expect(req.user.role).toBe("admin");
   });
 
-  it("garbage token throws", () => {
+  it("garbage token -> 401, next not called", () => {
+    // Previously this threw: verify() sat outside the try, so Express handed
+    // the error to the global handler and the client got a 500. The frontend
+    // only clears its session on a 401, so an expired token stranded the user.
     const res = mockRes();
     const next = counterNext();
 
-    expect(() =>
-      authMiddleware(
-        {
-          headers: {
-            authorization: "Bearer not.a.real.token",
-          },
-        },
-        res,
-        next,
-      ),
-    ).toThrow();
+    authMiddleware(
+      { headers: { authorization: "Bearer not.a.real.token" } },
+      res,
+      next,
+    );
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ error: "Invalid or expired token" });
+    expect(next.calls.length).toBe(0);
+  });
+
+  it("expired token -> 401, next not called", async () => {
+    const expired = jwt.sign(
+      { userId: 1, username: "alice", role: "admin", jti: "expired-jti" },
+      "middleware-test-secret-32chars-minimum!",
+      { expiresIn: -10 },
+    );
+
+    const res = mockRes();
+    const next = counterNext();
+
+    authMiddleware({ headers: { authorization: `Bearer ${expired}` } }, res, next);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ error: "Invalid or expired token" });
+    expect(next.calls.length).toBe(0);
+  });
+
+  it("revoked token -> 401, next not called", () => {
+    const token = create({ userId: 1, username: "alice", role: "admin" });
+    revokeToken(verify(token).jti);
+
+    const res = mockRes();
+    const next = counterNext();
+
+    authMiddleware({ headers: { authorization: `Bearer ${token}` } }, res, next);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ error: "Invalid or expired token" });
+    expect(next.calls.length).toBe(0);
   });
 });

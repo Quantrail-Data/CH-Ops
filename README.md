@@ -272,8 +272,12 @@ GRANT SELECT ON *.* TO chops;
 -- SHOW commands (SHOW CREATE TABLE, SHOW DATABASES, and so on)
 GRANT SHOW ON *.* TO chops;
 
--- Monitoring charts use merge() which needs SOURCES
-GRANT SOURCES ON *.* TO chops;
+-- Monitoring charts use the merge() table function.
+-- Grant only that source, not all of them: SOURCES also enables url(), s3()
+-- and file(), which are readable from an ordinary SELECT. Anyone with SQL
+-- editor access could then make the server fetch an arbitrary URL or read a
+-- local file, which is a much larger grant than the charts need.
+GRANT merge ON *.* TO chops;
 ```
 
 Add optional privileges only as needed:
@@ -339,7 +343,9 @@ CHOps ships with several hardening measures. Here is what each does and why it m
 
 **HTTP security headers**: Every response carries a Content Security Policy, Strict Transport Security, clickjacking protection, and MIME-sniffing prevention.
 
-**Request size limits**: SQL sent to `/api/query` is capped at 100KB; other endpoints allow up to 2MB.
+**Request size limits**: SQL sent to `/api/query` and `/api/export` is capped at 512KB; other endpoints allow up to 2MB.
+
+**Reverse proxy**: rate limiting is per client IP. Behind a proxy (such as the Caddy setup below) set `TRUST_PROXY` to the number of proxies in front of CHOps, or every client shares one bucket. Leave it unset when CHOps is exposed directly, so `X-Forwarded-For` cannot be spoofed.
 
 ---
 
@@ -441,7 +447,9 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 **Backup listing shows "Unable to connect"**: Verify the S3 endpoint and credentials in Storage Profiles. The error message distinguishes authentication, connectivity, and bucket problems.
 
-**Empty monitoring charts**: Click "Load Charts" after selecting a time range. Charts load only for the active tab.
+**Empty monitoring charts**: Click "Load Charts" after selecting a time range. Charts load only for the active tab. If charts fail rather than sitting empty, check the `chops` user has `GRANT merge ON *.*` (see [Setting Up a Dedicated ClickHouse User](#setting-up-a-dedicated-clickhouse-user)).
+
+**Read-only queries fail with "Cannot modify ... setting in readonly mode" (code 164)**: CHOps sends `readonly=1` alongside a result-size ceiling on read-only requests. If the ClickHouse user's own profile already pins `readonly` to 1 or 2, the two collide. Run `bun run check:readonly -- --host <host> --user <user> --password <pw>` to confirm and get the exact fix for your server.
 
 **DDL cards show zeros**: Normal on single-node setups with no distributed DDL queue.
 

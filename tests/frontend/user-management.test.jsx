@@ -389,7 +389,7 @@ describe('UserManagement', () => {
     clickUpdatePassword();
 
     await waitFor(() => {
-      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully.');
+      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully. Please login again.');
     });
   });
 
@@ -660,7 +660,7 @@ describe('UserManagement', () => {
     clickUpdatePassword();
 
     await waitFor(() => {
-      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully.');
+      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully. Please login again.');
     });
   });
 });

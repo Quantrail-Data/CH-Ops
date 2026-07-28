@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Test suite validating SQL editor layouts, DAG-to-tree parsing, history tracking, autocomplete engines, and ClickHouse query executions.
+// sql-editor.test.js - the SQL Editor: EXPLAIN tree, history, bookmarks, autocomplete and shortcuts
+// Contributors - Kathir Moorthy, Kathirdhasan
 
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
@@ -51,8 +51,20 @@ describe('SQL Editor: ClickHouse® Service', () => {
 describe('SQL Editor: Query History', () => {
   const code = read('src/frontend/components/editor/QueryEditor.jsx');
   it('stores history in localStorage with max cap', () => { expect(code).toContain('HISTORY_KEY'); expect(code).toContain('HISTORY_MAX'); expect(code).toContain('localStorage'); });
-  it('records sql, timestamp, rows, status, elapsed per entry', () => { expect(code).toContain('sql: text'); expect(code).toContain('timestamp:'); expect(code).toContain("status: error ? \"error\" : \"ok\""); });
-  it('history panel lists entries with click-to-load', () => { expect(code).toContain("panel === \"history\""); expect(code).toContain('setSql(h.sql)'); });
+  it('records sql, timestamp, rows, status, elapsed per entry', () => {
+    // History is written in doRun from the finished tab's runtime, so the
+    // status is read off that rather than a bare `error` variable.
+    expect(code).toContain('sql: lastSqlRef.current');
+    expect(code).toContain('timestamp:');
+    expect(code).toContain('status: finished.error ? "error" : "ok"');
+    expect(code).toContain('elapsed:');
+  });
+  it('history panel lists entries with click-to-load', () => {
+    // Loading opens a NEW tab rather than overwriting whatever is being
+    // written, so this is openInNewTab, not setSql.
+    expect(code).toContain('panel === "history"');
+    expect(code).toContain('openInNewTab("History", h.sql)');
+  });
   it('has clear history button', () => { expect(code).toContain('clearHistory'); });
   it('capped at 100 entries', () => { expect(code).toContain('HISTORY_MAX = 100'); });
 });
@@ -62,7 +74,10 @@ describe('SQL Editor: Query Bookmarks', () => {
   it('stores bookmarks in backend via settings API', () => { expect(code).toContain('query_bookmarks'); expect(code).toContain("category: \"editor\""); expect(code).toContain("apiFetch(\"/api/settings/query_bookmarks\""); });
   it('save bookmark with name and sql', () => { expect(code).toContain('saveBookmark'); expect(code).toContain('bookmarkName'); });
   it('delete bookmark by index', () => { expect(code).toContain('deleteBookmark'); });
-  it('bookmarks panel shows name and sql, click to load', () => { expect(code).toContain("panel === \"bookmarks\""); expect(code).toContain('setSql(b.sql)'); });
+  it('bookmarks panel shows name and sql, click to load', () => {
+    expect(code).toContain('panel === "bookmarks"');
+    expect(code).toContain('openInNewTab(b.name, b.sql, b)');
+  });
   it('loads bookmarks on mount', () => { expect(code).toContain('loadBookmarks'); });
 });
 
@@ -90,7 +105,11 @@ describe('SQL Editor: Export wizard and its API', () => {
   const server = read('src/backend/server.js');
 
   it('wizard has three steps', () => { expect(wizard).toContain('1. Query'); expect(wizard).toContain('2. Format'); expect(wizard).toContain('3. Download'); });
-  it('Next is blocked until an estimate has been attempted', () => { expect(wizard).toContain('disabled={!tried}'); });
+  it('Next is blocked until an estimate has been attempted', () => {
+    // Also blocked when the SQL declares a required parameter: export does not
+    // carry parameter values, so the placeholder would reach ClickHouse unset.
+    expect(wizard).toContain('disabled={!tried || blockedByParams}');
+  });
   it('warns when the statement is not SELECT-like, without blocking', () => { expect(wizard).toContain('isSelectLike'); expect(wizard).toContain('{!selectLike && ('); });
   it('warns when more than one statement is present', () => { expect(wizard).toContain('hasMultipleStatements'); });
   it('offers background running and cancel', () => { expect(wizard).toContain('Run in background'); expect(wizard).toContain('Cancel export'); });
@@ -102,23 +121,56 @@ describe('SQL Editor: Export wizard and its API', () => {
   it('route exposes estimate, jobs, progress, ticket and cancel', () => { expect(route).toContain('"/estimate"'); expect(route).toContain('"/jobs"'); expect(route).toContain('"/jobs/:id"'); expect(route).toContain('"/jobs/:id/ticket"'); });
   it('every job read checks the owner', () => { expect(route).toContain('req.user?.username'); });
   it('only settings from the shared catalogue are forwarded', () => { expect(route).toContain('ALLOWED_SETTINGS'); });
-  it('download route is mounted before the authenticated routes', () => { expect(server.indexOf("'/api/export/download'")).toBeLessThan(server.indexOf("'/api/export'")); });
+  it('download route is mounted before the authenticated routes', () => {
+    // Compare against the ROUTER mount. A body-size cap is also mounted on
+    // '/api/export', earlier in the file, and it calls next() rather than
+    // handling the request - so a plain indexOf finds the wrong line.
+    const downloadAt = server.indexOf("'/api/export/download'");
+    const routerAt = server.indexOf("app.use('/api/export', rateLimiter");
+    expect(downloadAt).toBeGreaterThan(-1);
+    expect(routerAt).toBeGreaterThan(-1);
+    expect(downloadAt).toBeLessThan(routerAt);
+  });
   it('old table download route is gone', () => { expect(server).not.toContain('/api/table/download'); });
 });
 
 describe('SQL Editor: Autocomplete', () => {
   const code = read('src/frontend/components/editor/QueryEditor.jsx');
+  // Completion sources and the keymap live here since the editor became
+  // CodeMirror.
+  const setup = read('src/frontend/components/editor/sqlEditorSetup.js');
   it('loads keywords from system.keywords', () => { expect(code).toContain("SELECT keyword FROM system.keywords"); });
-  it('loads functions from system.functions', () => { expect(code).toContain("SELECT name FROM system.functions"); });
+  it('loads functions from system.functions', () => {
+    // The completion sources moved into sqlEditorSetup.js when the editor
+    // became CodeMirror; QueryEditor now just calls loadFunctionRows.
+    expect(setup).toContain('SELECT name FROM system.functions');
+    expect(code).toContain('loadFunctionRows');
+  });
   it('loads database.table names from system.tables', () => { expect(code).toContain("SELECT database, name FROM system.tables"); });
   it('excludes system databases from autocomplete', () => { expect(code).toContain("NOT IN ('system'"); });
-  it('supports dot in word matching for db.table', () => { expect(code).toContain("[\\w.]"); });
+  it('supports dot in word matching for db.table', () => {
+    expect(setup).toContain('matchBefore(/[\\w.]+/)');
+  });
   it('reloads on connection change', () => { expect(code).toContain("loadAutocomplete"); });
 });
 
 describe('SQL Editor: Keyboard Shortcuts', () => {
   const code = read('src/frontend/components/editor/QueryEditor.jsx');
-  it('Ctrl+Enter runs query', () => { expect(code).toContain("e.key === \"Enter\""); expect(code).toContain("doRun()"); });
-  it('Ctrl+B toggles bookmarks', () => { expect(code).toContain("e.key === \"b\""); });
-  it('displays keyboard hints', () => { expect(code).toContain("Ctrl+Enter"); expect(code).toContain("Ctrl+B"); });
+  const setup = read('src/frontend/components/editor/sqlEditorSetup.js');
+  // The shortcut hint moved onto the tab strip.
+  const tabsCode = read('src/frontend/components/editor/QueryTabs.jsx');
+  it('Ctrl+Enter runs query', () => {
+    // A CodeMirror keymap now, not a keydown handler on a textarea.
+    expect(setup).toContain('key: "Mod-Enter"');
+    expect(code).toContain('onRun={runActiveTab}');
+  });
+  it('Ctrl+B toggles bookmarks', () => {
+    expect(setup).toContain('key: "Mod-b"');
+    expect(code).toContain('onBookmarks');
+  });
+  it('displays keyboard hints', () => {
+    // The hint moved onto the tab strip when tabs took that row.
+    expect(tabsCode).toContain('Ctrl+Enter');
+    expect(tabsCode).toContain('Ctrl+B');
+  });
 });

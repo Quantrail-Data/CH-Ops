@@ -18,7 +18,7 @@ import {
   getActiveApiKey,
   getApiKeyById,
 } from "../services/apiKeys.js";
-import { requireSuperAdmin } from "../controllers/users.js";
+import { requireAdmin } from "../controllers/users.js";
 import AIServices from "../servicesAI/AIService.js";
 import { db } from "../db/index.js";
 import { apiKeys } from "../db/schema.js";
@@ -180,7 +180,7 @@ router.get("/", (req, res) => {
   }
 });
 
-router.get("/:id/value", requireSuperAdmin, (req, res) => {
+router.get("/:id/value", requireAdmin, (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const key = getApiKeyById(id);
@@ -209,7 +209,7 @@ router.get("/active", (req, res) => {
   }
 });
 
-router.get("/with-values", requireSuperAdmin, (req, res) => {
+router.get("/with-values", requireAdmin, (req, res) => {
   try {
     const keys = getApiKeysWithValues();
     const activeKey = getActiveApiKey();
@@ -219,7 +219,7 @@ router.get("/with-values", requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post("/", requireSuperAdmin, (req, res) => {
+router.post("/", requireAdmin, (req, res) => {
   try {
     const { name, apiKey, model, provider } = req.body;
     if (!name?.trim()) {
@@ -241,7 +241,7 @@ router.post("/", requireSuperAdmin, (req, res) => {
   }
 });
 
-router.put("/:id", requireSuperAdmin, (req, res) => {
+router.put("/:id", requireAdmin, (req, res) => {
   try {
     const { name, apiKey, model, provider } = req.body;
     if (!name?.trim()) {
@@ -265,7 +265,7 @@ router.put("/:id", requireSuperAdmin, (req, res) => {
   }
 });
 
-router.delete("/:id", requireSuperAdmin, (req, res) => {
+router.delete("/:id", requireAdmin, (req, res) => {
   try {
     const id = parseInt(req.params.id);
     deleteApiKey(id);
@@ -275,7 +275,7 @@ router.delete("/:id", requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post("/select", requireSuperAdmin, (req, res) => {
+router.post("/select", requireAdmin, (req, res) => {
   try {
     const { keyId } = req.body;
     if (!keyId) {
@@ -288,7 +288,7 @@ router.post("/select", requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post("/check", requireSuperAdmin, async (req,res,next)=>{
+router.post("/check", requireAdmin, async (req,res,next)=>{
   try {
     const {apiKeys} = req.body;
     if (!apiKeys) return res.status(422).json({success:false,message:"Provider ID and Model details  must be included!"});
@@ -303,7 +303,7 @@ router.post("/check", requireSuperAdmin, async (req,res,next)=>{
   }
 })
 
-router.post("/ollama/models", requireSuperAdmin, async (req, res) => {
+router.post("/ollama/models", requireAdmin, async (req, res) => {
   try {
     const { baseUrl } = req.body;
     if (!baseUrl?.trim()) {
