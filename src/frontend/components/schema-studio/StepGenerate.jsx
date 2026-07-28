@@ -26,6 +26,28 @@ function mapColumns(columns) {
   }));
 }
 
+function normalizeCodecChain(codecBody) {
+  const raw = String(codecBody || "").trim();
+  if (!raw) return raw;
+  const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return raw;
+
+  const hasCompressor = parts.some((p) => /^(LZ4HC|LZ4|ZSTD)\b/i.test(p));
+  const hasTransformOnly = parts.some((p) => /^(Delta|DoubleDelta|Gorilla)\s*\(/i.test(p));
+
+  if (hasTransformOnly && !hasCompressor) parts.push("LZ4");
+
+  return parts.join(", ");
+}
+
+function sanitizeDdlCodecs(sql) {
+  if (!sql || typeof sql !== "string") return sql;
+  return sql.replace(/CODEC\s*\(([^)]*(?:\)[^)]*)*)\)/gi, (full, inner) => {
+    const normalized = normalizeCodecChain(inner);
+    return `CODEC(${normalized})`;
+  });
+}
+
 export default function StepGenerate({ columns, stats, sampleRows, form, onBack }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -249,7 +271,11 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
               <strong>Suggested DDL:</strong>
               <pre className="mono" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflow: 'auto', margin: '6px 0', padding: 12, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-surface)' }}>{review.suggested_ddl}</pre>
               <button className="btn btn-secondary btn-sm"
-                onClick={() => { setDdl(review.suggested_ddl); setValidation(null); }}>
+                onClick={() => {
+                  const nextDdl = sanitizeDdlCodecs(review.suggested_ddl);
+                  setDdl(nextDdl);
+                  setValidation(null);
+                }}>
                 <Icon className="ti ti-arrow-back-up" /> Apply to editor
               </button>
             </div>
