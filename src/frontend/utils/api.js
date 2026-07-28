@@ -97,8 +97,14 @@ export async function apiFetch(path, options = {}, type = false) {
   }
 
   if (res.status === 401) {
-    // A ClickHouse credential-session expiry (editor/schema-studio) is NOT an
-    // app auth failure:
+    if (path === '/api/auth/change-password') {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || "Invalid current password.");
+    }
+    
+    // A ClickHouse credential-session expiry (editor/schema-studio) is NOT an app
+    // auth failure: surface it so the feature can prompt to reconnect, without
+    // logging the user out of the app.
     const d = await res.json().catch(() => ({}));
     if (d.code === "CRED_SESSION_EXPIRED") {
       const err = new Error(d.error || "Your session expired. Please reconnect.");
