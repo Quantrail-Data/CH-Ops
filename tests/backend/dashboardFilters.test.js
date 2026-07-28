@@ -1,6 +1,6 @@
-// dashboardFilters.test.js - the dashboard.filters column and JSON handling.
-//Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors  - Praveen Kumar, Kathir Moorthy, Kathirdhasan
+// Contributors - Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// dashboardFilters.test.js - the dashboard.filters column and JSON handling
 
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
@@ -33,7 +33,10 @@ sqlite.exec(`
 `);
 const testDb = drizzle(sqlite, { schema });
 
-// Every real export is stubbed, not just the ones this file uses.
+// Every real export is stubbed, not just the ones this file uses. Bun's
+// mock.module replaces the module for the whole test process, so whichever
+// file's call happens to win must not leave another suite short an export -
+// the same convention cluster.test.js documents for clusterUtils.
 mock.module("../../src/backend/db/index.js", () => ({
   db: testDb,
   dashboards: schema.dashboards,

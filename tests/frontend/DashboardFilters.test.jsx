@@ -1,6 +1,6 @@
-// DashboardFilters.test.jsx - the Apply/Reset behaviour of the filter bar.
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathirdhasan, Kathir Moorthy
+// DashboardFilters.test.jsx - the Apply/Reset behaviour of the filter bar
 
 import React, { useState } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -38,7 +38,17 @@ function Harness({ filters = FILTERS, settings = {}, initial = {}, onApply, onRe
 }
 
 const applyBtn = () => screen.getByText("Apply").closest("button");
-const input = (n) => document.querySelectorAll("input.form-input")[n];
+
+// Selected by label, not by index. The bar orders unconfigured filters
+// alphabetically (see orderFilters), so "env" renders before "region" and an
+// index-based helper silently drives the wrong control.
+const inputFor = (name) => {
+  const label = [...document.querySelectorAll("label")].find((l) =>
+    l.textContent.trim().startsWith(name),
+  );
+  if (!label) throw new Error(`no filter control labelled "${name}"`);
+  return label.querySelector("input.form-input, select");
+};
 
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
@@ -76,7 +86,7 @@ describe("Apply gates every re-run", () => {
   it("enables once a control changes, and does not re-run before then", () => {
     const onApply = vi.fn();
     render(<Harness initial={{ region: "eu", env: "prod" }} onApply={onApply} />);
-    fireEvent.change(input(0), { target: { value: "us" } });
+    fireEvent.change(inputFor("region"), { target: { value: "us" } });
     expect(applyBtn()).not.toBeDisabled();
     expect(onApply).not.toHaveBeenCalled();
   });
@@ -84,7 +94,7 @@ describe("Apply gates every re-run", () => {
   it("re-runs only when Apply is pressed", () => {
     const onApply = vi.fn();
     render(<Harness initial={{ region: "eu", env: "prod" }} onApply={onApply} />);
-    fireEvent.change(input(0), { target: { value: "us" } });
+    fireEvent.change(inputFor("region"), { target: { value: "us" } });
     fireEvent.click(applyBtn());
     expect(onApply).toHaveBeenCalledTimes(1);
     expect(onApply.mock.calls[0][0].region).toBe("us");
@@ -92,7 +102,7 @@ describe("Apply gates every re-run", () => {
 
   it("goes back to disabled after applying", () => {
     render(<Harness initial={{ region: "eu", env: "prod" }} />);
-    fireEvent.change(input(0), { target: { value: "us" } });
+    fireEvent.change(inputFor("region"), { target: { value: "us" } });
     fireEvent.click(applyBtn());
     expect(applyBtn()).toBeDisabled();
   });
@@ -100,15 +110,15 @@ describe("Apply gates every re-run", () => {
   it("applies on Enter from a control", () => {
     const onApply = vi.fn();
     render(<Harness initial={{ region: "eu", env: "prod" }} onApply={onApply} />);
-    fireEvent.change(input(0), { target: { value: "us" } });
-    fireEvent.keyDown(input(0), { key: "Enter" });
+    fireEvent.change(inputFor("region"), { target: { value: "us" } });
+    fireEvent.keyDown(inputFor("region"), { key: "Enter" });
     expect(onApply).toHaveBeenCalledTimes(1);
   });
 
   it("ignores Enter when nothing has changed", () => {
     const onApply = vi.fn();
     render(<Harness initial={{ region: "eu" }} onApply={onApply} />);
-    fireEvent.keyDown(input(0), { key: "Enter" });
+    fireEvent.keyDown(inputFor("region"), { key: "Enter" });
     expect(onApply).not.toHaveBeenCalled();
   });
 });
@@ -121,14 +131,14 @@ describe("the bar says when the view is stale", () => {
 
   it("marks itself out of date once a control changes", () => {
     render(<Harness initial={{ region: "eu", env: "prod" }} />);
-    fireEvent.change(input(0), { target: { value: "us" } });
+    fireEvent.change(inputFor("region"), { target: { value: "us" } });
     // Charts keep their previous results; the marker is what makes that honest.
     expect(screen.getByText(/Out of date/i)).toBeTruthy();
   });
 
   it("clears the marker after Apply", () => {
     render(<Harness initial={{ region: "eu", env: "prod" }} />);
-    fireEvent.change(input(0), { target: { value: "us" } });
+    fireEvent.change(inputFor("region"), { target: { value: "us" } });
     fireEvent.click(applyBtn());
     expect(screen.queryByText(/Out of date/i)).toBeNull();
   });
@@ -138,10 +148,10 @@ describe("Reset", () => {
   it("returns every control to its starting value", () => {
     const onReset = vi.fn();
     render(<Harness initial={{ region: "eu", env: "prod" }} onReset={onReset} />);
-    fireEvent.change(input(0), { target: { value: "us" } });
+    fireEvent.change(inputFor("region"), { target: { value: "us" } });
     fireEvent.click(screen.getByText("Reset").closest("button"));
     expect(onReset).toHaveBeenCalled();
-    expect(input(0).value).toBe("eu");
+    expect(inputFor("region").value).toBe("eu");
   });
 
   it("is always available, unlike Apply", () => {
@@ -153,22 +163,22 @@ describe("Reset", () => {
 describe("required and empty", () => {
   it("marks the control invalid when a required filter is blank", () => {
     render(<Harness initial={{ region: "", env: "prod" }} />);
-    expect(input(0).getAttribute("aria-invalid")).toBe("true");
+    expect(inputFor("region").getAttribute("aria-invalid")).toBe("true");
   });
 
   it("does not mark it once a value is present", () => {
     render(<Harness initial={{ region: "eu", env: "prod" }} />);
-    expect(input(0).getAttribute("aria-invalid")).toBeNull();
+    expect(inputFor("region").getAttribute("aria-invalid")).toBeNull();
   });
 
   it("never marks a filter that no chart requires", () => {
     render(<Harness initial={{ region: "eu", env: "" }} />);
-    expect(input(1).getAttribute("aria-invalid")).toBeNull();
+    expect(inputFor("env").getAttribute("aria-invalid")).toBeNull();
   });
 
   it("does not block Apply - the chart explains itself instead", () => {
     render(<Harness initial={{ region: "eu" }} />);
-    fireEvent.change(input(0), { target: { value: "" } });
+    fireEvent.change(inputFor("region"), { target: { value: "" } });
     expect(applyBtn()).not.toBeDisabled();
   });
 });

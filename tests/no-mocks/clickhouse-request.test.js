@@ -1,6 +1,6 @@
-// clickhouse-request.test.js - The request CHOps sends to ClickHouse.
-//  Copyright (C) 2026 Quantrail™ Data Private Limited
+// Copyright (C) 2026 Quantrail™ Data Private Limited
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// clickhouse-request.test.js - the request CHOps sends to ClickHouse
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import { executeQuery } from "../../src/backend/services/clickhouse.js";

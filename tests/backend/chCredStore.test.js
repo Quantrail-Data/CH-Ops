@@ -1,6 +1,7 @@
-// chCredStore.test.js - Integration tests for the encrypted CH credential store
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
+// Contributors - Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// chCredStore.test.js - integration tests for the encrypted CH credential store
+
 import { describe, it, expect,afterAll } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';

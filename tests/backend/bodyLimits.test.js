@@ -1,6 +1,7 @@
-// bodyLimits.test.js - Guards the request body size limits in server.js.
- // Copyright (C) 2026 Quantrail™ Data Private Limited
- // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathirdhasan, Praveen kumar
+// bodyLimits.test.js - guards the request body size limits in server.js
+
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";

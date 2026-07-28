@@ -1,22 +1,7 @@
-/**
- * middleware.test.js - Unit tests for auth middleware
- *
- * The errorHandler tests that used to live here have been removed along with
- * the middleware itself. It was never mounted: server.js has always had its own
- * inline handler. Worse, it answered { success: false, message }, while the
- * frontend's apiFetch reads data.error - so had anyone mounted it, every error
- * message in the UI would have collapsed to "Request failed (500)". A dead
- * global error handler is more dangerous than none, because it reads as
- * coverage that is not there.
- *
- * authMiddleware: verifies it rejects missing/!Bearer/invalid/revoked tokens
- * with 401 and does not call next(), and that a valid Bearer token populates
- * req.user and calls next() exactly once. Tokens are signed with the real jwt
- * service (no module mocking) to keep the test free of cross-file mock leakage.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// middleware.test.js - unit tests for auth middleware
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathir Moorthy, Praveen kumar, Kathirdhasan
+
 import { describe, it, expect, beforeAll, mock } from "bun:test";
 import jwt from "jsonwebtoken";
 

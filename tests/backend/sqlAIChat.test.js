@@ -1,13 +1,15 @@
-// sqlAIChat.test.js - the /api/ai/sql/generate-sql input guard.
+// Contributors - Kathirdhasan, Praveen kumar, Kathir Moorthy
+// sqlAIChat.test.js - the /api/ai/sql/generate-sql input guard
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors  - Praveen Kumar, Kathir Moorthy, Kathirdhasan
 
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 const getMock = mock(() => null);
 const generateSQL = mock(async () => ({ sql: "SELECT 1" }));
 
-// Every real export is stubbed, not just the ones this file uses.
+// Every real export is stubbed, not just the ones this file uses. Bun's
+// mock.module replaces the module for the whole test process, so whichever
+// file's call happens to win must not leave another suite short an export.
 mock.module("../../src/backend/db/index.js", () => ({
   db: {
     select: () => ({ from: () => ({ where: () => ({ get: getMock }) }) }),

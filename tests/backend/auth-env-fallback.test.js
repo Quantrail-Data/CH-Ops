@@ -1,6 +1,7 @@
-// auth-env-fallback.test.js - Unit tests for the .env super-admin login path.
-//Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors  - Praveen Kumar, Kathir Moorthy, Kathirdhasan
+// Contributors - Kathirdhasan
+// auth-env-fallback.test.js - unit tests for the .env super-admin login path
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { describe, it, expect, beforeAll, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -21,7 +22,10 @@ sqlite.exec(`CREATE TABLE app_user (
 );`);
 const testDb = drizzle(sqlite, { schema });
 
-// Every real export is stubbed, not just the ones this file uses.
+// Every real export is stubbed, not just the ones this file uses. Bun's
+// mock.module replaces the module for the whole test process, so whichever
+// file's call happens to win must not leave another suite short an export -
+// the same convention cluster.test.js documents for clusterUtils.
 mock.module("../../src/backend/db/index.js", () => ({
   db: testDb,
   appUsers: schema.appUsers,

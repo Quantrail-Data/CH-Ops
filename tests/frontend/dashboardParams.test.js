@@ -1,6 +1,6 @@
-// dashboardParams.test.js - cross-chart filter discovery for dashboards.
-// Copyright (C) 2026 Quantrail™ Data Private Limited
+// dashboardParams.test.js - cross-chart filter discovery for dashboards
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { describe, it, expect } from "vitest";
 import {

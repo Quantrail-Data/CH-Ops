@@ -1,5 +1,6 @@
+// export-wizard.test.jsx - the three-step export wizard, including its parameter guard
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> Sanjeev Kumar G
+// Contributors - Kathirdhasan, Kathir Moorthy
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";

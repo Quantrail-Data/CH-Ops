@@ -1,6 +1,6 @@
-// query.test.js - Unit tests for query execution controller
-// Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// query.test.js - unit tests for query execution controller
+// Contributors - Kathirdhasan, Praveen kumar, Kathir Moorthy
 
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
@@ -17,7 +17,8 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
   getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
   // bun's mock.module replaces this module for the whole test process, not just
-  // this file
+  // this file - stub every real export so whichever test file's mock.module
+  // call happens to win doesn't break other files that need this one.
   maskClusterPasswords: (cluster) => ({
     ...cluster,
     nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
@@ -30,6 +31,9 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 
 mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQuery: mockExecuteQuery,
+  // bun's mock.module replaces this module for the whole test process, not just
+  // this file - stub every real export so whichever test file's mock.module call
+  // happens to win doesn't break other files that need executeQueryWithBody.
   executeQueryWithBody: mock(),
 }));
 

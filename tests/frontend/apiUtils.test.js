@@ -1,7 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Unit tests validating network connection state, API fetch utilities, API key retrieval, and query execution.
-
+// apiUtils.test.js - the shared connection state, apiFetch and API key handling
+// Contributors - Kathirdhasan, Kathir Moorthy
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setGlobalConnection, getGlobalConnection, apiFetch, runQuery, getActiveApiKey } from '../../src/frontend/utils/api.js';

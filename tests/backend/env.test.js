@@ -1,15 +1,7 @@
-/**
- * env.test.js - Unit tests for environment variable loader
- *
- * Tests the loadEnv() function with various environment configurations.
- * Verifies that multiple super admins are collected from numbered env vars
- * (SUPER_ADMIN_1, SUPER_ADMIN_2, etc.), legacy SUPER_ADMIN fallback works,
- * SMTP config is read correctly, and validation throws errors when required
- * variables (super admin, SESSION_SECRET) are missing.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// env.test.js - unit tests for environment variable loader
+
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test';
 import { loadEnv } from '../../src/backend/utils/env.js';
 

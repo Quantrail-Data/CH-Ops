@@ -1,15 +1,7 @@
-/**
- * rateLimiter.test.js - Unit tests for rate limiting middleware
- *
- * Tests the rate limiter that protects API endpoints from abuse.
- * Verifies requests under the limit are allowed, requests over the
- * limit receive 429 status, different IPs are tracked independently,
- * and rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining)
- * are set correctly.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Contributors - Kathir Moorthy, Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// rateLimiter.test.js - unit tests for rate limiting middleware
+
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { rateLimiter, __resetRateLimiter } from '../../src/backend/middleware/rateLimiter.js';
 
