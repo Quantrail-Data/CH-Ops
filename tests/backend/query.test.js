@@ -182,6 +182,10 @@ describe("runQuery", () => {
       password: "secret",
       sql: "SELECT 1",
       readOnly: false,
+      // toHaveBeenCalledWith is an exact match, so every argument the
+      // controller passes has to appear here.
+      params: {},
+      settings: {},
     });
 
     expect(res.statusCode).toBe(200);
@@ -225,6 +229,8 @@ describe("runQuery", () => {
       password: "secret",
       sql: "SELECT 1",
       readOnly: false,
+      params: {},
+      settings: {},
     });
   });
 

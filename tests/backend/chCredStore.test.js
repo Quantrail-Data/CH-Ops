@@ -61,7 +61,11 @@ describe('chCredStore', () => {
     store.setCredSession({ jti: 'j-bob', context: EDITOR, appUser: 'bob', node: 'n', chUser: 'u', password: 'plaintextpw' });
     const row = sqlite.query("SELECT encrypted_password FROM ch_cred_session WHERE jti = 'j-bob'").get();
     expect(row.encrypted_password).not.toBe('plaintextpw');
-    expect(row.encrypted_password.split(':').length).toBe(3); // iv:tag:ciphertext
+    // v1:iv:tag:ciphertext - the version prefix lets decrypt() tell a genuine
+    // failure from a legacy plaintext value instead of silently returning the
+    // ciphertext (see services/crypto.js).
+    expect(row.encrypted_password.startsWith('v1:')).toBe(true);
+    expect(row.encrypted_password.split(':').length).toBe(4);
   });
 
   it('status view never includes the password', () => {
