@@ -1,22 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Block diagram of every configured cluster, laid out one column per shard and
-// one row per replica.
-//
-// There are deliberately no edges. Replicas of a shard are peers, not a chain,
-// so any line drawn between two nodes would be inventing a relationship the
-// server does not have. The grid position carries the topology on its own, and
-// a light group container per shard carries the grouping.
-//
-// Colour encodes shard by fill and replica by outline, which is two colour
-// channels doing all the work. That fails for colourblind readers and once the
-// shard count exceeds the palette, so every node also states its position as
-// text. Colour is the fast path; "S1/R2" is the ground truth.
-//
-// EACH CANVAS HAS ITS OWN ReactFlowProvider. This is not stylistic. A provider
-// owns one store, so a single provider wrapped around several <ReactFlow>
-// elements gives them all the same nodes and the same viewport: every cluster
-// rendered identically, and panning one panned them all. One provider per
-// canvas is what keeps them independent.
+// Block diagram of every configured cluster, laid out one column per shard and one row per replica.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -30,11 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import Icon from "../common/Icon.jsx";
 
-// @xyflow/react's stylesheet hardcodes a dark text colour on nodes and ships
-// light-theme controls with white backgrounds and dark glyphs. On the dark theme
-// that renders node text and every control icon at almost exactly the background
-// colour. None of it reads a CSS variable, so it is overridden here rather than
-// in global.css, which keeps the fix next to the component that needs it.
+
 const FLOW_THEME_CSS = `
 .chops-topology .react-flow__node { color: var(--text-primary); }
 .chops-topology .react-flow__attribution { display: none; }
@@ -61,8 +41,7 @@ const FLOW_THEME_CSS = `
 .chops-topology .react-flow__background { opacity: 0.5; }
 `;
 
-// Eight hues, cycled. Beyond eight shards the text label disambiguates, which
-// is why cycling is acceptable rather than a bug.
+// Eight hues, cycled.
 const SHARD_FILLS = [
   "rgba(59,130,246,0.18)", "rgba(139,92,246,0.18)", "rgba(34,197,94,0.18)",
   "rgba(245,158,11,0.18)", "rgba(236,72,153,0.18)", "rgba(6,182,212,0.18)",
@@ -80,10 +59,7 @@ const ROW_GAP = 26;
 const GROUP_PAD = 16;
 const HEADER = 26;
 
-// The health columns system.clusters carries. Several are Nullable and several
-// are zero on a healthy cluster, and those two states mean different things:
-// null is "this cluster does not report it", zero is "it reports it and there
-// is nothing wrong". Showing both as a dash would hide a working measurement.
+// The health columns system.clusters carries
 const HEALTH_COLUMNS = [
   { key: "errors_count", label: "Errors", kind: "count" },
   { key: "slowdowns_count", label: "Slowdowns", kind: "count" },
@@ -131,10 +107,7 @@ function TopologyNode({ data }) {
   const fill = SHARD_FILLS[(shard - 1) % SHARD_FILLS.length];
   const stroke = REPLICA_STROKES[(replica - 1) % REPLICA_STROKES.length];
 
-  // isActive is Nullable and only populated for clusters using Keeper-backed
-  // auto discovery. On a statically configured cluster it is null for every
-  // row, so null has to read as "unknown" and never as "down". Painting a
-  // healthy cluster red is a worse failure than saying nothing.
+
   let dot = "var(--text-muted)";
   let dotTitle = "Health unknown. This cluster does not report node liveness.";
   if (errors > 0) {
@@ -236,8 +209,7 @@ export function groupByCluster(rows) {
     if (!byName.has(name)) byName.set(name, []);
     byName.get(name).push(row);
   }
-  // Sorted by name, not by health. A card that jumps position while someone is
-  // reading it is worse than one in an unhelpful place.
+  // Sorted by name, not by health.
   return [...byName.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([name, nodes]) => ({ name, nodes }));
@@ -301,14 +273,8 @@ function buildFlow(nodes, selectedHost) {
   return flowNodes;
 }
 
-/**
- * The health table under each diagram.
- *
- * A diagram is good at shape and bad at columns of numbers, so the six health
- * readings live here rather than being crammed onto the node face. Columns that
- * this cluster does not report at all are dropped entirely: a table of six
- * dashes tells nobody anything, and its absence is itself information.
- */
+// The health table under each diagram.
+
 function HealthTable({ nodes }) {
   const columns = HEALTH_COLUMNS.filter((c) =>
     nodes.some((n) => readHealth(n, c.key) !== null),
@@ -417,9 +383,6 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
 
   const unhealthy = cluster.nodes.filter(nodeIsUnhealthy).length;
 
-  // Size to the tallest shard so a two-replica cluster does not get the same
-  // slab of empty space as a six-replica one. Capped, because past a point
-  // scrolling inside the canvas beats growing the page.
   const shardCounts = cluster.nodes.reduce((acc, n) => {
     const shard = Number(n.shard_num) || 1;
     acc[shard] = (acc[shard] || 0) + 1;
@@ -529,9 +492,7 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
 }
 
 export default function ClusterTopology({ rows, loading, selectedHost, onSelectNode }) {
-  // Collapsed by default. The diagram is reference material rather than
-  // something you watch, and on a multi-cluster install it pushes the live
-  // section, which people are here for, well below the fold.
+  // Collapsed by default.
   const [open, setOpen] = useState(false);
   const clusters = useMemo(() => groupByCluster(rows), [rows]);
 
