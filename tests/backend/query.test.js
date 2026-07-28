@@ -1,16 +1,7 @@
-/**
- * query.test.js - Unit tests for query execution controller
- *
- * Tests the runQuery and testQueryConnection endpoints. Verifies that
- * SQL is executed against the correct cluster nodes, connection settings
- * can be overridden, missing SQL or nodes returns 400, query errors are
- * returned as 400 with the error message, and ClickHouse stats are mapped
- * correctly. Also tests connection testing with node lookup and error
- * handling.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// query.test.js - Unit tests for query execution controller
+// Author: Kathir Moorthy
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
