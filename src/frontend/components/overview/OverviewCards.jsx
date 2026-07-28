@@ -1,14 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Card primitives for the Cluster Overview live section.
-//
-// The existing page repeats the same "card, toolbar, echarts div, resize on
-// fullscreen" block once per donut. This design would take that past twenty
-// repetitions, so it is wrapped once here instead.
-//
-// KpiStrip exists for a specific reason. The live section carries more than
-// thirty single-value readings, and one card each would be several screens of
-// scrolling and would read as a wall of numbers. Six to a compact row is the
-// difference between a page you can take in and one you scroll past.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
@@ -34,8 +26,7 @@ export function formatValue(value, unit) {
   if (unit === "ms") return value.toFixed(value < 10 ? 2 : 0);
 
   // Any other unit falls through to a compact number here, and KpiValue prints
-  // the unit beside it. That is deliberate: rows/part and B/row need no special
-  // handling beyond thousands separators.
+  // the unit beside it. 
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   if (Number.isInteger(value)) return String(value);
@@ -54,13 +45,8 @@ function formatBytes(n, perSecond) {
   return `${sign}${v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0)} ${units[u]}${perSecond ? "/s" : ""}`;
 }
 
-/**
- * A card holding one ECharts option, with save and fullscreen.
- *
- * Pass a null option to show the empty state rather than an empty canvas: on
- * this page a null option usually means "not enough samples yet", which is a
- * different thing from "no data" and deserves its own message.
- */
+// A card holding one ECharts option, with save and fullscreen.
+
 export function ChartCard({
   metricKey,
   title,
@@ -202,13 +188,8 @@ export function ChartCard({
   );
 }
 
-/**
- * A compact row of single-value readings.
- *
- * `items` is a list of { key, value, sparkline }. The key indexes METRICS, so
- * the label, unit and tooltip all come from the registry and cannot drift from
- * what the number actually is.
- */
+//  A compact row of single-value readings.
+
 export function KpiStrip({ title, items, minWidth = 168 }) {
   return (
     <div className="card" style={{ padding: 16, marginBottom: 16 }}>
@@ -294,10 +275,7 @@ function KpiValue({ metricKey, value }) {
   );
 }
 
-/**
- * The health strip. Chips read green at zero, so a healthy server collapses to
- * one quiet line rather than thirteen things demanding attention.
- */
+// The health strip. Chips read green at zero, so a healthy server collapses to one quiet line 
 export function HealthStrip({ chips }) {
   const [showHealthy, setShowHealthy] = useState(false);
   const bad = chips.filter((c) => c.value > 0);
@@ -331,9 +309,7 @@ export function HealthStrip({ chips }) {
               ? "var(--color-danger)"
               : "var(--color-warning)";
           // The theme already ships a matching translucent fill for each of
-          // these, which avoids color-mix(). Support for that is still patchy in
-          // older Safari and Firefox, and a chip losing its background is a
-          // silly reason to look broken.
+          // these, which avoids color-mix()
           const tint = !alarming
             ? "transparent"
             : chip.severity === "danger"
@@ -377,14 +353,8 @@ export function HealthStrip({ chips }) {
   );
 }
 
-/**
- * One small staged gauge with its label underneath.
- *
- * Each gauge owns its echarts instance rather than being one series inside a
- * shared chart. Multi-series gauge layout in echarts is positioned by percentage
- * offsets, which does not reflow, so a shared instance looks correct at exactly
- * one card width and wrong at every other.
- */
+// One small staged gauge with its label underneath.
+
 function MiniGauge({ metricKey, label, value, formatter, dark }) {
   const meta = METRICS[metricKey] || {};
   const elRef = useRef(null);
@@ -392,7 +362,7 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
 
   // No `better` here: the bands are fixed green through red on every dial, and
   // any reading that is naturally better-high is inverted in overviewMetrics.js
-  // so that low always means good.
+
   const option = useMemo(
     () => stageGauge({ value, dark, formatter, size: GAUGE_HEIGHT }),
     [value, dark, formatter],
@@ -400,9 +370,7 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
 
   // initChart bakes the echarts theme in at construction, so an instance built
   // under the dark theme keeps it forever no matter what option is set on it.
-  // Only colours written explicitly into the option would change, which is why
-  // the needle used to follow the theme and the arc did not. Rebuilding on a
-  // theme flip is the fix.
+
   useEffect(() => {
     if (!elRef.current) return undefined;
     if (instRef.current) {
@@ -471,14 +439,8 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
   );
 }
 
-/**
- * Every percentage on the page in one card.
- *
- * Grouping them is the point. Thirteen individual gauge cards is thirteen
- * borders, thirteen titles and a great deal of scrolling to compare numbers that
- * are only interesting next to each other. In one grid, a saturated pool is
- * obvious because everything around it is not.
- */
+// Every percentage on the page in one card.
+
 export function GaugeGroup({ title, subtitle, items, columns = 5 }) {
   const dark = useIsDark();
   const shown = items.filter((i) => i.show !== false);
@@ -519,26 +481,8 @@ export function GaugeGroup({ title, subtitle, items, columns = 5 }) {
   );
 }
 
-/**
- * A collapsible section with its state remembered.
- *
- * Every section on the page uses this. The point is not tidiness: the live
- * overview is twenty-odd cards, and which of them matter differs completely
- * between someone watching a live incident and someone doing a weekly check.
- * Rather than guessing an order that suits both, each reader collapses what
- * they do not want and the page stays that way.
- *
- * `summary` is what the header shows while collapsed, and it is the part that
- * makes this safe: a section can hide its contents but must never hide the fact
- * that something in it needs attention. That is why the health section reports
- * "3 failing" rather than just its title, and why the topology reports how many
- * nodes have problems.
- *
- * Almost everything on this page starts collapsed. Only the stat cards and the
- * machine gauges are open, because between them they answer "which node is this
- * and is it under load", and everything else is a follow-up question. A reader
- * who wants more opens it once and it stays open.
- */
+// A collapsible section with its state remembered.
+
 export function Section({ id, icon, title, summary, defaultOpen = true, children }) {
   const key = `chops_overview_open_${id}`;
   const [open, setOpen] = useState(() => {

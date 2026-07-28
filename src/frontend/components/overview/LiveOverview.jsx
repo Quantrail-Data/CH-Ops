@@ -1,23 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // The live section of the Cluster Overview page.
-//
-// Nothing here is a time series. Every number is either a reading taken now or
-// a rate measured over exactly one refresh interval, which is the number in the
-// dropdown, so a reader can check it against a clock.
-//
-// Three tables feed it:
-//
-//   system.metrics                gauges. What the server is doing at this instant.
-//   system.asynchronous_metrics   gauges. The machine and the data. The only
-//                                 source of CPU, memory total, disk capacity
-//                                 and replica lag.
-//   system.events                 counters. Two samples are held, previous and
-//                                 current, and only their difference is shown.
-//                                 No history beyond that.
-//
-// The two-sample rule is the whole design. It is what makes rates possible
-// without a buffer, and it is why the first poll after loading shows dashes
-// rather than zeros: a rate genuinely does not exist yet.
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
@@ -68,14 +51,6 @@ function readStored(key, fallback) {
   }
 }
 
-/**
- * All of the live section's state and derived values.
- *
- * Lifted out of the component so the control bar can sit at the very top of the
- * page, above the stat cards, while the charts it governs stay further down.
- * The alternative was reporting status back up through callbacks, which is the
- * same coupling with more places for it to go wrong.
- */
 export function useLiveOverview() {
   const [live, setLive] = useState(() => readStored(LS_LIVE, true));
   const [interval, setIntervalSeconds] = useState(() => readStored(LS_INTERVAL, 5));
@@ -180,12 +155,8 @@ export function useLiveOverview() {
   const loaded = Object.keys(m).length > 0;
 
 
-  // --------------------------------------------------- counters, one interval
+  // Every value below covers the last refresh interval
 
-  // Every value below covers the last refresh interval and nothing longer.
-  // hasPair is false on the very first poll and immediately after a restart,
-  // and the cards render a dash rather than a zero, because "no rate yet" and
-  // "a rate of zero" are different answers.
   const hasPair = Boolean(prev && curr);
 
   const ev = useMemo(() => {
@@ -204,8 +175,7 @@ export function useLiveOverview() {
       cpu_starvation: pr("OSCPUWaitMicroseconds", "RealTimeMicroseconds"),
       cpu_steal: invert(pr("OSCPUVirtualTimeMicroseconds", "RealTimeMicroseconds")),
 
-      // efficiency, all phrased so that low is good, because the gauge bands
-      // are fixed green through red and cannot be flipped per metric
+      // efficiency
       page_cache_miss: pr("OSReadBytes", "OSReadChars"),
       file_reopen_rate: prs(["OpenedFileCacheMisses"], ["OpenedFileCacheHits", "OpenedFileCacheMisses"]),
       unsorted_inserts: invert(pr("MergeTreeDataWriterBlocksAlreadySorted", "MergeTreeDataWriterBlocks")),
@@ -248,8 +218,7 @@ export function useLiveOverview() {
   }, [hasPair, prev, curr]);
 
   // Where the time goes, as a bar of current thread-equivalents rather than a
-  // time series. Bars are sorted so the dominant activity is at the top, which
-  // is the question the chart exists to answer.
+  // time series.
   const timeBreakdown = useMemo(() => {
     if (!hasPair) return null;
     const rows = TIME_BREAKDOWN.map((item) => ({
@@ -269,7 +238,7 @@ export function useLiveOverview() {
     );
   }, [hasPair, prev, curr]);
 
-  // ---------------------------------------------------------------- gauges
+  // gauges
 
   const gauges = useMemo(() => {
     const machine = [
@@ -316,7 +285,7 @@ export function useLiveOverview() {
     return { machine, efficiency };
   }, [m, a, ev]);
 
-  // ---------------------------------------------------------------- charts
+  //charts
 
   const charts = useMemo(() => {
     const bar = (rows, title, showLegend = false) =>
@@ -460,8 +429,7 @@ export function useLiveOverview() {
           { showLegend: true },
         );
       })(),
-      // Conditional subsystems. Only rendered when in use, which on a plain
-      // install means none of them appear at all.
+      // Conditional subsystems. Only rendered when in use
       tempFiles: (() => {
         const rows = toCategoryRows(m, [
           ["Sort", "TemporaryFilesForSort"],
@@ -507,7 +475,7 @@ export function useLiveOverview() {
     };
   }, [m, a]);
 
-  // ------------------------------------------------------------------ kpis
+  // kpis
 
   const kpis = useMemo(
     () => [
@@ -559,13 +527,8 @@ export function useLiveOverview() {
   };
 }
 
-/**
- * Node name, live toggle and refresh interval.
- *
- * Rendered at the top of the page rather than above the charts, because it
- * governs every reading below it including the stat cards, and a control that
- * sits halfway down a page reads as belonging only to what follows it.
- */
+// Node name, live toggle and refresh interval.
+
 export function LiveControlBar({ nodeName, live: s }) {
   const { live, setLive, interval, setIntervalSeconds, lastAt, error, restarted } = s;
   const ageSeconds = lastAt ? Math.round((Date.now() - lastAt) / 1000) : null;
@@ -632,15 +595,9 @@ export function LiveControlBar({ nodeName, live: s }) {
   );
 }
 
-/**
- * The machine gauges, on their own so the page can put them directly under the
- * stat cards.
- *
- * They belong there rather than with the rest of the live section: between them
- * and the stat cards you have the whole answer to "which node is this, and is it
- * under load". Everything below is a follow-up question, which is why this is
- * the only other thing open by default.
- */
+// The machine gauges, on their own so the page can put them directly under the
+// stat cards.
+ 
 export function MachineGauges({ live: s }) {
   const { loaded, gauges } = s;
   if (!loaded) return null;
@@ -651,7 +608,7 @@ export function MachineGauges({ live: s }) {
   );
 }
 
-/** The rest of the live charts. Controls and machine gauges sit above. */
+// The rest of the live charts. Controls and machine gauges sit above. 
 export default function LiveOverview({ live: s }) {
   const {
     interval, loaded, ev, gauges, charts, kpis, timeBreakdown, healthChips, failingChecks, hasPair,

@@ -1,32 +1,9 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Registry for every number on the Cluster Overview live section.
-//
-// Three sources, and the difference between them shapes the whole page:
-//
-//   system.metrics                gauges. What the server is doing right now.
-//   system.asynchronous_metrics   gauges. What the machine and the data look
-//                                 like right now. The only source of CPU,
-//                                 memory total, disk capacity and replica lag.
-//   system.events                 counters. Only the difference between two
-//                                 readings means anything, so these are shown
-//                                 as "in the last interval" and never as a
-//                                 running total.
-//
-// Nothing is a time series. Counter-derived values cover exactly one refresh
-// interval, which is the one in the dropdown, so the number a reader sees is
-// one they can verify against a clock.
-//
-// Each entry carries:
-//   label    what the card says
-//   unit     appended to the value, kept short
-//   source   'metrics' or 'async'
-//   formula  shown in monospace in the tooltip so the number is checkable
-//   what     one sentence saying what it is
-//   read     how to interpret it, which is the part that makes the page teach
-//   better   'lower' or 'higher', decides which end of a gauge is green
+// Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
 export const METRICS = {
-  // ------------------------------------------------------- saturation gauges
+  // saturation gauges
 
   cpu_used: {
     label: "CPU",
@@ -115,7 +92,7 @@ export const METRICS = {
     better: null,
   },
 
-  // -------------------------------------------------------- pool saturation
+  // pool saturation
 
   pool_utilization: {
     label: "Background pools",
@@ -130,7 +107,7 @@ export const METRICS = {
     better: "lower",
   },
 
-  // ------------------------------------------------------------- activity
+  // activity
 
   query_activity: {
     label: "Query activity",
@@ -177,7 +154,7 @@ export const METRICS = {
     better: "lower",
   },
 
-  // ------------------------------------------------------------- storage
+  // storage
 
   parts_by_state: {
     label: "Parts by state",
@@ -226,7 +203,7 @@ export const METRICS = {
   },
 
 
-  // ---------------------------------------------------- counters, last interval
+  // counters, last interval
 
   ch_cpu_cores: {
     label: "ClickHouse CPU",
@@ -483,16 +460,82 @@ export const METRICS = {
     unit: "/s",
     source: "events",
     formula: "delta(Query) / interval",
-    read: "Throughput over the last interval, not concurrency. Pair with average query time.",
+    what: "Queries started per second over the last interval.",
+    read:
+      "Throughput rather than concurrency: twenty fast queries and one slow one look very " +
+      "different here and identical on the queries-in-flight chart. Pair it with average query " +
+      "time to tell them apart.",
     better: null,
   },
 
-  rows_read_rate: { label: "Rows read", unit: "/s", source: "events", formula: "delta(SelectedRows) / interval", better: null },
-  rows_written_rate: { label: "Rows inserted", unit: "/s", source: "events", formula: "delta(InsertedRows) / interval", better: null },
-  disk_read_rate: { label: "Disk read", unit: "B/s", source: "events", formula: "delta(OSReadBytes) / interval", better: null },
-  disk_write_rate: { label: "Disk write", unit: "B/s", source: "events", formula: "delta(OSWriteBytes) / interval", better: null },
-  net_in_rate: { label: "Network in", unit: "B/s", source: "events", formula: "delta(NetworkReceiveBytes) / interval", better: null },
-  net_out_rate: { label: "Network out", unit: "B/s", source: "events", formula: "delta(NetworkSendBytes) / interval", better: null },
+  rows_read_rate: {
+    label: "Rows read",
+    unit: "/s",
+    source: "events",
+    formula: "delta(SelectedRows) / interval",
+    what: "Rows returned to queries per second.",
+    read:
+      "Rows returned, not rows scanned. Compare against read amplification below: a modest figure " +
+      "here alongside a large one there means the engine is doing far more work than the answer " +
+      "requires.",
+    better: null,
+  },
+  rows_written_rate: {
+    label: "Rows inserted",
+    unit: "/s",
+    source: "events",
+    formula: "delta(InsertedRows) / interval",
+    what: "Rows inserted into all tables per second.",
+    read:
+      "Read alongside rows per part. The same insert rate arriving in large batches costs a " +
+      "fraction of what it costs arriving row by row, because every part created has to be merged " +
+      "later.",
+    better: null,
+  },
+  disk_read_rate: {
+    label: "Disk read",
+    unit: "B/s",
+    source: "events",
+    formula: "delta(OSReadBytes) / interval",
+    what: "Bytes read from the block device per second.",
+    read:
+      "What actually reached the disk. The gap between this and the filesystem figure is the page " +
+      "cache doing its job; when the two converge, reads are missing cache.",
+    better: null,
+  },
+  disk_write_rate: {
+    label: "Disk write",
+    unit: "B/s",
+    source: "events",
+    formula: "delta(OSWriteBytes) / interval",
+    what: "Bytes written to the block device per second.",
+    read:
+      "Includes merges as well as inserts, and on a busy MergeTree table merges usually dominate. " +
+      "Compare against write amplification if this looks disproportionate to what you are inserting.",
+    better: null,
+  },
+  net_in_rate: {
+    label: "Network in",
+    unit: "B/s",
+    source: "events",
+    formula: "delta(NetworkReceiveBytes) / interval",
+    what: "Bytes received per second, counting only ClickHouse's own traffic.",
+    read:
+      "Inserts arriving, and data pulled from other nodes during distributed queries and " +
+      "replication. Traffic from third party libraries is not included.",
+    better: null,
+  },
+  net_out_rate: {
+    label: "Network out",
+    unit: "B/s",
+    source: "events",
+    formula: "delta(NetworkSendBytes) / interval",
+    what: "Bytes sent per second, counting only ClickHouse's own traffic.",
+    read:
+      "Query results going back to clients, plus parts sent to replicas. A high figure with low " +
+      "query activity usually means replication rather than users.",
+    better: null,
+  },
 
   merge_throughput: {
     label: "Merge throughput",
@@ -552,7 +595,7 @@ export const METRICS = {
     better: null,
   },
 
-  // ------------------------------------------------- derived from gauges
+  // derived from gauges
 
   part_churn: {
     label: "Part churn",
@@ -627,9 +670,8 @@ export const METRICS = {
 
 };
 
-// --------------------------------------------------------------------------
 // Curated keys. Anything not listed is dropped on arrival.
-// --------------------------------------------------------------------------
+
 
 export const METRIC_KEYS = [
   // memory and threads
@@ -700,8 +742,7 @@ export const ASYNC_KEYS = [
 ];
 
 
-// system.events. Counters, so only the difference between two readings is used.
-// Nothing here is displayed as a running total.
+// system.events. Counters
 export const EVENT_KEYS = [
   "Query", "SelectQuery", "InsertQuery", "QueryTimeMicroseconds",
   "SelectedRows", "SelectedBytes", "InsertedRows", "InsertedBytes", "RowsReadByMainReader",
@@ -742,10 +783,7 @@ export const LOCK_WAIT_KEYS = [
   "PartsLockWaitMicroseconds",
 ];
 
-/**
- * The thread-equivalents breakdown. `scale` converts counters that are not in
- * microseconds: milliseconds pass 1000, nanoseconds pass 0.001.
- */
+
 export const TIME_BREAKDOWN = [
   { label: "CPU user", keys: ["UserTimeMicroseconds"] },
   { label: "CPU kernel", keys: ["SystemTimeMicroseconds"] },
@@ -771,10 +809,9 @@ export const BACKGROUND_POOLS = [
   { label: "Message broker", task: "BackgroundMessageBrokerSchedulePoolTask", size: "BackgroundMessageBrokerSchedulePoolSize" },
 ];
 
-/**
- * Health chips. Every one should read zero on a healthy server, which is why the
- * whole strip collapses to a single quiet line when nothing is wrong.
- */
+
+// Health chips. Every one should read zero on a healthy server. whole strip collapses to a single quiet line when nothing is wrong.
+
 export const HEALTH_CHIPS = [
   { key: "ReadonlyReplica", label: "Readonly replicas", severity: "danger", hint: "Replicated tables are in readonly. Replication is broken." },
   { key: "ZooKeeperSessionExpired", label: "Keeper expired", severity: "danger", hint: "The Keeper session was lost. Replication and cluster DDL will stall." },
