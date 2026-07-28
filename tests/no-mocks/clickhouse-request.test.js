@@ -1,4 +1,11 @@
 // clickhouse-request.test.js - The request CHOps sends to ClickHouse.
+// Lives in tests/no-mocks: it exercises the REAL services/clickhouse.js.
+//
+// Bun's mock.module replaces a module for the whole test process. Three suites
+// under tests/backend stub services/clickhouse.js, and tests/isolated stubs it
+// too, so in either directory this file's fetch spy never saw a request and
+// every assertion failed. package.json runs this directory as its own bun
+// process, and nothing in it declares a module mock.
 //  Copyright (C) 2026 Quantrail™ Data Private Limited
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
@@ -37,7 +44,13 @@ describe("executeQuery: the base URL", () => {
     const url = lastUrl();
     expect(url.origin).toBe("http://10.0.0.1:8123");
     expect(url.pathname).toBe("/");
-    expect([...url.searchParams.keys()]).toEqual([]);
+    // Not empty: executeQuery applies a result ceiling to every call that has
+    // not opted out (see the max_result_bytes suite). "No extra arguments"
+    // means nothing beyond that ceiling.
+    expect([...url.searchParams.keys()]).toEqual([
+      "max_result_bytes",
+      "result_overflow_mode",
+    ]);
   });
 
   test("uses https when the node is marked secure", async () => {
@@ -88,7 +101,13 @@ describe("executeQuery: query parameters", () => {
     const p = lastUrl().searchParams;
     expect(p.get("param_t")).toBe("a&b=c");
     expect(p.has("b")).toBe(false);
-    expect([...p.keys()]).toEqual(["param_t"]);
+    // The value did not smuggle in a second argument: param_t is the only key
+    // beyond the standing result ceiling.
+    expect([...p.keys()]).toEqual([
+      "param_t",
+      "max_result_bytes",
+      "result_overflow_mode",
+    ]);
   });
 
   test("escapes a value that looks like SQL rather than acting on it", async () => {
@@ -200,7 +219,10 @@ describe("executeQuery: nothing changes for existing callers", () => {
 
   test("a readonly call is unchanged", async () => {
     await executeQuery({ ...NODE, sql: "SELECT 1", readOnly: true });
-    expect(lastUrl().toString()).toBe("http://10.0.0.1:8123/?readonly=1");
+    expect(lastUrl().toString()).toBe(
+      "http://10.0.0.1:8123/?readonly=1&max_result_bytes=134217728" +
+        "&result_overflow_mode=break",
+    );
   });
 
   test("still appends FORMAT JSONEachRow to a data query", async () => {
