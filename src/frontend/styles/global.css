@@ -2,9 +2,6 @@
     author -> (kathir Moorthy, kathir dhasan, Praveen kumar) 
     Defines the global design system, CSS variables, typography reset, and layout styles for the entire application.  */
 
-/* Jakarta Sans - variable weight axis 200..800 in a single woff2. Declaring the
-   real weight range means 600/700 use true bold glyphs (no faux-bold synthesis,
-   the main cause of blurry headings/labels). */
 @font-face {
   font-family: 'Jakarta Sans';
   src: url('../fonts/PlusJakartaSans-Variable.woff2') format('woff2');
@@ -186,7 +183,7 @@ input, button, select, textarea {
 }
 
 /* User-input fields use B612 app-wide (labels stay Jakarta via --font-ui).
-   More specific classes such as .sql-textarea keep their own font. */
+   More specific rules, such as the CodeMirror editor, keep their own font. */
 input, select, textarea {
   font-family: var(--font-table);
 }
@@ -736,7 +733,22 @@ a {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 28px 32px;
-  /* position: relative; */
+
+  /* A COLUMN, so a page that wants the remaining height can ask for it.
+     
+     .app-main renders a <Breadcrumb> and then the route's content. As a block
+     container, a child asking for height: 100% gets 100% of app-main's FULL
+     content height, not what is left after the breadcrumb. So the page overflows
+     by exactly the breadcrumb's height, every time, and app-main is
+     overflow-y: auto, which is the extra scrollbar.
+     
+     As a flex column, flex: 1 on the route content means "what is left", which
+     is the thing that actually needs saying. Every other page keeps behaving as
+     before: a block child in a column flex is stretched to full width and sized
+     by its content, exactly as it was. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .page-content {
@@ -1744,10 +1756,23 @@ input[type="datetime-local"] {
 /* SQL EDITOR */
 .editor-shell {
   display: flex;
-  height: calc(100vh - var(--navbar-height));
+  /* height: 100%, and nothing cleverer.
+     
+     The history here is worth keeping. It was calc(100vh - navbar), which
+     ignores the copyright footer and .app-main's padding, so it overflowed by
+     about 90px. An inline 90.5vh in QueryEditor was overriding that anyway.
+     calc(100% + 56px) depended on a percentage resolving. Absolute positioning
+     with a negative inset removed the original overflow and introduced a new
+     28px one, because an absolutely positioned child overflowing downward makes
+     a parent that is overflow-y: auto scrollable.
+     
+     100% of .app-main's content box cannot exceed .app-main. The editor sits
+     inside its 28px x 32px padding rather than bleeding to the window edge,
+     which the old negative margin bought at the cost of all of the above. */
+  height: 100%;
   overflow: hidden;
-  margin: -28px -32px;
 }
+
 
 .editor-sidebar {
   background: var(--sidebar-bg);
@@ -2037,76 +2062,27 @@ input[type="datetime-local"] {
 /* SQL EDITOR INPUT - 10 visible lines before scroll */
 .sql-editor-wrap {
   flex: 0 0 auto;
-  height: calc(10 * 1.55em + 28px);
-  min-height: calc(10 * 1.55em + 28px);
+  /* Height comes from QueryEditor as an inline style, driven by the splitter
+     immediately below this element and remembered in localStorage. No height or
+     max-height here, or the inline value would be fighting a stylesheet.
+
+     The CSS resize property was tried first and is not used: on a flex item it
+     is unreliable, its handle is a 16px corner the editor sits on top of, and
+     it offers no hover affordance. A real splitter is both more reliable and
+     easier to find. */
+  min-height: 90px;
   display: flex;
   overflow: hidden;
+  box-sizing: border-box;
   background: var(--bg-sunken);
-  border-bottom: 1px solid var(--border-default);
   position: relative;
 }
 
-.sql-line-numbers {
-  width: 44px;
-  min-width: 44px;
-  padding: 12px 6px 12px 12px;
-  text-align: right;
-  color: var(--text-muted);
-  font-family: var(--font-code);
-  font-size: 14px;
-  line-height: 1.55;
-  user-select: none;
-  overflow: hidden;
-  background: var(--bg-elevated);
-  border-right: 1px solid var(--border-default);
-  margin: 0;
-  white-space: pre;
-}
 
-.sql-editor-inner {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
 
-.sql-highlight,
-.sql-textarea {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  padding: 12px 16px;
-  margin: 0;
-  border: none;
-  outline: none;
-  font-family: var(--font-code);
-  font-size: 14px;
-  line-height: 1.55;
-  white-space: pre;
-  overflow: auto;
-  tab-size: 2;
-}
 
-.sql-highlight {
-  pointer-events: none;
-  z-index: 1;
-  color: var(--text-primary);
-  background: transparent;
-}
 
-.sql-textarea {
-  z-index: 2;
-  color: transparent;
-  caret-color: var(--accent);
-  background: transparent;
-  resize: none;
-  -webkit-text-fill-color: transparent;
-}
 
-.sql-textarea::selection {
-  background: var(--selection-bg);
-}
 
 .sql-hint {
   position: absolute;
@@ -2120,63 +2096,35 @@ input[type="datetime-local"] {
   font-family: var(--font-code);
 }
 
-.sql-keyword {
-  color: #c084fc;
-  font-weight: 600;
+
+/* CodeMirror fills the wrap, which keeps its height from above and lets the
+   drag handle resize the editor rather than just its container. */
+.sql-editor-wrap .cm-editor {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
 }
 
-.sql-string {
-  color: var(--color-success);
+/* One scrollbar, not two. The wrap clips so it can be resizable; the scroller
+   inside it is the only thing that should scroll.
+
+   Note there is deliberately NO padding here. .cm-content carries min-height
+   100%, so any padding on the scroller pushes the content past the viewport and
+   the scrollbar becomes permanent. */
+.sql-editor-wrap .cm-scroller {
+  overflow: auto;
 }
 
-.sql-number {
-  color: var(--color-info);
-}
 
-.sql-function {
-  color: #fb923c;
-}
 
-.sql-comment {
-  color: var(--text-muted);
-  font-style: italic;
-}
 
-[data-theme="light"] .sql-keyword {
-  color: #7c3aed;
-}
 
-[data-theme="light"] .sql-function {
-  color: #c2410c;
-}
 
-.sql-autocomplete {
-  position: absolute;
-  z-index: 10;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  max-height: 200px;
-  overflow-y: auto;
-  min-width: 200px;
-}
 
-.sql-ac-item {
-  padding: 5px 12px;
-  font-family: var(--font-code);
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-primary);
-}
 
-.sql-ac-item:hover,
-.sql-ac-item.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
+
+
+
 
 /* TEXT LOG ROW COLORS */
 .log-row-test {
@@ -3918,4 +3866,605 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
 .switch input:checked + .slider::before {   
   transform: translateX(13px);  
   background-color: white; 
+}
+
+/* Query tabs
+
+   The strip sits directly above the editor and replaces the hint line that used
+   to sit below it, so the feature costs one row and returns one. Heights are
+   kept tight for that reason: 30px of strip against the 24px of hint line it
+   removes.
+
+   Added by phase 3 step 3c. Paste into global.css beside the .sql-editor-wrap
+   rules. */
+
+.qtabs {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  height: 30px;
+  flex: 0 0 auto;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border-default);
+  padding: 0 8px 0 4px;
+  box-sizing: border-box;
+}
+
+.qtabs-list {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  /* Many tabs scroll rather than shrinking to unreadable slivers. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.qtabs-list::-webkit-scrollbar { display: none; }
+
+.qtab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 10px;
+  max-width: 190px;
+  min-width: 0;
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-family: var(--font-ui, inherit);
+  white-space: nowrap;
+  user-select: none;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.qtab:hover { background: var(--bg-elevated, rgba(148, 163, 184, 0.08)); }
+
+.qtab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+  background: var(--bg-page);
+  font-weight: 600;
+}
+
+.qtab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.qtab-rename {
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--input-bg, var(--bg-page));
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 1px 4px;
+  width: 110px;
+  min-width: 0;
+  outline: none;
+}
+
+/* Always in the DOM, revealed on hover. Rendering it conditionally would make
+   the tab change width as the pointer crosses it, which looks like a glitch. */
+.qtab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s var(--ease), background 0.15s var(--ease);
+}
+/* The shared .ti rule sets icons to 20px, which is right for a toolbar and far
+   too heavy for a close mark inside a 30px tab strip. */
+.qtab-close .ti,
+.qtab-close svg {
+  font-size: 13px;
+  width: 13px;
+  height: 13px;
+}
+
+.qtab:hover .qtab-close,
+.qtab.active .qtab-close,
+.qtab-close:focus-visible { opacity: 0.7; }
+.qtab-close:hover { opacity: 1; background: var(--color-danger-bg); color: var(--color-danger); }
+
+.qtab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.qtab-add:hover:not(:disabled) { background: var(--bg-elevated, rgba(148, 163, 184, 0.08)); color: var(--text-primary); }
+.qtab-add:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.qtabs-hint {
+  margin-left: auto;
+  align-self: center;
+  font-size: 0.6875rem;
+  font-family: var(--font-code);
+  color: var(--text-muted);
+  opacity: 0.6;
+  white-space: nowrap;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* The busy marker. Its whole job is to say which tab is working while you are
+   reading another one, which is also what makes the concurrent-run
+   confirmation intelligible rather than mysterious. */
+.qtab-spin {
+  color: var(--accent);
+  font-size: 13px;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  animation: qtab-spin 0.9s linear infinite;
+}
+
+@keyframes qtab-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qtab-spin { animation: none; opacity: 0.8; }
+}
+
+/* The strip is chrome for the editor, so it goes when the editor does. */
+.qtabs-hidden { display: none; }
+
+/* Function documentation
+
+   The panel CodeMirror shows beside a highlighted function in the completion
+   list. Built from system.functions, which the editor already queries.
+
+   Added by phase 3 spec 6. */
+
+.cm-fn-doc {
+  max-width: 380px;
+}
+
+.cm-fn-doc code {
+  display: block;
+  font-family: var(--font-code);
+  font-size: 0.6875rem;
+  color: var(--sql-function);
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cm-fn-doc p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary, var(--text-primary));
+}
+/* Comparison mode
+
+   The pane header used to be a fixed 100px block set inline, which left a band
+   of empty space above each editor once CodeMirror replaced the textarea. It
+   sizes to its contents now; this keeps it from collapsing to nothing when a
+   pane has no connection controls to show.
+
+   Added by phase 3. */
+
+.cmp-pane-header {
+  min-height: 34px;
+}
+
+/* Both panes the same height regardless of what is in their headers, so the two
+   editors line up and can be read side by side. */
+.cmp-split {
+  align-items: start;
+}
+
+/* Max rows control
+
+   One stepper, not two. A number input draws the browser's own up and down
+   arrows inside the box; the component adds its own beside it. Both together
+   read as two controls for one value, so the native pair is hidden and ours is
+   the only one.
+
+   Added by phase 3. */
+
+.mx-rows {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mx-rows-input::-webkit-outer-spin-button,
+.mx-rows-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.mx-rows-steps {
+  display: inline-flex;
+  flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mx-rows-steps button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.mx-rows-steps button:first-child {
+  border-bottom: 1px solid var(--border-default);
+}
+
+.mx-rows-steps button:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.mx-rows-steps button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mx-rows-steps .ti {
+  font-size: 11px;
+  width: 11px;
+  height: 11px;
+}
+
+/* Panes scroll, the page does not
+
+   A flex item's default min-height is auto, NOT zero, so a tall result refuses
+   to shrink below its own content and pushes the whole page taller instead of
+   scrolling inside its pane. The symptom is a page that grows after a large
+   query and never comes back.
+
+   These two lines are the fix, and they are load-bearing: without them
+   overflow:hidden on the same elements does nothing, because the element is
+   never asked to be smaller than its content in the first place.
+
+   Added by phase 3. */
+
+.editor-main,
+.editor-results {
+  min-height: 0;
+}
+
+/* The results themselves scroll. Everything above them, the tabs, the parameter
+   strip and the editor, keeps its own height. */
+.editor-results > * {
+  min-height: 0;
+}
+
+/* SQL syntax colours
+
+   Six distinct roles, because a query where keywords, functions, tables and
+   literals all share one colour is a wall of text.
+
+   Chosen so that the three that carry the most meaning stay furthest apart:
+   keywords say what kind of query this is, functions say what it computes, and
+   identifiers say what it touches.
+
+   Replaces the five-colour block from phase 2. If that block is still present
+   above, this one supersedes it. */
+
+:root {
+  --sql-keyword: #c084fc;                     /* violet   SELECT, FROM, JOIN   */
+  --sql-function: #fb923c;                    /* orange   count(), groupArray()*/
+  --sql-identifier: #7dd3fc;                  /* sky      tables and columns   */
+  --sql-qualifier: #38bdf8;                   /* deeper   the db in db.table   */
+  --sql-type: #f0abfc;                        /* pink     UInt64, DateTime     */
+  --sql-string: var(--color-success);         /* green    'literals'           */
+  --sql-number: var(--color-warning);         /* amber    42, true, NULL       */
+  --sql-comment: var(--text-muted);           /* grey, italic                  */
+  --sql-operator: #cbd5e1;                    /* near-white  = > AND           */
+  --sql-punctuation: #94a3b8;                 /* dimmer     , ( )              */
+}
+
+[data-theme="light"] {
+  --sql-keyword: #7c3aed;
+  --sql-function: #c2410c;
+  --sql-identifier: #0369a1;
+  --sql-qualifier: #075985;
+  --sql-type: #a21caf;
+  --sql-operator: #475569;
+  --sql-punctuation: #64748b;
+}
+
+/* Virtualised tables and table fullscreen
+
+   The fullscreen button floats over the table's top-right corner rather than
+   sitting in a toolbar, because DataTable has twenty-six callers and none of
+   them expect it to start adding a row of chrome.
+
+   Added by phase 3. */
+
+.data-table-fs-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.data-table-fs-btn:hover,
+.data-table-fs-btn:focus-visible {
+  opacity: 1;
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.data-table-fs-btn .ti {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+/* In fullscreen the button pins to the viewport corner rather than scrolling
+   away with the table. */
+.data-table-fullscreen .data-table-fs-btn {
+  position: fixed;
+  top: 10px;
+  right: 16px;
+  opacity: 1;
+  width: 28px;
+  height: 28px;
+}
+
+/* The header has to stay put while the body scrolls, or a virtualised table of
+   seventy columns is unreadable the moment you move. */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-sunken);
+}
+
+/* A spacer row stands in for everything scrolled past. It must contribute
+   nothing but height. */
+.data-table tbody tr[aria-hidden="true"] > td {
+  padding: 0;
+  border: 0;
+}
+
+/* Max rows stepper, second attempt
+
+   One bordered group: minus, value, plus. The first version put the browser's
+   own number spinners inside the field and a second pair of arrows outside it,
+   which is two controls for one value.
+
+   Supersedes the .mx-rows block above. */
+
+.mx-rows {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mx-rows-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mx-rows-group {
+  display: inline-flex;
+  align-items: stretch;
+  height: 30px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 5px);
+  overflow: hidden;
+  background: var(--input-bg, var(--bg-page));
+}
+
+.mx-rows-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  padding: 0;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), opacity 0.15s var(--ease);
+}
+
+.mx-rows-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+/* Greyed rather than hidden at the ends of the range, so the control does not
+   change width when a limit is reached. */
+.mx-rows-btn:disabled {
+  background: var(--border-default);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.mx-rows-input {
+  width: 62px;
+  border: none;
+  border-left: 1px solid var(--border-default);
+  border-right: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0 2px;
+  outline: none;
+  /* The browser's own arrows would be a second stepper inside this one. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.mx-rows-input::-webkit-outer-spin-button,
+.mx-rows-input::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.mx-rows-input:focus {
+  background: var(--bg-sunken);
+}
+
+/* Checkboxes
+
+   The EXPLAIN option row drew the operating system's own checkboxes, which are
+   white-on-grey in both themes and look imported from another application.
+   accent-color is one line and hands the native control the app's colour while
+   keeping its keyboard behaviour and its accessibility intact. */
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* SQL actions row, and the table fullscreen column
+
+   One height for every control in the actions row. btn-sm sizes itself from its
+   padding and line-height, and a <select> has its own intrinsic height, so the
+   two never agree by accident and matching them by eye does not survive a theme
+   change or a zoom level.
+
+   Supersedes the inline heights that were there before. */
+
+.sql-action-control {
+  height: 32px !important;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+select.sql-action-control {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* The fullscreen column. Narrow, and its header cell is already sticky, so the
+   button stays visible while the body scrolls. The floating version it replaces
+   slid away the moment you moved. */
+.data-table th.dt-fs-col,
+.data-table td.dt-fs-col {
+  width: 34px;
+  min-width: 34px;
+  padding: 0 4px;
+  text-align: center;
+}
+
+.data-table th.dt-fs-col .data-table-fs-btn {
+  position: static;
+  opacity: 0.55;
+}
+
+.data-table th.dt-fs-col .data-table-fs-btn:hover,
+.data-table th.dt-fs-col .data-table-fs-btn:focus-visible {
+  opacity: 1;
+}
+
+/* The actions dropdown, wrapping
+
+   Scoped to .sql-action-control rather than applied to every dropdown in the
+   application, because the two halves want opposite things and only this one
+   is under width pressure.
+
+   The OPEN LIST wraps: an option that does not fit should be readable on two
+   lines rather than cut off.
+
+   The CLOSED TRIGGER does not, because it has a fixed 32px height to line up
+   with Cost, Generate and Go. Wrapping there would push it out of the row. It
+   ellipses instead, and the full text is a hover away in the list. */
+
+.cui-select.sql-action-control .cui-select-opt {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  height: auto;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.cui-select.sql-action-control .cui-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The menu is free to be wider than the trigger, so most options never need to
+   wrap at all. */
+.cui-select.sql-action-control .cui-select-menu {
+  min-width: 100%;
+  width: max-content;
+  max-width: 260px;
+}
+
+
+/* The SQL editor page
+
+   .editor-shell sizes itself with a percentage, which only resolves if its
+   parent has a definite height. .app-main gets one from the flex layout, but a
+   flex item's default min-height is auto, so it can still be pushed taller by
+   its content before the percentage is ever consulted.
+
+   Added by phase 3. */
+
+.app-body,
+.app-main {
+  min-height: 0;
 }

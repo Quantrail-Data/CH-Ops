@@ -1,6 +1,6 @@
+// Contributors - Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> kathir Moorthy
-// Suite validating chart registries, column types, SQL string/graph transformations, and auto-layout algorithms.
+// chartTypes.test.js - the chart type registry, column validation and axis defaults
 
 import { describe, it, expect } from "vitest";
 import {
@@ -9,6 +9,7 @@ import {
   validateColumnType,
   getAxisDefaults,
   needsLegend,
+  yAxisNameGap,
 } from "../../src/frontend/components/dashboards/chartTypes.js";
 
 describe("Chart Type Registry", () => {
@@ -600,5 +601,66 @@ describe("DOT graph parser", () => {
   it("keeps explicit node labels when edges also exist", () => {
     const g = parseDotGraph('n1 [label = "Scan"]\nn1 -> n2');
     expect(g.nodes.find((n) => n.id === "n1").name).toBe("Scan");
+  });
+});
+
+describe('yAxisNameGap', () => {
+  // nameLocation:'middle' rotates the axis name and places it nameGap pixels
+  // out from the axis line, measured THROUGH the tick labels. The gap was
+  // hardcoded to 42, so a count axis reaching 120,000,000 drew the name on top
+  // of its own numbers.
+  const withData = (data, yAxis = { type: 'value', name: 'Value' }) => ({ yAxis, series: [{ data }] });
+
+  it('grows with the magnitude of the data', () => {
+    const small = yAxisNameGap(withData([3, 7, 10]));
+    const mid = yAxisNameGap(withData([1200, 4300]));
+    const large = yAxisNameGap(withData([115000000]));
+    expect(small).toBeLessThan(mid);
+    expect(mid).toBeLessThan(large);
+  });
+
+  it('clears wide labels on the axis that reported the bug', () => {
+    // 120,000,000 renders at roughly 90px; the old fixed 42 did not clear it.
+    expect(yAxisNameGap(withData([115000000]))).toBeGreaterThan(70);
+  });
+
+  it('never returns less than the minimum', () => {
+    expect(yAxisNameGap(withData([1]))).toBeGreaterThanOrEqual(42);
+    expect(yAxisNameGap(withData([]))).toBeGreaterThanOrEqual(42);
+  });
+
+  it('is capped so it cannot eat the plot area', () => {
+    expect(yAxisNameGap(withData([9.9e18]))).toBeLessThanOrEqual(150);
+  });
+
+  it('returns the minimum when there is no axis name to place', () => {
+    expect(yAxisNameGap(withData([115000000], { type: 'value' }))).toBe(42);
+  });
+
+  it('does not guess for a category axis or a custom formatter', () => {
+    // Neither is predictable from the data; grid.containLabel reserves the room.
+    expect(yAxisNameGap({ yAxis: { type: 'category', name: 'V' }, series: [{ data: ['a'] }] })).toBe(42);
+    expect(yAxisNameGap({
+      yAxis: { type: 'value', name: 'V', axisLabel: { formatter: () => 'x' } },
+      series: [{ data: [115000000] }],
+    })).toBe(42);
+  });
+
+  it('reads [x, y] pairs and { value } objects, not just bare numbers', () => {
+    expect(yAxisNameGap({ yAxis: { type: 'value', name: 'Y' }, series: [{ data: [[1, 250000]] }] }))
+      .toBeGreaterThan(42);
+    expect(yAxisNameGap({ yAxis: { type: 'value', name: 'Y' }, series: [{ data: [{ value: 75000000 }] }] }))
+      .toBeGreaterThan(60);
+  });
+
+  it('accounts for the axis maximum being rounded up past the data', () => {
+    // 98,000,000 becomes a 100,000,000 axis - one digit wider than the data.
+    expect(yAxisNameGap(withData([98000000]))).toEqual(yAxisNameGap(withData([100000000])));
+  });
+
+  it('survives malformed input rather than throwing', () => {
+    expect(() => yAxisNameGap({})).not.toThrow();
+    expect(() => yAxisNameGap(null)).not.toThrow();
+    expect(() => yAxisNameGap({ yAxis: { name: 'V' }, series: [{ data: [null, undefined, 'x'] }] })).not.toThrow();
   });
 });

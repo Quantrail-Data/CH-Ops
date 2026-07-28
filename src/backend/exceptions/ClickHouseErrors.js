@@ -1,26 +1,26 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // Defines ClickHouse error classes for handling common errors with consistent codes and responses
-const ApplicationError = require("./AppError");
-class ClickHouseError extends ApplicationError {
+import ApplicationError from "./AppError.js";
+export class ClickHouseError extends ApplicationError {
   constructor(message, errorCode, statusCode, details = null) {
     super(message, errorCode, statusCode, details);
   }
 }
 
-class ClickHouseQueryError extends ClickHouseError {
+export class ClickHouseQueryError extends ClickHouseError {
   constructor(details = null) {
     super("ClickHouse query failed", "clickhouse_query_error", 500, details);
   }
 }
 
-class ClickHouseAuthenticationError extends ClickHouseError {
+export class ClickHouseAuthenticationError extends ClickHouseError {
   constructor(message = "ClickHouse authentication failed", details = null) {
     super(message, "clickhouse_authentication_error", 401, details);
   }
 }
 
-class ClickHouseInvalidPasswordError extends ClickHouseAuthenticationError {
+export class ClickHouseInvalidPasswordError extends ClickHouseAuthenticationError {
   constructor(details = null) {
     super("Failed to connect ClickHouse, Invalid password", details);
 
@@ -28,7 +28,7 @@ class ClickHouseInvalidPasswordError extends ClickHouseAuthenticationError {
   }
 }
 
-class ClickHouseInvalidUsernameError extends ClickHouseAuthenticationError {
+export class ClickHouseInvalidUsernameError extends ClickHouseAuthenticationError {
   constructor(details = null) {
     super("Failed to connect ClickHouse, Invalid username", details);
 
@@ -36,7 +36,7 @@ class ClickHouseInvalidUsernameError extends ClickHouseAuthenticationError {
   }
 }
 
-class ClickHouseInvalidDatabaseError extends ClickHouseError {
+export class ClickHouseInvalidDatabaseError extends ClickHouseError {
   constructor(databaseName) {
     super(
       `Database '${databaseName}' does not exist`,
@@ -46,7 +46,7 @@ class ClickHouseInvalidDatabaseError extends ClickHouseError {
   }
 }
 
-class ClickHouseInvalidHostError extends ClickHouseError {
+export class ClickHouseInvalidHostError extends ClickHouseError {
   constructor(details = null) {
     super(
       "Failed to connect ClickHouse, Invalid host name",
@@ -57,7 +57,7 @@ class ClickHouseInvalidHostError extends ClickHouseError {
   }
 }
 
-class ClickHouseInvalidPortError extends ClickHouseError {
+export class ClickHouseInvalidPortError extends ClickHouseError {
   constructor(details = null) {
     super(
       "Failed to connect ClickHouse, Invalid port number",
@@ -68,7 +68,7 @@ class ClickHouseInvalidPortError extends ClickHouseError {
   }
 }
 
-class ClickHouseConnectionError extends ClickHouseError {
+export class ClickHouseConnectionError extends ClickHouseError {
   constructor(details = null) {
     super(
       "Failed to connect to ClickHouse",
@@ -79,7 +79,9 @@ class ClickHouseConnectionError extends ClickHouseError {
   }
 }
 
-module.exports = {
+// Also exported as a default object, because the existing tests import this
+// module as a default and destructure it.
+export default {
   ClickHouseError,
   ClickHouseQueryError,
   ClickHouseAuthenticationError,

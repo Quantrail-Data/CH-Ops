@@ -9,24 +9,9 @@ import {
   MAX_TOTAL_NODES,
   getClusterById,
   getNodeByName,
+  maskClusterPasswords,
 } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
-
-// Never send decrypted node passwords to the client. Only expose whether one
-// is set; the frontend leaves the password field blank on edit to keep it
-// unchanged, and updateCluster() below preserves the stored value in that case.
-// Applied to every response that touches cluster/node data (list, create, update) -
-// not just listClusters - since createCluster/updateCluster otherwise echo back
-// the full decrypted node (including passwords merged in from storage).
-function maskClusterPasswords(cluster) {
-  return {
-    ...cluster,
-    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
-      ...rest,
-      hasPassword: !!password,
-    })),
-  };
-}
 
 export function listClusters(req, res) {
   res.json(getAllClusters().map(maskClusterPasswords));
@@ -120,16 +105,27 @@ export function updateCluster(req, res) {
       ) {
         return res.status(400).json({ error: "Cluster name must be unique." });
       }
+      // Inside the guard: a PUT that sends only `nodes` used to reach
+      // name.trim() with name undefined and throw a TypeError, surfacing as a
+      // 500 with no useful message.
+      clusters[idx].name = name.trim();
     }
-    clusters[idx].name = name.trim();
     if (nodes !== undefined) {
       const existingNodes = clusters[idx].nodes || [];
       // The client never receives decrypted passwords (see listClusters), so a
       // blank password here means "unchanged" rather than "clear it" - keep the
       // previously stored password for that node.
+      //
+      // Matched on host:port rather than name. Name is what the user edits, so
+      // matching on it meant renaming a node while leaving the password field
+      // blank (which the UI tells you to do) silently cleared its password.
+      // Host and port identify the same server across a rename.
+      const keyOf = (n) => `${n.host}:${n.port || 8123}`;
       const nodeArr = (Array.isArray(nodes) ? nodes : []).map((n) => {
         if (!n.password) {
-          const existing = existingNodes.find((e) => e.name === n.name);
+          const existing =
+            existingNodes.find((e) => keyOf(e) === keyOf(n)) ||
+            existingNodes.find((e) => e.name === n.name);
           if (existing?.password) return { ...n, password: existing.password };
         }
         return n;
@@ -143,7 +139,7 @@ export function updateCluster(req, res) {
 
     res.json(maskClusterPasswords(clusters[idx]));
   } catch (error) {
-    res.status(500).json(error.message);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 }
 
@@ -161,20 +157,53 @@ export function deleteCluster(req, res) {
     saveClusters(filtered);
     res.json({ deleted: true });
   } catch (error) {
-    res.status(500).json(error.message);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 }
 
 export async function testConnection(req, res) {
+  const role = req.user?.role;
+  if (role !== "superadmin" && role !== "admin") {
+    return res.status(403).json({ error: "Admin access required." });
+  }
+
   const { host, port, user, password, secure } = req.body;
   if (!host) return res.status(400).json({ error: "Host required." });
+
+  const targetPort = port || 8123;
+
+  // A node that is already saved is matched against the stored configuration.
+  // Two reasons. The browser no longer holds decrypted passwords, so testing a
+  // saved node has to resolve the stored one server-side or it authenticates
+  // with a blank password and always fails. And matching bounds this endpoint
+  // to hosts an admin has already configured, so it cannot be used to probe
+  // arbitrary internal addresses.
+  const stored = getAllClusters()
+    .flatMap((c) => c.nodes || [])
+    .find((n) => n.host === host && (n.port || 8123) === targetPort);
+
+  // An unsaved node is still testable - that is the point of Test before Save -
+  // but it must carry its own credentials, and it never reaches the store.
+  if (!stored && password === undefined) {
+    return res.status(400).json({
+      error: "Enter a password to test a node that has not been saved yet.",
+    });
+  }
+
+  const resolvedUser = user || stored?.user || "default";
+  const resolvedPassword =
+    password !== undefined && password !== ""
+      ? password
+      : (stored?.password ?? "");
+  const resolvedSecure = secure !== undefined ? !!secure : !!stored?.secure;
+
   try {
     const result = await executeQuery({
       host,
-      port: port || 8123,
-      user: user || "default",
-      password: password || "",
-      secure: !!secure,
+      port: targetPort,
+      user: resolvedUser,
+      password: resolvedPassword,
+      secure: resolvedSecure,
       sql: "SELECT version() AS version, uptime() AS uptime",
     });
 

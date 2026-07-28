@@ -1,16 +1,7 @@
-/**
- * cluster.test.js - Unit tests for cluster management controller
- *
- * Tests the cluster CRUD operations with mock clusterUtils and clickhouse
- * services. Covers listing clusters, creating with validation (max 3 clusters,
- * unique names, node name validation), updating cluster name and nodes,
- * deleting clusters, and testing node connections. Permission checks are
- * also tested (non-admin gets 403). Various edge cases like DB errors,
- * missing fields, and duplicate names are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Contributors - Kathir Moorthy, Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// cluster.test.js - unit tests for cluster management controller
+
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 const getAllClusters = mock(()=>{});
@@ -26,6 +17,15 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterById,
   getClusterNodes,
   getNodeByName,
+  // Real implementation, not a stub: the masking assertions below are the
+  // point of several tests, so stubbing this would make them vacuous.
+  maskClusterPasswords: (cluster) => ({
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  }),
   getDefaultCluster: () => null,
   migrateClusterData: () => {},
   MAX_CLUSTERS: 3,
@@ -453,7 +453,122 @@ describe("Cluster Controller", () => {
       updateCluster(req, res);
 
       expect(res.statusCode).toBe(500);
-      expect(res.jsonData).toEqual("DB crash");
+      // Bare strings used to be sent here; apiFetch reads data.error, so the
+      // message was lost and the user saw "Request failed (500)".
+      expect(res.jsonData).toEqual({ error: "DB crash" });
+    });
+  });
+
+  describe("updateCluster credential preservation", () => {
+    const savedCluster = () => ({
+      id: "cluster1",
+      name: "Cluster-1",
+      nodes: [
+        {
+          name: "node1",
+          host: "10.0.0.1",
+          port: 8123,
+          user: "chops",
+          password: "stored-secret",
+          secure: false,
+        },
+      ],
+    });
+
+    it("keeps the stored password when the node is renamed", () => {
+      // The UI leaves the password field blank to mean "unchanged". Matching
+      // the existing node by name meant a rename lost the password silently.
+      getAllClusters.mockReturnValue([savedCluster()]);
+
+      const { req, res } = mockReqRes(
+        {
+          name: "Cluster-1",
+          nodes: [
+            {
+              name: "renamed-node",
+              host: "10.0.0.1",
+              port: 8123,
+              user: "chops",
+              password: "",
+              secure: false,
+            },
+          ],
+        },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(saveClusters).toHaveBeenCalledTimes(1);
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].nodes[0].name).toBe("renamed-node");
+      expect(saved[0].nodes[0].password).toBe("stored-secret");
+    });
+
+    it("replaces the password when a new one is supplied", () => {
+      getAllClusters.mockReturnValue([savedCluster()]);
+
+      const { req, res } = mockReqRes(
+        {
+          name: "Cluster-1",
+          nodes: [
+            {
+              name: "node1",
+              host: "10.0.0.1",
+              port: 8123,
+              user: "chops",
+              password: "brand-new",
+            },
+          ],
+        },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].nodes[0].password).toBe("brand-new");
+    });
+
+    it("accepts a body with nodes but no name", () => {
+      // name.trim() used to run unguarded, so a nodes-only update threw a
+      // TypeError and surfaced as a 500.
+      getAllClusters.mockReturnValue([savedCluster()]);
+
+      const { req, res } = mockReqRes(
+        {
+          nodes: [
+            {
+              name: "node1",
+              host: "10.0.0.1",
+              port: 8123,
+              user: "chops",
+              password: "",
+            },
+          ],
+        },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(saveClusters).toHaveBeenCalledTimes(1);
+      expect(saveClusters.mock.calls[0][0][0].name).toBe("Cluster-1");
+    });
+
+    it("never returns a decrypted password", () => {
+      getAllClusters.mockReturnValue([savedCluster()]);
+
+      const { req, res } = mockReqRes(
+        { name: "Cluster-1" },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(res.jsonData.nodes[0].password).toBeUndefined();
+      expect(res.jsonData.nodes[0].hasPassword).toBe(true);
     });
   });
 
@@ -543,12 +658,25 @@ describe("Cluster Controller", () => {
       deleteCluster(req, res);
 
       expect(res.statusCode).toBe(500);
-      expect(res.jsonData).toEqual("DB crash");
+      // Bare strings used to be sent here; apiFetch reads data.error, so the
+      // message was lost and the user saw "Request failed (500)".
+      expect(res.jsonData).toEqual({ error: "DB crash" });
     });
   });
 
   describe("testConnection", () => {
+    it("returns 403 for non-admin", async () => {
+      const { req, res } = mockReqRes({ host: "localhost" });
+      req.user.role = "editor";
+
+      await testConnection(req, res);
+
+      expect(res.statusCode).toBe(403);
+      expect(res.jsonData.error).toBe("Admin access required.");
+    });
+
     it("returns host required", async () => {
+      getAllClusters.mockReturnValue([]);
       const { req, res } = mockReqRes();
 
       await testConnection(req, res);
@@ -557,20 +685,46 @@ describe("Cluster Controller", () => {
       expect(res.jsonData.error).toBe("Host required.");
     });
 
-    it("returns connection result", async () => {
+    it("rejects an unsaved node that carries no password", async () => {
+      // Not in the cluster configuration and no password supplied: there is
+      // nothing to resolve, and connecting anyway would let this endpoint probe
+      // arbitrary internal addresses.
+      getAllClusters.mockReturnValue([]);
+
+      const { req, res } = mockReqRes({ host: "10.0.0.5", port: 8123 });
+
+      await testConnection(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.jsonData.error).toMatch(/has not been saved yet/);
+      expect(executeQuery).not.toHaveBeenCalled();
+    });
+
+    it("resolves the stored password for a saved node", async () => {
+      // The browser no longer holds decrypted passwords, so a saved node is
+      // tested with the credential from the cluster configuration.
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          nodes: [
+            {
+              name: "node1",
+              host: "localhost",
+              port: 8123,
+              user: "chops",
+              password: "stored-secret",
+              secure: false,
+            },
+          ],
+        },
+      ]);
+
       executeQuery.mockResolvedValue({
-        rows: [
-          {
-            version: "24.1",
-            uptime: 12345,
-          },
-        ],
+        rows: [{ version: "24.1", uptime: 12345 }],
       });
 
-      const { req, res } = mockReqRes({
-        host: "localhost",
-        port: 8123,
-      });
+      const { req, res } = mockReqRes({ host: "localhost", port: 8123 });
 
       await testConnection(req, res);
 
@@ -580,13 +734,40 @@ describe("Cluster Controller", () => {
         version: "24.1",
         uptime: 12345,
       });
+      expect(executeQuery).toHaveBeenCalledTimes(1);
+      const args = executeQuery.mock.calls[0][0];
+      expect(args.password).toBe("stored-secret");
+      expect(args.user).toBe("chops");
+    });
+
+    it("accepts an unsaved node when credentials are supplied", async () => {
+      getAllClusters.mockReturnValue([]);
+      executeQuery.mockResolvedValue({
+        rows: [{ version: "24.1", uptime: 1 }],
+      });
+
+      const { req, res } = mockReqRes({
+        host: "10.0.0.5",
+        port: 8123,
+        user: "someone",
+        password: "typed-in-the-form",
+      });
+
+      await testConnection(req, res);
+
+      expect(res.statusCode).toBe(200);
+      const args = executeQuery.mock.calls[0][0];
+      expect(args.password).toBe("typed-in-the-form");
+      expect(args.user).toBe("someone");
     });
 
     it("returns query error", async () => {
+      getAllClusters.mockReturnValue([]);
       executeQuery.mockRejectedValue(new Error("Connection failed"));
 
       const { req, res } = mockReqRes({
         host: "localhost",
+        password: "pw",
       });
 
       await testConnection(req, res);

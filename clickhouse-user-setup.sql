@@ -21,7 +21,16 @@ GRANT SHOW ON *.* TO chops;
 -- Kill running queries (Overview > Current Queries)
 GRANT KILL QUERY ON *.* TO chops;
 
--- Scheduled Archival to S3 (s3() read/write)
+-- Monitoring charts use the merge() table function.
+-- Granted on its own rather than via SOURCES: SOURCES also enables url(),
+-- s3() and file(), all readable from an ordinary SELECT, which would let
+-- anyone with query access make the server fetch an arbitrary URL or read a
+-- local file. This grant is what the charts actually need.
+GRANT merge ON *.* TO chops;
+
+-- Scheduled Archival to S3 (s3() read/write).
+-- OPTIONAL: omit this if you do not use archival. s3() can reach any endpoint
+-- the server can route to, so it widens what a query is able to read.
 GRANT S3 ON *.* TO chops;
 
 -- Native Backup / Restore

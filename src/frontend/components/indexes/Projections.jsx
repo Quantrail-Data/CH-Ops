@@ -14,6 +14,7 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
+import SqlEditor from "../editor/SqlEditor.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -605,15 +606,22 @@ function AddProjection() {
               (column list)
             </span>
           </label>
-          <textarea
-            className="form-textarea"
-            rows={2}
-            required
-            value={selectExpr}
-            onChange={(e) => setSelectExpr(e.target.value)}
-            placeholder="col1, col2, sum(col3) - DISTINCT not supported in projections"
-            style={{ fontFamily: "var(--font-code)" }}
-          />
+          <div
+            style={{
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--input-bg)",
+              overflow: "hidden",
+            }}
+          >
+            <SqlEditor
+              value={selectExpr}
+              onChange={setSelectExpr}
+              variant="expression"
+              placeholder="col1, col2, sum(col3) - DISTINCT not supported in projections"
+              height="54px"
+            />
+          </div>
           {colsQ.data?.length > 0 && (
             <div
               style={{

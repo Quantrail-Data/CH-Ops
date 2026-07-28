@@ -11,8 +11,25 @@
 import React, { useState, useCallback, useRef, useEffect, createContext, useContext } from 'react';
 import Icon from "../common/Icon.jsx";
 
-const ToastContext = createContext(null);
-export function useToast() { return useContext(ToastContext); }
+// The default is a working no-op rather than null.
+//
+// useToast() returning null meant any component rendered outside ToastProvider
+// crashed on its first `toast.error(...)` - and that call is almost always in a
+// catch block, so the crash replaced the error the user was meant to see. It
+// also turned every such render into an unhandled promise rejection rather than
+// a visible failure, which is a slow way to find out a provider is missing.
+//
+// A notification that quietly does nothing is the right degradation for a
+// component mounted without its provider: the surrounding feature still works.
+const NO_TOAST = Object.freeze({
+  success: () => {},
+  error: () => {},
+  info: () => {},
+  warning: () => {},
+});
+
+const ToastContext = createContext(NO_TOAST);
+export function useToast() { return useContext(ToastContext) ?? NO_TOAST; }
 
 let toastId = 0;
 
