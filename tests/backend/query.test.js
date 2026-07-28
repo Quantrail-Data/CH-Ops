@@ -17,8 +17,7 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
   getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
   // bun's mock.module replaces this module for the whole test process, not just
-  // this file - stub every real export so whichever test file's mock.module
-  // call happens to win doesn't break other files that need this one.
+  // this file
   maskClusterPasswords: (cluster) => ({
     ...cluster,
     nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
@@ -31,9 +30,6 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 
 mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQuery: mockExecuteQuery,
-  // bun's mock.module replaces this module for the whole test process, not just
-  // this file - stub every real export so whichever test file's mock.module call
-  // happens to win doesn't break other files that need executeQueryWithBody.
   executeQueryWithBody: mock(),
 }));
 
@@ -302,7 +298,7 @@ describe("runQuery request settings", () => {
     return runQuery(req, res).then(() => mockExecuteQuery.mock.calls[0]?.[0]);
   }
 
-  it("forwards the editor's row limit to ClickHouse", async () => {
+  test("forwards the editor's row limit to ClickHouse", async () => {
     // These were destructured out of the body and then never used, so the
     // configured Max rows had no effect on the server at all.
     const sent = await run({
@@ -314,7 +310,7 @@ describe("runQuery request settings", () => {
     });
   });
 
-  it("forwards EXPLAIN settings", async () => {
+  test("forwards EXPLAIN settings", async () => {
     const sent = await run({
       settings: { use_query_condition_cache: 0, use_skip_indexes_on_data_read: 0 },
     });
@@ -322,7 +318,7 @@ describe("runQuery request settings", () => {
     expect(sent.settings.use_skip_indexes_on_data_read).toBe(0);
   });
 
-  it("drops settings that are not on the allowlist", async () => {
+  test("drops settings that are not on the allowlist", async () => {
     // Setting names become URL parameters on the ClickHouse request, so a
     // passthrough would let any authenticated caller raise their own memory
     // ceiling or turn readonly off.
@@ -337,12 +333,12 @@ describe("runQuery request settings", () => {
     expect(sent.settings).toEqual({ max_result_rows: 100 });
   });
 
-  it("sends an empty object when the caller sends nothing", async () => {
+  test("sends an empty object when the caller sends nothing", async () => {
     const sent = await run({});
     expect(sent.settings).toEqual({});
   });
 
-  it("tolerates a null settings body", async () => {
+  test("tolerates a null settings body", async () => {
     const sent = await run({ settings: null });
     expect(sent.settings).toEqual({});
   });
