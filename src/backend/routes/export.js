@@ -19,6 +19,16 @@ import {
 import { findFormat, OPTIONS } from "../../shared/exportFormats.js";
 import { materialize } from "../../shared/sqlParams.js";
 
+// NOTE ON PARAMETERS
+// Both handlers below accept a `params` object and materialize the SQL with it,
+// but the export wizard does not send one: exporting a parameterized query is
+// out of scope by design. The effect is that materialize() runs with an empty
+// value set, so optional /*[ ]*/ blocks are dropped and the export widens to
+// the unfiltered result. The wizard therefore refuses to open on SQL that
+// declares a REQUIRED parameter, which would otherwise reach ClickHouse unset
+// and fail with "Substitution 'x' is not set" (see ExportWizard.jsx).
+// This wiring is kept so the path is ready if export ever carries values.
+
 const router = Router();
 const downloadRouter = Router();
 

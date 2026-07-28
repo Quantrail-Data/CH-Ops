@@ -1,8 +1,8 @@
 {
   "name": "chops",
   "version": "26.3-0.1.6",
-  "description": "CHOps - ClickHouse® Administration Dashboard",
-  "author": "Quantrail™ Data Private Limited",
+  "description": "CHOps - ClickHouse\u00ae Administration Dashboard",
+  "author": "Quantrail\u2122 Data Private Limited",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
@@ -27,6 +27,7 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "check:sensitive-logging": "node scripts/check-sensitive-logging.mjs",
+    "check:readonly": "node scripts/check-readonly-settings.mjs",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bun src/backend/db/migrate.js",
     "db:backup": "bun src/backend/db/backup.js",

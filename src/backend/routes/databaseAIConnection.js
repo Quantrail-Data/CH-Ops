@@ -17,23 +17,25 @@ import SchemaIngestionService from "../servicesAI/SchemaIngestionService";
 import { aiDatabaseDetails } from "../db/schema";
 import { db } from "../db/index";
 import { eq } from "drizzle-orm";
+import { resolveFromCluster } from "../servicesAI/aiCredentials.js";
 
 const router = Router();
 
 router.post("/connect", async (req, res, next) => {
   try {
-    const { database_type, credentials } = req.body;
+    const { database_type, clusterId, node, database } = req.body;
 
-    if (
-      database_type === undefined ||
-      database_type === null ||
-      credentials === undefined ||
-      credentials === null
-    ) {
-      const error = new Error("Database_type and credentials must be included");
+    if (database_type === undefined || database_type === null) {
+      const error = new Error("database_type must be included");
       error.statusCode = 422;
-      next(error);
+      return next(error);
     }
+
+    // Credentials are resolved from the saved cluster configuration rather
+    // than taken from the request. The browser no longer holds a ClickHouse®
+    // password, and accepting host/user/password here let any authenticated
+    // user aim the server at an arbitrary address.
+    const credentials = resolveFromCluster({ clusterId, node, database });
 
     const connectionService = new DatabaseConnectionService(
       database_type,
@@ -51,7 +53,6 @@ router.post("/connect", async (req, res, next) => {
 
       
       const ingestionService = new SchemaIngestionService(databaseId, connection);
-      console.log("working 2")
       const ingestionResult = await ingestionService.synchronizeSchema();
       
 
@@ -70,9 +71,9 @@ router.delete("/delete", async (req, res, next) => {
   try {
     const { database_id } = req.body;
     if (database_id === null || database_id === undefined) {
-      const error = new Error("Database_id  must be included");
-      error.statusCode(422);
-      next(error);
+      const error = new Error("database_id must be included");
+      error.statusCode = 422;
+      return next(error);
     }
     const service = new DeleteDatabaseService();
     const result = await service.deleteDatabase(database_id);

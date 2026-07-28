@@ -10,8 +10,42 @@ import { materialize } from '../../shared/sqlParams.js';
 import { leadingKeyword } from '../../shared/sqlClassify.js';
 import { getCredSession, CRED_CONTEXTS } from '../services/chCredStore.js';
 
+// Settings the client may set on a query.
+//
+// This is an allowlist, not a passthrough: setting names become URL parameters
+// on the ClickHouse® request, so forwarding whatever arrives would let any
+// authenticated caller change execution limits, memory ceilings or access
+// behaviour for their own query.
+//
+// It exists because the request settings were previously destructured out of
+// the body and then never used. The SQL Editor sends max_result_rows with every
+// run - and the backend dropped it, so the configured Max rows had no effect on
+// the server at all. Worse, executeQuery still forced result_overflow_mode to
+// 'break'. If the ClickHouse user's own profile carried a max_result_rows (the
+// Access Control pages in this app set exactly that), the profile's limit
+// applied instead and 'break' truncated the result silently rather than
+// raising TOO_MANY_ROWS_OR_BYTES - which reads as "the row limit is ignored and
+// large queries come back short or empty".
+const ALLOWED_QUERY_SETTINGS = new Set([
+  // Result shaping, sent by the editor on every run.
+  'max_result_rows',
+  'max_result_bytes',
+  'result_overflow_mode',
+  // EXPLAIN options (see explainOptions.js REQUIRED_SETTINGS).
+  'use_query_condition_cache',
+  'use_skip_indexes_on_data_read',
+]);
+
+function onlyKnownSettings(input) {
+  const clean = {};
+  for (const [key, value] of Object.entries(input || {})) {
+    if (ALLOWED_QUERY_SETTINGS.has(key)) clean[key] = value;
+  }
+  return clean;
+}
+
 export async function runQuery(req, res) {
-  const { sql, node, user, password, port, clusterId, strictAuth, useSession, context, params } = req.body;
+  const { sql, node, user, password, port, clusterId, strictAuth, useSession, context, params, settings } = req.body;
   let { readOnly } = req.body;
   if (!sql) return res.status(400).json({ error: 'Missing SQL' });
 
@@ -68,6 +102,13 @@ export async function runQuery(req, res) {
   }
 
   try {
+    // Parameters are deliberately SELECT-only. A parameterized INSERT or DDL
+    // statement is not materialized here: its placeholders reach ClickHouse
+    // verbatim and are rejected, and any /*[ ]*/ block is treated as an
+    // ordinary comment and dropped. Note this differs from routes/export.js,
+    // which materializes unconditionally. If parameterized writes are ever
+    // wanted, this gate is the thing to widen, and the two paths should be
+    // brought back into agreement at the same time.
     const kw = leadingKeyword(sql);
     const rowReturning = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN', 'EXISTS'].includes(kw);
 
@@ -92,6 +133,7 @@ export async function runQuery(req, res) {
       sql: finalSql,
       params: finalParams,
       readOnly: !!readOnly,
+      settings: onlyKnownSettings(settings),
     });
 
     if (result && result.stats) {
@@ -120,12 +162,17 @@ export async function testQueryConnection(req, res) {
     return res.json({ ok: false, message: 'Node not found in cluster configuration.' });
   }
 
+  // Fall back to the stored node credentials, exactly as runQuery does. The
+  // browser no longer holds decrypted passwords, so without this fallback a
+  // connection test authenticates as 'default' with a blank password and fails
+  // against any node that actually has one.
   try {
     await executeQuery({
       host: targetNode.host,
       port: port || targetNode.port || 8123,
       secure: !!targetNode.secure,
-      user: user || 'default', password: password || '',
+      user: user || targetNode.user || 'default',
+      password: password ?? targetNode.password ?? '',
       sql: 'SELECT 1',
     });
     res.json({ ok: true, message: 'Connected successfully' });

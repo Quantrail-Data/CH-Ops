@@ -295,7 +295,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     clusters,
     clusterName,
     user,
-    password,
     nodeName,} = useConnection();
 
   // Per-user editor credentials (independent of the main editor)
@@ -443,13 +442,11 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
               method: "POST",
               body: JSON.stringify({
                 database_type: "clickhouse",
-                credentials: {
-                  host: selectedNode,
-                  port: port,
-                  username: user,
-                  password: password,
-                  database: selected,
-                },
+                // Credentials are resolved server-side from the cluster
+                // configuration; the browser does not hold them.
+                clusterId: selectedClusterId,
+                node: selectedNode,
+                database: selected,
                 llm_provider: "string",
                 model_name: "string",
               }),

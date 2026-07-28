@@ -26,6 +26,16 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterNodes: mockGetClusterNodes,
   getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
   getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
+  // bun's mock.module replaces this module for the whole test process, not just
+  // this file - stub every real export so whichever test file's mock.module
+  // call happens to win doesn't break other files that need this one.
+  maskClusterPasswords: (cluster) => ({
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  }),
   MAX_CLUSTERS: 3, MAX_TOTAL_NODES: 18,
 }));
 

@@ -151,7 +151,6 @@ export default function App() {
     selectedNode: "",
     nodeName: "",
     user: "",
-    password: "",
     port: 8123,
     connected: false,
     error: null,
@@ -169,7 +168,6 @@ export default function App() {
         node: next.selectedNode,
         nodeName: next.nodeName,
         user: next.user,
-        password: next.password,
         port: next.port,
         clusterId: next.selectedClusterId,
         connected:true
@@ -217,7 +215,6 @@ export default function App() {
               : {
                   selectedNode: first.host || "",
                   user: first.user || "default",
-                  password: first.password || "",
                   port: first.port || 8123,
                 }),
           };
@@ -242,7 +239,6 @@ export default function App() {
           testConn(
             first.host,
             first.user,
-            first.password,
             first.port,
             token,
             cluster?.id,
@@ -284,7 +280,6 @@ export default function App() {
         nodes,
         selectedNode: first.host || "",
         user: first.user || "default",
-        password: first.password || "",
         port: first.port || 8123,
         connected: Object?.keys(first)?.length > 0 ? true : false,
         error: null,
@@ -292,7 +287,9 @@ export default function App() {
     });
   }
 
-  async function testConn(host, user, password, port, token, clusterId) {
+  // No password argument: the browser does not hold one. The backend resolves
+  // the stored credential for this node from the cluster configuration.
+  async function testConn(host, user, port, token, clusterId) {
     try {
       const cid = clusterId || connection.selectedClusterId;
       const res = await fetch("/api/query/test-connection", {
@@ -304,7 +301,6 @@ export default function App() {
         body: JSON.stringify({
           node: host,
           user,
-          password,
           port,
           clusterId: cid,
         }),
