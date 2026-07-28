@@ -1,12 +1,4 @@
 // chCredStore.test.js - Integration tests for the encrypted CH credential store
-//
-// Runs against an in-memory SQLite database injected via __setDb, so it never
-// touches real data and does not depend on file execution order. Verifies the
-// encrypt-at-rest round trip, that the status view never leaks the password,
-// the (jti, context) composite key (context isolation + one row per key),
-// replacement on reconnect, expiry handling, clearing one context, clearing an
-// entire login by jti, and pruning expired rows.
-//
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 import { describe, it, expect,afterAll } from 'bun:test';
