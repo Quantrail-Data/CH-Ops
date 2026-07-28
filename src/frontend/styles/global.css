@@ -4059,13 +4059,6 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
 }
 /* Comparison mode */
 
-   The pane header used to be a fixed 100px block set inline, which left a band
-   of empty space above each editor once CodeMirror replaced the textarea. It
-   sizes to its contents now; this keeps it from collapsing to nothing when a
-   pane has no connection controls to show.
-
-   Added by phase 3. */
-
 .cmp-pane-header {
   min-height: 34px;
 }
