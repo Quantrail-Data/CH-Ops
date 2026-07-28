@@ -82,6 +82,7 @@ sqlite.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     columns INTEGER NOT NULL DEFAULT 2,
+    filters TEXT DEFAULT '{}',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -151,6 +152,12 @@ sqlite.exec(`
 const migrations = [
   "ALTER TABLE alert_rule ADD COLUMN nodes TEXT",
   "ALTER TABLE alert_rule ADD COLUMN cluster_id TEXT",
+  // Dashboard filter presentation. SQLite backfills existing rows with the
+  // DEFAULT when a column is added, so dashboards created before this read as
+  // '{}' rather than NULL. The reader is defensive about NULL anyway, since a
+  // row written by an older binary against a migrated database can still
+  // arrive without it.
+  "ALTER TABLE dashboard ADD COLUMN filters TEXT DEFAULT '{}'",
 ];
 
 for (const sql of migrations) {

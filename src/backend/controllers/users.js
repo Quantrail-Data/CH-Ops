@@ -55,13 +55,12 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
-// Blocks anyone below admin level. Kept for backward compatibility with
-// routes that already use this name (alerts, backups, cluster, settings).
-export function requireSuperAdmin(req, res, next) {
-  if (!isAdminLevel(req.user?.role))
-    return res.status(403).json({ error: "Admin access required." });
-  next();
-}
+// NOTE: requireSuperAdmin used to live here as a byte-identical copy of
+// requireAdmin above - same isAdminLevel() check, same message. The name said
+// superadmin and the behaviour said admin, which is the kind of thing a route
+// author reads once and believes. Its call sites now use requireAdmin. If a
+// genuine superadmin-only guard is ever needed, add one that actually checks
+// for it rather than reviving this name.
 
 // Blocks readonly users. Used on routes where editors can write.
 export function requireEditor(req, res, next) {

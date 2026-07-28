@@ -10,11 +10,41 @@ import {
   findFormat, findCompression, optionsForFormat,
 } from "../../../shared/exportFormats.js";
 import { isSelectLike, hasMultipleStatements } from "../../../shared/sqlExport.js";
+import { findParameters } from "../../../shared/sqlParams.js";
 import {
   estimateExport, startExport, exportProgress, cancelExport, downloadExport,
   formatBytes, formatRows,
 } from "../../utils/exportApi.js";
 import { beginBusy, endBusy } from "../../hooks/useIdleTimeout.js";
+
+// A running export outlives the browser:
+const ACTIVE_EXPORT_KEY = "chops_active_export";
+
+function rememberExport(job, fileName) {
+  try {
+    localStorage.setItem(
+      ACTIVE_EXPORT_KEY,
+      JSON.stringify({ jobId: job.jobId, fileName, startedAt: Date.now() }),
+    );
+  } catch {}
+}
+
+function forgetExport() {
+  try {
+    localStorage.removeItem(ACTIVE_EXPORT_KEY);
+  } catch {}
+}
+
+function recallExport() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_EXPORT_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    return v && typeof v.jobId === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
 
 function defaultFileName(username) {
   const now = new Date();
@@ -51,6 +81,23 @@ export default function ExportWizard({ sql, username, onClose }) {
 
   const selectLike = useMemo(() => isSelectLike(sql), [sql]);
   const multiple = useMemo(() => hasMultipleStatements(sql), [sql]);
+
+  // Export does not carry parameter values (see routes/export.js). An OPTIONAL
+  // parameter degrades acceptably: its /*[ ]*/ block is dropped and the export
+  // widens. A REQUIRED one does not - the placeholder reaches ClickHouse unset
+  // and the job fails with "Substitution 'x' is not set", which surfaces as a
+  // raw database error partway through an export the user has already waited
+  // for. Blocking here turns that into something explainable.
+  const requiredParams = useMemo(() => {
+    try {
+      return findParameters(sql).filter((p) => p.required);
+    } catch {
+      // Malformed SQL is not this dialog's problem to report; the editor
+      // already surfaces parameter errors.
+      return [];
+    }
+  }, [sql]);
+  const blockedByParams = requiredParams.length > 0;
   const fmt = findFormat(format);
   const comp = findCompression(compression);
   const advanced = useMemo(() => optionsForFormat(format), [format]);
@@ -74,6 +121,7 @@ export default function ExportWizard({ sql, username, onClose }) {
   }, []);
 
   async function runEstimate() {
+    if (blockedByParams) return;
     setEstimating(true);
     try {
       const result = await estimateExport({ sql, format, settings });
@@ -88,6 +136,7 @@ export default function ExportWizard({ sql, username, onClose }) {
   }
 
   function goToStep2() {
+    if (blockedByParams) return;
     if (estimate?.bytes && estimate.bytes > (estimate.warnBytes || 0)) {
       const ok = window.confirm(
         `This export is about ${formatBytes(estimate.bytes)} before compression. ` +
@@ -97,6 +146,59 @@ export default function ExportWizard({ sql, username, onClose }) {
     }
     setStep(2);
   }
+
+  const startPolling = React.useCallback((jobId) => {
+    beginBusy();
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const p = await exportProgress(jobId);
+        setProgress(p);
+        if (p.state !== "running") {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          endBusy();
+          // A failed export has no file to collect, so nothing is left to
+          // come back to.
+          if (p.state !== "ready") forgetExport();
+        }
+      } catch {
+        // The job is gone: collected by the sweeper, or lost to a restart,
+        // which wipes both the registry and the export directory. Stop asking.
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        endBusy();
+        forgetExport();
+      }
+    }, 1000);
+  }, []);
+
+  // Pick up an export left running by a previous visit.
+  useEffect(() => {
+    const saved = recallExport();
+    if (!saved) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const p = await exportProgress(saved.jobId);
+        if (cancelled) return;
+        if (p.state === "failed" || p.state === "cancelled") {
+          forgetExport();
+          return;
+        }
+        setJob({ jobId: saved.jobId, fileName: saved.fileName });
+        setProgress(p);
+        setStep(3);
+        if (p.state === "running") startPolling(saved.jobId);
+      } catch {
+        // 404: the job is gone. Clear the pointer and start clean.
+        forgetExport();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [startPolling]);
 
   async function begin() {
     try {
@@ -111,22 +213,10 @@ export default function ExportWizard({ sql, username, onClose }) {
       });
       setJob(started);
       setStep(3);
-      beginBusy();
-      pollRef.current = setInterval(async () => {
-        try {
-          const p = await exportProgress(started.jobId);
-          setProgress(p);
-          if (p.state !== "running") {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-            endBusy();
-          }
-        } catch {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-          endBusy();
-        }
-      }, 1000);
+      // Written BEFORE polling starts, so a crash a moment later still leaves a
+      // way back to the job.
+      rememberExport(started, started.fileName || fileName);
+      startPolling(started.jobId);
     } catch (err) {
       toast.error(err.message || "Could not start the export.");
     }
@@ -134,16 +224,21 @@ export default function ExportWizard({ sql, username, onClose }) {
 
   async function handleClose() {
     if (job && progress?.state === "running") {
+      // The offer is now true. Leaving it running keeps the stored pointer, so
+      // reopening the wizard comes back to this progress view.
       const stop = window.confirm(
-        "This export is still running. Press OK to cancel it, or Cancel to leave it running in the background.",
+        "This export is still running.\n\n" +
+          "OK cancels it.\n" +
+          "Cancel leaves it running; reopen Export to come back to it.",
       );
       if (stop) {
-        try { await cancelExport(job.jobId); } catch {  }
+        try { await cancelExport(job.jobId); } catch {}
+        forgetExport();
       }
-    } else if (job) {
-      try { await cancelExport(job.jobId); } catch {  }
     }
+    // A READY job is deliberately left alone.
     if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
     endBusy();
     onClose();
   }
@@ -188,6 +283,20 @@ export default function ExportWizard({ sql, username, onClose }) {
                 The editor holds more than one statement. Only the first one is exported.
               </div>
             )}
+            {blockedByParams && (
+              <div className="xw-note xw-warn" style={{ marginTop: 12 }}>
+                This query needs a value for{" "}
+                {requiredParams.map((p, i) => (
+                  <span key={p.name}>
+                    {i > 0 && (i === requiredParams.length - 1 ? " and " : ", ")}
+                    <strong>{p.name}</strong>
+                  </span>
+                ))}
+                , and export does not carry parameter values. Wrap the filter in an
+                optional block so it can be left out, or replace the placeholder with
+                a literal value before exporting.
+              </div>
+            )}
             <div className="xw-note" style={{ marginTop: 12 }}>
               The export runs this SQL again on the server, so it always returns the
               full result. If you have not run it yet, consider running it once first
@@ -213,11 +322,19 @@ export default function ExportWizard({ sql, username, onClose }) {
 
             <div className="xw-actions">
               <button className="btn btn-secondary" onClick={handleClose}>Close</button>
-              <button className="btn btn-secondary" onClick={runEstimate} disabled={estimating}>
+              <button
+                className="btn btn-secondary"
+                onClick={runEstimate}
+                disabled={estimating || blockedByParams}
+              >
                 {estimating ? <span className="loading-spinner" /> : <Icon className="ti ti-ruler" />}
                 {" "}Estimate rows
               </button>
-              <button className="btn btn-primary" onClick={goToStep2} disabled={!tried}>
+              <button
+                className="btn btn-primary"
+                onClick={goToStep2}
+                disabled={!tried || blockedByParams}
+              >
                 Next
               </button>
             </div>
@@ -411,7 +528,14 @@ export default function ExportWizard({ sql, username, onClose }) {
                 {progress?.state === "running" ? "Cancel export" : "Close"}
               </button>
               {progress?.state === "ready" && (
-                <button className="btn btn-primary" onClick={() => downloadExport(job.jobId)}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    downloadExport(job.jobId);
+                    // Collected. Nothing left to come back to.
+                    forgetExport();
+                  }}
+                >
                   <Icon className="ti ti-download" /> Download
                 </button>
               )}

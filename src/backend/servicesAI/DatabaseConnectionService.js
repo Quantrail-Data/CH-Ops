@@ -9,12 +9,13 @@ import {
   ClickHouseInvalidHostError,
   ClickHouseInvalidPortError,
   ClickHouseConnectionError,
-} from "../exceptions/ClickHouseErrors";
+} from "../exceptions/ClickHouseErrors.js";
 import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
 import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
 import { aiDatabaseDetails } from "../db/schema";
 import { db } from "../db/index";
 import { eq } from "drizzle-orm";
+import { serialize } from "./aiCredentials.js";
 
 class DatabaseConnectionService {
   constructor(databaseType, credentials) {
@@ -65,7 +66,7 @@ class DatabaseConnectionService {
             database_id: databaseId,
             database_type: "clickhouse",
             client: JSON.stringify(client),
-            credentials: JSON.stringify(this.credentials),
+            credentials: serialize(this.credentials),
           })
           .returning()
           .get();

@@ -10,12 +10,12 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
 import { listClusters, createCluster, updateCluster, deleteCluster, testConnection } from '../controllers/cluster.js';
-import { requireSuperAdmin } from '../controllers/users.js';
+import { requireAdmin } from '../controllers/users.js';
 
 const router = Router();
 router.get('/', listClusters);
-router.post('/', requireSuperAdmin, createCluster);
-router.put('/:id', requireSuperAdmin, updateCluster);
-router.delete('/:id', requireSuperAdmin, deleteCluster);
+router.post('/', requireAdmin, createCluster);
+router.put('/:id', requireAdmin, updateCluster);
+router.delete('/:id', requireAdmin, deleteCluster);
 router.post('/test', testConnection);
 export default router;
