@@ -1,11 +1,4 @@
 // clickhouse-request.test.js - The request CHOps sends to ClickHouse.
-// Lives in tests/no-mocks: it exercises the REAL services/clickhouse.js.
-//
-// Bun's mock.module replaces a module for the whole test process. Three suites
-// under tests/backend stub services/clickhouse.js, and tests/isolated stubs it
-// too, so in either directory this file's fetch spy never saw a request and
-// every assertion failed. package.json runs this directory as its own bun
-// process, and nothing in it declares a module mock.
 //  Copyright (C) 2026 Quantrail™ Data Private Limited
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 

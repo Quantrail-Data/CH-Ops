@@ -1,17 +1,8 @@
 // Lives in tests/no-mocks: it exercises the REAL services/clickhouse.js.
-//
-// Bun's mock.module replaces a module for the whole test process. Three suites
-// under tests/backend stub services/clickhouse.js, and tests/isolated stubs it
-// too, so in either directory this file's fetch spy never saw a request and
-// every assertion failed. package.json runs this directory as its own bun
-// process, and nothing in it declares a module mock.
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
 
-// The backend ceiling. maxResultBytes() reads process.env on every call rather
-// than caching it at module load, so setting the variable immediately before the
-// call is enough - no module reset needed.
 const NODE = { host: "h", port: 8123, secure: false, user: "u", password: "p" };
 let calls = [];
 
