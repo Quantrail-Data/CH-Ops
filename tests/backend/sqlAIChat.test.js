@@ -1,20 +1,38 @@
-// sqlAIChat.test.js - the /api/ai/sql/generate-sql input guard.
-//Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
-
+/**
+ * sqlAIChat.test.js - the /api/ai/sql/generate-sql input guard.
+ *
+ * Three bugs lived in one four-line block, and they hid each other:
+ *
+ *   - `&&` where `||` was meant, so the guard only fired when BOTH inputs were
+ *     missing. A request with a database_id and no question sailed past it.
+ *   - `error.statusCode(422)` - a number is not a function. Whenever the guard
+ *     did fire, it threw a TypeError instead of reporting a 422, so the caller
+ *     got a 500 with an unrelated message.
+ *   - no `return` after `next(error)`, so execution continued into the handler
+ *     regardless and could respond a second time.
+ *
+ * Copyright (C) 2026 Quantrail™ Data Private Limited
+ */
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 const getMock = mock(() => null);
 const generateSQL = mock(async () => ({ sql: "SELECT 1" }));
 
+// Every real export is stubbed, not just the ones this file uses. Bun's
+// mock.module replaces the module for the whole test process, so whichever
+// file's call happens to win must not leave another suite short an export.
 mock.module("../../src/backend/db/index.js", () => ({
   db: {
     select: () => ({ from: () => ({ where: () => ({ get: getMock }) }) }),
   },
-}));
-
-mock.module("../../src/backend/db/schema.js", () => ({
   apiKeys: { isActive: "is_active" },
+  appUsers: {},
+  dashboards: {},
+  charts: {},
+  alertRules: {},
+  alertChannels: {},
+  alertRuleChannels: {},
+  appSettings: {},
 }));
 
 mock.module("../../src/backend/servicesAI/SQLGenerationService.js", () => ({

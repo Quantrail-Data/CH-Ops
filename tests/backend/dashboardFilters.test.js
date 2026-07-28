@@ -1,7 +1,21 @@
-// Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
-// dashboardFilters.test.js - the dashboard.filters column and JSON handling.
-
+/**
+ * dashboardFilters.test.js - the dashboard.filters column and JSON handling.
+ *
+ * Two things are covered.
+ *
+ * JSON columns: chart.config and dashboard.filters are stored as TEXT and must
+ * come back as objects from EVERY endpoint. The previous code parsed config on
+ * read but not in createChart, so POST /charts returned a string where GET
+ * returned an object - the same field with two shapes depending on the route.
+ * These tests pin all exit points, including the rows returned by .returning().
+ *
+ * Migration: schema.js declaring the column does not alter an existing
+ * database, because migrate.js creates tables with CREATE TABLE IF NOT EXISTS.
+ * The guarded ALTER is what makes the feature work on an installation that
+ * already exists, and it has to be safe to run twice.
+ *
+ * Copyright (C) 2026 Quantrail™ Data Private Limited
+ */
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -33,10 +47,20 @@ sqlite.exec(`
 `);
 const testDb = drizzle(sqlite, { schema });
 
+// Every real export is stubbed, not just the ones this file uses. Bun's
+// mock.module replaces the module for the whole test process, so whichever
+// file's call happens to win must not leave another suite short an export -
+// the same convention cluster.test.js documents for clusterUtils.
 mock.module("../../src/backend/db/index.js", () => ({
   db: testDb,
   dashboards: schema.dashboards,
   charts: schema.charts,
+  appUsers: schema.appUsers,
+  apiKeys: schema.apiKeys,
+  alertRules: {},
+  alertChannels: {},
+  alertRuleChannels: {},
+  appSettings: {},
 }));
 
 const ctrl = await import("../../src/backend/controllers/dashboards.js");
