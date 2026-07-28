@@ -194,9 +194,9 @@ export async function changePassword(req, res) {
       .where(eq(appUsers.username, payload.username))
       .get();
     // Generic message for both "user not found" and "wrong password" (prevents enumeration)
-    if (!user) return res.status(401).json({ error: "Invalid credentials." });
+    if (!user) return res.status(401).json({ error: "Invalid current password." });
     if (!(await verifyPassword(currentPassword, user.passwordHash)))
-      return res.status(401).json({ error: "Invalid credentials." });
+      return res.status(401).json({ error: "Invalid current password." });
     const newHash = await hashPassword(newPassword);
     db.update(appUsers)
       .set({
@@ -219,7 +219,6 @@ export async function changePassword(req, res) {
     }
     res.json({ ok: true });
   } catch {
-    res.status(401).json({ error: "Invalid token." });
+    res.status(401).json({ error: "Invalid current password." });
   }
 }
-
