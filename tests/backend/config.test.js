@@ -1,52 +1,84 @@
 /**
  * config.test.js - Unit tests for configuration controller
  *
- * Tests the getConnection endpoint which returns the current cluster
- * configuration. Uses mocked clusterUtils to verify that clusters are
- * fetched and returned correctly. Simple test ensuring the controller
- * returns the expected data structure.
+ * Tests the getConnection endpoint which returns the cluster configuration the
+ * frontend uses to populate its node and cluster selectors.
+ *
+ * The load-bearing assertion here is that node passwords never appear in the
+ * response. This endpoint previously returned getAllClusters() verbatim, which
+ * decrypts stored passwords, so every authenticated user - including a readonly
+ * one - received the ClickHouse credentials for every configured node. The
+ * sibling /api/cluster endpoints masked them correctly; this one did not.
  *
  * Author: Kathir Moorthy
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { describe, it, expect, mock } from "bun:test";
 
+const CLUSTERS = [
+  {
+    id: "cluster1",
+    name: "Cluster-1",
+    nodes: [
+      {
+        name: "node1",
+        host: "10.0.0.1",
+        port: 8123,
+        user: "chops",
+        password: "super-secret",
+        secure: false,
+      },
+      {
+        name: "node2",
+        host: "10.0.0.2",
+        port: 8123,
+        user: "chops",
+        password: "",
+        secure: true,
+      },
+    ],
+  },
+];
 
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
-  getAllClusters:  mock(() =>["node"]),
-  getNodeByName : mock(() =>true),
-  getClusterById : mock(() =>{}),
-  getClusterNodes:mock(()=>{}),
-  saveClusters : mock(() =>{}),
+  // Returns decrypted passwords, exactly as the real implementation does.
+  getAllClusters: mock(() => JSON.parse(JSON.stringify(CLUSTERS))),
+  maskClusterPasswords: (cluster) => ({
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  }),
+  getNodeByName: mock(() => true),
+  getClusterById: mock(() => {}),
+  getClusterNodes: mock(() => {}),
+  saveClusters: mock(() => {}),
   getDefaultCluster: mock(() => null),
   migrateClusterData: mock(() => {}),
-  MAX_CLUSTERS:3,
-  MAX_TOTAL_NODES:18,
+  MAX_CLUSTERS: 3,
+  MAX_TOTAL_NODES: 18,
 }));
 
-const { getConnection } =
-  await import("../../src/backend/controllers/config.js");
+const { getConnection } = await import(
+  "../../src/backend/controllers/config.js"
+);
 
-function mockReqRes(body = {}, params = {}) {
+function mockReqRes(role = "admin") {
   const req = {
-    body,
-    params,
-    user: {
-      username: "u1",
-      role: "admin",
-    },
+    body: {},
+    params: {},
+    user: { username: "u1", role },
     ip: "127.0.0.1",
   };
 
   const res = {
     statusCode: 200,
     jsonData: null,
-
     status(code) {
       this.statusCode = code;
       return this;
     },
-
     json(data) {
       this.jsonData = data;
       return this;
@@ -56,13 +88,51 @@ function mockReqRes(body = {}, params = {}) {
   return { req, res };
 }
 
-describe("Config JS file", () => {
-  it("check getConnnection function", async () => {
+describe("getConnection", () => {
+  it("returns the cluster and node topology", () => {
     const { req, res } = mockReqRes();
 
-    await getConnection(req, res);
-    expect(res.jsonData).toEqual({
-    clusters:["node"]
-    });
+    getConnection(req, res);
+
+    expect(res.jsonData.clusters).toHaveLength(1);
+    const cluster = res.jsonData.clusters[0];
+    expect(cluster.id).toBe("cluster1");
+    expect(cluster.name).toBe("Cluster-1");
+    expect(cluster.nodes).toHaveLength(2);
+    expect(cluster.nodes[0].host).toBe("10.0.0.1");
+    expect(cluster.nodes[0].port).toBe(8123);
+    expect(cluster.nodes[0].user).toBe("chops");
+    expect(cluster.nodes[1].secure).toBe(true);
+  });
+
+  it("never sends a node password", () => {
+    const { req, res } = mockReqRes();
+
+    getConnection(req, res);
+
+    for (const node of res.jsonData.clusters[0].nodes) {
+      expect(node.password).toBeUndefined();
+    }
+    // Belt and braces: no password value anywhere in the serialized payload.
+    expect(JSON.stringify(res.jsonData)).not.toContain("super-secret");
+  });
+
+  it("reports whether a password is set without revealing it", () => {
+    const { req, res } = mockReqRes();
+
+    getConnection(req, res);
+
+    const [withPassword, withoutPassword] = res.jsonData.clusters[0].nodes;
+    expect(withPassword.hasPassword).toBe(true);
+    expect(withoutPassword.hasPassword).toBe(false);
+  });
+
+  it("masks for a readonly user too", () => {
+    const { req, res } = mockReqRes("readonly");
+
+    getConnection(req, res);
+
+    expect(JSON.stringify(res.jsonData)).not.toContain("super-secret");
+    expect(res.jsonData.clusters[0].nodes[0].hasPassword).toBe(true);
   });
 });

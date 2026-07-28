@@ -14,9 +14,11 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { initCrypto, encrypt, decrypt } from '../../src/backend/services/crypto.js';
 
+const TEST_SECRET = 'test-session-secret-minimum-32-characters-long!';
+
 beforeAll(() => {
   try {
-    initCrypto('test-session-secret-minimum-32-characters-long!');
+    initCrypto(TEST_SECRET);
   } catch {
     // Already initialized from a previous test run in the same process
   }
@@ -60,21 +62,52 @@ it('if session secret is null throw error', () => {
     expect(decrypt('no-colons-here')).toBe('no-colons-here');
   });
 
-  it('encrypted format is iv:tag:ciphertext (hex)', () => {
-    const encrypted = encrypt('test');
-    const parts = encrypted.split(':');
-    expect(parts.length).toBe(3);
-    expect(parts[0].length).toBe(32);
-    expect(parts[1].length).toBe(32);
-    expect(parts[2].length).toBeGreaterThan(0);
-  });
-
-  it('rejects tampered ciphertext', () => {
+  it('encrypted format is v1:iv:tag:ciphertext (hex)', () => {
     const encrypted = encrypt('secret');
     const parts = encrypted.split(':');
-    const tampered = parts[0] + ':' + parts[1] + ':' + 'ff'.repeat(parts[2].length / 2);
-    const result = decrypt(tampered);
-    expect(result).toBe(tampered);
+    expect(parts.length).toBe(4);
+    expect(parts[0]).toBe('v1');
+    expect(parts[1].length).toBe(32);
+    expect(parts[2].length).toBe(32);
+    expect(parts[3].length).toBeGreaterThan(0);
+  });
+
+  it('still reads pre-v1 ciphertext written before the prefix existed', () => {
+    // Existing installations hold values in the old iv:tag:ciphertext shape.
+    // They must keep working; they are re-encrypted with a prefix on next save.
+    const fs = require('fs');
+    const { createCipheriv, randomBytes, scryptSync } = require('crypto');
+    const salt = fs.readFileSync(require('path').join(process.cwd(), 'data', 'crypto.salt'));
+    const key = scryptSync(TEST_SECRET, salt, 32);
+    const iv = randomBytes(16);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    let ct = cipher.update('legacy-secret', 'utf8', 'hex');
+    ct += cipher.final('hex');
+    const legacy = iv.toString('hex') + ':' + cipher.getAuthTag().toString('hex') + ':' + ct;
+
+    expect(decrypt(legacy)).toBe('legacy-secret');
+  });
+
+  it('throws on tampered v1 ciphertext instead of returning it', () => {
+    // A v1 value was definitely written by this code, so a bad tag means the
+    // key is wrong or the row was altered. Returning the ciphertext unchanged
+    // (the old behaviour) turned that into a silent garbage password and an
+    // authentication error from ClickHouse.
+    const encrypted = encrypt('secret');
+    const parts = encrypted.slice(3).split(':');
+    const tampered = 'v1:' + parts[0] + ':' + parts[1] + ':' + 'ff'.repeat(parts[2].length / 2);
+
+    expect(() => decrypt(tampered)).toThrow(/could not be decrypted/i);
+  });
+
+  it('throws on a malformed v1 value', () => {
+    expect(() => decrypt('v1:only:two')).toThrow(/malformed/i);
+  });
+
+  it('does not throw for a legacy value that merely looks encrypted', () => {
+    // A pre-v1 plaintext password could contain two colons. That shape keeps
+    // the permissive fallback; only v1 is strict.
+    expect(decrypt('abc:def:ghi')).toBe('abc:def:ghi');
   });
 
   it('handles unicode and special characters', () => {

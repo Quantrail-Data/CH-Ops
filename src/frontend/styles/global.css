@@ -3868,7 +3868,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   background-color: white; 
 }
 
-/* Query tabs */
+/* Query tabs
 
    The strip sits directly above the editor and replaces the hint line that used
    to sit below it, so the feature costs one row and returns one. Heights are
@@ -4030,7 +4030,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
 /* The strip is chrome for the editor, so it goes when the editor does. */
 .qtabs-hidden { display: none; }
 
-/* Function documentation */
+/* Function documentation
 
    The panel CodeMirror shows beside a highlighted function in the completion
    list. Built from system.functions, which the editor already queries.
@@ -4057,7 +4057,14 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   line-height: 1.45;
   color: var(--text-secondary, var(--text-primary));
 }
-/* Comparison mode */
+/* Comparison mode
+
+   The pane header used to be a fixed 100px block set inline, which left a band
+   of empty space above each editor once CodeMirror replaced the textarea. It
+   sizes to its contents now; this keeps it from collapsing to nothing when a
+   pane has no connection controls to show.
+
+   Added by phase 3. */
 
 .cmp-pane-header {
   min-height: 34px;
@@ -4069,7 +4076,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   align-items: start;
 }
 
-/* Max rows control */
+/* Max rows control
 
    One stepper, not two. A number input draws the browser's own up and down
    arrows inside the box; the component adds its own beside it. Both together
@@ -4132,7 +4139,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   height: 11px;
 }
 
-/* Panes scroll, the page does not */
+/* Panes scroll, the page does not
 
    A flex item's default min-height is auto, NOT zero, so a tall result refuses
    to shrink below its own content and pushes the whole page taller instead of
@@ -4156,7 +4163,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   min-height: 0;
 }
 
-/* SQL syntax colours */
+/* SQL syntax colours
 
    Six distinct roles, because a query where keywords, functions, tables and
    literals all share one colour is a wall of text.
@@ -4191,7 +4198,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   --sql-punctuation: #64748b;
 }
 
-/* Virtualised tables and table fullscreen */
+/* Virtualised tables and table fullscreen
 
    The fullscreen button floats over the table's top-right corner rather than
    sitting in a toolbar, because DataTable has twenty-six callers and none of
@@ -4259,7 +4266,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   border: 0;
 }
 
-/* Max rows stepper, second attempt */
+/* Max rows stepper, second attempt
 
    One bordered group: minus, value, plus. The first version put the browser's
    own number spinners inside the field and a second pair of arrows outside it,
@@ -4346,7 +4353,7 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   background: var(--bg-sunken);
 }
 
-/* Checkboxes */
+/* Checkboxes
 
    The EXPLAIN option row drew the operating system's own checkboxes, which are
    white-on-grey in both themes and look imported from another application.
@@ -4368,7 +4375,7 @@ input[type="radio"]:disabled {
   opacity: 0.5;
 }
 
-/* SQL actions row, and the table fullscreen column */
+/* SQL actions row, and the table fullscreen column
 
    One height for every control in the actions row. btn-sm sizes itself from its
    padding and line-height, and a <select> has its own intrinsic height, so the
@@ -4411,7 +4418,7 @@ select.sql-action-control {
   opacity: 1;
 }
 
-/* The actions dropdown, wrapping */
+/* The actions dropdown, wrapping
 
    Scoped to .sql-action-control rather than applied to every dropdown in the
    application, because the two halves want opposite things and only this one
@@ -4448,7 +4455,7 @@ select.sql-action-control {
 }
 
 
-/* The SQL editor page */
+/* The SQL editor page
 
    .editor-shell sizes itself with a percentage, which only resolves if its
    parent has a definite height. .app-main gets one from the flex layout, but a

@@ -150,9 +150,8 @@ describe("Routes: Users RBAC (4-tier)", () => {
     expect(code).toContain("readonly: 0");
     expect(code).toContain("superadmin: 3");
   });
-  it("exports requireAdmin, requireSuperAdmin, requireEditor", () => {
+  it("exports requireAdmin and requireEditor", () => {
     expect(code).toContain("export function requireAdmin");
-    expect(code).toContain("export function requireSuperAdmin");
     expect(code).toContain("export function requireEditor");
   });
   it("DELETE route uses requireAdmin", () => {
@@ -291,7 +290,7 @@ describe("Routes: App Backup", () =>{
     expect(code).toContain('router.put("/config"');
   });
   it("requires superadmin for all routes", () => {
-    expect(code).toContain("requireSuperAdmin");
+    expect(code).toContain("requireAdmin");
   });
 });
 
@@ -347,8 +346,8 @@ describe("Security: SSRF Prevention", () => {
 describe("Security: RBAC on Write Operations", () => {
   const alertRoutes = read("src/backend/routes/alerts.js");
   it("alert write routes require admin level", () => {
-    expect(alertRoutes).toContain("requireSuperAdmin, createRule");
-    expect(alertRoutes).toContain("requireSuperAdmin, createChannel");
+    expect(alertRoutes).toContain("requireAdmin, createRule");
+    expect(alertRoutes).toContain("requireAdmin, createChannel");
   });
 
   const dashRoutes = read("src/backend/routes/dashboards.js");
@@ -445,8 +444,14 @@ describe("Server: Safety", () => {
   it("initializes crypto from session secret", () => {
     expect(code).toContain("initCrypto(env.sessionSecret)");
   });
-  it("query endpoint has 100kb body limit", () => {
-    expect(code).toContain("limit: '100kb'");
+  it("SQL endpoints have a 512kb body limit mounted before the global parser", () => {
+    const tight = code.indexOf("app.use('/api/query', express.json({ limit: '512kb' }))");
+    const global = code.indexOf("app.use(express.json({ limit: '2mb' }))");
+    expect(tight).toBeGreaterThan(-1);
+    expect(code).toContain("app.use('/api/export', express.json({ limit: '512kb' }))");
+    // Order is the whole point: body-parser skips once req._body is set, so a
+    // tighter limit mounted after the global one never applies.
+    expect(tight).toBeLessThan(global);
   });
   it("SPA catch-all skips /docs/ so Docsify can fetch .md files", () => {
     expect(code).toContain("req.path.startsWith('/docs/')");

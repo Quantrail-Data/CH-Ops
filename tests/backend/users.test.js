@@ -6,7 +6,7 @@
  * superadmin creation restricted), updating users (reset password, email,
  * role changes with hierarchy checks), deleting users (self-deletion
  * blocked, higher role deletion blocked). Middleware tests for requireAdmin,
- * requireEditor, and requireSuperAdmin. Edge cases like invalid roles,
+ * and requireEditor. Edge cases like invalid roles,
  * DB errors, and 404 responses are covered.
  *
  * Author: Kathir Moorthy
@@ -108,7 +108,6 @@ let updateUser;
 let deleteUser;
 let requireAdmin;
 let requireEditor;
-let requireSuperAdmin;
 
 // Register mocks and load the controller inside beforeAll so that
 // mock.module() is guaranteed to run before the dynamic import is
@@ -138,7 +137,6 @@ beforeAll(async () => {
   deleteUser = mod.deleteUser;
   requireAdmin = mod.requireAdmin;
   requireEditor = mod.requireEditor;
-  requireSuperAdmin = mod.requireSuperAdmin;
 });
 
 describe("Users Controller", () => {
@@ -482,8 +480,8 @@ describe("Users Controller", () => {
     expect(nextMock).toHaveBeenCalled();
   });
 
-  it("requireSuperAdmin allows admin", () => {
-    requireSuperAdmin({ user: { role: "admin" } }, {}, nextMock);
+  it("requireAdmin allows admin", () => {
+    requireAdmin({ user: { role: "admin" } }, {}, nextMock);
     expect(nextMock).toHaveBeenCalled();
   });
 

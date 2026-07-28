@@ -1,12 +1,18 @@
 // api.js - Core API client with connection state management
 // Maintains a module-level singleton for ClickHouse connection credentials
-// (node, user, password, port, clusterId) that is shared across all API calls.
+// (node, user, port, clusterId) that is shared across all API calls.
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// No password here, and none anywhere else in the browser. /api/config/connection
+// masks node passwords, and the backend resolves the stored credential from the
+// cluster configuration when it runs a query. The SQL Editor and Schema Studio
+// are the exception by design: they take the user's own ClickHouse login and
+// hand it straight to an encrypted server-side credential session (see
+// editorConnect / runEditorQuery), so it is never retained here either.
 let _connection = {
   node: "",
+  nodeName: "",
   user: "",
-  password: "",
   port: 8123,
   clusterId: "",
   apiKey: null,
@@ -153,11 +159,15 @@ export async function runQuery(sql, overrides = {}) {
     body: JSON.stringify({
       sql,
       node: overrides.node || conn.node,
-      user: overrides.user || conn.user,
-      password: overrides.password ?? conn.password,
       port: overrides.port || conn.port,
       clusterId: overrides.clusterId || conn.clusterId,
       readOnly: !!overrides.readOnly,
+      // Typed query parameters ({name:Type} placeholders). Omitted entirely
+      // when absent, so the existing callers send a request body identical to
+      // before this was added. The backend materializes optional /*[ ]*/
+      // blocks and sends the survivors as param_<name> arguments; values are
+      // never interpolated into the SQL.
+      params: overrides.params || undefined,
       settings: { ...rowLimitSettings(overrides), ...(overrides.settings || {}) },
     }),
   });

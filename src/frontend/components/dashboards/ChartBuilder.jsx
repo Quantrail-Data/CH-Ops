@@ -7,12 +7,15 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { isReadOnlySql } from "../../../shared/sqlClassify.js";
+import { findParameters } from "../../../shared/sqlParams.js";
+import ParamInput from "../common/ParamInput.jsx";
 import {
   CHART_TYPES,
   buildChartOption,
   validateColumnType,
   getAxisDefaults,
   needsLegend,
+  yAxisNameGap,
 } from "./chartTypes.js";
 import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
@@ -68,7 +71,22 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const [bottomOpen, setBottomOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [editId, setEditId] = useState(null);
+  // Starting values for this chart's parameters, stored in config.paramDefaults.
+  // The chart table needs no column for this: a dashboard discovers its filters
+  // from the SQL, and the defaults ride along in the existing config JSON.
+  const [paramDefaults, setParamDefaults] = useState({});
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+
+  // What this chart declares. Shown while it is being built so the author can
+  // see what will become a dashboard filter, rather than finding out later on
+  // someone else's dashboard.
+  const declaredParams = React.useMemo(() => {
+    try { return findParameters(sql || ""); } catch { return []; }
+  }, [sql]);
+  const paramError = React.useMemo(() => {
+    try { findParameters(sql || ""); return null; } catch (e) { return e.message; }
+  }, [sql]);
+  const unwrapped = declaredParams.filter((p) => p.required);
   const previewRef = useRef(null);
   const previewInst = useRef(null);
   const previewTools = useChartTools(() => previewInst.current, {
@@ -99,6 +117,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       setChartSubtype(editChart.chartSubtype || "simple_bar");
       setChartName(editChart.name || "");
       setMapping(cfg);
+      setParamDefaults(cfg.paramDefaults || {});
       setXLabel(cfg.xLabel || "");
       setYLabel(cfg.yLabel || "");
       setShowLegend(cfg.showLegend !== false);
@@ -145,11 +164,34 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       );
       return;
     }
+    // Preview with the defaults the author has entered. Without this a
+    // parameterized query cannot be previewed at all: a required placeholder
+    // reaches ClickHouse unset and comes back as "Substitution 'x' is not set",
+    // which reads as a broken query rather than a missing default.
+    const missing = declaredParams
+      .filter((p) => p.required && !(paramDefaults[p.name] ?? "").toString().trim())
+      .map((p) => p.name);
+    if (missing.length) {
+      setError(
+        `Give a default for ${missing.join(", ")} to preview this chart. ` +
+        `Required parameters have no value until a dashboard supplies one.`,
+      );
+      return;
+    }
+
     setRunning(true);
     setError(null);
     setData(null);
     try {
-      const r = await runQuery(sql.trim(), { readOnly: true });
+      const values = {};
+      for (const p of declaredParams) {
+        const v = paramDefaults[p.name];
+        if (v !== undefined && String(v) !== "") values[p.name] = v;
+      }
+      const r = await runQuery(sql.trim(), {
+        readOnly: true,
+        ...(Object.keys(values).length ? { params: values } : {}),
+      });
       setData(r.rows || []);
       setColumns(r.columns || []);
     } catch (e) {
@@ -293,6 +335,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
       const extraLeftForYAxisName = yHasName ? 60 : 20;
 
+      // Sized to the widest tick label the axis will draw. A fixed gap put the
+      // rotated axis name on top of the numbers as soon as they grew wide
+      // (a count axis reaching 120,000,000 needs roughly twice the old 42px).
+      const yNameGap = yAxisNameGap(baseOption);
+
       const gridLeft = previewTools.fullscreen
         ? (hasLegendCheck && legendVisible ? 240 : extraLeftForYAxisName)
         : (hasLegendCheck && legendVisible ? 20 : extraLeftForYAxisName);
@@ -364,7 +411,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 color: isDarkColor,
               },
               nameLocation: axis?.nameLocation || 'middle',
-              nameGap: Math.max(axis?.nameGap || 25, 42),
+              nameGap: Math.max(axis?.nameGap || 25, yNameGap),
               nameTextStyle: {
                 color: isDarkColor,
                 fontSize: 10,
@@ -379,7 +426,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   color: isDarkColor,
                 },
                 nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
-                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, 42),
+                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yNameGap),
                 nameTextStyle: {
                   color: isDarkColor,
                   fontSize: 10,
@@ -497,7 +544,21 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       return;
     }
     const dashId = parseInt(selDashboard, 10);
-    const config = { ...mapping, xLabel, yLabel, showLegend: shouldShowLegend ? showLegend : false };
+    // Only keep defaults for parameters the SQL still declares, so renaming or
+    // removing a placeholder does not leave an orphan behind in config.
+    const keptDefaults = {};
+    for (const p of declaredParams) {
+      if (paramDefaults[p.name] !== undefined && paramDefaults[p.name] !== "") {
+        keptDefaults[p.name] = paramDefaults[p.name];
+      }
+    }
+    const config = {
+      ...mapping,
+      xLabel,
+      yLabel,
+      showLegend: shouldShowLegend ? showLegend : false,
+      ...(Object.keys(keptDefaults).length ? { paramDefaults: keptDefaults } : {}),
+    };
     try {
       if (editId) {
         await apiFetch(`/api/dashboards/charts/${editId}`, {
@@ -550,6 +611,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       setChartSubtype("simple_bar");
       setChartName("");
       setMapping({});
+      setParamDefaults({});
       setXLabel("");
       setYLabel("");
       setShowLegend(true);
@@ -724,11 +786,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => setFullscreen(!fullscreen)}
+          title={fullscreen ? "Exit full screen" : "Full screen"}
+          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
         >
           <Icon
-            className={`ti ${fullscreen ? "ti-minimize" : "ti-maximize"}`}
-          ></Icon>{" "}
-          {fullscreen ? "Exit" : "Fullscreen"}
+            className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
+            style={{ fontSize: 14 }}
+          ></Icon>
         </button>
       </div>
 
@@ -756,7 +820,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         </div>
         {topOpen && (
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 0,
+              alignItems: "stretch",
+            }}
           >
             <div
               style={{
@@ -783,6 +852,74 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   height="100%"
                 />
               </div>
+
+              {/* Dashboard filters, previewed at authoring time.
+                  A parameter in this SQL becomes a filter on every dashboard
+                  holding this chart. The difference between a clearable filter
+                  and a permanent one is invisible in the SQL unless you already
+                  know the convention, and authoring time is far cheaper than
+                  discovering it on a dashboard someone else built. */}
+              {paramError && (
+                <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
+                  <Icon className="ti ti-alert-circle" /> {paramError}
+                </div>
+              )}
+
+              {!paramError && declaredParams.length > 0 && (
+                <div className="card" style={{ padding: 12, marginTop: 8 }}>
+                  <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
+                    <Icon className="ti ti-filter" /> This chart declares{" "}
+                    {declaredParams.length} dashboard filter
+                    {declaredParams.length > 1 ? "s" : ""}.
+                  </div>
+
+                  {unwrapped.length > 0 && (
+                    // A warning, never a block. Some filters genuinely should be
+                    // mandatory and the author is better placed to know.
+                    <div className="alert-banner warning" style={{ fontSize: "13px", marginBottom: 8 }}>
+                      <Icon className="ti ti-alert-triangle" />
+                      <div>
+                        {unwrapped.map((p) => p.name).join(", ")}{" "}
+                        {unwrapped.length > 1 ? "are" : "is"} outside an optional
+                        block, so {unwrapped.length > 1 ? "they" : "it"} will be
+                        required: a viewer will not be able to clear{" "}
+                        {unwrapped.length > 1 ? "them" : "it"}, and the chart will
+                        not render until a value is supplied. Give a default
+                        below, or wrap the filter so it can be left out:
+                        <div style={{ marginTop: 6 }}>
+                          <code style={{ fontSize: "12px" }}>
+                            {"WHERE 1 /*[ AND col = {"}
+                            {unwrapped[0].name}:{unwrapped[0].type}
+                            {"} ]*/"}
+                          </code>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {declaredParams.map((p) => (
+                    <div
+                      key={p.name}
+                      style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}
+                    >
+                      <code style={{ fontSize: "12px", minWidth: 140 }}>
+                        {p.name}:{p.type}
+                      </code>
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)", minWidth: 70 }}>
+                        {p.required ? "required" : "optional"}
+                      </span>
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>default</span>
+                      <ParamInput
+                        param={p}
+                        value={paramDefaults[p.name] ?? ""}
+                        onChange={(v) => setParamDefaults((d) => ({ ...d, [p.name]: v }))}
+                        invalid={p.required && !(paramDefaults[p.name] ?? "").toString().trim()}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div
                 style={{
                   display: "flex",
@@ -818,7 +955,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 </button>
               </div>
             </div>
-            <div style={{ padding: 12, maxHeight: "40vh", overflow: "auto" }}>
+            <div
+              style={{
+                padding: 12,
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                overflow: "hidden",
+              }}
+            >
               <div
                 style={{
                   fontSize: "13px",
@@ -838,7 +983,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   <Icon className="ti ti-alert-circle"></Icon> {error}
                 </div>
               )}
-              {data && <DataTable rows={data.slice(0, 10)} columns={columns} />}
+              {/* Takes whatever height the row above leaves, so it grows with
+                  the SQL column instead of staying at a fixed cap. */}
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                {data && <DataTable rows={data} columns={columns} />}
+              </div>
             </div>
           </div>
         )}

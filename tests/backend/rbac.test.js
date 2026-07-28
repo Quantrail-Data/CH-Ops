@@ -6,7 +6,7 @@
  * role except superadmin and cannot promote to superadmin; admin can
  * change editor/readonly but cannot change admin or superadmin; editor
  * and readonly have no change permissions. Also tests middleware exports
- * (requireAdmin, requireSuperAdmin, requireEditor) and user management
+ * (requireAdmin, requireEditor) and user management
  * permissions (admin-only create, superadmin-only superadmin creation,
  * max 3 superadmins, delete privilege checks).
  *
@@ -84,12 +84,12 @@ describe('RBAC: canChangeRole - readonly caller', () => {
 
 describe('RBAC: Middleware exports', () => {
   it('exports requireAdmin middleware', () => { expect(code).toContain('export function requireAdmin'); });
-  it('exports requireSuperAdmin middleware (backward compat)', () => { expect(code).toContain('export function requireSuperAdmin'); });
-  it('exports requireEditor middleware', () => { expect(code).toContain('export function requireEditor'); });
-  it('requireSuperAdmin now allows admin role too', () => {
-    // The requireSuperAdmin function should check for admin-level, not just superadmin
-    expect(code).toContain('isAdminLevel');
+  it('no longer exports the duplicate requireSuperAdmin', () => {
+    // It was a byte-identical copy of requireAdmin whose name said superadmin
+    // and whose behaviour said admin. Call sites now use requireAdmin.
+    expect(code).not.toContain('export function requireSuperAdmin');
   });
+  it('exports requireEditor middleware', () => { expect(code).toContain('export function requireEditor'); });
 });
 
 describe('RBAC: User management permissions', () => {
@@ -98,4 +98,42 @@ describe('RBAC: User management permissions', () => {
   it('delete checks caller vs target level', () => { expect(code).toContain('Cannot delete a user with equal or higher privileges'); });
   it('max 3 superadmins enforced on create', () => { expect(code).toContain('Maximum 3 super admins allowed'); });
   it('max 3 superadmins enforced on role change', () => { expect(code).toContain('Maximum 3 super admins allowed'); });
+});
+
+
+describe('RBAC: dashboard route guards', () => {
+  const routes = fs.readFileSync('src/backend/routes/dashboards.js', 'utf8');
+
+  // Editors create and edit; only admins delete. Deleting a dashboard detaches
+  // every chart on it and deleting a chart is unrecoverable.
+  it('lets editors create a dashboard and a chart', () => {
+    expect(routes).toContain("router.post('/', requireEditor, createDashboard)");
+    expect(routes).toContain("router.post('/charts', requireEditor, createChart)");
+  });
+
+  it('lets editors update a dashboard and a chart', () => {
+    expect(routes).toContain("router.put('/:id', requireEditor, updateDashboard)");
+    expect(routes).toContain("router.put('/charts/:id', requireEditor, updateChart)");
+  });
+
+  it('restricts both deletes to admin', () => {
+    expect(routes).toContain("router.delete('/:id', requireAdmin, deleteDashboard)");
+    expect(routes).toContain("router.delete('/charts/:id', requireAdmin, deleteChart)");
+  });
+
+  it('no longer accepts an editor on either delete', () => {
+    expect(routes).not.toContain("router.delete('/:id', requireEditor");
+    expect(routes).not.toContain("router.delete('/charts/:id', requireEditor");
+  });
+
+  it('leaves the read endpoints open to any authenticated user', () => {
+    expect(routes).toContain("router.get('/', listDashboards)");
+    expect(routes).toContain("router.get('/charts', listCharts)");
+    expect(routes).toContain("router.get('/:id/charts', getDashboardCharts)");
+  });
+
+  it('imports both guards', () => {
+    expect(routes).toContain('requireAdmin');
+    expect(routes).toContain('requireEditor');
+  });
 });

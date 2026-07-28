@@ -99,14 +99,12 @@ export async function login(req, res) {
     .where(eq(appUsers.username, username.trim()))
     .get();
 
-  // Block local login for SSO users  - they must use the SSO button
-  if (user && user.authMethod === "sso") {
-    return res
-      .status(403)
-      .json({
-        error: "This account uses SSO. Please sign in with the SSO button.",
-      });
-  }
+  // NOTE: a check for user.authMethod === "sso" used to sit here. There is no
+  // authMethod column in schema.js or migrate.js, so it could never be true,
+  // and the "Sign in with SSO" button it belonged to is commented out in
+  // LoginPage.jsx. Removed rather than left as a guard that cannot fire. To
+  // bring SSO back, add the column to the schema AND a migration, then restore
+  // this branch alongside the button.
 
   if (user && (await verifyPassword(password, user.passwordHash))) {
     // Upgrade legacy SHA-256 hash to argon2id so future logins are faster and safer
@@ -143,11 +141,50 @@ export async function login(req, res) {
           safeCompare(username.trim(), sa.username) &&
           safeCompare(password, sa.password)
         ) {
+          // Recreate the account if it is missing, then issue the token from
+          // the row. The token must carry a userId: authMiddleware looks the
+          // user up by it, so a token minted without one authenticated at
+          // /login and then 401'd on every subsequent request - which broke
+          // the .env fallback precisely in the recovery case it exists for.
+          let row = db
+            .select()
+            .from(appUsers)
+            .where(eq(appUsers.username, sa.username))
+            .get();
+
+          if (!row) {
+            const hash = await hashPassword(sa.password);
+            db.insert(appUsers)
+              .values({
+                username: sa.username,
+                passwordHash: hash,
+                role: "superadmin",
+                email: sa.email,
+                mustChangePassword: false,
+              })
+              .run();
+            row = db
+              .select()
+              .from(appUsers)
+              .where(eq(appUsers.username, sa.username))
+              .get();
+          }
+
           clearFailures(username);
+          db.update(appUsers)
+            .set({ lastLoginAt: new Date().toISOString() })
+            .where(eq(appUsers.id, row.id))
+            .run();
+
           return res.json({
-            username: username.trim(),
-            role: "superadmin",
-            token: create({ username: username.trim(), role: "superadmin" }),
+            username: row.username,
+            role: row.role,
+            mustChangePassword: row.mustChangePassword,
+            token: create({
+              username: row.username,
+              role: row.role,
+              userId: row.id,
+            }),
           });
         }
       }

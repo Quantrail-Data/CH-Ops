@@ -9,9 +9,9 @@
 
 import React from "react";
 import Icon from "../common/Icon.jsx";
-import Select from "../common/Select.jsx";
-import { isTemporal, isNumeric, enumMembers, hasValue }
-  from "../../../shared/sqlParams.js";
+// The per-type control now lives in common/ so the dashboard filter bar can
+// use exactly the same inputs.
+import ParamInput from "../common/ParamInput.jsx";
 
 export default function ParamStrip({
   params, values, onChange, previewOpen, onPreviewToggle,
@@ -24,7 +24,7 @@ export default function ParamStrip({
       style={{
         display: "flex",
         gap: 10,
-        alignItems: "center",
+        alignItems: "flex-end",
         flexWrap: "wrap",
         padding: "6px 16px",
         borderBottom: "1px solid var(--border-default)",
@@ -35,9 +35,21 @@ export default function ParamStrip({
       {params.map((p) => (
         <label
           key={p.name}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.8125rem" }}
+          // Column, not a row: a long name next to a control on one line
+          // overflowed and sat on top of the input. Stacked and wrapped, the
+          // strip grows a line instead of overlapping.
+          style={{
+            display: "inline-flex", flexDirection: "column", gap: 2,
+            fontSize: "0.8125rem", maxWidth: 260, minWidth: 0,
+          }}
         >
-          <span style={{ color: "var(--text-secondary)" }}>
+          <span
+            style={{
+              color: "var(--text-secondary)",
+              overflowWrap: "anywhere", wordBreak: "break-word", lineHeight: 1.3,
+            }}
+            title={`${p.name}:${p.type}`}
+          >
             {p.name}
             {p.required && (
               <span style={{ color: "var(--color-danger)" }} title="Required"> *</span>
@@ -60,58 +72,5 @@ export default function ParamStrip({
         <Icon className="ti ti-eye" /> Preview
       </button>
     </div>
-  );
-}
-
-function ParamInput({ param, value, onChange }) {
-  const members = enumMembers(param.type);
-
-  if (members.length) {
-    return (
-      <Select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">(none)</option>
-        {members.map((m) => (
-          <option key={m} value={m}>{m}</option>
-        ))}
-      </Select>
-    );
-  }
-
-  if (isTemporal(param.type)) {
-    const dateOnly = /^Date(32)?$/i.test(param.type.replace(/^(Nullable|LowCardinality)\((.*)\)$/i, "$2"));
-    return (
-      <input
-        className="form-input"
-        type={dateOnly ? "date" : "datetime-local"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ width: 200 }}
-      />
-    );
-  }
-
-  if (isNumeric(param.type)) {
-    return (
-      <input
-        className="form-input"
-        type="number"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ width: 120 }}
-      />
-    );
-  }
-
-  const isCollection = /^(Array|Map)/i.test(param.type);
-  return (
-    <input
-      className="form-input"
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={isCollection ? (/^Array/i.test(param.type) ? "[1,2,3]" : "{'a':1}") : ""}
-      title={param.type}
-      style={{ width: isCollection ? 200 : 160 }}
-    />
   );
 }

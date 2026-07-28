@@ -192,7 +192,6 @@ export default function QueryEditor({
     clusters,
     clusterName,
     user,
-    password,
     nodeName,
   } = useConnection();
   // Everything that used to be a useState above now belongs to a tab. The
@@ -1445,13 +1444,11 @@ export default function QueryEditor({
           method: "POST",
           body: JSON.stringify({
             database_type: "clickhouse",
-            credentials: {
-              host: selectedNode,
-              port: port,
-              username: user,
-              password: password,
-              database: selected,
-            },
+                // Credentials are resolved server-side from the cluster
+                // configuration; the browser does not hold them.
+                clusterId: selectedClusterId,
+                node: selectedNode,
+                database: selected,
             llm_provider: "string",
             model_name: "string",
           }),

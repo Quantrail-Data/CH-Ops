@@ -3,7 +3,7 @@
  *
  * Lets the API Key Management UI fetch the list of models actually pulled on
  * a target Ollama server (via its /api/tags endpoint) before saving a key.
- * Covers: the requireSuperAdmin gate, input validation (missing/malformed/
+ * Covers: the requireAdmin gate, input validation (missing/malformed/
  * non-http base URL), the SSRF guard (localhost/127.0.0.1/::1 loopback is
  * allowed - that's the normal way Ollama is run; other private/LAN/link-local
  * addresses are rejected), DNS-rebinding protection (the fetch is pinned to
@@ -44,7 +44,7 @@ function getRouteLayer(method, path) {
   return layer.route.stack;
 }
 
-// requireSuperAdmin runs first in the chain; the route's own logic is the
+// requireAdmin runs first in the chain; the route's own logic is the
 // last handler after it.
 function getMiddleware(method, path) {
   return getRouteLayer(method, path)[0].handle;
@@ -84,7 +84,7 @@ beforeEach(() => {
   mockLookup.mockRejectedValue(new Error("no mock DNS response configured"));
 });
 
-describe("POST /ollama/models - requireSuperAdmin gate", () => {
+describe("POST /ollama/models - requireAdmin gate", () => {
   it("rejects a readonly user with 403, never calls next", () => {
     const req = { user: { role: "readonly" } };
     const res = createRes();

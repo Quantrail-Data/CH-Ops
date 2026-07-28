@@ -115,6 +115,60 @@ describe("Step 1: checking the query", () => {
   });
 });
 
+describe("Required parameters block the export", () => {
+  // Export does not carry parameter values. An optional block degrades
+  // acceptably (it is dropped and the export widens); a required placeholder
+  // reaches ClickHouse unset and the job dies with "Substitution 'x' is not
+  // set" partway through, after the user has already waited.
+  const REQUIRED = "SELECT * FROM events WHERE region = {region:String}";
+  const OPTIONAL =
+    "SELECT * FROM events WHERE 1 /*[ AND region = {region:String} ]*/";
+
+  it("names the parameter it needs", () => {
+    open(REQUIRED);
+    expect(screen.getByText(/does not carry parameter values/i)).toBeTruthy();
+    expect(screen.getByText("region")).toBeTruthy();
+  });
+
+  it("disables Estimate and Next", () => {
+    open(REQUIRED);
+    expect(screen.getByText(/Estimate rows/i).closest("button")).toBeDisabled();
+    expect(screen.getByText("Next")).toBeDisabled();
+  });
+
+  it("does not call the estimate endpoint", () => {
+    open(REQUIRED);
+    fireEvent.click(screen.getByText(/Estimate rows/i));
+    expect(api.estimateExport).not.toHaveBeenCalled();
+  });
+
+  it("lists every required parameter", () => {
+    open("SELECT * FROM t WHERE a = {region:String} AND b > {threshold:UInt8}");
+    expect(screen.getByText("region")).toBeTruthy();
+    expect(screen.getByText("threshold")).toBeTruthy();
+  });
+
+  it("allows a query whose parameters are all optional", async () => {
+    open(OPTIONAL);
+    expect(screen.queryByText(/does not carry parameter values/i)).toBeNull();
+    expect(screen.getByText(/Estimate rows/i).closest("button")).not.toBeDisabled();
+    await toFormatStep();
+    expect(screen.getByText(/Back/i)).toBeTruthy();
+  });
+
+  it("does not block a query with no parameters at all", () => {
+    open(SQL);
+    expect(screen.queryByText(/does not carry parameter values/i)).toBeNull();
+    expect(screen.getByText(/Estimate rows/i).closest("button")).not.toBeDisabled();
+  });
+
+  it("ignores a placeholder that only looks like one", () => {
+    // Not a valid {name:Type} declaration, so findParameters finds nothing.
+    open("SELECT * FROM t WHERE json = '{not:a param}'");
+    expect(screen.queryByText(/does not carry parameter values/i)).toBeNull();
+  });
+});
+
 describe("Step 2: choosing the file", () => {
   it("defaults to CSV and zip, and shows the extension it will add", async () => {
     open();
