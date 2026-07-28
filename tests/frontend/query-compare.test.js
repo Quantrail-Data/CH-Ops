@@ -1,10 +1,6 @@
+// query-compare.test.js - the Query Comparison tool: SELECT-only guard, verdict helpers and the shared editing surface
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Author: Kathir Moorthy
-// Test suite for the Query Comparison tool: SELECT-only guard, verdict helpers,
-// per-user credential threading, the reusable SqlInput surface, the split-screen
-// ComparisonView with its own connect step, the SqlEditorPage mode switch, the
-// shared highlighter extraction, the costEstimator credential-parameter fix, and
-// the MainLayout route wiring.
+// Contributors - Kathirdhasan, Kathir Moorthy, Praveen kumar
 
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
@@ -94,25 +90,37 @@ describe('costEstimator: credential-parameter fix', () => {
   });
 });
 
-describe('SqlInput: reusable editing surface', () => {
-  const code = read('src/frontend/components/editor/SqlInput.jsx');
-  it('imports the shared highlighter', () => {
-    expect(code).toContain("import { highlightSQL } from \"../../utils/sqlHighlight.js\"");
-  });
-  it('is controlled (value + onChange) and supports onRun + acWords', () => {
-    expect(code).toContain('value');
+describe('SqlEditor: reusable editing surface', () => {
+  // SqlInput.jsx is gone. It was the textarea-with-highlight-overlay editor,
+  // and its whole approach - the manual highlighter, the acWords autocomplete
+  // list, the sql-textarea/sql-highlight layering - went with it when the
+  // surface became CodeMirror. What the suite is really asserting is that ONE
+  // reusable editing surface is shared rather than duplicated, so these check
+  // the component that now plays that role.
+  const code = read('src/frontend/components/editor/SqlEditor.jsx');
+
+  it('is controlled and supports running from the editor', () => {
+    expect(code).toContain('value = ""');
     expect(code).toContain('onChange');
     expect(code).toContain('onRun');
-    expect(code).toContain('acWords');
   });
-  it('reuses the existing editor CSS classes', () => {
-    ['sql-editor-wrap', 'sql-line-numbers', 'sql-editor-inner', 'sql-highlight', 'sql-textarea', 'sql-autocomplete', 'sql-ac-item'].forEach((c) => {
-      expect(code).toContain(c);
-    });
+
+  it('exposes an imperative handle rather than reaching into the DOM', () => {
+    expect(code).toContain('forwardRef');
+    expect(code).toContain('useImperativeHandle');
   });
-  it('is memoized and precomputes uppercase words for fast autocomplete', () => {
-    expect(code).toContain('export default memo(SqlInput)');
-    expect(code).toContain('acUpper');
+
+  it('takes its extensions from the shared setup module', () => {
+    // Highlighting, completion and the keymap live in one place, so both the
+    // editor and the comparison panes get identical behaviour.
+    expect(code).toContain('./sqlEditorSetup.js');
+    expect(code).toContain('completions');
+    expect(code).toContain('dialectData');
+  });
+
+  it('is used by both the editor and the comparison view', () => {
+    expect(read('src/frontend/components/editor/QueryEditor.jsx')).toContain('SqlEditor');
+    expect(read('src/frontend/components/editor/ComparisonView.jsx')).toContain('SqlEditor');
   });
 });
 
@@ -179,8 +187,15 @@ describe('SqlEditorPage: mode switch', () => {
   const code = read('src/frontend/components/editor/SqlEditorPage.jsx');
   it('defaults to Regular and passes mode + onModeChange to both children', () => {
     expect(code).toContain('useState("regular")');
-    expect(code).toContain('<QueryEditor {...props} mode={mode} onModeChange={setMode} />');
-    expect(code).toContain('<ComparisonView mode={mode} onModeChange={setMode} />');
+    // Both panes stay mounted so neither loses its editor state on a switch,
+    // which means each also has to be told whether it is the visible one -
+    // otherwise the hidden pane answers keyboard shortcuts too. Asserted on
+    // the props rather than an exact JSX string, which pinned the markup as it
+    // stood before `active` was added.
+    for (const frag of ['<QueryEditor', 'mode={mode}', 'onModeChange={setMode}', 'active={regular}']) {
+      expect(code).toContain(frag);
+    }
+    expect(code).toContain('<ComparisonView mode={mode} onModeChange={setMode} active={!regular} />');
   });
 });
 
@@ -212,17 +227,23 @@ describe('ModeSelect: Regular / Comparison dropdown', () => {
 });
 
 describe('Highlighter extraction', () => {
-  it('sqlHighlight.js exports the helper and word lists', () => {
-    const code = read('src/frontend/utils/sqlHighlight.js');
-    expect(code).toContain('export function highlightSQL');
-    expect(code).toContain('export const SQL_KW');
-    expect(code).toContain('export const SQL_FN');
+  // utils/sqlHighlight.js is gone. Highlighting is no longer a string-to-HTML
+  // helper over a textarea: CodeMirror does it from a dialect built out of the
+  // connected server's own keyword and function lists. buildDialect is the
+  // replacement, and sqlHighlight.test.js exercises it against a real parse
+  // tree. What this block still guards is that ONE module owns highlighting
+  // and QueryEditor is not doing it inline again.
+  it('sqlEditorSetup.js owns the dialect and the highlight style', () => {
+    const code = read('src/frontend/components/editor/sqlEditorSetup.js');
+    expect(code).toContain('export function buildDialect');
+    expect(code).toContain('HighlightStyle');
   });
-  it('QueryEditor imports highlightSQL and no longer defines it inline', () => {
+  it('QueryEditor does not define highlighting inline', () => {
     const code = read('src/frontend/components/editor/QueryEditor.jsx');
-    expect(code).toContain("import { highlightSQL } from \"../../utils/sqlHighlight.js\"");
     expect(code).not.toContain('function highlightSQL(');
     expect(code).not.toContain('const SQL_KW = new Set');
+    // It feeds the shared surface instead.
+    expect(code).toContain('dialectData');
   });
 });
 

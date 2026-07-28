@@ -1,4 +1,6 @@
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// QueryTabs-integration.test.jsx - the tab strip and the SQL editor working as one surface
+// Contributors - Kathir Moorthy
+// Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
@@ -77,10 +79,8 @@ describe("tabs, the strip and the editor together", () => {
     render(<Harness />);
     fireEvent.click(screen.getByLabelText("New query tab"));
     fireEvent.click(screen.getByText("busy"));
-    const spinners = screen
-      .getAllByTestId("icon")
-      .filter((n) => (n.getAttribute("data-icon") || "").includes("loader"));
-    expect(spinners).toHaveLength(1);
+    // Matches the class the real Icon emits; there is no mocked Icon here.
+    expect([...document.querySelectorAll(".ti-loader-2")]).toHaveLength(1);
   });
 
   it("closing a tab leaves the other showing its own text", () => {

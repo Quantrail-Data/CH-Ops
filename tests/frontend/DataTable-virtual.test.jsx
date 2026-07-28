@@ -1,8 +1,19 @@
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// DataTable-virtual.test.jsx - row virtualisation, scrolling and full screen in the results table
+// Contributors - Kathirdhasan, Praveen kumar
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+// DataTable reads the theme from App's context. Rendered bare it crashes on
+// `const { theme } = useTheme()` because the context default is null, which is
+// what took all 17 tests in this file down at once.
+vi.mock("../../src/frontend/App.jsx", () => ({
+  useTheme: () => ({ theme: "light", toggleTheme: () => {} }),
+  useAuth: () => ({ auth: { username: "test", role: "admin" } }),
+  useConnection: () => ({}),
+}));
+
 import DataTable from "../../src/frontend/components/layout/DataTable.jsx";
 
 const make = (n, cols = 4) =>
@@ -133,9 +144,15 @@ describe("fullscreen", () => {
   });
 
   // PORTALLED, so it is no longer inside the container it was rendered from.
+  // jsdom does not normalise the `inset` shorthand to pixels: React writes
+  // `inset: 0` and cssstyle reports it back as "0", not "0px". Matching only
+  // "0px" therefore never found the portal.
   const overlay = () =>
     [...document.body.children].find(
-      (el) => el.style && el.style.position === "fixed" && el.style.inset === "0px",
+      (el) =>
+        el.style &&
+        el.style.position === "fixed" &&
+        ["0", "0px"].includes(el.style.inset),
     );
 
   it("escapes its container entirely", () => {
