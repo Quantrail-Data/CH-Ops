@@ -1,21 +1,7 @@
-/**
- * apiKeys-ollama-route.test.js - Unit tests for POST /ollama/models
- *
- * Lets the API Key Management UI fetch the list of models actually pulled on
- * a target Ollama server (via its /api/tags endpoint) before saving a key.
- * Covers: the requireSuperAdmin gate, input validation (missing/malformed/
- * non-http base URL), the SSRF guard (localhost/127.0.0.1/::1 loopback is
- * allowed - that's the normal way Ollama is run; other private/LAN/link-local
- * addresses are rejected), DNS-rebinding protection (the fetch is pinned to
- * the already-validated IP, not re-resolved), an unreachable server (network
- * error), a non-2xx response, a malformed JSON body, and the happy path
- * mapping {models:[{name}]} to a flat name list. Non-SSRF-guard failures
- * always resolve with HTTP 200 and a {success, ...} body - an unreachable dev
- * server is an expected setup state, not a server error.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// apiKeys-ollama-route.test.js - unit tests for POST /ollama/models
+// Contributors - Kathirdhasan, Kathir Moorthy
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 mock.module("../../src/backend/db/index.js", () => ({
@@ -44,7 +30,7 @@ function getRouteLayer(method, path) {
   return layer.route.stack;
 }
 
-// requireSuperAdmin runs first in the chain; the route's own logic is the
+// requireAdmin runs first in the chain; the route's own logic is the
 // last handler after it.
 function getMiddleware(method, path) {
   return getRouteLayer(method, path)[0].handle;
@@ -84,7 +70,7 @@ beforeEach(() => {
   mockLookup.mockRejectedValue(new Error("no mock DNS response configured"));
 });
 
-describe("POST /ollama/models - requireSuperAdmin gate", () => {
+describe("POST /ollama/models - requireAdmin gate", () => {
   it("rejects a readonly user with 403, never calls next", () => {
     const req = { user: { role: "readonly" } };
     const res = createRes();

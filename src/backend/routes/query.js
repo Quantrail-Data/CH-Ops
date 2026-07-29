@@ -1,8 +1,8 @@
 // query.js - SQL execution REST API
 //
 // POST / executes SQL against ClickHouse using the current
-// connection credentials. Body limited to 100KB to prevent
-// oversized payloads. POST /test-connection validates connection
+// connection credentials. Body limited to 512KB in server.js, mounted
+// ahead of the global parser. POST /test-connection validates connection
 // credentials without executing arbitrary SQL. Both endpoints
 // are rate-limited to prevent abuse.
 //

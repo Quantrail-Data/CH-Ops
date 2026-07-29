@@ -1,14 +1,13 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Unit tests validating network connection state, API fetch utilities, API key retrieval, and query execution.
-
+// apiUtils.test.js - the shared connection state, apiFetch and API key handling
+// Contributors - Kathirdhasan, Kathir Moorthy
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setGlobalConnection, getGlobalConnection, apiFetch, runQuery, getActiveApiKey } from '../../src/frontend/utils/api.js';
 
 describe('Connection state', () => {
   beforeEach(() => {
-    setGlobalConnection({ node: '', user: '', password: '', port: 8123, clusterId: '', apiKey: null, apiKeyName: null, nodeName: '' });
+    setGlobalConnection({ node: '', user: '', port: 8123, clusterId: '', apiKey: null, apiKeyName: null, nodeName: '' });
   });
 
   it('getGlobalConnection returns defaults', () => {
@@ -225,7 +224,7 @@ describe('getActiveApiKey', () => {
 describe('runQuery', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    setGlobalConnection({ node: 'prod-1', user: 'admin', password: 'secret', port: 8123, clusterId: 'cluster-z', nodeName: 'node-z' });
+    setGlobalConnection({ node: 'prod-1', user: 'admin', port: 8123, clusterId: 'cluster-z', nodeName: 'node-z' });
     vi.stubGlobal('localStorage', {
       getItem: vi.fn(() => JSON.stringify({ token: 'jwt' })),
       setItem: vi.fn(),
@@ -242,7 +241,7 @@ describe('runQuery', () => {
     await expect(runQuery(123)).rejects.toThrow('SQL is required');
   });
 
-  it('sends connection credentials in request body', async () => {
+  it('sends the target node but no credentials', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
       ok: true, status: 200,
       json: () => Promise.resolve({ rows: [], columns: [] }),
@@ -252,8 +251,26 @@ describe('runQuery', () => {
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.sql).toBe('SELECT 1');
     expect(body.node).toBe('prod-1');
-    expect(body.user).toBe('admin');
-    expect(body.password).toBe('secret');
+    // The backend resolves the user and password for this node from the saved
+    // cluster configuration. The browser never holds a ClickHouse credential,
+    // so it cannot send one - and setGlobalConnection no longer accepts a
+    // password at all.
+    expect(body).not.toHaveProperty('password');
+    expect(body).not.toHaveProperty('user');
+  });
+
+  it('never leaks a password even if one is forced into the connection', async () => {
+    // Defensive: a caller stuffing a password into the global connection must
+    // not cause it to be transmitted.
+    setGlobalConnection({ password: 'should-never-be-sent' });
+
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true, status: 200,
+      json: () => Promise.resolve({ rows: [] }),
+    })));
+
+    await runQuery('SELECT 1');
+    expect(fetch.mock.calls[0][1].body).not.toContain('should-never-be-sent');
   });
 
   it('includes clusterId and port in request body', async () => {
@@ -269,27 +286,68 @@ describe('runQuery', () => {
     expect(body.port).toBe(8123);
   });
 
-  it('allows overriding connection params', async () => {
+  it('allows overriding the node and cluster', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
       ok: true, status: 200,
       json: () => Promise.resolve({ rows: [] }),
     })));
 
-    await runQuery('SELECT 1', { node: 'dev-1', user: 'readonly' });
+    await runQuery('SELECT 1', { node: 'dev-1', clusterId: 'cluster-dev' });
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.node).toBe('dev-1');
-    expect(body.user).toBe('readonly');
+    expect(body.clusterId).toBe('cluster-dev');
   });
 
-  it('respects password override with nullish coalescing behavior', async () => {
+  it('forwards query parameters when supplied', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
       ok: true, status: 200,
       json: () => Promise.resolve({ rows: [] }),
     })));
 
-    await runQuery('SELECT 1', { password: '' });
+    await runQuery('SELECT * FROM t WHERE r = {region:String}', {
+      params: { region: 'eu-west' },
+    });
     const body = JSON.parse(fetch.mock.calls[0][1].body);
-    expect(body.password).toBe('');
+    expect(body.params).toEqual({ region: 'eu-west' });
+    // The value travels as data. It is never spliced into the statement.
+    expect(body.sql).toContain('{region:String}');
+    expect(body.sql).not.toContain('eu-west');
+  });
+
+  it('omits params entirely when none are supplied', async () => {
+    // Keeps the request body byte-identical for the ~120 existing callers.
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true, status: 200,
+      json: () => Promise.resolve({ rows: [] }),
+    })));
+
+    await runQuery('SELECT 1');
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body).not.toHaveProperty('params');
+  });
+
+  it('omits params when given an empty object', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true, status: 200,
+      json: () => Promise.resolve({ rows: [] }),
+    })));
+
+    await runQuery('SELECT 1', { params: {} });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    // {} is truthy, so it is sent; the backend treats it as no values.
+    expect(body.params).toEqual({});
+  });
+
+  it('ignores a credential override', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true, status: 200,
+      json: () => Promise.resolve({ rows: [] }),
+    })));
+
+    await runQuery('SELECT 1', { user: 'readonly', password: 'nope' });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body).not.toHaveProperty('user');
+    expect(body).not.toHaveProperty('password');
   });
 
   it('uses default port when override port is falsy', async () => {

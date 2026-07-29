@@ -74,6 +74,17 @@ export const dashboards = sqliteTable("dashboard", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   columns: integer("columns").notNull().default(2),
+  // Presentation for the dashboard filter bar, keyed by parameter name:
+  //   { "region": { label, order, default, hidden }, ... }
+  // Only what discovery cannot infer. The filters themselves are discovered
+  // from the {name:Type} placeholders in each chart's sql_query, so the chart
+  // table needs no column for this and an existing chart becomes filterable
+  // the moment a placeholder is added to its SQL.
+  //
+  // Declaring it here does NOT alter an existing database - migrate.js creates
+  // tables with CREATE TABLE IF NOT EXISTS. The matching ALTER TABLE lives in
+  // the guarded migrations list there and is required.
+  filters: text("filters").default("{}"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });

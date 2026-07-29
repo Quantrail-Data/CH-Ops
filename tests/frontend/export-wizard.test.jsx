@@ -1,5 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> Sanjeev Kumar G
+// Contributors - Kathir Moorthy, Praveen kumar
+// export-wizard.test.jsx - the three-step export wizard, from estimate through download
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -30,6 +31,10 @@ import ExportWizard from "../../src/frontend/components/editor/ExportWizard.jsx"
 
 const SQL = "SELECT id, name FROM sales.orders";
 
+// ExportWizard polls progress on a 1000ms interval, which is exactly waitFor's
+// default timeout. Any assertion that needs a poll result must outlast it.
+const POLL_WAIT = 5000;
+
 function open(sql = SQL) {
   return render(<ExportWizard sql={sql} username="kathir" onClose={vi.fn()} />);
 }
@@ -42,6 +47,11 @@ async function toFormatStep() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The wizard writes an "active export" pointer to localStorage when a job
+  // starts, and reads it on open so a refresh resumes the download. Without
+  // clearing it, every test after the first one that starts an export opened
+  // straight into step 3, so there was no Next button to find.
+  localStorage.clear();
   api.estimateExport.mockResolvedValue({
     selectLike: true, rows: 1000, bytes: 50000, exact: false, warnBytes: 1024 ** 3,
   });
@@ -108,6 +118,60 @@ describe("Step 1: checking the query", () => {
     await waitFor(() => expect(screen.getByText("Next")).not.toBeDisabled());
     fireEvent.click(screen.getByText("Next"));
     expect(screen.getByText(SQL)).toBeTruthy();
+  });
+});
+
+describe("Required parameters block the export", () => {
+  // Export does not carry parameter values. An optional block degrades
+  // acceptably (it is dropped and the export widens); a required placeholder
+  // reaches ClickHouse unset and the job dies with "Substitution 'x' is not
+  // set" partway through, after the user has already waited.
+  const REQUIRED = "SELECT * FROM events WHERE region = {region:String}";
+  const OPTIONAL =
+    "SELECT * FROM events WHERE 1 /*[ AND region = {region:String} ]*/";
+
+  it("names the parameter it needs", () => {
+    open(REQUIRED);
+    expect(screen.getByText(/does not carry parameter values/i)).toBeTruthy();
+    expect(screen.getByText("region")).toBeTruthy();
+  });
+
+  it("disables Estimate and Next", () => {
+    open(REQUIRED);
+    expect(screen.getByText(/Estimate rows/i).closest("button")).toBeDisabled();
+    expect(screen.getByText("Next")).toBeDisabled();
+  });
+
+  it("does not call the estimate endpoint", () => {
+    open(REQUIRED);
+    fireEvent.click(screen.getByText(/Estimate rows/i));
+    expect(api.estimateExport).not.toHaveBeenCalled();
+  });
+
+  it("lists every required parameter", () => {
+    open("SELECT * FROM t WHERE a = {region:String} AND b > {threshold:UInt8}");
+    expect(screen.getByText("region")).toBeTruthy();
+    expect(screen.getByText("threshold")).toBeTruthy();
+  });
+
+  it("allows a query whose parameters are all optional", async () => {
+    open(OPTIONAL);
+    expect(screen.queryByText(/does not carry parameter values/i)).toBeNull();
+    expect(screen.getByText(/Estimate rows/i).closest("button")).not.toBeDisabled();
+    await toFormatStep();
+    expect(screen.getByText(/Back/i)).toBeTruthy();
+  });
+
+  it("does not block a query with no parameters at all", () => {
+    open(SQL);
+    expect(screen.queryByText(/does not carry parameter values/i)).toBeNull();
+    expect(screen.getByText(/Estimate rows/i).closest("button")).not.toBeDisabled();
+  });
+
+  it("ignores a placeholder that only looks like one", () => {
+    // Not a valid {name:Type} declaration, so findParameters finds nothing.
+    open("SELECT * FROM t WHERE json = '{not:a param}'");
+    expect(screen.queryByText(/does not carry parameter values/i)).toBeNull();
   });
 });
 
@@ -205,21 +269,26 @@ describe("Step 3: preparing and downloading", () => {
       state: "ready", bytesRead: 500, bytesWritten: 400, percent: 100, fileName: "kathir-export.csv.zip",
     });
     await toProgressStep();
-   await waitFor(() =>
-  expect(screen.getByText("Download")).toBeTruthy()
-);
+    await waitFor(() => expect(screen.getByText("Download")).toBeTruthy(), {
+      timeout: POLL_WAIT,
+    });
   });
 
   it("releases the idle suspension when the job finishes", async () => {
     api.exportProgress.mockResolvedValue({ state: "ready", bytesRead: 1, bytesWritten: 1, percent: 100 });
     await toProgressStep();
-    await waitFor(() => expect(idle.endBusy).toHaveBeenCalled());
+    await waitFor(() => expect(idle.endBusy).toHaveBeenCalled(), {
+      timeout: POLL_WAIT,
+    });
   });
 
   it("shows the reason when a job fails", async () => {
     api.exportProgress.mockResolvedValue({ state: "failed", error: "Not enough export space left." });
     await toProgressStep();
-    await waitFor(() => expect(screen.getByText(/Not enough export space left/i)).toBeTruthy());
+    await waitFor(
+      () => expect(screen.getByText(/Not enough export space left/i)).toBeTruthy(),
+      { timeout: POLL_WAIT },
+    );
   });
 
   it("reports a refused start rather than moving on silently", async () => {

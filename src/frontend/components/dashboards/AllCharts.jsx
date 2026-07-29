@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
+import { findParameters, hasValue } from '../../../shared/sqlParams.js';
 import { buildChartOption } from './chartTypes.js';
 import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
@@ -56,7 +57,37 @@ export default function AllCharts({ onEdit }) {
   async function preview(chart) {
     setSelected(chart); setPreviewLoading(true); setPreviewOpt(null); setShowLegend(true);
     try {
-      const r = await runQuery(chart.sqlQuery);
+      const cfg0 = typeof chart.config === 'string' ? (() => { try { return JSON.parse(chart.config); } catch { return {}; } })() : (chart.config || {});
+      const defaults = cfg0.paramDefaults || {};
+
+      // There is no filter bar on this page, so a parameterized chart previews
+      // with the defaults it was saved with. Without this the gallery breaks
+      // for any chart carrying a placeholder: the value is never sent and
+      // ClickHouse answers "Substitution 'x' is not set".
+      let declared = [];
+      try { declared = findParameters(chart.sqlQuery || ''); } catch { declared = []; }
+
+      const missing = declared.filter((p) => p.required && !hasValue(defaults[p.name])).map((p) => p.name);
+      if (missing.length) {
+        // Named here rather than letting the query fail, for the same reason a
+        // dashboard tile names its filters: the database error says neither
+        // which parameter nor where to set it.
+        setPreviewOpt({
+          _error: true,
+          message:
+            `This chart needs a value for ${missing.join(', ')}. ` +
+            `Set a default in the Chart Builder, or open it on a dashboard where the filter can be supplied.`,
+        });
+        setPreviewLoading(false);
+        return;
+      }
+
+      const values = {};
+      for (const p of declared) {
+        if (hasValue(defaults[p.name])) values[p.name] = defaults[p.name];
+      }
+
+      const r = await runQuery(chart.sqlQuery, Object.keys(values).length ? { params: values } : {});
       const cfg = typeof chart.config === 'string' ? JSON.parse(chart.config) : chart.config;
       setPreviewOpt(buildChartOption(chart.chartType, chart.chartSubtype, r.rows || [], cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend }));
     } catch (e) { setPreviewOpt({ _error: true, message: e.message }); }
