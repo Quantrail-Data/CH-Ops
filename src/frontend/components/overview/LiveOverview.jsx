@@ -718,7 +718,24 @@ export default function LiveOverview({ live: s }) {
           <Grid>
             <ChartCard metricKey="parts_by_state" option={charts.parts} type="bar" format="count" />
             <ChartCard title="Part format" option={charts.partFormat} type="pie" format="count" />
-            <ChartCard metricKey="caches" option={charts.caches} type="pie" format="bytes" emptyMessage="All caches are empty" />
+            <ChartCard metricKey="caches" option={{
+                      ...charts.caches,
+                      series: [
+                        {
+                          ...charts.caches.series[0],
+                          label: {
+                            position: "outside",
+                            formatter: "{b}\n{d}%",
+                            show: true
+                          },
+                          labelLayout: {
+                            hideOverlap: false, 
+                            moveOverlap: "shiftY"
+                          }
+                        }
+                      ]
+                    }}
+                    type="pie" format="bytes" emptyMessage="All caches are empty"  />
             <ChartCard metricKey="attached_objects" option={charts.objects} type="bar" format="count" />
           </Grid>
           </Section>

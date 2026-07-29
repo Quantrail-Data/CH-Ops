@@ -53,6 +53,9 @@ import { isValidSizeSqlQuery } from "../../utils/querySize.js";
 import ExplainOptions from "./ExplainOptions.jsx";
 import { composeStatement, settingsFor } from "./explainOptions.js";
 
+import darkLogo from "../../assets/chops-dark.svg"
+import lightLogo from "../../assets/chops-light.svg"
+
 // VITE_SELECTEDAID_DBS=aiselectedid
 const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
 
@@ -324,7 +327,7 @@ export default function QueryEditor({
   // Per tab, because a query finishing in one must not cancel the pending
   // memory lookup of another. See hazard 1 in the design note.
   const memoryTimers = useRef(new Map());
-
+  const [showLogo, setShowLogo] = useState(false);
   const [editorCreds, setEditorCreds] = useState(null);
   const { auth } = useAuth();
   const editorConnected = !!editorCreds;
@@ -737,7 +740,7 @@ export default function QueryEditor({
 
   async function handleConnect() {
     if (!connUser.trim()) {
-      setConnError("Username is required.");
+      toast.error("Username is required.");
       return;
     }
     setConnecting(true);
@@ -747,8 +750,9 @@ export default function QueryEditor({
       await editorConnect(candidate);
       setEditorCreds({ user: candidate.user });
       setConnPassword("");
+      toast.success("DB connected succesfully")
     } catch (e) {
-      setConnError(e.message);
+      toast.error(e.message)
     } finally {
       setConnecting(false);
     }
@@ -1259,6 +1263,7 @@ export default function QueryEditor({
         setSuccessMsg(baseMsg);
         setResult([]);
         setResultCols([]);
+        setShowLogo(true);
       }
     } catch (e) {
       handleSessionExpiry(e);
@@ -1555,7 +1560,7 @@ export default function QueryEditor({
           className="editor-sidebar"
           style={{
             width: explorerWidth,
-            minWidth: 160,
+            minWidth: 200,
             maxWidth: 500,
             // Fills the shell rather than guessing at the viewport again.
             height: "100%",
@@ -1647,7 +1652,7 @@ export default function QueryEditor({
                       }
                     >
                       <Icon className="ti ti-database-import"></Icon>
-                      <span style={{ flex: 1 }}>{db}</span>
+                      <span style={{ flex: 1 , overflow:"hidden" , textOverflow:"ellipsis",width: "100px"}}>{db}</span>
                       <Icon
                         className={
                           "ti ti-chevron-" +
@@ -1927,7 +1932,7 @@ export default function QueryEditor({
                 )}{" "}
                 Go
               </button>
-              {connError && (
+              {/* {connError && (
                 <span
                   style={{
                     fontSize: "12px",
@@ -1941,7 +1946,7 @@ export default function QueryEditor({
                 >
                   {connError}
                 </span>
-              )}
+              )} */}
             </div>
           ) : (
             <div
@@ -2432,7 +2437,7 @@ export default function QueryEditor({
                 alone. Taking "the remaining letters in lowercase" literally
                 would give "Ast" and "(json)", which reads as a mistake rather
                 than as a style. */}
-            <option value="GENERAL RUN">Execute SQL</option>
+            <option value="GENERAL RUN">Select Explain</option>
             <option value="EXPLAIN">Explain</option>
             <option value="EXPLAIN SYNTAX">Explain syntax</option>
             <option value="EXPLAIN QUERY TREE">Explain query tree</option>
@@ -3076,21 +3081,23 @@ export default function QueryEditor({
                   setTimeout(() => setCopied(false), 1500);
                 }
               }}
+              isShowLogo={showLogo}
             />
           )}
           {!result && !running && !error && !estimateResult && (
-            <div className="empty-state">
+            !editorConnected ? <div className="empty-state">
               <Icon
-                className={
-                  "ti " + (editorConnected ? "ti-terminal-2" : "ti-lock")
-                }
+                className="ti ti-lock"
+  
               ></Icon>
               <p>
-                {editorConnected
-                  ? "Run a query to see results."
-                  : "Connect with your ClickHouse credentials to begin."}
+               
+                  "Connect with your ClickHouse credentials to begin."
               </p>
             </div>
+            : <div  style={{ padding: "32px 16px",width:"",display:"flex", flexDirection:"column", justifyContent:"center",alignItems:"center",height:"20rem"}}>
+              <img style={{width:"13rem",opacity:0.3}}  src={theme === "dark" ? lightLogo : darkLogo} alt="" />
+              </div>
           )}
         </div>
       </div>
