@@ -35,3 +35,11 @@ export const alertRuleChannels = schema.alertRuleChannels;
 export const dashboards = schema.dashboards;
 export const charts = schema.charts;
 export const appUsers = schema.appUsers;
+
+// Kubernetes support.
+export const clusters = schema.clusters;
+export const clusterNodes = schema.clusterNodes;
+export const k8sConnections = schema.k8sConnections;
+
+// The raw handle, for the cluster storage migration.
+export const rawSqlite = sqlite;

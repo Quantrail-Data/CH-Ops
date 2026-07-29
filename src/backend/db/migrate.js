@@ -2,13 +2,13 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Database migration script that creates schemas, seeds defaults, and runs via 'bun src/backend/db/migrate.js'.
 
-
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { sql } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import * as schema from './schema.js';
+import { migrateClustersToTables } from './migrateClusters.js';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, 'chops.db');
@@ -162,6 +162,20 @@ const migrations = [
 
 for (const sql of migrations) {
   try { sqlite.exec(sql); } catch {}
+}
+
+// Move cluster configuration out of the JSON blob and into the cluster and cluster_node
+const dryRun = process.argv.includes('--migrate-dry-run');
+const clusterMigration = migrateClustersToTables(sqlite, { dryRun });
+
+if (
+  clusterMigration.reason === 'invalid-blob' ||
+  clusterMigration.reason === 'verification-failed'
+) {
+  console.error('  Cluster migration did not complete. CHOps will keep reading');
+  console.error('  the previous storage, so nothing is lost. Problems found:');
+  for (const p of clusterMigration.problems) console.error('    - ' + p);
+  process.exitCode = 1;
 }
 
 // Seed defaults

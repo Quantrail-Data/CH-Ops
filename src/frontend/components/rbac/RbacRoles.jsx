@@ -14,6 +14,7 @@ import { SqlPreview } from '../layout/SharedComponents.jsx';
 import ConfirmModal from '../layout/ConfirmModal.jsx';
 import AlertBanner from '../layout/AlertBanner.jsx';
 import { useAuth } from '../../App.jsx';
+import OnClusterBanner, { useRbacContext } from './OnClusterBanner.jsx';
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const ACCESS_TYPES = ['SELECT', 'INSERT', 'ALTER', 'CREATE', 'DROP', 'TRUNCATE', 'OPTIMIZE', 'SHOW', 'KILL QUERY', 'ACCESS MANAGEMENT', 'SYSTEM', 'INTROSPECTION', 'SOURCES', 'dictGet', 'ALL', 'NONE'];
@@ -22,6 +23,8 @@ function useDbList() { const q = useQuery(); useEffect(() => { q.execute('SELECT
 function useTableList(db) { const q = useQuery(); useEffect(() => { if (db && db !== '*') q.execute(`SELECT name FROM system.tables WHERE database='${db}' ORDER BY name`); }, [db]); return q; }
 
 export default function RbacRoles() {
+  // Whether an ON CLUSTER value is needed here, and which one.
+  const rbac = useRbacContext();
   const { tab: routeTab = 'list' } = useParams();
   const navigate = useNavigate();
   const { auth } = useAuth();
@@ -53,21 +56,25 @@ export default function RbacRoles() {
       <AlertBanner result={result} setResult={setResult} />
       <div className="tab-bar">{tabs.map(t => <div key={t.id} className={`tab-item ${routeTab === t.id ? 'active' : ''}`} onClick={() => handleTabChange(t.id)} style={t.id !== 'list' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${t.i}`}></Icon> {t.l}</div>)}</div>
       {routeTab === 'list' && <DataTable rows={rolesQ.data || []} emptyMessage="No roles." variant="single" />}
-      {routeTab === 'create' && <CreateRole clusters={clusters} setResult={setResult} onSuccess={load} />}
-      {routeTab === 'alter' && <AlterRole roles={roles} clusters={clusters} setResult={setResult} onSuccess={load} />}
-      {routeTab === 'grant' && <GrantRevoke roles={roles} clusters={clusters} setResult={setResult} />}
-      {routeTab === 'drop' && <DropRole roles={roles} clusters={clusters} setResult={setResult} onSuccess={load} />}
+      {routeTab === 'create' && <CreateRole rbac={rbac} clusters={clusters} setResult={setResult} onSuccess={load} />}
+      {routeTab === 'alter' && <AlterRole rbac={rbac} roles={roles} clusters={clusters} setResult={setResult} onSuccess={load} />}
+      {routeTab === 'grant' && <GrantRevoke rbac={rbac} roles={roles} clusters={clusters} setResult={setResult} />}
+      {routeTab === 'drop' && <DropRole rbac={rbac} roles={roles} clusters={clusters} setResult={setResult} onSuccess={load} />}
     </div>
   );
 }
 
-function CreateRole({ clusters, setResult, onSuccess }) {
+function CreateRole({ rbac, clusters, setResult, onSuccess }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [name, setName] = useState('');
   const [onCluster, setOnCluster] = useState('');
+  // Default the dropdown where CHOps already knows the cluster name.
+  useEffect(() => {
+    if (rbac?.defaultOnCluster) setOnCluster((prev) => prev || rbac.defaultOnCluster);
+  }, [rbac?.defaultOnCluster]);
   const sql = name.trim() ? `CREATE ROLE IF NOT EXISTS ${name.trim()}${onCluster ? ` ON CLUSTER '${onCluster}'` : ''}` : '';
 
   async function submit(e) {
@@ -84,10 +91,10 @@ function CreateRole({ clusters, setResult, onSuccess }) {
       }, 5000)
     }
   }
-  return (<form onSubmit={submit} className="card" style={{ padding: 20 }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}><div className="form-group"><label className="form-label">Role Name *</label><input className="form-input" required value={name} onChange={e => setName(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}} /></div><div className="form-group"><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div></div><SqlPreview sql={sql} /><div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> Create</button></div></form>);
+  return (<form onSubmit={submit} className="card" style={{ padding: 20 }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}><div className="form-group"><label className="form-label">Role Name *</label><input className="form-input" required value={name} onChange={e => setName(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}} /></div><div className="form-group"><OnClusterBanner rbac={rbac} value={onCluster} /><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div></div><SqlPreview sql={sql} /><div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> Create</button></div></form>);
 }
 
-function AlterRole({ roles, clusters, setResult, onSuccess }) {
+function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -95,6 +102,11 @@ function AlterRole({ roles, clusters, setResult, onSuccess }) {
   const [sel, setSel] = useState('');
   const [f, setF] = useState({ rename: '', onCluster: '', addSettings: '', dropSettings: '', addProfiles: '', dropProfiles: '', dropAllSettings: false, dropAllProfiles: false });
   const u = (k, v) => setF(p => ({ ...p, [k]: v }));
+  useEffect(() => {
+    if (rbac?.defaultOnCluster) {
+      setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+    }
+  }, [rbac?.defaultOnCluster]);
   function buildSql() {
     if (!sel) return '';
     const p = ['ALTER ROLE', sel];
@@ -134,7 +146,7 @@ function AlterRole({ roles, clusters, setResult, onSuccess }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
       <div className="form-group"><label className="form-label">Role *</label><Select className="form-select" required value={sel} onChange={e => setSel(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{roles.map(r => <option key={r}>{r}</option>)}</Select></div>
       <div className="form-group"><label className="form-label">Rename To</label><input className="form-input" value={f.rename} onChange={e => u('rename', e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}} /></div>
-      <div className="form-group"><label className="form-label">ON CLUSTER</label><Select className="form-select" value={f.onCluster} onChange={e => u('onCluster', e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div>
+      <div className="form-group"><OnClusterBanner rbac={rbac} value={f.onCluster} /><label className="form-label">ON CLUSTER</label><Select className="form-select" value={f.onCluster} onChange={e => u('onCluster', e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
       <div className="form-group"><label className="form-label">ADD SETTINGS</label><input className="form-input" value={f.addSettings} onChange={e => u('addSettings', e.target.value)} placeholder="var = value, ..." style={{ fontFamily: 'var(--font-code)' }} disabled={!isAdmin} /></div>
@@ -151,7 +163,7 @@ function AlterRole({ roles, clusters, setResult, onSuccess }) {
   </form>);
 }
 
-function GrantRevoke({ roles, clusters, setResult }) {
+function GrantRevoke({ rbac, roles, clusters, setResult }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -160,6 +172,11 @@ function GrantRevoke({ roles, clusters, setResult }) {
   const [f, setF] = useState({ role: '', action: 'grant', accessType: 'SELECT', database: '*', table: '*', onCluster: '' });
   const tblsQ = useTableList(f.database);
   const u = (k, v) => setF(p => ({ ...p, [k]: v }));
+  useEffect(() => {
+    if (rbac?.defaultOnCluster) {
+      setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+    }
+  }, [rbac?.defaultOnCluster]);
   function buildSql() { if (!f.role) return ''; const verb = f.action === 'grant' ? 'GRANT' : 'REVOKE'; const dir = f.action === 'grant' ? 'TO' : 'FROM'; return `${verb} ${f.accessType} ON ${f.database}.${f.table} ${dir} ${f.role}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ''}`; }
 
   async function submit(e) {
@@ -188,20 +205,24 @@ function GrantRevoke({ roles, clusters, setResult }) {
       <div className="form-group"><label className="form-label">Privilege</label><Select className="form-select" value={f.accessType} onChange={e => u('accessType', e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>{ACCESS_TYPES.map(a => <option key={a}>{a}</option>)}</Select></div>
       <div className="form-group"><label className="form-label">Database</label><Select className="form-select" value={f.database} onChange={e => { u('database', e.target.value); u('table', '*'); }} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="*">* (all)</option>{dbsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}</Select></div>
       <div className="form-group"><label className="form-label">Table</label><Select className="form-select" value={f.table} onChange={e => u('table', e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="*">* (all)</option>{tblsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}</Select></div>
-      <div className="form-group"><label className="form-label">ON CLUSTER</label><Select className="form-select" value={f.onCluster} onChange={e => u('onCluster', e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div>
+      <div className="form-group"><OnClusterBanner rbac={rbac} value={f.onCluster} /><label className="form-label">ON CLUSTER</label><Select className="form-select" value={f.onCluster} onChange={e => u('onCluster', e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div>
     </div>
     <SqlPreview sql={buildSql()} />
     <div style={{ marginTop: 16 }}><button className="btn btn-primary" type="submit" disabled={!f.role || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-key"></Icon> Execute</button></div>
   </form>);
 }
 
-function DropRole({ roles, clusters, setResult, onSuccess }) {
+function DropRole({ rbac, roles, clusters, setResult, onSuccess }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [sel, setSel] = useState('');
   const [onCluster, setOnCluster] = useState('');
+  // Default the dropdown where CHOps already knows the cluster name.
+  useEffect(() => {
+    if (rbac?.defaultOnCluster) setOnCluster((prev) => prev || rbac.defaultOnCluster);
+  }, [rbac?.defaultOnCluster]);
   const [confirm, setConfirm] = useState(false);
   const [confirmName, setConfirmName] = useState('');
   const sql = sel ? `DROP ROLE IF EXISTS ${sel}${onCluster ? ` ON CLUSTER '${onCluster}'` : ''}` : '';
@@ -226,7 +247,7 @@ function DropRole({ roles, clusters, setResult, onSuccess }) {
   }
 
 
-  return (<div className="card" style={{ padding: 20, height: confirm ? '600px' : 'auto' }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}><div className="form-group"><label className="form-label">Role</label><Select className="form-select" value={sel} onChange={e => setSel(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{roles.map(r => <option key={r}>{r}</option>)}</Select></div><div className="form-group"><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div></div><SqlPreview sql={sql} /><div style={{ marginTop: 16 }}><button className="btn btn-danger" disabled={!sel || !isAdmin} onClick={() => setConfirm(true)} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon> Drop</button></div>
+  return (<div className="card" style={{ padding: 20, height: confirm ? '600px' : 'auto' }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}><div className="form-group"><label className="form-label">Role</label><Select className="form-select" value={sel} onChange={e => setSel(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{roles.map(r => <option key={r}>{r}</option>)}</Select></div><div className="form-group"><OnClusterBanner rbac={rbac} value={onCluster} /><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div></div><SqlPreview sql={sql} /><div style={{ marginTop: 16 }}><button className="btn btn-danger" disabled={!sel || !isAdmin} onClick={() => setConfirm(true)} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon> Drop</button></div>
     {confirm && <ConfirmModal title="Drop Role" message={<div><p>Type the role name <strong>{sel}</strong> to confirm:</p><input className="form-input" style={{ marginTop: 8 }} value={confirmName} onChange={e => setConfirmName(e.target.value)} placeholder={sel} autoFocus /></div>} confirmText="Drop Role" onConfirm={drop} onCancel={() => { setConfirm(false); setConfirmName(''); }} danger confirmDisabled={confirmName !== sel} />}
   </div>);
 }

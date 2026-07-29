@@ -35,7 +35,7 @@ CHOps organizes its functionality into ten sidebar sections. Each item below is 
 
 A global page search is available everywhere: open it from the navbar Search button, the floating bubble, or Ctrl/Cmd+K, then type a page name, feature, section heading, or on-page text to jump straight there.
 
-**Overview**: cluster health, live query monitor with kill controls, query analytics and log, tables and parts inspection, merges and mutations, distributed DDL queue.
+**Overview**: cluster health, live query monitor with kill controls, query analytics and log, tables and parts inspection, merges and mutations, distributed DDL queue, and Kubernetes Insights for clusters running under an operator.
 
 **Tools**: a full SQL editor with autocomplete and nine EXPLAIN types, an interactive flame-graph query profiler, a per-second query metrics timeline, Schema Studio for guided table creation, and Qurioz, an AI assistant that turns plain-English questions into ClickHouse® SQL.
 
@@ -252,6 +252,48 @@ After logging in, CHOps does not yet know where your ClickHouse® server lives. 
 4. Click **Save**.
 
 The navigation bar updates immediately with no re-login. You can configure up to 3 clusters with a combined maximum of 18 nodes, and switch between them from the dropdown in the top bar.
+
+### ClickHouse® Running in Kubernetes
+
+If your ClickHouse® runs in Kubernetes under an operator, use the **Kubernetes**
+tab instead of entering hosts by hand. CHOps reads the host list from the
+installation and keeps it current as the cluster is scaled.
+
+Two operators are supported:
+
+| Operator | Abbreviation | Status |
+|---|---|---|
+| Altinity® Kubernetes Operator for ClickHouse® | AKOC | Supported |
+| Official ClickHouse® Kubernetes Operator | OCKO | Early access |
+
+OCKO is early access because its custom resources are at `v1alpha1`, which under
+Kubernetes convention means the schema may change without a deprecation cycle.
+CHOps discovers the served API version rather than hardcoding it, so a version
+promotion needs no change, but a renamed field would.
+
+CHOps runs outside your Kubernetes cluster and makes two separate connections:
+one to the Kubernetes API to read the shape of the cluster, and one to
+ClickHouse® to run queries. The second needs an address reachable from outside
+the cluster, because internal Kubernetes addresses do not resolve from there.
+That is the step people miss.
+
+`scripts/chops-k8s-setup.sh` creates a read-only service account covering both
+operators and prints the three values the wizard asks for.
+
+Full instructions:
+
+- [Connecting a Kubernetes Cluster](docs/guide/kubernetes-connect.md) for AKOC
+- [Connecting a Cluster Managed by OCKO](docs/guide/kubernetes-ocko.md)
+- [The Kubernetes Page](docs/guide/kubernetes-page.md) for the eight insight
+  screens
+
+Kubernetes support is on by default. Setting
+`app_setting['k8s.enabled']` to `false` hides the tab.
+
+Managed services such as ClickHouse® Cloud and hosted Altinity.Cloud® do not use
+this path. They expose a database endpoint and no Kubernetes API, so add them
+under **Direct connection**, which gives everything except the Kubernetes
+screens.
 
 ### Setting Up a Dedicated ClickHouse® User
 

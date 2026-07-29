@@ -53,7 +53,7 @@ export function createCluster(req, res) {
 
     const nodeArr = Array.isArray(nodes) ? nodes : [];
 
-    const err = validateNodes(nodeArr, clusters);
+    const err = validateNodes(nodeArr, clusters, undefined, req.body?.kind);
 
     if (err) {
       return res.status(400).json({
@@ -111,6 +111,13 @@ export function updateCluster(req, res) {
       clusters[idx].name = name.trim();
     }
     if (nodes !== undefined) {
+      // Nodes on a Kubernetes cluster are derived from the installation and rewritten on every
+      if (clusters[idx].kind === "k8s") {
+        return res.status(400).json({
+          error:
+            "Nodes on a Kubernetes cluster come from the installation and cannot be edited. Use Refresh to re-read them.",
+        });
+      }
       const existingNodes = clusters[idx].nodes || [];
       // The client never receives decrypted passwords (see listClusters), so a
       // blank password here means "unchanged" rather than "clear it" - keep the
@@ -130,7 +137,7 @@ export function updateCluster(req, res) {
         }
         return n;
       });
-      const err = validateNodes(nodeArr, clusters, idx);
+      const err = validateNodes(nodeArr, clusters, idx, clusters[idx].kind);
       if (err) return res.status(400).json({ error: err });
       clusters[idx].nodes = nodeArr;
     }
@@ -217,7 +224,7 @@ export async function testConnection(req, res) {
   }
 }
 
-function validateNodes(nodes, allClusters, excludeIdx) {
+function validateNodes(nodes, allClusters, excludeIdx, kind) {
   if (!Array.isArray(nodes)) return null;
   if (nodes?.length === 0)
     return `No nodes found. Add at least one node before creating the cluster.`;
@@ -227,12 +234,13 @@ function validateNodes(nodes, allClusters, excludeIdx) {
   if (new Set(names).size !== names.length)
     return "Node names must be unique within a cluster.";
 
-  // Check total node count across all clusters
+  // Check total node count across all clusters.
   const otherNodes = allClusters.reduce(
-    (sum, c, i) => sum + (i === excludeIdx ? 0 : c.nodes?.length || 0),
+    (sum, c, i) =>
+      sum + (i === excludeIdx || c.kind === "k8s" ? 0 : c.nodes?.length || 0),
     0,
   );
-  if (otherNodes + nodes.length > MAX_TOTAL_NODES)
+  if (kind !== "k8s" && otherNodes + nodes.length > MAX_TOTAL_NODES)
     return `Maximum ${MAX_TOTAL_NODES} total nodes across all clusters.`;
 
   return null;
