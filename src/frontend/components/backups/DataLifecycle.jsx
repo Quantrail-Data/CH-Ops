@@ -412,6 +412,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       setProfile("");
       setSettingsStr("");
       setExecuting(false);
+            setAvailableBackups([])
     }
   }
 

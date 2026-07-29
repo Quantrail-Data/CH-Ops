@@ -53,10 +53,10 @@ export function ToastProvider({ children }) {
   }, []);
 
   const toast = {
-    success: (msg) => addToast(msg, 'success',1500),
-    error: (msg) => addToast(msg, 'error',1500),
-    info: (msg) => addToast(msg, 'info',1500),
-    warning: (msg) => addToast(msg, 'warning',1500),
+    success: (msg) => addToast(msg, 'success',5000),
+    error: (msg) => addToast(msg, 'error',5000),
+    info: (msg) => addToast(msg, 'info',5000),
+    warning: (msg) => addToast(msg, 'warning',5000),
   };
 
   return (
@@ -64,10 +64,10 @@ export function ToastProvider({ children }) {
       {children}
       <div className="toast-container">
         {toasts.map(t => (
-          <div key={t.id} className={`toast ${t.type}`}>
-            <Icon className={`ti ${t.type === 'success' ? 'ti-check' : t.type === 'error' ? 'ti-x' : t.type === 'warning' ? 'ti-alert-triangle' : 'ti-info-circle'}`}></Icon>
+          <div key={t.id} className={`toast ${t.type}`} style={{ alignItems: 'flex-start' }} > 
+            <Icon style={{marginTop:"3px"}} className={`ti ${t.type === 'success' ? 'ti-check' : t.type === 'error' ? 'ti-bug' : t.type === 'warning' ? 'ti-alert-triangle' : 'ti-info-circle'}`}></Icon>
             <span style={{ flex: 1 }}>{t.message}</span>
-            <Icon className="ti ti-x" style={{ fontSize: 16, cursor: 'pointer', opacity: 0.6, flexShrink: 0 }} onClick={() => dismiss(t.id)}></Icon>
+            <Icon className="ti ti-x" style={{ fontSize: 16, cursor: 'pointer', opacity: 0.6, flexShrink: 0,marginTop:"3px" }} onClick={() => dismiss(t.id)}></Icon>
           </div>
         ))}
       </div>
