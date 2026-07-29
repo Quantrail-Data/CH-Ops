@@ -440,12 +440,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       if (Array.isArray(baseOption.series) && (baseOption.series.some(s => s.type === 'pie') || pieSubtypes.includes(chartSubtype))) {
         enhancedOption.series = baseOption.series.map((s) => {
           if (s.type !== 'pie') return s;
-          const baseRadius = s.radius || ['40%', '64%'];
+          const defaultBaseRadius = chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
+          const baseRadius = s.radius || defaultBaseRadius;
           const finalRadius = previewTools.fullscreen
             ? baseRadius
             : isSmallScreen
-              ? ['30%', '56%']
-              : ['28%', '54%'];
+              ? (chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
+              : (chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
           const finalCenter = previewTools.fullscreen
             ? (s.center || ['50%', '50%'])
             : isSmallScreen
@@ -573,6 +574,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           }),
         });
         toast.success("Chart updated.");
+        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
       } else {
         const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
         const dash = dashboards.find((d) => d.id === dashId);
@@ -589,10 +591,34 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             row++;
           }
         }
+
+        const existingNamesLower = (existing.map(c => (c.name || '').trim()) || []).map(n => n.toLowerCase());
+        let nameToSave = (chartName || '').trim();
+        if (!nameToSave) {
+          const base = 'Untitled';
+          if (!existingNamesLower.includes(base.toLowerCase())) {
+            nameToSave = base;
+          } else {
+            let idx = 1;
+            while (true) {
+              const candidate = `${base} ${String(idx).padStart(2, '0')}`;
+              if (!existingNamesLower.includes(candidate.toLowerCase())) {
+                nameToSave = candidate;
+                break;
+              }
+              idx++;
+              if (idx > 999) {
+                nameToSave = `${base} ${Date.now()}`;
+                break;
+              }
+            }
+          }
+        }
+
         await apiFetch("/api/dashboards/charts", {
           method: "POST",
           body: JSON.stringify({
-            name: chartName || "Untitled",
+            name: nameToSave || (chartName || "Untitled"),
             dashboardId: dashId,
             gridRow: row,
             gridCol: col,
@@ -603,6 +629,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           }),
         });
         toast.success("Chart saved to dashboard.");
+        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
       }
     } catch (e) {
       toast.error(e.message);
@@ -755,6 +782,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     saveFun: true,
     fullscreenFun: true,
   };
+  const sankeyControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
 
   if (!canBuild) {
     return (
@@ -825,12 +858,17 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               gridTemplateColumns: "1fr 1fr",
               gap: 0,
               alignItems: "stretch",
+              height: "50vh",
+              minHeight: 0,
             }}
           >
             <div
               style={{
                 padding: 12,
                 borderRight: "1px solid var(--border-default)",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
               }}
             >
               <div
@@ -841,6 +879,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   background: "var(--input-bg)",
                   border: "1px solid var(--border-default)",
                   borderRadius: "var(--radius-sm)",
+                  flexShrink: 0,
                 }}
               >
                 <SqlEditor
@@ -961,6 +1000,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 display: "flex",
                 flexDirection: "column",
                 minHeight: 0,
+                height: "100%",
                 overflow: "hidden",
               }}
             >
@@ -1401,7 +1441,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         )}
                       </div>
                     </div>
-                  )}
+                  )} 
               </ErrorBoundary>
             </div>
           </div>
