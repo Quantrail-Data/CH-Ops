@@ -14,6 +14,7 @@ import ConfirmModal from '../layout/ConfirmModal.jsx';
 import { AnimatePresence, motion } from "motion/react";
 import AlertBanner from '../layout/AlertBanner.jsx';
 import { useAuth } from '../../App.jsx';
+import OnClusterBanner, { useRbacContext } from './OnClusterBanner.jsx';
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -213,6 +214,8 @@ const SETTING_GROUPS = [
   ]},
 ];
 export default function RbacProfiles() {
+  // Whether an ON CLUSTER value is needed here, and which one.
+  const rbac = useRbacContext();
   const { tab: routeTab = 'list' } = useParams();
   const navigate = useNavigate();
   const { auth } = useAuth();
@@ -243,8 +246,8 @@ export default function RbacProfiles() {
       <AlertBanner result={result} setResult={setResult} />
       <div className="tab-bar">{tabs.map(t => <div key={t.id} className={`tab-item ${routeTab === t.id ? 'active' : ''}`} onClick={() => handleTabChange(t.id)} style={t.id !== 'list' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${t.i}`}></Icon> {t.l}</div>)}</div>
       {routeTab === 'list' && <ProfileList profilesQ={profilesQ} detailsQ={detailsQ} />}
-      {routeTab === 'create' && isAdmin && <ProfileForm action="create" setResult={setResult} onSuccess={load} />}
-      {routeTab === 'alter' && isAdmin && <ProfileForm action="alter" profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} />}
+      {routeTab === 'create' && isAdmin && <ProfileForm rbac={rbac} action="create" setResult={setResult} onSuccess={load} />}
+      {routeTab === 'alter' && isAdmin && <ProfileForm rbac={rbac} action="alter" profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} />}
       {routeTab === 'drop' && isAdmin && <DropProfile profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} navigate={navigate} />}
     </div>
   );
@@ -263,12 +266,16 @@ function ProfileList({ profilesQ, detailsQ }) {
   );
 }
 
-function ProfileForm({ action, profiles, setResult, onSuccess }) {
+function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
   const [name, setName] = useState('');
   const [sel, setSel] = useState('');
   const [settings, setSettings] = useState({});
   const [customSettings, setCustomSettings] = useState('');
   const [onCluster, setOnCluster] = useState('');
+  // Default the dropdown where CHOps already knows the cluster name.
+  useEffect(() => {
+    if (rbac?.defaultOnCluster) setOnCluster((prev) => prev || rbac.defaultOnCluster);
+  }, [rbac?.defaultOnCluster]);
   const [rename, setRename] = useState('');
   const [dropAllSettings, setDropAllSettings] = useState(false);
   const [dropAllProfiles, setDropAllProfiles] = useState(false);
@@ -341,12 +348,12 @@ function ProfileForm({ action, profiles, setResult, onSuccess }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
             <div className="form-group"><label className="form-label">Profile *</label><Select className="form-select" value={sel} onChange={e => setSel(e.target.value)} required><option value="">--</option>{profiles?.map(p => <option key={p.name}>{p.name}</option>)}</Select></div>
             <div className="form-group"><label className="form-label">Rename To</label><input className="form-input" value={rename} onChange={e => setRename(e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)}><option value="">--</option>{clustersQ.data?.map(r => <option key={r.cluster}>{r.cluster}</option>)}</Select></div>
+            <div className="form-group"><OnClusterBanner rbac={rbac} value={onCluster} /><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)}><option value="">--</option>{clustersQ.data?.map(r => <option key={r.cluster}>{r.cluster}</option>)}</Select></div>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
             <div className="form-group"><label className="form-label">Profile Name *</label><input className="form-input" required value={name} onChange={e => setName(e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)}><option value="">--</option>{clustersQ.data?.map(r => <option key={r.cluster}>{r.cluster}</option>)}</Select></div>
+            <div className="form-group"><OnClusterBanner rbac={rbac} value={onCluster} /><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)}><option value="">--</option>{clustersQ.data?.map(r => <option key={r.cluster}>{r.cluster}</option>)}</Select></div>
           </div>
         )}
 

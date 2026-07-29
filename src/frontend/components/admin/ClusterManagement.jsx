@@ -1,6 +1,6 @@
-// Multi-cluster management page.
-// Supports up to 3 clusters with a combined max of 18 nodes.
-// Each cluster has a name and an array of ClickHouse® nodes.
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// ClusterManagement.jsx - multi-cluster management page
+// Contributors -> Praveen kumar, kathir Moorthy
 
 import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
@@ -8,6 +8,7 @@ import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useConnection } from "../../App.jsx";
 import { useAuth } from "../../App.jsx";
+import KubernetesClusterTab from "./KubernetesClusterTab.jsx";
 
 const MAX_CLUSTERS = 3;
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -162,7 +163,11 @@ function NodeClusterComponent({
 
 export default function ClusterManagement() {
   const toast = useToast();
-  const { reloadConfig } = useConnection();
+  const { reloadConfig, features } = useConnection();
+  // Absent means on, mirroring the backend. Only an explicit false hides the
+  // tab, so a config response that predates this field does not remove a
+  // feature the server is happy to serve.
+  const k8sEnabled = features?.kubernetes !== false;
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -173,6 +178,20 @@ export default function ClusterManagement() {
   const [showForm, setShowForm] = useState(false);
   const [testResults, setTestResults] = useState({});
   const [loaded, setLoaded] = useState(false);
+  // "Direct connection" rather than "VM based": the direct tab also covers
+  // ClickHouse Cloud, Altinity.Cloud and Aiven, and calling a managed service a
+  // virtual machine invites a support question.
+  const [tab, setTab] = useState("direct");
+  // The Kubernetes tab opens on its list when there is one, and on the import
+  // wizard only when asked.
+  const [showK8sWizard, setShowK8sWizard] = useState(false);
+
+  // Each tab shows only its own kind. A cluster imported from an installation
+  // has no business appearing under Direct connection, where its nodes are not
+  // editable and half the form does not apply.
+  const directClusters = clusters.filter((c) => c.kind !== "k8s");
+  const k8sClusters = clusters.filter((c) => c.kind === "k8s");
+  const visibleClusters = k8sEnabled && tab === "k8s" ? k8sClusters : directClusters;
 
   async function load() {
     try {
@@ -357,12 +376,31 @@ export default function ClusterManagement() {
           <button className="btn btn-secondary btn-sm" onClick={load}>
             <Icon className="ti ti-refresh"></Icon>
           </button>
-          {!showForm && clusters.length < MAX_CLUSTERS && (
-            <button className="btn btn-primary btn-sm" onClick={startNew}>
-              <Icon className="ti ti-plus"></Icon> New Cluster
+          {k8sEnabled && tab === "k8s"
+            ? !showK8sWizard &&
+              clusters.length < MAX_CLUSTERS && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowK8sWizard(true)}
+                >
+                  <Icon className="ti ti-plus"></Icon> New Cluster
+                </button>
+              )
+            : !showForm &&
+              clusters.length < MAX_CLUSTERS && (
+                <button className="btn btn-primary btn-sm" onClick={startNew}>
+                  <Icon className="ti ti-plus"></Icon> New Cluster
+                </button>
+              )}
+          {k8sEnabled && tab === "k8s" && showK8sWizard && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setShowK8sWizard(false)}
+            >
+              <Icon className="ti ti-x"></Icon> Cancel
             </button>
           )}
-          {showForm && (
+          {(!k8sEnabled || tab === "direct") && showForm && (
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => {
@@ -376,7 +414,40 @@ export default function ClusterManagement() {
         </div>
       </div>
 
-      {showForm && (
+      {k8sEnabled && (
+        <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
+          <button
+            className={tab === "direct" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+            onClick={() => {
+              setTab("direct");
+              setShowK8sWizard(false);
+            }}
+          >
+            Direct connection
+          </button>
+          <button
+            className={tab === "k8s" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+            onClick={() => {
+              setTab("k8s");
+              setShowForm(false);
+              setEditing(null);
+            }}
+          >
+            Kubernetes
+          </button>
+        </div>
+      )}
+
+      {k8sEnabled && tab === "k8s" && showK8sWizard && (
+        <KubernetesClusterTab
+          onImported={async () => {
+            await load();
+            setShowK8sWizard(false);
+          }}
+        />
+      )}
+
+      {(!k8sEnabled || tab === "direct") && showForm && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">Cluster Name *</label>
@@ -430,14 +501,19 @@ export default function ClusterManagement() {
         </div>
       )}
 
-      {clusters.length === 0 && !showForm ? (
+      {k8sEnabled && tab === "k8s" && !showK8sWizard && k8sClusters.length === 0 ? (
+        <div className="empty-state">
+          <Icon className="ti ti-topology-star-3"></Icon>
+          <p>Add a cluster. Click New Cluster to import one from an installation.</p>
+        </div>
+      ) : (!k8sEnabled || tab === "direct") && directClusters.length === 0 && !showForm ? (
         <div className="empty-state">
           <Icon className="ti ti-network"></Icon>
           <p>No clusters configured. Click New Cluster to get started.</p>
         </div>
-      ) : (
+      ) : (!k8sEnabled || tab === "direct") || !showK8sWizard ? (
         <div style={{ display: "grid", gap: 14 }}>
-          {clusters.map((c) => (
+          {visibleClusters.map((c) => (
             <div key={c.id} className="card" style={{ padding: 16 }}>
               <div
                 style={{
@@ -474,6 +550,20 @@ export default function ClusterManagement() {
                   </button>
                 </div>
               </div>
+              {c.kind === "k8s" && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    marginBottom: 8,
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  These hosts come from the {c.k8s?.installation} installation
+                  in namespace {c.k8s?.namespace}, managed by{" "}
+                  {c.k8s?.operator === "ocko" ? "OCKO" : "AKOC"}. They update
+                  automatically when the cluster is scaled.
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {c.nodes.map((n) => (
                   <span
@@ -492,7 +582,7 @@ export default function ClusterManagement() {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
