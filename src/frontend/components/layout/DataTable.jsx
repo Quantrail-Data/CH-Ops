@@ -316,8 +316,8 @@ export default function DataTable({
   variant,
   s_no = false,
   QuriozFlag = false,
-  overView=false,
-  whiteSpaceFlag=false,
+  overView = false,
+  whiteSpaceFlag = false,
   isShowLogo = false,
 }) {
   const [expandedCells, setExpandedCells] = useState(new Set());
@@ -325,7 +325,7 @@ export default function DataTable({
   // Which complex cell (if any) is open in the modal.
   const [modalCell, setModalCell] = useState(null); // { columnName, value } | null
 
-    const { theme } = useTheme();
+  const { theme } = useTheme();
 
   const cols = columns.length
     ? columns
@@ -404,9 +404,8 @@ export default function DataTable({
     setModalCell({ columnName, value });
   }
 
-  const wrapClass = `data-table-wrap${
-    variant === "single" ? " dt-single" : variant === "fixed" ? " dt-fixed" : ""
-  }`;
+  const wrapClass = `data-table-wrap${variant === "single" ? " dt-single" : variant === "fixed" ? " dt-fixed" : ""
+    }`;
 
   if (!rows.length) {
     return (
@@ -416,7 +415,7 @@ export default function DataTable({
             <tr>
               {s_no && !QuriozFlag && <th>S.No</th>}
 
-               {overView ? cols?.map((c)=>{
+              {overView ? cols?.map((c) => {
                 return <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
               }) : cols.map((c) => (
                 <th key={c}>{c.replace(/_/g, " ")}</th>
@@ -430,14 +429,14 @@ export default function DataTable({
           <tbody></tbody>
         </table>
 
-        {isShowLogo ? <div  style={{ padding: "32px 16px",width:"",display:"flex", flexDirection:"column", justifyContent:"center",alignItems:"center",height:"20rem"}}>
-          <img style={{width:"13rem",opacity:0.3}}  src={theme === "dark" ? lightLogo : darkLogo} alt="" />
+        {isShowLogo ? <div style={{ padding: "32px 16px", width: "", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "20rem" }}>
+          <img style={{ width: "13rem", opacity: 0.3 }} src={theme === "dark" ? lightLogo : darkLogo} alt="" />
         </div>
-        :
-        <div className="empty-state" style={{ padding: "32px 16px" }}>
-          <Icon className="ti ti-inbox"></Icon>
-          <p>{emptyMessage || "No data found."}</p>
-        </div> 
+          :
+          <div className="empty-state" style={{ padding: "32px 16px" }}>
+            <Icon className="ti ti-inbox"></Icon>
+            <p>{emptyMessage || "No data found."}</p>
+          </div>
         }
       </div>
     );
@@ -450,23 +449,22 @@ export default function DataTable({
       style={
         fullscreen
           ? {
-              // Sized by the portal host below, not by the viewport directly.
-              height: "100%",
-              maxHeight: "none",
-              overflow: "auto",
-              background: "var(--bg-page)",
-              padding: "38px 0 0",
-              border: 0,
-              borderRadius: 0,
-            }
+            // Sized by the portal host below, not by the viewport directly.
+            height: "100%",
+            maxHeight: "none",
+            overflow: "auto",
+            background: "var(--bg-page)",
+            border: 0,
+            borderRadius: 0,
+          }
           : {
-              // A virtualised table cannot be sized by its content: it has to
-              // scroll for there to be anything to virtualise.
-              maxHeight:
-                maxHeight ?? (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
-              ...(maxHeight || virtualize ? { overflow: "auto" } : null),
-              position: "relative",
-            }
+            // A virtualised table cannot be sized by its content: it has to
+            // scroll for there to be anything to virtualise.
+            maxHeight:
+              maxHeight ?? (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
+            ...(maxHeight || virtualize ? { overflow: "auto" } : null),
+            position: "relative",
+          }
       }
     >
       <table className="data-table">
@@ -474,11 +472,11 @@ export default function DataTable({
           <tr>
             {s_no && !QuriozFlag && <th>S.No</th>}
 
-           {overView ? cols?.map((c)=>{
-               return <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
-              }) : cols.map((c) => (
-                <th key={c}>{c.replace(/_/g, " ")}</th>
-              ))}
+            {overView ? cols?.map((c) => {
+              return <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
+            }) : cols.map((c) => (
+              <th key={c}>{c.replace(/_/g, " ")}</th>
+            ))}
 
             {actions && <th>Actions</th>}
 
@@ -516,77 +514,75 @@ export default function DataTable({
             ? virtualRows.map((v) => [visibleRows[v.index], v.index])
             : (unmeasured ? rows.slice(0, FALLBACK_ROWS) : visibleRows).map((r, i) => [r, i])
           ).map(([row, ri]) => (
-              <tr
+            <tr
               key={ri}
               data-index={ri}
               ref={virtualize ? virtualizer.measureElement : undefined}
             >
-                {s_no && <td>{ri + 1}</td>}
+              {s_no && <td>{ri + 1}</td>}
 
-                {cols.map((c, ci) => {
-                  const key = `${ri}-${ci}`;
-                  const raw = row[c];
+              {cols.map((c, ci) => {
+                const key = `${ri}-${ci}`;
+                const raw = row[c];
 
-                  // Custom per-column renderer (opt-in). Takes precedence over the
-                  // default primitive/complex handling and carries no click state.
-                  if (cellRenderers && cellRenderers[c]) {
-                    return (
-                      <td key={c} style={{ whiteSpace: "nowrap" }}>
-                        {cellRenderers[c](raw, row)}
-                      </td>
-                    );
-                  }
+                // Custom per-column renderer (opt-in). Takes precedence over the
+                // default primitive/complex handling and carries no click state.
+                if (cellRenderers && cellRenderers[c]) {
+                  return (
+                    <td key={c} style={{ whiteSpace: "nowrap" }}>
+                      {cellRenderers[c](raw, row)}
+                    </td>
+                  );
+                }
 
-                  const complex = isComplexValue(raw);
+                const complex = isComplexValue(raw);
 
-                  if (complex) {
-                    return (
-                      <td
-                        key={c}
-                        className={`dt-complex${
-                          selectedCell === key ? " cell-selected" : ""
-                        }`}
-                        onClick={() => handleComplexClick(key, c, raw)}
-                        title="Click to expand"
-                        style={{ whiteSpace: "nowrap", cursor: "pointer" }}
-                      >
-                        <span className="dt-complex-caret">▸</span>
-                        <span className="dt-complex-preview">
-                          {complexPreview(raw)}
-                        </span>
-                      </td>
-                    );
-                  }
-
-                  // Primitive cell (unchanged behavior)
-                  const val = raw ?? "";
+                if (complex) {
                   return (
                     <td
                       key={c}
-                      className={`${expandedCells.has(key) ? "expanded" : ""} ${
-                        selectedCell === key ? "cell-selected" : ""
-                      }`}
-                      onClick={() => handlePrimitiveClick(key, val)}
-                      onDoubleClick={()=> {typeof onCellClick === "function" && onCellClick(val)}}
-                      style={{
-                        whiteSpace:whiteSpaceFlag ? "pre": (expandedCells.has(key) ? "normal" : "nowrap"),
-                        wordWrap: "break-word",
-                      }}
+                      className={`dt-complex${selectedCell === key ? " cell-selected" : ""
+                        }`}
+                      onClick={() => handleComplexClick(key, c, raw)}
+                      title="Click to expand"
+                      style={{ whiteSpace: "nowrap", cursor: "pointer" }}
                     >
-                      {formatPrimitive(raw)}
+                      <span className="dt-complex-caret">▸</span>
+                      <span className="dt-complex-preview">
+                        {complexPreview(raw)}
+                      </span>
                     </td>
                   );
-                })}
+                }
 
-                {actions && (
+                // Primitive cell (unchanged behavior)
+                const val = raw ?? "";
+                return (
                   <td
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ whiteSpace: "nowrap" }}
+                    key={c}
+                    className={`${expandedCells.has(key) ? "expanded" : ""} ${selectedCell === key ? "cell-selected" : ""
+                      }`}
+                    onClick={() => handlePrimitiveClick(key, val)}
+                    onDoubleClick={() => { typeof onCellClick === "function" && onCellClick(val) }}
+                    style={{
+                      whiteSpace: whiteSpaceFlag ? "pre" : (expandedCells.has(key) ? "normal" : "nowrap"),
+                      wordWrap: "break-word",
+                    }}
                   >
-                    {actions(row)}
+                    {formatPrimitive(raw)}
                   </td>
-                )}
-                {allowFullscreen && rows.length > 0 && <td className="dt-fs-col" />}
+                );
+              })}
+
+              {actions && (
+                <td
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {actions(row)}
+                </td>
+              )}
+              {allowFullscreen && rows.length > 0 && <td className="dt-fs-col" />}
             </tr>
           ))}
 
