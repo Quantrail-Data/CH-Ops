@@ -8,7 +8,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from "express";
-import { requireSuperAdmin } from "../controllers/users.js";
+import { requireAdmin } from "../controllers/users.js";
 import { createAPIKey, deleteAPIKey, getActiveAPIKey, getAPIKeyById, getAPIKeys, getAPIKeysWithValues, getOllamaModels, setActiveAPIKey, testAPIKey, updateAPIKey } from "../controllers/apikeys.js";
 
 const router = Router();
@@ -16,22 +16,22 @@ const router = Router();
 
 router.get("/", getAPIKeys);
 
-router.get("/:id/value", requireSuperAdmin, getAPIKeyById);
+router.get("/:id/value", requireAdmin, getAPIKeyById);
 
-router.get("/active", requireSuperAdmin, getActiveAPIKey);
+router.get("/active", requireAdmin, getActiveAPIKey);
 
-router.get("/with-values", requireSuperAdmin, getAPIKeysWithValues);
+router.get("/with-values", requireAdmin, getAPIKeysWithValues);
 
-router.post("/", requireSuperAdmin, createAPIKey);
+router.post("/", requireAdmin, createAPIKey);
 
-router.put("/:id", requireSuperAdmin, updateAPIKey);
+router.put("/:id", requireAdmin, updateAPIKey);
 
-router.delete("/:id", requireSuperAdmin, deleteAPIKey);
+router.delete("/:id", requireAdmin, deleteAPIKey);
 
-router.post("/select", requireSuperAdmin, setActiveAPIKey);
+router.post("/select", requireAdmin, setActiveAPIKey);
 
-router.post("/check", requireSuperAdmin, testAPIKey);
+router.post("/check", requireAdmin, testAPIKey);
 
-router.post("/ollama/models", requireSuperAdmin, getOllamaModels);
+router.post("/ollama/models", requireAdmin, getOllamaModels);
 
 export default router;
