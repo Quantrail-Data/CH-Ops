@@ -83,7 +83,7 @@ const db = {
   }),
 };
 
-const jsonMock = mock(() => {});
+const jsonMock = mock(() => { });
 const statusMock = mock(() => ({ json: jsonMock }));
 const nextMock = mock();
 
@@ -117,7 +117,7 @@ beforeAll(async () => {
 
   mock.module("../../src/backend/services/notifier.js", () => ({
     sendNotification,
-    testChannel: () => {},
+    testChannel: () => { },
   }));
 
   const mod = await import("../../src/backend/controllers/users.js");
@@ -157,6 +157,15 @@ describe("Users Controller", () => {
     listUsers({}, { json: jsonMock });
 
     expect(jsonMock).toHaveBeenCalled();
+  });
+
+  it("listUsers empty returns empty array", () => {
+    // ensure no users
+    fakeDB.users = [];
+
+    listUsers({}, { json: jsonMock });
+
+    expect(jsonMock).toHaveBeenCalledWith([]);
   });
 
   it("requireAdmin blocks readonly", () => {
@@ -420,6 +429,22 @@ describe("Users Controller", () => {
     );
 
     expect(statusMock).toHaveBeenCalledWith(400);
+  });
+
+  it("deleteUser 404 when user not found", () => {
+    // no users in DB
+    fakeDB.users = [];
+
+    deleteUser(
+      {
+        params: { id: "999" },
+        user: { userId: 2, role: "admin" },
+        body: { audit: {} },
+      },
+      { status: statusMock },
+    );
+
+    expect(statusMock).toHaveBeenCalledWith(404);
   });
 
   it("deleteUser success", () => {

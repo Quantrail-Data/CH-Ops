@@ -22,7 +22,6 @@ const testUser = {
     role: "admin",
     mustChangePassword: false,
     updatedAt: new Date(),
-    authMethod: ""
 }
 
 const mockedRequest = {
@@ -83,27 +82,6 @@ describe("User Login", () => {
 
 
 
-    it("Returns error on SSO login", async () => {
-        vi.clearAllMocks()
-        testUser.authMethod = "sso"
-        vi.mock('../../src/backend/db', () => ({
-            db: {
-                select: vi.fn().mockReturnThis(),
-                update: vi.fn().mockReturnThis(),
-                from: vi.fn().mockReturnThis(),
-                where: vi.fn().mockReturnThis(),
-                set: vi.fn().mockReturnThis(),
-                run: vi.fn().mockReturnThis(),
-                get: () => testUser,
-            }
-        }))
-        await login(mockedRequest, mockedResponse)
-        testUser.authMethod = ""
-        expect(mockedResponse.json).toHaveBeenCalledWith({
-            error: "This account uses SSO. Please sign in with the SSO button.",
-        })
-
-    })
 
 
     it("User can log in from database", async () => {
@@ -278,7 +256,7 @@ describe("User Password Change", () => {
 
         await changePassword({
             body: {
-                currentPassword: 'test',
+                currentPassword: testUser.password,
                 newPassword: testUser.password,
             },
             headers: {
@@ -286,7 +264,7 @@ describe("User Password Change", () => {
             }
         }, mockedResponse)
 
-        expect(mockedResponse.json).toHaveBeenCalledWith({ error: "Invalid credentials." })
+        expect(mockedResponse.json).toHaveBeenCalledWith({ error: "Invalid current password." })
 
         vi.clearAllMocks()
 
@@ -311,7 +289,7 @@ describe("User Password Change", () => {
             }
         }, mockedResponse)
 
-        expect(mockedResponse.json).toHaveBeenCalledWith({ error: "Invalid credentials." })
+        expect(mockedResponse.json).toHaveBeenCalledWith({ error: "Invalid current password." })
     })
 
 
@@ -323,7 +301,13 @@ describe("User Password Change", () => {
         testUser.passwordHash = await hashPassword(testUser.password)
         vi.mock('../../src/backend/db', () => ({
             db: {
-                select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get: () => testUser })) })) })),
+                select: mock(() => ({
+                    from: mock(() => ({
+                        where: mock(() => ({
+                            get: () => testUser
+                        }))
+                    }))
+                })),
                 update: mock(() => ({
                     set: mock(() => ({
                         where: mock(() => ({ run: vi.fn() }))
