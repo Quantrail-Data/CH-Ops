@@ -188,7 +188,27 @@ export default function DashboardView({sidebar}) {
       // In parallel. Ten charts used to mean ten sequential round trips.
       const enriched = await Promise.all(c.map((chart) => runChart(chart, vals, discovered)));
       enriched.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
-      setCharts(enriched);
+
+      const byKey = new Map();
+      for (const ch of enriched) {
+        const key = `${ch.name || ''}::${ch.chartType || ''}::${ch.chartSubtype || ''}`;
+        if (!byKey.has(key)) {
+          byKey.set(key, ch);
+        } else {
+          const existing = byKey.get(key);
+          const a = Number(existing.id);
+          const b = Number(ch.id);
+          if (!Number.isNaN(a) && !Number.isNaN(b)) {
+            if (b > a) byKey.set(key, ch);
+          } else {
+            byKey.set(key, ch);
+          }
+        }
+      }
+      const deduped = Array.from(byKey.values());
+      deduped.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
+
+      setCharts(deduped);
       // Republished because deleting a chart can remove the last use of a
       // filter, and the bar has to stop showing it.
       setParams(discovered);
@@ -264,6 +284,16 @@ export default function DashboardView({sidebar}) {
     // reload the dashboard, only re-run the affected charts (see applyFilters).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlDashId, dashboards]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (selDash && selDash.id) {
+        loadCharts(selDash.id, applied, params);
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [selDash, applied, params]);
 
   function changeFilter(name, value) {
     setDraft((p) => ({ ...p, [name]: value }));
@@ -664,12 +694,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   if (isPie) {
     opt.series = opt.series.map((s) => {
       if (s.type !== 'pie') return s;
-      const baseRadius = s.radius || ['40%', '64%'];
+      const defaultBaseRadius = chart.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
+      const baseRadius = s.radius || defaultBaseRadius;
       const finalRadius = fs
         ? baseRadius
         : isSmallScreen
-          ? ['30%', '56%']
-          : ['28%', '54%'];
+          ? (chart.chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
+          : (chart.chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
       const finalCenter = fs
         ? (s.center || ['50%', '50%'])
         : isSmallScreen
@@ -715,6 +746,35 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       const borderColor = 'rgba(0,0,0,0.65)';
       opt.series = opt.series.map((s) => {
         if (!s || !s.type) return s;
+        if (s.type === 'sankey') {
+          return {
+            ...s,
+            label: {
+              ...(s.label || {}),
+              color: isDarkColor,
+            },
+            itemStyle: {
+              ...(s.itemStyle || {}),
+              borderColor: 'rgba(255,255,255,0.08)',
+              borderWidth: 1,
+            },
+            emphasis: {
+              ...(s.emphasis || {}),
+              focus: 'adjacency',
+              itemStyle: {
+                ...(s.emphasis?.itemStyle || {}),
+                borderColor: 'rgba(255,255,255,0.18)',
+                borderWidth: 1.5,
+              },
+            },
+            lineStyle: {
+              ...(s.lineStyle || {}),
+              color: 'rgba(255,255,255,0.12)',
+              opacity: 0.8,
+              curveness: s.lineStyle?.curveness ?? 0.2,
+            },
+          };
+        }
         if (!shadowlessSeriesTypes.includes(s.type)) return s;
         const enhanceLabelStyling = (lbl) => {
           const baseTextStyle = {
@@ -823,6 +883,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     fullscreenFun: true,
     legendFun: isSmallScreen && supportsLegend && hasLegend,
   };
+  const sankeyControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
 
   return (
     <div
@@ -859,7 +926,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               onToggleLegend={() => {}}
               legendVisible={showLegends}
               style={{ flexWrap: 'nowrap' }}
-              isWantFeature={chart.chartType === 'pie' ? pieChartControlsFlags : chartControlsFlags}
+              isWantFeature={chart.chartType === 'pie' ? pieChartControlsFlags : (chart.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)}
             />
           )}
           {opt && (opt._error || opt._waiting || opt._kpi || opt._table) && (

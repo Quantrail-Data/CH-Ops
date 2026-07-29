@@ -50,7 +50,28 @@ export default function AllCharts({ onEdit }) {
   }, []);
 
   async function load() {
-    try { const [c, d] = await Promise.all([apiFetch('/api/dashboards/charts'), apiFetch('/api/dashboards')]); setCharts(c); setDashboards(d); } catch {}
+    try {
+      const [c, d] = await Promise.all([apiFetch('/api/dashboards/charts'), apiFetch('/api/dashboards')]);
+      const byKey = new Map();
+      for (const ch of c) {
+        const key = `${ch.name || ''}::${ch.chartType || ''}::${ch.chartSubtype || ''}`;
+        if (!byKey.has(key)) {
+          byKey.set(key, ch);
+        } else {
+          const existing = byKey.get(key);
+          const a = Number(existing.id);
+          const b = Number(ch.id);
+          if (!Number.isNaN(a) && !Number.isNaN(b)) {
+            if (b > a) byKey.set(key, ch);
+          } else {
+            byKey.set(key, ch);
+          }
+        }
+      }
+      const deduped = Array.from(byKey.values());
+      setCharts(deduped);
+      setDashboards(d);
+    } catch {}
   }
   useEffect(() => { load(); }, []);
 
@@ -60,18 +81,11 @@ export default function AllCharts({ onEdit }) {
       const cfg0 = typeof chart.config === 'string' ? (() => { try { return JSON.parse(chart.config); } catch { return {}; } })() : (chart.config || {});
       const defaults = cfg0.paramDefaults || {};
 
-      // There is no filter bar on this page, so a parameterized chart previews
-      // with the defaults it was saved with. Without this the gallery breaks
-      // for any chart carrying a placeholder: the value is never sent and
-      // ClickHouse answers "Substitution 'x' is not set".
       let declared = [];
       try { declared = findParameters(chart.sqlQuery || ''); } catch { declared = []; }
 
       const missing = declared.filter((p) => p.required && !hasValue(defaults[p.name])).map((p) => p.name);
       if (missing.length) {
-        // Named here rather than letting the query fail, for the same reason a
-        // dashboard tile names its filters: the database error says neither
-        // which parameter nor where to set it.
         setPreviewOpt({
           _error: true,
           message:
@@ -290,12 +304,13 @@ export default function AllCharts({ onEdit }) {
       if (isPie) {
         chartOption.series = baseOption.series.map((s) => {
           if (s.type !== 'pie') return s;
-          const baseRadius = s.radius || ['40%', '64%'];
+          const defaultBaseRadius = selected?.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
+          const baseRadius = s.radius || defaultBaseRadius;
           const finalRadius = previewTools.fullscreen
             ? baseRadius
             : isSmallScreen
-              ? ['30%', '56%']
-              : ['28%', '54%'];
+              ? (selected?.chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
+              : (selected?.chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
           const finalCenter = previewTools.fullscreen
             ? (s.center || ['50%', '50%'])
             : isSmallScreen
@@ -340,6 +355,35 @@ export default function AllCharts({ onEdit }) {
           const borderColor = 'rgba(0,0,0,0.65)';
           chartOption.series = chartOption.series.map((s) => {
             if (!s || !s.type) return s;
+            if (s.type === 'sankey') {
+              return {
+                ...s,
+                label: {
+                  ...(s.label || {}),
+                  color: isDarkColor,
+                },
+                itemStyle: {
+                  ...(s.itemStyle || {}),
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  borderWidth: 1,
+                },
+                emphasis: {
+                  ...(s.emphasis || {}),
+                  focus: 'adjacency',
+                  itemStyle: {
+                    ...(s.emphasis?.itemStyle || {}),
+                    borderColor: 'rgba(255,255,255,0.18)',
+                    borderWidth: 1.5,
+                  },
+                },
+                lineStyle: {
+                  ...(s.lineStyle || {}),
+                  color: 'rgba(255,255,255,0.12)',
+                  opacity: 0.8,
+                  curveness: s.lineStyle?.curveness ?? 0.2,
+                },
+              };
+            }
             if (!shadowlessSeriesTypes.includes(s.type)) return s;
             const enhanceLabelStyling = (lbl) => {
               const baseTextStyle = {
@@ -403,6 +447,12 @@ export default function AllCharts({ onEdit }) {
     saveFun: true,
     fullscreenFun: true,
   };
+  const sankeyControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
 
   return (
     <div className="page-content">
@@ -460,7 +510,7 @@ export default function AllCharts({ onEdit }) {
                   onZoomReset={previewTools.zoomReset}
                   onSave={previewTools.save}
                   onToggleFullscreen={previewTools.toggleFullscreen}
-                  isWantFeature={selected.chartType === 'pie' ? pieChartControlsFlags : chartControlsFlags}
+                  isWantFeature={selected.chartType === 'pie' ? pieChartControlsFlags : (selected.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)}
                 />
                 <div ref={previewRef} style={{ height: previewTools.fullscreen ? 'calc(100vh - 100px)' : (isSmallScreen ? 450 : 380), width: '100%', flex: 1 }} />
               </>
