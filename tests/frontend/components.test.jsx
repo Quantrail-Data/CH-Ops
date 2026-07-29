@@ -1,10 +1,10 @@
+// components.test.jsx - shared components: SqlPreview, StatCard and DateTimePicker
+// Contributors - Praveen kumar, Kathirdhasan, Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Unit tests verifying core UI components including error boundaries, date-time pickers, stat cards, and SQL previews.
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { SqlPreview, StatCard } from '../../src/frontend/components/layout/SharedComponents.jsx';
 import { DateTimePicker } from '../../src/frontend/components/layout/DateTimePicker.jsx';
 import ErrorBoundary from '../../src/frontend/components/layout/ErrorBoundary.jsx';

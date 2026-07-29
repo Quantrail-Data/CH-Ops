@@ -1,18 +1,10 @@
 // StepGenerate.jsx - Step 4 and 5: build the DDL, edit, validate, create
-//
-// The CREATE TABLE is composed deterministically from the form, so it is exactly
-// what the user configured (no AI authoring). Validation errors are shown
-// inline. The user may optionally ask the AI to review the composed DDL given
-// the columns, statistics, and intent. Validate runs a server-side EXPLAIN AST
-// parse check; Create runs the statements (local table first for distributed),
-// with no data loaded.
-//
-// Author: Kathir Moorthy
+// Author: Kathir Moorthy, Praveen kumar, kathirdhasan
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 import React, { useState, useEffect, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
-import SqlInput from "../editor/SqlInput.jsx";
+import SqlEditor from "../editor/SqlEditor.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { composeEngine, composeDistributed } from "../../utils/engineModel.js";
 import { composeCreateTable, validateSpec } from "../../utils/ddlCompose.js";
@@ -32,6 +24,28 @@ function mapColumns(columns) {
     primaryKey: c.primaryKey,
     settings: c.settings,
   }));
+}
+
+function normalizeCodecChain(codecBody) {
+  const raw = String(codecBody || "").trim();
+  if (!raw) return raw;
+  const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return raw;
+
+  const hasCompressor = parts.some((p) => /^(LZ4HC|LZ4|ZSTD)\b/i.test(p));
+  const hasTransformOnly = parts.some((p) => /^(Delta|DoubleDelta|Gorilla)\s*\(/i.test(p));
+
+  if (hasTransformOnly && !hasCompressor) parts.push("LZ4");
+
+  return parts.join(", ");
+}
+
+function sanitizeDdlCodecs(sql) {
+  if (!sql || typeof sql !== "string") return sql;
+  return sql.replace(/CODEC\s*\(([^)]*(?:\)[^)]*)*)\)/gi, (full, inner) => {
+    const normalized = normalizeCodecChain(inner);
+    return `CODEC(${normalized})`;
+  });
 }
 
 export default function StepGenerate({ columns, stats, sampleRows, form, onBack }) {
@@ -110,9 +124,6 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
 
   useEffect(() => { build(); }, [build]);
 
-  // Manual rebuild from the button: recompose from the form and confirm, since a
-  // silent recompose looks like nothing happened when the DDL already matches the
-  // form (it discards any hand edits made in the editor below).
   function rebuildFromForm() {
     build();
     toast.success("DDL rebuilt from the form.");
@@ -195,7 +206,13 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
       {form.distributed && (
         <div className="studio-editor-block">
           <label className="studio-editor-label">Local table (created on each shard)</label>
-          <SqlInput value={ddlLocal} onChange={setDdlLocal} acWords={[]} />
+          <SqlEditor
+            value={ddlLocal}
+            onChange={setDdlLocal}
+            variant="compact"
+            completions={[]}
+            height="180px"
+          />
         </div>
       )}
 
@@ -203,7 +220,13 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
         <label className="studio-editor-label">
           {form.distributed ? "Distributed table" : "Table DDL"}
         </label>
-        <SqlInput value={ddl} onChange={setDdl} acWords={[]} />
+        <SqlEditor
+          value={ddl}
+          onChange={setDdl}
+          variant="compact"
+          completions={[]}
+          height="220px"
+        />
       </div>
 
       {validation && (
@@ -248,7 +271,11 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
               <strong>Suggested DDL:</strong>
               <pre className="mono" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflow: 'auto', margin: '6px 0', padding: 12, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-surface)' }}>{review.suggested_ddl}</pre>
               <button className="btn btn-secondary btn-sm"
-                onClick={() => { setDdl(review.suggested_ddl); setValidation(null); }}>
+                onClick={() => {
+                  const nextDdl = sanitizeDdlCodecs(review.suggested_ddl);
+                  setDdl(nextDdl);
+                  setValidation(null);
+                }}>
                 <Icon className="ti ti-arrow-back-up" /> Apply to editor
               </button>
             </div>

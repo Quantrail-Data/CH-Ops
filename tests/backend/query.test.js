@@ -1,16 +1,7 @@
-/**
- * query.test.js - Unit tests for query execution controller
- *
- * Tests the runQuery and testQueryConnection endpoints. Verifies that
- * SQL is executed against the correct cluster nodes, connection settings
- * can be overridden, missing SQL or nodes returns 400, query errors are
- * returned as 400 with the error message, and ClickHouse stats are mapped
- * correctly. Also tests connection testing with node lookup and error
- * handling.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// query.test.js - unit tests for query execution controller
+// Contributors - Kathirdhasan, Praveen kumar, Kathir Moorthy
+
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -25,6 +16,16 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterNodes: mockGetClusterNodes,
   getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
   getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
+  // bun's mock.module replaces this module for the whole test process, not just
+  // this file - stub every real export so whichever test file's mock.module
+  // call happens to win doesn't break other files that need this one.
+  maskClusterPasswords: (cluster) => ({
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  }),
   MAX_CLUSTERS: 3, MAX_TOTAL_NODES: 18,
 }));
 
@@ -172,6 +173,10 @@ describe("runQuery", () => {
       password: "secret",
       sql: "SELECT 1",
       readOnly: false,
+      // toHaveBeenCalledWith is an exact match, so every argument the
+      // controller passes has to appear here.
+      params: {},
+      settings: {},
     });
 
     expect(res.statusCode).toBe(200);
@@ -215,6 +220,8 @@ describe("runQuery", () => {
       password: "secret",
       sql: "SELECT 1",
       readOnly: false,
+      params: {},
+      settings: {},
     });
   });
 
@@ -281,6 +288,157 @@ describe("runQuery", () => {
       read_bytes: 1000,
       elapsed_ns: "123456",
     });
+  });
+});
+
+describe("runQuery request settings", () => {
+  const node = { host: "node1", port: 8123, user: "chops", password: "pw" };
+
+  function run(body) {
+    mockGetClusterNodes.mockReturnValue([node]);
+    mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
+    const req = { body: { node: "node1", clusterId: "c1", sql: "SELECT 1", ...body }, user: {} };
+    const res = createRes();
+    return runQuery(req, res).then(() => mockExecuteQuery.mock.calls[0]?.[0]);
+  }
+
+  test("forwards the editor's row limit to ClickHouse", async () => {
+    // These were destructured out of the body and then never used, so the
+    // configured Max rows had no effect on the server at all.
+    const sent = await run({
+      settings: { max_result_rows: 5001, result_overflow_mode: "break" },
+    });
+    expect(sent.settings).toEqual({
+      max_result_rows: 5001,
+      result_overflow_mode: "break",
+    });
+  });
+
+  test("forwards EXPLAIN settings", async () => {
+    const sent = await run({
+      settings: { use_query_condition_cache: 0, use_skip_indexes_on_data_read: 0 },
+    });
+    expect(sent.settings.use_query_condition_cache).toBe(0);
+    expect(sent.settings.use_skip_indexes_on_data_read).toBe(0);
+  });
+
+  test("drops settings that are not on the allowlist", async () => {
+    // Setting names become URL parameters on the ClickHouse request, so a
+    // passthrough would let any authenticated caller raise their own memory
+    // ceiling or turn readonly off.
+    const sent = await run({
+      settings: {
+        max_result_rows: 100,
+        max_memory_usage: "999999999999",
+        readonly: 0,
+        allow_ddl: 1,
+      },
+    });
+    expect(sent.settings).toEqual({ max_result_rows: 100 });
+  });
+
+  test("sends an empty object when the caller sends nothing", async () => {
+    const sent = await run({});
+    expect(sent.settings).toEqual({});
+  });
+
+  test("tolerates a null settings body", async () => {
+    const sent = await run({ settings: null });
+    expect(sent.settings).toEqual({});
+  });
+});
+
+describe("runQuery query parameters", () => {
+  const node = { host: "node1", port: 8123, user: "chops", password: "pw" };
+
+  function run(body) {
+    mockGetClusterNodes.mockReturnValue([node]);
+    mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
+    const req = { body: { node: "node1", clusterId: "c1", ...body }, user: {} };
+    const res = createRes();
+    return runQuery(req, res).then(() => ({ res, sent: mockExecuteQuery.mock.calls[0]?.[0] }));
+  }
+
+  test("passes values through as params, never interpolated", async () => {
+    const { sent } = await run({
+      sql: "SELECT * FROM t WHERE r = {region:String}",
+      params: { region: "eu-west" },
+    });
+
+    expect(sent.params).toEqual({ region: "eu-west" });
+    // The statement still carries the placeholder: executeQuery turns params
+    // into param_<name> URL arguments, so the value never touches the SQL.
+    expect(sent.sql).toContain("{region:String}");
+    expect(sent.sql).not.toContain("eu-west");
+  });
+
+  test("keeps an optional block when its value is present", async () => {
+    const { sent } = await run({
+      sql: "SELECT * FROM t WHERE 1 /*[ AND r = {region:String} ]*/",
+      params: { region: "eu-west" },
+    });
+
+    expect(sent.sql).toContain("AND r = {region:String}");
+    expect(sent.sql).not.toContain("/*[");
+    expect(sent.params).toEqual({ region: "eu-west" });
+  });
+
+  test("drops an optional block when its value is blank", async () => {
+    const { sent } = await run({
+      sql: "SELECT * FROM t WHERE 1 /*[ AND r = {region:String} ]*/",
+      params: { region: "" },
+    });
+
+    expect(sent.sql).not.toContain("region");
+    expect(sent.params).toEqual({});
+  });
+
+  test("formats a numeric parameter for the wire", async () => {
+    const { sent } = await run({
+      sql: "SELECT * FROM t WHERE n > {threshold:UInt8}",
+      params: { threshold: 5 },
+    });
+
+    expect(sent.params).toEqual({ threshold: "5" });
+  });
+
+  test("rejects a name declared with two different types", async () => {
+    mockGetClusterNodes.mockReturnValue([node]);
+    const req = {
+      body: {
+        node: "node1",
+        clusterId: "c1",
+        sql: "SELECT {a:String} FROM t WHERE b = {a:UInt8}",
+        params: { a: "1" },
+      },
+      user: {},
+    };
+    const res = createRes();
+
+    await runQuery(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toMatch(/two different types/i);
+    expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+
+  test("does not materialize a non row-returning statement", async () => {
+    // Parameters are SELECT-only by decision: the gate in the controller skips
+    // materialize for writes and DDL, so the block stays as a plain comment.
+    const { sent } = await run({
+      sql: "INSERT INTO t VALUES (1) /*[ , {x:UInt8} ]*/",
+      params: { x: 7 },
+    });
+
+    expect(sent.params).toEqual({});
+    expect(sent.sql).toContain("/*[");
+  });
+
+  test("works when no params are sent at all", async () => {
+    const { res, sent } = await run({ sql: "SELECT 1" });
+
+    expect(res.statusCode).toBe(200);
+    expect(sent.params).toEqual({});
   });
 });
 
@@ -354,6 +512,39 @@ describe("testQueryConnection", () => {
       ok: true,
       message: "Connected successfully",
     });
+  });
+
+  test("falls back to the stored node credentials", async () => {
+    // The browser no longer sends a user or password, so the connection test
+    // has to resolve them from the cluster configuration - otherwise it
+    // authenticates as 'default' with a blank password and fails against any
+    // node that actually has one.
+    mockGetClusterNodes.mockReturnValue([
+      {
+        host: "node1",
+        port: 8123,
+        user: "chops",
+        password: "stored-secret",
+        secure: true,
+      },
+    ]);
+
+    mockExecuteQuery.mockResolvedValue({});
+
+    const req = { body: { node: "node1", clusterId: "cluster1" } };
+    const res = createRes();
+
+    await testQueryConnection(req, res);
+
+    expect(mockExecuteQuery).toHaveBeenCalledWith({
+      host: "node1",
+      port: 8123,
+      secure: true,
+      user: "chops",
+      password: "stored-secret",
+      sql: "SELECT 1",
+    });
+    expect(res.body).toEqual({ ok: true, message: "Connected successfully" });
   });
 
   test("returns failure when connection throws", async () => {

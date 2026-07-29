@@ -27,6 +27,21 @@ export function getAllClusters() {
   } catch { return []; }
 }
 
+// Strip decrypted node passwords from anything about to leave the server, and
+// replace them with a boolean saying whether one is set. Lives here rather than
+// in a controller because more than one endpoint returns cluster data, and a
+// second copy of this logic is how /api/config/connection came to leak
+// passwords while /api/cluster masked them correctly.
+export function maskClusterPasswords(cluster) {
+  return {
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  };
+}
+
 export function getClusterById(clusterId) {
   if (!clusterId) return null;
   return getAllClusters().find(c => c.id === clusterId) || null;

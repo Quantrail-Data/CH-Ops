@@ -1,14 +1,7 @@
 // clickhouse.js - ClickHouse HTTP client with JSON parsing
-//
-// Sends SQL queries to ClickHouse over its HTTP interface using
-// X-ClickHouse-User/Key headers for authentication. Appends
-// FORMAT JSONEachRow to data-returning queries (SELECT, SHOW, etc.)
-// and parses the response. Returns X-ClickHouse-Query-Id and
-// X-ClickHouse-Summary headers for profiling and stats. EXPLAIN
-// with graph=1 or json=1 is handled as raw text output.
-//
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { isDataQuery as sqlIsDataQuery, leadingKeyword } from '../../shared/sqlClassify.js';
 
 function validateClickHouseHost(host) {
@@ -104,14 +97,6 @@ export async function executeQuery({ host, port = 8123, secure = false, user = '
 
 // executeQueryWithBody - run a query with the SQL in the URL parameter and an
 // optional raw request body, used by Schema Studio.
-//
-// The standard executeQuery() above sends the SQL as the POST body, which
-// cannot also carry a data payload. Schema Studio needs both for binary-format
-// inference (Parquet/ORC): the query goes in the ?query= parameter and the file
-// bytes are the POST body. The same path serves text queries (body = null).
-// Safety limits cap execution time and memory so a bad inference cannot hammer
-// the server. Set jsonEachRow false for statements that are not data queries
-// (CREATE TABLE, EXPLAIN AST), where parsing is not needed.
 export async function executeQueryWithBody({
   host,
   port = 8123,

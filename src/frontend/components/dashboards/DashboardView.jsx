@@ -3,11 +3,18 @@
 // Main container component that layout and renders all dashboard widgets and analytics charts.
 
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
-import { buildChartOption } from './chartTypes.js';
+import DashboardFilters from './DashboardFilters.jsx';
+import DashboardSettings from './DashboardSettings.jsx';
+import {
+  discoverFilters, describeConflict, resolveValues,
+  chartsAffectedBy, missingRequired, waitingMessage,
+} from '../../utils/dashboardParams.js';
+import { buildChartOption, yAxisNameGap } from './chartTypes.js';
 import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
 import ChartToolbar, { savePng } from '../common/ChartToolbar.jsx';
 import DataTable from '../layout/DataTable.jsx';
@@ -16,6 +23,24 @@ import { useToast } from '../layout/Toast.jsx';
 import { useTheme, useAuth } from "../../App.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
+
+// Filter values live in the URL so a dashboard link is shareable as you are
+// looking at it. The app uses HashRouter, so the router's query string is
+// already inside the fragment and never reaches a server log.
+//
+// Filter names are namespaced. A parameter may legitimately be called `d`
+// (names match [A-Za-z_][A-Za-z0-9_]*), and without a prefix such a chart would
+// silently break dashboard selection - an unpleasant thing to debug.
+const DASH_KEY = 'd';
+const FILTER_PREFIX = 'f.';
+
+function readFilterParams(searchParams) {
+  const out = {};
+  for (const [k, v] of searchParams.entries()) {
+    if (k.startsWith(FILTER_PREFIX)) out[k.slice(FILTER_PREFIX.length)] = v;
+  }
+  return out;
+}
 
 export default function DashboardView({sidebar}) {
   const toast = useToast();
@@ -37,32 +62,274 @@ export default function DashboardView({sidebar}) {
   const [fs,setFs] = useState(false)
   const [showLegends, setShowLegends] = useState(true);
 
+  // Filter state.
+  //   params  - discovery result for the loaded charts
+  //   applied - the values the charts on screen were run with
+  //   draft   - what the controls currently hold; only Apply promotes it
+  const [params, setParams] = useState({ filters: [], byChart: new Map(), conflicts: [], errors: [] });
+  const [applied, setApplied] = useState({});
+  const [draft, setDraft] = useState({});
+  const [hoveredFilter, setHoveredFilter] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  // Page-level full screen. A CSS overlay rather than the browser's F11 mode,
+  // matching how ChartToolbar and the editor do it, so app chrome and theming
+  // survive and Escape can leave.
+  const [pageFs, setPageFs] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // rerunAffected patches individual tiles, so it needs the current list without
+  // taking a dependency on it (which would rebuild the callback on every run).
+  const chartsRef = useRef(charts);
+  useEffect(() => { chartsRef.current = charts; }, [charts]);
+
+  // Which dashboard has actually been loaded. The load effect has to watch
+  // `dashboards` so it can resolve an id that arrives from the URL before the
+  // list does - but any change to that array's identity would otherwise re-run
+  // it. Saving a filter label replaces the array, so without this guard
+  // renaming "region" to "Region" silently reloaded the dashboard and re-ran
+  // every chart on it.
+  const loadedDashRef = useRef(null);
+
+  const settings = selDash?.filters || {};
+
+  useEffect(() => {
+    if (!pageFs) return undefined;
+    function onKey(e) { if (e.key === 'Escape') setPageFs(false); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [pageFs]);
+
+  // ECharts sizes to its container, so every tile has to be told to re-measure
+  // once the overlay has changed the layout.
+  useEffect(() => {
+    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 180);
+    return () => clearTimeout(t);
+  }, [pageFs]);
+
+  // config.paramDefaults from the charts that declare each name. First chart to
+  // declare it wins, which matches how the type is resolved.
+  const chartDefaults = useMemo(() => {
+    const out = {};
+    for (const c of charts) {
+      const cfg = typeof c.config === 'string' ? (() => { try { return JSON.parse(c.config); } catch { return {}; } })() : (c.config || {});
+      for (const [k, v] of Object.entries(cfg.paramDefaults || {})) {
+        if (out[k] === undefined) out[k] = v;
+      }
+    }
+    return out;
+  }, [charts]);
+
+  const conflictMessages = useMemo(
+    () => params.conflicts.map(describeConflict),
+    [params.conflicts],
+  );
+
   async function loadDashboards() { try { setDashboards(await apiFetch('/api/dashboards')); } catch { } }
   useEffect(() => { loadDashboards(); }, []);
 
-  async function loadCharts(dashId) {
+  // Render one chart from its data. Split out of the old loadCharts so a single
+  // tile can be rebuilt without touching the others.
+  const renderChart = useCallback((chart, data, error) => {
+    // Guarded like every other reader of this column: a malformed config must
+    // not take down the tile before its real error can be shown.
+    const cfg = typeof chart.config === 'string'
+      ? (() => { try { return JSON.parse(chart.config); } catch { return {}; } })()
+      : (chart.config || {});
+    if (error) return { _error: true, message: error };
+    return buildChartOption(
+      chart.chartType, chart.chartSubtype, data, cfg, chart.name,
+      { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend },
+    );
+  }, []);
+
+  // Run ONE chart. This is the primitive the filter bar needs: previously the
+  // only path was loadCharts(), which refetched the whole dashboard and re-ran
+  // every query serially, so changing one filter would have re-run ten charts.
+  const runChart = useCallback(async (chart, values, params) => {
+    // A chart cannot run until every parameter it names outside an optional
+    // block has a value. Caught here rather than sent: ClickHouse would reject
+    // it with "Substitution 'x' is not set" after a pointless round trip, and
+    // that message names neither the filter nor the control to touch.
+    const missing = missingRequired(chart.id, params.byChart, values);
+    if (missing.length) {
+      return { ...chart, _rerunning: false, data: null, chartOption: { _waiting: true, message: waitingMessage(missing) } };
+    }
+
+    // Only the parameters this chart actually declares. Sending the whole bar
+    // would make materialize() keep optional blocks for names the chart does
+    // not use, and findParameters would not recognise them anyway.
+    const mine = {};
+    for (const p of params.byChart.get(chart.id) || []) {
+      if (values[p.name] !== undefined) mine[p.name] = values[p.name];
+    }
+
+    try {
+      const r = await runQuery(chart.sqlQuery, Object.keys(mine).length ? { params: mine } : {});
+      // _rerunning is cleared explicitly rather than relied on being absent:
+      // the source object comes from the previous render, so two overlapping
+      // reruns would otherwise carry the flag forward and leave the tile
+      // dimmed for good.
+      return { ...chart, _rerunning: false, data: r.rows || [], chartOption: renderChart(chart, r.rows || [], null) };
+    } catch (e) {
+      return { ...chart, _rerunning: false, data: null, chartOption: renderChart(chart, null, e.message) };
+    }
+  }, [renderChart]);
+
+  // `prefetched` lets a caller that has already fetched the chart list pass it
+  // in. The load effect below discovers filters before running anything, so
+  // without this every dashboard selection issued the same request twice.
+  async function loadCharts(dashId, values, params, prefetched) {
     setLoading(true); setCharts([]); setHasUnsaved(false);
     try {
-      const c = await apiFetch(`/api/dashboards/${dashId}/charts`);
-      const enriched = [];
-      for (const chart of c) {
-        let data = null, error = null;
-        try { const r = await runQuery(chart.sqlQuery); data = r.rows || []; }
-        catch (e) { error = e.message; }
-        const cfg = typeof chart.config === 'string' ? JSON.parse(chart.config) : chart.config || {};
-        const opt = error ? { _error: true, message: error } : buildChartOption(chart.chartType, chart.chartSubtype, data, cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend });
-        enriched.push({ ...chart, data, chartOption: opt });
-      }
+      const c = prefetched || await apiFetch(`/api/dashboards/${dashId}/charts`);
+      const discovered = params || discoverFilters(c);
+      const vals = values || {};
+      // In parallel. Ten charts used to mean ten sequential round trips.
+      const enriched = await Promise.all(c.map((chart) => runChart(chart, vals, discovered)));
       enriched.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
       setCharts(enriched);
-    } catch { }
-    setLoading(false);
+      // Republished because deleting a chart can remove the last use of a
+      // filter, and the bar has to stop showing it.
+      setParams(discovered);
+      return discovered;
+    } catch { return params || { filters: [], byChart: new Map(), conflicts: [], errors: [] }; }
+    finally { setLoading(false); }
   }
 
-  function selectDash(d) { setSelDash(d); loadCharts(d.id); setShowLegends(true); }
+  // Re-run only the charts naming a filter that changed. Everything else keeps
+  // the results it already has.
+  const rerunAffected = useCallback(async (changedNames, values, params) => {
+    const ids = new Set(chartsAffectedBy(changedNames, params.byChart));
+    if (!ids.size) return;
+    setCharts((prev) => prev.map((c) => (ids.has(c.id) ? { ...c, _rerunning: true } : c)));
+    const targets = chartsRef.current.filter((c) => ids.has(c.id));
+    const done = await Promise.all(targets.map((c) => runChart(c, values, params)));
+    const byId = new Map(done.map((c) => [c.id, c]));
+    setCharts((prev) => prev.map((c) => byId.get(c.id) || c));
+  }, [runChart]);
+
+  // Selecting a dashboard writes it to the URL; the effect below does the
+  // loading. Routing it through the URL rather than loading directly is what
+  // makes a shared link reproduce the same view, and keeps back/forward working.
+  function selectDash(d) {
+    setShowLegends(true);
+    setShowSettings(false);
+    const next = new URLSearchParams();
+    next.set(DASH_KEY, String(d.id));
+    setSearchParams(next, { replace: false });
+  }
+
+  // Load whenever the dashboard in the URL changes. Filter values come from the
+  // URL too, layered over the dashboard and chart defaults.
+  const urlDashId = searchParams.get(DASH_KEY);
+  useEffect(() => {
+    if (!dashboards.length) return;
+    const d = dashboards.find((x) => String(x.id) === String(urlDashId));
+    if (!d) {
+      // An id that no longer exists (deleted, or someone else's link) falls
+      // back to no selection rather than a blank page with a spinner.
+      if (urlDashId) setSelDash(null);
+      loadedDashRef.current = null;
+      return;
+    }
+    if (selDash?.id !== d.id) setSelDash(d);
+    if (loadedDashRef.current === d.id) return;
+    loadedDashRef.current = d.id;
+
+    let cancelled = false;
+    (async () => {
+      const fetched = await apiFetch(`/api/dashboards/${d.id}/charts`).catch(() => []);
+      if (cancelled) return;
+      const discovered = discoverFilters(fetched);
+      const chartDefs = {};
+      for (const c of fetched) {
+        const cfg = typeof c.config === 'string' ? (() => { try { return JSON.parse(c.config); } catch { return {}; } })() : (c.config || {});
+        for (const [k, v] of Object.entries(cfg.paramDefaults || {})) {
+          if (chartDefs[k] === undefined) chartDefs[k] = v;
+        }
+      }
+      const values = resolveValues(discovered.filters, {
+        selected: readFilterParams(searchParams),
+        dashboardDefaults: d.filters || {},
+        chartDefaults: chartDefs,
+      });
+      setParams(discovered);
+      setApplied(values);
+      setDraft(values);
+      await loadCharts(d.id, values, discovered, fetched);
+    })();
+    return () => { cancelled = true; };
+    // searchParams is intentionally not a dependency: a filter change must not
+    // reload the dashboard, only re-run the affected charts (see applyFilters).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlDashId, dashboards]);
+
+  function changeFilter(name, value) {
+    setDraft((p) => ({ ...p, [name]: value }));
+  }
+
+  // Promote the draft, write it to the URL, and re-run only what changed.
+  async function applyFilters() {
+    const changed = Object.keys(draft).filter((k) => (draft[k] ?? '') !== (applied[k] ?? ''));
+    if (!changed.length) return;
+
+    const next = new URLSearchParams();
+    if (urlDashId) next.set(DASH_KEY, urlDashId);
+    for (const [k, v] of Object.entries(draft)) {
+      if (v !== undefined && String(v) !== '') next.set(FILTER_PREFIX + k, String(v));
+    }
+    setSearchParams(next, { replace: true });
+
+    setApplied(draft);
+    await rerunAffected(changed, draft, params);
+  }
+
+  // Back to defaults, ignoring whatever is in the URL.
+  async function resetFilters() {
+    const defaults = resolveValues(params.filters, {
+      selected: {},
+      dashboardDefaults: settings,
+      chartDefaults,
+    });
+    const changed = Object.keys(defaults).filter((k) => (defaults[k] ?? '') !== (applied[k] ?? ''));
+    setDraft(defaults);
+    if (!changed.length) return;
+
+    const next = new URLSearchParams();
+    if (urlDashId) next.set(DASH_KEY, urlDashId);
+    setSearchParams(next, { replace: true });
+    setApplied(defaults);
+    await rerunAffected(changed, defaults, params);
+  }
+
+  async function saveSettings(nextSettings) {
+    try {
+      const updated = await apiFetch(`/api/dashboards/${selDash.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ filters: nextSettings }),
+      });
+      setSelDash(updated);
+      setDashboards((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+      setShowSettings(false);
+      toast.success('Filter settings saved.');
+    } catch (e) { toast.error(e.message); }
+  }
   async function createDash() { if (!newName.trim()) return; try { const d = await apiFetch('/api/dashboards', { method: 'POST', body: JSON.stringify({ name: newName.trim(), columns: newCols }) }); setDashboards(p => [d, ...p]); setNewName(''); setShowCreate(false); toast.success(`Dashboard "${d.name}" created.`); } catch (e) { toast.error(e.message); } }
-  async function deleteDash(id) { try { await apiFetch(`/api/dashboards/${id}`, { method: 'DELETE',body:{} }); loadDashboards(); setSelDash(null); setCharts([]); toast.success('Dashboard deleted.'); } catch (e) { toast.error(e.message); } setDel(null); }
-  async function deleteChart(id) { try { await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE',body:{} }); if (selDash) loadCharts(selDash.id); toast.success('Chart removed.'); } catch { } }
+  async function deleteDash(id) {
+    try {
+      await apiFetch(`/api/dashboards/${id}`, { method: 'DELETE', body: {} });
+      loadDashboards();
+      setSelDash(null);
+      setCharts([]);
+      // Clear the id from the URL too, or a reload or a shared link points at a
+      // dashboard that no longer exists.
+      setSearchParams(new URLSearchParams(), { replace: true });
+      toast.success('Dashboard deleted.');
+    } catch (e) { toast.error(e.message); }
+    setDel(null);
+  }
+  async function deleteChart(id) { try { await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE',body:{} }); if (selDash) await loadCharts(selDash.id, applied); toast.success('Chart removed.'); } catch (e) { toast.error(e.message); } }
 
   function onDragStart(e, i) { e.dataTransfer.effectAllowed = 'move'; setDragIdx(i); }
   function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
@@ -83,9 +350,12 @@ export default function DashboardView({sidebar}) {
 
   async function saveLayout() {
     try {
-      for (const c of charts) {
-        await apiFetch(`/api/dashboards/charts/${c.id}`, { method: 'PUT', body: JSON.stringify({ gridRow: c.gridRow, gridCol: c.gridCol }) });
-      }
+      // In parallel: this was one sequential round trip per chart.
+      await Promise.all(charts.map((c) =>
+        apiFetch(`/api/dashboards/charts/${c.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ gridRow: c.gridRow, gridCol: c.gridCol }),
+        })));
       setHasUnsaved(false);
       toast.success('Layout saved.');
     } catch (e) { toast.error(e.message); }
@@ -106,7 +376,22 @@ export default function DashboardView({sidebar}) {
   const hasLegendCharts = charts.some(c => legendSupportedTypes.includes(c.chartSubtype));
 
   return (
-    <div className="page-content">
+    <div
+      className="page-content"
+      style={pageFs ? {
+        position: 'fixed', inset: 0, zIndex: 9000,
+        background: 'var(--bg-page)',
+        overflow: 'auto', padding: 16, margin: 0,
+      } : undefined}
+    >
+      {selDash && showSettings && canEdit && (
+        <DashboardSettings
+          filters={params.filters}
+          settings={settings}
+          onSave={saveSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
       <div className="section-header">
         <h2 className="section-title"><Icon className="ti ti-layout-dashboard"></Icon> Dashboards</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -121,12 +406,24 @@ export default function DashboardView({sidebar}) {
               <span style={{ fontSize: '12px' }}>Legends</span>
             </button>
           )}
-          {selDash && <button className="btn btn-secondary btn-sm" onClick={() => loadCharts(selDash.id)}><Icon className="ti ti-refresh"></Icon></button>}
-          <button className="btn btn-primary btn-sm" onClick={() => showCreate ? (setShowCreate(false)) : setShowCreate(true)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${showCreate ? 'ti-x' : 'ti-plus'}`}></Icon> {showCreate ? 'Cancel' : 'New'}</button>
+          {selDash && <button className="btn btn-secondary btn-sm" onClick={() => loadCharts(selDash.id, applied, params)} title="Reload every chart"><Icon className="ti ti-refresh"></Icon></button>}
+          {selDash && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPageFs((v) => !v)}
+              title={pageFs ? 'Exit full screen' : 'Full screen'}
+              aria-label={pageFs ? 'Exit full screen' : 'Full screen'}
+            >
+              <Icon className={`ti ${pageFs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon>
+            </button>
+          )}
+          {/* Editors may create and edit; only admins may delete. The button
+              used to be gated on isAdmin while the route accepted any editor. */}
+          <button className="btn btn-primary btn-sm" onClick={() => showCreate ? (setShowCreate(false)) : setShowCreate(true)} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${showCreate ? 'ti-x' : 'ti-plus'}`}></Icon> {showCreate ? 'Cancel' : 'New'}</button>
         </div>
       </div>
 
-      {showCreate && isAdmin && <div className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+      {showCreate && canEdit && <div className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
         <div className="form-group"><label className="form-label">Name *</label><input className="form-input" value={newName} onChange={e => setNewName(e.target.value)} /></div>
         <div className="form-group"><label className="form-label">Columns</label><Select className="form-select" value={newCols} onChange={e => setNewCols(parseInt(e.target.value))}>{[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}</Select></div>
         <button className="btn btn-primary btn-sm" onClick={createDash} disabled={!newName.trim()}><Icon className="ti ti-plus"></Icon> Create</button>
@@ -143,19 +440,45 @@ export default function DashboardView({sidebar}) {
 
       {dashboards.length === 0 && !showCreate && <div className="empty-state"><Icon className="ti ti-layout-dashboard"></Icon><p>No dashboards. Create one to get started.</p></div>}
 
+      {selDash && (
+        <DashboardFilters
+          filters={params.filters}
+          settings={settings}
+          draft={draft}
+          applied={applied}
+          onChange={changeFilter}
+          onApply={applyFilters}
+          onReset={resetFilters}
+          onHoverFilter={setHoveredFilter}
+          hoveredFilter={hoveredFilter}
+          conflicts={conflictMessages}
+          canEdit={canEdit}
+          onOpenSettings={() => setShowSettings(true)}
+        />
+      )}
+
+      {selDash && !!params.errors.length && (
+        <div className="alert-banner warning" style={{ marginBottom: 12, fontSize: '13px' }}>
+          <Icon className="ti ti-alert-triangle"></Icon>
+          {params.errors.map((e) => `"${e.chartName}": ${e.message}`).join(' ')}
+        </div>
+      )}
+
       {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
       {selDash && !loading && charts.length === 0 && <div className="empty-state"><Icon className="ti ti-chart-dots"></Icon><p>No charts. Use Chart Builder to add some.</p></div>}
 
       {selDash && charts.length > 0 && <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Drag charts to swap positions.</span>
-          {hasUnsaved && isAdmin && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
+          {hasUnsaved && canEdit && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16 }}>
           {charts.map((chart, i) => (
             <div key={chart.id} draggable={!fs && canEdit} onDragStart={e => !fs && canEdit && onDragStart(e, i)} onDragOver={onDragOver} onDrop={e => canEdit && onDrop(e, i)}
               style={{ opacity: dragIdx === i ? 0.4 : 1, cursor: !fs && canEdit ? 'grab' : 'default', transition: 'opacity 0.2s' }}>
-              <ChartTile setFss={setFs} sidebar={sidebar} chart={chart} onDelete={() => deleteChart(chart.id)} cols={cols} isAdmin={isAdmin} canEdit={canEdit} showLegends={showLegends} legendSupportedTypes={legendSupportedTypes} />
+              <ChartTile setFss={setFs} sidebar={sidebar} chart={chart} onDelete={() => deleteChart(chart.id)} cols={cols} isAdmin={isAdmin} canEdit={canEdit} showLegends={showLegends} legendSupportedTypes={legendSupportedTypes}
+                highlighted={!!hoveredFilter && (params.byChart.get(chart.id) || []).some((p) => p.name === hoveredFilter)}
+                filterNames={(params.byChart.get(chart.id) || []).map((p) => p.name)} />
             </div>
           ))}
         </div>
@@ -166,7 +489,7 @@ export default function DashboardView({sidebar}) {
   );
 }
 
-function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, showLegends, legendSupportedTypes }) {
+function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, showLegends, legendSupportedTypes, highlighted = false, filterNames = [] }) {
   const ref = useRef(null);
   const inst = useRef(null);
   const [fs, setFs] = useState(false);
@@ -319,7 +642,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       ...chart?.chartOption?.yAxis,
       position: 'left',
       nameLocation: chart?.chartOption?.yAxis?.nameLocation || 'middle',
-      nameGap: Math.max(chart?.chartOption?.yAxis?.nameGap || 25, 42),
+      nameGap: Math.max(chart?.chartOption?.yAxis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
       axisLabel: {
         ...chart?.chartOption?.yAxis?.axisLabel,
         rotate: 0,
@@ -421,7 +744,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   useEffect(() => {
-    if (!ref.current || !opt || opt._kpi || opt._table || opt._error) return;
+    if (!ref.current || !opt || opt._kpi || opt._table || opt._error || opt._waiting) return;
     try { inst.current = initChart(ref.current); inst.current.setOption(withZoomable(opt), true); setTimeout(() => inst.current?.resize(), 50); } catch { }
     return () => { if (ref.current) disposeChart(ref.current); };
   }, [opt]);
@@ -502,11 +825,29 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   };
 
   return (
-    <div className="card" style={{ padding: 16, ...wrap }}>
+    <div
+      className="card"
+      style={{
+        padding: 16,
+        ...wrap,
+        // Hovering a filter highlights the charts it drives. The rule that a
+        // chart responds to a filter only if its SQL names that parameter runs
+        // against what people expect from other tools, so it is made visible
+        // rather than left to be discovered.
+        ...(highlighted ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : {}),
+        ...(chart._rerunning ? { opacity: 0.6 } : {}),
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 }}>
-        <span style={{ fontSize: '14px', fontWeight: 600, minWidth: 0, flex: 1, paddingRight: 8 }}>{chart.name}</span>
+        <span
+          style={{ fontSize: '14px', fontWeight: 600, minWidth: 0, flex: 1, paddingRight: 8 }}
+          title={filterNames.length ? `Filters: ${filterNames.join(', ')}` : 'No filters affect this chart'}
+        >
+          {chart.name}
+          {chart._rerunning && <span className="loading-spinner" style={{ marginLeft: 8 }} />}
+        </span>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
-          {opt && !opt._error && !opt._kpi && !opt._table && (
+          {opt && !opt._error && !opt._waiting && !opt._kpi && !opt._table && (
             <ChartToolbar
               zoomable={!!opt?.xAxis}
               fullscreen={fs}
@@ -521,18 +862,26 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               isWantFeature={chart.chartType === 'pie' ? pieChartControlsFlags : chartControlsFlags}
             />
           )}
-          {opt && (opt._error || opt._kpi || opt._table) && (
+          {opt && (opt._error || opt._waiting || opt._kpi || opt._table) && (
             <button className="btn btn-ghost btn-sm" onClick={() => { setFs(!fs); setFss(!fs); }} title={fs ? 'Exit full screen' : 'Full screen'}><Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon></button>
           )}
-          {canEdit && (
-            <button className="btn btn-ghost btn-sm" onClick={onDelete}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+          {isAdmin && (
+            <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete chart (admin only)"><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
           )}
         </div>
       </div>
       {opt?._error && <div className="alert-banner danger" style={{ fontSize: '13px' }}><Icon className="ti ti-alert-circle"></Icon> {opt.message}</div>}
+      {/* Waiting, not failing. Nothing is broken here: a value is missing.
+          Rendering this in red would train people to ignore red on a
+          dashboard, which is expensive everywhere else. */}
+      {opt?._waiting && (
+        <div className="alert-banner warning" style={{ fontSize: '13px' }}>
+          <Icon className="ti ti-clock"></Icon> {opt.message}
+        </div>
+      )}
       {opt?._kpi && <div style={{ textAlign: 'center', padding: 24 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{opt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-table)' }}>{opt.value}</div></div>}
       {opt?._table && <DataTable rows={opt.data} maxRows={fs ? opt?.data?.length || 10 : 5} />}
-      {!opt?._kpi && !opt?._table && !opt?._error &&
+      {!opt?._kpi && !opt?._table && !opt?._error && !opt?._waiting &&
         <div
           ref={ref}
           style={{

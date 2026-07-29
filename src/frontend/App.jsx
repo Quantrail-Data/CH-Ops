@@ -9,24 +9,76 @@ import LoginPage from "./components/layout/LoginPage.jsx";
 import MainLayout from "./components/layout/MainLayout.jsx";
 import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
 
-export const AuthContext = createContext(null);
+// Each context defaults to an inert value with the SAME SHAPE the provider
+// supplies, rather than to null.
+//
+// Every consumer destructures immediately - `const { auth } = useAuth()`,
+// `const { theme } = useTheme()`, `const { selectedClusterId } = useConnection()`
+// - so a null default turns "rendered outside its provider" into a hard crash
+// at the first line of the component. That is the worst possible failure for a
+// context whose whole job is ambient state: the component cannot render at all,
+// and the stack points at the destructure rather than at the missing provider.
+//
+// The defaults below let such a component render in its logged-out, unconnected,
+// light-theme state instead. Nothing silently half-works: `auth` is null, so
+// anything gated on a user still behaves as though there is none.
+
+const NO_AUTH = Object.freeze({
+  auth: null,
+  login: () => {},
+  logout: () => {},
+});
+
+const NO_THEME = Object.freeze({
+  theme: "light",
+  toggleTheme: () => {},
+});
+
+// Mirrors the initial connection state plus the actions the provider adds.
+const NO_CONNECTION = Object.freeze({
+  clusters: [],
+  selectedClusterId: "",
+  nodes: [],
+  selectedNode: "",
+  nodeName: "",
+  user: "",
+  port: 8123,
+  connected: false,
+  error: null,
+  clusterName: "",
+  setConnection: () => {},
+  testConnection: () => {},
+  reloadConfig: () => {},
+  switchCluster: () => {},
+});
+
+const NO_QURIOZ_CHAT = Object.freeze({
+  replaceChat: () => {},
+  quriozMessage: [],
+  insertMessage: () => {},
+  deleteAllChatMessage: () => {},
+  isNewChat: false,
+  QURIOZLENGTH: 0,
+});
+
+export const AuthContext = createContext(NO_AUTH);
 export function useAuth() {
-  return useContext(AuthContext);
+  return useContext(AuthContext) ?? NO_AUTH;
 }
 
-export const ThemeContext = createContext(null);
+export const ThemeContext = createContext(NO_THEME);
 export function useTheme() {
-  return useContext(ThemeContext);
+  return useContext(ThemeContext) ?? NO_THEME;
 }
 
-export const ConnectionContext = createContext(null);
+export const ConnectionContext = createContext(NO_CONNECTION);
 export function useConnection() {
-  return useContext(ConnectionContext);
+  return useContext(ConnectionContext) ?? NO_CONNECTION;
 }
 
-export const QuriozChatContext = createContext(null);
+export const QuriozChatContext = createContext(NO_QURIOZ_CHAT);
 export function useQuriozChatContext() {
-  return useContext(QuriozChatContext);
+  return useContext(QuriozChatContext) ?? NO_QURIOZ_CHAT;
 }
 
 const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY;
@@ -151,7 +203,6 @@ export default function App() {
     selectedNode: "",
     nodeName: "",
     user: "",
-    password: "",
     port: 8123,
     connected: false,
     error: null,
@@ -169,7 +220,6 @@ export default function App() {
         node: next.selectedNode,
         nodeName: next.nodeName,
         user: next.user,
-        password: next.password,
         port: next.port,
         clusterId: next.selectedClusterId,
         connected:true
@@ -217,7 +267,6 @@ export default function App() {
               : {
                   selectedNode: first.host || "",
                   user: first.user || "default",
-                  password: first.password || "",
                   port: first.port || 8123,
                 }),
           };
@@ -242,7 +291,6 @@ export default function App() {
           testConn(
             first.host,
             first.user,
-            first.password,
             first.port,
             token,
             cluster?.id,
@@ -284,7 +332,6 @@ export default function App() {
         nodes,
         selectedNode: first.host || "",
         user: first.user || "default",
-        password: first.password || "",
         port: first.port || 8123,
         connected: Object?.keys(first)?.length > 0 ? true : false,
         error: null,
@@ -292,7 +339,9 @@ export default function App() {
     });
   }
 
-  async function testConn(host, user, password, port, token, clusterId) {
+  // No password argument: the browser does not hold one. The backend resolves
+  // the stored credential for this node from the cluster configuration.
+  async function testConn(host, user, port, token, clusterId) {
     try {
       const cid = clusterId || connection.selectedClusterId;
       const res = await fetch("/api/query/test-connection", {
@@ -304,7 +353,6 @@ export default function App() {
         body: JSON.stringify({
           node: host,
           user,
-          password,
           port,
           clusterId: cid,
         }),

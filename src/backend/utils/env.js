@@ -7,8 +7,8 @@ import path from "node:path";
 export function loadEnv() {
   if (!process.env.SUPER_ADMIN_1 || !process.env.SUPER_ADMIN_1_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
     // Backward compat: check legacy single-admin format
-    if (!process.env.SUPER_ADMIN || !process.env.SUPER_ADMIN_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
-      throw new Error('Missing required env: SUPER_ADMIN_1 and SUPER_ADMIN_1_PASSWORD');
+    if (!process.env.SUPER_ADMIN || !process.env.SUPER_ADMIN_PASSWORD || !process.env.SUPER_ADMIN_EMAIL) {
+      throw new Error('Missing required env: SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL');
     }
   }
   if (!process.env.SESSION_SECRET) throw new Error('Missing required env: SESSION_SECRET');

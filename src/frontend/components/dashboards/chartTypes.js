@@ -1343,3 +1343,65 @@ export function buildChartOption(
   }
   return null;
 }
+
+// yAxisNameGap - how far to push a rotated y-axis name clear of its tick labels.
+//
+// nameLocation:'middle' rotates the axis name and places it nameGap pixels out
+// from the axis line, measured through the tick labels. A fixed gap therefore
+// only works while the labels stay narrow: a count axis reaching 120,000,000
+// renders labels around 90px wide, and a hardcoded 42 dropped the name straight
+// on top of them.
+//
+// ECharts does not expose its computed tick labels before render, so this
+// estimates from the data: take the largest magnitude in the series, round it up
+// the way ECharts rounds an axis maximum, format it the way the axis will, and
+// measure. Deliberately an over-estimate - a slightly wide gutter costs a few
+// pixels, an under-estimate costs legibility.
+//
+// Returns a pixel gap, clamped so a tiny chart keeps a sane minimum and a huge
+// one cannot eat the plot area.
+export function yAxisNameGap(option, { fontSize = 12, min = 42, max = 150 } = {}) {
+  const yAxis = Array.isArray(option?.yAxis) ? option.yAxis[0] : option?.yAxis;
+  if (!yAxis || !yAxis.name) return min;
+
+  // A category axis shows strings, and a custom formatter can produce anything.
+  // Neither is predictable from the data, so fall back to the minimum and let
+  // grid.containLabel reserve the room.
+  if (yAxis.type === "category") return min;
+  if (typeof yAxis.axisLabel?.formatter === "function") return min;
+
+  let biggest = 0;
+  const consider = (v) => {
+    const n = typeof v === "number" ? v : Number(v);
+    if (Number.isFinite(n)) biggest = Math.max(biggest, Math.abs(n));
+  };
+
+  for (const s of option?.series || []) {
+    for (const d of s?.data || []) {
+      if (d == null) continue;
+      if (typeof d === "number" || typeof d === "string") consider(d);
+      // [x, y] pairs (scatter, bubble) and { value } objects.
+      else if (Array.isArray(d)) consider(d[1]);
+      else if (Array.isArray(d?.value)) consider(d.value[1]);
+      else if (d?.value !== undefined) consider(d.value);
+    }
+  }
+
+  if (!biggest) return min;
+
+  // ECharts extends the axis to a round number above the data, which can add a
+  // digit (98,000,000 -> 100,000,000). Round up to the next leading digit so the
+  // estimate covers the label that will actually be drawn.
+  const magnitude = Math.pow(10, Math.floor(Math.log10(biggest)));
+  const axisMax = Math.ceil(biggest / magnitude) * magnitude;
+
+  const label = Math.round(axisMax).toLocaleString("en-US");
+  // Digits and commas in the default sans stack average a little over half an
+  // em; commas are much narrower, so weight them separately.
+  const digits = (label.match(/\d/g) || []).length;
+  const seps = label.length - digits;
+  const width = digits * fontSize * 0.58 + seps * fontSize * 0.28;
+
+  // + axisLabel margin (8 by default) and a little breathing room.
+  return Math.round(Math.min(max, Math.max(min, width + 16)));
+}

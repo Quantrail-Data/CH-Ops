@@ -1,16 +1,7 @@
-/**
- * dashboards.test.js - Unit tests for dashboard and chart controllers
- *
- * Tests CRUD operations for dashboards and charts using an in-memory
- * mock database. Dashboard tests cover creation with validation, listing,
- * updating, deletion, and fetching charts by dashboard ID. Chart tests
- * cover creation with required fields, listing, updating with config
- * parsing, and deletion. Edge cases like missing fields, invalid config
- * JSON, and DB errors are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// dashboards.test.js - unit tests for dashboard and chart controllers
+// Contributors - Praveen kumar, Kathirdhasan
+
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 const fakeDB = {
@@ -198,9 +189,13 @@ describe("Dashboard Controllers", () => {
     createDashboard(req, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.jsonData).toBe(
-      "db.insert(dashboards).values is not a function. (In 'db.insert(dashboards).values({ name, columns: columns || 2 })', 'db.insert(dashboards).values' is undefined)",
-    );
+    // Shape, not wording. This used to assert the exact engine-generated
+    // message, which embedded a verbatim copy of the controller's source line -
+    // so any edit to that line broke the test for no real reason. Errors are
+    // now { error } objects rather than bare strings, because apiFetch reads
+    // data.error and a bare string was lost on the way to the user.
+    expect(typeof res.jsonData).toBe("object");
+    expect(res.jsonData.error).toBeTruthy();
   });
 
   it("returns 400 when dashboard name missing", () => {
@@ -322,6 +317,42 @@ describe("Dashboard Controllers", () => {
         name: "Chart 2",
       },
     ]);
+  });
+});
+
+describe("filters column", () => {
+  it("returns filters as an object on create", () => {
+    const { req, res } = mockReqRes({ name: "D", columns: 2 });
+    createDashboard(req, res);
+    expect(res.jsonData.filters).toEqual({});
+  });
+
+  it("persists filters through an update", () => {
+    fakeDB.dashboards.push({ id: 1, name: "D", columns: 2, filters: "{}" });
+    const { req, res } = mockReqRes(
+      { filters: { region: { label: "Region", order: 1 } } },
+      { id: "1" },
+    );
+    updateDashboard(req, res);
+    expect(res.jsonData.filters).toEqual({
+      region: { label: "Region", order: 1 },
+    });
+  });
+
+  it("reads a legacy row with no filters value as an empty object", () => {
+    // A dashboard row created before the column existed.
+    fakeDB.dashboards.push({ id: 1, name: "Legacy", columns: 2 });
+    const { req, res } = mockReqRes();
+    listDashboards(req, res);
+    expect(res.jsonData[0].filters).toEqual({});
+    expect(res.jsonData[0].name).toBe("Legacy");
+  });
+
+  it("reads malformed filters JSON as an empty object", () => {
+    fakeDB.dashboards.push({ id: 1, name: "D", columns: 2, filters: "kathis" });
+    const { req, res } = mockReqRes();
+    expect(() => listDashboards(req, res)).not.toThrow();
+    expect(res.jsonData[0].filters).toEqual({});
   });
 });
 
@@ -519,7 +550,7 @@ describe("Chart Controllers", () => {
     updateChart(req, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.jsonData).toBe("DB failure");
+    expect(res.jsonData).toEqual({ error: "DB failure" });
   });
 
   it("delete chart", () => {
