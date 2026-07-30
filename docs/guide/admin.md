@@ -107,6 +107,65 @@ These rules exist to stop anyone from quietly escalating their own privileges, a
 6. If SMTP email is configured, the password is also emailed to the user.
 7. The user is required to change this password on first login. Until they do, a still-valid token cannot be used to reach any other part of CHOps.
 
+### The first login password change
+
+A newly created user, and any user whose password an administrator has reset,
+must set a new password before they can use CHOps. There is nothing to
+configure: the requirement is set automatically in both cases.
+
+**What the user sees.** After signing in with the password they were given, they
+land on a change password screen instead of the dashboard. Nothing else in CHOps
+is reachable until they complete it. A token issued at that point cannot be used
+to reach any other page, so this is a real gate rather than a redirect somebody
+could skip.
+
+The screen asks for three things:
+
+| Field | Notes |
+|---|---|
+| Current password | The one they were given |
+| New password | At least 8 characters, at most 256 |
+| Confirm new password | Must match |
+
+Each field has a show or hide control, which matters when someone is typing a
+generated password they cannot memorise.
+
+**The new password must differ from the current one.** Re-entering the generated
+password is rejected, since that would defeat the point.
+
+**After it succeeds** they go straight into CHOps. They are not asked to sign in
+again, because the session they already hold is simply updated.
+
+### Helping a user through it
+
+**They mistyped and got an error.** The message names the specific problem:
+passwords not matching, too short, too long, or the same as the current one.
+Nothing is submitted until all four checks pass, so a failed attempt does not
+lock anything.
+
+**They lost the password before first login.** Reset it from User Management.
+That generates a new one and sets the requirement again, so they get the same
+screen with a working password.
+
+**They cannot get past the screen at all.** The current password field is the
+usual cause: it wants the password they were given, not the new one they are
+choosing. If SMTP is configured the original was emailed to them, so it is worth
+checking there before resetting.
+
+**Nothing arrived by email.** SMTP may not be configured, in which case the
+password was shown once at creation and needs passing on securely. Reset the
+password if it was not captured.
+
+### Resetting a user's password
+
+From **User Management**, an administrator can reset another user's password.
+CHOps generates a new strong password, emails it if SMTP is configured, and sets
+the first login requirement again, so the user chooses their own password
+immediately afterwards.
+
+An administrator cannot reset their own password this way. Use the normal change
+password route instead.
+
 ### Where users are stored
 
 Users live in the `app_user` table in CHOps's SQLite database. The `role` column defaults to `readonly`, and `must_change_password` defaults to true, so a newly created account is always least-privileged and must set its own password before doing anything else. The initial super admin accounts are seeded from the `.env` file the first time you run `bun run db:migrate`.
