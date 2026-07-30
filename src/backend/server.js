@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main backend server entry point that initializes security middleware, mounts API routes, and starts the HTTP server.
 
-
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -34,6 +33,7 @@ import { securityHeaders } from './middleware/securityHeaders.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { startScheduler } from './services/alertScheduler.js';
 import { startAppBackupScheduler } from './services/appBackup.js';
+import { startK8sSync } from './services/k8sSync.js';
 
 // Core routes
 import authRoute from './routes/auth.js';
@@ -44,12 +44,12 @@ import alertsRoute from './routes/alerts.js';
 import dashboardsRoute from './routes/dashboards.js';
 import usersRoute from './routes/users.js';
 import clusterRoute from './routes/cluster.js';
+import k8sRoute from './routes/k8s.js';
 import appBackupRoute from './routes/appBackup.js';
 import apiKeysRoute from './routes/apiKeys.js';
 import exportRoute, { downloadRouter } from "./routes/export.js";
 import { initExportStorage, startExportSweeper, cancelJobsForUser } from "./services/exportJobs.js";
 import ForgetRouter from "./routes/forgetPassword.js";
-
 
 import databaseAIConnection from "./routes/databaseAIConnection.js";
 import sqlAIChat from "./routes/sqlAIChat.js";
@@ -58,25 +58,19 @@ import editorRoute from "./routes/editor.js";
 import { onRevoke } from './services/jwt.js';
 import { clearCredSessionByJti, pruneExpired } from './services/chCredStore.js';
 
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 
 let env;
 try { env = loadEnv(); } catch (err) { console.error(`  Config error: ${err.message}`); process.exit(1); }
 
-
 setSecret(env.sessionSecret);
 initCrypto(env.sessionSecret);
-
 
 onRevoke(clearCredSessionByJti);
 onRevoke(() => { try { cancelJobsForUser(undefined); } catch {} });
 
-
 pruneExpired();
 setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
-
 
 // version.generated.js is written by scripts/generate-version.mjs from
 // version.json, the single source of truth. loadEnv() used to supply this from
@@ -90,18 +84,13 @@ try {
   if (generated.VERSION_INFO) appVersion = { ...generated.VERSION_INFO, ...appVersion };
 } catch {}
 
-
 await import('./db/migrate.js').catch(() => {});
 log.info('Database ready (Drizzle ORM + bun:sqlite)');
-
-
 
 import { migrateClusterData } from './services/clusterUtils.js';
 migrateClusterData();
 
-
 const app = express();
-
 
 // Opt-in, and deliberately not defaulted to true. Behind a reverse proxy
 // (the Caddy setup in the README) req.ip is the proxy without this, so every
@@ -123,7 +112,6 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use((req, res, next) => { req.env = env; next(); });
 
-
 app.use('/api/auth', rateLimiter(100, 60), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/version', (req, res) => res.json(appVersion));
@@ -136,19 +124,15 @@ app.use('/api/alerts', authMiddleware,rateLimiter(10000, 60), alertsRoute);
 app.use('/api/dashboards', authMiddleware,rateLimiter(10000, 60), dashboardsRoute);
 app.use('/api/users', authMiddleware,rateLimiter(10000, 60), usersRoute);
 app.use('/api/cluster', authMiddleware,rateLimiter(10000, 60), clusterRoute);
+app.use('/api/k8s', authMiddleware,rateLimiter(10000, 60), k8sRoute);
 app.use('/api/app-backup', authMiddleware,rateLimiter(10000, 60), appBackupRoute);
 app.use('/api/qurioz/api-keys', authMiddleware,rateLimiter(10000, 60), apiKeysRoute);
 app.use('/api/export/download', rateLimiter(10000, 60), downloadRouter);
 app.use('/api/export', rateLimiter(10000, 60), authMiddleware, exportRoute);
 
-
-
-
 app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
 app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
 app.use("/api/schema-studio", authMiddleware,rateLimiter(10000, 60), schemaStudioRoute);
-
-
 
 function serveEmbedded(prefix) {
   return (req, res, next) => {
@@ -202,24 +186,19 @@ if (embeddedAssets && embeddedAssets.has('dist/index.html')) {
   });
 }
 
-
-
 // Global error handler
 app.use((err, req, res, next) => {
   log.error('Unhandled request error', { error: err.message, path: req.path, method: req.method });
   res.status(err?.statusCode || 500).json({ error: err?.message || 'Internal server error' });
 });
 
-
 // Start services
 initExportStorage();
 startExportSweeper();
 startScheduler(env);
 startAppBackupScheduler();
-
-
-
-
+// Refreshes the node list of Kubernetes-derived clusters.
+startK8sSync();
 
 const port = env.port;
 app.listen(port, () => {

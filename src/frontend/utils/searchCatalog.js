@@ -1,18 +1,6 @@
-// Global search catalog.
-//
-// One entry per navigable page. Each entry carries a curated `keywords` list and
-// a short `description` in addition to its label, because a raw sidebar label
-// rarely contains the words a user actually types. For example "DDL queue block"
-// matches nothing against the label "DDL & Readonly", but matches strongly
-// against that page's keywords ("ddl queue", "on-cluster queue", "blocked",
-// "stuck"). The engine ranks what it is given; the quality lives in this list.
-//
-// Every `id` here must be a real route id (see CORE_ROUTES in MainLayout.jsx) so
-// navigating to it works. A test guards this both ways (no orphan entries, no
-// missing pages).
-//
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
+// Contributors -> Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// searchCatalog.js - global search catalog
 
 import { BREADCRUMB_MAP } from "./routeMeta.js";
 import { PAGE_HEADERS, PAGE_TEXT } from "./pageHeaders.generated.js";
@@ -75,6 +63,13 @@ export const SEARCH_CATALOG = [
     section: "Overview",
     description: "Replication and distributed task queues, stuck tasks.",
     keywords: ["replication queue", "distributed queue", "task queue", "stuck tasks", "blocked queue", "queue backlog", "fetch queue"],
+  },
+  {
+    id: "overview/kubernetes",
+    title: "Kubernetes Insights",
+    section: "Overview",
+    description: "Topology, reconcile progress, storage, network, events and pod logs.",
+    keywords: ["kubernetes", "k8s", "operator", "pods", "shards", "replicas", "reconcile", "pod logs", "storage expansion", "topology", "keeper"],
   },
   {
     id: "overview/ddl",

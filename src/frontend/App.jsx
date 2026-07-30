@@ -37,6 +37,7 @@ const NO_THEME = Object.freeze({
 // Mirrors the initial connection state plus the actions the provider adds.
 const NO_CONNECTION = Object.freeze({
   clusters: [],
+  features: {},
   selectedClusterId: "",
   nodes: [],
   selectedNode: "",
@@ -258,6 +259,8 @@ export default function App() {
             ...prev,
             connected: nodes?.length > 0 ? true : false,
             clusters,
+            // Optional features this installation has switched on.
+            features: data.features || {},
             selectedClusterId: cluster?.id || "",
             nodeName: first.name,
             clusterName: cluster?.name || "",

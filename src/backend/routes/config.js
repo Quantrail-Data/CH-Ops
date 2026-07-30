@@ -1,15 +1,11 @@
-// config.js - Configuration REST API
-//
-// GET /connection returns the currently active cluster and node
-// connection details. Used by the frontend to initialize the
-// connection state on page load. All authenticated users can
-// access this endpoint.
-//
-// Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors -> kathir Moorthy, Praveen kumar
+// config.js - configuration REST API routes
+
 import { Router } from 'express';
-import { getConnection } from '../controllers/config.js';
+import { getConnection, getCapabilities } from '../controllers/config.js';
 
 const router = Router();
 router.get('/connection', getConnection);
+router.get('/capabilities/:clusterId', getCapabilities);
 export default router;

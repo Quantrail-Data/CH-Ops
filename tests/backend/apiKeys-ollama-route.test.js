@@ -13,6 +13,11 @@ mock.module("../../src/backend/db/index.js", () => ({
   appSettings: {},
   dashboards: {},
   charts: {},
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
 
 const mockLookup = mock();
