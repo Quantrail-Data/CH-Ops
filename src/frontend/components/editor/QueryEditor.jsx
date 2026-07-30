@@ -1,5 +1,5 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Contributors -> Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Interactive SQL editor featuring syntax highlighting, query execution, and schema auto-completion.
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -15,6 +15,7 @@ import {
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth, useConnection, useTheme } from "../../App.jsx";
+import { useRbacContext, SessionAffinityWarning } from "../rbac/OnClusterBanner.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
 import QueryPreviewPanel from "./QueryPreviewPanel.jsx";
@@ -197,6 +198,8 @@ export default function QueryEditor({
     user,
     nodeName,
   } = useConnection();
+  // Session affinity for the selected cluster. Null outside Kubernetes.
+  const affinityCtx = useRbacContext();
   // Everything that used to be a useState above now belongs to a tab. The
   // aliases below keep the names the rest of this file already uses.
   const tabs_ = useQueryTabs();
@@ -2078,6 +2081,13 @@ export default function QueryEditor({
         {paramError && !sqlCollapsed && (
           <div className="alert-banner danger" style={{ margin: "6px 16px" }}>
             <Icon className="ti ti-alert-circle" /> {paramError}
+          </div>
+        )}
+
+        {/* Consecutive queries can reach different replicas behind a load balancer. */}
+        {!sqlCollapsed && (
+          <div style={{ margin: "0 16px" }}>
+            <SessionAffinityWarning rbac={affinityCtx} />
           </div>
         )}
 
