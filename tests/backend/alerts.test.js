@@ -120,7 +120,12 @@ mock.module("../../src/backend/db/index.js", () => ({
   appSettings: {},
   dashboards:{},
   charts:{},
-  appUsers:{}
+  appUsers:{},
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
 
 mock.module("../../src/backend/services/notifier.js", () => ({
