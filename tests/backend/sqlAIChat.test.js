@@ -22,6 +22,11 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertChannels: {},
   alertRuleChannels: {},
   appSettings: {},
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
 
 mock.module("../../src/backend/servicesAI/SQLGenerationService.js", () => ({

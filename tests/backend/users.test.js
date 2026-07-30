@@ -113,6 +113,11 @@ beforeAll(async () => {
     appSettings: {},
     dashboards: {},
     charts: {},
+    // clusterUtils imports these, so a suite loading the real module after this
+    // one needs them present.
+    clusters: {},
+    clusterNodes: {},
+    k8sConnections: {},
   }));
 
   mock.module("../../src/backend/services/notifier.js", () => ({

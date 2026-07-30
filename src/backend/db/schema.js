@@ -2,8 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // CHOps v6 Drizzle ORM Schema configured for bun:sqlite with instructions for migration to Postgres.
 
-
-
 import { sqliteTable, text, integer, real, unique } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
@@ -172,7 +170,76 @@ export const chCredSession = sqliteTable("ch_cred_session", {
   jtiContext: unique("ch_cred_session_jti_context").on(t.jti, t.context),
 }));
 
+// Kubernetes support. Cluster config moved from a JSON blob to rows, so the refresh has a single writer.
 
+// One row per cluster.
+export const clusters = sqliteTable("cluster", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  kind: text("kind").notNull().default("direct"),
+  // Optimistic concurrency.
+  version: integer("version").notNull().default(1),
 
+  // Credentials at cluster level, inherited by every node that does not carry its own.
+  chUser: text("ch_user"),
+  chPasswordEnc: text("ch_password_enc"),
+  port: integer("port"),
+  secure: integer("secure", { mode: "boolean" }).notNull().default(false),
 
+  // Set only when kind is 'k8s'.
+  k8sConnectionId: text("k8s_connection_id"),
+  k8sNamespace: text("k8s_namespace"),
+  k8sInstallation: text("k8s_installation"),
+  // Which operator manages this installation: 'akoc' or 'ocko'.
+  k8sOperator: text("k8s_operator").notNull().default("akoc"),
+  lastRefreshedAt: text("last_refreshed_at"),
 
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+});
+
+// One row per node.
+export const clusterNodes = sqliteTable("cluster_node", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clusterId: text("cluster_id").notNull(),
+  name: text("name").notNull(),
+  host: text("host").notNull(),
+  port: integer("port").notNull().default(8123),
+
+  // Null means inherit from the cluster.
+  user: text("user"),
+  passwordEnc: text("password_enc"),
+
+  secure: integer("secure", { mode: "boolean" }).notNull().default(false),
+  source: text("source").notNull().default("manual"),
+
+  shard: integer("shard"),
+  replica: integer("replica"),
+  podName: text("pod_name"),
+
+  // Touched on every successful refresh.
+  lastSeenAt: text("last_seen_at"),
+
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+}, (t) => ({
+  clusterNodeName: unique("cluster_node_cluster_name").on(t.clusterId, t.name),
+}));
+
+// One row per Kubernetes cluster CHOps can read.
+export const k8sConnections = sqliteTable("k8s_connection", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  apiAddress: text("api_address").notNull(),
+  caCertificate: text("ca_certificate").notNull(),
+  tokenEnc: text("token_enc").notNull(),
+
+  // JSON array of namespace names.
+  namespacesJson: text("namespaces_json"),
+
+  // Result of the hostName() probe: whether two queries on one connection reach the same
+  affinityOk: integer("affinity_ok", { mode: "boolean" }),
+
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+});

@@ -50,12 +50,16 @@
   - Control Panel
     - [User Management](guide/admin.md#user-management)
     - [Cluster Management](guide/admin.md#cluster-management)
+    - [Connecting a Kubernetes Cluster](guide/kubernetes-connect.md)
+    - [Connecting a Cluster Managed by OCKO](guide/kubernetes-ocko.md)
+    - [The Kubernetes Page](guide/kubernetes-page.md)
     - [Storage Profiles](guide/admin.md#storage-profiles)
     - [Notification Channels](guide/alerting.md#alert-channels)
     - [App Data Backup](guide/admin.md#app-data-backup)
     - [AI API Keys](guide/ai-api-keys.md)
 - Development
   - [Testing](development/testing.md)
+  - [Kubernetes Test Cluster](development/test-cluster-setup.md)
   - [Contributing](development/contributing.md)
   - [Building a Binary](development/binary-build.md)
 - Deployment

@@ -1,6 +1,5 @@
-// MainLayout - CHOps dashboard shell (React Router + lazy loading)
-// Shell layout: navbar, sidebar, alert marquee, breadcrumb, and content area.
-// Author: Kathir Moorthy
+// MainLayout.jsx - CHOps dashboard shell with routing and lazy loading
+// Contributors -> kathir Moorthy, kathir dhasan
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import Icon from "../common/Icon.jsx";
@@ -74,6 +73,9 @@ const QuriozChatComponent = lazy(
 );
 const QueuesPage = lazy(() => import("../queues/QueuesPage.jsx"));
 const SchemaStudio = lazy(() => import("../schema-studio/SchemaStudio.jsx"));
+const KubernetesInsightPage = lazy(() =>
+  import("../kubernetes/KubernetesInsightPage.jsx"),
+);
 
 const CORE_ROUTES = [
   ["overview/cluster", ClusterOverview],
@@ -83,6 +85,7 @@ const CORE_ROUTES = [
   ["overview/operations", MergesMutations],
   ["overview/ddl", DistributedDDL],
   ["overview/queues", QueuesPage],
+  ["overview/kubernetes", KubernetesInsightPage],
   ["editor/query", SqlEditorPage],
   ["tools/profiler", QueryProfiler],
   ["tools/pipeline", ProcessorsProfile],
