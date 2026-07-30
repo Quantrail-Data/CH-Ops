@@ -1,5 +1,5 @@
 // k8sErrors.test.js - turning Kubernetes failures into messages somebody can act on
-// Contributors -> Praveen kumar, Kathir Moorthy
+// Contributors - Praveen kumar, Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { describe, it, expect } from "bun:test";
@@ -78,9 +78,12 @@ describe("classifyTransportError: network failures", () => {
     );
   });
 
-  it("does not throw when handed an error with no message", () => {
-    expect(() => classifyTransportError({})).not.toThrow();
-    expect(classifyTransportError({}).code).toBe(K8S_ERROR.UNKNOWN);
+  // The function returns an error rather than throwing one, so toThrow would be
+  // testing the runner's handling of a returned Error instead of this code.
+  it("returns a classification for an error with no message", () => {
+    const result = classifyTransportError({});
+    expect(result.code).toBe(K8S_ERROR.UNKNOWN);
+    expect(result.message).toContain("unrecognised");
   });
 
   it("carries context through into details", () => {
