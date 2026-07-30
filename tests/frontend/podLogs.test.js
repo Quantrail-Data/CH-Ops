@@ -1,6 +1,6 @@
 // podLogs.test.js - splitting, filtering and clamping for the pod log viewer
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// Contributors -> Kathirdhasan, Praveen kumar
+// Contributors - Kathirdhasan, Praveen kumar
 
 import { describe, it, expect } from "vitest";
 import {
@@ -151,12 +151,24 @@ describe("filterLines", () => {
 });
 
 describe("sinceSecondsFrom", () => {
+  // A datetime-local input produces a local-time string with no timezone, and
+  // new Date() parses it as local. Building the input with toISOString() would
+  // make it UTC, so every assertion would be off by the runner's offset.
+  function localDatetimeValue(msAgo) {
+    const d = new Date(Date.now() - msAgo);
+    const pad = (n) => String(n).padStart(2, "0");
+    return (
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+      `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    );
+  }
+
+  // The input has minute precision, so the result carries up to 60s of slack.
   it("converts an absolute time into a duration", () => {
-    const tenMinutesAgo = new Date(Date.now() - 600_000).toISOString().slice(0, 16);
-    const seconds = sinceSecondsFrom(tenMinutesAgo);
+    const seconds = sinceSecondsFrom(localDatetimeValue(600_000));
 
     expect(seconds).toBeGreaterThan(590);
-    expect(seconds).toBeLessThan(660);
+    expect(seconds).toBeLessThan(670);
   });
 
   it("returns undefined for an empty value", () => {
@@ -171,9 +183,7 @@ describe("sinceSecondsFrom", () => {
   // A future time would otherwise produce a negative window, which the API
   // rejects.
   it("returns undefined for a time in the future", () => {
-    const later = new Date(Date.now() + 600_000).toISOString().slice(0, 16);
-
-    expect(sinceSecondsFrom(later)).toBeUndefined();
+    expect(sinceSecondsFrom(localDatetimeValue(-600_000))).toBeUndefined();
   });
 });
 

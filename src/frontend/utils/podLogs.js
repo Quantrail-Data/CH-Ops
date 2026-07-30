@@ -10,11 +10,11 @@ export const LOG_LINES_MAX = 10000;
 export const LOG_LINES_STEP = 100;
 export const LOG_LINES_DEFAULT = 1000;
 
-// Every line carries an RFC3339 timestamp written by the container runtime
+// Every line carries an RFC3339 timestamp written by the container runtime, which is why entries split on it...
 const K8S_TIMESTAMP = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s(.*)$/;
 
 export function clampLines(n) {
-  // Number("abc") is NaN, and `|| 0` would turn that into zero
+  // Number("abc") is NaN, and `|| 0` would turn that into zero, which then passes the finite check and clamps...
   if (n === null || n === undefined || String(n).trim() === "") {
     return LOG_LINES_DEFAULT;
   }
@@ -46,6 +46,8 @@ export function writeSince(v) {
 // Seconds between the given local datetime and now.
 export function sinceSecondsFrom(datetimeLocal) {
   if (!datetimeLocal) return undefined;
+  // A datetime-local input has no timezone and new Date() reads it as local,
+  // which is the pairing that makes this correct in any zone.
   const from = new Date(datetimeLocal).getTime();
   if (!Number.isFinite(from)) return undefined;
   const seconds = Math.floor((Date.now() - from) / 1000);
