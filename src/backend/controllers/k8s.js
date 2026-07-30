@@ -145,7 +145,7 @@ export async function listNamespaces(req, res) {
   try {
     const { provider, connection } = providerFor(req.params.id);
 
-    // An explicit allowlist means we do not need to ask the cluster
+    // An explicit allowlist avoids asking the cluster, and works without list permission.
     if (connection.namespaces?.length) {
       return res.json({ namespaces: connection.namespaces, source: 'allowlist' });
     }
@@ -297,7 +297,7 @@ export async function importInstallation(req, res) {
     });
   }
 
-  // The display name defaults to the installation name
+  // The display name defaults to the installation name, so two namespaces can collide.
   const proposedName = (displayName?.trim() || installation).toLowerCase();
   const nameClash = existing.find((c) => c.name.trim().toLowerCase() === proposedName);
   if (nameClash) {
@@ -363,7 +363,7 @@ export async function importInstallation(req, res) {
     return res.status(201).json({
       id: cluster.id,
       hosts: nodes.length,
-      // Carried back so the interface can say what is unavailable until the credentials are
+      // Carried back so the interface can say what is unavailable until this is fixed.
       credentialCheck: credentials,
     });
   } catch (err) {
