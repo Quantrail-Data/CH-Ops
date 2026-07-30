@@ -11,6 +11,7 @@
     - [Tables & Parts](guide/tables-and-parts.md)
     - [Merges & Mutations](guide/merges-mutations.md)
     - [Queues](guide/queues.md)
+    - [Kubernetes Insights](guide/kubernetes-page.md)
     - [DDL & Readonly](guide/ddl-readonly.md)
   - SQL Tools
     - [SQL Editor](guide/sql-editor.md)
@@ -21,9 +22,10 @@
     - [Schema Studio](guide/schema-studio.md)
     - [Qurioz AI](guide/qurioz.md)
   - Custom Dashboards
-    - [Chart Builder](guide/dashboards.md#chart-builder)
-    - [My Dashboards](guide/dashboards.md#dashboards)
-    - [All Charts](guide/dashboards.md#all-charts)
+    - [Chart Builder](guide/dashboards.md#2-chart-builder)
+    - [My Dashboards](guide/dashboards.md#6-my-dashboards)
+    - [All Charts](guide/dashboards.md#8-all-charts)
+    - [Dashboard Filters](guide/dashboard-filters.md)
   - Monitoring
     - [System Dashboards](guide/monitoring.md#dashboards)
     - [Playback](guide/monitoring.md#playback)
@@ -40,6 +42,7 @@
     - [Index Management](guide/indexes.md#index-management)
   - Custom Alerts
     - [Alert Rules](guide/alerting.md#alert-rules)
+    - [Channels](guide/alerting.md#alert-channels)
   - DB RBAC
     - [View Grants](guide/rbac.md#view-grants)
     - [Users](guide/rbac.md#users)
@@ -52,7 +55,6 @@
     - [Cluster Management](guide/admin.md#cluster-management)
     - [Connecting a Kubernetes Cluster](guide/kubernetes-connect.md)
     - [Connecting a Cluster Managed by OCKO](guide/kubernetes-ocko.md)
-    - [The Kubernetes Page](guide/kubernetes-page.md)
     - [Storage Profiles](guide/admin.md#storage-profiles)
     - [Notification Channels](guide/alerting.md#alert-channels)
     - [App Data Backup](guide/admin.md#app-data-backup)

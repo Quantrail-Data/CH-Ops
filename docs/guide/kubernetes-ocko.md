@@ -145,7 +145,7 @@ spec:
 ```
 
 For an internal address rather than a public one, add the annotation for your
-cloud from [the AKOC guide](kubernetes-connect.md#8-instructions-for-each-platform).
+cloud from [the AKOC guide](kubernetes-connect.md#8-platform-by-platform).
 Those sections apply unchanged, since the annotation belongs to the cloud rather
 than the operator.
 
