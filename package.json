@@ -94,7 +94,7 @@
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "globals": "^15.0.0",
-    "jsdom": "25.0.1",
+    "jsdom": "30.0.1",
     "vite": "6.3.5",
     "vitest": "3.2.1"
   },
