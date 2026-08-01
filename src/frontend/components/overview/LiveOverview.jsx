@@ -7,7 +7,7 @@ import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import { runQuery } from "../../utils/api.js";
 import { buildChartOption } from "../dashboards/chartTypes.js";
-import { ChartCard, KpiStrip, HealthStrip, GaugeGroup, Section } from "./OverviewCards.jsx";
+import { ChartCard, KpiStrip, HealthStrip, GaugeGroup, Section, MetricDescriptions } from "./OverviewCards.jsx";
 import { fmtBytes } from "../../utils/costEstimator.js";
 import {
   METRIC_KEYS,
@@ -524,6 +524,10 @@ export function useLiveOverview() {
     live, setLive, interval, setIntervalSeconds,
     m, a, ev, hasPair, restarted, error, lastAt, loaded,
     gauges, charts, kpis, timeBreakdown, healthChips, failingChecks,
+    // ClickHouse's own words for each metric, from the description column of
+    // system.metrics / asynchronous_metrics / events. Polled on every refresh
+    // and, until now, used only for health chips.
+    descriptions,
   };
 }
 
@@ -599,12 +603,14 @@ export function LiveControlBar({ nodeName, live: s }) {
 // stat cards.
  
 export function MachineGauges({ live: s }) {
-  const { loaded, gauges } = s;
+  const { loaded, gauges, descriptions } = s;
   if (!loaded) return null;
   return (
-    <Section id="machine" icon="ti-cpu" title="Machine and server">
-      <GaugeGroup items={gauges.machine} />
-    </Section>
+    <MetricDescriptions value={descriptions}>
+      <Section id="machine" icon="ti-cpu" title="Machine and server">
+        <GaugeGroup items={gauges.machine} />
+      </Section>
+    </MetricDescriptions>
   );
 }
 
@@ -612,9 +618,13 @@ export function MachineGauges({ live: s }) {
 export default function LiveOverview({ live: s }) {
   const {
     interval, loaded, ev, gauges, charts, kpis, timeBreakdown, healthChips, failingChecks, hasPair,
+    descriptions,
   } = s;
 
   return (
+    // Supplied once here rather than threaded through every card: InfoTip reads
+    // the server's description from context and shows it beneath ours.
+    <MetricDescriptions value={descriptions}>
     <div style={{ marginBottom: 20 }}>
       {!loaded ? (
         <div className="card" style={{ padding: 32, textAlign: "center" }}>
@@ -709,7 +719,7 @@ export default function LiveOverview({ live: s }) {
             <ChartCard metricKey="background_activity" option={charts.backgroundActivity} type="bar" format="count" />
             <ChartCard metricKey="io_in_flight" option={charts.io} type="bar" format="count" />
             <ChartCard metricKey="locks" option={charts.locks} type="bar" format="count" />
-            <ChartCard title="Threads" option={charts.threads} type="bar" format="count" />
+            <ChartCard metricKey="threads" option={charts.threads} type="bar" format="count" />
             <ChartCard metricKey="memory_breakdown" option={charts.memory} type="bar" format="bytes" />
           </Grid>
           </Section>
@@ -717,8 +727,11 @@ export default function LiveOverview({ live: s }) {
           <Section id="storage" icon="ti-database" title="Storage" defaultOpen={false}>
           <Grid>
             <ChartCard metricKey="parts_by_state" option={charts.parts} type="bar" format="count" />
-            <ChartCard title="Part format" option={charts.partFormat} type="pie" format="count" />
-            <ChartCard metricKey="caches" option={{
+            <ChartCard metricKey="part_format" option={charts.partFormat} type="pie" format="count" />
+            {/* charts.caches is null when every cache is empty, so the slice
+                override has to be conditional - reaching into .series[0] threw
+                and took the whole Storage section down on a fresh server. */}
+            <ChartCard metricKey="caches" option={charts.caches && {
                       ...charts.caches,
                       series: [
                         {
@@ -752,19 +765,19 @@ export default function LiveOverview({ live: s }) {
             <Section id="in-use" icon="ti-plug" title="In use on this node" defaultOpen={false}>
               <Grid>
                 {charts.replication && (
-                  <ChartCard title="Replication queue" option={charts.replication} type="bar" format="count" />
+                  <ChartCard metricKey="replication_queue" option={charts.replication} type="bar" format="count" />
                 )}
                 {charts.tempFiles && (
-                  <ChartCard title="Temporary files" option={charts.tempFiles} type="bar" format="count" />
+                  <ChartCard metricKey="temp_files" option={charts.tempFiles} type="bar" format="count" />
                 )}
                 {charts.distributed && (
-                  <ChartCard title="Distributed inserts" option={charts.distributed} type="bar" format="count" />
+                  <ChartCard metricKey="distributed_inserts" option={charts.distributed} type="bar" format="count" />
                 )}
                 {charts.asyncInserts && (
-                  <ChartCard title="Async inserts" option={charts.asyncInserts} type="bar" format="count" />
+                  <ChartCard metricKey="async_inserts" option={charts.asyncInserts} type="bar" format="count" />
                 )}
                 {charts.kafka && (
-                  <ChartCard title="Kafka" option={charts.kafka} type="bar" format="count" />
+                  <ChartCard metricKey="kafka" option={charts.kafka} type="bar" format="count" />
                 )}
               </Grid>
             </Section>
@@ -772,6 +785,7 @@ export default function LiveOverview({ live: s }) {
         </>
       )}
     </div>
+    </MetricDescriptions>
   );
 }
 

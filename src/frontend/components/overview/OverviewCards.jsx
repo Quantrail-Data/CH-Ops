@@ -2,7 +2,7 @@
 // Card primitives for the Cluster Overview live section.
 // Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import InfoTip from "../common/InfoTip.jsx";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
@@ -12,6 +12,37 @@ import { polish, stageGauge, useIsDark } from "./overviewChart.js";
 import { NO_VALUE } from "./overviewMath.js";
 
 const GAUGE_HEIGHT = 188;
+
+// ClickHouse's own metric descriptions, supplied once by the page rather than
+// drilled through GaugeGroup, KpiStrip and every ChartCard. Defaults to empty,
+// so a card rendered outside the provider simply shows our text and no server
+// notes - the same behaviour as before this existed.
+const DescriptionsContext = createContext(null);
+
+export function MetricDescriptions({ value, children }) {
+  return <DescriptionsContext.Provider value={value || null}>{children}</DescriptionsContext.Provider>;
+}
+
+// The raw metric names a formula is built from, in the order they appear.
+// METRICS is keyed by our names (cpu_used); system.metrics is keyed by the
+// server's (OSIdleTimeNormalized), so the formula is the only thing that joins
+// the two.
+function serverNotesFor(formula) {
+  const descriptions = useContext(DescriptionsContext);
+  return useMemo(() => {
+    if (!descriptions || !formula) return [];
+    const seen = new Set();
+    const out = [];
+    for (const m of String(formula).matchAll(/[A-Z][A-Za-z0-9_]{2,}/g)) {
+      const name = m[0];
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const text = descriptions[name];
+      if (text) out.push({ name, text });
+    }
+    return out;
+  }, [descriptions, formula]);
+}
 
 const CHART_TOOLS = { zoomFun: false, resetFun: false, saveFun: true, fullscreenFun: true };
 
@@ -57,6 +88,7 @@ export function ChartCard({
   emptyMessage = "Collecting...",
 }) {
   const meta = METRICS[metricKey] || {};
+  const notes = serverNotesFor(meta.formula);
   const dark = useIsDark();
   const elRef = useRef(null);
   const instRef = useRef(null);
@@ -149,7 +181,7 @@ export function ChartCard({
         >
           {title || meta.label}
         </h3>
-        <InfoTip what={meta.what} read={meta.read} formula={meta.formula} unit={meta.unit} />
+        <InfoTip what={meta.what} read={meta.read} formula={meta.formula} unit={meta.unit} serverNotes={notes} />
         <div style={{ marginLeft: "auto", flexShrink: 0 }}>
           <ChartToolbar
             fullscreen={tools.fullscreen}
@@ -213,6 +245,7 @@ export function KpiStrip({ title, items, minWidth = 168 }) {
 
 function KpiValue({ metricKey, value }) {
   const meta = METRICS[metricKey] || {};
+  const notes = serverNotesFor(meta.formula);
   const unavailable = value === NO_VALUE || value === undefined || !Number.isFinite(value);
 
   return (
@@ -232,7 +265,9 @@ function KpiValue({ metricKey, value }) {
           gap: 4,
           fontSize: "0.6875rem",
           fontWeight: 700,
-          color: "var(--text-secondary, var(--text-muted))",
+          // Same value as the gauge captions and the chart axes. Was
+          // --text-secondary, a third shade for the same class of label.
+          color: "var(--text-primary)",
           textTransform: "uppercase",
           letterSpacing: "0.02em",
           minWidth: 0,
@@ -248,7 +283,7 @@ function KpiValue({ metricKey, value }) {
         >
           {meta.label}
         </span>
-        <InfoTip what={meta.what} read={meta.read} formula={meta.formula} unit={meta.unit} />
+        <InfoTip what={meta.what} read={meta.read} formula={meta.formula} unit={meta.unit} serverNotes={notes} />
       </div>
 
       <div
@@ -357,6 +392,7 @@ export function HealthStrip({ chips }) {
 
 function MiniGauge({ metricKey, label, value, formatter, dark }) {
   const meta = METRICS[metricKey] || {};
+  const notes = serverNotesFor(meta.formula);
   const elRef = useRef(null);
   const instRef = useRef(null);
 
@@ -415,10 +451,22 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
           alignItems: "center",
           justifyContent: "center",
           gap: 4,
+          // The label row is pulled up into the dial's empty lower arc to close
+          // the gap ECharts leaves. That overlaps the chart element, and the
+          // canvas paints after this row in document order, so without its own
+          // stacking context the canvas sits on top and eats the hover - the
+          // info icon was visible but not hoverable. ChartCard does not have
+          // this problem because its tip lives in a header above the canvas.
+          position: "relative",
+          zIndex: 1,
           marginTop: -20,
           fontSize: "0.8125rem",
           fontWeight: 600,
-          color: "var(--text-muted)",
+          // --text-primary, matching the KPI labels beside them and the chart
+          // axis labels below. This was --text-muted (#7a8ba0 in dark), which
+          // is two steps dimmer than the axis text on the same screen and made
+          // the gauge captions look faded rather than quiet.
+          color: "var(--text-primary)",
           minWidth: 0,
         }}
       >
@@ -433,7 +481,7 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
         >
           {label || meta.label}
         </span>
-        <InfoTip what={meta.what} read={meta.read} formula={meta.formula} unit={meta.unit} />
+        <InfoTip what={meta.what} read={meta.read} formula={meta.formula} unit={meta.unit} serverNotes={notes} />
       </div>
     </div>
   );
