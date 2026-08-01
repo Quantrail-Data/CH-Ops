@@ -668,6 +668,89 @@ export const METRICS = {
     better: "lower",
   },
 
+
+  // Composition charts. These were previously rendered with a literal title and
+  // no metricKey, which meant METRICS was never consulted and InfoTip - which
+  // returns null without what/read/formula - drew nothing at all.
+
+  threads: {
+    label: "Threads",
+    unit: "count",
+    source: "metrics",
+    formula: "GlobalThread, GlobalThreadActive, GlobalThreadScheduled",
+    what: "The global thread pool: how many threads exist, how many are working, how many are queued.",
+    read:
+      "Active near Total means the pool is saturated and new work waits. Scheduled climbing while " +
+      "Active is flat is the clearer warning: threads are spoken for faster than they are freed.",
+  },
+
+  part_format: {
+    label: "Part format",
+    unit: "count",
+    source: "metrics",
+    formula: "PartsWide, PartsCompact",
+    what: "How many parts are stored column-per-file (Wide) against packed into one file (Compact).",
+    read:
+      "Small inserts land Compact and become Wide as they merge, so a healthy table trends Wide. " +
+      "A Compact share that keeps growing means merges are not keeping pace with inserts.",
+  },
+
+  replication_queue: {
+    label: "Replication queue",
+    unit: "count",
+    source: "async",
+    formula: "ReplicasSumQueueSize, ReplicasSumInsertsInQueue, ReplicasSumMergesInQueue",
+    what: "Work this replica has accepted but not yet applied, summed across every replicated table.",
+    read:
+      "A queue that rises and drains is normal. One that only rises means the replica is falling " +
+      "behind, and the inserts and merges breakdown says which kind of work is stuck.",
+  },
+
+  temp_files: {
+    label: "Temporary files",
+    unit: "count",
+    source: "metrics",
+    formula: "TemporaryFilesForSort, TemporaryFilesForAggregation, TemporaryFilesForJoin, TemporaryFilesForMerge",
+    what: "Queries that ran out of memory and spilled to disk, grouped by the operation that spilled.",
+    read:
+      "Any sustained figure means queries are exceeding their memory budget and paying disk latency " +
+      "for it. The breakdown points at the fix: a sort, an aggregation or a join.",
+  },
+
+  distributed_inserts: {
+    label: "Distributed inserts",
+    unit: "count",
+    source: "metrics",
+    formula: "DistributedSend, DistributedFilesToInsert, BrokenDistributedFilesToInsert",
+    what: "Inserts through a Distributed table that are queued on disk waiting to reach their shard.",
+    read:
+      "Files queued should drain continuously. Broken files never drain on their own - they are " +
+      "inserts that failed and are parked, and they need attention rather than time.",
+  },
+
+  async_inserts: {
+    label: "Async inserts",
+    unit: "count",
+    source: "metrics",
+    formula: "AsynchronousInsertQueueSize, PendingAsyncInsert",
+    what: "Rows accepted by asynchronous insert and buffered in memory, not yet written to a part.",
+    read:
+      "A steady queue is the feature working: small inserts are being batched. A queue that grows " +
+      "without flushing means the buffer is filling faster than it drains, and those rows are not " +
+      "durable until it does.",
+  },
+
+  kafka: {
+    label: "Kafka",
+    unit: "count",
+    source: "metrics",
+    formula: "KafkaConsumers, KafkaProducers, KafkaAssignedPartitions, KafkaWrites",
+    what: "Kafka table engine activity: connections open and partitions assigned to this node.",
+    read:
+      "Assigned partitions dropping to zero while consumers stay up means this node has been " +
+      "rebalanced out of the group and is no longer ingesting, without anything erroring.",
+  },
+
 };
 
 // Curated keys. Anything not listed is dropped on arrival.
