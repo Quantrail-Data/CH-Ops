@@ -102,8 +102,15 @@ function palette(dark) {
   return {
     // The only two values that follow the theme. Everything below is fixed, so
     // a chart looks the same in both and only its labels change.
-    text: dark ? "#e2e8f0" : "#1f2937",
-    axis: dark ? "#cbd5e1" : "#374151",
+    //
+    // text and axis are deliberately the SAME value. They were #e2e8f0 and
+    // #cbd5e1, which put a bar's series labels and its axis ticks half a step
+    // apart - close enough to look like a rendering fault rather than a
+    // decision, and the axis one was the weaker of the two against a dark card.
+    // Both now match --text-primary, which is what the gauge labels beside them
+    // use, so every label on the page is one shade.
+    text: dark ? "#f5f7fa" : "#111827",
+    axis: dark ? "#f5f7fa" : "#111827",
 
     // Chosen to read on either background rather than being swapped per theme:
     // a mid grey at low opacity is visible on a dark card and on a white one.
