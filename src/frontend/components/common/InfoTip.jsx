@@ -16,14 +16,18 @@ const EDGE = 8;
  * @param {string} read     how to interpret it, the part that teaches
  * @param {string} formula  rendered in monospace so the value is checkable
  * @param {string} unit     shown after the formula
+ * @param {Array}  serverNotes  [{ name, text }] - ClickHouse's own description
+ *                 of each raw metric the formula is built from. Ours explains
+ *                 what to do about the number; the server's says what it counts,
+ *                 and the two disagree often enough to be worth showing both.
  */
-export default function InfoTip({ what, read, formula, unit }) {
+export default function InfoTip({ what, read, formula, unit, serverNotes = [] }) {
   const triggerRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, above: false });
 
   const spoken = [what, read].filter(Boolean).join(" ");
-  const hasContent = Boolean(what || read || formula);
+  const hasContent = Boolean(what || read || formula || serverNotes.length);
 
   const place = useCallback(() => {
     const el = triggerRef.current;
@@ -117,6 +121,26 @@ export default function InfoTip({ what, read, formula, unit }) {
           >
             {what && <div style={{ marginBottom: read || formula ? 6 : 0 }}>{what}</div>}
             {read && <div style={{ marginBottom: formula ? 6 : 0, opacity: 0.85 }}>{read}</div>}
+            {serverNotes.length > 0 && (
+              <div
+                style={{
+                  marginBottom: formula ? 6 : 0,
+                  paddingTop: 6,
+                  borderTop: "1px solid var(--border-default)",
+                  opacity: 0.8,
+                }}
+              >
+                {serverNotes.map((note) => (
+                  <div key={note.name} style={{ marginBottom: 3 }}>
+                    <span style={{ fontFamily: "var(--font-code)", fontSize: "0.6875rem" }}>
+                      {note.name}
+                    </span>
+                    {" - "}
+                    {note.text}
+                  </div>
+                ))}
+              </div>
+            )}
             {formula && (
               <div
                 style={{
