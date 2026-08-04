@@ -1724,6 +1724,28 @@
  }
 
  /* LOADING */
+ .queue-loading {
+   /* background-color: #0277BD; */
+   width: 100%;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   flex-direction: column;
+
+ }
+
+ .model-loading-schema {
+   position: absolute;
+   top: 0;
+   left: 0;
+   background-color: rgba(19, 19, 19, 0.117);
+   width: 100%;
+   height: 100%;
+   border-radius: 10px;
+   backdrop-filter: blur(6px);
+   -webkit-backdrop-filter: blur(6px);
+ }
+
  .loading-spinner {
    display: inline-block;
    width: 18px;
@@ -1745,6 +1767,7 @@
    gap: 12px;
    color: var(--text-muted);
    animation: fadeIn 0.4s var(--ease);
+   height: 90vh;
  }
 
  .empty-state .ti {
@@ -2280,6 +2303,20 @@
 
  /* logo component style for qurioz-logo */
 
+ .select-db-option {
+   width: 100%;
+   padding: 5px 10px;
+   margin: 3px 0px;
+   border-radius: 5px;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+ }
+
+ .select-db-option:hover {
+   background-color: rgba(179, 135, 255, 0.114);
+ }
+
  .qurioz-logo {
    width: 300px;
    opacity: 0.05;
@@ -2388,13 +2425,13 @@
  [data-theme="light"] .bottom-search-bar {
    background-color: var(--bg-page);
    /* border: 1px solid #b8b8b889; */
-   box-shadow: 0px 0px 10px lightgray;
+   box-shadow: 0px 0px 10px rgb(223, 223, 223);
  }
 
  [data-theme="dark"] .bottom-search-bar {
    background-color: var(--bg-page);
    /* border: 1px solid #8b8b8b25; */
-   box-shadow: 0px 0px 10px rgba(51, 51, 51, 0.334);
+   box-shadow: 0px 0px 10px rgba(50, 50, 50, 0.334);
  }
 
 
@@ -4415,6 +4452,13 @@
    line-height: 1;
    cursor: pointer;
    transition: background 0.15s var(--ease), opacity 0.15s var(--ease);
+ }
+
+ .mx-rows-btn i {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   margin-bottom: 5px;
  }
 
  .mx-rows-btn:hover:not(:disabled) {

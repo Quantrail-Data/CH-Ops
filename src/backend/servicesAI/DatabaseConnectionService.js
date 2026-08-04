@@ -17,13 +17,16 @@ import { db } from "../db/index";
 import { eq } from "drizzle-orm";
 import { serialize } from "./aiCredentials.js";
 
+
 class DatabaseConnectionService {
-  constructor(databaseType, credentials) {
+  constructor(databaseType, credentials, cluster_id, node_id) {
     if (databaseType !== "clickhouse") {
       throw new Error("Failed to connect ClickHouse, Invalid database_type");
     }
     this.databaseType = databaseType;
     this.credentials = credentials;
+    this.cluster_id = cluster_id;
+    this.node_id = node_id;
   }
 
   generateDatabaseId() {
@@ -67,6 +70,8 @@ class DatabaseConnectionService {
             database_type: "clickhouse",
             client: JSON.stringify(client),
             credentials: serialize(this.credentials),
+            cluster_id: this?.cluster_id,
+            node_id: this?.node_id,
           })
           .returning()
           .get();
@@ -79,7 +84,10 @@ class DatabaseConnectionService {
       // Log a fixed format string with the message as data, not the raw error
       // object as the format argument - it can carry connection internals
       // (host/user, and HTTP-client errors often attach request/config data).
-      console.error("ClickHouse connection registration failed:", error.message);
+      console.error(
+        "ClickHouse connection registration failed:",
+        error.message,
+      );
       const msg = (error.message || "").toLowerCase();
 
       // Invalid Host

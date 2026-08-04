@@ -34,6 +34,9 @@ export const PAGE_HEADERS = {
   "overview/kubernetes": [
     "Kubernetes Insights"
   ],
+  "overview/kubernetes": [
+    "Kubernetes Insights"
+  ],
   "tools/profiler": [
     "Query Profiler"
   ],
@@ -367,7 +370,6 @@ export const PAGE_TEXT = {
     "The editor holds more than one statement. Only the first one is exported.",
     "The size of this query could not be estimated.",
     "About",
-    "and roughly",
     "before compression",
     "Close",
     "Next",
@@ -477,6 +479,8 @@ export const PAGE_TEXT = {
   ],
   "tools/qurioz": [
     "Select Database",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -1148,6 +1152,8 @@ export const PAGE_TEXT = {
   ],
   "/qurioz": [
     "Select Database",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",

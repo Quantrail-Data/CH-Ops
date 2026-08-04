@@ -140,6 +140,8 @@ export function useQueryTabs() {
     Object.fromEntries(initial.current.tabs.map((t) => [t.id, blankRuntime()])),
   );
 
+  
+
   // The seeds. Held in a ref rather than state: nothing renders from them, and
   // they change on every parameter keystroke.
   const paramSeed = useRef(readJson(PARAM_SEED_KEY, {}));
@@ -212,10 +214,10 @@ export function useQueryTabs() {
   }, []);
 
   const addTab = useCallback((init = {}) => {
-    let created = null;
+    // let created = [];
     setTabs((prev) => {
       if (prev.length >= MAX_TABS) return prev;
-      created = makeTab({
+      const created = makeTab({
         name: init.name || nextTabName(prev),
         sql: init.sql || "",
         // A new tab starts from the seed, so a tenant typed once still
@@ -223,13 +225,18 @@ export function useQueryTabs() {
         params: init.params || paramSeed.current,
         explainTicked: init.explainTicked || explainSeed.current,
       });
+      // console.log(created)
+      setRuntimeAll((r) => ({ ...r, [created?.id]: blankRuntime() }));
+      setActiveId(created?.id);
       return [...prev, created];
     });
-    if (created) {
-      setRuntimeAll((r) => ({ ...r, [created.id]: blankRuntime() }));
-      setActiveId(created.id);
-    }
-    return created;
+
+    // if (created) {
+    //  console.log(created)
+    //   setRuntimeAll((r) => ({ ...r, [created.id]: blankRuntime() }));
+    //   setActiveId(created.id);
+    // }
+    // return created;
   }, []);
 
   const closeTab = useCallback((id) => {

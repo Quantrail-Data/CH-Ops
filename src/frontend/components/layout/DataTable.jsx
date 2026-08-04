@@ -319,6 +319,7 @@ export default function DataTable({
   overView = false,
   whiteSpaceFlag = false,
   isShowLogo = false,
+  minHeight = null
 }) {
   const [expandedCells, setExpandedCells] = useState(new Set());
   const [selectedCell, setSelectedCell] = useState(null);
@@ -464,6 +465,7 @@ export default function DataTable({
               maxHeight ?? (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
             ...(maxHeight || virtualize ? { overflow: "auto" } : null),
             position: "relative",
+            minHeight: minHeight ?? ""
           }
       }
     >

@@ -2,7 +2,13 @@
 // Contributors -> Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Interactive SQL editor featuring syntax highlighting, query execution, and schema auto-completion.
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { format } from "sql-formatter";
@@ -15,7 +21,10 @@ import {
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth, useConnection, useTheme } from "../../App.jsx";
-import { useRbacContext, SessionAffinityWarning } from "../rbac/OnClusterBanner.jsx";
+import {
+  useRbacContext,
+  SessionAffinityWarning,
+} from "../rbac/OnClusterBanner.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
 import QueryPreviewPanel from "./QueryPreviewPanel.jsx";
@@ -54,8 +63,8 @@ import { isValidSizeSqlQuery } from "../../utils/querySize.js";
 import ExplainOptions from "./ExplainOptions.jsx";
 import { composeStatement, settingsFor } from "./explainOptions.js";
 
-import darkLogo from "../../assets/chops-dark.svg"
-import lightLogo from "../../assets/chops-light.svg"
+import darkLogo from "../../assets/chops-dark.svg";
+import lightLogo from "../../assets/chops-light.svg";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
 const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
@@ -75,10 +84,10 @@ const EDITOR_HEIGHT_DEFAULT = 240;
 
 function getEditorHeight() {
   const n = Number(localStorage.getItem(EDITOR_HEIGHT_KEY));
-  return Number.isFinite(n) && n >= EDITOR_HEIGHT_MIN ? n : EDITOR_HEIGHT_DEFAULT;
+  return Number.isFinite(n) && n >= EDITOR_HEIGHT_MIN
+    ? n
+    : EDITOR_HEIGHT_DEFAULT;
 }
-
-
 
 const LOADING_PHRASES = [
   "Generating ClickHouse query...",
@@ -92,6 +101,96 @@ const LOADING_PHRASES = [
   "Aggregating billions of rows of thought...",
   "Synthesizing blazing-fast SQL...",
 ];
+
+function AIKeyButton({ dbdetails, dataSelectionHandler, connectDatabaseID }) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  if (!dbdetails) return null;
+  const { dbName, id, isSelected } = dbdetails;
+
+  const connecthandler = async (db) => {
+    setIsLoading(true);
+    await connectDatabaseID(db);
+    setIsLoading(false);
+  };
+
+  if (dbName && id) {
+    return (
+      <button
+        className={`btn btn-primary`}
+        style={{
+          // marginTop: "5px",/
+          padding: "3px",
+          borderRadius: "5px",
+          backgroundColor: !isSelected ? "#e0d4ffba" : undefined,
+          color: !isSelected ? "#4e4e4eba" : undefined,
+        }}
+        title={!isSelected ? "Select" : "Deselect"}
+        onClick={() => {
+          dataSelectionHandler && dataSelectionHandler(dbName);
+        }}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="icon icon-tabler icons-tabler-filled icon-tabler-bolt"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M13 2l.018 .001l.016 .001l.083 .005l.011 .002h.011l.038 .009l.052 .008l.016 .006l.011 .001l.029 .011l.052 .014l.019 .009l.015 .004l.028 .014l.04 .017l.021 .012l.022 .01l.023 .015l.031 .017l.034 .024l.018 .011l.013 .012l.024 .017l.038 .034l.022 .017l.008 .01l.014 .012l.036 .041l.026 .027l.006 .009c.12 .147 .196 .322 .218 .513l.001 .012l.002 .041l.004 .064v6h5a1 1 0 0 1 .868 1.497l-.06 .091l-8 11c-.568 .783 -1.808 .38 -1.808 -.588v-6h-5a1 1 0 0 1 -.868 -1.497l.06 -.091l8 -11l.01 -.013l.018 -.024l.033 -.038l.018 -.022l.009 -.008l.013 -.014l.04 -.036l.028 -.026l.008 -.006a1 1 0 0 1 .402 -.199l.011 -.001l.027 -.005l.074 -.013l.011 -.001l.041 -.002z" />
+        </svg>
+      </button>
+    );
+  }
+  return (
+    <button
+      className="btn btn-primary"
+      style={{
+        // marginTop: "5px",
+        padding: "3px",
+        borderRadius: "5px",
+        backgroundColor: "#3a2055fd",
+      }}
+      title="Generate database ID"
+      onClick={() => connecthandler(dbName)}
+    >
+      {isLoading ? (
+        <div
+          className="loading-spinner"
+          style={{
+            width: "12px",
+            height: "12px",
+            borderColor: "gray",
+            borderTopColor: "white",
+          }}
+        ></div>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          className="icon icon-tabler icons-tabler-outline icon-tabler-plug-connected"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1 -5 -5l1.5 -1.5" />
+          <path d="M17 12l-5 -5l1.5 -1.5a3.536 3.536 0 1 1 5 5l-1.5 1.5" />
+          <path d="M3 21l2.5 -2.5" />
+          <path d="M18.5 5.5l2.5 -2.5" />
+          <path d="M10 11l-2 2" />
+          <path d="M13 14l-2 2" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 function getHistory() {
   try {
@@ -204,8 +303,16 @@ export default function QueryEditor({
   // aliases below keep the names the rest of this file already uses.
   const tabs_ = useQueryTabs();
   const {
-    tabs, activeId, activeTab, runtime, activeRuntime, runningTabs, canAddTab,
-    updateTab, setRuntime, setParam,
+    tabs,
+    activeId,
+    activeTab,
+    runtime,
+    activeRuntime,
+    runningTabs,
+    canAddTab,
+    updateTab,
+    setRuntime,
+    setParam,
   } = tabs_;
 
   const sql = activeTab.sql;
@@ -218,13 +325,28 @@ export default function QueryEditor({
   );
 
   const {
-    result, resultCols, totalRows, truncated, error, successMsg, queryStats, memoryUsage,
-    lastQueryId, featureQueryId, estimateResult, estimating, graphData,
-    graphTitle, running,
+    result,
+    resultCols,
+    totalRows,
+    truncated,
+    error,
+    successMsg,
+    queryStats,
+    memoryUsage,
+    lastQueryId,
+    featureQueryId,
+    estimateResult,
+    estimating,
+    graphData,
+    graphTitle,
+    running,
   } = activeRuntime;
 
   // Setters bound to the ACTIVE tab, for the render tree.
-  const rt = useCallback((patch) => setRuntime(activeId, patch), [activeId, setRuntime]);
+  const rt = useCallback(
+    (patch) => setRuntime(activeId, patch),
+    [activeId, setRuntime],
+  );
   const setResult = useCallback((v) => rt({ result: v }), [rt]);
   const setResultCols = useCallback((v) => rt({ resultCols: v }), [rt]);
   const setError = useCallback((v) => rt({ error: v }), [rt]);
@@ -304,7 +426,11 @@ export default function QueryEditor({
       return;
     }
     try {
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search,
+      );
     } catch {}
   }, [tabs_, toast]);
   const setParamValue = useCallback(
@@ -361,22 +487,19 @@ export default function QueryEditor({
   maxRowsRef.current = maxRows;
   const [rowsWarn, setRowsWarn] = useState(null);
 
-  const setMaxRows = useCallback(
-    (next) => {
-      const v = clampMaxRows(next);
-      // Ask before going somewhere expensive, and only on the way UP. Coming
-      // back down is always safe and never worth interrupting.
-      if (v > MAX_ROWS_WARN && v > maxRowsRef.current) {
-        setRowsWarn(v);
-        return;
-      }
-      setMaxRowsState(v);
-      try {
-        localStorage.setItem(MAX_ROWS_KEY, String(v));
-      } catch {}
-    },
-    [],
-  );
+  const setMaxRows = useCallback((next) => {
+    const v = clampMaxRows(next);
+    // Ask before going somewhere expensive, and only on the way UP. Coming
+    // back down is always safe and never worth interrupting.
+    if (v > MAX_ROWS_WARN && v > maxRowsRef.current) {
+      setRowsWarn(v);
+      return;
+    }
+    setMaxRowsState(v);
+    try {
+      localStorage.setItem(MAX_ROWS_KEY, String(v));
+    } catch {}
+  }, []);
   const [dbs, setDbs] = useState([]);
   const [selectedDb, setSelectedDb] = useState(null);
   const [tables, setTables] = useState([]);
@@ -395,9 +518,10 @@ export default function QueryEditor({
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
-
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
   const [aiError, setAIError] = useState(null);
+
+  const [AIdbsInfo, setAIdbsInfo] = useState([]);
 
   // default cred password view flag
   const [isViewFlag, setIsViewFlag] = useState(false);
@@ -598,7 +722,6 @@ export default function QueryEditor({
     };
   }, [graphData, graphZoomLevel, graphTitle]);
 
-
   function graphDownload() {
     if (!graphInst.current) return;
     const url = graphInst.current.getDataURL({
@@ -626,8 +749,8 @@ export default function QueryEditor({
   // candidate keeps its kind all the way to the popup.
   const [acWords, setAcWords] = useState([]);
   const [sqlDialectData, setSqlDialectData] = useState(null);
-  const [ddlModal, setDdlModal] = useState(null); 
-  const [panel, setPanel] = useState(null); 
+  const [ddlModal, setDdlModal] = useState(null);
+  const [panel, setPanel] = useState(null);
   const [history, setHistory] = useState(() => getHistory());
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarkName, setBookmarkName] = useState("");
@@ -654,67 +777,6 @@ export default function QueryEditor({
   }, []);
 
   const { theme } = useTheme();
-
-  async function initSetup() {
-    const isExits = localStorage?.getItem(SELECTLSKEY);
-
-    if (isExits === undefined || isExits === null) {
-      let clusterAiId = {};
-      clusters?.forEach((value) => {
-        let nodeObj = {};
-        value?.nodes?.forEach((node) => {
-          nodeObj[node?.name] = [];
-        });
-        clusterAiId[value?.id] = nodeObj;
-      });
-
-      localStorage.setItem(SELECTLSKEY, JSON.stringify(clusterAiId));
-      return;
-    }
-
-    const selectDB = JSON.parse(localStorage?.getItem(SELECTLSKEY));
-    let updateCluster = { ...selectDB };
-
-    clusters.forEach((value) => {
-      const find = Object?.keys(selectDB).includes(value?.id);
-      if (find) {
-        let newNodes = {};
-        value?.nodes?.forEach((node) => {
-          const isInOldNodes = Object.keys(updateCluster[value?.id]).find(
-            (val) => val === node?.name,
-          );
-          if (!isInOldNodes) {
-            newNodes[node?.name] = [];
-          }
-        });
-        updateCluster[value?.id] = { ...selectDB[value?.id], ...newNodes };
-      } else {
-        let nodeObj = {};
-        value?.nodes?.forEach((node) => {
-          nodeObj[node?.name] = [];
-        });
-        updateCluster[value?.id] = nodeObj;
-      }
-    });
-    localStorage?.setItem(SELECTLSKEY, JSON.stringify(updateCluster));
-
-    if (Object.keys(updateCluster).length > 0) {
-      const SelectedClusterAndNode = updateCluster[selectedClusterId][nodeName];
-      SelectedClusterAndNode?.forEach((dbsConnections) => {
-        if (dbsConnections?.isSelected) {
-          setSelectedAIDB(dbsConnections?.dbName);
-          setSelectedAIDBID(dbsConnections?.ai_id);
-        }
-      });
-
-      return;
-    }
-
-    setSelectedAIDB(null);
-    setSelectedAIDBID(null);
-
-    return;
-  }
 
   useEffect(() => {
     featureQueryIdRef.current = featureQueryId;
@@ -753,20 +815,18 @@ export default function QueryEditor({
       await editorConnect(candidate);
       setEditorCreds({ user: candidate.user });
       setConnPassword("");
-      toast.success("DB connected succesfully")
+      toast.success("DB connected succesfully");
     } catch (e) {
-      toast.error(e.message)
+      toast.error(e.message);
     } finally {
       setConnecting(false);
     }
   }
 
-
   async function handleDisconnect() {
     try {
       await editorDisconnect();
-    } catch {
-    }
+    } catch {}
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");
@@ -801,13 +861,152 @@ export default function QueryEditor({
     }
   }
 
-  const loadDbs = useCallback(() => {
+  // const loadDbs = useCallback(() => {
+  //   const creds = editorCredsRef.current;
+  //   if (!creds) return;
+  //   runEditorQuery("SELECT name FROM system.databases ORDER BY name", creds)
+  //     .then((r) => setDbs((r.rows || []).map((r) => r.name)))
+  //     .catch(() => {});
+
+  // }, []);
+
+  const fetchDatabaseDetails = (creds) =>
+    new Promise((res, rej) => {
+      runEditorQuery("SELECT name FROM system.databases ORDER BY name", creds)
+        .then((r) => {
+          return res((r.rows || []).map((rs) => rs.name));
+        })
+        .catch(() => {
+          return rej([]);
+        });
+    });
+
+  const initSetup = async (dbs) => {
+    try {
+      const response = await apiFetch("/api/ai/database/generated/databaseid", {
+        method: "POST",
+        body: JSON.stringify({
+          cluster_id: selectedClusterId,
+          node_id: nodeName,
+        }),
+      });
+
+      if (response?.success) {
+        const dbObject = Object.fromEntries(
+          response?.databaseIDs
+            ?.map((_v) => {
+              const cred = JSON.parse(_v?.credentials);
+              return {
+                db: cred?.database,
+                id: _v?.database_id,
+              };
+            })
+            .map((db) => [db.db, db.id]),
+        );
+        setAIdbsInfo(
+          dbs?.map((_v) => {
+            const find = Object?.keys(dbObject).includes(_v);
+            if (!find) {
+              return {
+                dbName: _v,
+                id: null,
+                isSelected: false,
+              };
+            }
+
+            return {
+              dbName: _v,
+              id: dbObject[_v],
+              isSelected: true,
+            };
+          }),
+        );
+      }
+    } catch (err) {
+      console.log(err?.message);
+    }
+  };
+
+  const isFindDatabase = (dbname) => {
+    if (!dbname) return null;
+    const find = AIdbsInfo?.filter((_v) => {
+      return _v?.dbName === dbname;
+    });
+    return find?.length > 0 ? find[0] : null;
+  };
+
+  const connectDatabaseID = async (dbName) => {
+    try {
+      const requestBody = JSON.stringify({
+        database_type: "clickhouse",
+        credentials: { port, username: user, host: selectedNode },
+        databases: [dbName] || [],
+        cluster_id: selectedClusterId,
+        node_id: nodeName,
+      });
+
+      const responseInsert = await apiFetch("/api/ai/database/connect", {
+        method: "POST",
+        body: requestBody,
+      });
+
+      if (responseInsert?.success) {
+        const dbObject = Object.fromEntries(
+          responseInsert?.database_id?.map((db) => [
+            db.database,
+            db.databaseId,
+          ]),
+        );
+        setAIdbsInfo((prev) =>
+          prev?.map((_v) => {
+            const find = Object?.keys(dbObject).includes(_v?.dbName);
+            if (!find) {
+              if (_v?.isSelected || _v?.id !== null) {
+                return _v;
+              }
+              return {
+                dbName: _v?.dbName,
+                id: null,
+                isSelected: false,
+              };
+            }
+
+            return {
+              dbName: _v?.dbName,
+              id: dbObject[_v?.dbName],
+              isSelected: true,
+            };
+          }),
+        );
+
+        toast?.success(`Database ID is created successfully!`);
+      } else {
+        toast?.error(
+          `Failed to connect to the database : ${dbName}. Please try again.`,
+        );
+      }
+    } catch (err) {
+      toast?.error(
+        `Failed to connect to the database : ${dbName}. Please try again.`,
+      );
+    }
+  };
+
+  const dataSelectionHandler = (dbname) => {
+    setAIdbsInfo((prev) =>
+      prev?.map((_v) =>
+        _v?.dbName === dbname ? { ..._v, isSelected: !_v?.isSelected } : _v,
+      ),
+    );
+  };
+
+  const loadDbs = useCallback(async () => {
     const creds = editorCredsRef.current;
     if (!creds) return;
-    runEditorQuery("SELECT name FROM system.databases ORDER BY name", creds)
-      .then((r) => setDbs((r.rows || []).map((r) => r.name)))
-      .catch(() => {});
-    initSetup();
+    const response = await fetchDatabaseDetails(creds);
+    setDbs(response);
+
+    initSetup(response);
   }, []);
 
   async function loadBookmarks() {
@@ -851,9 +1050,6 @@ export default function QueryEditor({
     });
   }
 
-
-
-
   useEffect(() => {
     lastQueryIdRef.current = lastQueryId;
   }, [lastQueryId]);
@@ -861,7 +1057,6 @@ export default function QueryEditor({
   useEffect(() => {
     editorCredsRef.current = editorCreds;
   }, [editorCreds]);
-
 
   useEffect(() => {
     let cancelled = false;
@@ -882,7 +1077,6 @@ export default function QueryEditor({
   useEffect(() => {
     loadBookmarks();
   }, []);
-
 
   useEffect(() => {
     if (!editorConnected) return;
@@ -926,10 +1120,6 @@ export default function QueryEditor({
       .finally(() => setTablesLoading(false));
   }, [selectedDb, editorConnected]);
 
-
-
-
-
   function parseDotGraph(dotText) {
     const nodes = new Map();
     const links = [];
@@ -957,7 +1147,6 @@ export default function QueryEditor({
     return { nodes: [...nodes.values()], links };
   }
 
-
   function handleSessionExpiry(e) {
     if (e?.code === "CRED_SESSION_EXPIRED") {
       setEditorCreds(null);
@@ -970,7 +1159,7 @@ export default function QueryEditor({
     return false;
   }
 
- const [paramError, setParamError] = useState(null);
+  const [paramError, setParamError] = useState(null);
   const params = useMemo(() => {
     try {
       const p = findParameters(sql);
@@ -986,12 +1175,10 @@ export default function QueryEditor({
     (p) => p.required && !hasValue(paramValues[p.name]),
   );
 
-
   // Per tab, seeded from the shared preference.
   function toggleExplainOption(key) {
     tabs_.toggleExplainOption(activeId, key);
   }
-
 
   /* Run the visible tab. */
   const runActiveTab = useCallback(() => {
@@ -1007,71 +1194,92 @@ export default function QueryEditor({
     setRunConfirm({ id, names: busy.map((t) => t.name).join(", ") });
   }, []);
 
-  const doRun = useCallback(async (runTabId) => {
-    // EVERYTHING BELOW IS SCOPED TO ONE TAB.
-    const tabId = runTabId || activeIdRef.current;
-    const runTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
-    const rowCap = maxRowsRef.current;
+  const doRun = useCallback(
+    async (runTabId) => {
+      // EVERYTHING BELOW IS SCOPED TO ONE TAB.
+      const tabId = runTabId || activeIdRef.current;
+      const runTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
+      const rowCap = maxRowsRef.current;
 
-    const sql = runTab.sql;
-    const paramValues = runTab.params;
-    const explainTicked = runTab.explainTicked;
-    const ExplainOptionSelector = { type: runTab.explainType };
-    const missingRequired = findParameters(sql).some(
-      (p) => p.required && !hasValue(paramValues[p.name]),
-    );
+      const sql = runTab.sql;
+      const paramValues = runTab.params;
+      const explainTicked = runTab.explainTicked;
+      const ExplainOptionSelector = { type: runTab.explainType };
+      const missingRequired = findParameters(sql).some(
+        (p) => p.required && !hasValue(paramValues[p.name]),
+      );
 
-    const set = (patch) => setRuntime(tabId, patch);
-    // Caps what is HELD, not what is shown.
-    const setResult = (v) => {
-      if (!Array.isArray(v)) {
-        set({ result: v, totalRows: 0, truncated: false });
+      const set = (patch) => setRuntime(tabId, patch);
+      // Caps what is HELD, not what is shown.
+      const setResult = (v) => {
+        if (!Array.isArray(v)) {
+          set({ result: v, totalRows: 0, truncated: false });
+          return;
+        }
+        // The request asks for one more than the cap, so receiving that extra row
+        // is how we know the server had more to give.
+        const truncated = v.length > rowCap;
+        set({
+          result: truncated ? v.slice(0, rowCap) : v,
+          totalRows: truncated ? rowCap : v.length,
+          truncated,
+          // Remembered per result, so the notice reports the limit that was in
+          // force when it ran rather than whatever the control says now.
+          rowCap,
+        });
+      };
+      const setResultCols = (v) => set({ resultCols: v });
+      const setError = (v) => set({ error: v });
+      const setSuccessMsg = (v) => set({ successMsg: v });
+      const setQueryStats = (v) => set({ queryStats: v });
+      const setMemoryUsage = (v) => set({ memoryUsage: v });
+      const setLastQueryId = (v) => set({ lastQueryId: v });
+      const setFeatureQueryId = (v) => set({ featureQueryId: v });
+      const setEstimateResult = (v) => set({ estimateResult: v });
+      const setEstimating = (v) => set({ estimating: v });
+      const setGraphData = (v) => set({ graphData: v });
+      const setGraphTitle = (v) => set({ graphTitle: v });
+      const setRunning = (v) => set({ running: v });
+
+      // HAZARD 4.
+      const setGraphFullscreen = (v) => {
+        if (tabId === activeIdRef.current) setGraphFullscreenShared(v);
+      };
+
+      const text = sql.trim();
+      if (!text) return;
+      if (!editorConnected) {
+        setError("Connect with your ClickHouse credentials first.");
         return;
       }
-      // The request asks for one more than the cap, so receiving that extra row
-      // is how we know the server had more to give.
-      const truncated = v.length > rowCap;
-      set({
-        result: truncated ? v.slice(0, rowCap) : v,
-        totalRows: truncated ? rowCap : v.length,
-        truncated,
-        // Remembered per result, so the notice reports the limit that was in
-        // force when it ran rather than whatever the control says now.
-        rowCap,
-      });
-    };
-    const setResultCols = (v) => set({ resultCols: v });
-    const setError = (v) => set({ error: v });
-    const setSuccessMsg = (v) => set({ successMsg: v });
-    const setQueryStats = (v) => set({ queryStats: v });
-    const setMemoryUsage = (v) => set({ memoryUsage: v });
-    const setLastQueryId = (v) => set({ lastQueryId: v });
-    const setFeatureQueryId = (v) => set({ featureQueryId: v });
-    const setEstimateResult = (v) => set({ estimateResult: v });
-    const setEstimating = (v) => set({ estimating: v });
-    const setGraphData = (v) => set({ graphData: v });
-    const setGraphTitle = (v) => set({ graphTitle: v });
-    const setRunning = (v) => set({ running: v });
+      if (missingRequired) {
+        setError("Fill in every required parameter before running.");
+        return;
+      }
 
-    // HAZARD 4.
-    const setGraphFullscreen = (v) => {
-      if (tabId === activeIdRef.current) setGraphFullscreenShared(v);
-    };
+      if (!isValidSizeSqlQuery(text)) {
+        toast.warning("SQL content exceeds the 100 KB limit.");
+        setRunning(false);
+        setError(null);
+        setResult(null);
+        setResultCols([]);
+        setSuccessMsg(null);
+        setGraphData(null);
+        setGraphTitle("");
+        setQueryStats(null);
+        setEstimateResult(null);
+        setEstimating(false);
+        setLastQueryId(null);
+        setFeatureQueryId(null);
+        setMemoryUsage(null);
+        return;
+      }
 
-    const text = sql.trim();
-    if (!text) return;
-    if (!editorConnected) {
-      setError("Connect with your ClickHouse credentials first.");
-      return;
-    }
-    if (missingRequired) {
-      setError("Fill in every required parameter before running.");
-      return;
-    }
+      lastSqlRef.current = text;
 
-    if (!isValidSizeSqlQuery(text)) {
-      toast.warning("SQL content exceeds the 100 KB limit.");
-      setRunning(false);
+      lastRunMetaRef.current = { written: 0 };
+
+      setRunning(true);
       setError(null);
       setResult(null);
       setResultCols([]);
@@ -1084,262 +1292,249 @@ export default function QueryEditor({
       setLastQueryId(null);
       setFeatureQueryId(null);
       setMemoryUsage(null);
-      return;
-    }
+      const tPrev = memoryTimers.current.get(tabId);
+      if (tPrev) clearTimeout(tPrev);
 
-    lastSqlRef.current = text;
+      try {
+        const isExplain =
+          ExplainOptionSelector.type !== null &&
+          ExplainOptionSelector.type !== "" &&
+          ExplainOptionSelector.type !== "GENERAL RUN";
+        const validExplain = isExplain
+          ? `${composeStatement(ExplainOptionSelector.type, explainTicked)} ${text}`
+          : text;
 
-    lastRunMetaRef.current = { written: 0 };
+        // Required settings travel as request settings, never appended to the
+        // user's SQL as a SETTINGS clause.
+        const r = await runEditorQuery(validExplain, editorCreds, {
+          params: paramValues,
+          settings: {
+            ...(isExplain ? settingsFor(explainTicked) : {}),
+            // STOP THE SERVER SENDING ROWS WE ARE GOING TO THROW AWAY.
+            max_result_rows: rowCap + 1,
+            // Stop cleanly at the limit instead of raising
+            // TOO_MANY_ROWS_OR_BYTES, which is what the default does.
+            result_overflow_mode: "break",
+          },
+        });
+        if (r.stats) setQueryStats(r.stats);
 
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    setResultCols([]);
-    setSuccessMsg(null);
-    setGraphData(null);
-    setGraphTitle("");
-    setQueryStats(null);
-    setEstimateResult(null);
-    setEstimating(false);
-    setLastQueryId(null);
-    setFeatureQueryId(null);
-    setMemoryUsage(null);
-    const tPrev = memoryTimers.current.get(tabId);
-    if (tPrev) clearTimeout(tPrev);
+        const qid = r.queryId || null;
+        setLastQueryId(qid);
+        setFeatureQueryId(qid);
 
-    try {
-      const isExplain =
-        ExplainOptionSelector.type !== null &&
-        ExplainOptionSelector.type !== "" &&
-        ExplainOptionSelector.type !== "GENERAL RUN";
-      const validExplain = isExplain
-        ? `${composeStatement(ExplainOptionSelector.type, explainTicked)} ${text}`
-        : text;
-
-      // Required settings travel as request settings, never appended to the
-      // user's SQL as a SETTINGS clause.
-      const r = await runEditorQuery(validExplain, editorCreds, {
-        params: paramValues,
-        settings: {
-          ...(isExplain ? settingsFor(explainTicked) : {}),
-          // STOP THE SERVER SENDING ROWS WE ARE GOING TO THROW AWAY.
-          max_result_rows: rowCap + 1,
-          // Stop cleanly at the limit instead of raising
-          // TOO_MANY_ROWS_OR_BYTES, which is what the default does.
-          result_overflow_mode: "break",
-        },
-      });
-      if (r.stats) setQueryStats(r.stats);
-
-
-      const qid = r.queryId || null;
-      setLastQueryId(qid);
-      setFeatureQueryId(qid);
-
-    
-      if (qid) {
-        const capturedQid = qid;
-        // HAZARDS 1 and 2.
-        memoryTimers.current.set(
-          tabId,
-          setTimeout(async () => {
-            const cur = () => runtimeRef.current[tabId]?.lastQueryId;
-            if (cur() !== capturedQid) return;
-            const mem = await lookupMemoryUsage(capturedQid, editorCredsRef.current);
-            if (cur() === capturedQid && mem != null) setMemoryUsage(mem);
-          }, 300),
-        );
-      }
-
-      const extractWritten = (res) => {
-        if (!res) return 0;
-        if (res.stats) {
-          const s = res.stats;
-          if (s.written_rows) return Number(s.written_rows);
-          if (s.written_rows_count) return Number(s.written_rows_count);
-          if (s.written) return Number(s.written);
+        if (qid) {
+          const capturedQid = qid;
+          // HAZARDS 1 and 2.
+          memoryTimers.current.set(
+            tabId,
+            setTimeout(async () => {
+              const cur = () => runtimeRef.current[tabId]?.lastQueryId;
+              if (cur() !== capturedQid) return;
+              const mem = await lookupMemoryUsage(
+                capturedQid,
+                editorCredsRef.current,
+              );
+              if (cur() === capturedQid && mem != null) setMemoryUsage(mem);
+            }, 300),
+          );
         }
-        if (typeof res.written_rows !== "undefined")
-          return Number(res.written_rows) || 0;
-        if (typeof res.rows_written !== "undefined")
-          return Number(res.rows_written) || 0;
-        if (typeof res.inserted_rows !== "undefined")
-          return Number(res.inserted_rows) || 0;
-        if (typeof res.affected_rows !== "undefined")
-          return Number(res.affected_rows) || 0;
-        if (typeof res.row_count !== "undefined")
-          return Number(res.row_count) || 0;
-        if (
-          Array.isArray(res.rows) &&
-          res.rows.length === 0 &&
-          res.stats &&
-          res.stats.written_rows
-        )
-          return Number(res.stats.written_rows);
-        return 0;
-      };
-      const written = extractWritten(r);
-      lastRunMetaRef.current = { written };
 
-      if (r.rows?.length > 0) {
-        const firstVal = Object.values(r.rows[0])[0] || "";
-        const allText = r.rows
-          .map((row) => Object.values(row)[0] || "")
-          .join("\n");
-        if (
-          typeof firstVal === "string" &&
-          (allText.includes("digraph") || allText.includes("->"))
-        ) {
-          const parsed = parseDotGraph(allText);
-          if (parsed.nodes.length > 0) {
-            const isAstGraph = String(ExplainOptionSelector.type || "")
-              .toUpperCase()
-              .includes("EXPLAIN AST");
-            const isPipelineGraph = String(ExplainOptionSelector.type || "")
-              .toUpperCase()
-              .includes("EXPLAIN PIPELINE");
-            setGraphTitle(
-              isAstGraph
-                ? "AST Graph"
-                : isPipelineGraph
-                  ? "Pipeline Graph"
-                  : "EXPLAIN Graph",
-            );
-            setGraphData(parsed);
-            setGraphFullscreen(true);
-            setResult(r.rows);
-            setResultCols(r.columns || []);
-            setRunning(false);
-            return;
+        const extractWritten = (res) => {
+          if (!res) return 0;
+          if (res.stats) {
+            const s = res.stats;
+            if (s.written_rows) return Number(s.written_rows);
+            if (s.written_rows_count) return Number(s.written_rows_count);
+            if (s.written) return Number(s.written);
           }
-        }
-        if (
-          typeof firstVal === "string" &&
-          (firstVal.trim().startsWith("{") || firstVal.trim().startsWith("["))
-        ) {
-          try {
-            const parsed = JSON.parse(allText);
-            setResult(r.rows);
-            setResultCols(r.columns || []);
-            setGraphData({ _json: true, data: parsed });
-            setRunning(false);
-            return;
-          } catch {
+          if (typeof res.written_rows !== "undefined")
+            return Number(res.written_rows) || 0;
+          if (typeof res.rows_written !== "undefined")
+            return Number(res.rows_written) || 0;
+          if (typeof res.inserted_rows !== "undefined")
+            return Number(res.inserted_rows) || 0;
+          if (typeof res.affected_rows !== "undefined")
+            return Number(res.affected_rows) || 0;
+          if (typeof res.row_count !== "undefined")
+            return Number(res.row_count) || 0;
+          if (
+            Array.isArray(res.rows) &&
+            res.rows.length === 0 &&
+            res.stats &&
+            res.stats.written_rows
+          )
+            return Number(res.stats.written_rows);
+          return 0;
+        };
+        const written = extractWritten(r);
+        lastRunMetaRef.current = { written };
+
+        if (r.rows?.length > 0) {
+          const firstVal = Object.values(r.rows[0])[0] || "";
+          const allText = r.rows
+            .map((row) => Object.values(row)[0] || "")
+            .join("\n");
+          if (
+            typeof firstVal === "string" &&
+            (allText.includes("digraph") || allText.includes("->"))
+          ) {
+            const parsed = parseDotGraph(allText);
+            if (parsed.nodes.length > 0) {
+              const isAstGraph = String(ExplainOptionSelector.type || "")
+                .toUpperCase()
+                .includes("EXPLAIN AST");
+              const isPipelineGraph = String(ExplainOptionSelector.type || "")
+                .toUpperCase()
+                .includes("EXPLAIN PIPELINE");
+              setGraphTitle(
+                isAstGraph
+                  ? "AST Graph"
+                  : isPipelineGraph
+                    ? "Pipeline Graph"
+                    : "EXPLAIN Graph",
+              );
+              setGraphData(parsed);
+              setGraphFullscreen(true);
+              setResult(r.rows);
+              setResultCols(r.columns || []);
+              setRunning(false);
+              return;
+            }
+          }
+          if (
+            typeof firstVal === "string" &&
+            (firstVal.trim().startsWith("{") || firstVal.trim().startsWith("["))
+          ) {
             try {
-              const unescaped = allText
-                .replace(/\\n/g, "\n")
-                .replace(/\\t/g, "\t");
-              const parsed = JSON.parse(unescaped);
+              const parsed = JSON.parse(allText);
               setResult(r.rows);
               setResultCols(r.columns || []);
               setGraphData({ _json: true, data: parsed });
               setRunning(false);
               return;
-            } catch {}
+            } catch {
+              try {
+                const unescaped = allText
+                  .replace(/\\n/g, "\n")
+                  .replace(/\\t/g, "\t");
+                const parsed = JSON.parse(unescaped);
+                setResult(r.rows);
+                setResultCols(r.columns || []);
+                setGraphData({ _json: true, data: parsed });
+                setRunning(false);
+                return;
+              } catch {}
+            }
           }
+          setResult(r.rows);
+          setResultCols(r.columns || []);
+        } else if (isDataQuery(text)) {
+          setResult([]);
+          setResultCols(r.columns || []);
+          setSuccessMsg(null);
+        } else {
+          const firstWord = analyzeSql(text).statements[0]?.keyword || "";
+          const msgs = {
+            CREATE: "Created successfully.",
+            INSERT: "Insert executed successfully.",
+            ALTER: "Altered successfully.",
+            DROP: "Dropped successfully.",
+            GRANT: "Granted successfully.",
+            REVOKE: "Revoked successfully.",
+            SYSTEM: "System command executed.",
+            OPTIMIZE: "Optimize executed.",
+            TRUNCATE: "Truncated successfully.",
+            KILL: "Kill executed.",
+          };
+          let baseMsg = msgs[firstWord] || "Query executed successfully.";
+          if (written && written > 0) {
+            baseMsg = `${baseMsg} ${written.toLocaleString()} row(s) affected.`;
+          }
+          setSuccessMsg(baseMsg);
+          setResult([]);
+          setResultCols([]);
+          setShowLogo(true);
         }
-        setResult(r.rows);
-        setResultCols(r.columns || []);
-      } else if (isDataQuery(text)) {
-       
-        setResult([]);
-        setResultCols(r.columns || []);
-        setSuccessMsg(null);
-      } else {
-        const firstWord = analyzeSql(text).statements[0]?.keyword || "";
-        const msgs = {
-          CREATE: "Created successfully.",
-          INSERT: "Insert executed successfully.",
-          ALTER: "Altered successfully.",
-          DROP: "Dropped successfully.",
-          GRANT: "Granted successfully.",
-          REVOKE: "Revoked successfully.",
-          SYSTEM: "System command executed.",
-          OPTIMIZE: "Optimize executed.",
-          TRUNCATE: "Truncated successfully.",
-          KILL: "Kill executed.",
-        };
-        let baseMsg = msgs[firstWord] || "Query executed successfully.";
-        if (written && written > 0) {
-          baseMsg = `${baseMsg} ${written.toLocaleString()} row(s) affected.`;
-        }
-        setSuccessMsg(baseMsg);
-        setResult([]);
-        setResultCols([]);
-        setShowLogo(true);
+      } catch (e) {
+        handleSessionExpiry(e);
+        setError(e.message);
+        setFeatureQueryId(null);
       }
-    } catch (e) {
-      handleSessionExpiry(e);
-      setError(e.message);
-      setFeatureQueryId(null);
-    }
-    setRunning(false);
+      setRunning(false);
 
-    // History, written HERE rather than in an effect.
-    if (lastSqlRef.current) {
-      const finished = runtimeRef.current[tabId] || {};
-      addHistory({
-        sql: lastSqlRef.current,
-        timestamp: new Date().toISOString(),
-        rows: finished.totalRows || lastRunMetaRef.current?.written || 0,
-        status: finished.error ? "error" : "ok",
-        error: finished.error ? String(finished.error).substring(0, 200) : null,
-        elapsed: finished.queryStats?.elapsed_ns
-          ? (Number(finished.queryStats.elapsed_ns) / 1e9).toFixed(3) + "s"
-          : null,
-      });
-      setHistory(getHistory());
-      lastSqlRef.current = "";
-      lastRunMetaRef.current = { written: 0 };
-    }
-  }, [editorConnected, editorCreds, activeTab, setRuntime, toast]);
+      // History, written HERE rather than in an effect.
+      if (lastSqlRef.current) {
+        const finished = runtimeRef.current[tabId] || {};
+        addHistory({
+          sql: lastSqlRef.current,
+          timestamp: new Date().toISOString(),
+          rows: finished.totalRows || lastRunMetaRef.current?.written || 0,
+          status: finished.error ? "error" : "ok",
+          error: finished.error
+            ? String(finished.error).substring(0, 200)
+            : null,
+          elapsed: finished.queryStats?.elapsed_ns
+            ? (Number(finished.queryStats.elapsed_ns) / 1e9).toFixed(3) + "s"
+            : null,
+        });
+        setHistory(getHistory());
+        lastSqlRef.current = "";
+        lastRunMetaRef.current = { written: 0 };
+      }
+    },
+    [editorConnected, editorCreds, activeTab, setRuntime, toast],
+  );
   doRunRef.current = doRun;
 
-  const doEstimate = useCallback(async (estTabId) => {
-    // Scoped to one tab like doRun, so switching tabs mid-estimate does not
-    // drop the answer into the visible tab.
-    const tabId = estTabId || activeIdRef.current;
-    const estTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
-    const sql = estTab.sql;
-    const set = (patch) => setRuntime(tabId, patch);
-    const setEstimateResult = (v) => set({ estimateResult: v });
-    const setEstimating = (v) => set({ estimating: v });
-    const setError = (v) => set({ error: v });
-    const text =
-      sql.trim().split("*/").length > 1
-        ? sql.trim().split("*/")[1]
-        : sql?.trim();
+  const doEstimate = useCallback(
+    async (estTabId) => {
+      // Scoped to one tab like doRun, so switching tabs mid-estimate does not
+      // drop the answer into the visible tab.
+      const tabId = estTabId || activeIdRef.current;
+      const estTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
+      const sql = estTab.sql;
+      const set = (patch) => setRuntime(tabId, patch);
+      const setEstimateResult = (v) => set({ estimateResult: v });
+      const setEstimating = (v) => set({ estimating: v });
+      const setError = (v) => set({ error: v });
+      const text =
+        sql.trim().split("*/").length > 1
+          ? sql.trim().split("*/")[1]
+          : sql?.trim();
 
-    if (!text) return;
-    if (!editorConnected) {
-      setError("Connect with your ClickHouse credentials first.");
-      return;
-    }
+      if (!text) return;
+      if (!editorConnected) {
+        setError("Connect with your ClickHouse credentials first.");
+        return;
+      }
 
-    setEstimating(true);
+      setEstimating(true);
 
-    setEstimating(true);
-    setEstimateResult(null);
-    setResult(null);
-    setResultCols([]);
-    setError(null);
-    setSuccessMsg(null);
-    setGraphData(null);
-    setQueryStats(null);
-    setLastQueryId(null);
-    setFeatureQueryId(null);
-    setMemoryUsage(null);
+      setEstimating(true);
+      setEstimateResult(null);
+      setResult(null);
+      setResultCols([]);
+      setError(null);
+      setSuccessMsg(null);
+      setGraphData(null);
+      setQueryStats(null);
+      setLastQueryId(null);
+      setFeatureQueryId(null);
+      setMemoryUsage(null);
 
-    try {
-      const est = await runEstimate(text, editorCreds);
-      setEstimateResult(est);
-    } catch (e) {
-      handleSessionExpiry(e);
-      setError("Estimate failed: " + e.message);
-    } finally {
-      setEstimating(false);
-    }
-  }, [editorConnected, editorCreds, activeTab, setRuntime]);
+      try {
+        const est = await runEstimate(text, editorCreds);
+        setEstimateResult(est);
+      } catch (e) {
+        handleSessionExpiry(e);
+        setError("Estimate failed: " + e.message);
+      } finally {
+        setEstimating(false);
+      }
+    },
+    [editorConnected, editorCreds, activeTab, setRuntime],
+  );
 
   // The history effect that used to live here is gone.
 
@@ -1355,7 +1550,8 @@ export default function QueryEditor({
     if (saveDefaults) {
       const defaults = {};
       for (const p of params) {
-        if (hasValue(paramValues[p.name])) defaults[p.name] = paramValues[p.name];
+        if (hasValue(paramValues[p.name]))
+          defaults[p.name] = paramValues[p.name];
       }
       if (Object.keys(defaults).length) entry.defaults = defaults;
     }
@@ -1405,12 +1601,6 @@ export default function QueryEditor({
     } catch {}
   }
 
-
-
-
-
-
-
   // Insert at the caret through the editor's own transaction, so it is ONE
   // undoable step.
   function insertText(t) {
@@ -1434,84 +1624,6 @@ export default function QueryEditor({
 
   const effectiveQueryId = featureQueryId || lastQueryId || qidFromUrl || null;
 
-  async function selectHandler(db) {
-    try {
-      const localStorageData = JSON.parse(localStorage?.getItem(SELECTLSKEY));
-      const selected = db;
-
-      let SelectedClusterAndNode =
-        localStorageData[selectedClusterId][nodeName];
-
-      const find = SelectedClusterAndNode?.filter(
-        (db) => db?.dbName === selected,
-      );
-
-      if (find?.length === 0 && !isAILoading) {
-        setIsAILoading(true);
-        const responseData = await await apiFetch(`/api/ai/database/connect`, {
-          method: "POST",
-          body: JSON.stringify({
-            database_type: "clickhouse",
-                // Credentials are resolved server-side from the cluster
-                // configuration; the browser does not hold them.
-                clusterId: selectedClusterId,
-                node: selectedNode,
-                database: selected,
-            llm_provider: "string",
-            model_name: "string",
-          }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (responseData?.success) {
-          const obj = {
-            dbName: selected,
-            ai_id: responseData?.database_id,
-            isSelected: true,
-          };
-
-          let filtered = SelectedClusterAndNode?.map((db) => ({
-            ...db,
-            isSelected: false,
-          }));
-
-          filtered?.push(obj);
-
-          let filterData = { ...localStorageData };
-          filterData[selectedClusterId][nodeName] = filtered;
-
-          localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
-          setSelectedAIDB(selected);
-          setSelectedAIDBID(responseData?.database_id);
-          toast.success(`Successfully AI database id generated!`);
-        } else {
-          toast.error("Failed to load database ID. Please retry.");
-        }
-      } else {
-        setIsAILoading(true);
-        const filtered = localStorageData[selectedClusterId][nodeName].map(
-          (db) => {
-            if (db?.dbName === selected) {
-              return { ...db, isSelected: true };
-            }
-            return { ...db, isSelected: false };
-          },
-        );
-        let filterData = { ...localStorageData };
-        filterData[selectedClusterId][nodeName] = filtered;
-        localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
-        setSelectedAIDB(selected);
-        setSelectedAIDBID(find[0]?.ai_id);
-      }
-    } catch (err) {
-      toast?.error(`Failed to load database ID. Please retry.`);
-    } finally {
-      setIsAILoading(false);
-    }
-  }
-
   async function GeneratingSQLHandler() {
     const message =
       sql?.trim()?.split("*/")?.length > 1
@@ -1523,6 +1635,9 @@ export default function QueryEditor({
       setIsAILoadingGenerating(true);
 
       try {
+        const dbsSelected = AIdbsInfo?.filter((_v) => _v?.isSelected)?.map(
+          (_v) => _v?.id,
+        );
         const responseAIQuery = await await apiFetch(
           `/api/ai/sql/generate-sql`,
           {
@@ -1531,26 +1646,39 @@ export default function QueryEditor({
               "Content-Type": "application/json",
             },
             body: JSON?.stringify({
-              database_id: selectedAIDBID,
+              database_ids: dbsSelected,
               user_question: message,
             }),
           },
         );
 
         if (responseAIQuery?.success) {
+          console.log(activeTab, activeId);
           setSql(
-            `/*\n\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectedAIDB}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+            `/*\n\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n--${MultipleDBSelected() ? `DATABASE_NAME's` : `DATABASE_NAME`} : ${SelectedDBNames() || ""}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
           );
+
         }
       } catch (error) {
         toast?.error(error?.message);
         setSql(
-          `/*\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectedAIDB}\n*/\n\n-- Error : ${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+          `/*\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n--${MultipleDBSelected() ? `DATABASE_NAME's` : `DATABASE_NAME`} : ${SelectedDBNames() || ""}\n*/\n\n-- Error : ${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
         );
       } finally {
         setIsAILoadingGenerating(false);
       }
     }
+  }
+
+  function SelectedDBNames() {
+    if (!AIdbsInfo) return "";
+    return AIdbsInfo?.filter((_v) => _v?.isSelected)
+      ?.map((_v) => _v?.dbName)
+      ?.join(", ");
+  }
+
+  function MultipleDBSelected() {
+    return AIdbsInfo?.filter((_v) => _v?.isSelected)?.length > 0;
   }
 
   return (
@@ -1569,6 +1697,7 @@ export default function QueryEditor({
             height: "100%",
             position: "relative",
             marginLeft: 0,
+            overflow: "hidden",
           }}
         >
           <div style={{ flex: 1, overflowY: "auto" }}>
@@ -1607,44 +1736,22 @@ export default function QueryEditor({
               </div>
             ) : (
               dbs.map((db) => (
-                <div key={db} style={{ display: "flex", alignItems: "start" }}>
+                <div key={db} style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
+                      marginLeft: "5px",
                       display: "flex",
                       alignItems: "center",
-                      justifyItems: "center",
-                      width: "30px",
-                      height: "30px",
-                      marginTop: "5px",
-                      paddingLeft: "5px",
-                      cursor: "pointer",
+                      justifyContent: "center",
                     }}
-                    onClick={() => selectHandler(db)}
-                    title="Select Database to work with AI"
                   >
-                    {isAILoading ? (
-                      <div className="loading-spinner"></div>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill={
-                          selectedAIDB === db
-                            ? "var(--accent)"
-                            : theme === "dark"
-                              ? "lightgray"
-                              : "lightgray"
-                        }
-                        className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
-                      >
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M17.964 2.733c.156 .563 .312 1 .484 1.353c.342 .71 .758 1.125 1.47 1.467c.353 .17 .79 .326 1.352 .484c.98 .276 .97 1.668 -.013 1.93a8.3 8.3 0 0 0 -1.34 .481c-.71 .342 -1.127 .757 -1.463 1.453a8 8 0 0 0 -.486 1.352c-.258 .988 -1.658 1 -1.932 .015c-.156 -.565 -.312 -1.002 -.484 -1.354c-.342 -.71 -.758 -1.124 -1.458 -1.46a8 8 0 0 0 -1.374 -.495a.4 .4 0 0 1 -.06 -.02l-.044 -.017l-.045 -.02l-.049 -.025l-.035 -.02a.4 .4 0 0 1 -.049 -.03l-.032 -.023l-.043 -.034l-.033 -.028l-.036 -.035l-.034 -.035l-.028 -.033l-.035 -.043l-.022 -.032a.4 .4 0 0 1 -.032 -.049l-.02 -.035l-.025 -.05l-.02 -.044l-.017 -.043a.4 .4 0 0 1 -.02 -.06l-.01 -.034a.5 .5 0 0 1 -.02 -.098l-.006 -.065l-.005 -.035v-.05a.4 .4 0 0 1 .003 -.085a.5 .5 0 0 1 .013 -.093a.5 .5 0 0 1 .024 -.103a.4 .4 0 0 1 .02 -.06l.017 -.044l.02 -.045l.025 -.049l.02 -.035a.4 .4 0 0 1 .03 -.049l.023 -.032l.034 -.043l.028 -.033l.035 -.036l.035 -.034q .015 -.015 .033 -.028l.043 -.035l.032 -.022a.4 .4 0 0 1 .049 -.032l.035 -.02l.05 -.025l.044 -.02l.043 -.017a.4 .4 0 0 1 .06 -.02l.027 -.008a8.3 8.3 0 0 0 1.339 -.48c.71 -.342 1.127 -.757 1.47 -1.466c.17 -.354 .327 -.792 .483 -1.355c.272 -.976 1.657 -.976 1.928 0" />
-                        <path d="M10.965 6.737q .219 .801 .503 1.574c.856 2.28 1.945 3.363 4.23 4.22q .708 .265 1.571 .506c.976 .272 .974 1.656 -.002 1.927q -.798 .221 -1.568 .504c-2.288 .858 -3.376 1.94 -4.229 4.216a19 19 0 0 0 -.505 1.579c-.268 .983 -1.662 .983 -1.93 0a19 19 0 0 0 -.503 -1.574c-.856 -2.281 -1.944 -3.363 -4.226 -4.219a20 20 0 0 0 -1.594 -.513a.4 .4 0 0 1 -.054 -.018l-.044 -.017l-.043 -.02a.3 .3 0 0 1 -.048 -.024l-.036 -.02a.4 .4 0 0 1 -.048 -.03l-.032 -.024l-.044 -.034l-.033 -.029l-.037 -.034l-.034 -.037l-.03 -.033l-.033 -.044l-.023 -.032a.4 .4 0 0 1 -.03 -.048l-.021 -.036a.3 .3 0 0 1 -.024 -.048l-.02 -.043l-.017 -.044a.4 .4 0 0 1 -.018 -.054a.2 .2 0 0 1 -.01 -.039a.4 .4 0 0 1 -.014 -.059l-.007 -.04l-.007 -.056l-.003 -.044l-.002 -.05v-.05q 0 -.023 .004 -.044q .001 -.03 .007 -.057l.007 -.04a.4 .4 0 0 1 .017 -.076l.007 -.021a.4 .4 0 0 1 .018 -.054l.017 -.044l.02 -.043a.3 .3 0 0 1 .024 -.048l.02 -.036a.4 .4 0 0 1 .03 -.048l.024 -.032l.034 -.044l.029 -.033l.034 -.037l.037 -.034l.033 -.03l.044 -.033l.032 -.023a.4 .4 0 0 1 .048 -.03l.036 -.021a.3 .3 0 0 1 .048 -.024l.043 -.02l.044 -.017a.4 .4 0 0 1 .054 -.018l.021 -.007a20 20 0 0 0 1.568 -.504c2.287 -.858 3.375 -1.94 4.229 -4.216a19 19 0 0 0 .505 -1.579c.268 -.983 1.662 -.983 1.93 0" />
-                      </svg>
-                    )}
+                    <AIKeyButton
+                      dbdetails={isFindDatabase(db)}
+                      dataSelectionHandler={dataSelectionHandler}
+                      connectDatabaseID={connectDatabaseID}
+                    />
                   </div>
+
                   <div style={{ width: "100%" }}>
                     <div
                       className={
@@ -1654,8 +1761,6 @@ export default function QueryEditor({
                         setSelectedDb(selectedDb === db ? null : db)
                       }
                     >
-                      <Icon className="ti ti-database-import"></Icon>
-                      <span style={{ flex: 1 , overflow:"hidden" , textOverflow:"ellipsis",width: "100px"}}>{db}</span>
                       <Icon
                         className={
                           "ti ti-chevron-" +
@@ -1663,6 +1768,8 @@ export default function QueryEditor({
                         }
                         style={{ fontSize: 14, opacity: 0.5 }}
                       ></Icon>
+                      <Icon className="ti ti-database-import"></Icon>
+                      <span style={{ flex: 1, fontSize: "12px" }}>{db}</span>
                     </div>
                     {selectedDb === db && (
                       <div
@@ -1707,10 +1814,6 @@ export default function QueryEditor({
                               key={t.name}
                               className="editor-table-item"
                               title={`${t.name} (${t.engine})`}
-                              draggable
-                              onDragStart={(e) =>
-                                startTextDrag(e, `${selectedDb}.${t.name} `)
-                              }
                             >
                               <Icon
                                 className={"ti " + engineIcon(t.engine)}
@@ -1935,21 +2038,6 @@ export default function QueryEditor({
                 )}{" "}
                 Go
               </button>
-              {/* {connError && (
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--color-danger)",
-                    maxWidth: 200,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={connError}
-                >
-                  {connError}
-                </span>
-              )} */}
             </div>
           ) : (
             <div
@@ -2247,7 +2335,9 @@ export default function QueryEditor({
                       style={{ color: "var(--color-warning)", marginLeft: 6 }}
                       title={`The editor asked for at most ${(activeRuntime.rowCap || maxRows).toLocaleString()} rows, so a large result stays responsive. Raise Max rows, or use Export for the whole thing.`}
                     >
-                      (first {(activeRuntime.rowCap || maxRows).toLocaleString()}, use Export for all)
+                      (first{" "}
+                      {(activeRuntime.rowCap || maxRows).toLocaleString()}, use
+                      Export for all)
                     </span>
                   )}
                 </>
@@ -2283,7 +2373,9 @@ export default function QueryEditor({
                     query_id
                   </button>
                   <Link
-                  to={`/tools/profiler?qid=${encodeURIComponent(effectiveQueryId)}`} target="_blank" rel="noopener noreferrer"
+                    to={`/tools/profiler?qid=${encodeURIComponent(effectiveQueryId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "11px", padding: "1px 6px" }}
                     title="Open in Query Profiler (flame graph)"
@@ -2292,21 +2384,31 @@ export default function QueryEditor({
                     Flame Graph
                   </Link>
                   <Link
-                  to={`/tools/pipeline?qid=${encodeURIComponent(effectiveQueryId)}`} target="_blank" rel="noopener noreferrer"
+                    to={`/tools/pipeline?qid=${encodeURIComponent(effectiveQueryId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "11px", padding: "1px 6px" }}
                     title="Open in Query Profiler (flame graph)"
                   >
-                    <Icon className="ti ti-git-branch" style={{ fontSize: 12 }} />{" "}
+                    <Icon
+                      className="ti ti-git-branch"
+                      style={{ fontSize: 12 }}
+                    />{" "}
                     Pipeline
                   </Link>
                   <Link
-                  to={`/tools/metrics?qid=${encodeURIComponent(effectiveQueryId)}`} target="_blank" rel="noopener noreferrer"
+                    to={`/tools/metrics?qid=${encodeURIComponent(effectiveQueryId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "11px", padding: "1px 6px" }}
                     title="Open in Query Profiler (flame graph)"
                   >
-                    <Icon className="ti ti-chart-line" style={{ fontSize: 12 }} />{" "}
+                    <Icon
+                      className="ti ti-chart-line"
+                      style={{ fontSize: 12 }}
+                    />{" "}
                     Metrics
                   </Link>
                 </span>
@@ -2329,7 +2431,11 @@ export default function QueryEditor({
               Left to right this reads as: how much, what will it cost, help me
               write it, what kind of run, do it. The thing that acts is last and
               on its own, which is where a primary action belongs. */}
-          <MaxRowsControl value={maxRows} onChange={setMaxRows} disabled={running} />
+          <MaxRowsControl
+            value={maxRows}
+            onChange={setMaxRows}
+            disabled={running}
+          />
 
           <button
             className="btn btn-secondary btn-sm sql-action-control"
@@ -2382,7 +2488,6 @@ export default function QueryEditor({
             disabled={isAILoadingGenerating}
             title="Generate SQL from a question, using the selected AI database"
           >
-
             {isAILoadingGenerating ? (
               <>
                 {" "}
@@ -2435,7 +2540,9 @@ export default function QueryEditor({
                that skipped the update for "GENERAL RUN", so once you picked an
                EXPLAIN you could never get back to a plain run. Both are gone:
                this sets the mode, Go performs it. */
-            onChange={(e) => updateTab(activeId, { explainType: e.target.value })}
+            onChange={(e) =>
+              updateTab(activeId, { explainType: e.target.value })
+            }
             value={ExplainOptionSelector?.type || "GENERAL RUN"}
             disabled={isAILoadingGenerating || running}
             title="What Go will do with this query"
@@ -2455,8 +2562,12 @@ export default function QueryEditor({
             <option value="EXPLAIN PIPELINE">Explain pipeline</option>
             <option value="EXPLAIN ESTIMATE">Explain estimate</option>
             <option value="EXPLAIN AST graph = 1">Explain AST (graph)</option>
-            <option value="EXPLAIN PIPELINE graph = 1">Explain pipeline (graph)</option>
-            <option value="EXPLAIN json = 1, description = 0">Explain plan (JSON)</option>
+            <option value="EXPLAIN PIPELINE graph = 1">
+              Explain pipeline (graph)
+            </option>
+            <option value="EXPLAIN json = 1, description = 0">
+              Explain plan (JSON)
+            </option>
           </Select>
 
           <button
@@ -2466,7 +2577,10 @@ export default function QueryEditor({
                would silently discard the mode the user had just chosen. */
             onClick={() => runActiveTab()}
             disabled={
-              running || !editorConnected || isAILoadingGenerating || missingRequired
+              running ||
+              !editorConnected ||
+              isAILoadingGenerating ||
+              missingRequired
             }
             title="Run this query"
           >
@@ -2582,7 +2696,9 @@ export default function QueryEditor({
                         <div
                           key={i}
                           draggable
-                          onDragStart={(e) => startTextDrag(e, asSubquery(h.sql), true)}
+                          onDragStart={(e) =>
+                            startTextDrag(e, asSubquery(h.sql), true)
+                          }
                           onDragEnd={endTextDrag}
                           title="Drag into the editor to insert as a subquery"
                           style={{
@@ -2797,7 +2913,9 @@ export default function QueryEditor({
                         <div
                           key={i}
                           draggable
-                          onDragStart={(e) => startTextDrag(e, asSubquery(b.sql), true)}
+                          onDragStart={(e) =>
+                            startTextDrag(e, asSubquery(b.sql), true)
+                          }
                           onDragEnd={endTextDrag}
                           title="Drag into the editor to insert as a subquery"
                           style={{
@@ -3094,21 +3212,34 @@ export default function QueryEditor({
               isShowLogo={showLogo}
             />
           )}
-          {!result && !running && !error && !estimateResult && (
-            !editorConnected ? <div className="empty-state">
-              <Icon
-                className="ti ti-lock"
-  
-              ></Icon>
-              <p>
-               
-                  "Connect with your ClickHouse credentials to begin."
-              </p>
-            </div>
-            : <div  style={{ padding: "32px 16px",width:"",display:"flex", flexDirection:"column", justifyContent:"center",alignItems:"center",height:"20rem"}}>
-              <img style={{width:"13rem",opacity:0.3}}  src={theme === "dark" ? lightLogo : darkLogo} alt="" />
+          {!result &&
+            !running &&
+            !error &&
+            !estimateResult &&
+            (!editorConnected ? (
+              <div className="empty-state">
+                <Icon className="ti ti-lock"></Icon>
+                <p>"Connect with your ClickHouse credentials to begin."</p>
               </div>
-          )}
+            ) : (
+              <div
+                style={{
+                  padding: "32px 16px",
+                  width: "",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: "20rem",
+                }}
+              >
+                <img
+                  style={{ width: "13rem", opacity: 0.3 }}
+                  src={theme === "dark" ? lightLogo : darkLogo}
+                  alt=""
+                />
+              </div>
+            ))}
         </div>
       </div>
 
@@ -3351,7 +3482,7 @@ export default function QueryEditor({
         />
       )}
 
-    {exportOpen && (
+      {exportOpen && (
         <ExportWizard
           sql={sql}
           username={auth?.username}
