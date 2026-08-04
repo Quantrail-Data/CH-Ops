@@ -19,7 +19,7 @@ export default function QueryPreviewPanel({ sql, values }) {
   const names = Object.keys(params);
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: 5 }}>
       <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: 8 }}>
         This is what will be sent to ClickHouse
       </div>

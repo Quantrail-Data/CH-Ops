@@ -1,29 +1,25 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Ravivarman, Dhivyadharshini)
 // schemaIngestion service that retrieves database schemas from ClickHouse, converts them into embeddings, and upserts those embeddings into a vector database.
-import EmbeddingService from "./EmbeddingService";
 
-import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
-import { deserialize } from "./aiCredentials.js";
+import EmbeddingService from "./EmbeddingService";
 import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
 import crypto from "crypto";
-
 import LocalVectorStore from "./LocalVectorStoreService";
+import {deserialize} from "./aiCredentials"
 
 class SchemaIngestionService {
   constructor(databaseId, connection) {
     this.databaseId = databaseId;
 
     if (!connection) {
-      throw new Error(`Connection not found for ${databaseId}`);
+      throw new Error(`Database Connection not found for ${databaseId}`);
     }
 
     this.credentials = deserialize(connection?.credentials);
     this.client = ClickHouseClientFactory.createClient(this.credentials);
-
     this.embedding = new EmbeddingService();
-
-    this.localdb = new LocalVectorStore();
+    this.localdb = new LocalVectorStore(this.databaseId);
   }
 
   async getTables() {
@@ -76,17 +72,17 @@ class SchemaIngestionService {
 
   buildSchemaText(tableName, createTableQuery, columns) {
     let schema = `
-Database Name:
-${this.credentials.database}
+        Database Name:
+        ${this.credentials.database}
 
-Table Name:
-${tableName}
+        Table Name:
+        ${tableName}
 
-Create Table Query:
-${createTableQuery}
+        Create Table Query:
+        ${createTableQuery}
 
-Columns:
-`;
+        Columns:
+        `;
 
     columns.forEach((column) => {
       schema += `
@@ -104,25 +100,34 @@ ${column.name} (${column.type})
       .digest("hex");
   }
 
+
   async synchronizeSchema() {
-    console.log("Initializing local vector store...");
+
     await this.localdb.initialize();
-    console.log("Initialization complete.");
+    await this.localdb.clearStore({save: false});
+
     const tables = await this.getTables();
+
+    let tablesAdded = 0 ;
+    const errors = [];
+
     for (const table of tables) {
-      const createTableQuery = await this.getTableSchema(table.name);
-      const columns = await this.getColumns(table.name);
-      const schemaText = this.buildSchemaText(
+      try {
+        const createTableQuery = await this.getTableSchema(table.name);
+        const columns = await this.getColumns(table.name);
+        const schemaText = this.buildSchemaText(
         table.name,
         createTableQuery,
         columns,
       );
 
-      const embedding = await this.embedding.embed(schemaText);
-      const point = {
-        id: this.generatePointId(table.name),
-        vector: embedding,
+      const pointId = this.generatePointId(table.name);
 
+      const embedding = await this.embedding.embed(schemaText);
+
+      const point = {
+        id: pointId,
+        vector: embedding,
         payload: {
           database_id: this.databaseId,
           database_name: this.credentials.database,
@@ -133,18 +138,24 @@ ${column.name} (${column.type})
           is_active: true,
         },
       };
-      await this.localdb.upsert([point]);
-    }
 
-    await this.localdb.save();
-    return {
-      tables_added: tables.length,
-      tables_updated: 0,
-      tables_deactivated: 0,
-      tables_unchanged: 0,
-      errors: [],
-    };
+      await this.localdb.upsert([point], {save : false});
+      tablesAdded++;
+    } catch (error) {
+        console.error(`Error processing ${table.name}:`, error.message);
+        errors.push({ table: table.name, error: error.message });
+    }
   }
+
+  this.localdb.buildIndexes();
+  await this.localdb.save();
+
+  return {
+      database_id: this.databaseId,
+      tables_processed: tablesAdded,
+      errors,
+  };
+}
 }
 
 export default SchemaIngestionService;

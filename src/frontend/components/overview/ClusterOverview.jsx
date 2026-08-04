@@ -92,8 +92,11 @@ function renderPie(instRef, elRef, title, segments) {
   instRef.current.setOption({
     tooltip: {
       trigger: 'item',
-      formatter: ({ name, value, percent }) =>
-        `${name}: ${fmtBytes(value)} (${percent}%)`,
+      formatter: ({ name, value, percent }) => {
+        const n = Number(value);
+        const safeValue = Number.isFinite(n) ? n : 0;
+        return `${name}: ${fmtBytes(safeValue)} (${percent}%)`;
+      },
     },
     title: {
       text: title,
