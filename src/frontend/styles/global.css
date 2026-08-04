@@ -1370,6 +1370,7 @@
    color: var(--text-secondary);
    border-bottom: 1px solid var(--border-strong);
    white-space: nowrap;
+   background: rgb(6, 10, 20);
  }
 
  /* Overview log tables (Error/Text/Crash). These sit inside a translucent .card,
@@ -1378,9 +1379,7 @@
    background so rows do not bleed through while scrolling. Scoped to
    .ov-log-table so the Search tables are left untouched. */
  .ov-log-table .data-table thead th {
-   background: var(--glass-dropdown);
-   -webkit-backdrop-filter: blur(24px) saturate(1.4);
-   backdrop-filter: blur(24px) saturate(1.4);
+   background: rgb(6, 10, 20);
  }
 
  .data-table td {
@@ -1468,7 +1467,7 @@
  .data-subtable th {
    position: sticky;
    top: 0;
-   background: var(--bg-elevated, var(--glass-bg));
+   background: rgb(6, 10, 20);
    font-weight: 700;
    color: var(--text-primary);
    z-index: 1;
@@ -1916,7 +1915,7 @@
  }
 
  .editor-results .data-table th {
-   background: var(--glass-bg);
+   background: rgb(6, 10, 20);
    backdrop-filter: blur(12px);
    -webkit-backdrop-filter: blur(12px);
  }
@@ -4397,7 +4396,7 @@
  /* Stronger rule for fullscreen: ensure header stays above scrolling rows */
  .data-table-fullscreen .data-table thead th {
    z-index: 10050;
-   background: var(--th-bg, rgb(6, 10, 20));
+   background: rgb(6, 10, 20);
  }
 
  /* A spacer row stands in for everything scrolled past. It must contribute
