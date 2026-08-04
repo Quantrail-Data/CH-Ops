@@ -1,13 +1,7 @@
-// appBackup.js - WAL-safe application data backup to S3
-//
-// Creates a consistent SQLite snapshot using VACUUM INTO (WAL-safe),
-// then uploads it to S3-compatible storage via ClickHouse's s3()
-// table function. Also uploads a JSON manifest with metadata. Supports
-// manual backups and scheduled automatic backups with configurable
-// frequency (hourly/daily/weekly) and retention policies.
-//
-// Author: Kathir Moorthy
+// Contributors -> kathir dhasan, kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// appBackup.js - WAL-safe application data backup to S3
+
 import { log } from './logger.js';
 
 import { Database } from 'bun:sqlite';
@@ -82,8 +76,34 @@ function createSnapshot() {
     source.close();
   }
 
+  // Kubernetes tokens are read-only cluster credentials, encrypted at rest with the same
+  if (excludeK8sCredentials()) {
+    const snapshot = new Database(tempPath);
+    try {
+      snapshot.exec("UPDATE k8s_connection SET token_enc = ''");
+    } catch {
+      // Table absent on a database that predates the Kubernetes feature.
+    } finally {
+      snapshot.close();
+    }
+  }
+
   const size = fs.statSync(tempPath).size;
   return { path: tempPath, size };
+}
+
+// app_setting['backup.exclude_k8s_credentials'], read at snapshot time so a change takes
+function excludeK8sCredentials() {
+  try {
+    const row = db
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.key, 'backup.exclude_k8s_credentials'))
+      .get();
+    return row?.value === 'true';
+  } catch {
+    return false;
+  }
 }
 
 // Upload a file to S3 using ClickHouse®'s s3() function.

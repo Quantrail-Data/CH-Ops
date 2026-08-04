@@ -47,6 +47,11 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertChannels: {},
   alertRuleChannels: {},
   appSettings: {},
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
 
 const ctrl = await import("../../src/backend/controllers/dashboards.js");
