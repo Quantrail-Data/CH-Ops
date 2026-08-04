@@ -13,6 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import Icon from "../common/Icon.jsx";
+import InfoTip from "../common/InfoTip.jsx";
 
 
 const FLOW_THEME_CSS = `
@@ -142,9 +143,9 @@ function TopologyNode({ data }) {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span
-          title={dotTitle}
           style={{ width: 8, height: 8, borderRadius: "50%", background: dot, flexShrink: 0 }}
         />
+        <InfoTip what={dotTitle} />
         <span
           style={{
             fontFamily: "var(--font-code)",
@@ -181,6 +182,7 @@ function TopologyNode({ data }) {
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
         }}
+        title={`${hostAddress}:${port}${isLocal ? "  (this node)" : ""}`}
       >
         {hostAddress}:{port}
         {isLocal ? "  (this node)" : ""}

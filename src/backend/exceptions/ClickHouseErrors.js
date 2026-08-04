@@ -16,7 +16,7 @@ export class ClickHouseQueryError extends ClickHouseError {
 
 export class ClickHouseAuthenticationError extends ClickHouseError {
   constructor(message = "ClickHouse authentication failed", details = null) {
-    super(message, "clickhouse_authentication_error", 401, details);
+    super(message, "clickhouse_authentication_error", 409, details);
   }
 }
 

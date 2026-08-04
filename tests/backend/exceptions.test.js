@@ -87,30 +87,30 @@ describe("ClickHouse error hierarchy", () => {
     expect(e.details).toBe(details);
   });
 
-  it("ClickHouseAuthenticationError: default message + custom message, 401", () => {
+  it("ClickHouseAuthenticationError: default message + custom message, 409", () => {
     const def = new ClickHouseAuthenticationError();
     expect(def.message).toBe("ClickHouse authentication failed");
     expect(def.errorCode).toBe("clickhouse_authentication_error");
-    expect(def.statusCode).toBe(401);
+    expect(def.statusCode).toBe(409);
 
     const custom = new ClickHouseAuthenticationError("nope");
     expect(custom.message).toBe("nope");
-    expect(custom.statusCode).toBe(401);
+    expect(custom.statusCode).toBe(409);
   });
 
-  it("ClickHouseInvalidPasswordError: overrides code, keeps 401 auth status", () => {
+  it("ClickHouseInvalidPasswordError: overrides code, keeps 409 auth status", () => {
     const e = new ClickHouseInvalidPasswordError();
     expect(e.message).toBe("Failed to connect ClickHouse, Invalid password");
     expect(e.errorCode).toBe("clickhouse_invalid_password");
-    expect(e.statusCode).toBe(401);
+    expect(e.statusCode).toBe(409);
     expect(e).toBeInstanceOf(ClickHouseAuthenticationError);
   });
 
-  it("ClickHouseInvalidUsernameError: overrides code, keeps 401 auth status", () => {
+  it("ClickHouseInvalidUsernameError: overrides code, keeps 409 auth status", () => {
     const e = new ClickHouseInvalidUsernameError();
     expect(e.message).toBe("Failed to connect ClickHouse, Invalid username");
     expect(e.errorCode).toBe("clickhouse_invalid_username");
-    expect(e.statusCode).toBe(401);
+    expect(e.statusCode).toBe(409);
     expect(e).toBeInstanceOf(ClickHouseAuthenticationError);
   });
 

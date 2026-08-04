@@ -47,6 +47,8 @@ const SqlEditor = forwardRef(function SqlEditor(
   },
   ref,
 ) {
+
+
   const viewRef = useRef(null);
 
   // One EditorState per document key.
