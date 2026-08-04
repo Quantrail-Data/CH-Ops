@@ -157,7 +157,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         );
       }
     } catch (err) {
-      console.log(err);
+      console.log(err?.message);
     }
     return;
   }
@@ -809,7 +809,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           flag: true,
           message: err?.message,
         });
-        console.log(err);
+        console.log(err?.message);
       } finally {
         setDBLoading({ flag: false, message: null });
         isUpdateSelectAll && setIsUpdateSelectAll(false);

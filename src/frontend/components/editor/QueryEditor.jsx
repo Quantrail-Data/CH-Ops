@@ -923,7 +923,7 @@ export default function QueryEditor({
         );
       }
     } catch (err) {
-      console.log(err);
+      console.log(err?.message);
     }
   };
 
