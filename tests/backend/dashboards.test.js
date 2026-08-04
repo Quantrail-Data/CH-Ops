@@ -106,6 +106,11 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertRuleChannels: {},
   appSettings: {},
   appUsers: {},
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
 
 

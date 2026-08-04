@@ -1,14 +1,7 @@
-// api.js - Core API client with connection state management
-// Maintains a module-level singleton for ClickHouse connection credentials
-// (node, user, port, clusterId) that is shared across all API calls.
-// Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// No password here, and none anywhere else in the browser. /api/config/connection
-// masks node passwords, and the backend resolves the stored credential from the
-// cluster configuration when it runs a query. The SQL Editor and Schema Studio
-// are the exception by design: they take the user's own ClickHouse login and
-// hand it straight to an encrypted server-side credential session (see
-// editorConnect / runEditorQuery), so it is never retained here either.
+// Contributors -> kathir Moorthy, Praveen kumar
+// api.js - core API client with connection state management
+
 let _connection = {
   node: "",
   nodeName: "",
@@ -136,6 +129,39 @@ export async function apiFetch(path, options = {}, type = false) {
   }
 
   return data;
+}
+
+// apiFetchText - authenticated GET for endpoints that return plain text.
+export async function apiFetchText(path) {
+  const token = getToken();
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(path, { headers });
+  } catch {
+    throw new Error("Network error. Check your connection.");
+  }
+
+  if (res.status === 401) {
+    localStorage.removeItem("chops_session");
+    window.location.reload();
+    throw new Error("Session expired.");
+  }
+
+  const body = await res.text().catch(() => "");
+
+  if (!res.ok) {
+    // Success is text, but an error from these routes is still JSON.
+    let message = `Request failed (${res.status})`;
+    try {
+      message = JSON.parse(body).error || message;
+    } catch { /* not JSON, keep the status message */ }
+    throw new Error(message);
+  }
+
+  return body;
 }
 
 // The editor's row limit, applied to every SQL surface.

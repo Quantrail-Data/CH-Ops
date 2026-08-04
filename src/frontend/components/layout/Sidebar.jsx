@@ -1,9 +1,5 @@
-// Sidebar - Main navigation sidebar with collapsible sections
-//
-// The primary navigation component for CHOps. It renders all core sections
-// (Overview, Tools, Dashboards, Monitoring, Logs, Schema, Alerts, RBAC,
-// Backups, Admin)
-// Author: Kathir Moorthy
+// Contributors -> kathir dhasan
+// Sidebar.jsx - main navigation sidebar with collapsible sections
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -23,6 +19,7 @@ const CORE_NAV_ITEMS = [
       { id: "overview/parts", label: "Tables & Parts" },
       { id: "overview/operations", label: "Merges & Mutations" },
       { id: "overview/queues",label:"Queues"  },
+      { id: "overview/kubernetes", label: "Kubernetes Insights" },
       { id: "overview/ddl", label: "DDL & Readonly" },
     ],
   },

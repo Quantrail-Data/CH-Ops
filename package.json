@@ -30,6 +30,7 @@
     "check:readonly": "node scripts/check-readonly-settings.mjs",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bun src/backend/db/migrate.js",
+    "db:migrate:dry-run": "bun src/backend/db/migrate.js --migrate-dry-run",
     "db:backup": "bun src/backend/db/backup.js",
     "db:studio": "bunx drizzle-kit studio"
   },

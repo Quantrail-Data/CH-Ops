@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // config.test.js - unit tests for configuration controller
-// Contributors - Kathirdhasan, Kathir Moorthy
+// Contributors -> Kathirdhasan, Kathir Moorthy
 
 import { describe, it, expect, mock } from "bun:test";
 
@@ -47,6 +47,21 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   migrateClusterData: mock(() => {}),
   MAX_CLUSTERS: 3,
   MAX_TOTAL_NODES: 18,
+}));
+
+// The controller now reads a feature flag and warms the capability cache, which
+// would pull in the Kubernetes services and the database at import time.
+mock.module("../../src/backend/services/capabilities.js", () => ({
+  ensureCapabilities: mock(async () => ({ probed: false, tables: null })),
+  unavailableFeatures: mock(() => []),
+  probeCapabilities: mock(async () => ({ probed: false })),
+  clearCapabilities: mock(() => {}),
+  hasCapability: mock(() => true),
+  explain: mock(() => ""),
+  probeSessionAffinity: mock(async () => ({ checked: false, sticky: null })),
+  classifyUsers: mock(async () => ({ checked: false, users: [] })),
+  rbacContext: mock(async () => null),
+  CAPABILITY: {},
 }));
 
 const { getConnection } = await import(

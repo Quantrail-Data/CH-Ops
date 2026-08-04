@@ -57,6 +57,11 @@ mock.module("../../src/backend/db/index.js", () => ({
   appUsers: {
     id: "id",
   },
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
 
 describe("authMiddleware", () => {

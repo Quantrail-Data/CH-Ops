@@ -1,21 +1,18 @@
-// clusterUtils.js - Shared cluster data access for all services
-//
-// Centralized access to cluster and node configuration stored in
-// app_settings. Handles password decryption, node lookup by name,
-// and cluster selection. Supports multi-cluster with max 3 clusters
-// and 18 total nodes across all clusters. Includes migration for
-// old single-cluster format to new multi-cluster format.
-//
-// Author: Kathir Moorthy
+// clusterUtils.js - shared cluster data access for all services
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import { eq } from 'drizzle-orm';
-import { db, appSettings } from '../db/index.js';
+// Contributors -> kathir Moorthy
+
+import { eq, and } from 'drizzle-orm';
+import { db, appSettings, clusters as clusterTable, clusterNodes } from '../db/index.js';
 import { encrypt, decrypt } from './crypto.js';
+import { getStorageMode, STORAGE_TABLES } from '../db/migrateClusters.js';
 
 const MAX_CLUSTERS = 3;
 const MAX_TOTAL_NODES = 18;
 
-export function getAllClusters() {
+// Blob path.
+
+function readClustersFromBlob() {
   try {
     const row = db.select().from(appSettings).where(eq(appSettings.key, 'clusters')).get();
     if (!row?.value) return [];
@@ -27,11 +24,142 @@ export function getAllClusters() {
   } catch { return []; }
 }
 
-// Strip decrypted node passwords from anything about to leave the server, and
-// replace them with a boolean saying whether one is set. Lives here rather than
-// in a controller because more than one endpoint returns cluster data, and a
-// second copy of this logic is how /api/config/connection came to leak
-// passwords while /api/cluster masked them correctly.
+function saveClustersToBlob(clusters) {
+  // Encrypt passwords before storing
+  const encrypted = clusters.map(c => ({
+    ...c,
+    nodes: (c.nodes || []).map(n => ({
+      name: n.name || '', host: n.host, port: n.port || 8123,
+      user: n.user || 'default', password: encrypt(n.password || ''),
+      secure: !!n.secure,
+    })),
+  }));
+
+  const value = JSON.stringify(encrypted);
+  const existing = db.select().from(appSettings).where(eq(appSettings.key, 'clusters')).get();
+  if (existing) db.update(appSettings).set({ value }).where(eq(appSettings.key, 'clusters')).run();
+  else db.insert(appSettings).values({ key: 'clusters', value, category: 'cluster' }).run();
+}
+
+// Table path.
+
+// Assemble the exact object shape callers have always received.
+function rowsToCluster(clusterRow, nodeRows) {
+  return {
+    id: clusterRow.id,
+    name: clusterRow.name,
+    kind: clusterRow.kind,
+    version: clusterRow.version,
+    chUser: clusterRow.chUser || null,
+    hasClusterPassword: !!clusterRow.chPasswordEnc,
+    k8s: clusterRow.kind === 'k8s'
+      ? {
+          connectionId: clusterRow.k8sConnectionId,
+          namespace: clusterRow.k8sNamespace,
+          installation: clusterRow.k8sInstallation,
+          operator: clusterRow.k8sOperator || 'akoc',
+          lastRefreshedAt: clusterRow.lastRefreshedAt,
+        }
+      : null,
+    nodes: nodeRows.map(n => ({
+      name: n.name,
+      host: n.host,
+      port: n.port ?? clusterRow.port ?? 8123,
+      user: n.user || clusterRow.chUser || 'default',
+      password: decrypt(n.passwordEnc || clusterRow.chPasswordEnc || ''),
+      secure: !!(n.secure ?? clusterRow.secure),
+      source: n.source,
+      shard: n.shard,
+      replica: n.replica,
+      podName: n.podName,
+    })),
+  };
+}
+
+function readClustersFromTables() {
+  const clusterRows = db.select().from(clusterTable).all();
+  if (!clusterRows.length) return [];
+
+  const allNodes = db.select().from(clusterNodes).all();
+  const byCluster = new Map();
+  for (const n of allNodes) {
+    if (!byCluster.has(n.clusterId)) byCluster.set(n.clusterId, []);
+    byCluster.get(n.clusterId).push(n);
+  }
+
+  return clusterRows.map(c => rowsToCluster(c, byCluster.get(c.id) || []));
+}
+
+// Diff the incoming list against what is stored and write the difference.
+function saveClustersToTables(clusters) {
+  const existing = db.select().from(clusterTable).all();
+  const existingIds = new Set(existing.map(c => c.id));
+  const incomingIds = new Set(clusters.map(c => c.id));
+
+  db.transaction(() => {
+    for (const id of existingIds) {
+      if (!incomingIds.has(id)) {
+        db.delete(clusterNodes).where(eq(clusterNodes.clusterId, id)).run();
+        db.delete(clusterTable).where(eq(clusterTable.id, id)).run();
+      }
+    }
+
+    for (const cluster of clusters) {
+      const isK8s = cluster.kind === 'k8s';
+      const first = cluster.nodes?.[0];
+      const values = {
+        name: cluster.name,
+        kind: cluster.kind || 'direct',
+        port: cluster.port ?? first?.port ?? 8123,
+        secure: cluster.secure ?? !!first?.secure,
+        chUser: cluster.chUser ?? null,
+        k8sConnectionId: cluster.k8s?.connectionId ?? null,
+        k8sNamespace: cluster.k8s?.namespace ?? null,
+        k8sInstallation: cluster.k8s?.installation ?? null,
+        k8sOperator: cluster.k8s?.operator || 'akoc',
+        updatedAt: new Date().toISOString(),
+      };
+      // Only overwrite the stored cluster password when one was supplied
+      if (cluster.chPassword !== undefined) {
+        values.chPasswordEnc = encrypt(cluster.chPassword || '');
+      }
+
+      if (existingIds.has(cluster.id)) {
+        db.update(clusterTable).set(values).where(eq(clusterTable.id, cluster.id)).run();
+      } else {
+        db.insert(clusterTable).values({ id: cluster.id, version: 1, ...values }).run();
+      }
+
+      // Replace the node set wholesale, mirroring what the blob did.
+      db.delete(clusterNodes).where(eq(clusterNodes.clusterId, cluster.id)).run();
+      for (const n of cluster.nodes || []) {
+        db.insert(clusterNodes).values({
+          clusterId: cluster.id,
+          name: n.name || '',
+          host: n.host,
+          port: n.port || 8123,
+          user: n.user || null,
+          passwordEnc: n.password !== undefined ? encrypt(n.password || '') : null,
+          secure: !!n.secure,
+          source: isK8s ? 'k8s' : 'manual',
+          shard: n.shard ?? null,
+          replica: n.replica ?? null,
+          podName: n.podName ?? null,
+          lastSeenAt: new Date().toISOString(),
+        }).run();
+      }
+    }
+  });
+}
+
+// Public API.
+
+export function getAllClusters() {
+  if (getStorageMode() === STORAGE_TABLES) return readClustersFromTables();
+  return readClustersFromBlob();
+}
+
+// Strip decrypted node passwords from anything about to leave the server
 export function maskClusterPasswords(cluster) {
   return {
     ...cluster,
@@ -49,12 +177,11 @@ export function getClusterById(clusterId) {
 
 export function getNodeByName(cluster, clusterName) {
   if (!cluster?.nodes || !clusterName) return null;
-  
+
   return cluster.nodes.find(node => node.name === clusterName) || null;
 }
 
-
-// Get nodes for a specific cluster. Falls back to first cluster if clusterId is null.
+// Get nodes for a specific cluster.
 export function getClusterNodes(clusterId) {
   const clusters = getAllClusters();
   if (!clusters.length) return [];
@@ -73,27 +200,126 @@ export function getDefaultCluster() {
 
 export function saveClusters(clusters) {
   if (clusters.length > MAX_CLUSTERS) throw new Error(`Maximum ${MAX_CLUSTERS} clusters allowed.`);
-  const totalNodes = clusters.reduce((sum, c) => sum + (c.nodes?.length || 0), 0);
+
+  // Names must be unique, compared without case
+  const names = clusters.map((c) => (c.name || '').trim().toLowerCase());
+  const duplicate = names.find((n, i) => n && names.indexOf(n) !== i);
+  if (duplicate) {
+    const original = clusters.find((c) => (c.name || '').trim().toLowerCase() === duplicate);
+    throw new Error(`Cluster name must be unique. "${original.name}" is already in use.`);
+  }
+
+  // The node cap applies to hand-entered clusters only.
+  const totalNodes = clusters
+    .filter(c => c.kind !== 'k8s')
+    .reduce((sum, c) => sum + (c.nodes?.length || 0), 0);
   if (totalNodes > MAX_TOTAL_NODES) throw new Error(`Maximum ${MAX_TOTAL_NODES} total nodes across all clusters.`);
 
-  // Encrypt passwords before storing
-  const encrypted = clusters.map(c => ({
-    ...c,
-    nodes: (c.nodes || []).map(n => ({
-      name: n.name || '', host: n.host, port: n.port || 8123,
-      user: n.user || 'default', password: encrypt(n.password || ''),
-      secure: !!n.secure,
-    })),
-  }));
+  if (getStorageMode() === STORAGE_TABLES) return saveClustersToTables(clusters);
+  return saveClustersToBlob(clusters);
+}
 
-  const value = JSON.stringify(encrypted);
-  const existing = db.select().from(appSettings).where(eq(appSettings.key, 'clusters')).get();
-  if (existing) db.update(appSettings).set({ value }).where(eq(appSettings.key, 'clusters')).run();
-  else db.insert(appSettings).values({ key: 'clusters', value, category: 'cluster' }).run();
+/**
+ * Replace the node list of one cluster, guarding against a concurrent write.
+ *
+ * Only the Kubernetes refresh calls this. It reads the cluster's version, sends
+ * it back, and the update applies only if nobody else wrote in between. A false
+ * return means somebody did, and the caller re-reads and retries rather than
+ * overwriting their change.
+ *
+ * @returns {boolean} true if the update applied
+ */
+export function updateClusterNodes(clusterId, nodes, expectedVersion) {
+  if (getStorageMode() !== STORAGE_TABLES) {
+    throw new Error('updateClusterNodes requires table storage. Run the migration first.');
+  }
+
+  const result = db
+    .update(clusterTable)
+    .set({
+      version: expectedVersion + 1,
+      lastRefreshedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(and(eq(clusterTable.id, clusterId), eq(clusterTable.version, expectedVersion)))
+    .run();
+
+  const changed = (result?.changes ?? result?.rowsAffected ?? 0) > 0;
+  if (!changed) return false;
+
+  db.transaction(() => {
+    const existing = db
+      .select()
+      .from(clusterNodes)
+      .where(eq(clusterNodes.clusterId, clusterId))
+      .all();
+    // Identity is shard and replica position, never the name.
+    const existingByIdentity = new Map(
+      existing.map(n => [`${n.shard}/${n.replica}`, n]),
+    );
+    const now = new Date().toISOString();
+
+    for (const node of nodes) {
+      const identity = `${node.shard}/${node.replica}`;
+      const prior = existingByIdentity.get(identity);
+
+      if (prior) {
+        db.update(clusterNodes)
+          .set({
+            name: node.name,
+            host: node.host,
+            port: node.port || 8123,
+            podName: node.podName ?? null,
+            lastSeenAt: now,
+            updatedAt: now,
+          })
+          .where(eq(clusterNodes.id, prior.id))
+          .run();
+      } else {
+        db.insert(clusterNodes).values({
+          clusterId,
+          name: node.name,
+          host: node.host,
+          port: node.port || 8123,
+          user: null,
+          passwordEnc: null,
+          secure: !!node.secure,
+          source: 'k8s',
+          shard: node.shard ?? null,
+          replica: node.replica ?? null,
+          podName: node.podName ?? null,
+          lastSeenAt: now,
+        }).run();
+      }
+    }
+
+    // Anything absent from this round keeps its old lastSeenAt and stays in place.
+  });
+
+  return true;
+}
+
+// Kubernetes-sourced nodes not seen since the given timestamp.
+export function findStaleNodes(clusterId, olderThanIso) {
+  if (getStorageMode() !== STORAGE_TABLES) return [];
+  return db
+    .select()
+    .from(clusterNodes)
+    .where(eq(clusterNodes.clusterId, clusterId))
+    .all()
+    .filter(n => n.source === 'k8s' && (n.lastSeenAt || '') < olderThanIso);
+}
+
+export function removeNodes(clusterId, nodeIds) {
+  if (!nodeIds.length) return;
+  db.transaction(() => {
+    for (const id of nodeIds) {
+      db.delete(clusterNodes).where(eq(clusterNodes.id, id)).run();
+    }
+  });
 }
 
 // Migrate old single-cluster format to new multi-cluster format.
-// Called once on startup. Safe to run multiple times.
 export function migrateClusterData() {
   const newRow = db.select().from(appSettings).where(eq(appSettings.key, 'clusters')).get();
   if (newRow?.value) return; // already migrated
