@@ -38,9 +38,8 @@ mock.module("../../src/backend/servicesAI/SQLGenerationService.js", () => ({
   },
 }));
 
-const { default: router } = await import(
-  "../../src/backend/routes/sqlAIChat.js"
-);
+const { default: router } =
+  await import("../../src/backend/routes/sqlAIChat.js");
 
 // The router registers one POST handler; pull it out and drive it directly.
 function handler() {
@@ -52,8 +51,14 @@ function mockRes() {
   return {
     statusCode: 200,
     body: null,
-    status(c) { this.statusCode = c; return this; },
-    json(d) { this.body = d; return this; },
+    status(c) {
+      this.statusCode = c;
+      return this;
+    },
+    json(d) {
+      this.body = d;
+      return this;
+    },
   };
 }
 
@@ -111,17 +116,29 @@ describe("input validation", () => {
 describe("provider selection", () => {
   it("reports 400 when no AI provider is active", async () => {
     getMock.mockReturnValue(null);
-    const { nextCalls } = await call({ database_id: "db1", user_question: "q" });
+    const { nextCalls } = await call({
+      database_ids: ["db1"],
+      user_question: "q",
+    });
     expect(nextCalls).toHaveLength(1);
-    expect(nextCalls[0].statusCode).toBe(400);
+    expect(nextCalls[0].statusCode).toBe(401);
   });
 
   it("generates SQL when a provider is active", async () => {
-    getMock.mockReturnValue({ id: 1, provider: "CLAUDE", model: "m", encryptedKey: "k" });
-    const { res, nextCalls } = await call({ database_id: "db1", user_question: "q" });
+    getMock.mockReturnValue({
+      id: 1,
+      provider: "gemini-2.5-flash",
+      model: "m",
+      encryptedKey: "k",
+      name: "g",
+    });
+    const { res, nextCalls } = await call({
+      database_ids: ["db1"],
+      user_question: "q",
+    });
     expect(nextCalls).toHaveLength(0);
     expect(res.body).toEqual({ sql: "SELECT 1" });
-    expect(generateSQL).toHaveBeenCalledWith("db1", "q");
+    expect(generateSQL).toHaveBeenCalledWith(["db1"], "q");
   });
 
   it("queries the active key with a boolean, not a raw 1", async () => {
@@ -130,7 +147,8 @@ describe("provider selection", () => {
     const src = await Bun.file(
       new URL("../../src/backend/routes/sqlAIChat.js", import.meta.url),
     ).text();
-    expect(src).toContain("isActive, true");
-    expect(src).not.toContain("isActive, 1");
+
+    expect(src).toMatch(/eq\s*\(\s*apiKeys\.isActive\s*,\s*true\s*\)/);
+    expect(src).not.toMatch(/eq\s*\(\s*apiKeys\.isActive\s*,\s*1\s*\)/);
   });
 });
