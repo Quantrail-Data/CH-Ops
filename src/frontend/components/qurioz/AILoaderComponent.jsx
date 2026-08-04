@@ -5,6 +5,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import React, { useEffect, useState } from "react";
+import { useTheme } from "../../App";
 
 const LOADING_PHRASES = [
   "Generating ClickHouse query...",
@@ -21,6 +22,7 @@ const LOADING_PHRASES = [
 
 function AILoaderComponent() {
   const [index, setIndex] = useState(0);
+  const {theme} = useTheme()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -52,6 +54,7 @@ function AILoaderComponent() {
             animate={{ opacity: 1, x: 0, }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.4 }}
+            style={{color:theme === "dark" ? "white" : "var(--accent)"}}
             // style={{ position: "absolute", whiteSpace: "nowrap", }}
           >
             {LOADING_PHRASES[index]}

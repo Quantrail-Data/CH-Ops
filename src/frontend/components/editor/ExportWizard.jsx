@@ -6,14 +6,27 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import {
-  FORMATS, FORMAT_GROUPS, COMPRESSIONS, SELF_COMPRESSED,
-  findFormat, findCompression, optionsForFormat,
+  FORMATS,
+  FORMAT_GROUPS,
+  COMPRESSIONS,
+  SELF_COMPRESSED,
+  findFormat,
+  findCompression,
+  optionsForFormat,
 } from "../../../shared/exportFormats.js";
-import { isSelectLike, hasMultipleStatements } from "../../../shared/sqlExport.js";
+import {
+  isSelectLike,
+  hasMultipleStatements,
+} from "../../../shared/sqlExport.js";
 import { findParameters } from "../../../shared/sqlParams.js";
 import {
-  estimateExport, startExport, exportProgress, cancelExport, downloadExport,
-  formatBytes, formatRows,
+  estimateExport,
+  startExport,
+  exportProgress,
+  cancelExport,
+  downloadExport,
+  formatBytes,
+  formatRows,
 } from "../../utils/exportApi.js";
 import { beginBusy, endBusy } from "../../hooks/useIdleTimeout.js";
 
@@ -52,11 +65,12 @@ function defaultFileName(username) {
   const stamp =
     `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
     `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  const who = String(username || "user")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40) || "user";
+  const who =
+    String(username || "user")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "user";
   return `${who}-export-${stamp}`;
 }
 
@@ -103,7 +117,6 @@ export default function ExportWizard({ sql, username, onClose }) {
   const advanced = useMemo(() => optionsForFormat(format), [format]);
   const isText = !!fmt?.text;
 
-
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") handleClose();
@@ -111,7 +124,6 @@ export default function ExportWizard({ sql, username, onClose }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   });
-
 
   useEffect(() => {
     return () => {
@@ -140,7 +152,7 @@ export default function ExportWizard({ sql, username, onClose }) {
     if (estimate?.bytes && estimate.bytes > (estimate.warnBytes || 0)) {
       const ok = window.confirm(
         `This export is about ${formatBytes(estimate.bytes)} before compression. ` +
-        "It may take a long time and use a lot of disk space. Continue?",
+          "It may take a long time and use a lot of disk space. Continue?",
       );
       if (!ok) return;
     }
@@ -232,7 +244,9 @@ export default function ExportWizard({ sql, username, onClose }) {
           "Cancel leaves it running; reopen Export to come back to it.",
       );
       if (stop) {
-        try { await cancelExport(job.jobId); } catch {}
+        try {
+          await cancelExport(job.jobId);
+        } catch {}
         forgetExport();
       }
     }
@@ -261,9 +275,15 @@ export default function ExportWizard({ sql, username, onClose }) {
         </h3>
 
         <div className="xw-steps">
-          <span className={`xw-step ${step === 1 ? "active" : ""}`}>1. Query</span>
-          <span className={`xw-step ${step === 2 ? "active" : ""}`}>2. Format</span>
-          <span className={`xw-step ${step === 3 ? "active" : ""}`}>3. Download</span>
+          <span className={`xw-step ${step === 1 ? "active" : ""}`}>
+            1. Query
+          </span>
+          <span className={`xw-step ${step === 2 ? "active" : ""}`}>
+            2. Format
+          </span>
+          <span className={`xw-step ${step === 3 ? "active" : ""}`}>
+            3. Download
+          </span>
         </div>
 
         {step === 1 && (
@@ -273,14 +293,15 @@ export default function ExportWizard({ sql, username, onClose }) {
 
             {!selectLike && (
               <div className="xw-note xw-warn" style={{ marginTop: 12 }}>
-                This does not look like a SELECT query. The size cannot be estimated,
-                and the export may not produce what you expect. Continue only if you
-                are sure.
+                This does not look like a SELECT query. The size cannot be
+                estimated, and the export may not produce what you expect.
+                Continue only if you are sure.
               </div>
             )}
             {multiple && (
               <div className="xw-note" style={{ marginTop: 12 }}>
-                The editor holds more than one statement. Only the first one is exported.
+                The editor holds more than one statement. Only the first one is
+                exported.
               </div>
             )}
             {blockedByParams && (
@@ -288,19 +309,20 @@ export default function ExportWizard({ sql, username, onClose }) {
                 This query needs a value for{" "}
                 {requiredParams.map((p, i) => (
                   <span key={p.name}>
-                    {i > 0 && (i === requiredParams.length - 1 ? " and " : ", ")}
+                    {i > 0 &&
+                      (i === requiredParams.length - 1 ? " and " : ", ")}
                     <strong>{p.name}</strong>
                   </span>
                 ))}
-                , and export does not carry parameter values. Wrap the filter in an
-                optional block so it can be left out, or replace the placeholder with
-                a literal value before exporting.
+                , and export does not carry parameter values. Wrap the filter in
+                an optional block so it can be left out, or replace the
+                placeholder with a literal value before exporting.
               </div>
             )}
             <div className="xw-note" style={{ marginTop: 12 }}>
-              The export runs this SQL again on the server, so it always returns the
-              full result. If you have not run it yet, consider running it once first
-              to check it does what you expect.
+              The export runs this SQL again on the server, so it always returns
+              the full result. If you have not run it yet, consider running it
+              once first to check it does what you expect.
             </div>
 
             {estimate && (
@@ -311,24 +333,59 @@ export default function ExportWizard({ sql, username, onClose }) {
                   <>
                     About <strong>{formatRows(estimate.rows)}</strong> rows
                     {estimate.bytes ? (
-                      <> and roughly <strong>{formatBytes(estimate.bytes)}</strong> before compression</>
+                      <>
+                        {" "}
+                        and roughly{" "}
+                        <strong>{formatBytes(estimate.bytes)}</strong> before
+                        compression
+                      </>
                     ) : null}
-                    . {estimate.exact ? "This is an exact count." : "This is an estimate based on rows scanned, so it can be much higher than the number returned."}
-                    {" "}The final file size depends on the compression you choose and cannot be predicted.
+                    .{" "}
+                    {estimate.exact
+                      ? "This is an exact count."
+                      : "This is an estimate based on rows scanned, so it can be much higher than the number returned."}{" "}
+                    The final file size depends on the compression you choose
+                    and cannot be predicted.
                   </>
                 )}
               </div>
             )}
 
             <div className="xw-actions">
-              <button className="btn btn-secondary" onClick={handleClose}>Close</button>
+              <button className="btn btn-secondary" onClick={handleClose}>
+                Close
+              </button>
               <button
                 className="btn btn-secondary"
                 onClick={runEstimate}
                 disabled={estimating || blockedByParams}
               >
-                {estimating ? <span className="loading-spinner" /> : <Icon className="ti ti-ruler" />}
-                {" "}Estimate rows
+                {estimating ? (
+                  <span className="loading-spinner" />
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="icon icon-tabler icons-tabler-outline icon-tabler-filter-2-search"
+                    >
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                      <path d="M4 6h16" />
+                      <path d="M6 12h8.5" />
+                      <path d="M9 18h2" />
+                      <path d="M15 18c0 .796 .316 1.559 .879 2.121c.563 .563 1.326 .879 2.121 .879c.796 0 1.559 -.316 2.121 -.879c.563 -.563 .879 -1.326 .879 -2.121c0 -.796 -.316 -1.559 -.879 -2.121c-.563 -.563 -1.326 -.879 -2.121 -.879c-.796 0 -1.559 .316 -2.121 .879c-.563 .563 -.879 1.326 -.879 2.121" />
+                      <path d="M20.2 20.2l1.8 1.8" />
+                    </svg>
+                  </>
+                )}{" "}
+                Estimate rows
               </button>
               <button
                 className="btn btn-primary"
@@ -354,13 +411,18 @@ export default function ExportWizard({ sql, username, onClose }) {
                 <select
                   className="form-select"
                   value={format}
-                  onChange={(e) => { setFormat(e.target.value); setSettings({}); }}
-                  style={{ width: "100%" }}
+                  onChange={(e) => {
+                    setFormat(e.target.value);
+                    setSettings({});
+                  }}
+                  style={{ width: "100%",backgroundColor:"var(--bg-page)" }}
                 >
                   {FORMAT_GROUPS.map((group) => (
-                    <optgroup key={group} label={group}>
+                    <optgroup key={group} label={group} style={{padding:"10px 0px",fontSize:"14px"}}>
                       {FORMATS.filter((f) => f.group === group).map((f) => (
-                        <option key={f.id} value={f.id}>{f.label}</option>
+                        <option key={f.id} value={f.id}>
+                          {f.label}
+                        </option>
                       ))}
                     </optgroup>
                   ))}
@@ -376,7 +438,9 @@ export default function ExportWizard({ sql, username, onClose }) {
                   style={{ width: "100%" }}
                 >
                   {COMPRESSIONS.map((c) => (
-                    <option key={c.id} value={c.id}>{c.label}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -392,7 +456,10 @@ export default function ExportWizard({ sql, username, onClose }) {
                     onChange={(e) => setFileName(e.target.value)}
                     style={{ flex: 1 }}
                   />
-                  <span className="xw-ext">.{fmt?.ext}{comp?.ext}</span>
+                  <span className="xw-ext">
+                    .{fmt?.ext}
+                    {comp?.ext}
+                  </span>
                 </span>
                 <div className="xw-help">The ending is added for you.</div>
               </div>
@@ -400,17 +467,29 @@ export default function ExportWizard({ sql, username, onClose }) {
 
             {isText && (
               <div className="xw-row">
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                  <input type="checkbox" checked={bom} onChange={(e) => setBom(e.target.checked)} />
-                  Add a byte order mark so Excel on Windows reads accents correctly
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={bom}
+                    onChange={(e) => setBom(e.target.checked)}
+                  />
+                  Add a byte order mark so Excel on Windows reads accents
+                  correctly
                 </label>
               </div>
             )}
 
             {SELF_COMPRESSED.includes(format) && compression !== "none" && (
               <div className="xw-note">
-                {fmt.label} files already compress their own contents, so adding
-                {" "}{comp.label} on top saves very little.
+                {fmt.label} files already compress their own contents, so adding{" "}
+                {comp.label} on top saves very little.
               </div>
             )}
 
@@ -419,23 +498,37 @@ export default function ExportWizard({ sql, username, onClose }) {
                 className="btn btn-ghost btn-sm"
                 onClick={() => setAdvOpen(!advOpen)}
               >
-                <Icon className={`ti ti-chevron-${advOpen ? "down" : "right"}`} />
-                {" "}Advanced options
+                <Icon
+                  className={`ti ti-chevron-${advOpen ? "down" : "right"}`}
+                />{" "}
+                Advanced options
               </button>
 
               {advOpen && (
                 <div style={{ marginTop: 10 }}>
                   {advanced.length === 0 && (
-                    <div className="xw-help">This format has no extra options.</div>
+                    <div className="xw-help">
+                      This format has no extra options.
+                    </div>
                   )}
                   {advanced.map((opt) => (
-                    <div key={opt.key} className="xw-field" style={{ marginBottom: 10 }}>
+                    <div
+                      key={opt.key}
+                      className="xw-field"
+                      style={{ marginBottom: 10 }}
+                    >
                       <label className="xw-label">{opt.label}</label>
                       {opt.type === "bool" && (
                         <input
                           type="checkbox"
-                          checked={settings[opt.key] !== undefined ? settings[opt.key] === 1 : opt.def}
-                          onChange={(e) => setOption(opt.key, e.target.checked ? 1 : 0)}
+                          checked={
+                            settings[opt.key] !== undefined
+                              ? settings[opt.key] === 1
+                              : opt.def
+                          }
+                          onChange={(e) =>
+                            setOption(opt.key, e.target.checked ? 1 : 0)
+                          }
                         />
                       )}
                       {opt.type === "select" && (
@@ -445,7 +538,9 @@ export default function ExportWizard({ sql, username, onClose }) {
                           onChange={(e) => setOption(opt.key, e.target.value)}
                         >
                           {opt.choices.map((c) => (
-                            <option key={c} value={c}>{c}</option>
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
                           ))}
                         </select>
                       )}
@@ -461,14 +556,19 @@ export default function ExportWizard({ sql, username, onClose }) {
                           className="form-input"
                           type="number"
                           value={settings[opt.key] ?? opt.def}
-                          onChange={(e) => setOption(opt.key, Number(e.target.value))}
+                          onChange={(e) =>
+                            setOption(opt.key, Number(e.target.value))
+                          }
                         />
                       )}
                       {opt.help && <div className="xw-help">{opt.help}</div>}
                     </div>
                   ))}
                   {advanced.length > 0 && (
-                    <button className="btn btn-ghost btn-sm" onClick={resetOptions}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={resetOptions}
+                    >
                       Reset to defaults
                     </button>
                   )}
@@ -477,9 +577,17 @@ export default function ExportWizard({ sql, username, onClose }) {
             </div>
 
             <div className="xw-actions">
-              <button className="btn btn-secondary" onClick={() => setStep(1)}>Back</button>
-              <button className="btn btn-secondary" onClick={handleClose}>Close</button>
-              <button className="btn btn-primary" onClick={begin} disabled={!fileName.trim()}>
+              <button className="btn btn-secondary" onClick={() => setStep(1)}>
+                Back
+              </button>
+              <button className="btn btn-secondary" onClick={handleClose}>
+                Close
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={begin}
+                disabled={!fileName.trim()}
+              >
                 Start export
               </button>
             </div>
@@ -497,15 +605,24 @@ export default function ExportWizard({ sql, username, onClose }) {
             </div>
 
             <div className="xw-bar">
-              <span style={{ width: `${progress?.state === "ready" ? 100 : percent || 3}%` }} />
+              <span
+                style={{
+                  width: `${progress?.state === "ready" ? 100 : percent || 3}%`,
+                }}
+              />
             </div>
             <div className="xw-help">
               {progress?.state === "running" && (
-                <>Running the query and compressing, {formatBytes(progress.bytesRead)} so far
-                  {percent ? ` (about ${percent}%)` : ""}.</>
+                <>
+                  Running the query and compressing,{" "}
+                  {formatBytes(progress.bytesRead)} so far
+                  {percent ? ` (about ${percent}%)` : ""}.
+                </>
               )}
               {progress?.state === "ready" && (
-                <>{progress.fileName}, {formatBytes(progress.bytesWritten)}.</>
+                <>
+                  {progress.fileName}, {formatBytes(progress.bytesWritten)}.
+                </>
               )}
               {progress?.state === "failed" && <>{progress.error}</>}
               {!progress && <>Starting.</>}
@@ -513,8 +630,9 @@ export default function ExportWizard({ sql, username, onClose }) {
 
             {progress?.state === "ready" && (
               <div className="xw-note" style={{ marginTop: 12 }}>
-                Once the download starts, your browser takes over. Closing this window
-                after that removes the copy on the server but does not stop the download.
+                Once the download starts, your browser takes over. Closing this
+                window after that removes the copy on the server but does not
+                stop the download.
               </div>
             )}
 
