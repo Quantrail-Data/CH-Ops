@@ -14,6 +14,12 @@ function readSetting(key) {
   return row?.value ?? null;
 }
 
+function execSql(sqlite, sql) {
+  if (typeof sqlite?.exec !== 'function') return;
+  const target = sqlite.state ?? sqlite;
+  sqlite.exec.call(target, sql);
+}
+
 function writeSetting(key, value, category = 'cluster') {
   const existing = db.select().from(appSettings).where(eq(appSettings.key, key)).get();
   if (existing) {
@@ -85,7 +91,7 @@ export function inspectBlob(rawValue) {
 
 // Raw SQL to match the rest of migrate.js, and safe to run repeatedly.
 export function createClusterTables(sqlite) {
-  sqlite.exec(`
+  execSql(sqlite, `
     CREATE TABLE IF NOT EXISTS cluster (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -141,7 +147,8 @@ export function createClusterTables(sqlite) {
 // Enforce unique cluster names at the table, not just in application code.
 export function ensureUniqueClusterName(sqlite, log = console.log) {
   try {
-    sqlite.exec(
+    execSql(
+      sqlite,
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_cluster_name_unique ON cluster(name COLLATE NOCASE)',
     );
     return { ok: true };
@@ -156,7 +163,7 @@ export function ensureUniqueClusterName(sqlite, log = console.log) {
     const names = dupes.map((d) => `"${d.name}" (${d.n})`).join(', ');
     log(
       '  Cluster names: could not enforce uniqueness because duplicates already exist: ' +
-        (names || err.message),
+      (names || err.message),
     );
     log('  Rename one of each pair, then restart to apply the constraint.');
     return { ok: false, duplicates: dupes };
@@ -268,11 +275,11 @@ export function migrateClustersToTables(sqlite, { dryRun = false, log = console.
   createClusterTables(sqlite);
 
   const insertCluster = sqlite.prepare(
-    `INSERT INTO cluster (id, name, kind, version, port, secure)
+    `INSERT INTO "cluster" (id, name, kind, version, port, secure)
      VALUES (?, ?, 'direct', 1, ?, ?)`,
   );
   const insertNode = sqlite.prepare(
-    `INSERT INTO cluster_node
+    `INSERT INTO "cluster_node"
        (cluster_id, name, host, port, user, password_enc, secure, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'manual')`,
   );

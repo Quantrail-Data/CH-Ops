@@ -10,7 +10,8 @@
  * Author: Kathir Moorthy
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, vi, mock, beforeAll } from 'bun:test';
+import { getClusterInfo, sendNotification, sendOTPEmail, testChannel, escapeHtml, extractAccountDetails } from '../../src/backend/services/notifier';
 
 // Extracted formatDetails logic from notifier.js
 function formatDetails(alert) {
@@ -80,3 +81,122 @@ describe('Channel config validation', () => {
   it('rejects email without smtp_host', () => { expect(validateChannel({ type: 'email' })).toContain('SMTP'); });
 });
 
+
+
+
+
+// Author: Syed Ashiq
+
+const sendMail = vi.fn().mockResolvedValue({ messageId: 'sent-test' })
+
+beforeAll(() => {
+
+  mock.module("nodemailer", () => {
+    return {
+      default: {
+        createTransport: () => {
+          return {
+            sendMail
+          }
+        }
+      }
+    }
+  })
+})
+describe("Sending Email", () => {
+  const config = { type: 'email', smtp_host: 'localhost', to: 'test@example.com' }
+  it("Sends OTP to Email", async () => {
+    vi.clearAllMocks()
+    const isSent = await sendOTPEmail('test@example.com', 'test', {})
+    expect(isSent).toBeTrue()
+    const isNotSent = await sendOTPEmail('test@example.com', 'test', '')
+    expect(isNotSent).toBeFalse()
+
+
+  })
+
+  it("Sends Alert Mail", async () => {
+    vi.clearAllMocks()
+    const alert = {
+      name: "Testing Alert",
+      severity: "info",
+      description: `This is a test email`,
+      sql: "",
+      schedule: "",
+      operator: "eq",
+      threshold: 0,
+      lastValue: 0,
+      lastRunAt: new Date().toISOString(),
+    }
+
+
+    await sendNotification(config, alert)
+    expect(sendMail).toHaveBeenCalled()
+  })
+
+  it("Tests Channel", async () => {
+    vi.clearAllMocks()
+    await testChannel(config)
+    expect(sendMail).toHaveBeenCalled()
+  })
+
+
+})
+
+beforeAll(() => {
+  vi.mock('../../src/backend/services/clusterUtils', () => {
+    return {
+      getAllClusters: () => ([{ id: 1, nodes: [{ host: 'localhost' }] }])
+    }
+  })
+})
+
+describe("Helper Functions for Notifier", () => {
+
+  const alert = { clusterId: 1, nodes: [], lastRunAt: new Date().toLocaleString(), name: 'test' }
+
+  it('Gets cluster Information', () => {
+    const info = getClusterInfo(alert)
+    expect(info).toHaveProperty('clusterName')
+    expect(info.clusterName).toBe('Default')
+    expect(info).toHaveProperty('nodes')
+    expect(info.nodes).toBe('localhost')
+  })
+
+  it("Formats Alert Details", () => {
+    expect(formatDetails(alert)).toBeDefined()
+  })
+
+  it('Escapes HTML', () => {
+    expect(escapeHtml('&')).toBe('&amp;')
+    expect(escapeHtml('<')).toBe('&lt;')
+    expect(escapeHtml('>')).toBe('&gt;')
+    expect(escapeHtml('"')).toBe('&quot;')
+    expect(escapeHtml("'")).toBe('&#39;')
+  })
+
+  it("Extracts account details", () => {
+    const description = `
+      Password reset Username: test Password: test123 Role: Admin Please change your password on first login
+    `
+    const info = extractAccountDetails(description)
+    const expectToBe = {
+      intro: "Password reset",
+      username: "test",
+      password: "test123",
+      role: "Admin",
+      note: "Please change your password on first login",
+    }
+    expect(info).toHaveProperty('intro')
+    expect(info.intro).toBe('Password reset')
+    expect(info).toHaveProperty('username')
+    expect(info.username).toBe('test')
+    expect(info).toHaveProperty('password')
+    expect(info.password).toBe('test123')
+    expect(info).toHaveProperty('role')
+    expect(info.role).toBe('Admin')
+    expect(info).toHaveProperty('note')
+    expect(info.note).toBe('Please change your password on first login')
+  })
+
+})

@@ -248,11 +248,11 @@ export async function testConnection({ apiAddress, caCertificate, token, namespa
     result.operator = result.operators.includes('akoc')
       ? { reachable: true }
       : {
-          reachable: false,
-          message: result.operators.includes('ocko')
-            ? 'AKOC was not found. This namespace runs the Official ClickHouse® Kubernetes Operator (OCKO).'
-            : 'No supported ClickHouse® operator was found in this namespace.',
-        };
+        reachable: false,
+        message: result.operators.includes('ocko')
+          ? 'AKOC was not found. This namespace runs the Official ClickHouse® Kubernetes Operator (OCKO).'
+          : 'No supported ClickHouse® operator was found in this namespace.',
+      };
   }
 
   return result;

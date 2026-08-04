@@ -12,7 +12,8 @@
  * Author: Kathir Moorthy
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
-import { describe, it, expect } from 'bun:test';
+import { afterEach, beforeEach, describe, it, expect } from 'bun:test';
+import { executeQuery, executeQueryWithBody } from '../../src/backend/services/clickhouse.js';
 import { isDataQuery, leadingKeyword } from '../../src/shared/sqlClassify.js';
 
 // EXPLAIN graph=1 / json=1 produce raw (non-tabular) output and skip FORMAT.
@@ -69,4 +70,117 @@ describe('EXPLAIN raw detection - graph/json skip FORMAT', () => {
   it('EXPLAIN ESTIMATE is NOT raw', () => expect(isExplainRaw('EXPLAIN ESTIMATE SELECT 1')).toBe(false));
   it('SELECT from graph_table is NOT raw', () => expect(isExplainRaw('SELECT * FROM graph_table')).toBe(false));
   it('EXPLAIN with graph=0 is NOT raw', () => expect(isExplainRaw('EXPLAIN AST graph = 0 SELECT 1')).toBe(false));
+});
+
+describe('clickhouse client execution', () => {
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    globalThis.fetch = async (url, options) => ({
+      ok: true,
+      status: 200,
+      text: async () => '{"id":1,"name":"Alice"}\n{"id":2,"name":"Bob"}',
+      headers: new Headers({
+        'X-ClickHouse-Summary': '{"read_rows":"2"}',
+        'X-ClickHouse-Query-Id': 'query-123',
+      }),
+    });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('executes data queries with readonly and JSONEachRow parsing', async () => {
+    let captured;
+    globalThis.fetch = async (url, options) => {
+      captured = { url, options };
+      return {
+        ok: true,
+        status: 200,
+        text: async () => '{"id":1,"name":"Alice"}\n{"id":2,"name":"Bob"}',
+        headers: new Headers({
+          'X-ClickHouse-Summary': '{"read_rows":"2"}',
+          'X-ClickHouse-Query-Id': 'query-123',
+        }),
+      };
+    };
+
+    const result = await executeQuery({
+      host: 'clickhouse.local',
+      port: 8123,
+      secure: true,
+      user: 'alice',
+      password: 'secret',
+      sql: 'SELECT * FROM system.tables',
+      readOnly: true,
+    });
+
+    expect(captured.url.hostname).toBe('clickhouse.local');
+    expect(captured.url.protocol).toBe('https:');
+    expect(captured.url.searchParams.get('readonly')).toBe('1');
+    expect(captured.options.method).toBe('POST');
+    expect(captured.options.body).toBe('SELECT * FROM system.tables\nFORMAT JSONEachRow');
+    expect(captured.options.headers['X-ClickHouse-User']).toBe('alice');
+    expect(captured.options.headers['X-ClickHouse-Key']).toBe('secret');
+    expect(result.rows).toEqual([{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]);
+    expect(result.columns).toEqual(['id', 'name']);
+    expect(result.stats).toEqual({ read_rows: '2' });
+    expect(result.queryId).toBe('query-123');
+  });
+
+  it('returns raw explain output as a single explain column', async () => {
+    let captured;
+    globalThis.fetch = async (url, options) => {
+      captured = { url, options };
+      return {
+        ok: true,
+        status: 200,
+        text: async () => 'Expression\n  Source',
+        headers: new Headers(),
+      };
+    };
+
+    const result = await executeQuery({
+      host: 'example',
+      sql: 'EXPLAIN graph=1 SELECT 1',
+    });
+
+    expect(captured.options.body).toBe('EXPLAIN graph=1 SELECT 1');
+    expect(result.rows).toEqual([{ explain: 'Expression' }, { explain: 'Source' }]);
+    expect(result.columns).toEqual(['explain']);
+    expect(result.stats).toEqual({});
+    expect(result.queryId).toBeNull();
+  });
+
+  it('adds JSONEachRow formatting for executeQueryWithBody requests', async () => {
+    let captured;
+    globalThis.fetch = async (url, options) => {
+      captured = { url, options };
+      return {
+        ok: true,
+        status: 200,
+        text: async () => '{"value":1}\n{"value":2}',
+        headers: new Headers({ 'X-ClickHouse-Query-Id': 'query-456' }),
+      };
+    };
+
+    const result = await executeQueryWithBody({
+      host: 'db',
+      port: 9000,
+      user: 'default',
+      password: '',
+      query: 'SELECT value FROM t',
+      body: 'payload',
+      jsonEachRow: true,
+    });
+
+    expect(captured.url.hostname).toBe('db');
+    expect(captured.url.searchParams.get('query')).toBe('SELECT value FROM t FORMAT JSONEachRow');
+    expect(captured.url.searchParams.get('max_execution_time')).toBe('30');
+    expect(captured.options.body).toBe('payload');
+    expect(result.rows).toEqual([{ value: 1 }, { value: 2 }]);
+    expect(result.columns).toEqual(['value']);
+    expect(result.queryId).toBe('query-456');
+  });
 });

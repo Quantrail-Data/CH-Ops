@@ -80,7 +80,7 @@ export async function executeQuery({ host, port = 8123, secure = false, user = '
 
   // Raw EXPLAIN output - each line becomes a row with a single "explain" column
   if (isExplainRaw) {
-    const lines = text.trim().split('\n').filter(Boolean);
+    const lines = text.trim().split('\n').filter(Boolean).map(line => line.trim());
     const rows = lines.map(line => ({ explain: line }));
     return { rows, columns: ['explain'], stats, queryId };
   }
@@ -120,7 +120,7 @@ export async function executeQueryWithBody({
   url.searchParams.set('max_execution_time', String(maxExecutionTime));
   url.searchParams.set('max_memory_usage', String(maxMemoryUsage));
 
-  const res = await fetch(url.toString(), {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
     body,

@@ -2,7 +2,8 @@
 // config.test.js - unit tests for configuration controller
 // Contributors -> Kathirdhasan, Kathir Moorthy
 
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, vi, beforeAll } from "bun:test";
+import { kubernetesEnabled } from "../../src/backend/controllers/config.js";
 
 const CLUSTERS = [
   {
@@ -40,11 +41,11 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
     })),
   }),
   getNodeByName: mock(() => true),
-  getClusterById: mock(() => {}),
-  getClusterNodes: mock(() => {}),
-  saveClusters: mock(() => {}),
+  getClusterById: mock(() => { }),
+  getClusterNodes: mock(() => { }),
+  saveClusters: mock(() => { }),
   getDefaultCluster: mock(() => null),
-  migrateClusterData: mock(() => {}),
+  migrateClusterData: mock(() => { }),
   MAX_CLUSTERS: 3,
   MAX_TOTAL_NODES: 18,
 }));
@@ -55,7 +56,7 @@ mock.module("../../src/backend/services/capabilities.js", () => ({
   ensureCapabilities: mock(async () => ({ probed: false, tables: null })),
   unavailableFeatures: mock(() => []),
   probeCapabilities: mock(async () => ({ probed: false })),
-  clearCapabilities: mock(() => {}),
+  clearCapabilities: mock(() => { }),
   hasCapability: mock(() => true),
   explain: mock(() => ""),
   probeSessionAffinity: mock(async () => ({ checked: false, sticky: null })),
@@ -140,3 +141,29 @@ describe("getConnection", () => {
     expect(res.jsonData.clusters[0].nodes[0].hasPassword).toBe(true);
   });
 });
+
+
+// Author: Syed Ashiq
+
+const get = vi.fn().mockImplementation(() => ({ value: 'true' }))
+
+beforeAll(() => {
+  vi.mock('../../src/backend/db', () => ({
+    db: {
+      select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get })) })) })),
+
+    }
+  }))
+
+})
+describe('Kubernetes helper function', () => {
+  it('Returns true if enabled', () => {
+    expect(kubernetesEnabled()).toBeTrue()
+  })
+  it('Returns false if disabled', () => {
+    get.mockImplementation(() => ({
+      value: 'false'
+    }))
+    expect(kubernetesEnabled()).toBeFalse()
+  })
+})
