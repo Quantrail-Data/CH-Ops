@@ -1,95 +1,156 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (Dhivyadharshini, Ravivarman)
 // // LocalVectorStore provides persistent local storage, indexing, and cosine similarity search for embedding vectors grouped by database.
-import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  existsSync,
-  renameSync,
-} from "fs";
+
 import { join, parse } from "path";
 
 import {
-  VECTOR_DIMENSION,
-  VECTOR_STORE_FOLDER,
-  VECTOR_STORE_FILE,
-  MODEL_NAME,
-} from "./constants";
+  readFile,
+  writeFile,
+  mkdir,
+  rename,
+  readdir,
+  unlink,
+  access,
+  stat,
+} from "fs/promises";
+
+import { VECTOR_DIMENSION, VECTOR_STORE_FOLDER, MODEL_NAME } from "./constants";
 
 class LocalVectorStore {
-  constructor() {
+  constructor(databaseId) {
+    if (!databaseId) {
+      throw new Error("LocalVectorStore requires a databaseId");
+    }
+
+    this.databaseId = databaseId;
     this.storagePath = join(process.cwd(), VECTOR_STORE_FOLDER);
-    this.filePath = join(this.storagePath, VECTOR_STORE_FILE);
-    this.tempFilePath = join(this.storagePath, `${VECTOR_STORE_FILE}.tmp`);
-    console.log(process.cwd());
-    console.log(this.storagePath);
+    this.fileName = `${databaseId}.json`;
+    this.filePath = join(this.storagePath, this.fileName);
+    this.tempFilePath = join(this.storagePath, `${this.fileName}.tmp`);
 
     this.store = {
       version: 1,
       model: MODEL_NAME,
       dimension: VECTOR_DIMENSION,
       normalized: true,
+      database_id: databaseId,
       vectors: [],
     };
 
     this.pointIndex = new Map();
 
-    this.databaseIndex = new Map();
+    this.metrics = {
+      loadTimeMs: 0,
+      saveTimeMs: 0,
+      searchLatencyMs: 0,
+      vectorCount: 0,
+      diskSizeBytes: 0,
+      memoryUsageBytes: 0,
+    };
+  }
+
+  static async listDatabaseIds() {
+    const storagePath = join(process.cwd(), VECTOR_STORE_FOLDER);
+
+    try {
+      await access(storagePath);
+    } catch {
+      return [];
+    }
+
+    const files = await readdir(storagePath);
+
+    return files
+      .filter((f) => f.endsWith(".json") && !f.endsWith(".json.tmp"))
+      .map((f) => parse(f).name);
   }
 
   async initialize() {
     try {
-      console.log("storagePath:", this.storagePath);
-      console.log("filePath:", this.filePath);
-      if (!existsSync(this.storagePath)) {
-        mkdirSync(this.storagePath, { recursive: true });
+      try {
+        await access(this.storagePath);
+      } catch {
+        await mkdir(this.storagePath, { recursive: true });
       }
-      if (!existsSync(this.filePath)) {
-        await this.save();
-      } else {
+      try {
+        await access(this.filePath);
         await this.load();
+      } catch {
+        await this.save();
+        console.log(this.metrics);
       }
-      this.buildIndexes();
       return true;
     } catch (error) {
-      console.error("Vector store Initializatio failed:", error.message);
+      console.error("Vector store initialization failed:", error.message);
       return false;
     }
   }
 
   buildIndexes() {
     this.pointIndex.clear();
-    this.databaseIndex.clear();
-
     this.store.vectors.forEach((point, idx) => {
       if (!point) return;
       this.pointIndex.set(point.id, idx);
-
-      const dbId = point.payload?.database_id;
-      if (dbId === undefined || dbId === null) return;
-
-      if (!this.databaseIndex.has(dbId)) {
-        this.databaseIndex.set(dbId, []);
-      }
-      this.databaseIndex.get(dbId).push(idx);
     });
   }
 
+  // Static multi-database cosine similarity search
+  static async searchAcrossDatabases(
+    queryVector,
+    databaseIds = [],
+    limit = 10,
+  ) {
+    if (
+      !Array.isArray(queryVector) ||
+      queryVector.length !== VECTOR_DIMENSION
+    ) {
+      throw new Error(`Query vector must have ${VECTOR_DIMENSION} dimensions`);
+    }
+
+    const availableDbs = await LocalVectorStore.listDatabaseIds();
+
+    // If empty or containing "ALL", query all available vector stores
+    const targetDbs =
+      databaseIds.length === 0 || databaseIds.includes("ALL")
+        ? availableDbs
+        : databaseIds.filter((dbId) => availableDbs.includes(dbId));
+
+    let allScoredResults = [];
+
+    for (const dbId of targetDbs) {
+      const store = new LocalVectorStore(dbId);
+      await store.initialize();
+
+      const results = await store.search(queryVector, limit);
+      allScoredResults.push(...results);
+    }
+
+    // Sort combined results by highest cosine similarity score
+    allScoredResults.sort((a, b) => b.score - a.score);
+    return allScoredResults.slice(0, limit);
+  }
+
   async save() {
+    const start = performance.now();
     try {
       const payload = JSON.stringify(this.store, null, 2);
-      writeFileSync(this.tempFilePath, payload, "utf-8");
-      renameSync(this.tempFilePath, this.filePath);
+      await writeFile(this.tempFilePath, payload, "utf-8");
+      await rename(this.tempFilePath, this.filePath);
+      await this.updateDiskSizeMetric();
     } catch (error) {
       console.error("Failed to save vector store:", error.message);
       throw error;
+    } finally {
+      this.metrics.saveTimeMs = performance.now() - start;
     }
   }
 
   async load() {
+    const start = performance.now();
+
     try {
-      const raw = readFileSync(this.filePath, "utf-8");
+      const raw = await readFile(this.filePath, "utf-8");
       const parsed = JSON.parse(raw);
 
       if (
@@ -102,8 +163,8 @@ class LocalVectorStore {
 
       if (parsed.dimension && parsed.dimension !== VECTOR_DIMENSION) {
         console.warn(
-          `Vector store dimension mismatch: file has ${parsed.dimension}, expected ${VECTOR_DIMENSION}. ` +
-            `Existing vectors were likely produced by a different model.`,
+          ` Vector store dimension mismatch: file has ${parsed.dimension}, expected ${VECTOR_DIMENSION}.  +
+            Existing vectors were likely produced by a different model.`,
         );
       }
 
@@ -119,16 +180,34 @@ class LocalVectorStore {
         model: parsed.model ?? MODEL_NAME,
         dimension: parsed.dimension ?? VECTOR_DIMENSION,
         normalized: parsed.normalized ?? true,
+        database_id: parsed.database_id ?? this.databaseId,
         vectors: parsed.vectors,
       };
+      this.metrics.vectorCount = this.store.vectors.length;
+
       this.buildIndexes();
+
+      await this.updateDiskSizeMetric();
+      this.updateMemoryMetric();
     } catch (error) {
       console.error("Failed to load vector store:", error.message);
       throw error;
+    } finally {
+      this.metrics.loadTimeMs = performance.now() - start;
     }
   }
 
-  async upsert(points) {
+  async clearStore(options = { save: true }) {
+    this.store.vectors = [];
+    this.pointIndex.clear();
+    this.metrics.vectorCount = 0;
+    this.updateMemoryMetric();
+    if (options.save) {
+      await this.save();
+    }
+  }
+
+  async upsert(points, options = { save: true }) {
     if (!Array.isArray(points) || points.length === 0) {
       return { upserted: 0 };
     }
@@ -144,7 +223,7 @@ class LocalVectorStore {
         point.vector.length !== VECTOR_DIMENSION
       ) {
         throw new Error(
-          `Point ${point.id}: vector must have ${VECTOR_DIMENSION} dimensions, got ${point.vector?.length}`,
+          ` Point ${point.id}: vector must have ${VECTOR_DIMENSION} dimensions, got ${point.vector?.length}`,
         );
       }
 
@@ -163,72 +242,118 @@ class LocalVectorStore {
           updated_at: nowIso,
         },
       };
+
       if (existingIdx !== undefined) {
+        // Update existing record
         this.store.vectors[existingIdx] = record;
+        this.pointIndex.set(record.id, existingIdx);
       } else {
+        // Insert new record
+        const newIndex = this.store.vectors.length;
         this.store.vectors.push(record);
+        this.pointIndex.set(record.id, newIndex);
       }
     }
+    this.metrics.vectorCount = this.store.vectors.length;
+    this.updateMemoryMetric();
 
-    this.buildIndexes();
-    await this.save();
+    if (options.save) {
+      await this.save();
+    }
 
     return { upserted: points.length };
   }
 
-  async search(databaseId, queryVector, limit = 10) {
-    if (!Array.isArray(queryVector)) {
-      throw new Error("Query vector must be a valid array");
-    }
-
-    const candidateIdxs = this.databaseIndex.get(databaseId) ?? [];
-    if (candidateIdxs.length === 0) return [];
-
-    const scored = [];
-    // Math defense: compute matching dimensions safely up to array boundaries
-    const targetLen = Math.min(VECTOR_DIMENSION, queryVector.length);
-
-    for (const idx of candidateIdxs) {
-      const point = this.store.vectors[idx];
-      if (!point) continue;
-
-      const vec = point.vector;
-      let dot = 0;
-      for (let j = 0; j < targetLen; j++) {
-        dot += vec[j] * queryVector[j];
+  async search(queryVector, limit = 10) {
+    const start = performance.now();
+    try {
+      if (!Array.isArray(queryVector) || queryVector.length === 0) {
+        throw new Error("Query vector must be a non-empty array");
       }
 
-      scored.push({ id: point.id, score: dot, payload: point.payload });
+      if (queryVector.length !== VECTOR_DIMENSION) {
+        throw new Error(
+          `  Query vector has ${queryVector.length} dimensions, expected ${VECTOR_DIMENSION}`,
+        );
+      }
+
+      const scored = [];
+
+      for (const point of this.store.vectors) {
+        if (!point) continue;
+
+        const vec = point.vector;
+        let dot = 0;
+        for (let j = 0; j < VECTOR_DIMENSION; j++) {
+          dot += vec[j] * queryVector[j];
+        }
+
+        scored.push({
+          id: point.id,
+          score: dot,
+          database_id: this.databaseId,
+          payload: point.payload,
+        });
+      }
+
+      scored.sort((a, b) => b.score - a.score);
+
+      return scored.slice(0, limit);
+    } finally {
+      this.metrics.searchLatencyMs = performance.now() - start;
+      this.updateMemoryMetric();
+    }
+  }
+
+  async getVectors() {
+    return this.store.vectors;
+  }
+
+  async getPoint(id) {
+    const idx = this.pointIndex.get(id);
+    return idx !== undefined ? this.store.vectors[idx] : null;
+  }
+
+  async deleteDatabaseFile() {
+    let deleted = false;
+
+    try {
+      await access(this.filePath);
+      await unlink(this.filePath);
+      deleted = true;
+    } catch {
+      deleted = false;
     }
 
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, limit);
+    this.store.vectors = [];
+    this.pointIndex.clear();
+
+    this.metrics.vectorCount = 0;
+    this.metrics.diskSizeBytes = 0;
+    this.updateMemoryMetric();
+
+    return { deleted };
   }
+  async updateDiskSizeMetric() {
+    try {
+      const fileInfo = await stat(this.filePath);
 
-  async deleteDatabaseVectors(databaseId) {
-    const before = this.store.vectors.length;
-    this.store.vectors = this.store.vectors.filter(
-      (point) => point?.payload?.database_id !== databaseId,
-    );
-    const removed = before - this.store.vectors.length;
-
-    this.buildIndexes();
-
-    if (removed > 0) {
-      await this.save();
+      this.metrics.diskSizeBytes = fileInfo.size;
+    } catch {
+      this.metrics.diskSizeBytes = 0;
     }
-
-    return { removed };
   }
 
-  async getDatabaseVectors(databaseId) {
-    const idxs = this.databaseIndex.get(databaseId) ?? [];
-    return idxs.map((idx) => this.store.vectors[idx]).filter(Boolean);
+  updateMemoryMetric() {
+    const memory = process.memoryUsage();
+
+    this.metrics.memoryUsageBytes = memory.heapUsed;
   }
 
-  async isexists(databaseId) {
-    const idxs = this.databaseIndex.get(databaseId);
-    return Boolean(idxs && idxs.length > 0);
+  getMetrics() {
+    return {
+      ...this.metrics,
+    };
   }
 }
 

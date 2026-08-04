@@ -136,6 +136,8 @@ export const aiDatabaseDetails = sqliteTable("ai_database_details", {
   database_id: text("database_id").notNull(),
   database_type: text("database_type").notNull(),
   client: text("client").notNull(),
+  cluster_id : text("cluster_id")?.notNull(),
+  node_id:text("node_id")?.notNull(),
   is_valid: integer("is_valid", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
