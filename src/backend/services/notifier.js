@@ -48,7 +48,7 @@ function validateWebhookUrl(url) {
   }
 }
 
-function getClusterInfo(alert) {
+export function getClusterInfo(alert) {
   const clusters = getAllClusters();
   if (!clusters.length) return { clusterName: "No cluster", nodes: "-" };
 
@@ -67,7 +67,7 @@ function getClusterInfo(alert) {
         typeof alert.nodes === "string" ? JSON.parse(alert.nodes) : alert.nodes;
       if (Array.isArray(parsed) && parsed.length > 0) targetNodes = parsed;
     }
-  } catch {}
+  } catch { }
 
   if (targetNodes.length) {
     return { clusterName, nodes: targetNodes.join(", ") };
@@ -76,7 +76,7 @@ function getClusterInfo(alert) {
   return { clusterName, nodes: allNodes.join(", ") || "all nodes" };
 }
 
-function formatDetails(alert) {
+export function formatDetails(alert) {
   const d = alert.lastRunAt ? new Date(alert.lastRunAt) : new Date();
   const ts = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
   const info = getClusterInfo(alert);
@@ -93,12 +93,12 @@ function formatDetails(alert) {
     nodes: info.nodes,
     firedNode: alert.firedNode || "-",
     timestamp: ts,
-    kind: alert.kind || "breach",   
+    kind: alert.kind || "breach",
     error: alert.error || null,
   };
 }
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -107,12 +107,12 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function extractAccountDetails(description) {
+export function extractAccountDetails(description) {
   const text = String(description || "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 2000);
-  
+
   const usernameMatch = text.match(/Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i);
   const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
   const roleMatch = text.match(/Role:\s*([a-z]+)/i);
@@ -141,7 +141,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
 
     if (!config) {
       return false
-      
+
     }
     const webAppName = "CHOPS";
 
@@ -191,7 +191,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
     });
 
     const info = await transport.sendMail(mailOptions);
-     console.log("Password reset OTP sent to %s: %s", email, info.messageId);
+    console.log("Password reset OTP sent to %s: %s", email, info.messageId);
     return true;
   } catch (error) {
     console.error("Error sending OTP email:", error.message);
@@ -246,8 +246,8 @@ export async function sendNotification(channelConfig, alert) {
       : null;
 
     const descriptionHtml = d.description !== "-"
-        ? `<p style="color:#334155;margin:0 0 16px;font-size:15px;line-height:1.7">${escapeHtml(d.description)}</p>`
-        : "";
+      ? `<p style="color:#334155;margin:0 0 16px;font-size:15px;line-height:1.7">${escapeHtml(d.description)}</p>`
+      : "";
 
     const html = isAccountEmail ? `
  <!DOCTYPE html>
@@ -554,7 +554,7 @@ export async function sendNotification(channelConfig, alert) {
 
 </html>
     ` :
-    `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
+      `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
       <div style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:white;padding:18px 24px"><h2 style="margin:0;font-size:20px">${escapeHtml(d.severity)}: ${escapeHtml(d.name)}</h2><p style="margin:4px 0 0;opacity:0.85;font-size:13px">${escapeHtml(d.timestamp)}</p></div>
       <div style="padding:24px;color:${bodyColor}">
         ${descriptionHtml}
@@ -562,10 +562,10 @@ export async function sendNotification(channelConfig, alert) {
           <div style="padding:12px 16px;background:#f8fafc;color:#0f172a;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Alert Summary</div>
           <table style="width:100%;font-size:14px;border-collapse:collapse;color:${tableTextColor}">
             ${d.kind === 'failure'
-              ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || 'Evaluation failed')}</td></tr>`
-              : d.kind === 'recovery'
-              ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
-              : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
+        ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || 'Evaluation failed')}</td></tr>`
+        : d.kind === 'recovery'
+          ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
+          : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
                  <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Threshold</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.operator)} ${escapeHtml(d.threshold)}</td></tr>`}
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Severity</td><td style="padding:10px 16px;border-bottom:1px solid ${rowBorder}"><span style="background:${sevColor};color:${severityTextColor};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${escapeHtml(d.severity)}</span></td></tr>
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Schedule</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder};font-family:monospace">${escapeHtml(d.schedule)}</td></tr>
@@ -589,7 +589,7 @@ export async function sendNotification(channelConfig, alert) {
           path: "src/frontend/assets/chops-dark.png",
           cid: "logo-image-123",
         },
-      ]: [],
+      ] : [],
     });
   }
 }

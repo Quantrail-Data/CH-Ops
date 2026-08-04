@@ -54,12 +54,12 @@ function rowsToCluster(clusterRow, nodeRows) {
     hasClusterPassword: !!clusterRow.chPasswordEnc,
     k8s: clusterRow.kind === 'k8s'
       ? {
-          connectionId: clusterRow.k8sConnectionId,
-          namespace: clusterRow.k8sNamespace,
-          installation: clusterRow.k8sInstallation,
-          operator: clusterRow.k8sOperator || 'akoc',
-          lastRefreshedAt: clusterRow.lastRefreshedAt,
-        }
+        connectionId: clusterRow.k8sConnectionId,
+        namespace: clusterRow.k8sNamespace,
+        installation: clusterRow.k8sInstallation,
+        operator: clusterRow.k8sOperator || 'akoc',
+        lastRefreshedAt: clusterRow.lastRefreshedAt,
+      }
       : null,
     nodes: nodeRows.map(n => ({
       name: n.name,
@@ -91,10 +91,37 @@ function readClustersFromTables() {
 }
 
 // Diff the incoming list against what is stored and write the difference.
+function ensureUniqueClusterNames(clusters, existingRows = []) {
+  const used = new Set((existingRows || []).map(c => (c.name || '').trim().toLowerCase()));
+  const names = [];
+
+  return clusters.map((cluster, index) => {
+    const baseName = (cluster.name || '').trim() || `Cluster ${index + 1}`;
+    let candidate = baseName;
+    let suffix = 2;
+    let normalized = candidate.trim().toLowerCase();
+
+    while (used.has(normalized)) {
+      candidate = `${baseName} ${suffix}`;
+      normalized = candidate.trim().toLowerCase();
+      suffix += 1;
+    }
+
+    used.add(normalized);
+    names.push(candidate);
+    return {
+      ...cluster,
+      id: cluster.id || `cluster_${index + 1}`,
+      name: candidate,
+    };
+  });
+}
+
 function saveClustersToTables(clusters) {
   const existing = db.select().from(clusterTable).all();
+  const normalizedClusters = ensureUniqueClusterNames(clusters, existing);
   const existingIds = new Set(existing.map(c => c.id));
-  const incomingIds = new Set(clusters.map(c => c.id));
+  const incomingIds = new Set(normalizedClusters.map(c => c.id));
 
   db.transaction(() => {
     for (const id of existingIds) {
@@ -104,7 +131,7 @@ function saveClustersToTables(clusters) {
       }
     }
 
-    for (const cluster of clusters) {
+    for (const cluster of normalizedClusters) {
       const isK8s = cluster.kind === 'k8s';
       const first = cluster.nodes?.[0];
       const values = {
@@ -337,7 +364,7 @@ export function migrateClusterData() {
     // Store using the new format (passwords are already encrypted in old format)
     const value = JSON.stringify([cluster]);
     db.insert(appSettings).values({ key: 'clusters', value, category: 'cluster' }).run();
-  } catch {}
+  } catch { }
 }
 
 export { MAX_CLUSTERS, MAX_TOTAL_NODES };
