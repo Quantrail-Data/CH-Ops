@@ -57,6 +57,7 @@ export default function DashboardView({sidebar}) {
   const [newCols, setNewCols] = useState(2);
   const [showCreate, setShowCreate] = useState(false);
   const [del, setDel] = useState(null);
+  const [delChart, setDelChart] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [fs,setFs] = useState(false)
@@ -506,7 +507,7 @@ export default function DashboardView({sidebar}) {
           {charts.map((chart, i) => (
             <div key={chart.id} draggable={!fs && canEdit} onDragStart={e => !fs && canEdit && onDragStart(e, i)} onDragOver={onDragOver} onDrop={e => canEdit && onDrop(e, i)}
               style={{ opacity: dragIdx === i ? 0.4 : 1, cursor: !fs && canEdit ? 'grab' : 'default', transition: 'opacity 0.2s' }}>
-              <ChartTile setFss={setFs} sidebar={sidebar} chart={chart} onDelete={() => deleteChart(chart.id)} cols={cols} isAdmin={isAdmin} canEdit={canEdit} showLegends={showLegends} legendSupportedTypes={legendSupportedTypes}
+              <ChartTile setFss={setFs} sidebar={sidebar} chart={chart} onDelete={() => setDelChart({ id: chart.id, name: chart.name })} cols={cols} isAdmin={isAdmin} canEdit={canEdit} showLegends={showLegends} legendSupportedTypes={legendSupportedTypes}
                 highlighted={!!hoveredFilter && (params.byChart.get(chart.id) || []).some((p) => p.name === hoveredFilter)}
                 filterNames={(params.byChart.get(chart.id) || []).map((p) => p.name)} />
             </div>
@@ -515,6 +516,9 @@ export default function DashboardView({sidebar}) {
       </div>}
 
       {del && isAdmin && <ConfirmModal title="Delete Dashboard" message="Delete this dashboard? Charts will be unassigned." onConfirm={() => deleteDash(del)} onCancel={() => setDel(null)} danger />}
+
+      {delChart && isAdmin && <ConfirmModal title="Delete Chart" message={`Delete "${delChart.name}"?`} onConfirm={async () => { await deleteChart(delChart.id); setDelChart(null); }} onCancel={() => setDelChart(null)} danger />}
+
     </div>
   );
 }
@@ -631,6 +635,26 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       ? 145
       : 20;
 
+  const determineTickCount = (opt) => {
+    if (!opt) return 0;
+    if (Array.isArray(opt.xAxis)) {
+      const ax = opt.xAxis[0];
+      if (ax?.data?.length) return ax.data.length;
+    } else if (opt.xAxis?.data?.length) return opt.xAxis.data.length;
+    if (Array.isArray(opt.series) && opt.series[0]?.data?.length) return opt.series[0].data.length;
+    return 0;
+  };
+
+  const computeInterval = (tickCount, maxLabels) => {
+    if (!tickCount || tickCount <= maxLabels) return 0;
+    const interval = Math.ceil(tickCount / Math.max(1, maxLabels)) - 1;
+    return Math.max(0, interval);
+  };
+
+  const maxLabels = fs ? 10 : isSmallScreen ? 3 : 4;
+  const tickCount = determineTickCount(chart?.chartOption);
+  const axisInterval = computeInterval(tickCount, maxLabels);
+
   const opt = {
     ...chart.chartOption,
     responsive: true,
@@ -649,6 +673,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     legend: resolvedLegend,
     xAxis: {
       ...chart?.chartOption?.xAxis,
+      type: isBarChart ? 'category' : chart?.chartOption?.xAxis?.type,
       nameGap: isBarChart ? 100 : 40,
       nameLocation: "middle",
       position: 'bottom',
@@ -659,6 +684,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         color: isDarkColor,
         margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
         hideOverlap: false,
+        interval: axisInterval,
+        formatter: (v) => {
+          try {
+            const s = String(v);
+            return s.length > 20 ? s.slice(0, 17) + "…" : s;
+          } catch { return v; }
+        },
       },
       axisLine: { show: false },
       nameTextStyle: {
@@ -804,7 +836,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   useEffect(() => {
-    if (!ref.current || !opt || opt._kpi || opt._table || opt._error || opt._waiting) return;
+    if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) return;
     try { inst.current = initChart(ref.current); inst.current.setOption(withZoomable(opt), true); setTimeout(() => inst.current?.resize(), 50); } catch { }
     return () => { if (ref.current) disposeChart(ref.current); };
   }, [opt]);
@@ -933,7 +965,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             <button className="btn btn-ghost btn-sm" onClick={() => { setFs(!fs); setFss(!fs); }} title={fs ? 'Exit full screen' : 'Full screen'}><Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon></button>
           )}
           {isAdmin && (
-            <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete chart (admin only)"><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+            <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete chart (admin only)" disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
           )}
         </div>
       </div>
