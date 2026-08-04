@@ -34,9 +34,6 @@ export const PAGE_HEADERS = {
   "overview/kubernetes": [
     "Kubernetes Insights"
   ],
-  "overview/kubernetes": [
-    "Kubernetes Insights"
-  ],
   "tools/profiler": [
     "Query Profiler"
   ],
@@ -478,9 +475,11 @@ export const PAGE_TEXT = {
     "to visualize its resource usage over time."
   ],
   "tools/qurioz": [
-    "Select Database",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Database Schema Generator",
+    "Add Schema",
+    "Database Schema Generated",
+    "Refresh Selected Schema",
+    "Delete Schema's",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -1151,9 +1150,11 @@ export const PAGE_TEXT = {
     "Test"
   ],
   "/qurioz": [
-    "Select Database",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Database Schema Generator",
+    "Add Schema",
+    "Database Schema Generated",
+    "Refresh Selected Schema",
+    "Delete Schema's",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
