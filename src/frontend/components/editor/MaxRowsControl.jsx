@@ -48,7 +48,7 @@ export default function MaxRowsControl({ value, onChange, disabled = false }) {
           disabled={disabled || value <= MAX_ROWS_MIN}
           aria-label="Fewer rows"
         >
-          &minus;
+          <i>&minus;</i>
         </button>
 
         <input
@@ -78,7 +78,7 @@ export default function MaxRowsControl({ value, onChange, disabled = false }) {
           disabled={disabled || value >= MAX_ROWS_MAX}
           aria-label="More rows"
         >
-          +
+          <i>+</i>
         </button>
       </span>
     </span>

@@ -144,7 +144,7 @@ class AIServices {
     } catch (error) {
       const status = error?.status || error?.statusCode || error?.code;
       const message = error?.message || "";
-
+    
       // Rate Limit
       if (
         status === 429 ||
