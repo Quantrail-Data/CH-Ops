@@ -17,12 +17,11 @@ import ChartCard from "../layout/ChartCard.jsx";
 import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
-import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../../App.jsx";
+import OpenInMenu from "./OpenInMenu.jsx";
+import CurrentQueries from "./CurrentQueries.jsx";
 
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const pad = (n) => String(n).padStart(2, "0");
 const fmtNow = () => {
   const d = new Date();
@@ -302,103 +301,6 @@ function MetricBar({ label, value, max, color }) {
   );
 }
 
-// Destinations a query_id can be opened in. All three pages read ?qid= from the
-// URL (HashRouter), so each link is /<route>?qid=<id>.
-const OPEN_IN_DESTINATIONS = [
-  { key: "profiler", label: "Query Profiler", icon: "ti-flame", route: "tools/profiler" },
-  { key: "pipeline", label: "Processors Profile", icon: "ti-hierarchy-2", route: "tools/pipeline" },
-  { key: "metrics", label: "Query Metrics", icon: "ti-chart-line", route: "tools/metrics" },
-];
-
-// Per-row "Open in..." menu. The popover is fixed-position (anchored to the
-// trigger via getBoundingClientRect) so the table's overflow does not clip it.
-function OpenInMenu({ queryId }) {
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const btnRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    window.addEventListener("keydown", onKey);
-    document.addEventListener("click", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("click", close);
-    };
-  }, [open]);
-
-  function toggle(e) {
-    e.stopPropagation();
-    const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 200) });
-    setOpen((v) => !v);
-  }
-
-  function go(route) {
-    navigate(`/${route}?qid=${encodeURIComponent(queryId)}`);
-    setOpen(false);
-  }
-
-  return (
-    <>
-      <button ref={btnRef} className="btn btn-secondary btn-sm" onClick={toggle}>
-        <Icon className="ti ti-external-link"></Icon> Open in...
-      </button>
-      {open && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            top: pos.top,
-            left: pos.left,
-            zIndex: 1200,
-            width: 210,
-            height: "auto",
-            maxHeight: "none",
-            display: "flex",
-            flexDirection: "column",
-            padding: 4,
-            background: "var(--glass-bg, rgba(24,28,38,0.85))",
-            backdropFilter: "blur(12px) saturate(140%)",
-            WebkitBackdropFilter: "blur(12px) saturate(140%)",
-            border: "1px solid var(--border-default, rgba(255,255,255,0.14))",
-            borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-            overflow: "visible",
-          }}
-        >
-          {OPEN_IN_DESTINATIONS.map((d) => (
-            <button
-              key={d.key}
-              className="btn btn-ghost btn-sm"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                width: "100%",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                whiteSpace: "nowrap",
-              }}
-              onClick={() => go(d.route)}
-            >
-              <Icon className={`ti ${d.icon}`}></Icon> {d.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
 
 function buildFullQuerySql(queryId) {
   const safeId = String(queryId).replace(/'/g, "\\'");
@@ -629,110 +531,6 @@ export default function QueriesSection({ sidebar }) {
   );
 }
 
-function CurrentQueries() {
-  const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin;
-  const q = useQuery();
-  const [killModal, setKillModal] = useState(null);
-  const [killResult, setKillResult] = useState(null);
-  const load = useCallback(() => {
-    q.execute(
-      "SELECT query_id, user, toString(elapsed) AS elapsed, read_rows, formatReadableSize(read_bytes) AS read_bytes, formatReadableSize(memory_usage) AS memory_usage, substring(query,1,200) AS query_preview FROM system.processes ORDER BY elapsed DESC",
-    );
-  }, []);
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
-  }, []);
-
-  async function killQuery(qid, sync) {
-    try {
-      await runQuery(
-        `KILL QUERY WHERE query_id='${qid}'${sync ? " SYNC" : ""}`,
-      );
-      setKillResult({ ok: true, msg: `Query ${qid} killed` });
-      load();
-    } catch (e) {
-      setKillResult({ ok: false, msg: e.message });
-    }
-    setKillModal(null);
-  }
-
-  return (
-    <div>
-      <div className="alert-banner info" style={{ marginBottom: "16px" }}>
-        <Icon className="ti ti-info-circle"></Icon>
-        <span>
-          Some queries here are already history. ClickHouse® is so fast that
-          this monitor works like a telescope: you are observing the universe as
-          it was a moment ago, even as new stars are still igniting.
-        </span>
-      </div>
-      {killResult && (
-        <div
-          className={`alert-banner ${killResult.ok ? "success" : "danger"}`}
-          style={{ marginBottom: "12px" }}
-        >
-          <Icon className={`ti ${killResult.ok ? "ti-check" : "ti-x"}`}></Icon>{" "}
-          {killResult.msg}
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginLeft: "auto" }}
-            onClick={() => setKillResult(null)}
-          >
-            <Icon className="ti ti-x"></Icon>
-          </button>
-        </div>
-      )}
-      <DataTable
-        rows={q.data || []}
-        columns={[
-          "query_id",
-          "user",
-          "elapsed",
-          "read_rows",
-          "read_bytes",
-          "memory_usage",
-          "query_preview",
-        ]}
-        emptyMessage="No queries currently running."
-        variant="single"
-        actions={(row) => (
-          <div style={{ display: "flex", gap: "4px" }}>
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => setKillModal({ qid: row.query_id, sync: false })}
-              disabled={!isAdmin}
-              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
-            >
-              <Icon className="ti ti-player-stop"></Icon> Kill
-            </button>
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => setKillModal({ qid: row.query_id, sync: true })}
-              disabled={!isAdmin}
-              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
-            >
-              <Icon className="ti ti-player-stop"></Icon> Kill Sync
-            </button>
-          </div>
-        )}
-      />
-      {killModal && (
-        <ConfirmModal
-          title="Kill Query"
-          message={`Kill query ${killModal.qid}${killModal.sync ? " with SYNC" : ""}?`}
-          onConfirm={() => killQuery(killModal.qid, killModal.sync)}
-          onCancel={() => setKillModal(null)}
-          danger
-        />
-      )}
-    </div>
-  );
-}
 
 function MetricCard({ label, value, danger }) {
   return (
@@ -1201,270 +999,227 @@ function QueryLogSearch({ sidebar }) {
           {filtersOpen ? "Collapse" : "Expand"} Filters
         </button>
       </div>
-{filtersOpen && (
-  <div
-    className="card"
-    style={{
-      padding: "20px",
-      marginBottom: "20px",
-      borderRadius: "12px",
-    }}
-  >
-    <form onSubmit={handleSearch}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "16px",
-          flexWrap: "wrap",
-          width: "100%",
-        }}
-      >
+      {filtersOpen && (
+        <div className="card" style={{ padding: "20px", marginBottom: "20px" }}>
+          <form onSubmit={handleSearch}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "10px",
+                marginBottom: "30px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-around",
+                  width: "24rem",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${(window?.innerWidth - (sidebar ? 150 : 300)) / 5}px `,
+                  }}
+                >
+                  {" "}
+                  <DateTimePicker
+                    label="From (required)"
+                    value={from}
+                    onChange={handleDateOnChange}
+                    name="From"
+                  />
+                </div>
+                <div
+                  style={{
+                    width: `${(window?.innerWidth - (sidebar ? 150 : 300)) / 5}px `,
+                  }}
+                >
+                  {" "}
+                  <DateTimePicker
+                    label="To (required)"
+                    value={to}
+                    onChange={handleDateOnChange}
+                    name="To"
+                  />
+                </div>
+              </div>
 
-<div
-  style={{
-    display: "flex",
-    alignItems: "flex-end",
-    gap: "40px", // 
-    flex: "2 1 680px",
-    minWidth: "650px",
-    marginRight:"50px"
-  }}
->
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  width: "16rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="form-group">
+                  <label className="form-label">Exception Code</label>
+                  <Select
+                    className="form-select"
+                    value={exceptionCode}
+                    onChange={(e) => setExceptionCode(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    {codesQ.data?.map((r) => (
+                      <option key={r.exception_code}>{r.exception_code}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Is Initial</label>
+                  <Select
+                    className="form-select"
+                    value={isInitial}
+                    onChange={(e) => setIsInitial(e.target.value)}
+                  >
+                    <option value="">Any</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </Select>
+                </div>
+              </div>
 
-  <div
-    style={{
-      flex: "1 1 320px",
-      minWidth: "320px",
-      marginRight:"10px"
-    }}
-  >
-    <DateTimePicker
-      label="From (required)"
-      value={from}
-      onChange={handleDateOnChange}
-      name="From"
-    />
-  </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  width: "16rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="form-group">
+                  <label className="form-label">Initial User</label>
+                  <Select
+                    className="form-select"
+                    value={initialUser}
+                    onChange={(e) => setInitialUser(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    {usersQ.data?.map((r) => (
+                      <option key={r.initial_user}>{r.initial_user}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Direction</label>
+                  <Select
+                    className="form-select"
+                    value={sortDir}
+                    onChange={(e) => setSortDir(e.target.value)}
+                  >
+                    <option value="DESC">Desc</option>
+                    <option value="ASC">Asc</option>
+                  </Select>
+                </div>
+              </div>
 
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  width: "16rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="form-group">
+                  <label className="form-label">Sort By</label>
+                  <Select
+                    className="form-select"
+                    value={sortField}
+                    onChange={(e) => setSortField(e.target.value)}
+                  >
+                    {SORTS.map((s) => (
+                      <option key={s.k} value={s.k}>
+                        {s.l}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
 
-  <div
-    style={{
-      flex: "1 1 320px",
-      minWidth: "320px",
-    }}
-  >
-    <DateTimePicker
-      label="To (required)"
-      value={to}
-      onChange={handleDateOnChange}
-      name="To"
-    />
-  </div>
-</div>
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 160px",
-            minWidth: "150px",
-          }}
-        >
-          <label className="form-label">Exception Code</label>
-          <Select
-            className="form-select"
-            value={exceptionCode}
-            onChange={(e) => setExceptionCode(e.target.value)}
-          >
-            <option value="">All</option>
-            {codesQ.data?.map((r) => (
-              <option key={r.exception_code}>
-                {r.exception_code}
-              </option>
-            ))}
-          </Select>
+                <div className="form-group">
+                  <label className="form-label">Query Kind</label>
+                  <Select
+                    className="form-select"
+                    value={queryKind}
+                    onChange={(e) => setQueryKind(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    {kindsQ.data?.map((r) => (
+                      <option key={r.query_kind}>{r.query_kind}</option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "14px",
+                marginBottom: "30px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  width: "42rem",
+                }}
+              >
+                <div className="form-group">
+                  <label className="form-label">Type</label>
+                  <Select
+                    style={widthStyle_2}
+                    className="form-select"
+                    value={queryType}
+                    onChange={(e) => setQueryType(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    {typesQ.data?.map((r) => (
+                      <option key={r.type}>{r.type}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Exception (text)</label>
+                  <input
+                    className="form-input"
+                    value={exceptionText}
+                    style={widthStyle_2}
+                    onChange={(e) => setExceptionText(e.target.value)}
+                    placeholder="partial..."
+                  />
+                </div>
+              </div>
+              <button
+                className="btn btn-primary"
+                type="submit"
+                disabled={searchQ.loading}
+              >
+                {searchQ.loading ? (
+                  <>
+                    <span className="loading-spinner"></span> Searching...
+                  </>
+                ) : (
+                  <>
+                    <Icon className="ti ti-search"></Icon> Search
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
-
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 130px",
-            minWidth: "120px",
-          }}
-        >
-          <label className="form-label">Is Initial</label>
-          <Select
-            className="form-select"
-            value={isInitial}
-            onChange={(e) => setIsInitial(e.target.value)}
-          >
-            <option value="">Any</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </Select>
-        </div>
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 160px",
-            minWidth: "150px",
-          }}
-        >
-          <label className="form-label">Initial User</label>
-          <Select
-            className="form-select"
-            value={initialUser}
-            onChange={(e) => setInitialUser(e.target.value)}
-          >
-            <option value="">All</option>
-            {usersQ.data?.map((r) => (
-              <option key={r.initial_user}>
-                {r.initial_user}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 120px",
-            minWidth: "110px",
-          }}
-        >
-          <label className="form-label">Direction</label>
-          <Select
-            className="form-select"
-            value={sortDir}
-            onChange={(e) => setSortDir(e.target.value)}
-          >
-            <option value="DESC">Desc</option>
-            <option value="ASC">Asc</option>
-          </Select>
-        </div>
-
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 150px",
-            minWidth: "140px",
-          }}
-        >
-          <label className="form-label">Sort By</label>
-          <Select
-            className="form-select"
-            value={sortField}
-            onChange={(e) => setSortField(e.target.value)}
-          >
-            {SORTS.map((s) => (
-              <option key={s.k} value={s.k}>
-                {s.l}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 150px",
-            minWidth: "140px",
-          }}
-        >
-          <label className="form-label">Query Kind</label>
-          <Select
-            className="form-select"
-            value={queryKind}
-            onChange={(e) => setQueryKind(e.target.value)}
-          >
-            <option value="">All</option>
-            {kindsQ.data?.map((r) => (
-              <option key={r.query_kind}>
-                {r.query_kind}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 130px",
-            minWidth: "120px",
-          }}
-        >
-          <label className="form-label">Type</label>
-          <Select
-            className="form-select"
-            value={queryType}
-            onChange={(e) => setQueryType(e.target.value)}
-          >
-            <option value="">All</option>
-            {typesQ.data?.map((r) => (
-              <option key={r.type}>
-                {r.type}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1.5 1 180px",
-            minWidth: "170px",
-          }}
-        >
-          <label className="form-label">Exception</label>
-          <input
-            className="form-input"
-            value={exceptionText}
-            onChange={(e) => setExceptionText(e.target.value)}
-            placeholder="Search exception..."
-          />
-        </div>
-
-        <div
-          style={{
-            flex: "0 0 120px",
-          }}
-        >
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={searchQ.loading}
-            style={{
-              width: "100%",
-              minHeight: "40px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {searchQ.loading ? (
-              <>
-                <span className="loading-spinner"></span>
-                Searching...
-              </>
-            ) : (
-              <>
-                <Icon className="ti ti-search"></Icon>
-                Search
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </form>
-  </div>
-)}
-
+      )}
       {submitted && !searchQ.loading && (
         <DataTable
           rows={searchQ.data || []}
