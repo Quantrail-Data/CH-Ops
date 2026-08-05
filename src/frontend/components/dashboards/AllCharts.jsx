@@ -207,6 +207,26 @@ export default function AllCharts({ onEdit }) {
         legend: resolvedLegend,
       });
 
+      const determineTickCount = (opt) => {
+        if (!opt) return 0;
+        if (Array.isArray(opt.xAxis)) {
+          const ax = opt.xAxis[0];
+          if (ax?.data?.length) return ax.data.length;
+        } else if (opt.xAxis?.data?.length) return opt.xAxis.data.length;
+        if (Array.isArray(opt.series) && opt.series[0]?.data?.length) return opt.series[0].data.length;
+        return 0;
+      };
+
+      const computeInterval = (tickCount, maxLabels) => {
+        if (!tickCount || tickCount <= maxLabels) return 0;
+        const interval = Math.ceil(tickCount / Math.max(1, maxLabels)) - 1;
+        return Math.max(0, interval);
+      };
+
+      const maxLabels = previewTools.fullscreen ? 8 : isSmallScreen ? 3 : 4;
+      const tickCount = determineTickCount(baseOption);
+      const axisInterval = computeInterval(tickCount, maxLabels);
+
       const chartOption = {
         ...baseOption,
         grid: Array.isArray(baseOption.grid)
@@ -241,6 +261,13 @@ export default function AllCharts({ onEdit }) {
                 margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
                 hideOverlap: false,
                 color: isDarkColor,
+                interval: axisInterval,
+                formatter: (v) => {
+                  try {
+                    const s = String(v);
+                    return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                  } catch { return v; }
+                },
               },
             }))
           : baseOption.xAxis
@@ -258,6 +285,13 @@ export default function AllCharts({ onEdit }) {
                   ),
                   hideOverlap: false,
                   color: isDarkColor,
+                  interval: axisInterval,
+                  formatter: (v) => {
+                    try {
+                      const s = String(v);
+                      return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                    } catch { return v; }
+                  },
                 },
                 nameTextStyle: {
                   color: isDarkColor,
@@ -431,7 +465,15 @@ export default function AllCharts({ onEdit }) {
   useEffect(() => () => { if (previewRef.current) disposeChart(previewRef.current); }, []);
   useEffect(() => { const t = setTimeout(() => previewInst.current?.resize(), 150); return () => clearTimeout(t); }, [previewTools.fullscreen, showLegend, isSmallScreen]);
 
-  async function deleteChart(id) { try { await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} }); setSelected(null); setPreviewOpt(null); load(); } catch {} setDel(null); }
+  async function performDeleteChartById(id) { 
+    try { 
+      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} }); 
+      setSelected(null); 
+      setPreviewOpt(null); 
+      await load(); 
+    } catch (e) { /* preserve behavior and don't throw */ } 
+    finally { setDel(null); } 
+  }
 
   const dashMap = Object.fromEntries(dashboards.map(d => [d.id, d.name]));
 
@@ -485,7 +527,7 @@ export default function AllCharts({ onEdit }) {
                   <td style={{ display: 'flex', gap: 4 }}>
                     {onEdit && canEdit && <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onEdit(c); }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></button>}
                     {onEdit && !canEdit && <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></button>}
-                    <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); canEdit && setDel(c.id); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+                    <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); canEdit && setDel({ id: c.id, name: c.name }); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
                   </td>
                 </tr>
               ))}
@@ -518,7 +560,7 @@ export default function AllCharts({ onEdit }) {
           </div>
         )}
       </div>
-      {del && canEdit && <ConfirmModal title="Delete Chart" message="Delete this chart?" onConfirm={() => deleteChart(del)} onCancel={() => setDel(null)} danger />}
+      {del && canEdit && <ConfirmModal title="Delete Chart" message={del?.name ? `Delete \"${del.name}\"?` : "Delete this chart?"} onConfirm={() => performDeleteChartById(del.id)} onCancel={() => setDel(null)} danger />}
     </div>
   );
 }
