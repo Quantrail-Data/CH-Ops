@@ -680,17 +680,17 @@ export default function QueryEditor({
               bottom: 80,
               right: 30,
               orient: "TB",
-              symbolSize: Math.round(12 * graphZoomLevel),
+              symbolSize: Math.round(16 * graphZoomLevel),
               edgeForkPosition: "60%",
               edgeShape: "polyline",
               label: {
                 position: "bottom",
                 verticalAlign: "top",
                 align: "center",
-                fontSize: 11,
+                fontSize: 13,
                 fontFamily: "Red hat Mono, monospace",
                 color: lc,
-                width: 140,
+                width: 200,
                 overflow: "truncate",
               },
               leaves: {
@@ -1620,7 +1620,7 @@ export default function QueryEditor({
     : // NO HEIGHT HERE.
       // This was 90.5vh, an inline style, which beats the stylesheet and is why
       // fixing .editor-shell in global.css changed nothing at all.
-      {};
+      {height:"90.5vh"};
 
   const effectiveQueryId = featureQueryId || lastQueryId || qidFromUrl || null;
 
@@ -3188,10 +3188,6 @@ export default function QueryEditor({
             </div>
           )}
 
-          {previewOpen && !error && (
-            <QueryPreviewPanel sql={sql} values={paramValues} />
-          )}
-
           {estimateResult && !error && (
             <CostEstimatePanel estimate={estimateResult} loading={estimating} />
           )}
@@ -3330,6 +3326,50 @@ export default function QueryEditor({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      
+      {previewOpen && (
+        <div className="modal-overlay" onClick={() => setPreviewOpen(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 700, width: "95%" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <Icon
+                  className="ti ti-code"
+                  style={{ color: "var(--accent)" }}
+                ></Icon>{" "}
+                Preview
+              </h3>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setPreviewOpen(false)}
+              >
+                <Icon className="ti ti-x"></Icon>
+              </button>
+            </div>
+            
+             <QueryPreviewPanel sql={sql} values={paramValues} />
+            
           </div>
         </div>
       )}

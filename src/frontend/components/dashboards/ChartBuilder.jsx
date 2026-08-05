@@ -344,6 +344,26 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         ? (hasLegendCheck && legendVisible ? 240 : extraLeftForYAxisName)
         : (hasLegendCheck && legendVisible ? 20 : extraLeftForYAxisName);
 
+      const determineTickCount = (opt) => {
+        if (!opt) return 0;
+        if (Array.isArray(opt.xAxis)) {
+          const ax = opt.xAxis[0];
+          if (ax?.data?.length) return ax.data.length;
+        } else if (opt.xAxis?.data?.length) return opt.xAxis.data.length;
+        if (Array.isArray(opt.series) && opt.series[0]?.data?.length) return opt.series[0].data.length;
+        return 0;
+      };
+
+      const computeInterval = (tickCount, maxLabels) => {
+        if (!tickCount || tickCount <= maxLabels) return 0;
+        const interval = Math.ceil(tickCount / Math.max(1, maxLabels)) - 1;
+        return Math.max(0, interval);
+      };
+
+      const maxLabels = previewTools.fullscreen ? 8 : isSmallScreen ? 3 : 4;
+      const tickCount = determineTickCount(baseOption);
+      const axisInterval = computeInterval(tickCount, maxLabels);
+
       const enhancedOption = {
         ...baseOption,
         grid: Array.isArray(baseOption.grid)
@@ -378,6 +398,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
                 hideOverlap: false,
                 color: isDarkColor,
+                interval: axisInterval,
+                formatter: (v) => {
+                  try {
+                    const s = String(v);
+                    return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                  } catch { return v; }
+                },
               },
             }))
           : baseOption.xAxis
@@ -395,6 +422,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   ),
                   hideOverlap: false,
                   color: isDarkColor,
+                  interval: axisInterval,
+                  formatter: (v) => {
+                    try {
+                      const s = String(v);
+                      return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                    } catch { return v; }
+                  },
                 },
                 nameTextStyle: {
                   color: isDarkColor,
@@ -869,95 +903,93 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 display: "flex",
                 flexDirection: "column",
                 minHeight: 0,
+                height: "100%",
               }}
             >
-              <div
-                style={{
-                  width: "100%",
-                  height: "34vh",
-                  overflow: "hidden",
-                  background: "var(--input-bg)",
-                  border: "1px solid var(--border-default)",
-                  borderRadius: "var(--radius-sm)",
-                  flexShrink: 0,
-                }}
-              >
-                <SqlEditor
-                  value={sql}
-                  onChange={setSql}
-                  variant="compact"
-                  onRun={runSql}
-                  placeholder="SELECT ..."
-                  height="100%"
-                />
-              </div>
-
-              {/* Dashboard filters, previewed at authoring time.
-                  A parameter in this SQL becomes a filter on every dashboard
-                  holding this chart. The difference between a clearable filter
-                  and a permanent one is invisible in the SQL unless you already
-                  know the convention, and authoring time is far cheaper than
-                  discovering it on a dashboard someone else built. */}
-              {paramError && (
-                <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
-                  <Icon className="ti ti-alert-circle" /> {paramError}
-                </div>
-              )}
-
-              {!paramError && declaredParams.length > 0 && (
-                <div className="card" style={{ padding: 12, marginTop: 8 }}>
-                  <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
-                    <Icon className="ti ti-filter" /> This chart declares{" "}
-                    {declaredParams.length} dashboard filter
-                    {declaredParams.length > 1 ? "s" : ""}.
+              <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                <div
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: "auto",
+                    background: "var(--input-bg)",
+                    border: "1px solid var(--border-default)",
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                >
+                  <div style={{ height: "100%", minHeight: 320 }}>
+                    <SqlEditor
+                      value={sql}
+                      onChange={setSql}
+                      variant="compact"
+                      onRun={runSql}
+                      placeholder="SELECT ..."
+                      height="100%"
+                    />
                   </div>
+                </div>
 
-                  {unwrapped.length > 0 && (
-                    // A warning, never a block. Some filters genuinely should be
-                    // mandatory and the author is better placed to know.
-                    <div className="alert-banner warning" style={{ fontSize: "13px", marginBottom: 8 }}>
-                      <Icon className="ti ti-alert-triangle" />
-                      <div>
-                        {unwrapped.map((p) => p.name).join(", ")}{" "}
-                        {unwrapped.length > 1 ? "are" : "is"} outside an optional
-                        block, so {unwrapped.length > 1 ? "they" : "it"} will be
-                        required: a viewer will not be able to clear{" "}
-                        {unwrapped.length > 1 ? "them" : "it"}, and the chart will
-                        not render until a value is supplied. Give a default
-                        below, or wrap the filter so it can be left out:
-                        <div style={{ marginTop: 6 }}>
-                          <code style={{ fontSize: "12px" }}>
-                            {"WHERE 1 /*[ AND col = {"}
-                            {unwrapped[0].name}:{unwrapped[0].type}
-                            {"} ]*/"}
-                          </code>
-                        </div>
-                      </div>
+                <div style={{ overflow: "auto", maxHeight: "24vh", marginTop: 8 }}>
+                  {paramError && (
+                    <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
+                      <Icon className="ti ti-alert-circle" /> {paramError}
                     </div>
                   )}
 
-                  {declaredParams.map((p) => (
-                    <div
-                      key={p.name}
-                      style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}
-                    >
-                      <code style={{ fontSize: "12px", minWidth: 140 }}>
-                        {p.name}:{p.type}
-                      </code>
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)", minWidth: 70 }}>
-                        {p.required ? "required" : "optional"}
-                      </span>
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>default</span>
-                      <ParamInput
-                        param={p}
-                        value={paramDefaults[p.name] ?? ""}
-                        onChange={(v) => setParamDefaults((d) => ({ ...d, [p.name]: v }))}
-                        invalid={p.required && !(paramDefaults[p.name] ?? "").toString().trim()}
-                      />
+                  {!paramError && declaredParams.length > 0 && (
+                    <div className="card" style={{ padding: 12, marginTop: 8 }}>
+                      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
+                        <Icon className="ti ti-filter" /> This chart declares{" "}
+                        {declaredParams.length} dashboard filter
+                        {declaredParams.length > 1 ? "s" : ""}.
+                      </div>
+
+                      {unwrapped.length > 0 && (
+                        <div className="alert-banner warning" style={{ fontSize: "13px", marginBottom: 8 }}>
+                          <Icon className="ti ti-alert-triangle" />
+                          <div>
+                            {unwrapped.map((p) => p.name).join(", ")}{" "}
+                            {unwrapped.length > 1 ? "are" : "is"} outside an optional
+                            block, so {unwrapped.length > 1 ? "they" : "it"} will be
+                            required: a viewer will not be able to clear{" "}
+                            {unwrapped.length > 1 ? "them" : "it"}, and the chart will
+                            not render until a value is supplied. Give a default
+                            below, or wrap the filter so it can be left out:
+                            <div style={{ marginTop: 6 }}>
+                              <code style={{ fontSize: "12px" }}>
+                                {"WHERE 1 /*[ AND col = {"}
+                                {unwrapped[0].name}:{unwrapped[0].type}
+                                {"} ]*/"}
+                              </code>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {declaredParams.map((p) => (
+                        <div
+                          key={p.name}
+                          style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}
+                        >
+                          <code style={{ fontSize: "12px", minWidth: 140 }}>
+                            {p.name}:{p.type}
+                          </code>
+                          <span style={{ fontSize: "12px", color: "var(--text-muted)", minWidth: 70 }}>
+                            {p.required ? "required" : "optional"}
+                          </span>
+                          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>default</span>
+                          <ParamInput
+                            param={p}
+                            value={paramDefaults[p.name] ?? ""}
+                            onChange={(v) => setParamDefaults((d) => ({ ...d, [p.name]: v }))}
+                            invalid={p.required && !(paramDefaults[p.name] ?? "").toString().trim()}
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+              </div>
 
               <div
                 style={{
@@ -966,11 +998,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   justifyContent: "flex-end",
                   gap: 10,
                   marginTop: 8,
+                  flexShrink: 0,
                 }}
               >
-                {/* The same control as the SQL Editor, reading and writing the
-                    same preference, because the row limit is one setting shared
-                    by every SQL surface. */}
                 <MaxRowsControl
                   value={maxRows}
                   onChange={setMaxRows}
@@ -1023,8 +1053,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   <Icon className="ti ti-alert-circle"></Icon> {error}
                 </div>
               )}
-              {/* Takes whatever height the row above leaves, so it grows with
-                  the SQL column instead of staying at a fixed cap. */}
               <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                 {data && <DataTable rows={data} columns={columns} />}
               </div>
