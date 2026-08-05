@@ -10,7 +10,7 @@ import Select from '../../src/frontend/components/common/Select.jsx';
 import MultiSelect from '../../src/frontend/components/common/MultiSelect.jsx';
 
 describe('Select (themed, drop-in)', () => {
-  function setup(value = 'b', onChange = () => {}) {
+  function setup(value = 'b', onChange = () => { }) {
     return render(
       <Select value={value} onChange={onChange} className="form-select" aria-label="letter">
         <option value="a">Apple</option>
@@ -56,9 +56,46 @@ describe('Select (themed, drop-in)', () => {
     expect(fn.mock.calls[0][0].target.value).toBe('c');
   });
 
+  it('supports keyboard navigation and selection through the custom menu', () => {
+    const fn = vi.fn();
+    const { container } = setup('a', fn);
+    fireEvent.click(container.querySelector('.cui-select-control'));
+    fireEvent.keyDown(container.querySelector('.cui-select-control'), { key: 'ArrowDown' });
+    fireEvent.keyDown(container.querySelector('.cui-select-control'), { key: 'ArrowDown' });
+    fireEvent.keyDown(container.querySelector('.cui-select-control'), { key: 'Enter' });
+    expect(fn).toHaveBeenCalled();
+    expect(fn.mock.calls[0][0].target.value).toBe('c');
+  });
+
+  it('closes the custom menu on Escape without changing value', () => {
+    const fn = vi.fn();
+    const { container } = setup('a', fn);
+    fireEvent.click(container.querySelector('.cui-select-control'));
+    fireEvent.keyDown(container.querySelector('.cui-select-control'), { key: 'Escape' });
+    expect(document.querySelector('.cui-select-menu')).toBeNull();
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('renders options from fragments and ignores disabled picks', () => {
+    const fn = vi.fn();
+    render(
+      <Select value="a" onChange={fn} aria-label="letter">
+        <option value="a">Apple</option>
+        <>{/* empty fragment */}
+          <option value="b" disabled>Banana</option>
+        </>
+      </Select>
+    );
+    fireEvent.click(document.querySelector('.cui-select-control'));
+    const opts = document.querySelectorAll('.cui-select-opt');
+    expect(opts.length).toBe(2);
+    fireEvent.mouseDown(opts[1]);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
   it('keeps required on the native control for form validation', () => {
     render(
-      <Select value="" onChange={() => {}} required>
+      <Select value="" onChange={() => { }} required>
         <option value="">Pick</option>
         <option value="x">X</option>
       </Select>
@@ -106,7 +143,7 @@ describe('MultiSelect (themed)', () => {
 describe('Select: compact size modifier', () => {
   it('passes a cui-sm className through to the control wrapper', () => {
     const { container } = render(
-      <Select className="form-select cui-sm" value="b" onChange={() => {}} aria-label="letter">
+      <Select className="form-select cui-sm" value="b" onChange={() => { }} aria-label="letter">
         <option value="a">Apple</option>
         <option value="b">Banana</option>
       </Select>
