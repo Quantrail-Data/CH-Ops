@@ -3,7 +3,7 @@
 // Unit tests verifying data table rendering, pagination, column sorting, and cell formatting behaviors.
 
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import DataTable from "../../src/frontend/components/layout/DataTable.jsx";
 import { ThemeContext } from "../../src/frontend/App.jsx";
@@ -57,7 +57,7 @@ describe("DataTable", () => {
   it("shows default empty message", () => {
     render(
       <ThemeContext.Provider value={{ theme: "dark" }}>
-        <DataTable rows={[]} columns={["x"]}  />
+        <DataTable rows={[]} columns={["x"]} />
       </ThemeContext.Provider>,
     );
     expect(screen.getByText("No data found.")).toBeInTheDocument();
@@ -107,4 +107,64 @@ describe("DataTable", () => {
     );
     expect(screen.getAllByRole("row").length).toBeGreaterThan(0);
   });
+
+  it("displays complex data", async () => {
+    const rows = [{ i: { test: '123' } }]
+    render(<DataTable rows={rows} columns={['i']} />)
+
+    const complexObjectRow = await screen.findByText((content) =>
+      content.includes('test') &&
+      content.includes('123')
+    )
+    expect(complexObjectRow).toBeInTheDocument()
+
+    cleanup()
+
+    rows.test = ['test']
+    render(<DataTable rows={rows} columns={['i']} />)
+
+    const complexRow = await screen.findByText((content) =>
+      content.includes('test')
+    )
+    expect(complexRow).toBeInTheDocument()
+
+    cleanup()
+
+    const original = globalThis.JSON
+
+    const mockJSON = { ...original, stringify: () => { throw new Error('wtf') } }
+    vi.stubGlobal('JSON', mockJSON)
+
+    render(<DataTable rows={rows} columns={['i']} />)
+
+    const stringRow = await screen.findByText((content) =>
+      content.includes('[object Object]')
+    )
+
+    expect(stringRow).toBeInTheDocument()
+    cleanup()
+
+    const originalString = globalThis.String
+
+    const mockString = function () {
+      throw new Error("Test")
+    }
+    vi.stubGlobal('String', mockString)
+    render(<DataTable rows={rows} columns={['i']} />)
+
+    const row = screen.queryByText((content) =>
+      content.includes('[object Object]') ||
+      (content.includes('test') && content.includes('123'))
+    )
+
+    expect(row).not.toBeInTheDocument()
+
+    vi.stubGlobal('String', originalString)
+    vi.stubGlobal('JSON', original)
+    vi.clearAllMocks()
+    cleanup()
+
+
+  })
+
 });
