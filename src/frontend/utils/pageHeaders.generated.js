@@ -182,7 +182,7 @@ export const PAGE_TEXT = {
     "Asc",
     "Sort By",
     "Type",
-    "Exception (text)",
+    "Exception",
     "Searching...",
     "From",
     "Total queries",
@@ -261,7 +261,8 @@ export const PAGE_TEXT = {
     "Cancel",
     "Requested",
     "Gone",
-    "Still running"
+    "Still running",
+    "Search exception..."
   ],
   "overview/parts": [
     "Loading...",
