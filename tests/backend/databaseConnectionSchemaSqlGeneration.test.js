@@ -1,23 +1,6 @@
-// databaseConnectionSchemaSqlGeneration.test.js - unit tests for
-// DatabaseConnectionService, SchemaIngestionService, and SQLGenerationService
-//
-// These three source files share this one test file rather than getting
-// one each, because all three depend on ClickHouseClientFactory.js and/or
-// EmbeddingService.js/LocalVectorStoreService.js, and bun's mock.module() is
-// a single global, last-registration-wins table for the whole
-// `bun test tests/backend` run - two files registering *different* fake
-// shapes for the same specifier race, and whichever wins silently breaks
-// the other file's assertions (confirmed empirically: splitting these into
-// separate files produced nondeterministic cross-file failures). Combining
-// them means each shared dependency is mocked exactly once.
-//
-// SQLGenerationService.js is imported via the `?real` query-suffixed
-// specifier because tests/backend/sqlAIChat.test.js mocks it wholesale to
-// isolate the /generate-sql route layer - `?real` is a distinct module cache
-// key that resolves to the genuine file, unaffected by that mock (same
-// technique tests/backend/clusterUtils.test.js uses for the same reason).
-//
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// author -> (Ravivarman, Dhivyadharshini)
+// databaseConnectionSchemaSqlGeneration.test.js - unit tests for DatabaseConnectionService, SchemaIngestionService, and SQLGenerationService
 
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { createHash } from "crypto";
@@ -27,10 +10,8 @@ import { serialize as realSerialize } from "../../src/backend/servicesAI/aiCrede
 try {
   initCrypto("db-schema-sql-generation-test-secret-32-chars!!");
 } catch {
-  // Already initialized from a previous test file in the same process.
 }
 
-// --- ClickHouseClientFactory.js (DatabaseConnectionService + SchemaIngestionService) ---
 const createClientMock = mock();
 mock.module(
   "../../src/backend/dbConfigAI/ClickHouseClientFactory.js",
@@ -39,8 +20,6 @@ mock.module(
   }),
 );
 
-
-// --- db/index.js (DatabaseConnectionService's select/insert, SQLGenerationService's select) ---
 const getMock = mock();
 const returningGetMock = mock(() => ({}));
 const valuesMock = mock(() => ({
@@ -64,7 +43,6 @@ mock.module("../../src/backend/db/index.js", () => ({
   rawSqlite: {},
 }));
 
-// --- EmbeddingService.js (SchemaIngestionService + SQLGenerationService) ---
 const embedMock = mock(async () => new Array(384).fill(0.01));
 mock.module("../../src/backend/servicesAI/EmbeddingService.js", () => ({
   default: class {
@@ -74,7 +52,6 @@ mock.module("../../src/backend/servicesAI/EmbeddingService.js", () => ({
   },
 }));
 
-// --- LocalVectorStoreService.js (SchemaIngestionService instance methods, SQLGenerationService's static) ---
 const initializeMock = mock(async () => true);
 const clearStoreMock = mock(async () => {});
 const upsertMock = mock(async () => ({ upserted: 1 }));
@@ -107,7 +84,7 @@ mock.module("../../src/backend/servicesAI/LocalVectorStoreService.js", () => ({
   },
 }));
 
-// --- AIService.js (SQLGenerationService only) ---
+// SQLGenerationService 
 const askMock = mock(async () => "DATABASE");
 mock.module("../../src/backend/servicesAI/AIService.js", () => ({
   default: class {
@@ -158,11 +135,7 @@ function resetAllMocks() {
 }
 
 beforeEach(resetAllMocks);
-
-// =====================================================================
 // DatabaseConnectionService
-// =====================================================================
-
 const CH_CREDENTIALS = {
   host: "10.0.0.1",
   port: 8123,
@@ -254,7 +227,6 @@ describe("DatabaseConnectionService.registerConnection - success", () => {
 
   it("skips the insert when a row already exists", async () => {
     getMock.mockReturnValue({ database_id: "already-there" });
-
     const service = new DatabaseConnectionService(
       "clickhouse",
       CH_CREDENTIALS,
@@ -262,7 +234,6 @@ describe("DatabaseConnectionService.registerConnection - success", () => {
       "node1",
     );
     await service.registerConnection();
-
     expect(valuesMock).not.toHaveBeenCalled();
   });
 });
@@ -344,10 +315,7 @@ describe("DatabaseConnectionService.registerConnection - error mapping", () => {
   });
 });
 
-// =====================================================================
 // SchemaIngestionService
-// =====================================================================
-
 const INGESTION_CREDENTIALS = {
   host: "10.0.0.1",
   port: 8123,
@@ -394,10 +362,8 @@ describe("SchemaIngestionService.getTables/getTableSchema/getColumns", () => {
       json: async () => ({ data: [{ name: "orders" }, { name: "customers" }] }),
     }));
     createClientMock.mockReturnValue({ query: queryMock });
-
     const service = new SchemaIngestionService("db1", CONNECTION);
     const tables = await service.getTables();
-
     expect(tables).toEqual([{ name: "orders" }, { name: "customers" }]);
     const call = queryMock.mock.calls[0][0];
     expect(call.query).toContain("system.tables");
@@ -415,7 +381,6 @@ describe("SchemaIngestionService.getTables/getTableSchema/getColumns", () => {
 
     const service = new SchemaIngestionService("db1", CONNECTION);
     const statement = await service.getTableSchema("orders");
-
     expect(statement).toBe("CREATE TABLE analytics.orders (id UInt64)");
   });
 
@@ -433,7 +398,6 @@ describe("SchemaIngestionService.getTables/getTableSchema/getColumns", () => {
 
     const service = new SchemaIngestionService("db1", CONNECTION);
     const columns = await service.getColumns("orders");
-
     expect(columns).toEqual([
       { name: "id", type: "UInt64" },
       { name: "name", type: "String" },
@@ -467,7 +431,6 @@ describe("SchemaIngestionService.generatePointId", () => {
     createClientMock.mockReturnValue(makeChClient());
     const service = new SchemaIngestionService("db1", CONNECTION);
     const expected = createHash("sha256").update("db1|orders").digest("hex");
-
     expect(service.generatePointId("orders")).toBe(expected);
     expect(service.generatePointId("orders")).toBe(
       service.generatePointId("orders"),
@@ -494,7 +457,6 @@ describe("SchemaIngestionService.synchronizeSchema", () => {
 
     const service = new SchemaIngestionService("db1", CONNECTION);
     const result = await service.synchronizeSchema();
-
     expect(result).toEqual({
       database_id: "db1",
       tables_processed: 2,
@@ -518,10 +480,8 @@ describe("SchemaIngestionService.synchronizeSchema", () => {
       },
       failTables: ["broken"],
     });
-
     const service = new SchemaIngestionService("db1", CONNECTION);
     const result = await service.synchronizeSchema();
-
     expect(result.tables_processed).toBe(1);
     expect(result.errors).toEqual([
       { table: "broken", error: "schema lookup failed for broken" },
@@ -532,10 +492,7 @@ describe("SchemaIngestionService.synchronizeSchema", () => {
   });
 });
 
-// =====================================================================
 // SQLGenerationService
-// =====================================================================
-
 const CURRENT_SERVICE = { provider: "gemini", model: "m", encryptedKey: "k" };
 const SCHEMA_POINTS = [
   {
@@ -587,7 +544,6 @@ describe("SQLGenerationService.getRandomResponse", () => {
   it("returns a member of the given array", () => {
     const service = new SQLGenerationService(CURRENT_SERVICE);
     const responses = ["a", "b", "c"];
-
     expect(responses).toContain(service.getRandomResponse(responses));
   });
 });
@@ -601,27 +557,20 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
   it("embeds the question and searches across the requested databases", async () => {
     askMock.mockResolvedValue("GREETING");
     const service = new SQLGenerationService(CURRENT_SERVICE);
-
     await service.generateSQL(["db1", "db2"], "hello there");
-
     expect(embedMock).toHaveBeenCalledWith("hello there");
     expect(searchAcrossDatabasesMock.mock.calls[0][0]).toHaveLength(384);
     expect(searchAcrossDatabasesMock.mock.calls[0][1]).toEqual([
       "db1",
       "db2",
     ]);
-    // Raised above LocalVectorStoreService's own default of 10 so a
-    // multi-table/join question is less likely to have a needed table's
-    // schema crowded out of the top-N retrieval cut.
     expect(searchAcrossDatabasesMock.mock.calls[0][2]).toBe(20);
   });
 
   it("returns a canned greeting without a second AI call", async () => {
     askMock.mockResolvedValue("GREETING");
     const service = new SQLGenerationService(CURRENT_SERVICE);
-
     const result = await service.generateSQL(["db1"], "hi");
-
     expect(result.success).toBe(true);
     expect(service.greetingResponses).toContain(result.generated_sql);
     expect(askMock).toHaveBeenCalledTimes(1);
@@ -630,9 +579,7 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
   it("returns a canned out-of-domain response without a second AI call", async () => {
     askMock.mockResolvedValue("OUT_OF_DOMAIN");
     const service = new SQLGenerationService(CURRENT_SERVICE);
-
     const result = await service.generateSQL(["db1"], "tell me a joke");
-
     expect(result.success).toBe(true);
     expect(service.outofDomainResponses).toContain(result.generated_sql);
     expect(askMock).toHaveBeenCalledTimes(1);
@@ -642,12 +589,8 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
     askMock
       .mockResolvedValueOnce("DATABASE")
       .mockResolvedValueOnce("```sql\nSELECT id FROM analytics.orders;\n```");
-
     const service = new SQLGenerationService(CURRENT_SERVICE);
     const result = await service.generateSQL(["db1"], "show me orders");
-
-    // No explicit limit in the question, so the default LIMIT 10 is
-    // appended after fence/semicolon stripping.
     expect(result.generated_sql).toBe(
       "SELECT id FROM analytics.orders LIMIT 10",
     );
@@ -658,10 +601,8 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
     askMock
       .mockResolvedValueOnce("DATABASE")
       .mockResolvedValueOnce("SELECT id FROM analytics.orders");
-
     const service = new SQLGenerationService(CURRENT_SERVICE);
     const result = await service.generateSQL(["db1"], "show me orders");
-
     expect(result.generated_sql).toBe(
       "SELECT id FROM analytics.orders LIMIT 10",
     );
@@ -677,10 +618,8 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
       askMock
         .mockResolvedValueOnce("DATABASE")
         .mockResolvedValueOnce("SELECT id FROM analytics.orders");
-
       const service = new SQLGenerationService(CURRENT_SERVICE);
       const result = await service.generateSQL(["db1"], question);
-
       expect(result.generated_sql).toBe(
         `SELECT id FROM analytics.orders LIMIT ${expectedLimit}`,
       );
@@ -691,10 +630,8 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
     askMock
       .mockResolvedValueOnce("DATABASE")
       .mockResolvedValueOnce("SELECT id FROM analytics.orders LIMIT 999");
-
     const service = new SQLGenerationService(CURRENT_SERVICE);
     const result = await service.generateSQL(["db1"], "top 5 orders");
-
     expect(result.generated_sql).toBe(
       "SELECT id FROM analytics.orders LIMIT 5",
     );
@@ -704,10 +641,8 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
     askMock
       .mockResolvedValueOnce("DATABASE")
       .mockResolvedValueOnce("SELECT id FROM analytics.orders LIMIT 999");
-
     const service = new SQLGenerationService(CURRENT_SERVICE);
     const result = await service.generateSQL(["db1"], "show me orders");
-
     expect(result.generated_sql).toBe(
       "SELECT id FROM analytics.orders LIMIT 10",
     );
@@ -722,7 +657,6 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
 
     const service = new SQLGenerationService(CURRENT_SERVICE);
     const result = await service.generateSQL(["db1"], "top 5 orders");
-
     expect(result.generated_sql).toBe(
       "SELECT id FROM analytics.orders LIMIT 5 OFFSET 20",
     );
@@ -732,10 +666,8 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
     askMock.mockResolvedValueOnce("DATABASE").mockResolvedValueOnce(
       "SHOW TABLES FROM analytics",
     );
-
     const service = new SQLGenerationService(CURRENT_SERVICE);
     const result = await service.generateSQL(["db1"], "what tables exist?");
-
     expect(result.generated_sql).toBe("SHOW TABLES FROM analytics");
   });
 
@@ -743,10 +675,8 @@ describe("SQLGenerationService.generateSQL orchestration", () => {
     askMock
       .mockResolvedValueOnce("DATABASE")
       .mockResolvedValueOnce("SELECT 1");
-
     const service = new SQLGenerationService(CURRENT_SERVICE);
     await service.generateSQL(["db1"], "show me orders");
-
     const sqlPrompt = askMock.mock.calls[1][0];
     expect(sqlPrompt).toContain("orders");
     expect(sqlPrompt).toContain("id (UInt64)");
