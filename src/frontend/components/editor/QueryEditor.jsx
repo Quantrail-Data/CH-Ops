@@ -317,11 +317,14 @@ export default function QueryEditor({
 
   const sql = activeTab.sql;
   const setSql = useCallback(
-    (v) =>
+    (v) => {
       updateTab(activeId, {
-        sql: typeof v === "function" ? v(activeTab.sql) : v,
-      }),
-    [activeId, activeTab.sql, updateTab],
+        sql: typeof v === "function"
+          ? v(sql)
+          : v,
+      });
+    },
+    [activeId, sql, updateTab],
   );
 
   const {
@@ -1653,7 +1656,6 @@ export default function QueryEditor({
         );
 
         if (responseAIQuery?.success) {
-          console.log(activeTab, activeId);
           setSql(
             `/*\n\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n--${MultipleDBSelected() ? `DATABASE_NAME's` : `DATABASE_NAME`} : ${SelectedDBNames() || ""}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
           );
@@ -1662,7 +1664,7 @@ export default function QueryEditor({
       } catch (error) {
         toast?.error(error?.message);
         setSql(
-          `/*\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n--${MultipleDBSelected() ? `DATABASE_NAME's` : `DATABASE_NAME`} : ${SelectedDBNames() || ""}\n*/\n\n-- Error : ${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+          `/*\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n--${MultipleDBSelected() ? `DATABASE_NAME's` : `DATABASE_NAME`} : ${SelectedDBNames() || ""}\n*/\n\n-- Error : ${error?.message}`,
         );
       } finally {
         setIsAILoadingGenerating(false);
