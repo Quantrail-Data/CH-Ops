@@ -30,6 +30,9 @@ const CLUSTERS = [
   },
 ];
 
+const ensureCapabilities = mock(async () => ({ probed: false, tables: null }))
+const unavailableFeatures = mock(() => [])
+
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
   // Returns decrypted passwords, exactly as the real implementation does.
   getAllClusters: mock(() => JSON.parse(JSON.stringify(CLUSTERS))),
@@ -53,8 +56,8 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 // The controller now reads a feature flag and warms the capability cache, which
 // would pull in the Kubernetes services and the database at import time.
 mock.module("../../src/backend/services/capabilities.js", () => ({
-  ensureCapabilities: mock(async () => ({ probed: false, tables: null })),
-  unavailableFeatures: mock(() => []),
+  ensureCapabilities,
+  unavailableFeatures,
   probeCapabilities: mock(async () => ({ probed: false })),
   clearCapabilities: mock(() => { }),
   hasCapability: mock(() => true),
@@ -65,7 +68,7 @@ mock.module("../../src/backend/services/capabilities.js", () => ({
   CAPABILITY: {},
 }));
 
-const { getConnection } = await import(
+const { getConnection, getCapabilities } = await import(
   "../../src/backend/controllers/config.js"
 );
 
@@ -167,3 +170,50 @@ describe('Kubernetes helper function', () => {
     expect(kubernetesEnabled()).toBeFalse()
   })
 })
+
+describe("getCapabilities", () => {
+  it("returns probed capability metadata and unavailable features", async () => {
+    ensureCapabilities.mockImplementation(async () => ({
+      probed: true,
+      deployment: 'standard',
+      tables: new Set(['system.text_log']),
+    }))
+    unavailableFeatures.mockImplementation(() => [
+      {
+        table: 'system.text_log',
+        message: 'Server text logging is not enabled on this deployment.',
+      },
+    ])
+
+    const { req, res } = mockReqRes();
+    req.params.clusterId = 'cluster1';
+
+    await getCapabilities(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonData).toEqual({
+      probed: true,
+      deployment: 'standard',
+      unavailable: [
+        {
+          table: 'system.text_log',
+          message: 'Server text logging is not enabled on this deployment.',
+        },
+      ],
+    });
+  });
+
+  it("returns 500 when capability probing fails", async () => {
+    ensureCapabilities.mockImplementation(async () => {
+      throw new Error('probe failed');
+    });
+
+    const { req, res } = mockReqRes();
+    req.params.clusterId = 'cluster1';
+
+    await getCapabilities(req, res);
+
+    expect(res.statusCode).toBe(500);
+    expect(res.jsonData).toEqual({ error: 'probe failed' });
+  });
+});
