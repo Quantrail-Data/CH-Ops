@@ -1,21 +1,10 @@
-// localVectorStoreService.test.js - unit tests for LocalVectorStore
-//
-// No mocking: LocalVectorStore hardcodes process.cwd()-relative paths
-// (data/storage), so these tests exercise the real filesystem there
-// directly, using randomly-generated databaseIds to avoid colliding with
-// real application data, and deleting every file they create afterward.
-//
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-
+// author -> (Ravivarman, Dhivyadharshini)
+// localVectorStoreService.test.js - unit tests for LocalVectorStore
 import { describe, it, expect, afterEach } from "bun:test";
 import { randomUUID } from "crypto";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join } from "path";
-// `?real`: tests/backend/databaseConnectionSchemaSqlGeneration.test.js mocks
-// LocalVectorStoreService.js wholesale for SchemaIngestionService/
-// SQLGenerationService's own tests; the query-suffixed specifier is a
-// distinct module cache key that resolves to the genuine file regardless of
-// that mock.
 import LocalVectorStore from "../../src/backend/servicesAI/LocalVectorStoreService.js?real";
 import { VECTOR_DIMENSION } from "../../src/backend/servicesAI/constants.js";
 
@@ -27,8 +16,6 @@ function newDatabaseId() {
   return id;
 }
 
-// A VECTOR_DIMENSION-length vector with a single 1 at `at`, else 0 -
-// dot products against it are trivially predictable.
 function unitVector(at) {
   const v = new Array(VECTOR_DIMENSION).fill(0);
   v[at] = 1;
@@ -52,9 +39,7 @@ describe("LocalVectorStore.initialize / save / load", () => {
   it("creates an empty store file when none exists", async () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
-
     const ok = await store.initialize();
-
     expect(ok).toBe(true);
     expect(await store.getVectors()).toEqual([]);
   });
@@ -82,7 +67,6 @@ describe("LocalVectorStore.initialize / save / load", () => {
     const store = new LocalVectorStore(id);
     await mkdir(store.storagePath, { recursive: true });
     await writeFile(store.filePath, JSON.stringify({ version: 1 }), "utf-8");
-
     await expect(store.load()).rejects.toThrow(/vectors' array missing/);
   });
 
@@ -110,7 +94,6 @@ describe("LocalVectorStore.upsert", () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
     await store.initialize();
-
     await expect(
       store.upsert([{ vector: unitVector(0) }]),
     ).rejects.toThrow(/non-empty 'id'/);
@@ -120,7 +103,6 @@ describe("LocalVectorStore.upsert", () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
     await store.initialize();
-
     await expect(
       store.upsert([{ id: "p1", vector: [1, 2, 3] }]),
     ).rejects.toThrow(/must have \d+ dimensions/);
@@ -130,18 +112,14 @@ describe("LocalVectorStore.upsert", () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
     await store.initialize();
-
     await store.upsert([{ id: "p1", vector: unitVector(0) }]);
     const firstCreatedAt = (await store.getPoint("p1")).payload.created_at;
-
     await store.upsert([
       { id: "p1", vector: unitVector(1) },
       { id: "p2", vector: unitVector(2) },
     ]);
-
     const vectors = await store.getVectors();
     expect(vectors).toHaveLength(2);
-
     const p1 = await store.getPoint("p1");
     expect(p1.vector).toEqual(unitVector(1));
     expect(p1.payload.created_at).toBe(firstCreatedAt);
@@ -151,9 +129,7 @@ describe("LocalVectorStore.upsert", () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
     await store.initialize();
-
     const result = await store.upsert([]);
-
     expect(result).toEqual({ upserted: 0 });
   });
 });
@@ -169,7 +145,6 @@ describe("LocalVectorStore.search", () => {
     ]);
 
     const results = await store.search(unitVector(0), 10);
-
     expect(results.map((r) => r.id)).toEqual(["high", "low"]);
     expect(results[0].score).toBe(1);
     expect(results[1].score).toBe(0);
@@ -186,7 +161,6 @@ describe("LocalVectorStore.search", () => {
     ]);
 
     const results = await store.search(unitVector(0), 2);
-
     expect(results).toHaveLength(2);
   });
 
@@ -194,7 +168,6 @@ describe("LocalVectorStore.search", () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
     await store.initialize();
-
     await expect(store.search(null)).rejects.toThrow(/non-empty array/);
     await expect(store.search([])).rejects.toThrow(/non-empty array/);
   });
@@ -203,7 +176,6 @@ describe("LocalVectorStore.search", () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
     await store.initialize();
-
     await expect(store.search([1, 2, 3])).rejects.toThrow(/expected/);
   });
 });
@@ -212,21 +184,17 @@ describe("LocalVectorStore.searchAcrossDatabases", () => {
   it("aggregates, sorts, and limits results across multiple stores", async () => {
     const idA = newDatabaseId();
     const idB = newDatabaseId();
-
     const storeA = new LocalVectorStore(idA);
     await storeA.initialize();
     await storeA.upsert([{ id: "a-mid", vector: unitVector(1) }]);
-
     const storeB = new LocalVectorStore(idB);
     await storeB.initialize();
     await storeB.upsert([{ id: "b-best", vector: unitVector(0) }]);
-
     const results = await LocalVectorStore.searchAcrossDatabases(
       unitVector(0),
       [idA, idB],
       10,
     );
-
     expect(results[0].id).toBe("b-best");
     expect(results.map((r) => r.id)).toContain("a-mid");
   });
@@ -236,13 +204,11 @@ describe("LocalVectorStore.searchAcrossDatabases", () => {
     const store = new LocalVectorStore(id);
     await store.initialize();
     await store.upsert([{ id: "only", vector: unitVector(0) }]);
-
     const results = await LocalVectorStore.searchAcrossDatabases(
       unitVector(0),
       [],
       10,
     );
-
     expect(results.some((r) => r.id === "only")).toBe(true);
   });
 
@@ -251,13 +217,11 @@ describe("LocalVectorStore.searchAcrossDatabases", () => {
     const store = new LocalVectorStore(id);
     await store.initialize();
     await store.upsert([{ id: "only2", vector: unitVector(0) }]);
-
     const results = await LocalVectorStore.searchAcrossDatabases(
       unitVector(0),
       ["ALL"],
       10,
     );
-
     expect(results.some((r) => r.id === "only2")).toBe(true);
   });
 
@@ -272,9 +236,7 @@ describe("LocalVectorStore.listDatabaseIds", () => {
   it("includes created stores and excludes .tmp files", async () => {
     const id = newDatabaseId();
     await new LocalVectorStore(id).initialize();
-
     const ids = await LocalVectorStore.listDatabaseIds();
-
     expect(ids).toContain(id);
     expect(ids.every((i) => !i.endsWith(".tmp"))).toBe(true);
   });
@@ -286,14 +248,10 @@ describe("LocalVectorStore.clearStore", () => {
     const store = new LocalVectorStore(id);
     await store.initialize();
     await store.upsert([{ id: "p1", vector: unitVector(0) }]);
-
     await store.clearStore({ save: false });
-
     expect(await store.getVectors()).toEqual([]);
-
     const reloaded = new LocalVectorStore(id);
     await reloaded.load();
-    // save: false means the on-disk file still has the old point.
     expect(await reloaded.getVectors()).toHaveLength(1);
   });
 });
@@ -303,19 +261,14 @@ describe("LocalVectorStore.deleteDatabaseFile", () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
     await store.initialize();
-
     const result = await store.deleteDatabaseFile();
-
     expect(result).toEqual({ deleted: true });
   });
 
   it("reports deleted: false when there was nothing to delete", async () => {
     const id = newDatabaseId();
     const store = new LocalVectorStore(id);
-    // Never initialized - no file on disk.
-
     const result = await store.deleteDatabaseFile();
-
     expect(result).toEqual({ deleted: false });
   });
 });
@@ -326,7 +279,6 @@ describe("LocalVectorStore metrics", () => {
     const store = new LocalVectorStore(id);
     await store.initialize();
     await store.upsert([{ id: "p1", vector: unitVector(0) }]);
-
     expect(store.getMetrics().diskSizeBytes).toBeGreaterThan(0);
   });
 });
