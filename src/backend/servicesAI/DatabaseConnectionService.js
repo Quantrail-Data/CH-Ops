@@ -10,7 +10,6 @@ import {
   ClickHouseInvalidPortError,
   ClickHouseConnectionError,
 } from "../exceptions/ClickHouseErrors.js";
-import ConnectionRegistry from "../dbConfigAI/ConnectionRegistry";
 import ClickHouseClientFactory from "../dbConfigAI/ClickHouseClientFactory";
 import { aiDatabaseDetails } from "../db/schema";
 import { db } from "../db/index";
@@ -51,11 +50,6 @@ class DatabaseConnectionService {
       await result.json();
 
       const databaseId = this.generateDatabaseId();
-
-      ConnectionRegistry.add(databaseId, {
-        client,
-        credentials: this.credentials,
-      });
 
       const isExists = db
         ?.select()
