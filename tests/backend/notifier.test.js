@@ -129,9 +129,21 @@ describe("Sending Email", () => {
       lastRunAt: new Date().toISOString(),
     }
 
-
+    alert.name = 'account created'
     await sendNotification(config, alert)
     expect(sendMail).toHaveBeenCalled()
+    const args1 = sendMail.mock.calls.at(0).at(0)
+    expect(args1.subject).toInclude('Welcome')
+    expect(args1.attachments.length).toBe(1)
+
+
+    sendMail.mockClear()
+    alert.name = 'password reset'
+    await sendNotification(config, alert)
+    expect(sendMail).toHaveBeenCalled()
+    const args2 = sendMail.mock.calls.at(0).at(0)
+    expect(args2.subject).toInclude('Reset')
+    expect(args2.attachments.length).toBe(1)
   })
 
   it("Tests Channel", async () => {

@@ -13,40 +13,7 @@ import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
 import { loadEnv } from "../utils/env.js";
 
-function validateWebhookUrl(url) {
-  if (!url || typeof url !== "string")
-    throw new Error("Webhook URL is required.");
-  let parsed;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error("Invalid webhook URL format.");
-  }
-  if (parsed.protocol !== "https:")
-    throw new Error("Webhook URL must use HTTPS.");
-  const host = parsed.hostname.toLowerCase();
-  // Block localhost
-  if (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "0.0.0.0"
-  ) {
-    throw new Error("Webhook URL cannot point to localhost.");
-  }
-  // Block private IP ranges, link-local, metadata
-  const parts = host.split(".").map(Number);
-  if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
-    if (parts[0] === 10)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 192 && parts[1] === 168)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 169 && parts[1] === 254)
-      throw new Error("Webhook URL cannot point to link-local addresses.");
-  }
-}
+
 
 export function getClusterInfo(alert) {
   const clusters = getAllClusters();
