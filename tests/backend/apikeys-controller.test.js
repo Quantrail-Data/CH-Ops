@@ -185,8 +185,6 @@ describe("Active API Key controller", () => {
         const calledLast = mockedResponse.json.mock.calls
         if (calledLast[0] && calledLast[0][0]) {
             const obj = calledLast[0][0]
-            console.log(keys)
-            console.log(obj)
 
             expect(obj).toHaveProperty('apiKey')
         } else {
