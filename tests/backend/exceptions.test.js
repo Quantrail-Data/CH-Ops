@@ -1,17 +1,7 @@
-/**
- * exceptions.test.js - Unit tests for the error hierarchy
- *
- * Covers ApplicationError (the base custom error) and the ClickHouse error
- * classes built on top of it. Verifies messages, error codes, HTTP status
- * codes, the details passthrough, the instanceof chain, and that each class
- * reports its own constructor name. Behavior is asserted exactly as defined
- * in src/backend/exceptions/AppError.js and ClickHouseErrors.js.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// author -> (Ravivarman, Dhivyadharshini)
+// exceptions.test.js - unit tests for exceptions(AppError.js,ClickHOuseErrors.js)
 import { describe, it, expect } from "bun:test";
-
 import ApplicationError from "../../src/backend/exceptions/AppError.js";
 import ClickHouseErrors from "../../src/backend/exceptions/ClickHouseErrors.js";
 
