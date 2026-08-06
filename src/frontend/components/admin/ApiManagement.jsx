@@ -367,7 +367,8 @@ export default function ApiManagement() {
 
   async function editKey(key) {
     setEditingKey(key);
-    setFormAIProvider(key.name);
+    setFormAPIName(key?.name)
+    setFormAIProvider(key?.provider);
     setFormModelValue(key?.model);
     setFormKeyValue("");
     setIsEditing(true);
@@ -383,6 +384,7 @@ export default function ApiManagement() {
   function cancelEdit() {
     setIsEditing(false);
     setEditingKey(null);
+    setFormAPIName("");
     setFormAIProvider("");
     setFormKeyValue("");
     setFormModelValue("");
@@ -401,6 +403,7 @@ export default function ApiManagement() {
     setShowAddForm(true);
     setIsEditing(false);
     setEditingKey(null);
+    setFormAPIName("");
     setFormAIProvider("");
     setFormKeyValue("");
     setFormModelValue("");

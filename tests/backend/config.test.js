@@ -64,25 +64,49 @@ mock.module("../../src/backend/services/capabilities.js", () => ({
   CAPABILITY: {},
 }));
 
-const { getConnection } = await import(
-  "../../src/backend/controllers/config.js"
-);
+// Mock database used by kubernetesEnabled()
+mock.module("../../src/backend/db/index.js", () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          get: () => ({ value: "true" }),
+        }),
+      }),
+    }),
+  },
+  appSettings: {
+    key: "key",
+  },
+}));
+
+const {
+  getConnection,
+  getCapabilities,
+  kubernetesEnabled
+} = await import("../../src/backend/controllers/config.js");
+
 
 function mockReqRes(role = "admin") {
   const req = {
     body: {},
     params: {},
-    user: { username: "u1", role },
+    user: {
+      username: "u1",
+      role,
+    },
     ip: "127.0.0.1",
   };
 
   const res = {
     statusCode: 200,
     jsonData: null,
+
     status(code) {
       this.statusCode = code;
       return this;
     },
+
     json(data) {
       this.jsonData = data;
       return this;
@@ -140,3 +164,75 @@ describe("getConnection", () => {
     expect(res.jsonData.clusters[0].nodes[0].hasPassword).toBe(true);
   });
 });
+
+describe("getCapabilities", () => {
+  it("returns capability information", async () => {
+    const { req, res } = mockReqRes();
+
+    req.params.clusterId = CLUSTERS[0].id;
+
+    await getCapabilities(req, res);
+
+    expect(res.statusCode).toBe(200);
+
+    expect(res.jsonData).toEqual({
+      probed: false,
+      deployment: undefined,
+      unavailable: [],
+    });
+  });
+
+  it("returns 500 when capability probe fails", async () => {
+    const { ensureCapabilities } = await import(
+      "../../src/backend/services/capabilities.js"
+    );
+
+    ensureCapabilities.mockImplementationOnce(async () => {
+      throw new Error("Probe failed");
+    });
+
+    const { req, res } = mockReqRes();
+
+    req.params.clusterId = CLUSTERS[0].id;
+
+    await getCapabilities(req, res);
+
+    expect(res.statusCode).toBe(500);
+    expect(res.jsonData).toEqual({
+      error: "Probe failed",
+    });
+  });
+});
+
+describe("kubernetesEnabled", () => {
+  it("returns true when setting is true", () => {
+    const result = kubernetesEnabled();
+
+    expect(result).toBe(true);
+  });
+
+  it("returns false when setting value is false", async () => {
+    const { db } = await import("../../src/backend/db/index.js");
+
+    db.select = () => ({
+      from: () => ({
+        where: () => ({
+          get: () => ({ value: "false" }),
+        }),
+      }),
+    });
+
+    expect(kubernetesEnabled()).toBe(false);
+  });
+
+  it("returns true when database throws an error", async () => {
+    const { db } = await import("../../src/backend/db/index.js");
+
+    db.select = () => {
+      throw new Error("Database error");
+    };
+
+    expect(kubernetesEnabled()).toBe(true);
+  });
+});
+
