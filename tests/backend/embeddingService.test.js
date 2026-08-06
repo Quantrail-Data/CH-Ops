@@ -1,11 +1,10 @@
-// embeddingService.test.js - unit tests for EmbeddingService
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// author -> (Ravivarman, Dhivyadharshini)
+// embeddingService.test.js - unit tests for EmbeddingService
 
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import fs from "fs";
 
-// pipelineImpl is swapped per-test to control loadModel()'s behavior
-// (success, first-call failure to exercise the retry path, etc).
 let pipelineImpl = async () => mock(async () => ({ data: [] }));
 const pipelineMock = mock((...args) => pipelineImpl(...args));
 
@@ -24,13 +23,8 @@ mock.module("@xenova/transformers", () => ({
   },
 }));
 
-// `?real`: tests/backend/databaseConnectionSchemaSqlGeneration.test.js mocks
-// EmbeddingService.js wholesale for SchemaIngestionService/SQLGenerationService's
-// own tests; the query-suffixed specifier is a distinct module cache key
-// that resolves to the genuine file regardless of that mock.
-const EmbeddingService = (
-  await import("../../src/backend/servicesAI/EmbeddingService.js?real")
-).default;
+
+const EmbeddingService = (await import("../../src/backend/servicesAI/EmbeddingService.js?real")).default;
 
 beforeEach(() => {
   pipelineMock.mockClear();
@@ -41,22 +35,12 @@ beforeEach(() => {
 describe("EmbeddingService.loadModel", () => {
   it("memoizes the extractor across multiple embed() calls", async () => {
     const service = new EmbeddingService();
-
     await service.embed("first");
     await service.embed("second");
-
     expect(pipelineMock).toHaveBeenCalledTimes(1);
   });
 
-  // EmbeddingService always points env.cacheDir at the real
-  // data/ai-model-cache dir (it's not injectable), and this machine already
-  // has the real model downloaded there. The retry path's real
-  // fs.rmSync(cacheDir/MODEL_NAME, { force: true }) call must not delete it.
-  // fs.rmSync is monkey-patched directly on the shared "fs" module object
-  // (not via mock.module, which is a process-global registry override that
-  // broke exportCompress.test.js's own real fs.rmSync cleanup call when
-  // tried) and restored in `finally`, so the window of effect is just this
-  // one synchronous test body.
+ 
   async function withStubbedRmSync(run) {
     const originalRmSync = fs.rmSync;
     const rmSyncMock = mock(() => {});
@@ -95,7 +79,6 @@ describe("EmbeddingService.loadModel", () => {
 
     await withStubbedRmSync(async () => {
       const service = new EmbeddingService();
-
       await expect(service.embed("hello")).rejects.toThrow(
         "Failed to generate embedding",
       );
@@ -108,10 +91,8 @@ describe("EmbeddingService.embed", () => {
   it("calls the extractor with mean pooling and normalization", async () => {
     const extractorMock = mock(async () => ({ data: [0.1, 0.2, 0.3] }));
     pipelineImpl = async () => extractorMock;
-
     const service = new EmbeddingService();
     const result = await service.embed("some schema text");
-
     expect(extractorMock).toHaveBeenCalledWith("some schema text", {
       pooling: "mean",
       normalize: true,
@@ -122,10 +103,8 @@ describe("EmbeddingService.embed", () => {
   it("converts the extractor's typed-array output into a plain array", async () => {
     pipelineImpl = async () =>
       mock(async () => ({ data: new Float32Array([1, 2, 3]) }));
-
     const service = new EmbeddingService();
     const result = await service.embed("text");
-
     expect(Array.isArray(result)).toBe(true);
     expect(result).toEqual([1, 2, 3]);
   });
@@ -135,9 +114,7 @@ describe("EmbeddingService.embed", () => {
       mock(async () => {
         throw new Error("onnxruntime session run failed");
       });
-
     const service = new EmbeddingService();
-
     await expect(service.embed("text")).rejects.toThrow(
       "Failed to generate embedding",
     );
