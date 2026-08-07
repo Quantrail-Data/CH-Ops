@@ -16,112 +16,108 @@ import { loadEnv } from "../utils/env.js";
 
 
 export function getClusterInfo(alert) {
-  const clusters = getAllClusters();
-  if (!clusters.length) return { clusterName: "No cluster", nodes: "-" };
+    const clusters = getAllClusters();
+    if (!clusters.length) return { clusterName: "No cluster", nodes: "-" };
 
-  // Find the cluster this alert is assigned to, or fall back to first
-  const cluster =
-    (alert?.clusterId
-      ? clusters.find((c) => c.id === alert.clusterId)
-      : null) || clusters[0];
-  const clusterName = cluster.name || "Default";
+    // Find the cluster this alert is assigned to, or fall back to first
+    const cluster =
+        (alert?.clusterId
+            ? clusters.find((c) => c.id === alert.clusterId)
+            : null) || clusters[0];
+    const clusterName = cluster.name || "Default";
 
-  // If the alert targets specific nodes, show those
-  let targetNodes = [];
-  try {
-    if (alert?.nodes) {
-      const parsed =
-        typeof alert.nodes === "string" ? JSON.parse(alert.nodes) : alert.nodes;
-      if (Array.isArray(parsed) && parsed.length > 0) targetNodes = parsed;
+    // If the alert targets specific nodes, show those
+    let targetNodes = [];
+    try {
+        if (alert?.nodes) {
+            const parsed =
+                typeof alert.nodes === "string" ? JSON.parse(alert.nodes) : alert.nodes;
+            if (Array.isArray(parsed) && parsed.length > 0) targetNodes = parsed;
+        }
+    } catch { }
+
+    if (targetNodes.length) {
+        return { clusterName, nodes: targetNodes.join(", ") };
     }
-  } catch { }
-
-  if (targetNodes.length) {
-    return { clusterName, nodes: targetNodes.join(", ") };
-  }
-  const allNodes = (cluster.nodes || []).map((n) => n.host);
-  return { clusterName, nodes: allNodes.join(", ") || "all nodes" };
+    const allNodes = (cluster.nodes || []).map((n) => n.host);
+    return { clusterName, nodes: allNodes.join(", ") || "all nodes" };
 }
 
 export function formatDetails(alert) {
-  const d = alert.lastRunAt ? new Date(alert.lastRunAt) : new Date();
-  const ts = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
-  const info = getClusterInfo(alert);
-  return {
-    name: alert.name,
-    severity: (alert.severity || "info").toUpperCase(),
-    description: alert.description || "-",
-    sql: alert.sql || "-",
-    schedule: alert.schedule || "-",
-    operator: alert.operator || "gt",
-    threshold: alert.threshold,
-    value: alert.lastValue ?? "?",
-    clusterName: info.clusterName,
-    nodes: info.nodes,
-    firedNode: alert.firedNode || "-",
-    timestamp: ts,
-    kind: alert.kind || "breach",
-    error: alert.error || null,
-  };
+    const d = alert.lastRunAt ? new Date(alert.lastRunAt) : new Date();
+    const ts = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+    const info = getClusterInfo(alert);
+    return {
+        name: alert.name,
+        severity: (alert.severity || "info").toUpperCase(),
+        description: alert.description || "-",
+        sql: alert.sql || "-",
+        schedule: alert.schedule || "-",
+        operator: alert.operator || "gt",
+        threshold: alert.threshold,
+        value: alert.lastValue ?? "?",
+        clusterName: info.clusterName,
+        nodes: info.nodes,
+        firedNode: alert.firedNode || "-",
+        timestamp: ts,
+        kind: alert.kind || "breach",
+        error: alert.error || null,
+    };
 }
 
 export function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
 export function extractAccountDetails(description) {
-  const text = String(description || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 2000);
+    const text = String(description || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 2000);
 
-  const usernameMatch = text.match(/Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i);
-  const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
-  const roleMatch = text.match(/Role:\s*([a-z]+)/i);
-  const noteMatch = text.match(/(Please change your password on first login\.?)/i);
+    const usernameMatch = text.match(/Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i);
+    const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
+    const roleMatch = text.match(/Role:\s*([a-z]+)/i);
+    const noteMatch = text.match(/(Please change your password on first login\.?)/i);
 
-  return {
-    intro: text.split(/Username:/i)[0].trim(),
-    username: usernameMatch ? usernameMatch[1].trim() : "",
-    password: passwordMatch ? passwordMatch[1].trim() : "",
-    role: roleMatch ? roleMatch[1].trim() : "",
-    note: noteMatch ? noteMatch[1].trim() : "",
-  };
+    return {
+        intro: text.split(/Username:/i)[0].trim(),
+        username: usernameMatch ? usernameMatch[1].trim() : "",
+        password: passwordMatch ? passwordMatch[1].trim() : "",
+        role: roleMatch ? roleMatch[1].trim() : "",
+        note: noteMatch ? noteMatch[1].trim() : "",
+    };
 }
 
-function extractFirstName(name) {
-  if (typeof name !== "string" || !name.trim()) return "User";
-  return name.split(" ")[0];
-}
 
 export const sendOTPEmail = async (email, otp, channelConfig) => {
-  try {
-    const config =
-      typeof channelConfig === "string"
-        ? JSON.parse(channelConfig)
-        : channelConfig;
+    try {
+        const config =
+            typeof channelConfig === "string"
+                ? JSON.parse(channelConfig)
+                : channelConfig;
 
-    if (!config) {
-      return false
+        if (!config) {
+            return false;
 
-    }
-    const webAppName = "CHOPS";
+        }
+        const webAppName = "CHOPS";
 
-    const escapeEmail = escapeHtml(email);
-    const escapeOtp = escapeHtml(otp);
-    const escapeWebAppName = escapeHtml(webAppName);
+        const escapeEmail = escapeHtml(email);
+        const escapeOtp = escapeHtml(otp);
+        const escapeWebAppName = escapeHtml(webAppName);
 
-    const mailOptions = {
-      from: config?.from,
-      to: email,
-      subject: "Password Reset OTP",
-      text: `Hi ${escapeEmail},\n\nHere is your OTP (One Time PIN) for resetting your password on ${escapeWebAppName}:\n\nOTP: ${escapeOtp}\n\nThis OTP is valid for 30 seconds.`,
-      html: `
+        const mailOptions = {
+            from: config?.from,
+            to: email,
+            subject: "Password Reset OTP",
+            text: `Hi ${escapeEmail},\n\nHere is your OTP (One Time PIN) for resetting your password on ${escapeWebAppName}:\n\nOTP: ${escapeOtp}\n\nThis OTP is valid for 30 seconds.`,
+            html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <div style="background: linear-gradient(135deg, #5D3FD3, #8B5CF6); padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0;">Password Reset OTP</h1>
@@ -146,77 +142,74 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
           </div>
         </div>
       `,
-    };
+        };
 
-    const transport = nodemailer.createTransport({
-      host: config.host,
-      port: parseInt(config.port) || 587,
-      secure: config.secure === "true",
-      auth: config.user
-        ? { user: config.user, pass: config.pass }
-        : undefined,
-    });
+        const transport = nodemailer.createTransport({
+            host: config.host,
+            port: parseInt(config.port) || 587,
+            secure: config.secure === "true",
+            auth: config.user
+                ? { user: config.user, pass: config.pass }
+                : undefined,
+        });
 
-    const info = await transport.sendMail(mailOptions);
-    console.log("Password reset OTP sent to %s: %s", email, info.messageId);
-    return true;
-  } catch (error) {
-    console.error("Error sending OTP email:", error.message);
-    return false;
-  }
+        await transport.sendMail(mailOptions);
+        return true;
+    } catch (error) {
+        return false;
+    }
 };
 
 export async function sendNotification(channelConfig, alert) {
-  const config =
-    typeof channelConfig === "string"
-      ? JSON.parse(channelConfig)
-      : channelConfig;
-  const d = formatDetails(alert);
+    const config =
+        typeof channelConfig === "string"
+            ? JSON.parse(channelConfig)
+            : channelConfig;
+    const d = formatDetails(alert);
 
-  if (config.type === "email") {
-    if (!config.smtp_host) throw new Error("SMTP host is not configured");
-    if (!config.to) throw new Error("Recipient email is not configured");
-    const transport = nodemailer.createTransport({
-      host: config.smtp_host,
-      port: parseInt(config.smtp_port) || 587,
-      secure: config.smtp_secure === "true",
-      auth: config.smtp_user
-        ? { user: config.smtp_user, pass: config.smtp_pass }
-        : undefined,
-    });
-    const sevColor =
-      d.severity === "CRITICAL"
-        ? "#f87171"
-        : d.severity === "WARNING"
-          ? "#fbbf24"
-          : "#8b5cf6";
+    if (config.type === "email") {
+        if (!config.smtp_host) throw new Error("SMTP host is not configured");
+        if (!config.to) throw new Error("Recipient email is not configured");
+        const transport = nodemailer.createTransport({
+            host: config.smtp_host,
+            port: parseInt(config.smtp_port) || 587,
+            secure: config.smtp_secure === "true",
+            auth: config.smtp_user
+                ? { user: config.smtp_user, pass: config.smtp_pass }
+                : undefined,
+        });
+        const sevColor =
+            d.severity === "CRITICAL"
+                ? "#f87171"
+                : d.severity === "WARNING"
+                    ? "#fbbf24"
+                    : "#8b5cf6";
 
-    const isAccountEmail = /account created/i.test(d.name || "");
-    const isPasswordResetEmail = /password reset/i.test(d.name || "");
-    const containerBg = "#ffffff";
-    const bodyColor = "#0b1220";
-    const containerBorder = "rgba(15,23,42,0.06)";
-    const rowBorder = "rgba(15,23,42,0.06)";
-    const preColor = "#ffffff";
-    const tableTextColor = "#0b1220";
-    const severityTextColor = d.severity === "WARNING" ? "#1a1a2e" : "#fff";
-    const mutedTextColor = "#64748b";
+        const isAccountEmail = /account created/i.test(d.name || "");
+        const isPasswordResetEmail = /password reset/i.test(d.name || "");
+        const containerBg = "#ffffff";
+        const bodyColor = "#0b1220";
+        const containerBorder = "rgba(15,23,42,0.06)";
+        const rowBorder = "rgba(15,23,42,0.06)";
+        const preColor = "#ffffff";
+        const tableTextColor = "#0b1220";
+        const severityTextColor = d.severity === "WARNING" ? "#1a1a2e" : "#fff";
 
-    const env = loadEnv();
+        const env = loadEnv();
 
-    const accountDetails = isAccountEmail
-      ? extractAccountDetails(d.description)
-      : null;
+        const accountDetails = isAccountEmail
+            ? extractAccountDetails(d.description)
+            : null;
 
-    const passwordResetDetails = isPasswordResetEmail
-      ? extractAccountDetails(d.description)
-      : null;
+        const passwordResetDetails = isPasswordResetEmail
+            ? extractAccountDetails(d.description)
+            : null;
 
-    const descriptionHtml = d.description !== "-"
-      ? `<p style="color:#334155;margin:0 0 16px;font-size:15px;line-height:1.7">${escapeHtml(d.description)}</p>`
-      : "";
+        const descriptionHtml = d.description !== "-"
+            ? `<p style="color:#334155;margin:0 0 16px;font-size:15px;line-height:1.7">${escapeHtml(d.description)}</p>`
+            : "";
 
-    const html = isAccountEmail ? `
+        const html = isAccountEmail ? `
  <!DOCTYPE html>
 <html lang="en">
 
@@ -521,7 +514,7 @@ export async function sendNotification(channelConfig, alert) {
 
 </html>
     ` :
-      `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
+            `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
       <div style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:white;padding:18px 24px"><h2 style="margin:0;font-size:20px">${escapeHtml(d.severity)}: ${escapeHtml(d.name)}</h2><p style="margin:4px 0 0;opacity:0.85;font-size:13px">${escapeHtml(d.timestamp)}</p></div>
       <div style="padding:24px;color:${bodyColor}">
         ${descriptionHtml}
@@ -529,10 +522,10 @@ export async function sendNotification(channelConfig, alert) {
           <div style="padding:12px 16px;background:#f8fafc;color:#0f172a;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Alert Summary</div>
           <table style="width:100%;font-size:14px;border-collapse:collapse;color:${tableTextColor}">
             ${d.kind === 'failure'
-        ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || 'Evaluation failed')}</td></tr>`
-        : d.kind === 'recovery'
-          ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
-          : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
+                ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || 'Evaluation failed')}</td></tr>`
+                : d.kind === 'recovery'
+                    ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
+                    : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
                  <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Threshold</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.operator)} ${escapeHtml(d.threshold)}</td></tr>`}
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Severity</td><td style="padding:10px 16px;border-bottom:1px solid ${rowBorder}"><span style="background:${sevColor};color:${severityTextColor};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${escapeHtml(d.severity)}</span></td></tr>
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Schedule</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder};font-family:monospace">${escapeHtml(d.schedule)}</td></tr>
@@ -545,33 +538,33 @@ export async function sendNotification(channelConfig, alert) {
         <p style="color:#94a3b8;font-size:11px;margin:16px 0 0;text-align:center">CHOps Alert Engine - Quantrail™ Data</p>
       </div></div>`;
 
-    await transport.sendMail({
-      from: config.from || "CHOps <noreply@chops>",
-      to: config.to,
-      subject: isPasswordResetEmail ? `[CHOps] Password Reset for ${passwordResetDetails?.username || 'User'}` : (isAccountEmail ? `[CHOps] Welcome! Your Account Is Ready` : `[CHOps] ${d.severity}: ${d.name}`),
-      html,
-      attachments: (isAccountEmail || isPasswordResetEmail) ? [
-        {
-          filename: "logo.png",
-          path: "src/frontend/assets/chops-dark.png",
-          cid: "logo-image-123",
-        },
-      ] : [],
-    });
-  }
+        await transport.sendMail({
+            from: config.from || "CHOps <noreply@chops>",
+            to: config.to,
+            subject: isPasswordResetEmail ? `[CHOps] Password Reset for ${passwordResetDetails?.username || 'User'}` : (isAccountEmail ? `[CHOps] Welcome! Your Account Is Ready` : `[CHOps] ${d.severity}: ${d.name}`),
+            html,
+            attachments: (isAccountEmail || isPasswordResetEmail) ? [
+                {
+                    filename: "logo.png",
+                    path: "src/frontend/assets/chops-dark.png",
+                    cid: "logo-image-123",
+                },
+            ] : [],
+        });
+    }
 }
 
 export async function testChannel(config) {
-  const testAlert = {
-    name: "Test Alert",
-    severity: "info",
-    description: "This is a test notification from CHOps.",
-    sql: "SELECT 1",
-    schedule: "*/5 * * * *",
-    operator: "gt",
-    threshold: 0,
-    lastValue: 1,
-    lastRunAt: new Date().toISOString(),
-  };
-  await sendNotification(config, testAlert);
+    const testAlert = {
+        name: "Test Alert",
+        severity: "info",
+        description: "This is a test notification from CHOps.",
+        sql: "SELECT 1",
+        schedule: "*/5 * * * *",
+        operator: "gt",
+        threshold: 0,
+        lastValue: 1,
+        lastRunAt: new Date().toISOString(),
+    };
+    await sendNotification(config, testAlert);
 }

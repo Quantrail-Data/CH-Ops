@@ -2,14 +2,13 @@
 // author -> Praveen kumar
 // Main container managing state, message history, and UI layouts for the AI chat interface.
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import ChatInputComponent from "./ChatInputComponent";
 import IntroChatComponent from "./IntroChatComponent.jsx";
 import AILoaderComponent from "./AILoaderComponent";
 import ChatRenderComponent from "./ChatRenderComponent";
-import { useParams } from "react-router-dom";
 import { useConnection, useQuriozChatContext, useTheme } from "../../App.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
@@ -42,10 +41,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     nodeName,
   } = useConnection();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState({ status: false, message: null });
-  const { session_id } = useParams();
   const [showConfrirmDelete, setShowConfrimDelete] = useState(false);
-  const [dbs, setDbs] = useState([]);
+  const [_, setDbs] = useState([]);
   const [apikey, setApiKey] = useState({
     status: false,
     id: null,
@@ -166,16 +163,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     initSetup();
   }, [clusters, clusterName, selectedClusterId]);
 
-  const editingContentHandler = (quest, id) => {
-    setChatMessage((prev) =>
-      prev?.map((value) => {
-        if (value?.id === id) {
-          return { ...value, question: quest };
-        }
-        return value;
-      }),
-    );
-  };
 
   const ToggelChartHandler = (message) => {
     if (message) {
@@ -484,7 +471,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 err?.message === "Failed to fetch"
                   ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
                   : err?.message ||
-                    "Request failed to load. Please check your internet connection and try again.",
+                  "Request failed to load. Please check your internet connection and try again.",
             },
           });
         } finally {
@@ -646,7 +633,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             err?.message === "Failed to fetch"
               ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
               : err?.message ||
-                "Request failed to load. Please check your internet connection and try again.",
+              "Request failed to load. Please check your internet connection and try again.",
         },
       };
       replaceChat(error);
@@ -870,7 +857,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       setTimeout(() => {
         setAlertMessage({ flag: false, message: null });
       }, 2000);
-      isNewSelectAll && setIsNewSelectAll(false)
+      isNewSelectAll && setIsNewSelectAll(false);
     }
   }
 

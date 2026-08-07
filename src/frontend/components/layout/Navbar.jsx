@@ -42,16 +42,14 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     selectedClusterId,
     nodes,
     selectedNode,
-    user,
     connected,
     error,
-    clusterName,
     setConnection,
     testConnection,
     reloadConfig,
     switchCluster,
   } = useConnection();
-  const [connecting, setConnecting] = useState(false);
+  const [_, setConnecting] = useState(false);
 
   const [fontScale, setFontScale] = useState(() =>
     parseFloat(localStorage.getItem("chops_fontscale") || "100"),
@@ -182,17 +180,17 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
   // }
 
   // storing the chops node details in localstorage => praveenkumar
-    async function handleNodeChange(host) {
+  async function handleNodeChange(host) {
     const node = nodes.find((n) => n.host === host);
     if (node) {
-      localStorage?.setItem("chops_nodename",node?.name)
+      localStorage?.setItem("chops_nodename", node?.name)
       setConnecting(true);
       setConnection((prev) => ({
         ...prev,
         selectedNode: host,
         user: node.user || "default",
         port: node.port || 8123,
-        nodeName:node?.name
+        nodeName: node?.name
       }));
       await testConnection(node?.host, node?.user, node?.port);
       onRefresh();
@@ -200,12 +198,6 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     } else setConnection((prev) => ({ ...prev, selectedNode: host }));
   }
 
-  async function handleConnect() {
-    setConnecting(true);
-    const node = nodes.find((n) => n.host === selectedNode) || nodes[0];
-    await testConnection(selectedNode || node?.host, user, node?.port);
-    setConnecting(false);
-  }
 
   function handleRefresh() {
     if (reloadConfig) reloadConfig();
@@ -236,8 +228,8 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
         {/* <Icon className="ti ti-database"></Icon>
         <span className="navbar-title">CHOps</span> */}
 
-         <img
-          style={{ width: "100px",position:"relative",right:"10px" }}
+        <img
+          style={{ width: "100px", position: "relative", right: "10px" }}
           src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
         />
       </a>

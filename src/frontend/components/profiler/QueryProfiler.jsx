@@ -13,7 +13,7 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { runQuery } from "../../utils/api.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
-import ChartToolbar, { useChartTools, savePng } from "../common/ChartToolbar.jsx";
+import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useSearchParams } from "react-router-dom";
 
@@ -162,8 +162,6 @@ function buildFullQuerySql(queryId) {
 }
 
 function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const chFrom = toChDatetime(from);
-  const chTo = toChDatetime(to);
   const safeId = queryId.replace(/'/g, "\\'");
 
   let traceFilter = "";
@@ -656,7 +654,7 @@ export default function QueryProfiler() {
     try {
       const result = await runQuery(buildFullQuerySql(query.query_id));
       if (result.rows?.[0]?.query) setPopupQueryText(result.rows[0].query);
-    } catch {}
+    } catch { }
     setPopupTextLoading(false);
   }, []);
 
@@ -856,7 +854,7 @@ export default function QueryProfiler() {
               placeholder="Search by query text or query_id..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ fontFamily: "var(--font-code)", fontSize: "13px" ,height:39}}
+              style={{ fontFamily: "var(--font-code)", fontSize: "13px", height: 39 }}
             />
           </div>
 
@@ -933,7 +931,7 @@ export default function QueryProfiler() {
                 const isSelected = selectedQueryId === q.query_id;
                 const preview = q.query_preview
                   ? q.query_preview.substring(0, 100) +
-                    (q.query_preview.length > 100 ? "..." : "")
+                  (q.query_preview.length > 100 ? "..." : "")
                   : "(no query text)";
                 const dur =
                   q.query_duration_ms != null ? `${q.query_duration_ms}ms` : "";
@@ -1098,22 +1096,22 @@ export default function QueryProfiler() {
 
       <div
         className="card"
-         style={
-              flameTools.fullscreen
-                ? {
-                    position: "fixed",
-                    zIndex: 9999,
-                    background: "var(--bg-page)",
-                    padding: 16,
-                    overflow: "auto",
-                    top: "0px",
-                    left: "0px",
-                    width: "100%",
-                    height: "100vh",
-                  }
-                :{ padding: 20, marginBottom: 16, minHeight: 200 }
+        style={
+          flameTools.fullscreen
+            ? {
+              position: "fixed",
+              zIndex: 9999,
+              background: "var(--bg-page)",
+              padding: 16,
+              overflow: "auto",
+              top: "0px",
+              left: "0px",
+              width: "100%",
+              height: "100vh",
             }
-     
+            : { padding: 20, marginBottom: 16, minHeight: 200 }
+        }
+
       >
         {!stats && !loading && !error ? (
           <div
@@ -1139,13 +1137,13 @@ export default function QueryProfiler() {
         ) : (
           <div>
             {stats && (
-              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4,marginBottom:"10px" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginBottom: "10px" }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => flameInst.current?._flameReset?.()} title="Reset zoom" aria-label="Reset zoom"><Icon className="ti ti-zoom-reset"></Icon></button>
                 <ChartToolbar
                   fullscreen={flameTools.fullscreen}
                   onSave={flameTools.save}
                   onToggleFullscreen={flameTools.toggleFullscreen}
-                  isWantFeature = {chartControlsFlags}
+                  isWantFeature={chartControlsFlags}
                 />
               </div>
             )}

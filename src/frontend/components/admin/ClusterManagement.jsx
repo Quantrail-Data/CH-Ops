@@ -311,7 +311,7 @@ export default function ClusterManagement() {
         });
         toast.success(`Cluster "${form.name}" updated.`);
       } else {
-        const res = await apiFetch("/api/cluster", {
+        await apiFetch("/api/cluster", {
           method: "POST",
           body: JSON.stringify({ name: form.name, nodes: valid }),
         });
@@ -378,20 +378,20 @@ export default function ClusterManagement() {
           </button>
           {k8sEnabled && tab === "k8s"
             ? !showK8sWizard &&
-              clusters.length < MAX_CLUSTERS && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => setShowK8sWizard(true)}
-                >
-                  <Icon className="ti ti-plus"></Icon> New Cluster
-                </button>
-              )
+            clusters.length < MAX_CLUSTERS && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => setShowK8sWizard(true)}
+              >
+                <Icon className="ti ti-plus"></Icon> New Cluster
+              </button>
+            )
             : !showForm &&
-              clusters.length < MAX_CLUSTERS && (
-                <button className="btn btn-primary btn-sm" onClick={startNew}>
-                  <Icon className="ti ti-plus"></Icon> New Cluster
-                </button>
-              )}
+            clusters.length < MAX_CLUSTERS && (
+              <button className="btn btn-primary btn-sm" onClick={startNew}>
+                <Icon className="ti ti-plus"></Icon> New Cluster
+              </button>
+            )}
           {k8sEnabled && tab === "k8s" && showK8sWizard && (
             <button
               className="btn btn-secondary btn-sm"

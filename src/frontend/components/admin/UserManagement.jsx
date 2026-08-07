@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from '../../utils/api.js';
-import DataTable from '../layout/DataTable.jsx';
 import ConfirmModal from '../layout/ConfirmModal.jsx';
 import { useToast } from '../layout/Toast.jsx';
 import { useAuth } from '../../App.jsx';
@@ -89,20 +88,20 @@ export default function UserManagement() {
   }
 
   async function deleteUser(id) {
-    try { await apiFetch(`/api/users/${id}`, { method: 'DELETE',body:{} }); toast.success('User deleted.'); load(); }
+    try { await apiFetch(`/api/users/${id}`, { method: 'DELETE', body: {} }); toast.success('User deleted.'); load(); }
     catch (err) { toast.error(err.message); }
     setDel(null);
   }
 
   async function selfChangePassword(e) {
     e.preventDefault();
-    if (changePw.newPw.value !== changePw.confirm.value) { 
-      toast.error('Passwords do not match.'); 
-      return; 
+    if (changePw.newPw.value !== changePw.confirm.value) {
+      toast.error('Passwords do not match.');
+      return;
     }
-    if (changePw.newPw.value.length < 8) { 
-      toast.error('Password must be at least 8 characters.'); 
-      return; 
+    if (changePw.newPw.value.length < 8) {
+      toast.error('Password must be at least 8 characters.');
+      return;
     }
     if (changePw.newPw.value.length > 256) {
       toast.warning('Password must not exceed 256 characters.');
@@ -119,8 +118,8 @@ export default function UserManagement() {
       setTimeout(() => {
         window.location.href = '/login';
       }, 1500);
-    } catch (err) { 
-      toast.error(err.message); 
+    } catch (err) {
+      toast.error(err.message);
     }
   }
 

@@ -114,57 +114,57 @@ const ComparePane = memo(function ComparePane({
       ? "Paste your current query here..."
       : "Write your rewritten query here...";
   const disabled = !!busy || !sql.trim() || !connected;
-  const {theme} = useTheme();
-  const [isAILoadingGenerating,setIsAILoadingGenerating] = useState(false);
-    const [index, setIndex] = useState(0);
-    const toast = useToast()
-  
-    useEffect(() => {
-      const interval = setInterval(() => {
-        setIndex((prevIndex) => (prevIndex + 1) % LOADING_PHRASES.length);
+  const { theme } = useTheme();
+  const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
+  const [index, setIndex] = useState(0);
+  const toast = useToast()
 
-      }, 2000);
-  
-      return () => clearInterval(interval);
-    }, []);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prevIndex) => (prevIndex + 1) % LOADING_PHRASES.length);
+
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   async function GeneratingSQLHandler() {
-      const message = sql?.trim()?.split("*/")?.length > 1 ? sql?.trim()?.split("*/")[1] : sql?.trim();
-  
-      if (message?.length > 0) {
-        onChange(LOADING_PHRASES[index])
-        setIsAILoadingGenerating(true);
-       
-        try {
-          const responseAIQuery = await await apiFetch(
-            `/api/ai/sql/generate-sql`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON?.stringify({
-                database_id: aiDatabase_id,
-                user_question: message,
-              }),
+    const message = sql?.trim()?.split("*/")?.length > 1 ? sql?.trim()?.split("*/")[1] : sql?.trim();
+
+    if (message?.length > 0) {
+      onChange(LOADING_PHRASES[index])
+      setIsAILoadingGenerating(true);
+
+      try {
+        const responseAIQuery = await await apiFetch(
+          `/api/ai/sql/generate-sql`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
             },
-          );
-  
-          if (responseAIQuery?.success) {
-            onChange(
-              `/*\n\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectDb}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
-            );
-          }
-        } catch (error) {
-          toast?.error(error?.message);
+            body: JSON?.stringify({
+              database_id: aiDatabase_id,
+              user_question: message,
+            }),
+          },
+        );
+
+        if (responseAIQuery?.success) {
           onChange(
-              `/*\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectDb}\n*/\n\n-- Error : ${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
-            );
-        } finally {
-          setIsAILoadingGenerating(false);
+            `/*\n\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectDb}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+          );
         }
+      } catch (error) {
+        toast?.error(error?.message);
+        onChange(
+          `/*\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectDb}\n*/\n\n-- Error : ${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+        );
+      } finally {
+        setIsAILoadingGenerating(false);
       }
     }
+  }
 
   return (
     <div className={"cmp-pane cmp-pane-" + side}>
@@ -218,7 +218,7 @@ const ComparePane = memo(function ComparePane({
                 style={{ display: "flex", alignItems: "center", gap: "10px" }}
               >
                 <div className="conn-indicator connected"> </div>
-               
+
               </div>
             ) : (
               <div>
@@ -244,29 +244,29 @@ const ComparePane = memo(function ComparePane({
 
       <div className="cmp-pane-buttons">
 
-         { side === "right" &&  <button
-            className="ai-button "
-            style={{ color: theme === "dark" ? "white" : "black" }}
-            onClick={() => GeneratingSQLHandler()}
-            disabled={isAILoadingGenerating}
-          >
-            {
-              isAILoadingGenerating ?<> <div className="loading-spinner"></div><span>Generating...</span></> :
+        {side === "right" && <button
+          className="ai-button "
+          style={{ color: theme === "dark" ? "white" : "black" }}
+          onClick={() => GeneratingSQLHandler()}
+          disabled={isAILoadingGenerating}
+        >
+          {
+            isAILoadingGenerating ? <> <div className="loading-spinner"></div><span>Generating...</span></> :
               <><svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill={theme === "dark" ? "white" : "black"}
-              className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
-            >
-              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-              <path d="M17.964 2.733c.156 .563 .312 1 .484 1.353c.342 .71 .758 1.125 1.47 1.467c.353 .17 .79 .326 1.352 .484c.98 .276 .97 1.668 -.013 1.93a8.3 8.3 0 0 0 -1.34 .481c-.71 .342 -1.127 .757 -1.463 1.453a8 8 0 0 0 -.486 1.352c-.258 .988 -1.658 1 -1.932 .015c-.156 -.565 -.312 -1.002 -.484 -1.354c-.342 -.71 -.758 -1.124 -1.458 -1.46a8 8 0 0 0 -1.374 -.495a.4 .4 0 0 1 -.06 -.02l-.044 -.017l-.045 -.02l-.049 -.025l-.035 -.02a.4 .4 0 0 1 -.049 -.03l-.032 -.023l-.043 -.034l-.033 -.028l-.036 -.035l-.034 -.035l-.028 -.033l-.035 -.043l-.022 -.032a.4 .4 0 0 1 -.032 -.049l-.02 -.035l-.025 -.05l-.02 -.044l-.017 -.043a.4 .4 0 0 1 -.02 -.06l-.01 -.034a.5 .5 0 0 1 -.02 -.098l-.006 -.065l-.005 -.035v-.05a.4 .4 0 0 1 .003 -.085a.5 .5 0 0 1 .013 -.093a.5 .5 0 0 1 .024 -.103a.4 .4 0 0 1 .02 -.06l.017 -.044l.02 -.045l.025 -.049l.02 -.035a.4 .4 0 0 1 .03 -.049l.023 -.032l.034 -.043l.028 -.033l.035 -.036l.035 -.034q .015 -.015 .033 -.028l.043 -.035l.032 -.022a.4 .4 0 0 1 .049 -.032l.035 -.02l.05 -.025l.044 -.02l.043 -.017a.4 .4 0 0 1 .06 -.02l.027 -.008a8.3 8.3 0 0 0 1.339 -.48c.71 -.342 1.127 -.757 1.47 -1.466c.17 -.354 .327 -.792 .483 -1.355c.272 -.976 1.657 -.976 1.928 0" />
-              <path d="M10.965 6.737q .219 .801 .503 1.574c.856 2.28 1.945 3.363 4.23 4.22q .708 .265 1.571 .506c.976 .272 .974 1.656 -.002 1.927q -.798 .221 -1.568 .504c-2.288 .858 -3.376 1.94 -4.229 4.216a19 19 0 0 0 -.505 1.579c-.268 .983 -1.662 .983 -1.93 0a19 19 0 0 0 -.503 -1.574c-.856 -2.281 -1.944 -3.363 -4.226 -4.219a20 20 0 0 0 -1.594 -.513a.4 .4 0 0 1 -.054 -.018l-.044 -.017l-.043 -.02a.3 .3 0 0 1 -.048 -.024l-.036 -.02a.4 .4 0 0 1 -.048 -.03l-.032 -.024l-.044 -.034l-.033 -.029l-.037 -.034l-.034 -.037l-.03 -.033l-.033 -.044l-.023 -.032a.4 .4 0 0 1 -.03 -.048l-.021 -.036a.3 .3 0 0 1 -.024 -.048l-.02 -.043l-.017 -.044a.4 .4 0 0 1 -.018 -.054a.2 .2 0 0 1 -.01 -.039a.4 .4 0 0 1 -.014 -.059l-.007 -.04l-.007 -.056l-.003 -.044l-.002 -.05v-.05q 0 -.023 .004 -.044q .001 -.03 .007 -.057l.007 -.04a.4 .4 0 0 1 .017 -.076l.007 -.021a.4 .4 0 0 1 .018 -.054l.017 -.044l.02 -.043a.3 .3 0 0 1 .024 -.048l.02 -.036a.4 .4 0 0 1 .03 -.048l.024 -.032l.034 -.044l.029 -.033l.034 -.037l.037 -.034l.033 -.03l.044 -.033l.032 -.023a.4 .4 0 0 1 .048 -.03l.036 -.021a.3 .3 0 0 1 .048 -.024l.043 -.02l.044 -.017a.4 .4 0 0 1 .054 -.018l.021 -.007a20 20 0 0 0 1.568 -.504c2.287 -.858 3.375 -1.94 4.229 -4.216a19 19 0 0 0 .505 -1.579c.268 -.983 1.662 -.983 1.93 0" />
-            </svg>
-            <span>Generate SQL</span></>}
-          </button>
-}
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill={theme === "dark" ? "white" : "black"}
+                className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
+              >
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M17.964 2.733c.156 .563 .312 1 .484 1.353c.342 .71 .758 1.125 1.47 1.467c.353 .17 .79 .326 1.352 .484c.98 .276 .97 1.668 -.013 1.93a8.3 8.3 0 0 0 -1.34 .481c-.71 .342 -1.127 .757 -1.463 1.453a8 8 0 0 0 -.486 1.352c-.258 .988 -1.658 1 -1.932 .015c-.156 -.565 -.312 -1.002 -.484 -1.354c-.342 -.71 -.758 -1.124 -1.458 -1.46a8 8 0 0 0 -1.374 -.495a.4 .4 0 0 1 -.06 -.02l-.044 -.017l-.045 -.02l-.049 -.025l-.035 -.02a.4 .4 0 0 1 -.049 -.03l-.032 -.023l-.043 -.034l-.033 -.028l-.036 -.035l-.034 -.035l-.028 -.033l-.035 -.043l-.022 -.032a.4 .4 0 0 1 -.032 -.049l-.02 -.035l-.025 -.05l-.02 -.044l-.017 -.043a.4 .4 0 0 1 -.02 -.06l-.01 -.034a.5 .5 0 0 1 -.02 -.098l-.006 -.065l-.005 -.035v-.05a.4 .4 0 0 1 .003 -.085a.5 .5 0 0 1 .013 -.093a.5 .5 0 0 1 .024 -.103a.4 .4 0 0 1 .02 -.06l.017 -.044l.02 -.045l.025 -.049l.02 -.035a.4 .4 0 0 1 .03 -.049l.023 -.032l.034 -.043l.028 -.033l.035 -.036l.035 -.034q .015 -.015 .033 -.028l.043 -.035l.032 -.022a.4 .4 0 0 1 .049 -.032l.035 -.02l.05 -.025l.044 -.02l.043 -.017a.4 .4 0 0 1 .06 -.02l.027 -.008a8.3 8.3 0 0 0 1.339 -.48c.71 -.342 1.127 -.757 1.47 -1.466c.17 -.354 .327 -.792 .483 -1.355c.272 -.976 1.657 -.976 1.928 0" />
+                <path d="M10.965 6.737q .219 .801 .503 1.574c.856 2.28 1.945 3.363 4.23 4.22q .708 .265 1.571 .506c.976 .272 .974 1.656 -.002 1.927q -.798 .221 -1.568 .504c-2.288 .858 -3.376 1.94 -4.229 4.216a19 19 0 0 0 -.505 1.579c-.268 .983 -1.662 .983 -1.93 0a19 19 0 0 0 -.503 -1.574c-.856 -2.281 -1.944 -3.363 -4.226 -4.219a20 20 0 0 0 -1.594 -.513a.4 .4 0 0 1 -.054 -.018l-.044 -.017l-.043 -.02a.3 .3 0 0 1 -.048 -.024l-.036 -.02a.4 .4 0 0 1 -.048 -.03l-.032 -.024l-.044 -.034l-.033 -.029l-.037 -.034l-.034 -.037l-.03 -.033l-.033 -.044l-.023 -.032a.4 .4 0 0 1 -.03 -.048l-.021 -.036a.3 .3 0 0 1 -.024 -.048l-.02 -.043l-.017 -.044a.4 .4 0 0 1 -.018 -.054a.2 .2 0 0 1 -.01 -.039a.4 .4 0 0 1 -.014 -.059l-.007 -.04l-.007 -.056l-.003 -.044l-.002 -.05v-.05q 0 -.023 .004 -.044q .001 -.03 .007 -.057l.007 -.04a.4 .4 0 0 1 .017 -.076l.007 -.021a.4 .4 0 0 1 .018 -.054l.017 -.044l.02 -.043a.3 .3 0 0 1 .024 -.048l.02 -.036a.4 .4 0 0 1 .03 -.048l.024 -.032l.034 -.044l.029 -.033l.034 -.037l.037 -.034l.033 -.03l.044 -.033l.032 -.023a.4 .4 0 0 1 .048 -.03l.036 -.021a.3 .3 0 0 1 .048 -.024l.043 -.02l.044 -.017a.4 .4 0 0 1 .054 -.018l.021 -.007a20 20 0 0 0 1.568 -.504c2.287 -.858 3.375 -1.94 4.229 -4.216a19 19 0 0 0 .505 -1.579c.268 -.983 1.662 -.983 1.93 0" />
+              </svg>
+                <span>Generate SQL</span></>}
+        </button>
+        }
 
         <button
           className="btn btn-secondary btn-sm"
@@ -290,12 +290,9 @@ const ComparePane = memo(function ComparePane({
 });
 
 export default function ComparisonView({ mode, onModeChange, active = true }) {
-  const { selectedNode, port ,selectedClusterId,
-    connected,
+  const { selectedNode, port, selectedClusterId,
     clusters,
-    clusterName,
-    user,
-    nodeName,} = useConnection();
+    nodeName, } = useConnection();
 
   // Per-user editor credentials (independent of the main editor)
   const [editorCreds, setEditorCreds] = useState(null);
@@ -304,7 +301,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
   const [connPassword, setConnPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [connError, setConnError] = useState(null);
-  const toast = useToast()
+  const toast = useToast();
 
   // Live credentials in a ref so the run handlers stay stable across renders.
   const credsRef = useRef(null);
@@ -357,7 +354,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
         // console.log(r?.rows)
         return setDBS((r.rows || [])?.map(_v => _v?.name));
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   async function initSetup() {
@@ -512,10 +509,10 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
       .then((s) => {
         if (!cancelled && s?.connected && s.chUser) {
           setEditorCreds({ user: s.chUser });
-            initSetup();
+          initSetup();
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -605,7 +602,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     if (!credsRef.current) return;
     setLeftBusy("execute");
     setLeftEstimate(null);
-     setCompareData(null)
+    setCompareData(null)
     try {
       setLeftExec(await executeOne(leftSqlRef.current, credsRef.current));
     } finally {
@@ -616,7 +613,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     if (!credsRef.current) return;
     setRightBusy("estimate");
     setRightExec(null);
-     setCompareData(null)
+    setCompareData(null)
     try {
       const sql = rightSqlRef.current?.trim()?.split("*/")?.length > 1 ? rightSqlRef?.current?.trim()?.split("*/")[1] : rightSqlRef?.current?.trim();
       setRightEstimate(
@@ -630,7 +627,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     if (!credsRef.current) return;
     setRightBusy("execute");
     setRightEstimate(null);
-     setCompareData(null)
+    setCompareData(null)
     try {
       setRightExec(await executeOne(rightSqlRef.current, credsRef.current));
     } finally {
@@ -646,7 +643,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     setLeftEstimate(null);
     setRightEstimate(null);
     setLeftExec(null);
-    setRightExec(null)
+    setRightExec(null);
     try {
       const sql = rightSqlRef.current?.trim()?.split("*/")?.length > 1 ? rightSqlRef?.current?.trim()?.split("*/")[1] : rightSqlRef?.current?.trim();
       const [l, r] = await Promise.all([
@@ -674,7 +671,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                 <Icon
                   className="ti ti-user"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
+                // aria-hidden="true"
                 ></Icon>
                 <input
                   className="form-input"
@@ -702,7 +699,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                 <Icon
                   className="ti ti-lock"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
+                // aria-hidden="true"
                 ></Icon>
                 <div
                   style={{
@@ -817,7 +814,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
         </p>
       )}
 
-      <div className="cmp-split" style={{marginTop:"30px"}}>
+      <div className="cmp-split" style={{ marginTop: "30px" }}>
         <ComparePane
           side="left"
           title="Current query"

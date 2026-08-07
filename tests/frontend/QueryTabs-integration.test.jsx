@@ -2,10 +2,9 @@
 // Contributors - Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import React from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
-import { renderHook } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { useQueryTabs } from "../../src/frontend/components/editor/useQueryTabs.js";
 import QueryTabs from "../../src/frontend/components/editor/QueryTabs.jsx";
 import SqlEditor from "../../src/frontend/components/editor/SqlEditor.jsx";
@@ -66,7 +65,7 @@ describe("tabs, the strip and the editor together", () => {
   it("keeps edits made in each tab separate", () => {
     render(<Harness />);
     fireEvent.click(screen.getByLabelText("New query tab"));
-    const view = document.querySelector(".cm-editor").cmView?.view;
+    document.querySelector(".cm-editor").cmView?.view;
     // Type into the second tab through the DOM-independent path.
     const tabs = screen.getAllByRole("tab");
     fireEvent.click(tabs[0]);

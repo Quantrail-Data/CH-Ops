@@ -434,21 +434,6 @@ function discoverActiveColumns(rows) {
 const MAX_ACTIVE_COLUMNS = 100;
 const MAX_SERIES_PER_CHART = 4;
 
-function buildMetricsSql(queryId, columns) {
-  const safeId = queryId.replace(/'/g, "\\'");
-  const safeCols = columns
-    .slice(0, MAX_ACTIVE_COLUMNS)
-    .map((c) => "`" + c.replace(/`/g, "``") + "`")
-    .join(", ");
-  return `
-SELECT
-  event_time_microseconds,
-  ${safeCols}
-FROM system.query_metric_log
-WHERE query_id = '${safeId}'
-ORDER BY event_time_microseconds`.trim();
-}
-
 // Fetch full query text
 function buildFullQuerySql(queryId) {
   const safeId = queryId.replace(/'/g, "\\'");
@@ -789,7 +774,7 @@ export default function QueryMetrics() {
       if (fetchIdRef.current !== thisId || !mountedRef.current) return;
       setQueriesError(
         e.message ||
-          "Failed to load queries. The query_metric_log table may not be enabled on this ClickHouse node.",
+        "Failed to load queries. The query_metric_log table may not be enabled on this ClickHouse node.",
       );
     }
     if (fetchIdRef.current === thisId && mountedRef.current)
@@ -1160,7 +1145,7 @@ export default function QueryMetrics() {
                 const isSelected = selectedQueryId === q.query_id;
                 const preview = q.query_preview
                   ? q.query_preview.substring(0, 100) +
-                    (q.query_preview.length > 100 ? "..." : "")
+                  (q.query_preview.length > 100 ? "..." : "")
                   : "(no query text)";
                 const dur =
                   q.query_duration_ms != null ? `${q.query_duration_ms}ms` : "";

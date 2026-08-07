@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // chCredStore.test.js - integration tests for the encrypted CH credential store
 
-import { describe, it, expect,afterAll } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../../src/backend/db/schema.js';

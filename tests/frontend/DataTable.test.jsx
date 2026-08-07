@@ -165,6 +165,6 @@ describe("DataTable", () => {
     cleanup()
 
 
-  })
+  });
 
 });

@@ -37,7 +37,7 @@ router.post("/connect", async (req, res, next) => {
         database_type === null ||
         credentials === undefined ||
         credentials === null,
-      cluster_id === null ||
+        cluster_id === null ||
         cluster_id === undefined ||
         node_id === null ||
         node_id === undefined)
@@ -105,7 +105,6 @@ router.post("/connect", async (req, res, next) => {
       ingestion: ingestionResults,
     });
   } catch (error) {
-    console.error("AI database connection error:", error?.message);
     next(error);
   }
 });
@@ -114,7 +113,7 @@ router.post("/refresh-schema", async (req, res, next) => {
   try {
     const { database_ids } = req.body;
 
-    if (database_ids == null || database_ids === undefined) {
+    if (database_ids === undefined || database_ids == null) {
       const error = new Error("Database_id must be included");
       error.statusCode = 422;
       return next(error);
@@ -148,7 +147,6 @@ router.post("/refresh-schema", async (req, res, next) => {
       ingestion: ingestionResults,
     });
   } catch (error) {
-    console.error("Schema update error:", error.message);
     next(error);
   }
 });

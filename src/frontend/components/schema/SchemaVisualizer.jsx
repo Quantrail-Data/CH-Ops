@@ -17,7 +17,6 @@ import {
   ReactFlowProvider,
   useReactFlow,
   Controls,
-  MiniMap,
   MarkerType,
   useNodesState,
   useEdgesState,
@@ -30,10 +29,8 @@ import {
   getEdgeColors,
   fmtBytes,
   fmtRows,
-  formatLoadValue,
   loadIntensity,
   loadColour,
-  loadBadgeTextColor,
 } from "../../utils/schemaParser.js";
 import { layoutGraph } from "../../utils/schemaLayout.js";
 import SchemaNode from "./SchemaNode.jsx";
@@ -43,7 +40,7 @@ const nodeTypes = { schemaNode: SchemaNode };
 
 function SchemaFlow() {
   const { fitView } = useReactFlow();
-  const [loading, setLoading] = useState(false);
+  const [_, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState("");
   const [graphData, setGraphData] = useState(null);
@@ -66,7 +63,7 @@ function SchemaFlow() {
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
   const mountedRef = useRef(true);
   const adjRef = useRef({ incoming: new Map(), outgoing: new Map() });
-  const { theme } = useTheme()
+  const { theme } = useTheme();
 
   // heatmap interactive button boolean
   const [isInteractive, setIsInteractive] = useState(true);
@@ -315,11 +312,11 @@ function SchemaFlow() {
         style: { stroke, strokeWidth: sw, opacity: op },
         markerEnd: showMarker
           ? {
-              type: MarkerType.ArrowClosed,
-              color: stroke,
-              width: 16,
-              height: 16,
-            }
+            type: MarkerType.ArrowClosed,
+            color: stroke,
+            width: 16,
+            height: 16,
+          }
           : undefined,
       });
     }
@@ -349,8 +346,8 @@ function SchemaFlow() {
   const tablesInDb =
     graphData && dbFilter
       ? (graphData.nodesByDb.get(dbFilter) || [])
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name))
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
       : [];
   const palette = getEnginePalette();
   const edgeColors = getEdgeColors();
@@ -388,7 +385,7 @@ function SchemaFlow() {
     setTimeout(() => fitView({ padding: 0.15 }), 150);
   }, [graphData, visibleKeys, showColumns, fitView]);
 
-      function isDark() {
+  function isDark() {
     return theme === "dark"
   }
 
@@ -636,7 +633,7 @@ function SchemaFlow() {
               top: 0,
               bottom: 0,
               width: 380,
-              background:isDark() ? 'rgba(11, 19, 35,0.96)' : 'rgba(244, 245, 247,0.96)',
+              background: isDark() ? 'rgba(11, 19, 35,0.96)' : 'rgba(244, 245, 247,0.96)',
               borderLeft: "3px solid var(--accent)",
               padding: "16px 20px",
               overflowY: "auto",
@@ -710,20 +707,20 @@ function SchemaFlow() {
                     selectedNode.sortingKey,
                   ],
                   selectedNode.primaryKey &&
-                    selectedNode.primaryKey !== selectedNode.sortingKey && [
-                      "Primary key",
-                      selectedNode.primaryKey,
-                    ],
+                  selectedNode.primaryKey !== selectedNode.sortingKey && [
+                    "Primary key",
+                    selectedNode.primaryKey,
+                  ],
                   selectedNode.totalRows &&
-                    Number(selectedNode.totalRows) > 0 && [
-                      "Rows",
-                      fmtRows(selectedNode.totalRows),
-                    ],
+                  Number(selectedNode.totalRows) > 0 && [
+                    "Rows",
+                    fmtRows(selectedNode.totalRows),
+                  ],
                   selectedNode.totalBytes &&
-                    Number(selectedNode.totalBytes) > 0 && [
-                      "Bytes",
-                      fmtBytes(selectedNode.totalBytes),
-                    ],
+                  Number(selectedNode.totalBytes) > 0 && [
+                    "Bytes",
+                    fmtBytes(selectedNode.totalBytes),
+                  ],
                   selectedNode.comment && ["Comment", selectedNode.comment],
                   selectedNode.dictSource && [
                     "Dict source",
@@ -884,7 +881,7 @@ function SchemaFlow() {
             )}
           </aside>
         )}
-        
+
         {!graphDrawn ? (
           <div
             style={{

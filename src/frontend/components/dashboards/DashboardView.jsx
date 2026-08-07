@@ -42,7 +42,7 @@ function readFilterParams(searchParams) {
   return out;
 }
 
-export default function DashboardView({sidebar}) {
+export default function DashboardView({ sidebar }) {
   const toast = useToast();
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
@@ -60,7 +60,7 @@ export default function DashboardView({sidebar}) {
   const [delChart, setDelChart] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
-  const [fs,setFs] = useState(false)
+  const [fs, setFs] = useState(false);
   const [showLegends, setShowLegends] = useState(true);
 
   // Filter state.
@@ -360,7 +360,7 @@ export default function DashboardView({sidebar}) {
     } catch (e) { toast.error(e.message); }
     setDel(null);
   }
-  async function deleteChart(id) { try { await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE',body:{} }); if (selDash) await loadCharts(selDash.id, applied); toast.success('Chart removed.'); } catch (e) { toast.error(e.message); } }
+  async function deleteChart(id) { try { await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} }); if (selDash) await loadCharts(selDash.id, applied); toast.success('Chart removed.'); } catch (e) { toast.error(e.message); } }
 
   function onDragStart(e, i) { e.dataTransfer.effectAllowed = 'move'; setDragIdx(i); }
   function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
@@ -393,9 +393,9 @@ export default function DashboardView({sidebar}) {
   }
 
   const cols = selDash?.columns || 2;
-  
+
   const legendSupportedTypes = [
-    'grouped_bar', 'stacked_bar', 
+    'grouped_bar', 'stacked_bar',
     'multi_line', 'stacked_line',
     'pie', 'donut', 'rose', 'nested_pie',
     'bubble',
@@ -565,59 +565,59 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const resolvedLegend = fs
     ? {
+      ...chart?.chartOption?.legend,
+      show: supportsLegend && hasLegend && showLegends,
+      type: 'scroll',
+      orient: 'vertical',
+      left: 0,
+      top: 8,
+      bottom: 8,
+      width: 220,
+      textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+    }
+    : isSmallScreen
+      ? {
         ...chart?.chartOption?.legend,
         show: supportsLegend && hasLegend && showLegends,
         type: 'scroll',
-        orient: 'vertical',
+        orient: 'horizontal',
         left: 0,
-        top: 8,
-        bottom: 8,
-        width: 220,
+        right: 0,
+        top: 0,
+        width: '100%',
+        pageIconColor: isDarkColor,
+        pageIconInactiveColor: 'var(--text-muted)',
+        pageTextStyle: { color: isDarkColor },
         textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
       }
-    : isSmallScreen
-      ? {
+      : cols === 4
+        ? {
           ...chart?.chartOption?.legend,
           show: supportsLegend && hasLegend && showLegends,
           type: 'scroll',
-          orient: 'horizontal',
           left: 0,
-          right: 0,
           top: 0,
-          width: '100%',
+          bottom: 0,
+          orient: "vertical",
+          width: 135,
           pageIconColor: isDarkColor,
           pageIconInactiveColor: 'var(--text-muted)',
           pageTextStyle: { color: isDarkColor },
           textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
         }
-      : cols === 4
-        ? {
-            ...chart?.chartOption?.legend,
-            show: supportsLegend && hasLegend && showLegends,
-            type: 'scroll',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            orient: "vertical",
-            width: 135,
-            pageIconColor: isDarkColor,
-            pageIconInactiveColor: 'var(--text-muted)',
-            pageTextStyle: { color: isDarkColor },
-            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
-          }
         : {
-            ...chart?.chartOption?.legend,
-            show: supportsLegend && hasLegend && showLegends,
-            type: 'scroll',
-            left: 0,
-            right: 0,
-            top: 0,
-            orient: "horizontal",
-            pageIconColor: isDarkColor,
-            pageIconInactiveColor: 'var(--text-muted)',
-            pageTextStyle: { color: isDarkColor },
-            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
-          };
+          ...chart?.chartOption?.legend,
+          show: supportsLegend && hasLegend && showLegends,
+          type: 'scroll',
+          left: 0,
+          right: 0,
+          top: 0,
+          orient: "horizontal",
+          pageIconColor: isDarkColor,
+          pageIconInactiveColor: 'var(--text-muted)',
+          pageTextStyle: { color: isDarkColor },
+          textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+        };
 
   const gridTop = fs
     ? 24
@@ -946,7 +946,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           {chart._rerunning && <span className="loading-spinner" style={{ marginLeft: 8 }} />}
         </span>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
-          {opt && !opt._error && !opt._waiting && !opt._kpi && !opt._table && (
+          {!opt._error && !opt._waiting && !opt._kpi && !opt._table && (
             <ChartToolbar
               zoomable={!!opt?.xAxis}
               fullscreen={fs}
@@ -955,7 +955,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               onZoomReset={resetZoom}
               onSave={() => savePng(inst.current, chart.name)}
               onToggleFullscreen={() => { setFs(!fs); setFss(!fs); }}
-              onToggleLegend={() => {}}
+              onToggleLegend={() => { }}
               legendVisible={showLegends}
               style={{ flexWrap: 'nowrap' }}
               isWantFeature={chart.chartType === 'pie' ? pieChartControlsFlags : (chart.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)}

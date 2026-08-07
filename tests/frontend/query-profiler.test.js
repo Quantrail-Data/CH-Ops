@@ -29,11 +29,6 @@ const MEMORY_CONTEXTS = [
 
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-function toLocalDatetime(date) {
-  const d = date instanceof Date ? date : new Date(date);
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
 
 function toChDatetime(val) {
   const s = val.replace('T', ' ');
@@ -331,11 +326,15 @@ describe('heightOfJson', () => {
   });
 
   it('returns correct depth for nested tree', () => {
-    const tree = { name: 'root', children: [
-      { name: 'a', children: [
-        { name: 'b', children: [] }
-      ]}
-    ]};
+    const tree = {
+      name: 'root', children: [
+        {
+          name: 'a', children: [
+            { name: 'b', children: [] }
+          ]
+        }
+      ]
+    };
     expect(heightOfJson(tree)).toBe(3);
   });
 });

@@ -4,7 +4,6 @@
 
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
-import { sql } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import * as schema from './schema.js';
@@ -163,7 +162,7 @@ const migrations = [
 ];
 
 for (const sql of migrations) {
-  try { sqlite.exec(sql); } catch {}
+  try { sqlite.exec(sql); } catch { }
 }
 
 // Move cluster configuration out of the JSON blob and into the cluster and cluster_node
@@ -199,7 +198,7 @@ if (existingUsers.length === 0) {
     const em = process.env[`SUPER_ADMIN_${i}_EMAIL`];
     if (u && p && em) {
       const hash = await Bun.password.hash(p, { algorithm: 'argon2id', memoryCost: 65536, timeCost: 2 });
-      db.insert(schema.appUsers).values({ username: u, passwordHash: hash, role: 'superadmin', mustChangePassword: false,email:em }).run();
+      db.insert(schema.appUsers).values({ username: u, passwordHash: hash, role: 'superadmin', mustChangePassword: false, email: em }).run();
       console.log(`  Seeded super admin: ${u}`);
       seeded++;
     }
@@ -207,7 +206,7 @@ if (existingUsers.length === 0) {
   // Legacy fallback
   if (seeded === 0 && process.env.SUPER_ADMIN && process.env.SUPER_ADMIN_PASSWORD && process.env.SUPER_ADMIN_EMAIL) {
     const hash = await Bun.password.hash(process.env.SUPER_ADMIN_PASSWORD, { algorithm: 'argon2id', memoryCost: 65536, timeCost: 2 });
-    db.insert(schema.appUsers).values({ username: process.env.SUPER_ADMIN, passwordHash: hash, role: 'superadmin', mustChangePassword: false,email:process.env.SUPER_ADMIN_EMAIL }).run();
+    db.insert(schema.appUsers).values({ username: process.env.SUPER_ADMIN, passwordHash: hash, role: 'superadmin', mustChangePassword: false, email: process.env.SUPER_ADMIN_EMAIL }).run();
     console.log(`  Seeded super admin: ${process.env.SUPER_ADMIN}`);
   }
 }

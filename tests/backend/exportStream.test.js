@@ -7,7 +7,6 @@ import { describe, test, expect, mock, beforeEach } from "bun:test";
 import {
   startExportStream, measureBytes, killExportQuery,
 } from "../../src/backend/services/exportStream.js";
-import { MessageStream } from "@anthropic-ai/sdk/lib/MessageStream.js";
 
 const NODE = { host: "10.0.0.1", port: 8123, secure: false, user: "chops", password: "pw" };
 let calls = [];

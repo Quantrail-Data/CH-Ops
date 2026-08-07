@@ -19,7 +19,6 @@ const {
     probeCapabilities,
     probeSessionAffinity,
     rbacContext,
-    unavailableFeatures,
 } = await import('../../src/backend/services/capabilities.js')
 
 beforeEach(() => {

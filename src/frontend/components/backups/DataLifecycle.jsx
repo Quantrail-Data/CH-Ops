@@ -55,15 +55,15 @@ export default function DataLifecycle() {
           setProfiles([]);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     runQuery("SELECT name FROM system.databases ORDER BY name")
       .then((r) => setDatabases((r.rows || []).map((r) => r.name)))
-      .catch(() => {});
+      .catch(() => { });
     runQuery(
       "SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster",
     )
       .then((r) => setClusters((r.rows || []).map((r) => r.cluster)))
-      .catch(() => {});
+      .catch(() => { });
     setLoaded(true);
   }, []);
 
@@ -233,12 +233,8 @@ async function scanS3Manifests(s3, patterns) {
 }
 
 function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
-  const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
-  const [result , setResult] =useState(null)
+  const [result, setResult] = useState(null);
   const [action, setAction] = useState("backup");
   const [isAsync, setIsAsync] = useState(false);
   const [scope, setScope] = useState("all");
@@ -370,7 +366,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       const sql = buildRealSql();
 
       await runQuery(sql);
-      setResult({ok:true,msg:`${action.toUpperCase()} executed successfully.`})
+      setResult({ ok: true, msg: `${action.toUpperCase()} executed successfully.` })
 
       if (action === "backup" && s3) {
         try {
@@ -383,7 +379,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           );
           console.error("Manifest write failed:", manifestMsg);
 
-          setResult({ok:false, msg:`Backup completed, but manifest write failed: ${manifestMsg}`})
+          setResult({ ok: false, msg: `Backup completed, but manifest write failed: ${manifestMsg}` })
         }
       }
     } catch (err) {
@@ -393,13 +389,13 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       console.error(`${action.toUpperCase()} failed:`, msg);
 
       if (msg.includes("Access Denied") || msg.includes("403")) {
-        setResult({ok:false, msg:`S3 access denied. Check your storage profile credentials. Details: ${msg}`})
+        setResult({ ok: false, msg: `S3 access denied. Check your storage profile credentials. Details: ${msg}` })
       } else if (msg.includes("NoSuchBucket") || msg.includes("bucket")) {
-        setResult({ok:false, msg:`S3 bucket not found. Verify the bucket name in your storage profile. Details: ${msg}`})
+        setResult({ ok: false, msg: `S3 bucket not found. Verify the bucket name in your storage profile. Details: ${msg}` })
       } else if (msg.includes("connect") || msg.includes("ECONNREFUSED")) {
-        setResult({ok:false, msg:`Cannot reach S3 endpoint. Check the endpoint URL in your storage profile. Details: ${msg}`})
+        setResult({ ok: false, msg: `Cannot reach S3 endpoint. Check the endpoint URL in your storage profile. Details: ${msg}` })
       } else {
-        setResult({ok:false, msg:`${action.toUpperCase()} failed: ${msg}`})
+        setResult({ ok: false, msg: `${action.toUpperCase()} failed: ${msg}` })
       }
     } finally {
       setScope("all");
@@ -412,7 +408,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       setProfile("");
       setSettingsStr("");
       setExecuting(false);
-            setAvailableBackups([])
+      setAvailableBackups([])
     }
   }
 
@@ -504,9 +500,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         filtered.map((m) => ({
           name: `${m.display_name || m.backup_id} [${(
             m.backup_type || "legacy"
-          ).toUpperCase()}${m.is_incremental ? " INC" : ""}] (${
-            m.created_at ? new Date(m.created_at).toLocaleString() : ""
-          })`,
+          ).toUpperCase()}${m.is_incremental ? " INC" : ""}] (${m.created_at ? new Date(m.created_at).toLocaleString() : ""
+            })`,
           fullPath: m.backup_id,
           meta: m,
         })),
@@ -522,8 +517,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         toast.warning("Scan completed with errors. No matching backups found.");
       } else {
         toast.success(
-          `Found ${filtered.length} backup(s)${
-            scope !== "all" ? ` for scope: ${scope}` : ""
+          `Found ${filtered.length} backup(s)${scope !== "all" ? ` for scope: ${scope}` : ""
           }.`,
         );
       }
@@ -544,299 +538,299 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         <div
           className={`alert-banner ${result.ok ? "success" : "danger"}`}
           style={{ marginBottom: 14 }}
-          >
+        >
           <Icon
-          className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
+            className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
           ></Icon>{" "}
           {result.msg}
           <button
             className="btn btn-ghost btn-sm"
             style={{ marginLeft: "auto" }}
             onClick={() => setResult(null)}
-              >
+          >
             <Icon className="ti ti-x"></Icon>
-            </button>
+          </button>
         </div>
-        )}
+      )}
       <div className="card" style={{ padding: 20 }}>
-      <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
-        <Icon className="ti ti-settings-filled"></Icon> Manual Backup / Restore
-      </h4>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: 14,
-          marginBottom: 20,
-        }}
-      >
-        <div className="form-group">
-          <label className="form-label">Action *</label>
-          <Select
-            className="form-select"
-            value={action}
-            onChange={(e) => {
-              setAction(e.target.value);
-              setSelectedBackup("");
-              setAvailableBackups([]);
-              setScanErrors([]);
-            }}
-          >
-            <option value="backup">BACKUP</option>
-            <option value="restore">RESTORE</option>
-          </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Scope</label>
-          <Select
-            className="form-select"
-            value={scope}
-            onChange={(e) => {
-              setScope(e.target.value);
-              setTbl("");
-            }}
-          >
-            <option value="all">ALL</option>
-            <option value="database">DATABASE</option>
-            <option value="table">TABLE</option>
-          </Select>
-        </div>
-        {(scope === "database" || scope === "table") && (
+        <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+          <Icon className="ti ti-settings-filled"></Icon> Manual Backup / Restore
+        </h4>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 14,
+            marginBottom: 20,
+          }}
+        >
           <div className="form-group">
-            <label className="form-label">Database</label>
+            <label className="form-label">Action *</label>
             <Select
               className="form-select"
-              value={db}
+              value={action}
               onChange={(e) => {
-                setDb(e.target.value);
+                setAction(e.target.value);
+                setSelectedBackup("");
+                setAvailableBackups([]);
+                setScanErrors([]);
+              }}
+            >
+              <option value="backup">BACKUP</option>
+              <option value="restore">RESTORE</option>
+            </Select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Scope</label>
+            <Select
+              className="form-select"
+              value={scope}
+              onChange={(e) => {
+                setScope(e.target.value);
                 setTbl("");
               }}
             >
-              <option value="">--</option>
-              {databases.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
+              <option value="all">ALL</option>
+              <option value="database">DATABASE</option>
+              <option value="table">TABLE</option>
             </Select>
           </div>
-        )}
-        {scope === "table" && (
-          <div className="form-group">
-            <label className="form-label">Table</label>
-            <Select
-              className="form-select"
-              value={tbl}
-              onChange={(e) => setTbl(e.target.value)}
-            >
-              <option value="">--</option>
-              {tables.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </Select>
-          </div>
-        )}
-        <div className="form-group">
-          <label className="form-label">Storage Profile *</label>
-          <Select
-            className="form-select"
-            value={profile}
-            onChange={(e) => setProfile(e.target.value)}
-          >
-            <option value="">--</option>
-            {profiles.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name} ({p.type.toUpperCase()})
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">ON CLUSTER</label>
-          <Select
-            className="form-select"
-            value={onCluster}
-            onChange={(e) => setOnCluster(e.target.value)}
-          >
-            <option value="">--</option>
-            {clusters.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </Select>
-        </div>
-        <div
-          className="form-group"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: 22,
-            gap: 6,
-          }}
-        >
-        <div className="form-label">
-
-          <label
-          className="switch"
-            style={{
-              display: "flex",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: "14px",
-              marginRight:"5px"
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={isAsync}
-              onChange={(e) => setIsAsync(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />{" "}
-            <span class="slider"></span>
-          </label>
-          ASYNC
-      </div>
-        </div>
-      </div>
-      {action === "backup" && (
-        <div style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
-            <Icon className="ti ti-filter"></Icon> Exceptions
-          </h4>
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
-          >
+          {(scope === "database" || scope === "table") && (
             <div className="form-group">
-              <label className="form-label">EXCEPT TABLES</label>
-              <input
-                className="form-input"
-                value={exceptTables}
-                onChange={(e) => setExceptTables(e.target.value)}
-                placeholder="db.table1, db.table2"
-              />
-            </div>
-            {scope === "all" && (
-              <div className="form-group">
-                <label className="form-label">EXCEPT DATABASES</label>
-                <input
-                  className="form-input"
-                  value={exceptDatabases}
-                  onChange={(e) => setExceptDatabases(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {action === "restore" && (
-        <div style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
-            <Icon className="ti ti-cloud-download"></Icon> Select Backup
-          </h4>
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "flex-end",
-              marginBottom: 12,
-            }}
-          >
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={listBackups}
-              disabled={loadingBackups || !profile}
-            >
-              {loadingBackups ? (
-                <>
-                  <span className="loading-spinner"></span> Scanning S3...
-                </>
-              ) : (
-                <>
-                  <Icon className="ti ti-refresh"></Icon> List Available Backups
-                </>
-              )}
-            </button>
-          </div>
-          {scanErrors.length > 0 && (
-            <div
-              className="alert-banner info"
-              style={{ marginBottom: 12, fontSize: "13px" }}
-            >
-              <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
-              scanned: {scanErrors.join("; ")}
-            </div>
-          )}
-          {availableBackups.length > 0 && (
-            <div className="form-group">
-              <label className="form-label">
-                Available Backups ({availableBackups.length}, newest first)
-              </label>
+              <label className="form-label">Database</label>
               <Select
                 className="form-select"
-                value={selectedBackup}
-                onChange={(e) => setSelectedBackup(e.target.value)}
+                value={db}
+                onChange={(e) => {
+                  setDb(e.target.value);
+                  setTbl("");
+                }}
               >
-                <option value="">-- select backup --</option>
-                {availableBackups.map((b, i) => (
-                  <option key={i} value={b.fullPath}>
-                    {b.name}
-                  </option>
+                <option value="">--</option>
+                {databases.map((d) => (
+                  <option key={d}>{d}</option>
                 ))}
               </Select>
             </div>
           )}
+          {scope === "table" && (
+            <div className="form-group">
+              <label className="form-label">Table</label>
+              <Select
+                className="form-select"
+                value={tbl}
+                onChange={(e) => setTbl(e.target.value)}
+              >
+                <option value="">--</option>
+                {tables.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+          <div className="form-group">
+            <label className="form-label">Storage Profile *</label>
+            <Select
+              className="form-select"
+              value={profile}
+              onChange={(e) => setProfile(e.target.value)}
+            >
+              <option value="">--</option>
+              {profiles.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name} ({p.type.toUpperCase()})
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">ON CLUSTER</label>
+            <Select
+              className="form-select"
+              value={onCluster}
+              onChange={(e) => setOnCluster(e.target.value)}
+            >
+              <option value="">--</option>
+              {clusters.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </Select>
+          </div>
+          <div
+            className="form-group"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              paddingTop: 22,
+              gap: 6,
+            }}
+          >
+            <div className="form-label">
+
+              <label
+                className="switch"
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  marginRight: "5px"
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isAsync}
+                  onChange={(e) => setIsAsync(e.target.checked)}
+                  style={{ accentColor: "var(--accent)" }}
+                />{" "}
+                <span class="slider"></span>
+              </label>
+              ASYNC
+            </div>
+          </div>
         </div>
-      )}
-      <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
-        <Icon className="ti ti-adjustments"></Icon> SETTINGS
-      </h4>
-      <div className="form-group" style={{ marginBottom: 20 }}>
-        <input
-          className="form-input"
-          value={settingsStr}
-          onChange={(e) => setSettingsStr(e.target.value)}
-          placeholder="base_backup = ..., compression_method = 'lz4'"
-        />
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-          base_backup, compression_method, s3_storage_class
-        </span>
-      </div>
-      <SqlPreview sql={buildSql()} />
-      <div style={{ marginBottom: 20 }}>
-        <div
-          className="alert-banner info"
-          style={{ marginTop: 10, marginBottom: 0, fontSize: "12px", padding: "6px" }}
-        >
-          <Icon
-            style={{ fontSize: "15px", paddingTop: "2px" }}
-            className="ti ti-info-circle"
-          ></Icon>
-          <span>
-            Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
+        {action === "backup" && (
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+              <Icon className="ti ti-filter"></Icon> Exceptions
+            </h4>
+            <div
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+            >
+              <div className="form-group">
+                <label className="form-label">EXCEPT TABLES</label>
+                <input
+                  className="form-input"
+                  value={exceptTables}
+                  onChange={(e) => setExceptTables(e.target.value)}
+                  placeholder="db.table1, db.table2"
+                />
+              </div>
+              {scope === "all" && (
+                <div className="form-group">
+                  <label className="form-label">EXCEPT DATABASES</label>
+                  <input
+                    className="form-input"
+                    value={exceptDatabases}
+                    onChange={(e) => setExceptDatabases(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {action === "restore" && (
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+              <Icon className="ti ti-cloud-download"></Icon> Select Backup
+            </h4>
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "flex-end",
+                marginBottom: 12,
+              }}
+            >
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={listBackups}
+                disabled={loadingBackups || !profile}
+              >
+                {loadingBackups ? (
+                  <>
+                    <span className="loading-spinner"></span> Scanning S3...
+                  </>
+                ) : (
+                  <>
+                    <Icon className="ti ti-refresh"></Icon> List Available Backups
+                  </>
+                )}
+              </button>
+            </div>
+            {scanErrors.length > 0 && (
+              <div
+                className="alert-banner info"
+                style={{ marginBottom: 12, fontSize: "13px" }}
+              >
+                <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
+                scanned: {scanErrors.join("; ")}
+              </div>
+            )}
+            {availableBackups.length > 0 && (
+              <div className="form-group">
+                <label className="form-label">
+                  Available Backups ({availableBackups.length}, newest first)
+                </label>
+                <Select
+                  className="form-select"
+                  value={selectedBackup}
+                  onChange={(e) => setSelectedBackup(e.target.value)}
+                >
+                  <option value="">-- select backup --</option>
+                  {availableBackups.map((b, i) => (
+                    <option key={i} value={b.fullPath}>
+                      {b.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
+        <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+          <Icon className="ti ti-adjustments"></Icon> SETTINGS
+        </h4>
+        <div className="form-group" style={{ marginBottom: 20 }}>
+          <input
+            className="form-input"
+            value={settingsStr}
+            onChange={(e) => setSettingsStr(e.target.value)}
+            placeholder="base_backup = ..., compression_method = 'lz4'"
+          />
+          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+            base_backup, compression_method, s3_storage_class
           </span>
         </div>
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-primary"
-          onClick={execute}
-          disabled={
-            !profile ||
-            (scope === "database" && !db) ||
-            (scope === "table" && (!tbl || !db))
-          }
-        >
-          {executing ? (
-            <>
-              <span className="loading-spinner"></span> Executing...
-            </>
-          ) : (
-            <>
-              <Icon
-                className={`ti ti-${action === "backup" ? "upload" : "download"}`}
-              ></Icon>{" "}
-              Execute {action.toUpperCase()}
-            </>
-          )}
-        </button>
-      </div>
+        <SqlPreview sql={buildSql()} />
+        <div style={{ marginBottom: 20 }}>
+          <div
+            className="alert-banner info"
+            style={{ marginTop: 10, marginBottom: 0, fontSize: "12px", padding: "6px" }}
+          >
+            <Icon
+              style={{ fontSize: "15px", paddingTop: "2px" }}
+              className="ti ti-info-circle"
+            ></Icon>
+            <span>
+              Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
+            </span>
+          </div>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <button
+            className="btn btn-primary"
+            onClick={execute}
+            disabled={
+              !profile ||
+              (scope === "database" && !db) ||
+              (scope === "table" && (!tbl || !db))
+            }
+          >
+            {executing ? (
+              <>
+                <span className="loading-spinner"></span> Executing...
+              </>
+            ) : (
+              <>
+                <Icon
+                  className={`ti ti-${action === "backup" ? "upload" : "download"}`}
+                ></Icon>{" "}
+                Execute {action.toUpperCase()}
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </>
   );

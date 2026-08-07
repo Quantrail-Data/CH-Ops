@@ -64,22 +64,22 @@ function isDarkTheme() {
 }
 
 const LIGHT_PALETTE = {
-  mt:          { bg: '#1B5E20', text: '#fff' },
-  mv:          { bg: '#4A148C', text: '#fff' },
-  rmv:         { bg: '#880E4F', text: '#fff' },
-  dict:        { bg: '#01579B', text: '#fff' },
+  mt: { bg: '#1B5E20', text: '#fff' },
+  mv: { bg: '#4A148C', text: '#fff' },
+  rmv: { bg: '#880E4F', text: '#fff' },
+  dict: { bg: '#01579B', text: '#fff' },
   distributed: { bg: '#BF360C', text: '#fff' },
-  view:        { bg: '#37474F', text: '#fff' },
-  other:       { bg: '#3E2723', text: '#fff' },
+  view: { bg: '#37474F', text: '#fff' },
+  other: { bg: '#3E2723', text: '#fff' },
 };
 const DARK_PALETTE = {
-  mt:          { bg: '#66BB6A', text: '#000' },
-  mv:          { bg: '#CE93D8', text: '#000' },
-  rmv:         { bg: '#F48FB1', text: '#000' },
-  dict:        { bg: '#4FC3F7', text: '#000' },
+  mt: { bg: '#66BB6A', text: '#000' },
+  mv: { bg: '#CE93D8', text: '#000' },
+  rmv: { bg: '#F48FB1', text: '#000' },
+  dict: { bg: '#4FC3F7', text: '#000' },
   distributed: { bg: '#FFB74D', text: '#000' },
-  view:        { bg: '#B0BEC5', text: '#000' },
-  other:       { bg: '#BCAAA4', text: '#000' },
+  view: { bg: '#B0BEC5', text: '#000' },
+  other: { bg: '#BCAAA4', text: '#000' },
 };
 
 export function getEnginePalette() {
@@ -163,7 +163,7 @@ export function loadBadgeTextColor(intensity) {
 }
 
 const METRIC_KEYS = ['executions', 'total_duration_ms', 'read_rows', 'read_bytes',
-                     'written_rows', 'written_bytes', 'peak_memory_usage'];
+  'written_rows', 'written_bytes', 'peak_memory_usage'];
 
 function mkMetrics() {
   const m = {};
@@ -173,17 +173,16 @@ function mkMetrics() {
 
 function parseDistributedTarget(createQuery) {
   if (!createQuery || typeof createQuery !== 'string') return { db: '', table: '' };
-  
-  const onClusterMatch = createQuery.match(/ON\s+CLUSTER\s+['"`]?(\w+)['"`]?/i);
+
   const engineMatch = createQuery.match(/ENGINE\s*=\s*Distributed\s*\(\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*(?:,|[\s\)])/i);
-  
+
   if (engineMatch) {
     return {
       db: engineMatch[2] || '',
       table: engineMatch[3] || ''
     };
   }
-  
+
   return { db: '', table: '' };
 }
 
@@ -201,7 +200,8 @@ export async function fetchSchemaData() {
     FROM system.tables ${SYS_FILTER} ORDER BY database, name`);
 
   let columnsRes = { rows: [] };
-  try { columnsRes = await runQuery(`
+  try {
+    columnsRes = await runQuery(`
     SELECT database, table, name, type,
            (is_in_primary_key OR is_in_sorting_key) AS is_key,
            default_kind != '' AS has_default
@@ -209,10 +209,10 @@ export async function fetchSchemaData() {
   } catch (e) { console.warn('columns:', e.message); }
 
   let dictsRes = { rows: [] };
-  try { dictsRes = await runQuery(`SELECT database, name, source FROM system.dictionaries WHERE status IN ('LOADED','NOT_LOADED','LOADING')`); } catch {}
+  try { dictsRes = await runQuery(`SELECT database, name, source FROM system.dictionaries WHERE status IN ('LOADED','NOT_LOADED','LOADING')`); } catch { }
 
   let refreshesRes = { rows: [] };
-  try { refreshesRes = await runQuery(`SELECT database, view, status, last_success_time, next_refresh_time, exception FROM system.view_refreshes`); } catch {}
+  try { refreshesRes = await runQuery(`SELECT database, view, status, last_success_time, next_refresh_time, exception FROM system.view_refreshes`); } catch { }
 
   const columnsByTable = new Map();
   for (const c of columnsRes.rows) {
@@ -242,7 +242,7 @@ export function buildGraph(tables, columnsByTable, dictSources, refreshes) {
     const key = tableKey(t.database, t.name);
     const isRefreshable = refreshes.has(key);
     const kind = isRefreshable ? 'rmv' : engineKind(t.engine);
-    
+
     let targetDatabase = '';
     let targetTable = '';
     if (kind === 'distributed' && t.create_table_query) {
@@ -250,7 +250,7 @@ export function buildGraph(tables, columnsByTable, dictSources, refreshes) {
       targetDatabase = parsed.db;
       targetTable = parsed.table;
     }
-    
+
     const node = {
       key, displayName: quotedFullName(t.database, t.name),
       database: t.database, name: t.name, engine: t.engine, engineFull: t.engine_full, kind,

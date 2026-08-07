@@ -14,7 +14,6 @@ import Icon from "../common/Icon.jsx";
 import {
   ReactFlow,
   Controls,
-  MiniMap,
   Background,
   Handle,
   Position,
@@ -36,7 +35,6 @@ import {
   formatBytes,
   formatNum,
   formatDuration,
-  DEFAULT_WHERE,
   DEFAULT_KIND,
   DEFAULT_TYPE,
   defaultTimeRange,
@@ -66,7 +64,7 @@ function ProcessorNode({ data, selected }) {
 
   const textColor = heatColor ? "#1e293b" : "var(--text-primary)";
   const subTextColor = heatColor ? "rgba(0,0,0,0.6)" : "var(--text-muted)";
- 
+
   return (
     <div
       style={{
@@ -132,21 +130,21 @@ function DetailPanel({ processorId, profile, onClose }) {
 
   const rows = profile
     ? [
-        ["Processor", profile.name || processorId],
-        ["Uniq ID", processorId],
-        ["Step", profile.step_id || "-"],
-        ["Elapsed", formatUs(profile.elapsed_us)],
-        ["Input wait", formatUs(profile.input_wait_us)],
-        ["Output wait", formatUs(profile.output_wait_us)],
-        ["Input rows", formatNum(profile.input_rows)],
-        ["Input bytes", formatBytes(profile.input_bytes)],
-        ["Output rows", formatNum(profile.output_rows)],
-        ["Output bytes", formatBytes(profile.output_bytes)],
-      ]
+      ["Processor", profile.name || processorId],
+      ["Uniq ID", processorId],
+      ["Step", profile.step_id || "-"],
+      ["Elapsed", formatUs(profile.elapsed_us)],
+      ["Input wait", formatUs(profile.input_wait_us)],
+      ["Output wait", formatUs(profile.output_wait_us)],
+      ["Input rows", formatNum(profile.input_rows)],
+      ["Input bytes", formatBytes(profile.input_bytes)],
+      ["Output rows", formatNum(profile.output_rows)],
+      ["Output bytes", formatBytes(profile.output_bytes)],
+    ]
     : [
-        ["Processor", processorId],
-        ["Status", "No data in processors_profile_log"],
-      ];
+      ["Processor", processorId],
+      ["Status", "No data in processors_profile_log"],
+    ];
 
   return (
     <div
@@ -263,7 +261,7 @@ function HeatmapLegend({ minUs, maxUs }) {
 
 const nodeTypes = { processor: ProcessorNode };
 
-function ProcessorsProfileInner( ) {
+function ProcessorsProfileInner() {
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
@@ -285,7 +283,7 @@ function ProcessorsProfileInner( ) {
   const [profileMap, setProfileMap] = useState({});
   const [heatRange, setHeatRange] = useState({ minUs: 0, maxUs: 0 });
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [initialNodes, setInitialNodes] = useNodesState([]);  
+  const [initialNodes, setInitialNodes] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [initialEdges, setInitialEdges] = useEdgesState([]);
   const [loadingPipeline, setLoadingPipeline] = useState(false);
@@ -306,9 +304,9 @@ function ProcessorsProfileInner( ) {
 
   const [isInteractive, setIsInteractive] = useState(true);
 
-  const toast = useToast()
+  const toast = useToast();
 
-  
+
 
   useEffect(() => {
     if (qidFromUrl) {
@@ -364,7 +362,7 @@ function ProcessorsProfileInner( ) {
       // Step 2: Flush logs (best-effort, non-fatal)
       try {
         await runQuery("SYSTEM FLUSH LOGS");
-      } catch {}
+      } catch { }
       if (isStale()) return;
 
       // Step 3: EXPLAIN PIPELINE graph
@@ -412,8 +410,8 @@ function ProcessorsProfileInner( ) {
       if (isStale()) return;
       setNodes(coloredNodes);
       setEdges(rfEdges);
-      setInitialNodes(coloredNodes)
-      setInitialEdges(rfEdges)
+      setInitialNodes(coloredNodes);
+      setInitialEdges(rfEdges);
 
       // Fit the view to show all nodes after a brief layout settle
       setTimeout(() => reactFlowInstance?.fitView({ padding: 0.15 }), 100);
@@ -451,10 +449,10 @@ function ProcessorsProfileInner( ) {
         if (result.rows?.length > 0) {
           const exists = qidFromUrl
             ? result.rows.some((r) => {
-                if (r.query_id === qidFromUrl) {
-                  return r;
-                }
-              })
+              if (r.query_id === qidFromUrl) {
+                return r;
+              }
+            })
             : false;
 
           const qid = exists ? qidFromUrl : result.rows[0].query_id;
@@ -559,11 +557,11 @@ function ProcessorsProfileInner( ) {
   }, []);
 
 
-  const handleResetView = () =>{
-    setNodes(initialNodes)
+  const handleResetView = () => {
+    setNodes(initialNodes);
     setEdges(initialEdges);
     reactFlowInstance?.fitView({ padding: 0.15 });
-  }
+  };
 
   // Render
 
@@ -746,22 +744,22 @@ function ProcessorsProfileInner( ) {
               </option>
             ))}
           </Select>
-        ) : 
-        
-        
-        (
-          <div className="alert-banner info" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <h5>Query ID : {qidFromUrl}</h5>
-            <div onClick={()=>{
-              window?.navigator?.clipboard?.writeText(qidFromUrl && qidFromUrl);
-              toast.success('Query ID copied!')
-            }}>
-              <Icon className="ti ti-copy"></Icon>
-            </div>
-          </div>
-        )}
+        ) :
 
-      
+
+          (
+            <div className="alert-banner info" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h5>Query ID : {qidFromUrl}</h5>
+              <div onClick={() => {
+                window?.navigator?.clipboard?.writeText(qidFromUrl && qidFromUrl);
+                toast.success('Query ID copied!')
+              }}>
+                <Icon className="ti ti-copy"></Icon>
+              </div>
+            </div>
+          )}
+
+
       </div>
 
       {/* Query text (collapsible) */}
@@ -825,12 +823,12 @@ function ProcessorsProfileInner( ) {
         style={{
           ...(fullscreen
             ? {
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                borderRadius: 0,
-                margin: 0,
-              }
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              borderRadius: 0,
+              margin: 0,
+            }
             : { flex: 1 }),
           padding: 0,
           overflow: "hidden",
@@ -1014,7 +1012,7 @@ function ProcessorsProfileInner( ) {
 export default function ProcessorsProfile() {
   return (
     <ReactFlowProvider>
-      <ProcessorsProfileInner  />
+      <ProcessorsProfileInner />
     </ReactFlowProvider>
   );
 }

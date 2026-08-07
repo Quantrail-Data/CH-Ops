@@ -53,7 +53,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     setMaxRowsState(v);
     try {
       localStorage.setItem(MAX_ROWS_KEY, String(v));
-    } catch {}
+    } catch { }
   }
 
   const [chartType, setChartType] = useState("bar");
@@ -96,7 +96,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   useEffect(() => {
     apiFetch("/api/dashboards")
       .then(setDashboards)
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -134,9 +134,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   );
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || chartType === "boxplot" || false;
-  
+
   const legendSupportedTypes = [
-    'grouped_bar', 'stacked_bar', 
+    'grouped_bar', 'stacked_bar',
     'multi_line', 'stacked_line',
     'pie', 'donut', 'rose', 'nested_pie',
     'bubble',
@@ -144,7 +144,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     'funnel',
     'radar'
   ];
-  
+
   const shouldShowLegend = legendSupportedTypes.includes(chartSubtype) && needsLegend(chartType, chartSubtype);
 
   useEffect(() => {
@@ -268,7 +268,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const isDarkColor = theme === 'dark' ? 'white' : 'black';
 
       const hasLegendCheck = chartOption.legend?.show || (Array.isArray(chartOption.series) && chartOption.series.some(s => Array.isArray(s?.data) && s?.data.length > 0));
-      
+
       const legendVisible = shouldShowLegend && showLegend;
 
       const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
@@ -276,44 +276,44 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
       const resolvedLegend = previewTools.fullscreen
         ? {
+          ...chartOption.legend,
+          show: hasLegendCheck && legendVisible,
+          type: 'scroll',
+          orient: 'vertical',
+          left: 0,
+          top: 8,
+          bottom: 8,
+          width: 220,
+          textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+        }
+        : isSmallScreen
+          ? {
             ...chartOption.legend,
             show: hasLegendCheck && legendVisible,
             type: 'scroll',
-            orient: 'vertical',
+            orient: 'horizontal',
             left: 0,
-            top: 8,
-            bottom: 8,
-            width: 220,
+            right: 0,
+            top: 0,
+            width: '100%',
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
             textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
           }
-        : isSmallScreen
-          ? {
-              ...chartOption.legend,
-              show: hasLegendCheck && legendVisible,
-              type: 'scroll',
-              orient: 'horizontal',
-              left: 0,
-              right: 0,
-              top: 0,
-              width: '100%',
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
-            }
           : {
-              ...chartOption.legend,
-              show: hasLegendCheck && legendVisible,
-              type: 'scroll',
-              left: 0,
-              right: 0,
-              top: 0,
-              orient: "horizontal",
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
-            };
+            ...chartOption.legend,
+            show: hasLegendCheck && legendVisible,
+            type: 'scroll',
+            left: 0,
+            right: 0,
+            top: 0,
+            orient: "horizontal",
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
+            textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
+          };
 
       const gridTop = previewTools.fullscreen
         ? 24
@@ -368,34 +368,58 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         ...baseOption,
         grid: Array.isArray(baseOption.grid)
           ? baseOption.grid.map((g) => ({
-              ...g,
-              containLabel: true,
-              top: gridTop,
-              left: gridLeft,
-              right: 24,
-              bottom: Math.max(parseInt(g?.bottom, 10) || 18, isBarChart ? 120 : 70),
-            }))
+            ...g,
+            containLabel: true,
+            top: gridTop,
+            left: gridLeft,
+            right: 24,
+            bottom: Math.max(parseInt(g?.bottom, 10) || 18, isBarChart ? 120 : 70),
+          }))
           : {
-              ...baseOption.grid,
-              containLabel: true,
-              top: gridTop,
-              left: gridLeft,
-              right: 24,
-              bottom: Math.max(
-                parseInt(baseOption?.grid?.bottom, 10) || 18,
-                isBarChart ? 120 : 70,
-              ),
-            },
+            ...baseOption.grid,
+            containLabel: true,
+            top: gridTop,
+            left: gridLeft,
+            right: 24,
+            bottom: Math.max(
+              parseInt(baseOption?.grid?.bottom, 10) || 18,
+              isBarChart ? 120 : 70,
+            ),
+          },
         xAxis: Array.isArray(baseOption.xAxis)
           ? baseOption.xAxis.map((axis) => ({
-              ...axis,
+            ...axis,
+            nameLocation: "middle",
+            nameGap: isBarChart ? 100 : Math.max(axis?.nameGap || 25, 42),
+            axisLabel: {
+              ...axis?.axisLabel,
+              rotate: isBarChart ? 45 : 0,
+              align: isBarChart ? 'right' : 'left',
+              margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
+              hideOverlap: false,
+              color: isDarkColor,
+              interval: axisInterval,
+              formatter: (v) => {
+                try {
+                  const s = String(v);
+                  return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                } catch { return v; }
+              },
+            },
+          }))
+          : baseOption.xAxis
+            ? {
+              ...baseOption.xAxis,
               nameLocation: "middle",
-              nameGap: isBarChart ? 100 : Math.max(axis?.nameGap || 25, 42),
+              nameGap: isBarChart ? 100 : Math.max(baseOption?.xAxis?.nameGap || 25, 42),
               axisLabel: {
-                ...axis?.axisLabel,
+                ...baseOption?.xAxis?.axisLabel,
                 rotate: isBarChart ? 45 : 0,
                 align: isBarChart ? 'right' : 'left',
-                margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
+                margin: Math.max(
+                  baseOption?.xAxis?.axisLabel?.margin || 8,
+                  isBarChart ? 20 : 14,
+                ),
                 hideOverlap: false,
                 color: isDarkColor,
                 interval: axisInterval,
@@ -406,67 +430,43 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   } catch { return v; }
                 },
               },
-            }))
-          : baseOption.xAxis
-            ? {
-                ...baseOption.xAxis,
-                nameLocation: "middle",
-                nameGap: isBarChart ? 100 : Math.max(baseOption?.xAxis?.nameGap || 25, 42),
-                axisLabel: {
-                  ...baseOption?.xAxis?.axisLabel,
-                  rotate: isBarChart ? 45 : 0,
-                  align: isBarChart ? 'right' : 'left',
-                  margin: Math.max(
-                    baseOption?.xAxis?.axisLabel?.margin || 8,
-                    isBarChart ? 20 : 14,
-                  ),
-                  hideOverlap: false,
-                  color: isDarkColor,
-                  interval: axisInterval,
-                  formatter: (v) => {
-                    try {
-                      const s = String(v);
-                      return s.length > 20 ? s.slice(0, 17) + "…" : s;
-                    } catch { return v; }
-                  },
-                },
-                nameTextStyle: {
-                  color: isDarkColor,
-                  fontSize: 10,
-                  fontWeight: 'bold'
-                }
-              }
-            : baseOption.xAxis,
-        yAxis: Array.isArray(baseOption.yAxis)
-          ? baseOption.yAxis.map((axis) => ({
-              ...axis,
-              axisLabel: {
-                ...axis?.axisLabel,
-                color: isDarkColor,
-              },
-              nameLocation: axis?.nameLocation || 'middle',
-              nameGap: Math.max(axis?.nameGap || 25, yNameGap),
               nameTextStyle: {
                 color: isDarkColor,
                 fontSize: 10,
                 fontWeight: 'bold'
               }
-            }))
+            }
+            : baseOption.xAxis,
+        yAxis: Array.isArray(baseOption.yAxis)
+          ? baseOption.yAxis.map((axis) => ({
+            ...axis,
+            axisLabel: {
+              ...axis?.axisLabel,
+              color: isDarkColor,
+            },
+            nameLocation: axis?.nameLocation || 'middle',
+            nameGap: Math.max(axis?.nameGap || 25, yNameGap),
+            nameTextStyle: {
+              color: isDarkColor,
+              fontSize: 10,
+              fontWeight: 'bold'
+            }
+          }))
           : baseOption.yAxis
             ? {
-                ...baseOption.yAxis,
-                axisLabel: {
-                  ...baseOption?.yAxis?.axisLabel,
-                  color: isDarkColor,
-                },
-                nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
-                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yNameGap),
-                nameTextStyle: {
-                  color: isDarkColor,
-                  fontSize: 10,
-                  fontWeight: 'bold'
-                }
+              ...baseOption.yAxis,
+              axisLabel: {
+                ...baseOption?.yAxis?.axisLabel,
+                color: isDarkColor,
+              },
+              nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
+              nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yNameGap),
+              nameTextStyle: {
+                color: isDarkColor,
+                fontSize: 10,
+                fontWeight: 'bold'
               }
+            }
             : baseOption.yAxis,
       };
 
@@ -608,7 +608,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           }),
         });
         toast.success("Chart updated.");
-        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
+        try { window.dispatchEvent(new Event('charts:changed')); } catch { }
       } else {
         const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
         const dash = dashboards.find((d) => d.id === dashId);
@@ -663,7 +663,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           }),
         });
         toast.success("Chart saved to dashboard.");
-        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
+        try { window.dispatchEvent(new Event('charts:changed')); } catch { }
       }
     } catch (e) {
       toast.error(e.message);
@@ -683,16 +683,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     }
   }
 
-  function isNumericColumn(columnName) {
-    if (!data || data.length === 0) return true;
-    return data.every(
-      (row) =>
-        !isNaN(row[columnName]) &&
-        row[columnName] !== null &&
-        row[columnName] !== "" &&
-        typeof row[columnName] !== "boolean",
-    );
-  }
 
   function changeType(t) {
     disposeChart(previewRef?.current);
@@ -703,90 +693,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     setEditId(null);
   }
 
-  function zoomIn() {
-    if (previewInst.current) {
-      previewInst.current.dispatchAction({
-        type: "dataZoom",
-        zoom: {
-          xAxisIndex: 0,
-          start: undefined,
-          end: undefined,
-          startValue: undefined,
-          endValue: undefined,
-        },
-      });
-      const option = previewInst.current.getOption();
-      const dataZoom = option.dataZoom;
-      if (dataZoom && dataZoom[0]) {
-        let start = dataZoom[0].start !== undefined ? dataZoom[0].start : 0;
-        let end = dataZoom[0].end !== undefined ? dataZoom[0].end : 100;
-        const range = end - start;
-        const newStart = Math.max(0, start + range * 0.1);
-        const newEnd = Math.min(100, end - range * 0.1);
-        previewInst.current.dispatchAction({
-          type: "dataZoom",
-          start: newStart,
-          end: newEnd,
-          dataZoomIndex: 0,
-        });
-      } else {
-        previewInst.current.dispatchAction({
-          type: "dataZoom",
-          start: 0,
-          end: 50,
-          dataZoomIndex: 0,
-        });
-      }
-    }
-  }
-
-  function zoomOut() {
-    if (previewInst.current) {
-      const option = previewInst.current.getOption();
-      const dataZoom = option.dataZoom;
-      if (dataZoom && dataZoom[0]) {
-        let start = dataZoom[0].start !== undefined ? dataZoom[0].start : 0;
-        let end = dataZoom[0].end !== undefined ? dataZoom[0].end : 100;
-        const range = end - start;
-        const newStart = Math.max(0, start - range * 0.1);
-        const newEnd = Math.min(100, end + range * 0.1);
-        previewInst.current.dispatchAction({
-          type: "dataZoom",
-          start: newStart,
-          end: newEnd,
-          dataZoomIndex: 0,
-        });
-      } else {
-        previewInst.current.dispatchAction({
-          type: "dataZoom",
-          start: 50,
-          end: 100,
-          dataZoomIndex: 0,
-        });
-      }
-    }
-  }
-
-  function resetZoom() {
-    if (previewInst.current) {
-      previewInst.current.dispatchAction({
-        type: "dataZoom",
-        start: 0,
-        end: 100,
-        dataZoomIndex: 0,
-      });
-    }
-  }
-
   const shellStyle = fullscreen
     ? {
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "var(--bg-page)",
-        overflow: "auto",
-        padding: 14,
-      }
+      position: "fixed",
+      inset: 0,
+      zIndex: 9999,
+      background: "var(--bg-page)",
+      overflow: "auto",
+      padding: 14,
+    }
     : {};
 
   function SeperateNumericColumns(column) {
@@ -816,12 +731,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     saveFun: true,
     fullscreenFun: true,
   };
-  const sankeyControlsFlags = {
-    zoomFun: false,
-    resetFun: false,
-    saveFun: true,
-    fullscreenFun: true,
-  };
+
 
   if (!canBuild) {
     return (
@@ -863,8 +773,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         </button>
       </div>
 
-      <div className="card" 
-      style={{ marginBottom: 12, overflow: "hidden" }}>
+      <div className="card"
+        style={{ marginBottom: 12, overflow: "hidden" }}>
         <div
           onClick={() => setTopOpen(!topOpen)}
           style={{
@@ -1066,15 +976,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         style={
           previewTools.fullscreen
             ? {
-                position: "absolute",
-                zIndex: 9999,
-                background: "var(--bg-page)",
-                padding: 16,
-                top: "0px",
-                left: "0px",
-                width: "100%",
-                height: "100vh",
-              }
+              position: "absolute",
+              zIndex: 9999,
+              background: "var(--bg-page)",
+              padding: 16,
+              top: "0px",
+              left: "0px",
+              width: "100%",
+              height: "100vh",
+            }
             : { marginBottom: 12, overflow: "hidden" }
         }
       >
@@ -1425,14 +1335,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       style={
                         previewTools.fullscreen
                           ? {
-                              position: "fixed",
-                              inset: 0,
-                              zIndex: 9999,
-                              background: "var(--bg-page)",
-                              padding: 16,
-                              display: "flex",
-                              flexDirection: "column",
-                            }
+                            position: "fixed",
+                            inset: 0,
+                            zIndex: 9999,
+                            background: "var(--bg-page)",
+                            padding: 16,
+                            display: "flex",
+                            flexDirection: "column",
+                          }
                           : undefined
                       }
                     >
@@ -1445,7 +1355,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           onZoomReset={previewTools.zoomReset}
                           onSave={previewTools.save}
                           onToggleFullscreen={previewTools.toggleFullscreen}
-                          isWantFeature={chartType === "pie" ? pieChartControlsFlags : chartControlsFlags }
+                          isWantFeature={chartType === "pie" ? pieChartControlsFlags : chartControlsFlags}
                         />
                       )}
                       <div
@@ -1469,7 +1379,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         )}
                       </div>
                     </div>
-                  )} 
+                  )}
               </ErrorBoundary>
             </div>
           </div>

@@ -551,7 +551,7 @@ OR
 CANNOT_GENERATE_SQL
      `;
 
-    console.log(`prompt to ai for sql generation ${prompt}`);
+
     let sql = await this.AIProvider.ask(prompt);
 
     sql = sql

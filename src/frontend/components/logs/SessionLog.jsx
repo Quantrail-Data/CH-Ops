@@ -372,11 +372,6 @@ function SessionLogOverview() {
     return () => obs.disconnect();
   }, []);
 
-  function applyDuration(d) {
-    setDuration(d);
-    setFrom(fmtAgo(RANGE_HOURS[d] || 168));
-    setTo(fmtNow());
-  }
 
   const load = useCallback(async (override = {}) => {
     setLoading(true);
@@ -514,7 +509,7 @@ function SessionLogOverview() {
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(0, 2fr)', gap: 16 }}>
             {errs.byType
               ? <SectionError title="Login Outcomes" message={errs.byType} />
-              : <ChartCard key={`donut-${themeKey}`} title="Login Outcomes" height={300} option={donutOption(data.byType)}  chartType='pie'/>}
+              : <ChartCard key={`donut-${themeKey}`} title="Login Outcomes" height={300} option={donutOption(data.byType)} chartType='pie' />}
             {errs.users
               ? <SectionError title="Top Users" message={errs.users} />
               : <BarCard title="Top Users" rows={userRows} themeKey={themeKey} minHeight={300} scrollToHeight={300} />}

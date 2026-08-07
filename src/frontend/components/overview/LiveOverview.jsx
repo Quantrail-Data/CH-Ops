@@ -8,7 +8,6 @@ import Select from "../common/Select.jsx";
 import { runQuery } from "../../utils/api.js";
 import { buildChartOption } from "../dashboards/chartTypes.js";
 import { ChartCard, KpiStrip, HealthStrip, GaugeGroup, Section, MetricDescriptions } from "./OverviewCards.jsx";
-import { fmtBytes } from "../../utils/costEstimator.js";
 import {
   METRIC_KEYS,
   ASYNC_KEYS,
@@ -28,7 +27,6 @@ import {
   stamp,
   detectRestart,
   rate,
-  rateOfSum,
   pairRatio,
   pairRatioOfSums,
   threadEquivalents,
@@ -291,8 +289,8 @@ export function useLiveOverview() {
     const bar = (rows, title, showLegend = false) =>
       rows.length
         ? buildChartOption("bar", "simple_bar", rows, { category: "k", value: "v" }, title, {
-            showLegend,
-          })
+          showLegend,
+        })
         : null;
 
     // In use against limit, per pool. These are counts rather than percentages,
@@ -306,13 +304,13 @@ export function useLiveOverview() {
     return {
       pools: poolRows.length
         ? buildChartOption(
-            "bar",
-            "grouped_bar",
-            poolRows,
-            { category: "k", series: "s", value: "v" },
-            "Background pools",
-            { showLegend: true },
-          )
+          "bar",
+          "grouped_bar",
+          poolRows,
+          { category: "k", series: "s", value: "v" },
+          "Background pools",
+          { showLegend: true },
+        )
         : null,
       queryActivity: bar(
         toCategoryRows(m, [
@@ -379,16 +377,16 @@ export function useLiveOverview() {
         m.PartsWide === undefined
           ? null
           : buildChartOption(
-              "pie",
-              "donut",
-              [
-                { k: "Wide", v: m.PartsWide ?? 0 },
-                { k: "Compact", v: m.PartsCompact ?? 0 },
-              ],
-              { category: "k", value: "v" },
-              "Part format",
-              { showLegend: true },
-            ),
+            "pie",
+            "donut",
+            [
+              { k: "Wide", v: m.PartsWide ?? 0 },
+              { k: "Compact", v: m.PartsCompact ?? 0 },
+            ],
+            { category: "k", value: "v" },
+            "Part format",
+            { showLegend: true },
+          ),
       objects: bar(
         toCategoryRows(m, [
           ["Databases", "AttachedDatabase"],
@@ -518,7 +516,6 @@ export function useLiveOverview() {
   ]);
 
   const failingChecks = healthChips.filter((c) => c.value > 0).length;
-  const ageSeconds = lastAt ? Math.round((Date.now() - lastAt) / 1000) : null;
 
   return {
     live, setLive, interval, setIntervalSeconds,
@@ -538,70 +535,70 @@ export function LiveControlBar({ nodeName, live: s }) {
   const ageSeconds = lastAt ? Math.round((Date.now() - lastAt) / 1000) : null;
 
   return (
-      <div
-        className="card"
-        style={{
-          padding: "10px 16px",
-          marginBottom: 16,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          flexWrap: "wrap",
-        }}
+    <div
+      className="card"
+      style={{
+        padding: "10px 16px",
+        marginBottom: 16,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        flexWrap: "wrap",
+      }}
+    >
+      <h2 style={{ margin: 0, fontSize: "1.125rem", display: "flex", alignItems: "center", gap: 8 }}>
+        <Icon className="ti ti-heartbeat" />
+        {nodeName || "Live overview"}
+      </h2>
+
+      <button
+        type="button"
+        className={`btn btn-sm ${live ? "btn-primary" : "btn-secondary"}`}
+        onClick={() => setLive((v) => !v)}
       >
-        <h2 style={{ margin: 0, fontSize: "1.125rem", display: "flex", alignItems: "center", gap: 8 }}>
-          <Icon className="ti ti-heartbeat" />
-          {nodeName || "Live overview"}
-        </h2>
+        <Icon className={`ti ti-player-${live ? "pause" : "play"}`} />
+        {live ? "Live" : "Paused"}
+      </button>
 
-        <button
-          type="button"
-          className={`btn btn-sm ${live ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setLive((v) => !v)}
-        >
-          <Icon className={`ti ti-player-${live ? "pause" : "play"}`} />
-          {live ? "Live" : "Paused"}
-        </button>
+      <Select
+        value={interval}
+        onChange={(e) => setIntervalSeconds(Number(e.target.value))}
+        style={{ width: 120 }}
+        title="Refresh interval"
+      >
+        {INTERVALS.map((s) => (
+          <option key={s} value={s}>
+            every {s}s
+          </option>
+        ))}
+      </Select>
 
-        <Select
-          value={interval}
-          onChange={(e) => setIntervalSeconds(Number(e.target.value))}
-          style={{ width: 120 }}
-          title="Refresh interval"
-        >
-          {INTERVALS.map((s) => (
-            <option key={s} value={s}>
-              every {s}s
-            </option>
-          ))}
-        </Select>
+      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+        {ageSeconds === null ? "no reading yet" : `updated ${ageSeconds}s ago`}
+      </span>
 
-        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-          {ageSeconds === null ? "no reading yet" : `updated ${ageSeconds}s ago`}
+      {error && (
+        <span style={{ fontSize: "0.75rem", color: "var(--color-danger)" }}>
+          <Icon className="ti ti-alert-circle" /> {error}
         </span>
+      )}
 
-        {error && (
-          <span style={{ fontSize: "0.75rem", color: "var(--color-danger)" }}>
-            <Icon className="ti ti-alert-circle" /> {error}
-          </span>
-        )}
-
-        {restarted && (
-          <span style={{ fontSize: "0.75rem", color: "var(--color-warning)" }}>
-            <Icon className="ti ti-alert-triangle" /> Server restarted, rates resuming
-          </span>
-        )}
-
-        <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "auto" }}>
-          Readings are current; rates cover the last {interval}s
+      {restarted && (
+        <span style={{ fontSize: "0.75rem", color: "var(--color-warning)" }}>
+          <Icon className="ti ti-alert-triangle" /> Server restarted, rates resuming
         </span>
-      </div>
+      )}
+
+      <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "auto" }}>
+        Readings are current; rates cover the last {interval}s
+      </span>
+    </div>
   );
 }
 
 // The machine gauges, on their own so the page can put them directly under the
 // stat cards.
- 
+
 export function MachineGauges({ live: s }) {
   const { loaded, gauges, descriptions } = s;
   if (!loaded) return null;
@@ -625,166 +622,166 @@ export default function LiveOverview({ live: s }) {
     // Supplied once here rather than threaded through every card: InfoTip reads
     // the server's description from context and shows it beneath ours.
     <MetricDescriptions value={descriptions}>
-    <div style={{ marginBottom: 20 }}>
-      {!loaded ? (
-        <div className="card" style={{ padding: 32, textAlign: "center" }}>
-          <span className="loading-spinner" /> Reading system tables...
-        </div>
-      ) : (
-        <>
-          <Section
-            id="health"
-            icon="ti-shield-check"
-            title="Health checks"
-            defaultOpen={false}
-            summary={
-              failingChecks > 0
-                ? `${failingChecks} failing`
-                : `all ${healthChips.length} clear`
-            }
-          >
-            <HealthStrip chips={healthChips} />
-          </Section>
+      <div style={{ marginBottom: 20 }}>
+        {!loaded ? (
+          <div className="card" style={{ padding: 32, textAlign: "center" }}>
+            <span className="loading-spinner" /> Reading system tables...
+          </div>
+        ) : (
+          <>
+            <Section
+              id="health"
+              icon="ti-shield-check"
+              title="Health checks"
+              defaultOpen={false}
+              summary={
+                failingChecks > 0
+                  ? `${failingChecks} failing`
+                  : `all ${healthChips.length} clear`
+              }
+            >
+              <HealthStrip chips={healthChips} />
+            </Section>
 
-          {/* Every percentage on the page, in one place. Comparing them side by
+            {/* Every percentage on the page, in one place. Comparing them side by
               side is the point: a saturated pool stands out because everything
               around it does not. */}
-          <Section
-            id="efficiency-gauges"
-            icon="ti-chart-arrows"
-            title="Efficiency"
-            summary={`over the last ${interval}s`}
-           defaultOpen={false}>
-            <GaugeGroup items={gauges.efficiency} />
-          </Section>
+            <Section
+              id="efficiency-gauges"
+              icon="ti-chart-arrows"
+              title="Efficiency"
+              summary={`over the last ${interval}s`}
+              defaultOpen={false}>
+              <GaugeGroup items={gauges.efficiency} />
+            </Section>
 
-          <Section id="pools" icon="ti-stack-2" title="Background pools" summary="in use against limit" defaultOpen={false}>
-            <ChartCard
-              metricKey="pool_utilization"
-              title="Background pools, in use against limit"
-              option={charts.pools}
-              type="bar"
-              format="count"
-              height={260}
-              emptyMessage="No background pools reported"
-            />
-          </Section>
+            <Section id="pools" icon="ti-stack-2" title="Background pools" summary="in use against limit" defaultOpen={false}>
+              <ChartCard
+                metricKey="pool_utilization"
+                title="Background pools, in use against limit"
+                option={charts.pools}
+                type="bar"
+                format="count"
+                height={260}
+                emptyMessage="No background pools reported"
+              />
+            </Section>
 
-          <Section id="throughput" icon="ti-bolt" title="Throughput" summary={`last ${interval}s`} defaultOpen={false}>
-          <KpiStrip
-            items={[
-              { key: "query_rate", value: ev.query_rate },
-              { key: "avg_query_latency", value: ev.avg_query_latency },
-              { key: "rows_read_rate", value: ev.rows_read_rate },
-              { key: "rows_written_rate", value: ev.rows_written_rate },
-              { key: "disk_read_rate", value: ev.disk_read_rate },
-              { key: "disk_write_rate", value: ev.disk_write_rate },
-              { key: "net_in_rate", value: ev.net_in_rate },
-              { key: "net_out_rate", value: ev.net_out_rate },
-              { key: "ch_cpu_cores", value: ev.ch_cpu_cores },
-              { key: "merge_concurrency", value: ev.merge_concurrency },
-              { key: "merge_throughput", value: ev.merge_throughput },
-              { key: "bytes_per_row", value: ev.bytes_per_row },
-            ]}
-          />
-          </Section>
+            <Section id="throughput" icon="ti-bolt" title="Throughput" summary={`last ${interval}s`} defaultOpen={false}>
+              <KpiStrip
+                items={[
+                  { key: "query_rate", value: ev.query_rate },
+                  { key: "avg_query_latency", value: ev.avg_query_latency },
+                  { key: "rows_read_rate", value: ev.rows_read_rate },
+                  { key: "rows_written_rate", value: ev.rows_written_rate },
+                  { key: "disk_read_rate", value: ev.disk_read_rate },
+                  { key: "disk_write_rate", value: ev.disk_write_rate },
+                  { key: "net_in_rate", value: ev.net_in_rate },
+                  { key: "net_out_rate", value: ev.net_out_rate },
+                  { key: "ch_cpu_cores", value: ev.ch_cpu_cores },
+                  { key: "merge_concurrency", value: ev.merge_concurrency },
+                  { key: "merge_throughput", value: ev.merge_throughput },
+                  { key: "bytes_per_row", value: ev.bytes_per_row },
+                ]}
+              />
+            </Section>
 
-          <Section id="shape" icon="ti-chart-bar" title="Efficiency and shape" summary={`last ${interval}s`} defaultOpen={false}>
-          <KpiStrip
-            items={[
-              { key: "read_amplification", value: ev.read_amplification },
-              { key: "write_amplification", value: ev.write_amplification },
-              { key: "rows_per_part", value: ev.rows_per_part },
-              { key: "parts_per_merge", value: ev.parts_per_merge },
-              { key: "read_compression", value: ev.read_compression },
-              { key: "insert_compression", value: ev.insert_compression },
-            ]}
-          />
-          </Section>
+            <Section id="shape" icon="ti-chart-bar" title="Efficiency and shape" summary={`last ${interval}s`} defaultOpen={false}>
+              <KpiStrip
+                items={[
+                  { key: "read_amplification", value: ev.read_amplification },
+                  { key: "write_amplification", value: ev.write_amplification },
+                  { key: "rows_per_part", value: ev.rows_per_part },
+                  { key: "parts_per_merge", value: ev.parts_per_merge },
+                  { key: "read_compression", value: ev.read_compression },
+                  { key: "insert_compression", value: ev.insert_compression },
+                ]}
+              />
+            </Section>
 
-          <Section id="time" icon="ti-clock" title="Where the time goes" summary={`last ${interval}s`} defaultOpen={false}>
-          <ChartCard
-            metricKey="time_breakdown"
-            option={timeBreakdown}
-            type="bar"
-            format="threads"
-            height={300}
-            emptyMessage={hasPair ? "Nothing measurable in the last interval" : "Waiting for a second reading"}
-          />
-          </Section>
+            <Section id="time" icon="ti-clock" title="Where the time goes" summary={`last ${interval}s`} defaultOpen={false}>
+              <ChartCard
+                metricKey="time_breakdown"
+                option={timeBreakdown}
+                type="bar"
+                format="threads"
+                height={300}
+                emptyMessage={hasPair ? "Nothing measurable in the last interval" : "Waiting for a second reading"}
+              />
+            </Section>
 
-          <Section id="activity" icon="ti-activity-heartbeat" title="Activity right now" defaultOpen={false}>
-          <Grid>
-            <ChartCard metricKey="query_activity" option={charts.queryActivity} type="bar" format="count" />
-            <ChartCard metricKey="background_activity" option={charts.backgroundActivity} type="bar" format="count" />
-            <ChartCard metricKey="io_in_flight" option={charts.io} type="bar" format="count" />
-            <ChartCard metricKey="locks" option={charts.locks} type="bar" format="count" />
-            <ChartCard metricKey="threads" option={charts.threads} type="bar" format="count" />
-            <ChartCard metricKey="memory_breakdown" option={charts.memory} type="bar" format="bytes" />
-          </Grid>
-          </Section>
-
-          <Section id="storage" icon="ti-database" title="Storage" defaultOpen={false}>
-          <Grid>
-            <ChartCard metricKey="parts_by_state" option={charts.parts} type="bar" format="count" />
-            <ChartCard metricKey="part_format" option={charts.partFormat} type="pie" format="count" />
-            {/* charts.caches is null when every cache is empty, so the slice
-                override has to be conditional - reaching into .series[0] threw
-                and took the whole Storage section down on a fresh server. */}
-            <ChartCard metricKey="caches" option={charts.caches && {
-                      ...charts.caches,
-                      series: [
-                        {
-                          ...charts.caches.series[0],
-                          label: {
-                            position: "outside",
-                            formatter: "{b}\n{d}%",
-                            show: true
-                          },
-                          labelLayout: {
-                            hideOverlap: false, 
-                            moveOverlap: "shiftY"
-                          }
-                        }
-                      ]
-                    }}
-                    type="pie" format="bytes" emptyMessage="All caches are empty"  />
-            <ChartCard metricKey="attached_objects" option={charts.objects} type="bar" format="count" />
-          </Grid>
-          </Section>
-
-          <Section id="data-health" icon="ti-list-check" title="Data health" defaultOpen={false}>
-            <KpiStrip items={kpis} />
-          </Section>
-
-          {(charts.tempFiles ||
-            charts.distributed ||
-            charts.asyncInserts ||
-            charts.kafka ||
-            charts.replication) && (
-            <Section id="in-use" icon="ti-plug" title="In use on this node" defaultOpen={false}>
+            <Section id="activity" icon="ti-activity-heartbeat" title="Activity right now" defaultOpen={false}>
               <Grid>
-                {charts.replication && (
-                  <ChartCard metricKey="replication_queue" option={charts.replication} type="bar" format="count" />
-                )}
-                {charts.tempFiles && (
-                  <ChartCard metricKey="temp_files" option={charts.tempFiles} type="bar" format="count" />
-                )}
-                {charts.distributed && (
-                  <ChartCard metricKey="distributed_inserts" option={charts.distributed} type="bar" format="count" />
-                )}
-                {charts.asyncInserts && (
-                  <ChartCard metricKey="async_inserts" option={charts.asyncInserts} type="bar" format="count" />
-                )}
-                {charts.kafka && (
-                  <ChartCard metricKey="kafka" option={charts.kafka} type="bar" format="count" />
-                )}
+                <ChartCard metricKey="query_activity" option={charts.queryActivity} type="bar" format="count" />
+                <ChartCard metricKey="background_activity" option={charts.backgroundActivity} type="bar" format="count" />
+                <ChartCard metricKey="io_in_flight" option={charts.io} type="bar" format="count" />
+                <ChartCard metricKey="locks" option={charts.locks} type="bar" format="count" />
+                <ChartCard metricKey="threads" option={charts.threads} type="bar" format="count" />
+                <ChartCard metricKey="memory_breakdown" option={charts.memory} type="bar" format="bytes" />
               </Grid>
             </Section>
-          )}
-        </>
-      )}
-    </div>
+
+            <Section id="storage" icon="ti-database" title="Storage" defaultOpen={false}>
+              <Grid>
+                <ChartCard metricKey="parts_by_state" option={charts.parts} type="bar" format="count" />
+                <ChartCard metricKey="part_format" option={charts.partFormat} type="pie" format="count" />
+                {/* charts.caches is null when every cache is empty, so the slice
+                override has to be conditional - reaching into .series[0] threw
+                and took the whole Storage section down on a fresh server. */}
+                <ChartCard metricKey="caches" option={charts.caches && {
+                  ...charts.caches,
+                  series: [
+                    {
+                      ...charts.caches.series[0],
+                      label: {
+                        position: "outside",
+                        formatter: "{b}\n{d}%",
+                        show: true
+                      },
+                      labelLayout: {
+                        hideOverlap: false,
+                        moveOverlap: "shiftY"
+                      }
+                    }
+                  ]
+                }}
+                  type="pie" format="bytes" emptyMessage="All caches are empty" />
+                <ChartCard metricKey="attached_objects" option={charts.objects} type="bar" format="count" />
+              </Grid>
+            </Section>
+
+            <Section id="data-health" icon="ti-list-check" title="Data health" defaultOpen={false}>
+              <KpiStrip items={kpis} />
+            </Section>
+
+            {(charts.tempFiles ||
+              charts.distributed ||
+              charts.asyncInserts ||
+              charts.kafka ||
+              charts.replication) && (
+                <Section id="in-use" icon="ti-plug" title="In use on this node" defaultOpen={false}>
+                  <Grid>
+                    {charts.replication && (
+                      <ChartCard metricKey="replication_queue" option={charts.replication} type="bar" format="count" />
+                    )}
+                    {charts.tempFiles && (
+                      <ChartCard metricKey="temp_files" option={charts.tempFiles} type="bar" format="count" />
+                    )}
+                    {charts.distributed && (
+                      <ChartCard metricKey="distributed_inserts" option={charts.distributed} type="bar" format="count" />
+                    )}
+                    {charts.asyncInserts && (
+                      <ChartCard metricKey="async_inserts" option={charts.asyncInserts} type="bar" format="count" />
+                    )}
+                    {charts.kafka && (
+                      <ChartCard metricKey="kafka" option={charts.kafka} type="bar" format="count" />
+                    )}
+                  </Grid>
+                </Section>
+              )}
+          </>
+        )}
+      </div>
     </MetricDescriptions>
   );
 }
