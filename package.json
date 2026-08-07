@@ -1,8 +1,8 @@
 {
   "name": "chops",
   "version": "26.3-0.1.6",
-  "description": "CHOps - ClickHouse\u00ae Administration Dashboard",
-  "author": "Quantrail\u2122 Data Private Limited",
+  "description": "CHOps - ClickHouse® Administration Dashboard",
+  "author": "Quantrail™ Data Private Limited",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
