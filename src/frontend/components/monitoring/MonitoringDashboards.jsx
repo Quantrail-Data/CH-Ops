@@ -26,7 +26,7 @@ function buildSql(template, from, to, rounding) {
   const seconds = Math.round(
     (new Date(to.replace(" ", "T")).getTime() -
       new Date(from.replace(" ", "T")).getTime()) /
-      1000,
+    1000,
   );
   return template
     .replace(/\{from:String\}/g, `'${from}'`)
@@ -40,12 +40,6 @@ const ml = (field) =>
 const aml = (metric, agg = "avg") =>
   `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
 // Per-hostname variants
-const mlh = (field) =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, avg(${field}) FROM merge('system', '^metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to GROUP BY t, hostname ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-const amlh = (metric, agg = "avg") =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY t, hostname ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-const amlhAll = (metric, agg = "avg") =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY ALL ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
 
 const TABS = [
   {
@@ -556,7 +550,6 @@ const TABS = [
   },
 ];
 
-const ALL_CHARTS = TABS.flatMap((t) => t.charts);
 
 // ECharts renders to canvas and does NOT understand CSS custom properties:
 // passing "var(--text-primary)" as a colour yields black in every theme. So we
@@ -768,7 +761,6 @@ export default function MonitoringDashboards() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [fetchErrors, setFetchErrors] = useState(0);
-  const [error, setError] = useState("");
   const [results, setResults] = useState({});
   const [activeTab, setActiveTab] = useState(routeTab);
   const [loadedTabs, setLoadedTabs] = useState(new Set());
@@ -1106,13 +1098,13 @@ export default function MonitoringDashboards() {
       style={
         sectionFullscreen
           ? {
-              position: "fixed",
-              inset: 0,
-              zIndex: 9998,
-              background: "var(--bg-page)",
-              padding: 16,
-              overflow: "auto",
-            }
+            position: "fixed",
+            inset: 0,
+            zIndex: 9998,
+            background: "var(--bg-page)",
+            padding: 16,
+            overflow: "auto",
+          }
           : undefined
       }
     >
@@ -1322,49 +1314,49 @@ export default function MonitoringDashboards() {
                   Object.keys(last).find((c) => c !== "t") ||
                   Object.keys(last)[0];
                 raw = parseFloat(last[vcol]);
-              if (isNaN(raw)) raw = null;
+                if (isNaN(raw)) raw = null;
+              }
+              return (
+                <StatCard
+                  key={`${m.key}-${sectionFullscreen ? "fs" : "n"}-${themeKey}`}
+                  label={m.label}
+                  value={raw}
+                  unit={m.spec?.unit}
+                  icon={m.spec?.icon}
+                  warn={m.spec?.warn}
+                  danger={m.spec?.danger}
+                  invert={m.spec?.invert}
+                  loading={loading && raw == null}
+                />
+              );
             }
+
+            const value = buildOpt(m.key, m.label, kind, m.spec || {});
+
+            // Every ECharts chart (line, bar, pie) shares the card's toolbar area
+            // (zoom/save/fullscreen), so reserve top space and place the toolbox
+            // consistently. Pie has no cartesian grid, so only line/bar get the
+            // grid.top clearance.
+            const needsGrid = kind === "line" || kind === "bar";
+            const opt = {
+              ...value,
+              ...(needsGrid
+                ? { grid: { ...value?.grid, top: "50" } }
+                : {}),
+              toolbox: { ...value?.toolbox, right: 10, top: "0" },
+            };
+
             return (
-              <StatCard
+              <ChartCard
                 key={`${m.key}-${sectionFullscreen ? "fs" : "n"}-${themeKey}`}
-                label={m.label}
-                value={raw}
-                unit={m.spec?.unit}
-                icon={m.spec?.icon}
-                warn={m.spec?.warn}
-                danger={m.spec?.danger}
-                invert={m.spec?.invert}
-                loading={loading && raw == null}
+                title={m.label}
+                option={opt}
+                height={340}
+                loading={loading && !opt}
+                chartType={m.kind}
               />
             );
-          }
-
-          const value = buildOpt(m.key, m.label, kind, m.spec || {});
-
-          // Every ECharts chart (line, bar, pie) shares the card's toolbar area
-          // (zoom/save/fullscreen), so reserve top space and place the toolbox
-          // consistently. Pie has no cartesian grid, so only line/bar get the
-          // grid.top clearance.
-          const needsGrid = kind === "line" || kind === "bar";
-          const opt = {
-            ...value,
-            ...(needsGrid
-              ? { grid: { ...value?.grid, top: "50" } }
-              : {}),
-            toolbox: { ...value?.toolbox, right: 10, top: "0" },
-          };
-
-          return (
-            <ChartCard
-              key={`${m.key}-${sectionFullscreen ? "fs" : "n"}-${themeKey}`}
-              title={m.label}
-              option={opt}
-              height={340}
-              loading={loading && !opt}
-              chartType={m.kind}
-            />
-          );
-        })}
+          })}
         </div>
       )}
     </div>

@@ -9,7 +9,7 @@
  */
 
 
-import { afterAll, beforeEach, describe, expect, it, mock, vi } from "bun:test"
+import { beforeEach, describe, expect, it, mock, vi } from "bun:test"
 import { createApiKey, deleteApiKey, getActiveApiKey, getAllApiKeys, getApiKeyById, getApiKeysWithValues, setActiveApiKey, updateApiKey } from "../../src/backend/services/apiKeys"
 import { initCrypto } from "../../src/backend/services/crypto"
 

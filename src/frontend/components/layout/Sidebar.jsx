@@ -2,10 +2,10 @@
 // Sidebar.jsx - main navigation sidebar with collapsible sections
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { useLocation } from "react-router-dom";
-import {useTheme} from "../../App.jsx"
+import { useTheme } from "../../App.jsx"
 
 const CORE_NAV_ITEMS = [
   {
@@ -18,7 +18,7 @@ const CORE_NAV_ITEMS = [
       { id: "overview/queries", label: "Queries" },
       { id: "overview/parts", label: "Tables & Parts" },
       { id: "overview/operations", label: "Merges & Mutations" },
-      { id: "overview/queues",label:"Queues"  },
+      { id: "overview/queues", label: "Queues" },
       { id: "overview/kubernetes", label: "Kubernetes Insights" },
       { id: "overview/ddl", label: "DDL & Readonly" },
     ],
@@ -176,11 +176,11 @@ export default function Sidebar({
     return initial;
   });
 
-  const {theme} = useTheme();
+  const { theme } = useTheme();
 
-   function isDark(){
+  function isDark() {
     return theme === 'dark'
-   }
+  }
 
   useEffect(() => {
     const route = (currentRoute || "").toLowerCase();
@@ -259,12 +259,12 @@ export default function Sidebar({
               >
                 <Icon
                   className={`ti ${section.icon}`}
-                  style={{ fontSize:24, color: isDark() ? "white" : "black" }}
+                  style={{ fontSize: 24, color: isDark() ? "white" : "black" }}
                 />
               </span>
               {!isCollapsed && (
                 <>
-                  <span style={{ flex: 1, fontSize:"13px",fontWeight:"700"  }}>{section.label}</span>
+                  <span style={{ flex: 1, fontSize: "13px", fontWeight: "700" }}>{section.label}</span>
                   <Icon
                     className={`ti ti-chevron-${openSections[section.id] ? "down" : "right"}`}
                     style={{ fontSize: 12, opacity: 0.5 }}
@@ -296,9 +296,9 @@ export default function Sidebar({
                     transition: "background 0.2s, color 0.2s",
                   }}
                 >
-                                   <Icon
+                  <Icon
                     className={`ti ${section.icon}`}
-                    style={{ fontSize:28, color: isDark() ? "white" : "black" }}
+                    style={{ fontSize: 28, color: isDark() ? "white" : "black" }}
                   />
                 </span>
               </div>
@@ -311,18 +311,18 @@ export default function Sidebar({
                     key={item.id}
                     className={`sidebar-item ${currentRoute === item.id?.replace("/", "") ? "active" : ""}`}
                     onClick={() => navigateTo(item.id, section.id)}
-                    style={{marginLeft:"10px"}}
+                    style={{ marginLeft: "10px" }}
                   >
-                    <span style={{fontSize:"14px"}}>{item.label}</span>
+                    <span style={{ fontSize: "14px" }}>{item.label}</span>
                   </div>
                 ) : (
                   <div
                     key={item.id}
                     className={`sidebar-item ${currentRoute === item.id ? "active" : ""}`}
                     onClick={() => navigateTo(item.id, section.id)}
-                         style={{marginLeft:"10px"}}
+                    style={{ marginLeft: "10px" }}
                   >
-                   <span style={{fontSize:"14px"}}>{item.label}</span>
+                    <span style={{ fontSize: "14px" }}>{item.label}</span>
                   </div>
                 ),
               )}

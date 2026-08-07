@@ -13,7 +13,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef(null);
   const { theme } = useTheme();
-  const [insideCon,setInsideCon] = useState(false);
+  const [insideCon, setInsideCon] = useState(false);
   const [isFocus, setIsFocus] = useState(false);
   const [isInputFullview, setIsInputFullview] = useState(false);
 
@@ -40,22 +40,22 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
     setIsInputFullview(!isInputFullview);
   };
 
-  const setAutoFocus = ()=>{
+  const setAutoFocus = () => {
     setIsFocus(true);
     setTimeout(() => {
       const len = message?.length;
-      textareaRef?.current?.setSelectionRange(len,len)
+      textareaRef?.current?.setSelectionRange(len, len)
       textareaRef?.current?.focus()
     }, 50);
-  }
+  };
 
   return (
     <motion.div
       initial={isStage() ? { opacity: 0, y: 15 } : { opacity: 0 }}
       animate={isStage() ? { opacity: 1, y: 0 } : { opacity: 1 }}
       transition={{ duration: 0.4, delay: 0.2, ease: "easeIn" }}
-      onMouseEnter={()=>setInsideCon(true)}
-      onMouseLeave={()=>setInsideCon(false)}
+      onMouseEnter={() => setInsideCon(true)}
+      onMouseLeave={() => setInsideCon(false)}
       className={isStage() ? "input-container-search" : "bottom-search-bar"}
       style={{
         zIndex: 10999,

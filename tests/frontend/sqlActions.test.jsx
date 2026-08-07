@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import React from "react";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { EditorView } from "@codemirror/view";
 
@@ -30,11 +30,11 @@ vi.mock("../../src/frontend/utils/api.js", () => ({
   // Connected, so the Go button is enabled without a login step.
   editorConnectionStatus: () => Promise.resolve({ connected: true, chUser: "tester" }),
   getGlobalConnection: () => ({}),
-  setGlobalConnection: () => {},
+  setGlobalConnection: () => { },
 }));
 
 vi.mock("../../src/frontend/App.jsx", () => ({
-  useTheme: () => ({ theme: "light", toggleTheme: () => {} }),
+  useTheme: () => ({ theme: "light", toggleTheme: () => { } }),
   useAuth: () => ({ auth: { username: "tester", role: "admin" } }),
   useConnection: () => ({
     selectedClusterId: "c1",
@@ -49,7 +49,7 @@ vi.mock("../../src/frontend/App.jsx", () => ({
 }));
 
 vi.mock("../../src/frontend/components/layout/Toast.jsx", () => ({
-  useToast: () => ({ success: () => {}, error: () => {}, warning: () => {}, info: () => {} }),
+  useToast: () => ({ success: () => { }, error: () => { }, warning: () => { }, info: () => { } }),
 }));
 
 import QueryEditor from "../../src/frontend/components/editor/QueryEditor.jsx";
@@ -113,7 +113,6 @@ describe("only Go runs", () => {
     fireEvent.change(sel, { target: { value: "EXPLAIN PLAN" } });
     fireEvent.change(sel, { target: { value: "GENERAL RUN" } });
     expect(sel.value).toBe("GENERAL RUN");
-    const before = __calls.length;
     fireEvent.click(btn(container, /^\s*Go\s*$/));
     await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
     expect(__calls.at(-1)).not.toContain("EXPLAIN");

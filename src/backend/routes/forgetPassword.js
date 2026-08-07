@@ -56,9 +56,9 @@ router.post("/email/verify", (req, res, next) => {
         ?.status(500)
         ?.json({ success: false, message: "Failed to send mail to " + email });
 
-    res.status(201).json({ success: true, message: "done",email });
+    res.status(201).json({ success: true, message: "done", email });
   } catch (err) {
-    return res?.status(500)?.json({success:false,message:"Internal Server Error!"})
+    return res?.status(500)?.json({ success: false, message: "Internal Server Error!" });
   }
 });
 
@@ -73,7 +73,7 @@ router.post("/otp/verify", (req, res, next) => {
         ?.json({ success: false, message: "OTP field is required." });
 
     const otpData = getOTP(email);
-   
+
     if (!otpData)
       return res
         ?.status(404)
@@ -86,7 +86,7 @@ router.post("/otp/verify", (req, res, next) => {
       });
 
     if (otpData?.otp !== otp)
-        
+
       return res?.status(404)?.json({
         success: false,
         message: "OTP verification failed. Invalid OTP.",
@@ -101,7 +101,7 @@ router.post("/otp/verify", (req, res, next) => {
     return res?.status(201)?.json({ success: true, message: "Done" });
   } catch (err) {
     console.error("OTP verification error:", err.message)
-    return res?.status(500)?.json({success:false,message:"Internal Server Error!"})
+    return res?.status(500)?.json({ success: false, message: "Internal Server Error!" })
   }
 });
 
@@ -141,7 +141,7 @@ router.post("/change/password", async (req, res, next) => {
     return res?.status(201)?.json({ success: true, message: "done" });
 
   } catch (err) {
-    return res?.status(500)?.json({success:false,message:"Internal Server Error!"})
+    return res?.status(500)?.json({ success: false, message: "Internal Server Error!" });
   }
 });
 

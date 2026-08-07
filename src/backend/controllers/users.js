@@ -6,9 +6,7 @@ import { randomBytes } from "crypto";
 import { eq, desc } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { sendNotification } from "../services/notifier.js";
-import { revokeToken } from "../services/jwt.js";
 import { loadEnv } from "../utils/env.js";
-import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
 
 const VALID_ROLES = ["superadmin", "admin", "editor", "readonly"];
 
@@ -174,9 +172,9 @@ export async function createUser(req, res) {
             threshold: 0,
             lastValue: 0,
             lastRunAt: new Date().toISOString(),
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch {}
+      } catch { }
     }
 
     res
@@ -239,7 +237,7 @@ export async function updateUser(req, res) {
       updates.passwordHash = await hashPassword(pw);
       updates.mustChangePassword = true;
       db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
-      
+
       const env = loadEnv();
       const smtp = env.smtp;
       if (smtp.host && target.email) {
@@ -270,7 +268,7 @@ export async function updateUser(req, res) {
       } else if (!target.email) {
         console.log(`User ${target.username} has no email configured, password not sent via email`);
       }
-      
+
       return res.json({ ok: true, generatedPassword: pw });
     }
 

@@ -192,13 +192,7 @@ describe("Helper Functions for Notifier", () => {
       Password reset Username: test Password: test123 Role: Admin Please change your password on first login
     `
     const info = extractAccountDetails(description)
-    const expectToBe = {
-      intro: "Password reset",
-      username: "test",
-      password: "test123",
-      role: "Admin",
-      note: "Please change your password on first login",
-    }
+
     expect(info).toHaveProperty('intro')
     expect(info.intro).toBe('Password reset')
     expect(info).toHaveProperty('username')

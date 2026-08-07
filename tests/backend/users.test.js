@@ -8,7 +8,6 @@ const fakeDB = {
   users: [],
 };
 
-const eq = (field, value) => ({ field, value });
 
 function createQuery() {
   const data = fakeDB.users;
@@ -88,7 +87,6 @@ const statusMock = mock(() => ({ json: jsonMock }));
 const nextMock = mock();
 
 const sendNotification = mock();
-const logAudit = mock();
 
 // Controller functions - populated in beforeAll after mocks are registered.
 // Keeping these at module scope so all it() blocks can reference them.

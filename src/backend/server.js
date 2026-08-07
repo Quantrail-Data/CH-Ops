@@ -7,12 +7,12 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+createRequire(import.meta.url);
 let embeddedAssets = null;
 try {
   const mod = await import('./embeddedAssets.js');
   embeddedAssets = mod.default;
-} catch {}
+} catch { }
 
 // let RD_SERVICE = null;
 // try {
@@ -67,7 +67,7 @@ setSecret(env.sessionSecret);
 initCrypto(env.sessionSecret);
 
 onRevoke(clearCredSessionByJti);
-onRevoke(() => { try { cancelJobsForUser(undefined); } catch {} });
+onRevoke(() => { try { cancelJobsForUser(undefined); } catch { } });
 
 pruneExpired();
 setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
@@ -82,9 +82,9 @@ try {
   const generated = await import('./version.generated.js');
   if (generated.APP_VERSION) appVersion.version = generated.APP_VERSION;
   if (generated.VERSION_INFO) appVersion = { ...generated.VERSION_INFO, ...appVersion };
-} catch {}
+} catch { }
 
-await import('./db/migrate.js').catch(() => {});
+await import('./db/migrate.js').catch(() => { });
 log.info('Database ready (Drizzle ORM + bun:sqlite)');
 
 import { migrateClusterData } from './services/clusterUtils.js';
@@ -115,24 +115,24 @@ app.use((req, res, next) => { req.env = env; next(); });
 app.use('/api/auth', rateLimiter(100, 60), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/version', (req, res) => res.json(appVersion));
-app.use(`/api/forget-password`,ForgetRouter);
+app.use(`/api/forget-password`, ForgetRouter);
 app.use('/api/query', authMiddleware, rateLimiter(10000, 60), queryRoute);
-app.use('/api/editor', authMiddleware,rateLimiter(10000, 60), editorRoute);
-app.use('/api/config', authMiddleware,rateLimiter(10000, 60), configRoute);
-app.use('/api/settings', authMiddleware,rateLimiter(10000, 60), settingsRoute);
-app.use('/api/alerts', authMiddleware,rateLimiter(10000, 60), alertsRoute);
-app.use('/api/dashboards', authMiddleware,rateLimiter(10000, 60), dashboardsRoute);
-app.use('/api/users', authMiddleware,rateLimiter(10000, 60), usersRoute);
-app.use('/api/cluster', authMiddleware,rateLimiter(10000, 60), clusterRoute);
-app.use('/api/k8s', authMiddleware,rateLimiter(10000, 60), k8sRoute);
-app.use('/api/app-backup', authMiddleware,rateLimiter(10000, 60), appBackupRoute);
-app.use('/api/qurioz/api-keys', authMiddleware,rateLimiter(10000, 60), apiKeysRoute);
+app.use('/api/editor', authMiddleware, rateLimiter(10000, 60), editorRoute);
+app.use('/api/config', authMiddleware, rateLimiter(10000, 60), configRoute);
+app.use('/api/settings', authMiddleware, rateLimiter(10000, 60), settingsRoute);
+app.use('/api/alerts', authMiddleware, rateLimiter(10000, 60), alertsRoute);
+app.use('/api/dashboards', authMiddleware, rateLimiter(10000, 60), dashboardsRoute);
+app.use('/api/users', authMiddleware, rateLimiter(10000, 60), usersRoute);
+app.use('/api/cluster', authMiddleware, rateLimiter(10000, 60), clusterRoute);
+app.use('/api/k8s', authMiddleware, rateLimiter(10000, 60), k8sRoute);
+app.use('/api/app-backup', authMiddleware, rateLimiter(10000, 60), appBackupRoute);
+app.use('/api/qurioz/api-keys', authMiddleware, rateLimiter(10000, 60), apiKeysRoute);
 app.use('/api/export/download', rateLimiter(10000, 60), downloadRouter);
 app.use('/api/export', rateLimiter(10000, 60), authMiddleware, exportRoute);
 
-app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
-app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
-app.use("/api/schema-studio", authMiddleware,rateLimiter(10000, 60), schemaStudioRoute);
+app.use("/api/ai/database", authMiddleware, rateLimiter(10000, 60), databaseAIConnection);
+app.use("/api/ai/sql", authMiddleware, rateLimiter(10000, 60), sqlAIChat);
+app.use("/api/schema-studio", authMiddleware, rateLimiter(10000, 60), schemaStudioRoute);
 
 function serveEmbedded(prefix) {
   return (req, res, next) => {

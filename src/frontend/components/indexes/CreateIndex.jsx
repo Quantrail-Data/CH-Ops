@@ -80,7 +80,7 @@ function CreateForm() {
   const [postingCodec, setPostingCodec] = useState('');
   const [result, setResult] = useState(null);
 
-  const toast = useToast()
+  const toast = useToast();
 
   const dbsQ = useQuery(), tblsQ = useQuery(), colsQ = useQuery();
   useEffect(() => { dbsQ.execute("SELECT DISTINCT database FROM system.tables WHERE engine LIKE '%MergeTree%' ORDER BY database"); }, []);
@@ -136,9 +136,9 @@ function CreateForm() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">Database *</label>
-            <Select 
-              className="form-select" 
-              value={db} 
+            <Select
+              className="form-select"
+              value={db}
               onChange={e => { setDb(e.target.value); setTbl(''); setCol(''); }}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -150,9 +150,9 @@ function CreateForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Table *</label>
-            <Select 
-              className="form-select" 
-              value={tbl} 
+            <Select
+              className="form-select"
+              value={tbl}
               onChange={e => { setTbl(e.target.value); setCol(''); }}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -164,9 +164,9 @@ function CreateForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Column *</label>
-            <Select 
-              className="form-select" 
-              value={col} 
+            <Select
+              className="form-select"
+              value={col}
               onChange={e => setCol(e.target.value)}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -180,11 +180,11 @@ function CreateForm() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">Index Name *</label>
-            <input 
-              className="form-input" 
-              required 
-              value={name} 
-              onChange={e => setName(e.target.value)} 
+            <input
+              className="form-input"
+              required
+              value={name}
+              onChange={e => setName(e.target.value)}
               placeholder="idx_mycolumn"
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -192,9 +192,9 @@ function CreateForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Index Type</label>
-            <Select 
-              className="form-select" 
-              value={idxType} 
+            <Select
+              className="form-select"
+              value={idxType}
               onChange={e => setIdxType(e.target.value)}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -207,11 +207,11 @@ function CreateForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Granularity</label>
-            <input 
-              className="form-input" 
-              type="number" 
-              min={1} 
-              value={granularity} 
+            <input
+              className="form-input"
+              type="number"
+              min={1}
+              value={granularity}
               onChange={e => setGranularity(parseInt(e.target.value) || 1)}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -221,10 +221,10 @@ function CreateForm() {
 
         {idxType === 'set' && <div className="form-group" style={{ marginBottom: 14, maxWidth: 220 }}>
           <label className="form-label">Set N (max distinct values)</label>
-          <input 
-            className="form-input" 
-            type="text" 
-            value={setN} 
+          <input
+            className="form-input"
+            type="text"
+            value={setN}
             onChange={e => {
               const value = e.target.value;
               if (!isNaN(Number(value))) {
@@ -245,8 +245,8 @@ function CreateForm() {
 
         {idxType === 'bloom_filter' && <div className="form-group" style={{ marginBottom: 14, maxWidth: 220 }}>
           <label className="form-label">False Positive Rate</label>
-          <input 
-            className="form-input" 
+          <input
+            className="form-input"
             type="number"
             value={bfRate}
             onChange={e => {
@@ -275,9 +275,9 @@ function CreateForm() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
               <div className="form-group">
                 <label className="form-label">Tokenizer *</label>
-                <Select 
-                  className="form-select" 
-                  value={tokenizer} 
+                <Select
+                  className="form-select"
+                  value={tokenizer}
                   onChange={e => setTokenizer(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -292,9 +292,9 @@ function CreateForm() {
               </div>
               {tokenizer === 'splitByString' && <div className="form-group">
                 <label className="form-label">Separator</label>
-                <input 
-                  className="form-input" 
-                  value={splitByStringS} 
+                <input
+                  className="form-input"
+                  value={splitByStringS}
                   onChange={e => setSplitByStringS(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -302,11 +302,11 @@ function CreateForm() {
               </div>}
               {tokenizer === 'ngrams' && <div className="form-group">
                 <label className="form-label">N</label>
-                <input 
-                  className="form-input" 
-                  type="number" 
-                  min={1} 
-                  value={ngramsN} 
+                <input
+                  className="form-input"
+                  type="number"
+                  min={1}
+                  value={ngramsN}
                   onChange={e => setNgramsN(parseInt(e.target.value) || 3)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -315,11 +315,11 @@ function CreateForm() {
               {tokenizer === 'sparseGrams' && <>
                 <div className="form-group">
                   <label className="form-label">Min Length</label>
-                  <input 
-                    className="form-input" 
-                    type="number" 
-                    min={1} 
-                    value={sparseMin} 
+                  <input
+                    className="form-input"
+                    type="number"
+                    min={1}
+                    value={sparseMin}
                     onChange={e => setSparseMin(parseInt(e.target.value) || 3)}
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -327,11 +327,11 @@ function CreateForm() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Max Length</label>
-                  <input 
-                    className="form-input" 
-                    type="number" 
-                    min={1} 
-                    value={sparseMax} 
+                  <input
+                    className="form-input"
+                    type="number"
+                    min={1}
+                    value={sparseMax}
                     onChange={e => setSparseMax(parseInt(e.target.value) || 8)}
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -339,11 +339,11 @@ function CreateForm() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Min Cutoff</label>
-                  <input 
-                    className="form-input" 
-                    type="number" 
-                    min={1} 
-                    value={sparseCutoff} 
+                  <input
+                    className="form-input"
+                    type="number"
+                    min={1}
+                    value={sparseCutoff}
                     onChange={e => setSparseCutoff(parseInt(e.target.value) || 2)}
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -352,10 +352,10 @@ function CreateForm() {
               </>}
               <div className="form-group">
                 <label className="form-label">Preprocessor (optional)</label>
-                <input 
-                  className="form-input" 
-                  value={preprocessor} 
-                  onChange={e => setPreprocessor(e.target.value)} 
+                <input
+                  className="form-input"
+                  value={preprocessor}
+                  onChange={e => setPreprocessor(e.target.value)}
                   placeholder="expression(str)"
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -363,10 +363,10 @@ function CreateForm() {
               </div>
               <div className="form-group">
                 <label className="form-label">Dict Block Size</label>
-                <input 
-                  className="form-input" 
-                  type="number" 
-                  value={dictBlockSize} 
+                <input
+                  className="form-input"
+                  type="number"
+                  value={dictBlockSize}
                   onChange={e => setDictBlockSize(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -374,10 +374,10 @@ function CreateForm() {
               </div>
               <div className="form-group">
                 <label className="form-label">Dict Frontcoding</label>
-                <input 
-                  className="form-input" 
-                  type="number" 
-                  value={dictFrontcoding} 
+                <input
+                  className="form-input"
+                  type="number"
+                  value={dictFrontcoding}
                   onChange={e => setDictFrontcoding(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -385,10 +385,10 @@ function CreateForm() {
               </div>
               <div className="form-group">
                 <label className="form-label">Posting Block Size</label>
-                <input 
-                  className="form-input" 
-                  type="number" 
-                  value={postingBlockSize} 
+                <input
+                  className="form-input"
+                  type="number"
+                  value={postingBlockSize}
                   onChange={e => setPostingBlockSize(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -396,9 +396,9 @@ function CreateForm() {
               </div>
               <div className="form-group">
                 <label className="form-label">Posting Codec</label>
-                <Select 
-                  className="form-select" 
-                  value={postingCodec} 
+                <Select
+                  className="form-select"
+                  value={postingCodec}
                   onChange={e => setPostingCodec(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -414,8 +414,8 @@ function CreateForm() {
 
         <SqlPreview sql={buildSql()} />
         <div style={{ marginTop: 16 }}>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             type="submit"
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -472,9 +472,9 @@ function MaterializeForm() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">Database *</label>
-            <Select 
-              className="form-select" 
-              value={db} 
+            <Select
+              className="form-select"
+              value={db}
               onChange={e => { setDb(e.target.value); setTbl(''); setIdxName(''); }}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -486,9 +486,9 @@ function MaterializeForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Table *</label>
-            <Select 
-              className="form-select" 
-              value={tbl} 
+            <Select
+              className="form-select"
+              value={tbl}
               onChange={e => { setTbl(e.target.value); setIdxName(''); }}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -500,9 +500,9 @@ function MaterializeForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Index *</label>
-            <Select 
-              className="form-select" 
-              value={idxName} 
+            <Select
+              className="form-select"
+              value={idxName}
               onChange={e => setIdxName(e.target.value)}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -515,9 +515,9 @@ function MaterializeForm() {
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button 
-            className="btn btn-primary" 
-            type="submit" 
+          <button
+            className="btn btn-primary"
+            type="submit"
             disabled={!sql || !isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
@@ -576,9 +576,9 @@ function DropForm() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 16 }}>
         <div className="form-group">
           <label className="form-label">Database *</label>
-          <Select 
-            className="form-select" 
-            value={dropDb} 
+          <Select
+            className="form-select"
+            value={dropDb}
             onChange={e => { setDropDb(e.target.value); setDropTbl(''); setDropIdx(''); }}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -589,9 +589,9 @@ function DropForm() {
         </div>
         <div className="form-group">
           <label className="form-label">Table *</label>
-          <Select 
-            className="form-select" 
-            value={dropTbl} 
+          <Select
+            className="form-select"
+            value={dropTbl}
             onChange={e => { setDropTbl(e.target.value); setDropIdx(''); }}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -602,9 +602,9 @@ function DropForm() {
         </div>
         <div className="form-group">
           <label className="form-label">Index *</label>
-          <Select 
-            className="form-select" 
-            value={dropIdx} 
+          <Select
+            className="form-select"
+            value={dropIdx}
             onChange={e => setDropIdx(e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -616,9 +616,9 @@ function DropForm() {
       </div>
       <SqlPreview sql={buildDropSql()} />
       <div style={{ marginTop: 16 }}>
-        <button 
-          className="btn btn-danger" 
-          onClick={executeDrop} 
+        <button
+          className="btn btn-danger"
+          onClick={executeDrop}
           disabled={!dropDb || !dropTbl || !dropIdx || !isAdmin}
           style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >

@@ -56,7 +56,7 @@ import {
 } from "../../utils/costEstimator.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { treeSizeTB } from "../../utils/treeChart.js";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
@@ -67,7 +67,6 @@ import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
-const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
 
 // Query history - stored in localStorage, capped at 100 entries
 const HISTORY_KEY = "chops_query_history";
@@ -206,13 +205,13 @@ function addHistory(entry) {
   if (h.length > HISTORY_MAX) h.length = HISTORY_MAX;
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-  } catch {}
+  } catch { }
 }
 
 function clearHistory() {
   try {
     localStorage.removeItem(HISTORY_KEY);
-  } catch {}
+  } catch { }
 }
 
 // Export helpers - trigger browser download from in-memory data function
@@ -286,14 +285,10 @@ export default function QueryEditor({
   onModeChange,
 }) {
   const toast = useToast();
-  const navigate = useNavigate();
   const {
     selectedClusterId,
     selectedNode,
-    connected,
     port,
-    clusters,
-    clusterName,
     user,
     nodeName,
   } = useConnection();
@@ -308,7 +303,6 @@ export default function QueryEditor({
     activeTab,
     runtime,
     activeRuntime,
-    runningTabs,
     canAddTab,
     updateTab,
     setRuntime,
@@ -349,17 +343,12 @@ export default function QueryEditor({
   );
   const setResult = useCallback((v) => rt({ result: v }), [rt]);
   const setResultCols = useCallback((v) => rt({ resultCols: v }), [rt]);
-  const setError = useCallback((v) => rt({ error: v }), [rt]);
   const setSuccessMsg = useCallback((v) => rt({ successMsg: v }), [rt]);
   const setQueryStats = useCallback((v) => rt({ queryStats: v }), [rt]);
   const setMemoryUsage = useCallback((v) => rt({ memoryUsage: v }), [rt]);
   const setLastQueryId = useCallback((v) => rt({ lastQueryId: v }), [rt]);
   const setFeatureQueryId = useCallback((v) => rt({ featureQueryId: v }), [rt]);
-  const setEstimateResult = useCallback((v) => rt({ estimateResult: v }), [rt]);
-  const setEstimating = useCallback((v) => rt({ estimating: v }), [rt]);
   const setGraphData = useCallback((v) => rt({ graphData: v }), [rt]);
-  const setGraphTitle = useCallback((v) => rt({ graphTitle: v }), [rt]);
-  const setRunning = useCallback((v) => rt({ running: v }), [rt]);
 
   const paramValues = activeTab.params;
 
@@ -431,7 +420,7 @@ export default function QueryEditor({
         "",
         window.location.pathname + window.location.search,
       );
-    } catch {}
+    } catch { }
   }, [tabs_, toast]);
   const setParamValue = useCallback(
     (name, value) => setParam(activeId, name, value),
@@ -463,7 +452,7 @@ export default function QueryEditor({
   const [connUser, setConnUser] = useState("");
   const [connPassword, setConnPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
-  const [connError, setConnError] = useState(null);
+  const [_, setConnError] = useState(null);
   // The editor is a CodeMirror view now, reached through an imperative handle
   // rather than three DOM refs.
   const editorRef = useRef(null);
@@ -498,7 +487,7 @@ export default function QueryEditor({
     setMaxRowsState(v);
     try {
       localStorage.setItem(MAX_ROWS_KEY, String(v));
-    } catch {}
+    } catch { }
   }, []);
   const [dbs, setDbs] = useState([]);
   const [selectedDb, setSelectedDb] = useState(null);
@@ -512,14 +501,10 @@ export default function QueryEditor({
   const [showGraphSqlModal, setShowGraphSqlModal] = useState(false);
   const graphRef = useRef(null);
   const graphInst = useRef(null);
-  const [selectedAIDB, setSelectedAIDB] = useState(null);
-  const [selectedAIDBID, setSelectedAIDBID] = useState(null);
-  const [isAILoading, setIsAILoading] = useState(false);
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
-  const [aiError, setAIError] = useState(null);
 
   const [AIdbsInfo, setAIdbsInfo] = useState([]);
 
@@ -643,10 +628,10 @@ export default function QueryEditor({
         roots.length === 1
           ? buildTreeNode(roots[0].id)
           : {
-              name: "Root",
-              itemStyle: { color: isDark ? "#64748b" : "#94a3b8" },
-              children: roots.map((r) => buildTreeNode(r.id)).filter(Boolean),
-            };
+            name: "Root",
+            itemStyle: { color: isDark ? "#64748b" : "#94a3b8" },
+            children: roots.map((r) => buildTreeNode(r.id)).filter(Boolean),
+          };
 
       const size = treeSizeTB(treeData);
       if (graphRef.current) {
@@ -664,11 +649,11 @@ export default function QueryEditor({
         {
           title: graphTitle
             ? {
-                text: graphTitle,
-                left: "center",
-                top: 8,
-                textStyle: { color: lc, fontSize: 14, fontWeight: 600 },
-              }
+              text: graphTitle,
+              left: "center",
+              top: 8,
+              textStyle: { color: lc, fontSize: 14, fontWeight: 600 },
+            }
             : undefined,
           tooltip: { trigger: "item", formatter: (p) => p.data?.name || "" },
           series: [
@@ -826,7 +811,7 @@ export default function QueryEditor({
   async function handleDisconnect() {
     try {
       await editorDisconnect();
-    } catch {}
+    } catch { }
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");
@@ -1066,7 +1051,7 @@ export default function QueryEditor({
           setEditorCreds({ user: s.chUser });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -1424,7 +1409,7 @@ export default function QueryEditor({
                 setGraphData({ _json: true, data: parsed });
                 setRunning(false);
                 return;
-              } catch {}
+              } catch { }
             }
           }
           setResult(r.rows);
@@ -1566,7 +1551,7 @@ export default function QueryEditor({
       });
       setBookmarks(updated);
       setBookmarkName("");
-    } catch {}
+    } catch { }
   }
 
   /* Write the whole bookmark list. */
@@ -1598,7 +1583,7 @@ export default function QueryEditor({
         }),
       });
       setBookmarks(updated);
-    } catch {}
+    } catch { }
   }
 
   // Insert at the caret through the editor's own transaction, so it is ONE
@@ -1609,18 +1594,18 @@ export default function QueryEditor({
 
   const shellStyle = fullscreen
     ? {
-        position: "fixed",
-        inset: 0,
-        zIndex: 900,
-        margin: 0,
-        backgroundColor: "var(--bg-page)",
-        width: "100%",
-        height: "100%",
-      }
+      position: "fixed",
+      inset: 0,
+      zIndex: 900,
+      margin: 0,
+      backgroundColor: "var(--bg-page)",
+      width: "100%",
+      height: "100%",
+    }
     : // NO HEIGHT HERE.
-      // This was 90.5vh, an inline style, which beats the stylesheet and is why
-      // fixing .editor-shell in global.css changed nothing at all.
-      {height:"90.5vh"};
+    // This was 90.5vh, an inline style, which beats the stylesheet and is why
+    // fixing .editor-shell in global.css changed nothing at all.
+    { height: "90.5vh" };
 
   const effectiveQueryId = featureQueryId || lastQueryId || qidFromUrl || null;
 
@@ -1949,7 +1934,7 @@ export default function QueryEditor({
       <div className="editor-main">
         <div className="editor-toolbar">
           <ModeSelect mode={mode} onChange={onModeChange} />
-          {}
+          { }
           {!editorConnected ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span
@@ -1958,7 +1943,7 @@ export default function QueryEditor({
                 <Icon
                   className="ti ti-user"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
+                // aria-hidden="true"
                 ></Icon>
                 <input
                   className="form-input"
@@ -1985,7 +1970,7 @@ export default function QueryEditor({
                 <Icon
                   className="ti ti-lock"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
+                // aria-hidden="true"
                 ></Icon>
                 <div
                   style={{
@@ -2233,7 +2218,7 @@ export default function QueryEditor({
                   EDITOR_HEIGHT_KEY,
                   String(EDITOR_HEIGHT_DEFAULT),
                 );
-              } catch {}
+              } catch { }
             }}
             onMouseDown={(e) => {
               e.preventDefault();
@@ -2265,7 +2250,7 @@ export default function QueryEditor({
                 setEditorHeight((h) => {
                   try {
                     localStorage.setItem(EDITOR_HEIGHT_KEY, String(h));
-                  } catch {}
+                  } catch { }
                   return h;
                 });
               };
@@ -3329,7 +3314,7 @@ export default function QueryEditor({
           </div>
         </div>
       )}
-      
+
       {previewOpen && (
         <div className="modal-overlay" onClick={() => setPreviewOpen(false)}>
           <div
@@ -3367,9 +3352,9 @@ export default function QueryEditor({
                 <Icon className="ti ti-x"></Icon>
               </button>
             </div>
-            
-             <QueryPreviewPanel sql={sql} values={paramValues} />
-            
+
+            <QueryPreviewPanel sql={sql} values={paramValues} />
+
           </div>
         </div>
       )}
@@ -3473,7 +3458,7 @@ export default function QueryEditor({
           setMaxRowsState(v);
           try {
             localStorage.setItem(MAX_ROWS_KEY, String(v));
-          } catch {}
+          } catch { }
         }}
       />
 

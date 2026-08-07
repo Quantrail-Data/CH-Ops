@@ -12,7 +12,7 @@ import { treeSize, treeSeries } from "../../utils/treeChart.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
-import { useTheme, useAuth } from "../../App.jsx";
+import { useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 
@@ -208,7 +208,6 @@ function ViewProjections() {
     projQ = useQuery();
   const chartRef = useRef(null),
     chartInst = useRef(null);
-  const { theme } = useTheme();
   useEffect(() => {
     dbsQ.execute(
       "SELECT DISTINCT database FROM system.projections ORDER BY database",
@@ -314,7 +313,7 @@ function ViewProjections() {
         chartInst.current.setOption({ series: [updatedSeries] }, true);
         chartInst.current.resize();
       }
-    } catch (e) {}
+    } catch (e) { }
     const bg = isDark ? "#000000" : "#ffffff";
     const url = chartInst.current.getDataURL({
       type: "png",
@@ -374,18 +373,20 @@ function ViewProjections() {
           style={
             fullscreen
               ? {
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 9999,
-                  background: "var(--bg-page)",
-                  borderRadius: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }
-              : {padding: 16,
-          marginBottom: 20,
-          height:"35rem",
-          overflow:"auto"}
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                background: "var(--bg-page)",
+                borderRadius: 0,
+                display: "flex",
+                flexDirection: "column",
+              }
+              : {
+                padding: 16,
+                marginBottom: 20,
+                height: "35rem",
+                overflow: "auto"
+              }
           }
         >
           <div
@@ -449,16 +450,16 @@ function ViewProjections() {
             style={
               fullscreen
                 ? {
-                    overflow: "auto",
-                    flex: 1,
-                    display: "flex",
-                    justifyContent: "center",
-                  }
+                  overflow: "auto",
+                  flex: 1,
+                  display: "flex",
+                  justifyContent: "center",
+                }
                 : {
-                    overflowX: "auto",
-                    display: "flex",
-                    justifyContent: "center",
-                  }
+                  overflowX: "auto",
+                  display: "flex",
+                  justifyContent: "center",
+                }
             }
           >
             <div ref={chartRef} />

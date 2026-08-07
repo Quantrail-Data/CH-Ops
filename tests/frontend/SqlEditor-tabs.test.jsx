@@ -1,6 +1,6 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import React, { createRef, useState } from "react";
 import { render, act, fireEvent } from "@testing-library/react";
 import { undo, isolateHistory } from "@codemirror/commands";
@@ -122,9 +122,9 @@ describe("tab mode", () => {
     // Not directly observable; assert the editor survives a shrinking key list.
     const ref = createRef();
     const { rerender } = render(
-      <SqlEditor ref={ref} docKey="a" docKeys={["a", "b"]} value="X" onChange={() => {}} />,
+      <SqlEditor ref={ref} docKey="a" docKeys={["a", "b"]} value="X" onChange={() => { }} />,
     );
-    rerender(<SqlEditor ref={ref} docKey="a" docKeys={["a"]} value="X" onChange={() => {}} />);
+    rerender(<SqlEditor ref={ref} docKey="a" docKeys={["a"]} value="X" onChange={() => { }} />);
     expect(ref.current.getView().state.doc.toString()).toBe("X");
   });
 });
@@ -132,8 +132,8 @@ describe("tab mode", () => {
 describe("non-tab mode is unchanged", () => {
   it("stays controlled when docKey is absent", () => {
     const ref = createRef();
-    const { rerender } = render(<SqlEditor ref={ref} value="AAA" onChange={() => {}} />);
-    rerender(<SqlEditor ref={ref} value="BBB" onChange={() => {}} />);
+    const { rerender } = render(<SqlEditor ref={ref} value="AAA" onChange={() => { }} />);
+    rerender(<SqlEditor ref={ref} value="BBB" onChange={() => { }} />);
     expect(ref.current.getView().state.doc.toString()).toBe("BBB");
   });
 });

@@ -21,7 +21,6 @@ import { beforeEach, describe, it, expect, mock } from "bun:test";
 const {
   getNodeByName,
   getClusterById,
-  getAllClusters,
   saveClusters,
   MAX_CLUSTERS,
   MAX_TOTAL_NODES,

@@ -447,7 +447,7 @@ export function validateColumnType(data, colName, expect) {
       return `Column "${colName}" should be numeric but contains non-numeric values`;
   }
   if (expect === "string") {
-    const allString = sample.every(
+    sample.every(
       (v) => typeof v === "string" || isNaN(parseFloat(v)),
     );
   }
@@ -921,12 +921,12 @@ export function buildChartOption(
         legend:
           showLegend !== false
             ? {
-                show: true,
-                orient: "vertical",
-                left: "left",
-                top: "middle",
-                type: "scroll",
-              }
+              show: true,
+              orient: "vertical",
+              left: "left",
+              top: "middle",
+              type: "scroll",
+            }
             : { show: false },
         series: [
           {
@@ -1154,15 +1154,15 @@ export function buildChartOption(
         toolbox,
         dataZoom: hasZoom
           ? [
-              {
-                type: "slider",
-                xAxisIndex: 0,
-                start: 0,
-                end: 100,
-                bottom: 10,
-                height: 20,
-              },
-            ]
+            {
+              type: "slider",
+              xAxisIndex: 0,
+              start: 0,
+              end: 100,
+              bottom: 10,
+              height: 20,
+            },
+          ]
           : [],
         grid: { ...grid, bottom: 80 },
         xAxis: {

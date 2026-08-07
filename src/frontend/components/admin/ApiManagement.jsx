@@ -20,7 +20,6 @@ export default function ApiManagement() {
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedKeyId, setSelectedKeyId] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [editingKey, setEditingKey] = useState(null);
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -82,7 +81,7 @@ export default function ApiManagement() {
             : null;
           if (stored === "dark") return true;
           if (stored === "light") return false;
-        } catch (e) {}
+        } catch (e) { }
       }
       if (typeof window !== "undefined" && window.matchMedia) {
         return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -175,35 +174,6 @@ export default function ApiManagement() {
     }
   }
 
-  function validateApiKey(keyValue) {
-    if (isOllama) {
-      try {
-        const url = new URL(keyValue.trim());
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
-    } else if (keyValue.startsWith("sk-")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else if (keyValue.startsWith("AIza")) {
-      return keyValue.length >= 35 && keyValue.length <= 200;
-    } else if (keyValue.startsWith("xai-")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else if (keyValue.startsWith("hf_")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    }
-  }
-
-  function getApiTypeMessage(keyValue) {
-    if (isOllama) return "Ollama base URL";
-    if (keyValue.startsWith("sk-")) return "OpenAI API key";
-    if (keyValue.startsWith("AIza")) return "Google Gemini API key";
-    if (keyValue.startsWith("xai-")) return "X.AI API key";
-    if (keyValue.startsWith("hf_")) return "Hugging Face API key";
-    return "Generic API key";
-  }
 
   function isDuplicateName(name, excludeId = null) {
     return apiKeys.some(
@@ -213,20 +183,6 @@ export default function ApiManagement() {
     );
   }
 
-  async function checkDuplicateValue(value, excludeId = null) {
-    try {
-      const response = await apiFetch("/api/qurioz/api-keys/with-values");
-      if (response && response.apiKeys) {
-        const duplicate = response.apiKeys.some(
-          (key) => key.key === value.trim() && key.id !== excludeId,
-        );
-        return duplicate;
-      }
-    } catch (err) {
-      console.log("Failed to check duplicate values");
-    }
-    return false;
-  }
 
   async function saveApiKey(e) {
     e.preventDefault();
@@ -285,7 +241,7 @@ export default function ApiManagement() {
         await apiFetch(`/api/qurioz/api-keys/${editingKey.id}`, {
           method: "PUT",
           body: JSON.stringify({
-            name:formAPIName.trim(),
+            name: formAPIName.trim(),
             provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
@@ -297,7 +253,7 @@ export default function ApiManagement() {
         await apiFetch("/api/qurioz/api-keys", {
           method: "POST",
           body: JSON.stringify({
-            name:formAPIName.trim(),
+            name: formAPIName.trim(),
             provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
@@ -306,7 +262,7 @@ export default function ApiManagement() {
 
         toast.success("API key added successfully");
       }
-      setFormAPIName("")
+      setFormAPIName("");
       setFormAIProvider("");
       setFormKeyValue("");
       setFormModelValue("");
@@ -410,34 +366,6 @@ export default function ApiManagement() {
     setKeyValidationStatus(null);
   }
 
-  function maskApiKey(key) {
-    if (!key) return "";
-    if (key.startsWith("AIza")) {
-      if (key.length <= 40) {
-        return (
-          key.substring(0, 10) +
-          "••••••••••••••••••••" +
-          key.substring(key.length - 6)
-        );
-      }
-      return (
-        key.substring(0, 10) +
-        "•••••••••••••••••••••••••••" +
-        key.substring(key.length - 6)
-      );
-    }
-    if (key.startsWith("sk-")) {
-      return (
-        key.substring(0, 8) +
-        "•••••••••••••••••••••••••••" +
-        key.substring(key.length - 4)
-      );
-    }
-    if (key.length <= 30) {
-      return "•".repeat(20);
-    }
-    return "•".repeat(30);
-  }
 
   if (loading) {
     return (
@@ -584,7 +512,7 @@ export default function ApiManagement() {
 
   async function verifyAPIKeyHandler(e) {
     e.preventDefault();
-    setISvalidKey(false)
+    setISvalidKey(false);
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
     if (formAIProvider.trim() && formKeyValue.trim() && formModelValue.trim()) {
@@ -615,7 +543,7 @@ export default function ApiManagement() {
         const successMessage = `API key verified successfully. You can now ${editingKey ? 'update' : 'add'} it.`;
         setKeyValidationStatus("success");
         setKeyValidationMessage(successMessage);
-        toast?.success(successMessage)
+        toast?.success(successMessage);
         return;
       } catch (err) {
         setISvalidKey(false);
@@ -780,20 +708,20 @@ export default function ApiManagement() {
                 Name{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={formAPIName}
-                  onChange={(e) => setFormAPIName(e.target.value)}
-                  placeholder="Enter the Name"
-                  required
-                  autoFocus
-                  style={{
-                    width: "100%",
-                    maxWidth: 520,
-                    fontSize: "14px",
-                  }}
-                />
+              <input
+                className="form-input"
+                type="text"
+                value={formAPIName}
+                onChange={(e) => setFormAPIName(e.target.value)}
+                placeholder="Enter the Name"
+                required
+                autoFocus
+                style={{
+                  width: "100%",
+                  maxWidth: 520,
+                  fontSize: "14px",
+                }}
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
@@ -977,7 +905,7 @@ export default function ApiManagement() {
                 >
                   {isLoadingKey ? (
 
-                     <div className="loading-spinner"></div>
+                    <div className="loading-spinner"></div>
 
                   ) : (
                     <>

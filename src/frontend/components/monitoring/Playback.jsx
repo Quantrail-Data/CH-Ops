@@ -410,13 +410,13 @@ function buildBandOption(label, rows, frameT) {
   const markLine =
     frameT != null
       ? {
-          silent: true,
-          symbol: "none",
-          lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
-          data: [{ xAxis: frameT * 1000 }],
-          label: { show: false },
-          animation: false,
-        }
+        silent: true,
+        symbol: "none",
+        lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
+        data: [{ xAxis: frameT * 1000 }],
+        label: { show: false },
+        animation: false,
+      }
       : undefined;
 
   return {
@@ -519,13 +519,13 @@ function buildStackedAreaOption(chart, rows, frameT) {
   const markLine =
     frameT != null
       ? {
-          silent: true,
-          symbol: "none",
-          lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
-          data: [{ xAxis: frameT * 1000 }],
-          label: { show: false },
-          animation: false,
-        }
+        silent: true,
+        symbol: "none",
+        lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
+        data: [{ xAxis: frameT * 1000 }],
+        label: { show: false },
+        animation: false,
+      }
       : undefined;
 
   if (!rows?.length) {
@@ -591,12 +591,12 @@ function buildStackedAreaOption(chart, rows, frameT) {
       graphic:
         frameT != null
           ? [
-              {
-                type: "line",
-                shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
-                invisible: true,
-              },
-            ]
+            {
+              type: "line",
+              shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
+              invisible: true,
+            },
+          ]
           : [],
     };
   }
@@ -915,11 +915,6 @@ function buildChartOption(chart, rows, frameT) {
 
 // INSPECTION POPUP COMPONENT
 
-const LOG_LEVEL_COLORS = {
-  Error: "#ef4444",
-  Critical: "#dc2626",
-  Fatal: "#991b1b",
-};
 
 function InspectionPopup({
   type,
@@ -929,7 +924,7 @@ function InspectionPopup({
   onClose,
   frameTimestamp,
 }) {
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [_, setExpandedRow] = useState(null);
 
   useEffect(() => {
     setExpandedRow(null);
@@ -952,7 +947,7 @@ function InspectionPopup({
     <div className="profiler-popup-overlay" onClick={onClose}>
       <div
         className="playback-inspection-popup"
-        style={{backgroundColor:"var(--bg-page)"}}
+        style={{ backgroundColor: "var(--bg-page)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="profiler-popup-header">
@@ -1008,7 +1003,7 @@ function InspectionPopup({
 
         {!loading && rows.length > 0 && (
           <div className="playback-inspection-table-wrap">
-            <DataTable rows={rows} columns={type=="failed_queries" ? ["initial_user","query","exception"]:["level","logger_name","message"]} emptyMessage={"No error logs at this timestamp."} />
+            <DataTable rows={rows} columns={type == "failed_queries" ? ["initial_user", "query", "exception"] : ["level", "logger_name", "message"]} emptyMessage={"No error logs at this timestamp."} />
             {/* <table
               className="data-table"
               style={{
@@ -1473,7 +1468,7 @@ export default function Playback() {
         >
           <DateTimePicker label="From" value={from} onChange={setFrom} />
           <DateTimePicker label="To" value={to} onChange={setTo} />
-          <div className="form-group" style={{ minWidth: 100,paddingBottom:"4px" }}>
+          <div className="form-group" style={{ minWidth: 100, paddingBottom: "4px" }}>
             <label className="form-label">Step</label>
             <Select
               className="form-select cui-sm"
@@ -1487,7 +1482,7 @@ export default function Playback() {
               ))}
             </Select>
           </div>
-          <div className="form-group" style={{paddingBottom:"4px"}}>
+          <div className="form-group" style={{ paddingBottom: "4px" }}>
             <button
               className="btn btn-primary"
               onClick={handleFetch}
@@ -1661,9 +1656,9 @@ export default function Playback() {
                   minWidth: 36,
                   padding: "2px 5px",
                   fontSize: "11px",
-                  display:"flex",
-                  alignItems:"center",
-                  justifyContent:"center"
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
                 }}
               >
                 {s.label}

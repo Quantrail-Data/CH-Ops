@@ -1,7 +1,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
 import { describe, it, expect } from "vitest";
-import React, { createRef } from "react";
+import React from "react";
 import { render } from "@testing-library/react";
 import SqlEditor from "../../src/frontend/components/editor/SqlEditor.jsx";
 
@@ -15,7 +15,7 @@ describe("what actually renders", () => {
     render(
       <SqlEditor
         value="SELECT count() FROM system.tables WHERE a = 'x' AND b = 42"
-        onChange={() => {}}
+        onChange={() => { }}
         dialectData={{ keywords: ["select", "from", "where", "and"], functions: ["count"] }}
       />,
     );
@@ -41,7 +41,7 @@ describe("what actually renders", () => {
     render(
       <SqlEditor
         value="SELECT * FROM system.tables"
-        onChange={() => {}}
+        onChange={() => { }}
         dialectData={{ keywords: ["select", "from"], functions: [] }}
       />,
     );
@@ -50,7 +50,7 @@ describe("what actually renders", () => {
   });
 
   it("emits a colour for every role", () => {
-    render(<SqlEditor value="SELECT 1" onChange={() => {}} />);
+    render(<SqlEditor value="SELECT 1" onChange={() => { }} />);
     const css = [...document.querySelectorAll("style")].map((s) => s.textContent).join("\n");
     for (const v of [
       "--sql-keyword", "--sql-function", "--sql-identifier", "--sql-qualifier",

@@ -28,12 +28,12 @@ export default function AllCharts({ onEdit }) {
   const previewTools = useChartTools(() => previewInst.current, { filename: 'chart' });
   const [del, setDel] = useState(null);
 
-  const { theme } = useTheme()
+  const { theme } = useTheme();
 
   const isDarkColor = theme === 'dark' ? 'white' : 'black';
 
   const legendSupportedTypes = [
-    'grouped_bar', 'stacked_bar', 
+    'grouped_bar', 'stacked_bar',
     'multi_line', 'stacked_line',
     'pie', 'donut', 'rose', 'nested_pie',
     'bubble',
@@ -71,7 +71,7 @@ export default function AllCharts({ onEdit }) {
       const deduped = Array.from(byKey.values());
       setCharts(deduped);
       setDashboards(d);
-    } catch {}
+    } catch { }
   }
   useEffect(() => { load(); }, []);
 
@@ -121,9 +121,9 @@ export default function AllCharts({ onEdit }) {
 
   useEffect(() => {
     if (!previewRef.current || !previewOpt || previewOpt._kpi || previewOpt._table || previewOpt._error) {
-      if (previewInst.current) { 
-        disposeChart(previewRef.current); 
-        previewInst.current = null; 
+      if (previewInst.current) {
+        disposeChart(previewRef.current);
+        previewInst.current = null;
       }
       return;
     }
@@ -132,9 +132,9 @@ export default function AllCharts({ onEdit }) {
 
   function buildChart() {
     if (!previewRef.current || !previewOpt || previewOpt._kpi || previewOpt._table || previewOpt._error) {
-      if (previewInst.current) { 
-        disposeChart(previewRef.current); 
-        previewInst.current = null; 
+      if (previewInst.current) {
+        disposeChart(previewRef.current);
+        previewInst.current = null;
       }
       return;
     }
@@ -152,44 +152,44 @@ export default function AllCharts({ onEdit }) {
 
       const resolvedLegend = previewTools.fullscreen
         ? {
+          ...previewOpt?.legend,
+          show: supportsLegend && hasLegend && showLegend,
+          type: 'scroll',
+          orient: 'vertical',
+          left: 0,
+          top: 8,
+          bottom: 8,
+          width: 220,
+          textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor }
+        }
+        : isSmallScreen
+          ? {
             ...previewOpt?.legend,
             show: supportsLegend && hasLegend && showLegend,
             type: 'scroll',
-            orient: 'vertical',
+            orient: 'horizontal',
             left: 0,
-            top: 8,
-            bottom: 8,
-            width: 220,
+            right: 0,
+            top: 0,
+            width: '100%',
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
             textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor }
           }
-        : isSmallScreen
-          ? {
-              ...previewOpt?.legend,
-              show: supportsLegend && hasLegend && showLegend,
-              type: 'scroll',
-              orient: 'horizontal',
-              left: 0,
-              right: 0,
-              top: 0,
-              width: '100%',
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor }
-            }
           : {
-              ...previewOpt?.legend,
-              show: supportsLegend && hasLegend && showLegend,
-              type: 'scroll',
-              left: 0,
-              right: 0,
-              top: 0,
-              orient: "horizontal",
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor }
-            };
+            ...previewOpt?.legend,
+            show: supportsLegend && hasLegend && showLegend,
+            type: 'scroll',
+            left: 0,
+            right: 0,
+            top: 0,
+            orient: "horizontal",
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
+            textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor }
+          };
 
       const gridTop = previewTools.fullscreen
         ? 24
@@ -231,34 +231,58 @@ export default function AllCharts({ onEdit }) {
         ...baseOption,
         grid: Array.isArray(baseOption.grid)
           ? baseOption.grid.map((g) => ({
-              ...g,
-              containLabel: true,
-              top: gridTop,
-              left: gridLeft,
-              right: 24,
-              bottom: Math.max(parseInt(g?.bottom, 10) || 18, isBarChart ? 120 : 70),
-            }))
+            ...g,
+            containLabel: true,
+            top: gridTop,
+            left: gridLeft,
+            right: 24,
+            bottom: Math.max(parseInt(g?.bottom, 10) || 18, isBarChart ? 120 : 70),
+          }))
           : {
-              ...baseOption.grid,
-              containLabel: true,
-              top: gridTop,
-              left: gridLeft,
-              right: 24,
-              bottom: Math.max(
-                parseInt(baseOption?.grid?.bottom, 10) || 18,
-                isBarChart ? 120 : 70,
-              ),
-            },
+            ...baseOption.grid,
+            containLabel: true,
+            top: gridTop,
+            left: gridLeft,
+            right: 24,
+            bottom: Math.max(
+              parseInt(baseOption?.grid?.bottom, 10) || 18,
+              isBarChart ? 120 : 70,
+            ),
+          },
         xAxis: Array.isArray(baseOption.xAxis)
           ? baseOption.xAxis.map((axis) => ({
-              ...axis,
+            ...axis,
+            nameLocation: "middle",
+            nameGap: isBarChart ? 100 : Math.max(axis?.nameGap || 25, 42),
+            axisLabel: {
+              ...axis?.axisLabel,
+              rotate: isBarChart ? 45 : 0,
+              align: isBarChart ? 'right' : 'left',
+              margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
+              hideOverlap: false,
+              color: isDarkColor,
+              interval: axisInterval,
+              formatter: (v) => {
+                try {
+                  const s = String(v);
+                  return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                } catch { return v; }
+              },
+            },
+          }))
+          : baseOption.xAxis
+            ? {
+              ...baseOption.xAxis,
               nameLocation: "middle",
-              nameGap: isBarChart ? 100 : Math.max(axis?.nameGap || 25, 42),
+              nameGap: isBarChart ? 100 : Math.max(baseOption?.xAxis?.nameGap || 25, 42),
               axisLabel: {
-                ...axis?.axisLabel,
+                ...baseOption?.xAxis?.axisLabel,
                 rotate: isBarChart ? 45 : 0,
                 align: isBarChart ? 'right' : 'left',
-                margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
+                margin: Math.max(
+                  baseOption?.xAxis?.axisLabel?.margin || 8,
+                  isBarChart ? 20 : 14,
+                ),
                 hideOverlap: false,
                 color: isDarkColor,
                 interval: axisInterval,
@@ -269,67 +293,43 @@ export default function AllCharts({ onEdit }) {
                   } catch { return v; }
                 },
               },
-            }))
-          : baseOption.xAxis
-            ? {
-                ...baseOption.xAxis,
-                nameLocation: "middle",
-                nameGap: isBarChart ? 100 : Math.max(baseOption?.xAxis?.nameGap || 25, 42),
-                axisLabel: {
-                  ...baseOption?.xAxis?.axisLabel,
-                  rotate: isBarChart ? 45 : 0,
-                  align: isBarChart ? 'right' : 'left',
-                  margin: Math.max(
-                    baseOption?.xAxis?.axisLabel?.margin || 8,
-                    isBarChart ? 20 : 14,
-                  ),
-                  hideOverlap: false,
-                  color: isDarkColor,
-                  interval: axisInterval,
-                  formatter: (v) => {
-                    try {
-                      const s = String(v);
-                      return s.length > 20 ? s.slice(0, 17) + "…" : s;
-                    } catch { return v; }
-                  },
-                },
-                nameTextStyle: {
-                  color: isDarkColor,
-                  fontSize: 10,
-                  fontWeight: 'bold'
-                }
-              }
-            : baseOption.xAxis,
-        yAxis: Array.isArray(baseOption.yAxis)
-          ? baseOption.yAxis.map((axis) => ({
-              ...axis,
-              axisLabel: {
-                ...axis?.axisLabel,
-                color: isDarkColor,
-              },
-              nameLocation: axis?.nameLocation || 'middle',
-              nameGap: Math.max(axis?.nameGap || 25, 42),
               nameTextStyle: {
                 color: isDarkColor,
                 fontSize: 10,
                 fontWeight: 'bold'
               }
-            }))
+            }
+            : baseOption.xAxis,
+        yAxis: Array.isArray(baseOption.yAxis)
+          ? baseOption.yAxis.map((axis) => ({
+            ...axis,
+            axisLabel: {
+              ...axis?.axisLabel,
+              color: isDarkColor,
+            },
+            nameLocation: axis?.nameLocation || 'middle',
+            nameGap: Math.max(axis?.nameGap || 25, 42),
+            nameTextStyle: {
+              color: isDarkColor,
+              fontSize: 10,
+              fontWeight: 'bold'
+            }
+          }))
           : baseOption.yAxis
             ? {
-                ...baseOption.yAxis,
-                axisLabel: {
-                  ...baseOption?.yAxis?.axisLabel,
-                  color: isDarkColor,
-                },
-                nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
-                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, 42),
-                nameTextStyle: {
-                  color: isDarkColor,
-                  fontSize: 10,
-                  fontWeight: 'bold'
-                }
+              ...baseOption.yAxis,
+              axisLabel: {
+                ...baseOption?.yAxis?.axisLabel,
+                color: isDarkColor,
+              },
+              nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
+              nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, 42),
+              nameTextStyle: {
+                color: isDarkColor,
+                fontSize: 10,
+                fontWeight: 'bold'
               }
+            }
             : baseOption.yAxis,
       };
 
@@ -453,9 +453,9 @@ export default function AllCharts({ onEdit }) {
 
   useEffect(() => {
     if (!previewRef.current || !previewOpt || previewOpt._kpi || previewOpt._table || previewOpt._error) {
-      if (previewInst.current) { 
-        disposeChart(previewRef.current); 
-        previewInst.current = null; 
+      if (previewInst.current) {
+        disposeChart(previewRef.current);
+        previewInst.current = null;
       }
       return;
     }
@@ -465,14 +465,14 @@ export default function AllCharts({ onEdit }) {
   useEffect(() => () => { if (previewRef.current) disposeChart(previewRef.current); }, []);
   useEffect(() => { const t = setTimeout(() => previewInst.current?.resize(), 150); return () => clearTimeout(t); }, [previewTools.fullscreen, showLegend, isSmallScreen]);
 
-  async function performDeleteChartById(id) { 
-    try { 
-      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} }); 
-      setSelected(null); 
-      setPreviewOpt(null); 
-      await load(); 
-    } catch (e) { /* preserve behavior and don't throw */ } 
-    finally { setDel(null); } 
+  async function performDeleteChartById(id) {
+    try {
+      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} });
+      setSelected(null);
+      setPreviewOpt(null);
+      await load();
+    } catch (e) { /* preserve behavior and don't throw */ }
+    finally { setDel(null); }
   }
 
   const dashMap = Object.fromEntries(dashboards.map(d => [d.id, d.name]));

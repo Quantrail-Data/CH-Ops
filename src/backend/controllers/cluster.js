@@ -7,8 +7,6 @@ import {
   saveClusters,
   MAX_CLUSTERS,
   MAX_TOTAL_NODES,
-  getClusterById,
-  getNodeByName,
   maskClusterPasswords,
 } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";

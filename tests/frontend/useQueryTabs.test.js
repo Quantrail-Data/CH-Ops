@@ -214,7 +214,7 @@ describe("parameter values: per tab, seeded", () => {
   it("writes only to the tab it was given", () => {
     const { result } = setup();
     act(() => { result.current.addTab(); });
-    const [first, second] = result.current.tabs;
+    const [first] = result.current.tabs;
     act(() => { result.current.setParam(first.id, "tenant", "acme"); });
     expect(result.current.tabs[0].params.tenant).toBe("acme");
     expect(result.current.tabs[1].params.tenant).toBeUndefined();
@@ -242,7 +242,7 @@ describe("parameter values: per tab, seeded", () => {
     // The rule that makes side-by-side comparison work.
     const { result } = setup();
     act(() => { result.current.addTab(); });
-    const [a, b] = result.current.tabs;
+    const [_, b] = result.current.tabs;
     act(() => { result.current.setParam(b.id, "tenant", "globex"); });
     expect(result.current.tabs[0].params.tenant).toBeUndefined();
     expect(JSON.parse(localStorage.getItem(PARAM_SEED_KEY)).tenant).toBe("globex");
@@ -253,7 +253,7 @@ describe("EXPLAIN options: per tab, seeded the same way", () => {
   it("ticks on one tab only", () => {
     const { result } = setup();
     act(() => { result.current.addTab(); });
-    const [a, b] = result.current.tabs;
+    const [a,] = result.current.tabs;
     act(() => { result.current.toggleExplainOption(a.id, "indexes"); });
     expect(result.current.tabs[0].explainTicked.indexes).toBe(true);
     expect(result.current.tabs[1].explainTicked.indexes).toBeFalsy();

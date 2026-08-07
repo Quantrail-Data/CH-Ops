@@ -12,8 +12,7 @@ import DataTable from "../layout/DataTable.jsx";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
-import { useAuth, useConnection } from "../../App.jsx";
-import { apiFetch } from "../../utils/api.js";
+import { useAuth } from "../../App.jsx";
 import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -715,10 +714,10 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
             {openInfo && (
               <div
                 className="alert-banner info"
-                style={{ marginTop: "0px", fontSize: "12px",padding:"6px" }}
+                style={{ marginTop: "0px", fontSize: "12px", padding: "6px" }}
               >
                 <Icon
-                  style={{ fontSize: "15px",paddingTop:"2px" }}
+                  style={{ fontSize: "15px", paddingTop: "2px" }}
                   className="ti ti-info-circle"
                 ></Icon>
                 <span>

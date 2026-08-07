@@ -9,7 +9,6 @@ import { apiFetch } from '../../utils/api.js';
 import { useToast } from '../layout/Toast.jsx';
 import { useAuth } from '../../App.jsx';
 
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -17,7 +16,6 @@ export default function AppDataBackup() {
   const toast = useToast();
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
   const isSuperAdmin = myRole === 'superadmin';
   const [profiles, setProfiles] = useState([]);
   const [selectedProfile, setSelectedProfile] = useState('');
@@ -26,7 +24,7 @@ export default function AppDataBackup() {
   const [backing, setBacking] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
   const [loaded, setLoaded] = useState(false);
- 
+
   const [config, setConfig] = useState({ enabled: false, profileName: '', frequency: 'daily', backupHour: 2, weekday: 0 });
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -165,7 +163,7 @@ export default function AppDataBackup() {
               <div className="form-group">
                 <label className="form-label" style={{ visibility: 'hidden', display: 'block', height: '20px' }}></label>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', margin: 0 }}>
-                  <div 
+                  <div
                     className={`toggle-switch ${config.enabled ? 'active' : ''}`}
                     onClick={() => setConfig(c => ({ ...c, enabled: !c.enabled }))}
                     style={{
@@ -274,14 +272,14 @@ export default function AppDataBackup() {
 
                 <p style={{ fontWeight: 700, marginBottom: 6 }}>1. Download the backup file from S3</p>
                 <pre style={{ background: 'var(--bg-sunken)', padding: 12, borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', marginBottom: 16, overflowX: 'auto' }}>
-{`# Using AWS CLI (works with any S3-compatible storage)
+                  {`# Using AWS CLI (works with any S3-compatible storage)
 aws s3 cp s3://YOUR_BUCKET/chops-app-backups/BACKUP_ID.db ./chops-restore.db \\
   --endpoint-url YOUR_ENDPOINT`}
                 </pre>
 
                 <p style={{ fontWeight: 700, marginBottom: 6 }}>2. Stop the server</p>
                 <pre style={{ background: 'var(--bg-sunken)', padding: 12, borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', marginBottom: 16, overflowX: 'auto' }}>
-{`# Dev mode (Ctrl+C to stop, then):
+                  {`# Dev mode (Ctrl+C to stop, then):
 # If using bun run dev, just stop the process
 
 # Production (systemd)
@@ -293,7 +291,7 @@ sudo systemctl stop chops
 
                 <p style={{ fontWeight: 700, marginBottom: 6 }}>3. Replace the database</p>
                 <pre style={{ background: 'var(--bg-sunken)', padding: 12, borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', marginBottom: 16, overflowX: 'auto' }}>
-{`# Remove WAL and SHM files (they contain unflushed data from the old DB)
+                  {`# Remove WAL and SHM files (they contain unflushed data from the old DB)
 rm -f data/chops.db-wal data/chops.db-shm
 
 # Decode the base64 text back to a real SQLite binary
@@ -305,7 +303,7 @@ cp chops_decoded.db data/chops.db`}
 
                 <p style={{ fontWeight: 700, marginBottom: 6 }}>4. Restart the server</p>
                 <pre style={{ background: 'var(--bg-sunken)', padding: 12, borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', marginBottom: 16, overflowX: 'auto' }}>
-{`# Dev mode
+                  {`# Dev mode
 bun run dev
 
 # Production (systemd)

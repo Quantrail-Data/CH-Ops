@@ -4,7 +4,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Icon from "../common/Icon.jsx";
@@ -385,7 +385,6 @@ export default function DataTable({
     return () => document.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
-  const renderRow = useCallback((row, ri) => row, []);
 
   // Primitive cell click: preserve existing behavior (toggle wrap + copy/toast).
   function handlePrimitiveClick(cellKey, value) {
