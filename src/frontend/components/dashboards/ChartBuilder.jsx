@@ -1449,35 +1449,76 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   </div>
                 )}
                 {chartOption?._kpi && (
+                  chartOption?.isArray ? <div
+                    className="alert-banner danger"
+                    style={{ fontSize: "13px" }}
+                  >
+                    <Icon className="ti ti-alert-circle"></Icon>{" "}
+                    {chartOption.message}
+                  </div> :
                   <div
                     style={{
                       display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
                       justifyContent: "center",
-                      padding: 40,
+                      alignItems: "center",
+                      height: "90%",
+                      padding: "24px",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: "13px",
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.06em",
-                        marginBottom: 8,
+                        minWidth: "280px",
+                        padding: "28px 36px",
+                        borderRadius: "18px",
+                        background: "var(--surface)",
+                        border: "1px solid var(--border-color)",
+                        boxShadow: "var(--shadow-md)",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px",
                       }}
                     >
-                      {chartOption.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "2.5rem",
-                        fontWeight: 800,
-                        color: "var(--accent)",
-                        fontFamily: "var(--font-table)",
-                      }}
-                    >
-                      {chartOption.value}
+                      <div
+                        style={{
+                          width: "48px",
+                          height: "4px",
+                          borderRadius: "999px",
+                          background: "var(--accent)",
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.12em",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {chartOption.label}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "3.5rem",
+                          fontWeight: 800,
+                          color: "var(--accent)",
+                          lineHeight: 1,
+                          fontFamily: "var(--font-table)",
+                        }}
+                      >
+                        {chartOption.value}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "0.9rem",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Current Value
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1528,7 +1569,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         }}
                       >
                         {!chartOption && (
-                          <div className="empty-state" style={{ padding: 16 }}>
+                          <div className="empty-state" style={{ padding: 16 , height:"80%" }}>
                             <Icon className="ti ti-chart-dots"></Icon>
                             <p style={{ fontSize: "13px" }}>
                               Map columns to see preview.
