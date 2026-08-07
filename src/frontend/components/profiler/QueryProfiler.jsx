@@ -157,19 +157,21 @@ LIMIT 500`.trim();
 }
 
 function buildFullQuerySql(queryId) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
+
   return `SELECT formatQuery(query) as query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 
 function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
 
-  let traceFilter = "";
+
+  let traceFilter;
   if (traceType) {
     traceFilter = `\n  AND trace_type = '${traceType}'`;
   }
 
-  let contextFilter = "";
+  let contextFilter;
   if (memoryContext && supportsMemoryContext(traceType)) {
     contextFilter = `\n  AND memory_context = '${memoryContext}'`;
   }

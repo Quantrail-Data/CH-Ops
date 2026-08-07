@@ -751,7 +751,7 @@ function ProcessorsProfileInner() {
             <div className="alert-banner info" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h5>Query ID : {qidFromUrl}</h5>
               <div onClick={() => {
-                window?.navigator?.clipboard?.writeText(qidFromUrl && qidFromUrl);
+                window?.navigator?.clipboard?.writeText(qidFromUrl ? qidFromUrl : '');
                 toast.success('Query ID copied!')
               }}>
                 <Icon className="ti ti-copy"></Icon>

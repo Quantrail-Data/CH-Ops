@@ -259,7 +259,7 @@ describe("Deleting API Key", () => {
     it("Deletes an active API Key", () => {
         const toDelete = keys.at(-1)
         deleteApiKey(toDelete.id)
-        const active = getActiveApiKey(toDelete.id)
+        const active = getActiveApiKey()
         expect(active).toBeDefined()
     })
 

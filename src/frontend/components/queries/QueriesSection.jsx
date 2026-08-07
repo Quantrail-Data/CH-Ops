@@ -303,7 +303,8 @@ function MetricBar({ label, value, max, color }) {
 
 
 function buildFullQuerySql(queryId) {
-  const safeId = String(queryId).replace(/'/g, "\\'");
+  const safeId = String(queryId).replace(/'/g, "\\\\'");
+
   return `SELECT query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 

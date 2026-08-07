@@ -67,7 +67,7 @@ export default function KillQueriesModal({ targets, scopeLabel, defaultSync = fa
     await new Promise((r) => setTimeout(r, 600));
 
     let gone = [];
-    let stillRunning = ids;
+    let stillRunning;
     try {
       const fresh = await onVerify();
       ({ gone, stillRunning } = diffKilled(ids, fresh));

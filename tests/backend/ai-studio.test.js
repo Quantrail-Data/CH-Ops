@@ -225,7 +225,7 @@ describe("AI Configuration", () => {
 
             }
         }))
-        const status = getAiStatus(cfg)
+        const status = getAiStatus()
         expect(status.executable).toBeTrue()
     })
 

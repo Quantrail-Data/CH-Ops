@@ -392,7 +392,8 @@ LIMIT 500`.trim();
 // Phase 1: Discover non-zero columns for this query_id.
 
 function buildDiscoverySql(queryId) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
+
   return `SELECT * FROM system.query_metric_log WHERE query_id = '${safeId}' ORDER BY event_time_microseconds`;
 }
 
@@ -436,7 +437,8 @@ const MAX_SERIES_PER_CHART = 4;
 
 // Fetch full query text
 function buildFullQuerySql(queryId) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
+
   return `SELECT query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 

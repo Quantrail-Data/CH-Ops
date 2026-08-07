@@ -49,7 +49,7 @@ router.post("/email/verify", (req, res, next) => {
     const otp = setOTP(email, isFind?.passwordHash);
     const smptConfig = env?.smtp || {};
 
-    const isSend = sendOTPEmail(email, otp, smptConfig);
+    const isSend = await sendOTPEmail(email, otp, smptConfig);
 
     if (!isSend)
       return res
