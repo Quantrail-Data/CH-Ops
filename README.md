@@ -2,7 +2,10 @@
 
 # CHOps - Beta
 
-### A web-based administration and monitoring dashboard for ClickHouse® database clusters
+### Admin tool and GUI for ClickHouse® database. Self-hosting ClickHouse® database made easy.
+
+Works with clusters on bare metal, VMs, Docker, Kubernetes under an operator,
+cloud instances, and managed services.
 
 [![Homepage](https://img.shields.io/badge/homepage-ch--ops.io-6366f1)](https://ch-ops.io)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPLv3-blue)](#license)
@@ -20,7 +23,46 @@ If CHOps saves you time or you find it useful, please consider **starring this r
 
 ## What is CHOps?
 
-If you manage a ClickHouse® database, you probably interact with it through the `clickhouse-client` command line or the HTTP API. CHOps wraps that HTTP interface in a browser UI so you can run SQL, inspect slow queries, configure alerts, manage backups, and control access visually.
+Built for the people who run ClickHouse® themselves: data platform teams, DBAs, and the DevOps engineer who inherited the cluster. CHOps brings the day to day work of operating ClickHouse® into one browser UI, so finding a slow query, stopping a runaway, checking replication, watching merges or reviewing who has access is a click rather than a command. Self-hosted ClickHouse® ships without any of this, which today means writing a query against the right internal table, on the right node, and knowing which table that is. Remove that requirement and cluster operations stop being the preserve of one or two specialists and become something the whole team can do.
+
+Point it at your cluster and it reads everything it needs over HTTP. Nothing to install on your ClickHouse® servers.
+
+**What it does**
+
+- Shows every query running right now, sortable by memory, runtime or rows read, with kill controls
+- Searches query history so you can find what was slow, when, and who ran it
+- Tracks merges, mutations, parts, replication lag and the distributed DDL queue
+- Provides a SQL editor with autocomplete, tabs, cost estimates and EXPLAIN
+- Saves queries with their parameter defaults, so tomorrow's check is one click
+- Exports results in 22 formats including CSV, JSON, Parquet and ORC, compressed if you want
+- Builds charts and dashboards from your own queries, with filters that drive every chart at once
+- Sends email alerts when a threshold you define is crossed
+- Runs BACKUP and RESTORE against S3-compatible storage and lists what you already have
+- Manages ClickHouse® users, roles and grants on one screen
+- Reads clusters running under a Kubernetes operator and keeps the host list current
+
+The [Feature Overview](#feature-overview) below covers all of it in more detail.
+
+**Why use it**
+
+- Answers in seconds, without needing to know where ClickHouse® keeps them
+- One place for the whole cluster, not one session per node
+- Runs as a single binary or a container that you host, so your credentials and query history stay with you
+- Free and open source under AGPLv3
+- Does not replace `clickhouse-client`, the SQL editor is there whenever you want to write it yourself
+
+**How you deployed the cluster does not matter.** If CHOps can reach the HTTP endpoint, it works:
+
+| Your ClickHouse® runs on | Connect via | Kubernetes Insights |
+|---|---|---|
+| Bare metal or a VM | Direct connection | no |
+| Docker or Docker Compose | Direct connection | no |
+| Kubernetes with the Altinity® operator (AKOC) | Kubernetes tab | yes |
+| Kubernetes with the official ClickHouse® operator (OCKO) | Kubernetes tab | yes, early access |
+| Kubernetes with no operator | Direct connection | no |
+| ClickHouse® Cloud, Altinity.Cloud®, other managed services | Direct connection | no |
+
+Clusters running under either Kubernetes operator get more than a connection. You pick the installation instead of typing host names, the list stays right as the cluster is scaled up or down, and eight extra screens open up covering pods, storage, networking and events. See [ClickHouse® Running in Kubernetes](#clickhouse-running-in-kubernetes).
 
 CHOps stores its own configuration (alerts, dashboards, users, cluster definitions, and so on) in a small SQLite file on disk. It does not touch your ClickHouse® data or schema unless you explicitly run a query that does.
 
@@ -35,11 +77,13 @@ CHOps organizes its functionality into ten sidebar sections. Each item below is 
 
 A global page search is available everywhere: open it from the navbar Search button, the floating bubble, or Ctrl/Cmd+K, then type a page name, feature, section heading, or on-page text to jump straight there.
 
-**Overview**: cluster health, live query monitor with kill controls, query analytics and log, tables and parts inspection, merges and mutations, distributed DDL queue, and Kubernetes Insights for clusters running under an operator.
+**Overview**: cluster health; a live query monitor with sortable columns, per-user memory and read-volume charts, a detail popup for any running query, and bulk kill by selection; query analytics and log; tables and parts inspection; merges and mutations; distributed DDL queue; and Kubernetes Insights for clusters running under the Altinity® or the official ClickHouse® operator.
 
-**Tools**: a full SQL editor with autocomplete and nine EXPLAIN types, an interactive flame-graph query profiler, a per-second query metrics timeline, Schema Studio for guided table creation, and Qurioz, an AI assistant that turns plain-English questions into ClickHouse® SQL.
+**Tools**: the SQL editor has grown into a proper IDE. It has tabbed queries, schema-aware autocomplete, typed query parameters, a configurable row ceiling, and every EXPLAIN type with its modifiers (indexes, projections, distributed, sorting, actions, analyzer passes) as toggles rather than syntax you have to remember. Save a query and it keeps its parameter defaults, ready to rerun; saved queries can be exported and shared. A cost estimate tells you what a query will read before you run it, and comparison mode puts two runs side by side with their metrics. The export wizard writes results in 22 formats across text, JSON, columnar and interchange families, with optional gzip, zstd or zip, and runs in the background so a large extract does not tie up the browser.
 
-**Custom Dashboards**: a chart builder with 10+ chart types, configurable grid dashboards, and a chart browser. Every chart has an HTML control toolbar (zoom, save as PNG, and in-app full screen).
+Also under Tools: an interactive flame-graph query profiler, a per-second query metrics timeline, Schema Studio for guided table creation, and Qurioz, an AI assistant that turns plain-English questions into ClickHouse® SQL.
+
+**Custom Dashboards**: a chart builder with 10+ chart types, configurable grid dashboards, and a chart browser. Every chart has an HTML control toolbar (zoom, save as PNG, and in-app full screen). Add a parameter to a chart's SQL and it turns into a filter on the dashboard by itself, shared with every other chart using the same name, so one control updates them all at once.
 
 **Indexes**: data-skipping index visualization, projection management, and secondary index creation.
 
@@ -127,7 +171,7 @@ SESSION_SECRET=paste_a_random_string_here
 
 Everything else in `.env` is **optional** and can be left as-is for now:
 
-- **SMTP_*** settings are only needed if you want alert emails.
+- **SMTP_*** settings drive alert emails and the password reset code. Leave them blank and both stay unavailable. Nothing else is affected.
 
 **5. Run the database migration** to create CHOps's internal SQLite tables:
 
@@ -158,48 +202,58 @@ bun src/backend/server.js
 
 Open `http://localhost:3000`.
 
-**Docker** (no Bun installation needed). `SESSION_SECRET` is required (used for
-JWT signing and credential encryption); generate a strong random one.
+**Docker** (no Bun installation needed).
+
+Create `.env` before you build. The image build reads it, and stops immediately
+with a clear message if it is missing rather than spending several minutes on a
+build that would only crash on startup:
+
+```bash
+cp .env.example .env
+# then set SESSION_SECRET, SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL
+```
+
+Two separate things read that file. Vite compiles the `VITE_*` values into the
+frontend bundle during the build, and the container reads everything else at run
+time.
 
 *Option A - Docker Compose (recommended).* Builds the image and runs it with a
 persistent named volume:
 
 ```bash
-export SESSION_SECRET=$(openssl rand -hex 32)
-export SUPER_ADMIN_1=admin
-export SUPER_ADMIN_1_PASSWORD=your_secure_password_here
-export SUPER_ADMIN_1_EMAIL=you@example.com
 docker compose up -d --build
 ```
 
-Rebuild after pulling new code with `docker compose up -d --build`. Stop with
-`docker compose down` (data survives; it lives in the `chops-data` volume).
+Compose hands the whole `.env` to the container through `env_file`, so every
+setting you put there reaches the app, including the `SMTP_*` values password
+reset needs. Rebuild after pulling new code with the same command. Stop with
+`docker compose down`; your data survives in the `chops-data` volume.
 
 *Option B - Build and run the image by hand:*
 
 ```bash
-# Build the image
+# Build the image (needs .env in the working directory)
 docker build -t chops:latest .
 
 # Run it (mount a volume so data/chops.db persists)
 docker run -d --name chops -p 3000:3000 \
-  -e SESSION_SECRET=$(openssl rand -hex 32) \
-  -e SUPER_ADMIN_1=admin \
-  -e SUPER_ADMIN_1_PASSWORD=your_secure_password_here \
-  -e SUPER_ADMIN_1_EMAIL=you@example.com \
+  --env-file .env \
   -v chops-data:/app/data \
   chops:latest
 ```
 
-Open `http://localhost:3000`. Both options persist the SQLite database in the
+Open `http://localhost:3000`. Both options keep the SQLite database in the
 `chops-data` volume across restarts and image rebuilds.
 
-The first super admin is required, not optional: `SUPER_ADMIN_1` (the username),
-`SUPER_ADMIN_1_PASSWORD`, and `SUPER_ADMIN_1_EMAIL` must be set alongside
-`SESSION_SECRET`, or the container exits on startup. The bundled
-`docker-compose.yml` forwards only `SESSION_SECRET`, `SUPER_ADMIN_1`, and
-`SUPER_ADMIN_1_PASSWORD`, so add `SUPER_ADMIN_1_EMAIL` to its `environment:` list
-or point the service at your full `.env` with `env_file: .env`.
+The first super admin is required, not optional. `SUPER_ADMIN_1`,
+`SUPER_ADMIN_1_PASSWORD` and `SUPER_ADMIN_1_EMAIL` must all be set alongside a
+`SESSION_SECRET` of at least 32 characters, or the container exits on startup.
+
+Changing a `VITE_*` value needs a rebuild, since those are baked into the bundle.
+Everything else takes effect on the next restart.
+
+If you add a `.dockerignore` to trim the build context, do not exclude `.env` or
+`patches/`. The build needs both.
 
 ---
 
@@ -228,9 +282,13 @@ chmod +x chops-linux-x64
 SUPER_ADMIN_1=admin \
 SUPER_ADMIN_1_PASSWORD=secret \
 SUPER_ADMIN_1_EMAIL=you@example.com \
-SESSION_SECRET=abc123 \
+SESSION_SECRET=$(openssl rand -hex 32) \
 ./chops-linux-x64
 ```
+
+Generate `SESSION_SECRET` once and reuse the same value on every start. It has to
+be at least 32 characters, and changing it later makes stored ClickHouse®
+passwords unreadable.
 
 The binary creates `data/chops.db` in its working directory at startup.
 
@@ -259,12 +317,16 @@ If your ClickHouse® runs in Kubernetes under an operator, use the **Kubernetes*
 tab instead of entering hosts by hand. CHOps reads the host list from the
 installation and keeps it current as the cluster is scaled.
 
-Two operators are supported:
+Both ClickHouse® Kubernetes operators are supported:
 
-| Operator | Abbreviation | Status |
-|---|---|---|
-| Altinity® Kubernetes Operator for ClickHouse® | AKOC | Supported |
-| Official ClickHouse® Kubernetes Operator | OCKO | Early access |
+| Operator | Abbreviation | CRD group | Status |
+|---|---|---|---|
+| Altinity® Kubernetes Operator for ClickHouse® | AKOC | `clickhouse.altinity.com` | Supported |
+| Official ClickHouse® Kubernetes Operator | OCKO | `clickhouse.com` | Early access |
+
+OCKO support is new. The two operators describe a cluster differently, so CHOps
+handles each on its own terms rather than treating them as interchangeable. The
+Kubernetes screens look and behave the same whichever one you run.
 
 OCKO is early access because its custom resources are at `v1alpha1`, which under
 Kubernetes convention means the schema may change without a deprecation cycle.
@@ -359,16 +421,6 @@ Role changes follow a strict hierarchy: super admins can change admins, editors,
 
 ---
 
-## Version Scheme
-
-Version strings follow the format `{clickhouseVersion}-{major}.{minor}.{patch}`, for example `26.3-0.1.6`.
-
-The `clickhouseVersion` segment (such as `26.3`) is the ClickHouse® database release CHOps is tested against. CHOps may work with other versions, but this is the tested target. The `major.minor.patch` segment is the CHOps application version following standard semantic versioning.
-
-[`version.json`](version.json) at the project root is the single source of truth for the backend, frontend, and `package.json`.
-
----
-
 ## Security
 
 CHOps ships with several hardening measures. Here is what each does and why it matters.
@@ -379,7 +431,7 @@ CHOps ships with several hardening measures. Here is what each does and why it m
 
 **Login protection**: After 5 failed attempts for the same username within 15 minutes, that account is temporarily locked. Error messages stay deliberately vague ("Invalid credentials.") so an attacker cannot enumerate usernames.
 
-**Session tokens**: Sessions use JWTs that expire after 2 hours. Each carries a unique revocable ID, so a deleted user's session ends within 2 hours at most.
+**Session tokens**: Sessions use JWTs that expire after 2 hours, each carrying a unique revocable ID. Deleting a user ends their session at once, because every request re-reads the account. Changing a user's *role* is not immediate: the role travels in the token, so a demotion takes effect on their next login or when the token expires. Force a logout if you need it sooner. Revocations are held in memory, so restarting the server clears the list.
 
 **Disabling .env login**: By default the `.env` super admin credentials work as a permanent login fallback, which is convenient for setup but acts as a backdoor. To close it after setup, set `DISABLE_ENV_LOGIN=true`. The `.env` credentials then seed the initial migration only.
 
@@ -399,12 +451,21 @@ CHOps has a comprehensive automated test suite covering backend and frontend. Te
 # Everything (backend then frontend), about 15 to 20 seconds
 bun run test
 
-# Backend only (Bun test runner)
+# Backend suites (Bun test runner)
 bun test tests/backend
+bun test tests/isolated
+bun test tests/no-mocks
 
 # Frontend only (Vitest)
 npx vitest run tests/frontend
 ```
+
+`tests/no-mocks` holds suites written without any module mocking, so they run
+under Bun's test runner rather than Vitest. That split is deliberate: `vi.mock`
+works through Vite's transform pipeline, which Bun's loader does not run, so the
+call quietly becomes a no-op and the real module loads instead. A handful of
+frontend suites that genuinely need mocking are excluded from the Bun run for the
+same reason and are documented in `vite.config.js`.
 
 Backend tests cover password hashing, JWT handling, AES-256-GCM encryption, rate limiting, security headers, alert scheduling, SQL formatting, the Drizzle schema, environment parsing, and the four-tier RBAC system. Frontend tests cover route definitions, chart types, the plugin architecture, heatmap color scales, tree-chart utilities, scrollbar behavior, and UI contracts.
 
@@ -498,6 +559,12 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 **Port already in use**: Set a different port in `.env` with `PORT=3001`.
 
 **Binary crashes on startup**: Ensure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET` are set. The binary needs them just like the dev server does.
+
+**`docker build` fails with `.env not found`**: The build deliberately stops there. Run `cp .env.example .env` and fill it in. If you added a `.dockerignore`, check it does not exclude `.env`.
+
+**Container starts then restarts in a loop**: Check `docker logs chops`. A missing `SUPER_ADMIN_1_EMAIL` or a `SESSION_SECRET` shorter than 32 characters both exit on startup, and both report which value is wrong.
+
+**Password reset emails never arrive**: Set the `SMTP_*` values in `.env` and restart. Without them the reset code cannot be sent.
 
 ---
 
