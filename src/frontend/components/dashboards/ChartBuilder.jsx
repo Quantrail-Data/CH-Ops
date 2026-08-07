@@ -553,6 +553,74 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         }
       }
 
+            const isSankey =
+        Array.isArray(enhancedOption.series) &&
+        enhancedOption.series.some((s) => s.type === "sankey");
+
+      if (isSankey) {
+        enhancedOption.series = enhancedOption.series.map((s) => {
+          if (s.type !== "sankey") return s;
+
+          return {
+            ...s,
+            lineStyle: {
+              ...(s.lineStyle || {}),
+              color: theme === "dark" ?"rgba(255, 255, 255, 0.27)" : "rgba(147, 147, 147, 0.55)",
+              opacity: 1,
+              curveness: s.lineStyle?.curveness ?? 0.2,
+            },
+          };
+        });
+      }
+
+       const isSunBurst =
+    Array.isArray(enhancedOption.series) && enhancedOption.series.some((s) => s.type === "sunburst");
+  
+  const isSunBurstVisualmap = Object.keys(enhancedOption?.visualMap || {})?.length > 0;
+
+  if (isSunBurst ) {
+    enhancedOption.series = enhancedOption.series.map((s) => {
+      if (s.type !== "sunburst") return s;
+
+      return {
+        ...s,
+        radius: isSunBurstVisualmap ? ["3%","65%"] : ["5%", "90%"],
+        levels: [
+          {},
+          {
+            label: {
+              position: "outside",
+              rotate: "tangential",
+              distance: 10,
+              rotate: 0,
+            },
+            labelLine: {
+              show: true,
+              length: 20,
+              length2: 10,
+              smooth: false,
+            },
+          },
+          {
+            label: {
+              position: "outside",
+              distance: 10,
+              rotate: 0,
+              silent: true,
+            },
+            labelLine: {
+              show: true,
+              length: 20,
+              length2: 10,
+              smooth: false,
+            },
+          },
+        ],
+      };
+    });
+  }
+
+
       previewInst.current.setOption(enhancedOption, true);
       setTimeout(() => previewInst.current?.resize(), 50);
     } catch (err) {
