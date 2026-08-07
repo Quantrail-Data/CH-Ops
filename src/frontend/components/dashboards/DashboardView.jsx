@@ -1007,6 +1007,33 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
   const isPie = Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype));
+  
+    const isLine =
+    Array.isArray(opt.series) && opt.series.some((s) => s.type === "line");
+
+  const lineDataLength = Array.isArray(opt.series) && opt.series.some((s) => s.data?.length >  200)
+  console.log(lineDataLength)
+  if (isLine) {
+    opt.xAxis = {
+      ...opt.xAxis,
+      nameGap:40,
+      axisLabel: {
+        ...opt?.xAxis?.axisLabel,
+        rotate: fs ? opt?.axisLabel?.rotate : 0,
+        interval:fs ? opt?.axisLabel?.interval : lineDataLength  ? 500 :50,
+        formatter: fs ? opt?.axisLabel?.formatter :(v) => {
+          try {
+            const s = String(v);
+            return lineDataLength ? s.length > 10 ? s.slice(0, 3) + "…" : s : s.length > 10 ? s.slice(0, 10) + "…" : s;
+          } catch {
+            return v;
+          }
+        },
+      },
+    };
+  }
+  
+  
   if (isPie) {
     opt.series = opt.series.map((s) => {
       if (s.type !== 'pie') return s;
@@ -1061,6 +1088,24 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       ...(opt.grid || {}),
       top: fs ? (opt.grid?.top || gridTop) : (isSmallScreen ? 72 : 80),
     };
+  }
+
+    const isSankey =
+    Array.isArray(opt.series) && opt.series.some((s) => s.type === "sankey");
+
+  if (isSankey) {
+    opt.series = opt.series.map((s) => {
+      if (s.type !== "sankey") return s;
+
+      return {
+        ...s,
+        label: {
+          ...(s.label || {}),
+          color: isDarkColor,
+          fontSize: 14,
+        },
+      };
+    });
   }
 
   if (theme === 'dark') {
@@ -1125,6 +1170,54 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       };
     }
   }
+
+    const isSunBurst =
+    Array.isArray(opt.series) && opt.series.some((s) => s.type === "sunburst");
+
+  const isSunBurstVisualmap = Object.keys(opt?.visualMap || {})?.length > 0;
+
+  if (isSunBurst) {
+    opt.series = opt.series.map((s) => {
+      if (s.type !== "sunburst") return s;
+
+      return {
+        ...s,
+        radius: isSunBurstVisualmap ? ["3%", "70%"] : ["5%", "90%"],
+        levels: [
+          {},
+          {
+            label: {
+              position: "outside",
+              rotate: "tangential",
+              distance: 10,
+              rotate: 0,
+            },
+            labelLine: {
+              show: true,
+              length: 20,
+              length2: 10,
+              smooth: false,
+            },
+          },
+          {
+            label: {
+              position: "outside",
+              distance: 10,
+              rotate: 0,
+              silent: true,
+            },
+            labelLine: {
+              show: true,
+              length: 20,
+              length2: 10,
+              smooth: false,
+            },
+          },
+        ],
+      };
+    });
+  }
+
 
   useEffect(() => {
     if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) return;

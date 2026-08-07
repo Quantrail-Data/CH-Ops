@@ -1276,7 +1276,67 @@ export function buildChartOption(
     }
 
     if (chartType === "treemap") {
-      return { tooltip: {}, toolbox, series: [{ type: "treemap", data: buildTree(data, mapping) }] };
+      return {
+        tooltip: {
+          trigger: 'item',
+          renderMode: 'html', 
+          padding: 0, 
+          
+          formatter: function (info) {
+            const value = info.value;
+            const name = info.name;
+            return `
+              <div style="font-size: 14px; padding: 10px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                <strong style="color: #333;">${name}</strong><br/>
+                <span style="color: #666;">Value:</span> 
+                <strong style="color: #2a4858;">${value}</strong>
+              </div>
+            `;
+          },
+          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+          borderWidth: 1,
+          borderColor: '#ccc',
+          textStyle: {
+            color: '#000'
+          }
+        },
+        toolbox: {
+          show: false,
+          orient: 'horizontal',      
+          left: 'right',            
+          top: 'top',                
+          itemSize: 18,            
+          itemGap: 12,               
+          showTitle: true,        
+
+          iconStyle: {
+            borderColor: '#006d75',  
+            borderWidth: 1.5,       
+            color: 'none'           
+          },
+
+          emphasis: {
+            iconStyle: {
+              borderColor: '#ff7a45',
+              borderWidth: 2
+            }
+        }},
+        visualMap: {
+          show: false, 
+          min: 0, 
+          max: 100, 
+          inRange: { color: ["#2a4858", "#006d75", "#00a2ae", "#73d13d", "#ffe58f", "#ff7a45", "#cf1322"] },
+        },
+        series: [{ 
+          type: "treemap", 
+          data: buildTree(data, mapping),
+          label: {
+            show: true,
+            fontSize: 16 ,
+            color:"black"
+          }
+        }]
+      };
     }
 
     if (chartType === "sunburst") {
@@ -1309,7 +1369,7 @@ export function buildChartOption(
           series: [{
             type: "sunburst",
             data: treeData,
-            radius: ["10%", "90%"],
+            radius: ["0%", "90%"],
             label: { rotate: "radial", fontSize: 11 },
             emphasis: { focus: "ancestor" },
             levels: [{}, { r0: "10%", r: "35%", label: { fontSize: 13 } }, { r0: "35%", r: "65%" }, { r0: "65%", r: "90%", label: { fontSize: 9 } }],
@@ -1331,12 +1391,16 @@ export function buildChartOption(
       };
     }
 
-    if (chartType === "kpi")
+    if (chartType === "kpi")  {
+      if (Array.isArray(data) && data.length > 1) {
+        {console.log(data.length); return {_kpi: true,isArray:true,message:"The KPI card does not support arrays."}}
+      }
       return {
         _kpi: true,
         label: data[0]?.[mapping.label] || chartTitle,
         value: data[0]?.[mapping.value] || "-",
       };
+    }
     if (chartType === "table") return { _table: true, data };
   } catch (err) {
     return { _error: true, message: err.message };

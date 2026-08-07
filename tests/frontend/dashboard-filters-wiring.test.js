@@ -63,7 +63,7 @@ describe("regressions found in review", () => {
     // saveSettings replaces the array, so without this guard renaming a filter
     // label reloaded the dashboard and re-ran every chart on it.
     expect(view).toContain("loadedDashRef");
-    expect(view).toContain("if (loadedDashRef.current === d.id)");
+    expect(view).toContain("if (loadedDashRef.current === d.id) {");
     expect(view).toContain("loadedDashRef.current = d.id");
   });
 
