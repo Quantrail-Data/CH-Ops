@@ -91,6 +91,10 @@ export default function DashboardView({sidebar}) {
   // renaming "region" to "Region" silently reloaded the dashboard and re-ran
   // every chart on it.
   const loadedDashRef = useRef(null);
+  const [transitioning, setTransitioning] = useState(false);
+  const [transitionPhase, setTransitionPhase] = useState('idle'); // 'idle' | 'exiting' | 'entering'
+  const transitionTimerRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const settings = selDash?.filters || {};
 
@@ -181,7 +185,15 @@ export default function DashboardView({sidebar}) {
   // in. The load effect below discovers filters before running anything, so
   // without this every dashboard selection issued the same request twice.
   async function loadCharts(dashId, values, params, prefetched) {
-    setLoading(true); setCharts([]); setHasUnsaved(false);
+    setLoading(true);
+    setTransitioning(true);
+    setTransitionPhase('exiting');
+    
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    
     try {
       const c = prefetched || await apiFetch(`/api/dashboards/${dashId}/charts`);
       const discovered = params || discoverFilters(c);
@@ -190,32 +202,37 @@ export default function DashboardView({sidebar}) {
       const enriched = await Promise.all(c.map((chart) => runChart(chart, vals, discovered)));
       enriched.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
 
-      const byKey = new Map();
+      const byId = new Map();
       for (const ch of enriched) {
-        const key = `${ch.name || ''}::${ch.chartType || ''}::${ch.chartSubtype || ''}`;
-        if (!byKey.has(key)) {
-          byKey.set(key, ch);
-        } else {
-          const existing = byKey.get(key);
-          const a = Number(existing.id);
-          const b = Number(ch.id);
-          if (!Number.isNaN(a) && !Number.isNaN(b)) {
-            if (b > a) byKey.set(key, ch);
-          } else {
-            byKey.set(key, ch);
-          }
-        }
+        byId.set(String(ch.id), ch);
       }
-      const deduped = Array.from(byKey.values());
+      const deduped = Array.from(byId.values());
       deduped.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
 
-      setCharts(deduped);
-      // Republished because deleting a chart can remove the last use of a
-      // filter, and the bar has to stop showing it.
-      setParams(discovered);
+      transitionTimerRef.current = setTimeout(() => {
+        if (!mountedRef.current) return;
+        setTransitionPhase('entering');
+        setCharts(deduped);
+        setParams(discovered);
+        
+        setTimeout(() => {
+          if (!mountedRef.current) return;
+          setTransitioning(false);
+          setTransitionPhase('idle');
+          setLoading(false);
+        }, 400);
+        
+        transitionTimerRef.current = null;
+      }, 200);
+      
       return discovered;
-    } catch { return params || { filters: [], byChart: new Map(), conflicts: [], errors: [] }; }
-    finally { setLoading(false); }
+    } catch { 
+      if (!mountedRef.current) return;
+      setTransitioning(false);
+      setTransitionPhase('idle');
+      setLoading(false);
+      return params || { filters: [], byChart: new Map(), conflicts: [], errors: [] }; 
+    }
   }
 
   // Re-run only the charts naming a filter that changed. Everything else keeps
@@ -254,14 +271,32 @@ export default function DashboardView({sidebar}) {
       loadedDashRef.current = null;
       return;
     }
-    if (selDash?.id !== d.id) setSelDash(d);
-    if (loadedDashRef.current === d.id) return;
+    if (selDash?.id !== d.id) {
+      setSelDash(d);
+      setTransitionPhase('exiting');
+      setTransitioning(true);
+    }
+    if (loadedDashRef.current === d.id) {
+      if (transitioning) {
+        setTransitionPhase('entering');
+        setTimeout(() => {
+          setTransitioning(false);
+          setTransitionPhase('idle');
+        }, 400);
+      }
+      return;
+    }
     loadedDashRef.current = d.id;
 
     let cancelled = false;
     (async () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+      
       const fetched = await apiFetch(`/api/dashboards/${d.id}/charts`).catch(() => []);
-      if (cancelled) return;
+      if (cancelled || !mountedRef.current) return;
       const discovered = discoverFilters(fetched);
       const chartDefs = {};
       for (const c of fetched) {
@@ -285,6 +320,17 @@ export default function DashboardView({sidebar}) {
     // reload the dashboard, only re-run the affected charts (see applyFilters).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlDashId, dashboards]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const onFocus = () => {
@@ -406,6 +452,12 @@ export default function DashboardView({sidebar}) {
 
   const hasLegendCharts = charts.some(c => legendSupportedTypes.includes(c.chartSubtype));
 
+  const gridClassName = [
+    'dashboard-grid',
+    transitioning ? 'dashboard-grid-loading' : 'dashboard-grid-loaded',
+    !transitioning && charts.length > 0 ? 'dashboard-grid-staggered' : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div
       className="page-content"
@@ -495,25 +547,66 @@ export default function DashboardView({sidebar}) {
         </div>
       )}
 
-      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
-      {selDash && !loading && charts.length === 0 && <div className="empty-state"><Icon className="ti ti-chart-dots"></Icon><p>No charts. Use Chart Builder to add some.</p></div>}
+      {(loading || transitioning) && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          padding: 24,
+          transition: 'opacity 0.3s ease-in-out',
+          opacity: loading || transitioning ? 1 : 0,
+        }}>
+          <span className="loading-spinner"></span>
+          <span style={{ marginLeft: 12, color: 'var(--text-muted)', fontSize: '13px' }}>
+            {transitionPhase === 'exiting' ? 'Loading dashboard...' : 'Updating charts...'}
+          </span>
+        </div>
+      )}
+      
+      {selDash && !loading && charts.length === 0 && !transitioning && <div className="empty-state"><Icon className="ti ti-chart-dots"></Icon><p>No charts. Use Chart Builder to add some.</p></div>}
 
-      {selDash && charts.length > 0 && <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Drag charts to swap positions.</span>
-          {hasUnsaved && canEdit && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
+      {selDash && charts.length > 0 && !loading && !transitioning && (
+        <div 
+          className={gridClassName}
+          style={{
+            transition: 'opacity 0.35s ease-in-out, transform 0.35s ease-in-out',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Drag charts to swap positions.</span>
+            {hasUnsaved && canEdit && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16 }}>
+            {charts.map((chart, i) => (
+              <div 
+                key={chart.id} 
+                className="chart-tile-wrapper"
+                style={{ 
+                  opacity: transitioning ? 0 : 1,
+                  animationDelay: transitioning ? '0ms' : `${i * 40}ms`,
+                }}
+                draggable={!fs && canEdit} 
+                onDragStart={e => !fs && canEdit && onDragStart(e, i)} 
+                onDragOver={onDragOver} 
+                onDrop={e => canEdit && onDrop(e, i)}
+              >
+                <ChartTile 
+                  setFss={setFs} 
+                  sidebar={sidebar} 
+                  chart={chart} 
+                  onDelete={() => setDelChart({ id: chart.id, name: chart.name })} 
+                  cols={cols} 
+                  isAdmin={isAdmin} 
+                  canEdit={canEdit} 
+                  showLegends={showLegends} 
+                  legendSupportedTypes={legendSupportedTypes}
+                  highlighted={!!hoveredFilter && (params.byChart.get(chart.id) || []).some((p) => p.name === hoveredFilter)}
+                  filterNames={(params.byChart.get(chart.id) || []).map((p) => p.name)} 
+                />
+              </div>
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16 }}>
-          {charts.map((chart, i) => (
-            <div key={chart.id} draggable={!fs && canEdit} onDragStart={e => !fs && canEdit && onDragStart(e, i)} onDragOver={onDragOver} onDrop={e => canEdit && onDrop(e, i)}
-              style={{ opacity: dragIdx === i ? 0.4 : 1, cursor: !fs && canEdit ? 'grab' : 'default', transition: 'opacity 0.2s' }}>
-              <ChartTile setFss={setFs} sidebar={sidebar} chart={chart} onDelete={() => setDelChart({ id: chart.id, name: chart.name })} cols={cols} isAdmin={isAdmin} canEdit={canEdit} showLegends={showLegends} legendSupportedTypes={legendSupportedTypes}
-                highlighted={!!hoveredFilter && (params.byChart.get(chart.id) || []).some((p) => p.name === hoveredFilter)}
-                filterNames={(params.byChart.get(chart.id) || []).map((p) => p.name)} />
-            </div>
-          ))}
-        </div>
-      </div>}
+      )}
 
       {del && isAdmin && <ConfirmModal title="Delete Dashboard" message="Delete this dashboard? Charts will be unassigned." onConfirm={() => deleteDash(del)} onCancel={() => setDel(null)} danger />}
 
@@ -537,6 +630,18 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!fs) return undefined;
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        setFs(false);
+        setFss(false);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fs, setFss]);
 
   const hasLegend = useMemo(() => {
     const legend = chart?.chartOption?.legend;
@@ -562,6 +667,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
   const isBarChart = barChartTypes.includes(chart.chartSubtype);
+  const isScatterLike = chart.chartSubtype === 'scatter' || chart.chartSubtype === 'basic_scatter' || chart.chartSubtype === 'bubble' || chart.chartType === 'scatter' || chart.chartType === 'bubble';
+  const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
+  const isPieChart = pieChartTypes.includes(chart.chartSubtype);
 
   const resolvedLegend = fs
     ? {
@@ -619,23 +727,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
           };
 
-  const gridTop = fs
-    ? 24
-    : isSmallScreen
-      ? (supportsLegend && hasLegend && showLegends ? 72 : 20)
-      : cols === 4
-        ? 20
-        : supportsLegend && hasLegend && showLegends
-          ? 56
-          : 20;
-
-  const gridLeft = fs
-    ? (supportsLegend && hasLegend && showLegends ? 240 : 20)
-    : !isSmallScreen && cols === 4 && supportsLegend && hasLegend && showLegends
-      ? 145
-      : 20;
-
-  const determineTickCount = (opt) => {
+  const tickCount = useMemo(() => {
+    const opt = chart?.chartOption;
     if (!opt) return 0;
     if (Array.isArray(opt.xAxis)) {
       const ax = opt.xAxis[0];
@@ -643,17 +736,56 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     } else if (opt.xAxis?.data?.length) return opt.xAxis.data.length;
     if (Array.isArray(opt.series) && opt.series[0]?.data?.length) return opt.series[0].data.length;
     return 0;
-  };
+  }, [chart]);
 
-  const computeInterval = (tickCount, maxLabels) => {
-    if (!tickCount || tickCount <= maxLabels) return 0;
-    const interval = Math.ceil(tickCount / Math.max(1, maxLabels)) - 1;
-    return Math.max(0, interval);
-  };
+  const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
+  const dataLabelFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10;
+  const xRotate = isBarChart ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
+  const axisNameGapX = isBarChart ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
+  const axisMarginX = isBarChart ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+  const seriesLabelWidth = tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64;
 
-  const maxLabels = fs ? 10 : isSmallScreen ? 3 : 4;
-  const tickCount = determineTickCount(chart?.chartOption);
-  const axisInterval = computeInterval(tickCount, maxLabels);
+  const gridTop = fs
+    ? Math.max(28, tickCount > 40 ? 40 : 28)
+    : isSmallScreen
+      ? (supportsLegend && hasLegend && showLegends ? 76 : Math.max(22, tickCount > 40 ? 28 : 22))
+      : cols === 4
+        ? (supportsLegend && hasLegend && showLegends ? 24 : 22)
+        : supportsLegend && hasLegend && showLegends
+          ? Math.max(62, tickCount > 40 ? 68 : 62)
+          : Math.max(24, tickCount > 40 ? 30 : 24);
+
+  const gridLeft = fs
+    ? (supportsLegend && hasLegend && showLegends ? 240 : 20)
+    : !isSmallScreen && cols === 4 && supportsLegend && hasLegend && showLegends
+      ? 145
+      : 20;
+
+  const gridBottomAuto = isBarChart
+    ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
+    : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
+
+  const shouldShowDataLabels = (() => {
+    if (isPieChart) return true;
+    
+    if (fs) return true;
+    
+    if (isSmallScreen) {
+      if (tickCount > 20) return false;
+      
+      if (isBarChart && tickCount > 15) return false;
+      
+      if (!isBarChart && tickCount > 25) return false;
+    }
+    
+    if (!isSmallScreen && !fs) {
+      if (tickCount > 50) return false;
+      if (isBarChart && tickCount > 35) return false;
+      if (!isBarChart && tickCount > 40) return false;
+    }
+    
+    return true;
+  })();
 
   const opt = {
     ...chart.chartOption,
@@ -664,62 +796,214 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       top: gridTop,
       left: gridLeft,
       right: 24,
-      bottom: isBarChart ? 120 : 45,
+      bottom: gridBottomAuto,
       containLabel: true,
       width: fs ? undefined : undefined,
       height: fs ? undefined : undefined
     },
     toolbox: { show: false },
     legend: resolvedLegend,
-    xAxis: {
-      ...chart?.chartOption?.xAxis,
-      type: isBarChart ? 'category' : chart?.chartOption?.xAxis?.type,
-      nameGap: isBarChart ? 100 : 40,
-      nameLocation: "middle",
-      position: 'bottom',
-      axisLabel: {
-        ...chart?.chartOption?.xAxis?.axisLabel,
-        rotate: isBarChart ? 45 : (isSmallScreen ? 20 : 0),
-        align: isBarChart ? 'right' : 'left',
-        color: isDarkColor,
-        margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
-        hideOverlap: false,
-        interval: axisInterval,
-        formatter: (v) => {
-          try {
-            const s = String(v);
-            return s.length > 20 ? s.slice(0, 17) + "…" : s;
-          } catch { return v; }
-        },
-      },
-      axisLine: { show: false },
-      nameTextStyle: {
-        color: isDarkColor,
-        fontSize: 10,
-        fontWeight: 'bold'
-      }
+    xAxis: Array.isArray(chart?.chartOption?.xAxis)
+      ? chart.chartOption.xAxis.map((axis) => ({
+          ...axis,
+          type: isBarChart ? 'category' : axis?.type,
+          nameGap: axisNameGapX,
+          nameLocation: "middle",
+          position: 'bottom',
+          axisLabel: {
+            ...axis?.axisLabel,
+            rotate: xRotate,
+            align: isBarChart || xRotate > 0 ? 'right' : 'left',
+            color: isDarkColor,
+            margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
+            hideOverlap: false,
+            showMinLabel: true,
+            showMaxLabel: true,
+            interval: 0,
+            fontSize: axisFontSize,
+            formatter: (v) => {
+              try {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                }
+                const s = String(v);
+                const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+              } catch { return v; }
+            },
+          },
+          axisLine: { show: false },
+          nameTextStyle: {
+            ...(axis?.nameTextStyle || {}),
+            color: isDarkColor,
+            fontSize: Math.max(8, axisFontSize - 1),
+            fontWeight: 'bold'
+          }
+        }))
+      : {
+          ...chart?.chartOption?.xAxis,
+          type: isBarChart ? 'category' : chart?.chartOption?.xAxis?.type,
+          nameGap: axisNameGapX,
+          nameLocation: "middle",
+          position: 'bottom',
+          axisLabel: {
+            ...chart?.chartOption?.xAxis?.axisLabel,
+            rotate: xRotate,
+            align: isBarChart || xRotate > 0 ? 'right' : 'left',
+            color: isDarkColor,
+            margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
+            hideOverlap: false,
+            showMinLabel: true,
+            showMaxLabel: true,
+            interval: 0,
+            fontSize: axisFontSize,
+            formatter: (v) => {
+              try {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                }
+                const s = String(v);
+                const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+              } catch { return v; }
+            },
+          },
+          axisLine: { show: false },
+          nameTextStyle: {
+            ...(chart?.chartOption?.xAxis?.nameTextStyle || {}),
+            color: isDarkColor,
+            fontSize: Math.max(8, axisFontSize - 1),
+            fontWeight: 'bold'
+          }
 
-    },
-    yAxis: {
-      ...chart?.chartOption?.yAxis,
-      position: 'left',
-      nameLocation: chart?.chartOption?.yAxis?.nameLocation || 'middle',
-      nameGap: Math.max(chart?.chartOption?.yAxis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
-      axisLabel: {
-        ...chart?.chartOption?.yAxis?.axisLabel,
-        rotate: 0,
-        align: 'right',
-        color: isDarkColor
-      },
-      nameTextStyle: {
-        color: isDarkColor,
-        fontSize: 10,
-        fontWeight: 'bold'
-      },
-      axisLine: { show: false }
-    }
+        },
+    yAxis: Array.isArray(chart?.chartOption?.yAxis)
+      ? chart.chartOption.yAxis.map((axis) => ({
+          ...axis,
+          position: 'left',
+          nameLocation: axis?.nameLocation || 'middle',
+          nameGap: Math.max(axis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
+          axisLabel: {
+            ...axis?.axisLabel,
+            rotate: 0,
+            align: 'right',
+            color: isDarkColor,
+            hideOverlap: false,
+            showMinLabel: true,
+            showMaxLabel: true,
+            interval: 0,
+            fontSize: axisFontSize,
+            formatter: (v) => {
+              try {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                }
+                return v;
+              } catch { return v; }
+            },
+          },
+          nameTextStyle: {
+            ...(axis?.nameTextStyle || {}),
+            color: isDarkColor,
+            fontSize: Math.max(8, axisFontSize - 1),
+            fontWeight: 'bold'
+          },
+          axisLine: { show: false }
+        }))
+      : {
+          ...chart?.chartOption?.yAxis,
+          position: 'left',
+          nameLocation: chart?.chartOption?.yAxis?.nameLocation || 'middle',
+          nameGap: Math.max(chart?.chartOption?.yAxis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
+          axisLabel: {
+            ...chart?.chartOption?.yAxis?.axisLabel,
+            rotate: 0,
+            align: 'right',
+            color: isDarkColor,
+            hideOverlap: false,
+            showMinLabel: true,
+            showMaxLabel: true,
+            interval: 0,
+            fontSize: axisFontSize,
+            formatter: (v) => {
+              try {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                }
+                return v;
+              } catch { return v; }
+            },
+          },
+          nameTextStyle: {
+            ...(chart?.chartOption?.yAxis?.nameTextStyle || {}),
+            color: isDarkColor,
+            fontSize: Math.max(8, axisFontSize - 1),
+            fontWeight: 'bold'
+          },
+          axisLine: { show: false }
+        }
   };
 
+  if (Array.isArray(opt.series) && opt.series.length) {
+    opt.series = opt.series.map((s) => {
+      if (!s || !s.type) return s;
+      if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
+      return {
+        ...s,
+        clip: true,
+        labelLayout: {
+          hideOverlap: true,
+          moveOverlap: 'shiftY'
+        },
+        label: {
+          ...(s.label || {}),
+          show: shouldShowDataLabels,
+          position: s.type === 'bar' ? 'top' : 'top',
+          distance: tickCount > 50 ? 5 : 8,
+          color: isDarkColor,
+          overflow: 'truncate',
+          width: seriesLabelWidth,
+          hideOverlap: true,
+          fontSize: dataLabelFontSize,
+          formatter: (p) => {
+            try {
+              const raw = Array.isArray(p?.value) ? p.value[p.value.length - 1] : p?.value;
+              const n = Number(raw);
+              if (Number.isFinite(n)) {
+                if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                return `${n}`;
+              }
+              const t = String(raw ?? "");
+              const maxLen = tickCount > 80 ? 5 : tickCount > 60 ? 6 : tickCount > 40 ? 7 : 8;
+              return t.length > maxLen ? t.slice(0, maxLen - 1) + "…" : t;
+            } catch {
+              return p?.value;
+            }
+          },
+        },
+        emphasis: {
+          ...(s.emphasis || {}),
+          label: {
+            ...((s.emphasis && s.emphasis.label) || {}),
+            show: true,
+            position: 'top',
+            distance: 10,
+            color: isDarkColor,
+            hideOverlap: false,
+          },
+        },
+      };
+    });
+  }
 
   const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
   const isPie = Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype));
@@ -740,16 +1024,23 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           : (s.center || ['50%', '57%']);
       return {
         ...s,
-        avoidLabelOverlap: true,
+        avoidLabelOverlap: false,
+        labelLayout: {
+          hideOverlap: false,
+          moveOverlap: 'shiftY'
+        },
         label: {
           ...(s.label || {}),
+          show: true,
           formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
           color: isDarkColor,
-          fontSize: 11,
+          fontSize: Math.max(8, dataLabelFontSize),
           overflow: 'truncate',
+          width: tickCount > 40 ? 72 : 94,
         },
         labelLine: {
           ...(s.labelLine || {}),
+          show: true,
           length: 8,
           length2: 8,
           smooth: false,
@@ -837,9 +1128,14 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   useEffect(() => {
     if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) return;
-    try { inst.current = initChart(ref.current); inst.current.setOption(withZoomable(opt), true); setTimeout(() => inst.current?.resize(), 50); } catch { }
+    try {
+      inst.current = initChart(ref.current);
+      inst.current.clear();
+      inst.current.setOption(withZoomable(opt), true);
+      setTimeout(() => inst.current?.resize(), 50);
+    } catch { }
     return () => { if (ref.current) disposeChart(ref.current); };
-  }, [opt]);
+  }, [opt, theme]);
 
   useEffect(() => { setTimeout(() => inst.current?.resize(), 150); }, [fs, isSmallScreen, cols, showLegends]);
 
@@ -954,7 +1250,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               onZoomOut={zoomOut}
               onZoomReset={resetZoom}
               onSave={() => savePng(inst.current, chart.name)}
-              onToggleFullscreen={() => { setFs(!fs); setFss(!fs); }}
+              onToggleFullscreen={() => {
+                setFs((prev) => {
+                  const next = !prev;
+                  setFss(next);
+                  return next;
+                });
+              }}
               onToggleLegend={() => {}}
               legendVisible={showLegends}
               style={{ flexWrap: 'nowrap' }}
@@ -962,7 +1264,19 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             />
           )}
           {opt && (opt._error || opt._waiting || opt._kpi || opt._table) && (
-            <button className="btn btn-ghost btn-sm" onClick={() => { setFs(!fs); setFss(!fs); }} title={fs ? 'Exit full screen' : 'Full screen'}><Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon></button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                setFs((prev) => {
+                  const next = !prev;
+                  setFss(next);
+                  return next;
+                });
+              }}
+              title={fs ? 'Exit full screen' : 'Full screen'}
+            >
+              <Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon>
+            </button>
           )}
           {isAdmin && (
             <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete chart (admin only)" disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>

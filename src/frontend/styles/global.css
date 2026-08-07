@@ -4395,6 +4395,69 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   background: var(--bg-sunken);
 }
 
+.chart-fullscreen-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: var(--bg-page) !important;
+  padding: 16px !important;
+  overflow: auto !important;
+  cursor: default !important;
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+.chart-fullscreen-overlay .card {
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+.chart-fullscreen-overlay .chart-container {
+  height: calc(100vh - 100px) !important;
+  width: 100% !important;
+  flex: 1 !important;
+}
+
+.dashboard-grid-staggered .chart-tile-wrapper.chart-fullscreen-tile {
+  animation: none !important;
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+.chart-tile-wrapper.chart-fullscreen-tile {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: var(--bg-page) !important;
+  padding: 16px !important;
+  overflow: auto !important;
+  cursor: default !important;
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+.chart-fullscreen-tile .chart-echarts-container {
+  height: calc(100vh - 100px) !important;
+  width: 100% !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.dashboard-grid-loading .chart-fullscreen-tile,
+.dashboard-grid-loaded .chart-fullscreen-tile {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+.chart-fullscreen-tile .card:hover {
+  box-shadow: none !important;
+  border-color: var(--border-default) !important;
+}
+
 /* Checkboxes
 
    The EXPLAIN option row drew the operating system's own checkboxes, which are
