@@ -64,7 +64,8 @@ LIMIT 500`;
 }
 
 function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
+
   const conditions = [
     `query_id = '${safeId}'`,
     `event_time >= '${toChDatetime(from)}'`,

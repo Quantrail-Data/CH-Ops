@@ -925,7 +925,7 @@ export default function QueryEditor({
       const requestBody = JSON.stringify({
         database_type: "clickhouse",
         credentials: { port, username: user, host: selectedNode },
-        databases: [dbName] || [],
+        databases: dbName ? [dbName] : [],
         cluster_id: selectedClusterId,
         node_id: nodeName,
       });

@@ -195,7 +195,6 @@ describe.only('Operator controller', () => {
                             cluster: 'test',
                             shard: 'test',
                             replica: 'test',
-                            podName: 'test',
                         }]
                     }
                 })

@@ -36,7 +36,7 @@ router.post("/connect", async (req, res, next) => {
       (database_type === undefined ||
         database_type === null ||
         credentials === undefined ||
-        credentials === null,
+        credentials === null ||
         cluster_id === null ||
         cluster_id === undefined ||
         node_id === null ||
