@@ -696,6 +696,74 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         }
       }
 
+            const isSankey =
+        Array.isArray(enhancedOption.series) &&
+        enhancedOption.series.some((s) => s.type === "sankey");
+
+      if (isSankey) {
+        enhancedOption.series = enhancedOption.series.map((s) => {
+          if (s.type !== "sankey") return s;
+
+          return {
+            ...s,
+            lineStyle: {
+              ...(s.lineStyle || {}),
+              color: theme === "dark" ?"rgba(255, 255, 255, 0.27)" : "rgba(147, 147, 147, 0.55)",
+              opacity: 1,
+              curveness: s.lineStyle?.curveness ?? 0.2,
+            },
+          };
+        });
+      }
+
+       const isSunBurst =
+    Array.isArray(enhancedOption.series) && enhancedOption.series.some((s) => s.type === "sunburst");
+  
+  const isSunBurstVisualmap = Object.keys(enhancedOption?.visualMap || {})?.length > 0;
+
+  if (isSunBurst ) {
+    enhancedOption.series = enhancedOption.series.map((s) => {
+      if (s.type !== "sunburst") return s;
+
+      return {
+        ...s,
+        radius: isSunBurstVisualmap ? ["3%","65%"] : ["5%", "90%"],
+        levels: [
+          {},
+          {
+            label: {
+              position: "outside",
+              rotate: "tangential",
+              distance: 10,
+              rotate: 0,
+            },
+            labelLine: {
+              show: true,
+              length: 20,
+              length2: 10,
+              smooth: false,
+            },
+          },
+          {
+            label: {
+              position: "outside",
+              distance: 10,
+              rotate: 0,
+              silent: true,
+            },
+            labelLine: {
+              show: true,
+              length: 20,
+              length2: 10,
+              smooth: false,
+            },
+          },
+        ],
+      };
+    });
+  }
+
+
       previewInst.current.setOption(enhancedOption, true);
       setTimeout(() => previewInst.current?.resize(), 50);
     } catch (err) {
@@ -1559,35 +1627,76 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   </div>
                 )}
                 {chartOption?._kpi && (
+                  chartOption?.isArray ? <div
+                    className="alert-banner danger"
+                    style={{ fontSize: "13px" }}
+                  >
+                    <Icon className="ti ti-alert-circle"></Icon>{" "}
+                    {chartOption.message}
+                  </div> :
                   <div
                     style={{
                       display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
                       justifyContent: "center",
-                      padding: 40,
+                      alignItems: "center",
+                      height: "90%",
+                      padding: "24px",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: "13px",
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.06em",
-                        marginBottom: 8,
+                        minWidth: "280px",
+                        padding: "28px 36px",
+                        borderRadius: "18px",
+                        background: "var(--surface)",
+                        border: "1px solid var(--border-color)",
+                        boxShadow: "var(--shadow-md)",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px",
                       }}
                     >
-                      {chartOption.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "2.5rem",
-                        fontWeight: 800,
-                        color: "var(--accent)",
-                        fontFamily: "var(--font-table)",
-                      }}
-                    >
-                      {chartOption.value}
+                      <div
+                        style={{
+                          width: "48px",
+                          height: "4px",
+                          borderRadius: "999px",
+                          background: "var(--accent)",
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.12em",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {chartOption.label}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "3.5rem",
+                          fontWeight: 800,
+                          color: "var(--accent)",
+                          lineHeight: 1,
+                          fontFamily: "var(--font-table)",
+                        }}
+                      >
+                        {chartOption.value}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "0.9rem",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Current Value
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1638,7 +1747,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         }}
                       >
                         {!chartOption && (
-                          <div className="empty-state" style={{ padding: 16 }}>
+                          <div className="empty-state" style={{ padding: 16 , height:"80%" }}>
                             <Icon className="ti ti-chart-dots"></Icon>
                             <p style={{ fontSize: "13px" }}>
                               Map columns to see preview.

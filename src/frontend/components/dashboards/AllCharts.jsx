@@ -572,6 +572,74 @@ export default function AllCharts({ onEdit }) {
         }
       }
 
+        const isSankey =
+        Array.isArray(chartOption.series) &&
+        chartOption.series.some((s) => s.type === "sankey");
+
+      if (isSankey) {
+        chartOption.series = chartOption.series.map((s) => {
+          if (s.type !== "sankey") return s;
+
+          return {
+            ...s,
+            label: {
+              ...(s.label || {}),
+              color: isDarkColor,
+              fontSize: 13,
+            },
+          };
+        });
+      }
+
+      const isSunBurst =
+        Array.isArray(chartOption.series) &&
+        chartOption.series.some((s) => s.type === "sunburst");
+
+      const isSunBurstVisualmap =
+        Object.keys(chartOption?.visualMap || {})?.length > 0;
+
+      if (isSunBurst) {
+        chartOption.series = chartOption.series.map((s) => {
+          if (s.type !== "sunburst") return s;
+
+          return {
+            ...s,
+            radius: isSunBurstVisualmap ? ["3%", "60%"] : ["5%", "90%"],
+            levels: [
+              {},
+              {
+                label: {
+                  position: "outside",
+                  rotate: "tangential",
+                  distance: 10,
+                  // rotate: 0,
+                },
+                labelLine: {
+                  show: true,
+                  length: 20,
+                  length2: 10,
+                  smooth: false,
+                },
+              },
+              {
+                label: {
+                  position: "outside",
+                  distance: 10,
+                  rotate: 0,
+                  silent: true,
+                },
+                labelLine: {
+                  show: true,
+                  length: 20,
+                  length2: 10,
+                  smooth: false,
+                },
+              },
+            ],
+          };
+        });
+      }
+
       previewInst.current.setOption(chartOption, true);
       setTimeout(() => previewInst.current?.resize(), 50);
     } catch { }
