@@ -1309,7 +1309,7 @@ export function buildChartOption(
           series: [{
             type: "sunburst",
             data: treeData,
-            radius: ["10%", "90%"],
+            radius: ["0%", "90%"],
             label: { rotate: "radial", fontSize: 11 },
             emphasis: { focus: "ancestor" },
             levels: [{}, { r0: "10%", r: "35%", label: { fontSize: 13 } }, { r0: "35%", r: "65%" }, { r0: "65%", r: "90%", label: { fontSize: 9 } }],
