@@ -133,19 +133,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     (s) => s.subtype === chartSubtype,
   );
   const fields = subtypeInfo?.fields || [];
-  const hasAxisLabels = typeInfo?.hasXLabel || chartType === "boxplot" || false;
+  const hasAxisLabels = typeInfo?.hasXLabel || false;
   
-  const legendSupportedTypes = [
-    'grouped_bar', 'stacked_bar', 
-    'multi_line', 'stacked_line',
-    'pie', 'donut', 'rose', 'nested_pie',
-    'bubble',
-    'multi_category',
-    'funnel',
-    'radar'
-  ];
-  
-  const shouldShowLegend = legendSupportedTypes.includes(chartSubtype) && needsLegend(chartType, chartSubtype);
+  const shouldShowLegend = needsLegend(chartType, chartSubtype);
 
   useEffect(() => {
     if (!editChart) {
@@ -225,10 +215,17 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       return;
     }
     try {
+      let effectiveXLabel = xLabel;
+      let effectiveYLabel = yLabel;
+      if (chartSubtype === "horizontal_bar") {
+        effectiveXLabel = yLabel;
+        effectiveYLabel = xLabel;
+      }
+      
       setChartOption(
         buildChartOption(chartType, chartSubtype, data, mapping, chartName, {
-          xLabel,
-          yLabel,
+          xLabel: effectiveXLabel,
+          yLabel: effectiveYLabel,
           showLegend: shouldShowLegend ? showLegend : false,
         }),
       );
@@ -270,7 +267,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const hasLegendCheck = chartOption.legend?.show || (Array.isArray(chartOption.series) && chartOption.series.some(s => Array.isArray(s?.data) && s?.data.length > 0));
       const legendVisible = shouldShowLegend && showLegend;
 
-      const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
+      const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar', 'horizontal_bar'];
       const isBarChart = barChartTypes.includes(chartSubtype);
       const isScatterLike = chartSubtype === 'scatter' || chartSubtype === 'basic_scatter' || chartSubtype === 'bubble' || chartType === 'scatter' || chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
@@ -1808,4 +1805,3 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     </div>
   );
 }
-
