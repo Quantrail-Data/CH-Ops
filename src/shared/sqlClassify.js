@@ -35,27 +35,26 @@ const MAX_SQL_LENGTH = 1_000_000;
 // boundaries) and string / identifier literals are copied verbatim so that a ';'
 // or keyword-looking text inside them is never treated as structure.
 function splitTopLevel(sql) {
-  const raw = String(sql || "");
-  const s = raw.length > MAX_SQL_LENGTH ? raw.slice(0, MAX_SQL_LENGTH) : raw;
-  const n = s.length;
+  const s = String(sql || "").slice(0, MAX_SQL_LENGTH);
+  const statementLength = s.length;
   const out = [];
   let buf = "";
   let i = 0;
-  while (i < n) {
+  while (i < statementLength) {
     const c = s[i];
     const c2 = s[i + 1];
 
     // line comment: -- ... end-of-line
     if (c === "-" && c2 === "-") {
       i += 2;
-      while (i < n && s[i] !== "\n") i++;
+      while (i < statementLength && s[i] !== "\n") i++;
       buf += " ";
       continue;
     }
     // block comment: /* ... */
     if (c === "/" && c2 === "*") {
       i += 2;
-      while (i < n && !(s[i] === "*" && s[i + 1] === "/")) i++;
+      while (i < statementLength && !(s[i] === "*" && s[i + 1] === "/")) i++;
       i += 2;
       buf += " ";
       continue;
@@ -63,7 +62,7 @@ function splitTopLevel(sql) {
     // single-quoted string literal
     if (c === "'") {
       buf += c; i++;
-      while (i < n) {
+      while (i < statementLength) {
         if (s[i] === "\\") { buf += s[i] + (s[i + 1] || ""); i += 2; continue; }
         if (s[i] === "'" && s[i + 1] === "'") { buf += "''"; i += 2; continue; }
         buf += s[i];
@@ -76,7 +75,7 @@ function splitTopLevel(sql) {
     if (c === '"' || c === "`") {
       const q = c;
       buf += c; i++;
-      while (i < n) {
+      while (i < statementLength) {
         if (s[i] === "\\") { buf += s[i] + (s[i + 1] || ""); i += 2; continue; }
         if (s[i] === q && s[i + 1] === q) { buf += q + q; i += 2; continue; }
         buf += s[i];
@@ -103,10 +102,10 @@ function splitTopLevel(sql) {
 // First keyword of a single (already comment-free) statement, skipping leading
 // whitespace and any leading '(' (parenthesized SELECT / UNION forms).
 export function leadingKeyword(statement) {
-  const raw = String(statement || "");
-  const t = raw.length > MAX_SQL_LENGTH ? raw.slice(0, MAX_SQL_LENGTH) : raw;
+  const t = String(statement || "").slice(0, MAX_SQL_LENGTH);
+  const statementLength = t.length;
   let j = 0;
-  while (j < t.length && (t[j] === "(" || /\s/.test(t[j]))) j++;
+  while (j < statementLength && (t[j] === "(" || /\s/.test(t[j]))) j++;
   const m = /^[A-Za-z_]+/.exec(t.slice(j));
   return m ? m[0].toUpperCase() : "";
 }

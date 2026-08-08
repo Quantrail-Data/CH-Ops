@@ -1279,9 +1279,9 @@ export function buildChartOption(
       return {
         tooltip: {
           trigger: 'item',
-          renderMode: 'html', 
-          padding: 0, 
-          
+          renderMode: 'html',
+          padding: 0,
+
           formatter: function (info) {
             const value = info.value;
             const name = info.name;
@@ -1293,7 +1293,7 @@ export function buildChartOption(
               </div>
             `;
           },
-          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderWidth: 1,
           borderColor: '#ccc',
           textStyle: {
@@ -1302,17 +1302,17 @@ export function buildChartOption(
         },
         toolbox: {
           show: false,
-          orient: 'horizontal',      
-          left: 'right',            
-          top: 'top',                
-          itemSize: 18,            
-          itemGap: 12,               
-          showTitle: true,        
+          orient: 'horizontal',
+          left: 'right',
+          top: 'top',
+          itemSize: 18,
+          itemGap: 12,
+          showTitle: true,
 
           iconStyle: {
-            borderColor: '#006d75',  
-            borderWidth: 1.5,       
-            color: 'none'           
+            borderColor: '#006d75',
+            borderWidth: 1.5,
+            color: 'none'
           },
 
           emphasis: {
@@ -1320,20 +1320,21 @@ export function buildChartOption(
               borderColor: '#ff7a45',
               borderWidth: 2
             }
-        }},
+          }
+        },
         visualMap: {
-          show: false, 
-          min: 0, 
-          max: 100, 
+          show: false,
+          min: 0,
+          max: 100,
           inRange: { color: ["#2a4858", "#006d75", "#00a2ae", "#73d13d", "#ffe58f", "#ff7a45", "#cf1322"] },
         },
-        series: [{ 
-          type: "treemap", 
+        series: [{
+          type: "treemap",
           data: buildTree(data, mapping),
           label: {
             show: true,
-            fontSize: 16 ,
-            color:"black"
+            fontSize: 16,
+            color: "black"
           }
         }]
       };
@@ -1391,9 +1392,9 @@ export function buildChartOption(
       };
     }
 
-    if (chartType === "kpi")  {
+    if (chartType === "kpi") {
       if (Array.isArray(data) && data.length > 1) {
-        {console.log(data.length); return {_kpi: true,isArray:true,message:"The KPI card does not support arrays."}}
+        return { _kpi: true, isArray: true, message: "The KPI card does not support arrays." };
       }
       return {
         _kpi: true,

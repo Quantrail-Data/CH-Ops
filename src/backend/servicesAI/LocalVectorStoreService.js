@@ -22,10 +22,14 @@ class LocalVectorStore {
     if (!databaseId) {
       throw new Error("LocalVectorStore requires a databaseId");
     }
+    // Validate databaseId to prevent path traversal / arbitrary file access.
+    if (!/^[a-zA-Z0-9_-]+$/.test(databaseId)) {
+      throw new Error('Invalid databaseId');
+    }
 
     this.databaseId = databaseId;
     this.storagePath = join(process.cwd(), VECTOR_STORE_FOLDER);
-    this.fileName = `${databaseId}.json`;
+    this.fileName = `${this.databaseId}.json`;
     this.filePath = join(this.storagePath, this.fileName);
     this.tempFilePath = join(this.storagePath, `${this.fileName}.tmp`);
 
