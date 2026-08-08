@@ -35,14 +35,14 @@ function removeFiles(job) {
   try {
     fs.rmSync(job.dir, { recursive: true, force: true });
   } catch {
-  
+
   }
 }
 
 function finish(job, state, error) {
   job.state = state;
   job.error = error || null;
-  job.creds = null; 
+  job.creds = null;
   job.lastActivityAt = Date.now();
   if (state !== "ready") removeFiles(job);
 }
@@ -125,11 +125,11 @@ export function createJob({
   };
 
   jobs.set(id, job);
-  runJob(job); 
+  runJob(job);
   return job;
 }
 
-async function runJob(job) {
+export async function runJob(job) {
   try {
     const res = await startExportStream({
       host: job.node.host,
@@ -197,7 +197,7 @@ async function runJob(job) {
 export function getJob(id, username) {
   const job = jobs.get(id);
   if (!job) return null;
-  if (job.userId !== username) return null; 
+  if (job.userId !== username) return null;
   return job;
 }
 
