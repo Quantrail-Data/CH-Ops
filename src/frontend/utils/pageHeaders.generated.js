@@ -132,7 +132,8 @@ export const PAGE_TEXT = {
     "Loading topology...",
     "No clusters are configured on this server.",
     "Server restarted, rates resuming",
-    "Reading system tables..."
+    "Reading system tables...",
+    "Value:"
   ],
   "overview/summary": [
     "Daily Summary",
@@ -1047,7 +1048,8 @@ export const PAGE_TEXT = {
     "Hidden and required with no default: its charts will not run.",
     "Cancel",
     "Save settings",
-    "Close"
+    "Close",
+    "Value:"
   ],
   "backups/lifecycle": [
     "Loading...",
@@ -1267,10 +1269,12 @@ export const PAGE_TEXT = {
     "Min",
     "Max",
     "Preview",
+    "Current Value",
     "Map columns to see preview.",
     "Create a dashboard first in the Dashboards section.",
     "SELECT ...",
     "(none)",
+    "Value:",
     "Max rows",
     "Fewer rows",
     "Maximum rows to return",
@@ -1282,6 +1286,7 @@ export const PAGE_TEXT = {
     "Type",
     "Dashboard",
     "Actions",
-    "No charts."
+    "No charts.",
+    "Value:"
   ]
 };
