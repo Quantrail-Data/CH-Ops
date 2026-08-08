@@ -22,7 +22,9 @@ export default function SqlEditorPage(props) {
   const regular = mode === "regular";
 
   // BOTH WRAPPERS CARRY A HEIGHT.
-  const shown = { height: "100%" };
+  const shown = { height: "100%"};
+
+  const comparisonShow = { height: "100%",padding: "28px 32px"};
 
   return (
     // flex: 1, NOT height: 100%.
@@ -36,7 +38,7 @@ export default function SqlEditorPage(props) {
       >
         <QueryEditor {...props} mode={mode} onModeChange={setMode} active={regular} />
       </div>
-      <div style={regular ? hidden : shown} aria-hidden={regular} inert={regular}>
+      <div style={regular ? hidden : comparisonShow} aria-hidden={regular} inert={regular}>
         <ComparisonView mode={mode} onModeChange={setMode} active={!regular} />
       </div>
     </div>
