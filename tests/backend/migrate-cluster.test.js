@@ -203,7 +203,7 @@ describe('migrateClusters helpers', () => {
         );
 
         const result = migrateClustersToTables(fakeDb.sqlite, { log: () => { } });
-
+        console.log(result)
         expect(result.reason).toBe('migrated');
         expect(result.migrated).toBe(true);
         expect(fakeDb.state.clusters).toHaveLength(1);

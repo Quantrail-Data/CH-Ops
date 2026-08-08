@@ -45,11 +45,14 @@ describe('Env Loader - super admins', () => {
     delete process.env.SUPER_ADMIN_2_PASSWORD;
     process.env.SUPER_ADMIN = 'legacy_admin';
     process.env.SUPER_ADMIN_PASSWORD = 'legacy_pass';
+    process.env.SUPER_ADMIN_EMAIL = 'legacy@example.com';
     const env = loadEnv();
     expect(env.superAdmins.length).toBe(1);
     expect(env.superAdmins[0].username).toBe('legacy_admin');
+    expect(env.superAdmins[0].email).toBe('legacy@example.com');
     delete process.env.SUPER_ADMIN;
     delete process.env.SUPER_ADMIN_PASSWORD;
+    delete process.env.SUPER_ADMIN_EMAIL;
     process.env.SUPER_ADMIN_1 = saved1;
     process.env.SUPER_ADMIN_1_PASSWORD = saved1p;
     process.env.SUPER_ADMIN_2 = saved2;

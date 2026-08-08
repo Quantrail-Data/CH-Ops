@@ -177,7 +177,7 @@ describe("POST /ollama/models - SSRF guard", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ success: true, models: [] });
     // Pinned to the literal loopback IP rather than the "localhost" hostname.
-    expect(requestedUrl).toBe("http://127.0.0.1:11434/api/tags");
+    expect(requestedUrl.href).toBe("http://127.0.0.1:11434/api/tags");
   });
 
   it("allows a literal 127.0.0.1 address", async () => {
@@ -227,7 +227,7 @@ describe("POST /ollama/models - SSRF guard", () => {
 
     expect(res.statusCode).toBe(200);
     // Connects to the validated IP directly, not the hostname...
-    expect(requestedUrl).toBe("http://203.0.113.20:11434/api/tags");
+    expect(requestedUrl.href).toBe("http://203.0.113.20:11434/api/tags");
     // ...but keeps the original hostname in the Host header.
     expect(requestedHeaders).toEqual({ Host: "ollama.example.com:11434" });
   });
@@ -388,7 +388,7 @@ describe("POST /ollama/models - server responses", () => {
       success: true,
       models: ["qwen2.5-coder:7b", "phi4:latest"],
     });
-    expect(requestedUrl).toBe(`${PUBLIC_BASE_URL}/api/tags`);
+    expect(requestedUrl.href).toBe(`${PUBLIC_BASE_URL}/api/tags`);
   });
 
   it("strips a trailing slash from the base URL before requesting /api/tags", async () => {
@@ -403,7 +403,7 @@ describe("POST /ollama/models - server responses", () => {
 
     await handler(req, res);
 
-    expect(requestedUrl).toBe(`${PUBLIC_BASE_URL}/api/tags`);
+    expect(requestedUrl.href).toBe(`${PUBLIC_BASE_URL}/api/tags`);
   });
 
   it("filters out models with an empty/missing name", async () => {
@@ -553,7 +553,7 @@ describe("POST /ollama/models - server responses", () => {
     await handler(req, res);
 
     // IPv6 should be bracketed in the URL
-    expect(requestedUrl).toMatch(/\[::1\]/);
+    expect(requestedUrl.href).toMatch(/\[::1\]/);
     expect(res.statusCode).toBe(200);
   });
 
