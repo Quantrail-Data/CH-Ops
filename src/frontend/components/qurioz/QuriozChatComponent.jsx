@@ -564,7 +564,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             error: { status: false, message: null },
             aiError: { status: false, message: null },
           };
-          replaceChat(UpdatedMessage)
+          replaceChat(UpdatedMessage);
         } else {
           const SQL = responseAIQuery?.generated_sql
             ?.toLowerCase()

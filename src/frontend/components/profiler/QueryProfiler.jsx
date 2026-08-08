@@ -166,15 +166,6 @@ function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
   const safeId = queryId.replace(/'/g, "\\\\'");
 
 
-  let traceFilter;
-  if (traceType) {
-    traceFilter = `\n  AND trace_type = '${traceType}'`;
-  }
-
-  let contextFilter;
-  if (memoryContext && supportsMemoryContext(traceType)) {
-    contextFilter = `\n  AND memory_context = '${memoryContext}'`;
-  }
   return `
 SELECT
   arrayStringConcat(

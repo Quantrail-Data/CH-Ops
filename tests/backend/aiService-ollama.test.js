@@ -1,20 +1,8 @@
-/**
- * aiService-ollama.test.js - Unit tests for the OLLAMA provider branch of AIService
- *
- * Ollama has no real API key - the "APIkey" constructor argument carries its
- * base URL instead, and its OpenAI-compatible layer only implements the Chat
- * Completions API (not the Responses API the "OPEN AI" branch uses). Tests
- * the OpenAI client is configured with the right baseURL/apiKey, chat.completions.create
- * is called with temperature 0 and the right model/messages, the response is
- * unwrapped correctly (including the no-choices fallback), and that thrown
- * provider errors still flow through the shared rate-limit/auth/generic
- * classification in the catch block.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// author -> (Ravivarman, Dhivyadharshini)
+// aiService-ollama.test.js - Unit tests for the ollama provider branch of AIService
 import { describe, it, expect, beforeEach, mock } from "bun:test";
-import { initCrypto } from "../../src/backend/services/crypto.js";
+import { initCrypto, encrypt } from "../../src/backend/services/crypto.js";
 
 try {
   initCrypto("test-session-secret-minimum-32-characters-long!");
@@ -23,23 +11,25 @@ try {
 
 let lastConstructorOpts = null;
 const chatCompletionsCreate = mock();
+const responsesCreate = mock();
 
 mock.module("openai", () => ({
   default: class MockOpenAI {
     constructor(opts) {
       lastConstructorOpts = opts;
       this.chat = { completions: { create: chatCompletionsCreate } };
-      this.responses = { create: mock() };
+      this.responses = { create: responsesCreate };
     }
   },
 }));
 
-const AIServices = (await import("../../src/backend/servicesAI/AIService.js")).default;
-
+const AIServices = (await import("../../src/backend/servicesAI/AIService.js?real")).default;
 const BASE_URL = "http://localhost:11434";
+const OPENAI_ENCRYPTED_KEY = encrypt("sk-test-fixture-key");
 
 beforeEach(() => {
   chatCompletionsCreate.mockReset();
+  responsesCreate.mockReset();
   lastConstructorOpts = null;
 });
 

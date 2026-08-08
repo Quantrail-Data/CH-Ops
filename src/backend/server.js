@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { rateLimit } from 'express-rate-limit';
 createRequire(import.meta.url);
 let embeddedAssets = null;
 try {
@@ -28,7 +29,6 @@ import { loadEnv } from './utils/env.js';
 import { setSecret } from './services/jwt.js';
 import { initCrypto } from './services/crypto.js';
 import { authMiddleware } from './middleware/auth.js';
-import { rateLimiter } from './middleware/rateLimiter.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { startScheduler } from './services/alertScheduler.js';
@@ -112,27 +112,49 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use((req, res, next) => { req.env = env; next(); });
 
-app.use('/api/auth', rateLimiter(100, 60), authRoute);
+const authenticatedRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10000,
+  standardHeaders: true,
+  legacyHeaders: true,
+});
+
+// Apply a global rate limiter for all /api routes (excluding the public auth/health/version/forget-password endpoints).
+// This ensures any route that performs authorization is always rate-limited.
+app.use('/api', (req, res, next) => {
+  // Keep these endpoints public / separately rate-limited
+  if (req.path.startsWith('/auth') || req.path.startsWith('/health') || req.path.startsWith('/version') || req.path.startsWith('/forget-password')) {
+    return next();
+  }
+  return authenticatedRateLimiter(req, res, next);
+});
+
+app.use('/api/auth', rateLimit({
+  windowMs: 60 * 1000,
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: true,
+}), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/version', (req, res) => res.json(appVersion));
 app.use(`/api/forget-password`, ForgetRouter);
-app.use('/api/query', authMiddleware, rateLimiter(10000, 60), queryRoute);
-app.use('/api/editor', authMiddleware, rateLimiter(10000, 60), editorRoute);
-app.use('/api/config', authMiddleware, rateLimiter(10000, 60), configRoute);
-app.use('/api/settings', authMiddleware, rateLimiter(10000, 60), settingsRoute);
-app.use('/api/alerts', authMiddleware, rateLimiter(10000, 60), alertsRoute);
-app.use('/api/dashboards', authMiddleware, rateLimiter(10000, 60), dashboardsRoute);
-app.use('/api/users', authMiddleware, rateLimiter(10000, 60), usersRoute);
-app.use('/api/cluster', authMiddleware, rateLimiter(10000, 60), clusterRoute);
-app.use('/api/k8s', authMiddleware, rateLimiter(10000, 60), k8sRoute);
-app.use('/api/app-backup', authMiddleware, rateLimiter(10000, 60), appBackupRoute);
-app.use('/api/qurioz/api-keys', authMiddleware, rateLimiter(10000, 60), apiKeysRoute);
-app.use('/api/export/download', rateLimiter(10000, 60), downloadRouter);
-app.use('/api/export', rateLimiter(10000, 60), authMiddleware, exportRoute);
+app.use('/api/query', authenticatedRateLimiter, authMiddleware, queryRoute);
+app.use('/api/editor', authenticatedRateLimiter, authMiddleware, editorRoute);
+app.use('/api/config', authenticatedRateLimiter, authMiddleware, configRoute);
+app.use('/api/settings', authenticatedRateLimiter, authMiddleware, settingsRoute);
+app.use('/api/alerts', authenticatedRateLimiter, authMiddleware, alertsRoute);
+app.use('/api/dashboards', authenticatedRateLimiter, authMiddleware, dashboardsRoute);
+app.use('/api/users', authenticatedRateLimiter, authMiddleware, usersRoute);
+app.use('/api/cluster', authenticatedRateLimiter, authMiddleware, clusterRoute);
+app.use('/api/k8s', authenticatedRateLimiter, authMiddleware, k8sRoute);
+app.use('/api/app-backup', authenticatedRateLimiter, authMiddleware, appBackupRoute);
+app.use('/api/qurioz/api-keys', authenticatedRateLimiter, authMiddleware, apiKeysRoute);
+app.use('/api/export/download', downloadRouter);
+app.use('/api/export', authenticatedRateLimiter, authMiddleware, exportRoute);
 
-app.use("/api/ai/database", authMiddleware, rateLimiter(10000, 60), databaseAIConnection);
-app.use("/api/ai/sql", authMiddleware, rateLimiter(10000, 60), sqlAIChat);
-app.use("/api/schema-studio", authMiddleware, rateLimiter(10000, 60), schemaStudioRoute);
+app.use("/api/ai/database", authMiddleware, databaseAIConnection);
+app.use("/api/ai/sql", authMiddleware, sqlAIChat);
+app.use("/api/schema-studio", authMiddleware, schemaStudioRoute);
 
 function serveEmbedded(prefix) {
   return (req, res, next) => {

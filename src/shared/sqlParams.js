@@ -6,10 +6,12 @@ const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 // Scanner
 
+// Cap SQL length to avoid unbounded loops on attacker-controlled input.
+const MAX_SQL_LENGTH = 1_000_000;
 
 function scan(sql) {
-  const text = String(sql || "");
-  const n = text.length;
+  const text = String(sql || "").slice(0, MAX_SQL_LENGTH);
+  const textLength = text.length;
   const spans = [];
   let i = 0;
   let start = 0;
@@ -18,7 +20,7 @@ function scan(sql) {
     if (b > a) spans.push({ kind, start: a, end: b });
   };
 
-  while (i < n) {
+  while (i < textLength) {
     const c = text[i];
     const c2 = text[i + 1];
 
@@ -27,7 +29,7 @@ function scan(sql) {
       push("code", start, i);
       const a = i;
       i += 2;
-      while (i < n && text[i] !== "\n") i++;
+      while (i < textLength && text[i] !== "\n") i++;
       push("comment", a, i);
       start = i;
       continue;
@@ -39,8 +41,8 @@ function scan(sql) {
       const a = i;
       const isBlock = text[i + 2] === "[";
       i += 2;
-      while (i < n && !(text[i] === "*" && text[i + 1] === "/")) i++;
-      const b = Math.min(i + 2, n);
+      while (i < textLength && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      const b = Math.min(i + 2, textLength);
       push(isBlock ? "block" : "comment", a, b);
       i = b;
       start = i;
@@ -50,7 +52,7 @@ function scan(sql) {
     // A {name:Type} placeholder is CODE, all of it, including a type whose
     // enum members are quoted.
     if (c === "{") {
-      const ph = matchPlaceholder(text, i, n);
+      const ph = matchPlaceholder(text, i, textLength);
       if (ph) {
         i = ph.end;
         continue;
@@ -63,7 +65,7 @@ function scan(sql) {
       const a = i;
       const q = c;
       i++;
-      while (i < n) {
+      while (i < textLength) {
         if (text[i] === "\\") { i += 2; continue; }        // escaped char
         if (text[i] === q && text[i + 1] === q) { i += 2; continue; }  // doubled quote
         if (text[i] === q) { i++; break; }
@@ -77,7 +79,7 @@ function scan(sql) {
     i++;
   }
 
-  push("code", start, n);
+  push("code", start, textLength);
   return { text, spans };
 }
 
@@ -152,7 +154,7 @@ export function findParameters(sql) {
     if (seen.type !== p.type) {
       throw new Error(
         `Parameter '${p.name}' is declared with two different types: ` +
-          `'${seen.type}' and '${p.type}'. Use one type for one name.`,
+        `'${seen.type}' and '${p.type}'. Use one type for one name.`,
       );
     }
     // Appearing anywhere outside a block makes it required.
@@ -174,8 +176,8 @@ export function findBlocks(sql) {
     if (!raw.endsWith("]*/")) {
       throw new Error(
         "An optional filter block must end with ]*/ . Check for a stray */ " +
-          "inside the block, including inside a string literal: ClickHouse ends " +
-          "the comment at the first */ regardless of quoting.",
+        "inside the block, including inside a string literal: ClickHouse ends " +
+        "the comment at the first */ regardless of quoting.",
       );
     }
 
@@ -193,7 +195,7 @@ export function findBlocks(sql) {
     if (params.length === 0) {
       throw new Error(
         "An optional filter block must contain at least one parameter, " +
-          "otherwise there is nothing to decide inclusion by.",
+        "otherwise there is nothing to decide inclusion by.",
       );
     }
 

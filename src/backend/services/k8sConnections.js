@@ -84,7 +84,12 @@ export function saveConnection({ id, name, apiAddress, caCertificate, token, nam
 
   const values = {
     name,
-    apiAddress: apiAddress.replace(/\/+$/, ''),
+    // Trim trailing slashes without using a regex on user input
+    apiAddress: (() => {
+      let a = String(apiAddress || '');
+      while (a.endsWith('/')) a = a.slice(0, -1);
+      return a;
+    })(),
     namespacesJson: namespaces?.length ? JSON.stringify(namespaces) : null,
     updatedAt: now,
   };

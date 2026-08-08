@@ -24,13 +24,22 @@ export function initCrypto(sessionSecret) {
   // Load or create the per-install salt
   const saltDir = path.join(process.cwd(), 'data');
   const saltPath = path.join(saltDir, 'crypto.salt');
+  fs.mkdirSync(saltDir, { recursive: true });
   let salt;
-  if (fs.existsSync(saltPath)) {
+  try {
     salt = fs.readFileSync(saltPath);
-  } else {
-    if (!fs.existsSync(saltDir)) fs.mkdirSync(saltDir, { recursive: true });
-    salt = randomBytes(32);
-    fs.writeFileSync(saltPath, salt);
+  } catch {
+    const generatedSalt = randomBytes(32);
+    try {
+      fs.writeFileSync(saltPath, generatedSalt, { flag: 'wx' });
+      salt = generatedSalt;
+    } catch (err) {
+      if (err?.code === 'EEXIST') {
+        salt = fs.readFileSync(saltPath);
+      } else {
+        throw err;
+      }
+    }
   }
 
   derivedKey = scryptSync(sessionSecret, salt, 32);

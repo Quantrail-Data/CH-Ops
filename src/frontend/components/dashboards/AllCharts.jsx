@@ -227,20 +227,10 @@ export default function AllCharts({ onEdit }) {
         if (previewTools.fullscreen) return true;
 
         if (isSmallScreen) {
-          if (tickCount > 20) return false;
-
-          if (isBarChart && tickCount > 15) return false;
-
-          if (!isBarChart && tickCount > 25) return false;
+          return isBarChart ? tickCount <= 15 : tickCount <= 25;
         }
 
-        if (!isSmallScreen && !previewTools.fullscreen) {
-          if (tickCount > 50) return false;
-          if (isBarChart && tickCount > 35) return false;
-          if (!isBarChart && tickCount > 40) return false;
-        }
-
-        return true;
+        return isBarChart ? tickCount <= 35 : tickCount <= 40;
       })();
 
       const chartOption = {

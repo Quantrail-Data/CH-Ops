@@ -771,20 +771,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     if (fs) return true;
 
     if (isSmallScreen) {
-      if (tickCount > 20) return false;
-
-      if (isBarChart && tickCount > 15) return false;
-
-      if (!isBarChart && tickCount > 25) return false;
+      return isBarChart ? tickCount <= 15 : tickCount <= 25;
     }
 
-    if (!isSmallScreen && !fs) {
-      if (tickCount > 50) return false;
-      if (isBarChart && tickCount > 35) return false;
-      if (!isBarChart && tickCount > 40) return false;
-    }
-
-    return true;
+    return isBarChart ? tickCount <= 35 : tickCount <= 40;
   })();
 
   const opt = {
@@ -1011,8 +1001,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isLine =
     Array.isArray(opt.series) && opt.series.some((s) => s.type === "line");
 
-  const lineDataLength = Array.isArray(opt.series) && opt.series.some((s) => s.data?.length > 200)
-  console.log(lineDataLength)
+  const lineDataLength = Array.isArray(opt.series) && opt.series.some((s) => s.data?.length > 200);
+  console.log(lineDataLength);
   if (isLine) {
     opt.xAxis = {
       ...opt.xAxis,
@@ -1190,7 +1180,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               position: "outside",
               rotate: "tangential",
               distance: 10,
-              rotate: 0,
             },
             labelLine: {
               show: true,

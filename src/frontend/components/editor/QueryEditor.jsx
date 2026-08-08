@@ -3040,16 +3040,17 @@ export default function QueryEditor({
             </div>
           )}
 
-          {graphData && !graphData._json && graphFullscreen && (
+          {graphData && !graphData._json && (
             <div
               style={{
                 position: "fixed",
                 inset: 0,
                 zIndex: 300,
                 background: "var(--bg-page)",
-                display: "flex",
+                display: graphFullscreen ? "flex" : "none",
                 flexDirection: "column",
               }}
+              aria-hidden={!graphFullscreen}
             >
               <div
                 style={{
@@ -3123,11 +3124,11 @@ export default function QueryEditor({
                   </button>
                   <button
                     className="btn btn-ghost btn-sm"
-                    onClick={() => setGraphFullscreen(!graphFullscreen)}
-                    title={graphFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                    onClick={() => setGraphFullscreen(false)}
+                    title="Exit fullscreen"
                   >
                     <Icon
-                      className={`ti ${graphFullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
+                      className="ti ti-arrows-minimize"
                     ></Icon>
                   </button>
                 </div>

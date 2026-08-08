@@ -332,9 +332,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         return 0;
       })();
 
-      const countSeriesBars = Array.isArray(baseOption.series)
-        ? baseOption.series.filter((s) => s?.type === 'bar').length
-        : 0;
 
       const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
       const dataLabelFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10;
@@ -375,20 +372,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         if (previewTools.fullscreen) return true;
 
         if (isSmallScreen) {
-          if (tickCount > 20) return false;
-
-          if (isBarChart && tickCount > 15) return false;
-
-          if (!isBarChart && tickCount > 25) return false;
+          return isBarChart ? tickCount <= 15 : tickCount <= 25;
         }
 
-        if (!isSmallScreen && !previewTools.fullscreen) {
-          if (tickCount > 50) return false;
-          if (isBarChart && tickCount > 35) return false;
-          if (!isBarChart && tickCount > 40) return false;
-        }
-
-        return true;
+        return isBarChart ? tickCount <= 35 : tickCount <= 40;
       })();
 
       const enhancedOption = {
@@ -736,7 +723,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   position: "outside",
                   rotate: "tangential",
                   distance: 10,
-                  rotate: 0,
                 },
                 labelLine: {
                   show: true,
