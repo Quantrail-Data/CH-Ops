@@ -115,13 +115,13 @@ describe("Create Flow", () => {
 describe("API Key Limits", () => {
     it("Rejects when maximum keys have been created", () => {
         try {
-            Array.from({ length: 5 }).forEach((_, i) => {
+            Array.from({ length: 10 }).forEach((_, i) => {
                 createApiKey(`test API ${i * 50}`, `sk-test-key${i}`, "gpt-5.4", 'OPEN AI')
 
             })
             throw new Error("Failed.")
         } catch (e) {
-            expect(e.message).toBe(`Maximum 4 API keys allowed.`)
+            expect(e.message).toBe(`Maximum 5 API keys allowed.`)
         }
     })
 })
