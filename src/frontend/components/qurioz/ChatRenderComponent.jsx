@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Iterates through and renders conversational message threads, markdown text, and embedded code blocks.
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import quriozImage from "../../assets/qurioz.png";
 import DataTable from "../layout/DataTable";
@@ -40,6 +40,14 @@ function ChatRenderComponent({
   const { replaceChat } = useQuriozChatContext();
 
   const toast = useToast();
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [editMessage]); 
 
   const downloadingFilesDataOptionSetting = [
     { id: 1, title: "JSON", icon: "ti-file-code-2" },
@@ -222,49 +230,42 @@ function ChatRenderComponent({
             </motion.div>
           )}
 
-          {isEditable && (
-            <motion.div
-              style={{ position: "relative" }}
-              className="editor-container"
-            >
-              <input
-                type="text"
-                value={editMessage}
-                onChange={(e) => {
-                  setEditMessage(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    reformUserQuestionhandler();
-                  }
-                }}
-              />
+{isEditable && (
+  <motion.div style={{ position: "relative" }} className="editor-container">
+    <textarea
+      ref={textareaRef}
+      value={editMessage}
+      onChange={(e) => {
+        setEditMessage(e.target.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          reformUserQuestionhandler();
+        }
+      }}
+      style={{ resize: "none", maxWidth: "700px" }} 
+    />
+    <div
+      style={{
+        position: "absolute",
+        display: "flex",
+        alignItems: "center",
+        bottom: "-2.9rem",
+        paddingTop: "10px",
+        right: "0rem",
+        gap: "5px",
+      }}
+    >
+      <button onClick={cancelEditHandler} className="btn btn-danger">
+        <Icon className="ti ti-x"></Icon>
+      </button>
+      <button className="btn btn-primary" onClick={() => reformUserQuestionhandler()}>
+        <Icon className="ti ti-send-2"></Icon>
+      </button>
+    </div>
+  </motion.div>
+)}
 
-              <div
-                style={{
-                  position: "absolute",
-                  display: "flex",
-                  alignItems: "center",
-                  bottom: "-2.9rem",
-                  paddingTop: "10px",
-                  right: "0rem",
-                  gap: "5px",
-                }}
-              >
-                <button onClick={cancelEditHandler} className="btn btn-danger">
-                  {" "}
-                  <Icon className="ti ti-x"></Icon>
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => reformUserQuestionhandler()}
-                >
-                  {" "}
-                  <Icon className="ti ti-send-2"></Icon>
-                </button>
-              </div>
-            </motion.div>
-          )}
         </div>
       </div>
     );

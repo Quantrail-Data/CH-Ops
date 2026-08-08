@@ -12,7 +12,7 @@ function IntroChatComponent({inputSubmitHandler,isSendDisabled}) {
     { id: 1, title: "Query Generation", icon: "ti-database",bg:"#ffd182",color:"#623e00ff" },
     { id: 2, title: "Chart Visualization", icon: "ti-chart-histogram",bg:"#cde7fe",color:"#006ece" },
     { id: 3, title: "Data-table based on the query", icon: "ti-table-row",bg:"#cae592",color:"#496d01ff" },
-    { id: 4, title: "Download Chart/Table", icon: "ti-download",bg:"#ffcee4ff",color:"#bc0051" },
+    // { id: 4, title: "Download Chart/Table", icon: "ti-download",bg:"#ffcee4ff",color:"#bc0051" },
 ];
 
   return (
@@ -49,22 +49,40 @@ function IntroChatComponent({inputSubmitHandler,isSendDisabled}) {
         </motion.div>
 
         <div style={{
-            display:'grid',
-            gridTemplateColumns:`repeat(2 ,1fr) `,
-            gap:"10px",
-            margin:"20px 0px"
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)', 
+            gap: "10px",
+            margin: "20px 0px"
         }}>
-            {introInfo?.map((info,indx) => (<motion.div 
-            initial={{opacity:0,scale:0.7}}
-            animate={{opacity:1,scale:1}}
-            transition={{duration:0.3}}
-            className="intro-feat"
-            key={indx} >
-                <div style={{backgroundColor:`${info?.bg}`}}>
-                    <Icon className={`ti ${info?.icon}`} style={{color:`${info?.color}`}}></Icon>
+            {introInfo?.map((info, indx) => (
+                info.id !== 3 && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.7 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="intro-feat"
+                        key={indx}
+                    >
+                        <div style={{ backgroundColor: `${info?.bg}` }}>
+                            <Icon className={`ti ${info?.icon}`} style={{ color: `${info?.color}` }}></Icon>
+                        </div>
+                        <span>{info?.title}</span>
+                    </motion.div>
+                )
+            ))}
+
+            <motion.div
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="intro-feat"
+                style={{ gridColumn: 'span 2' }} 
+            >
+                <div style={{ backgroundColor: `${introInfo[2]?.bg}` }}>
+                    <Icon className={`ti ${introInfo[2]?.icon}`} style={{ color: `${introInfo[2]?.color}` }}></Icon>
                 </div>
-                <span>{info?.title}</span>
-            </motion.div>))}
+                <span>{introInfo[2]?.title}</span>
+            </motion.div>
         </div>
       </div>
       <ChatInputComponent stage={"inital"} onSubmit={inputSubmitHandler} isSendDisabled={isSendDisabled}/>
