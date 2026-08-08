@@ -1831,6 +1831,7 @@ input[type="datetime-local"] {
   color: var(--sidebar-text);
   font-size: 14px;
   transition: all 0.12s var(--ease);
+  border-radius: 4px;
 }
 
 .editor-db-item .ti {
@@ -2762,23 +2763,40 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   width: 700px;
 }
 
+
 [data-theme="dark"] .editor-container input {
   border: 1px solid rgba(197, 197, 197, 0.594);
   color: white;
 }
 
-[data-theme="light"] .editor-container input {
+[data-theme="light"] .editor-container input  {
+  border: 1px solid rgba(0, 51, 102, 0.446);
+  color: black;
+}
+
+.editor-container textarea {
+  background-color: transparent;
+  outline: none;
+  font-size: 13px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  width: 700px;
+  resize: none;         
+  overflow-y: hidden;   
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .editor-container textarea {
+  border: 1px solid rgba(197, 197, 197, 0.594);
+  color: white;
+}
+
+[data-theme="light"] .editor-container textarea {
   border: 1px solid rgba(0, 51, 102, 0.446);
   color: black;
 }
 
 
-
-/* login conatiner form */
-
-/* .form-conatiner {
- height:60vh;
-} */
 
 .main-login-container {
   width:100%;
