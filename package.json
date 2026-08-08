@@ -96,7 +96,7 @@
     "globals": "^15.0.0",
     "jsdom": "25.0.1",
     "vite": "6.3.5",
-    "vitest": "3.2.1"
+    "vitest": "4.1.10"
   },
   "private": true,
   "peerDependencies": {
