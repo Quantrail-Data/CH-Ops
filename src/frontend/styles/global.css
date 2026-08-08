@@ -2781,9 +2781,9 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
   padding: 10px 20px;
   border-radius: 10px;
   width: 700px;
-  resize: none;         /* Prevents manual resizing handles */
-  overflow-y: hidden;   /* Hides the scrollbar completely */
-  box-sizing: border-box; /* Ensures padding doesn't break height calculations */
+  resize: none;         
+  overflow-y: hidden;   
+  box-sizing: border-box;
 }
 
 [data-theme="dark"] .editor-container textarea {
@@ -2797,12 +2797,6 @@ box-shadow: 0 0 30px 7px rgba(255,125,0,0),
 }
 
 
-
-/* login conatiner form */
-
-/* .form-conatiner {
- height:60vh;
-} */
 
 .main-login-container {
   width:100%;
