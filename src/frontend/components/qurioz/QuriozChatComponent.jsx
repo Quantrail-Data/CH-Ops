@@ -273,6 +273,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       ? responseAIQuery?.generated_sql
                       : `${responseAIQuery?.generated_sql} limit 10`;
 
+                      
+
                     const QueryResult = await RunSqlQueryhandler(SQL);
 
                     if (QueryResult?.success) {
@@ -578,13 +580,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             aiError: { status: false, message: null },
           };
         } else {
-          const SQL = responseAIQuery?.generated_sql
-            ?.toLowerCase()
-            .includes("LIMIT")
-            ? responseAIQuery?.generated_sql
-            : `${responseAIQuery?.generated_sql} limit 10`;
-
-          const QueryResult = await RunSqlQueryhandler(SQL);
+            const originalSql = responseAIQuery?.generated_sql || "";
+            const hasLimit = /\blimit\b/i.test(originalSql);
+            const SQL = hasLimit ? originalSql : `${originalSql} LIMIT 10`;
+            const QueryResult = await RunSqlQueryhandler(SQL);
 
           if (QueryResult?.success) {
             UpdatedMessage = {
@@ -1135,7 +1134,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         />
       ) : (
         <>
-          <div className="chat-area">
+          <div className="chat-area" style={{height:"auto"}}>
             {quriozMessage?.map((message, index) => {
               return (
                 <ChatRenderComponent

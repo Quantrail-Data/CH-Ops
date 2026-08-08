@@ -12,7 +12,7 @@ import { apiKeys } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { encrypt, decrypt } from './crypto.js';
 
-const MAX_API_KEYS = 4;
+const MAX_API_KEYS = 5;
 
 export function getAllApiKeys() {
   try {
@@ -20,6 +20,7 @@ export function getAllApiKeys() {
     return keys.map(key => ({
       id: key.id,
       name: key.name,
+      provider:key.provider,
       isActive: !!key.isActive,
       createdAt: key.createdAt,
       updatedAt: key.updatedAt,

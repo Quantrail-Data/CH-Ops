@@ -180,7 +180,7 @@ const ComparePane = memo(function ComparePane({
           justifyContent: "space-between",
           gap: 10,
           flexWrap: "wrap",
-          minHeight: 34,
+          minHeight: 40,
         }}
       >
         <span>{title}</span>

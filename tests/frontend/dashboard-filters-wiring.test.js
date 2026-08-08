@@ -63,7 +63,15 @@ describe("regressions found in review", () => {
     // saveSettings replaces the array, so without this guard renaming a filter
     // label reloaded the dashboard and re-ran every chart on it.
     expect(view).toContain("loadedDashRef");
-    expect(view).toContain("if (loadedDashRef.current === d.id) return;");
+    expect(view).toContain("if (loadedDashRef.current === d.id) {");
+    expect(view).toContain("loadedDashRef.current = d.id");
+  });
+
+  it("handles guarded return branch after loadedDashRef match", () => {
+    expect(view).toContain("if (transitioning)");
+    expect(view).toContain("setTransitionPhase('entering')");
+    expect(view).toContain("setTransitioning(false)");
+    expect(view).toContain("setTransitionPhase('idle')");
   });
 
   it("clears the rerunning flag explicitly", () => {
@@ -139,6 +147,11 @@ describe("URL state", () => {
 
   it("does not reload the dashboard when only filters change", () => {
     expect(view).toContain("searchParams is intentionally not a dependency");
+  });
+
+  it("reads only namespaced filter params from URL", () => {
+    expect(view).toContain("function readFilterParams(searchParams)");
+    expect(view).toContain("k.startsWith(FILTER_PREFIX)");
   });
 });
 
@@ -288,5 +301,21 @@ describe("settings panel content", () => {
 
   it("types the default input like the filter itself", () => {
     expect(settings).toContain("ParamInput");
+  });
+});
+
+describe("transitions and legends", () => {
+  it("keeps transition lifecycle guards", () => {
+    expect(view).toContain("transitionTimerRef");
+    expect(view).toContain("setTransitioning(true)");
+    expect(view).toContain("setTransitionPhase('exiting')");
+    expect(view).toContain("setTransitionPhase('entering')");
+    expect(view).toContain("setTransitionPhase('idle')");
+  });
+
+  it("supports global legend toggle on eligible chart types", () => {
+    expect(view).toContain("legendSupportedTypes");
+    expect(view).toContain("const hasLegendCharts = charts.some");
+    expect(view).toContain("showLegends");
   });
 });

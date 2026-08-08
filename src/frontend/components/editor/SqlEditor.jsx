@@ -197,6 +197,26 @@ const SqlEditor = forwardRef(function SqlEditor(
     statesRef.current.set(docKey, view.state);
   }, [docKey, allExtensions]);
 
+  useEffect(() => {
+    if (!docKey) return;
+
+    const view = viewRef.current;
+    if (!view) return;
+
+    const current = view.state.doc.toString();
+
+    // Already in sync
+    if (current === value) return;
+
+    view.dispatch({
+      changes: {
+        from: 0,
+        to: view.state.doc.length,
+        insert: value,
+      },
+    });
+  }, [value, docKey]);
+
   // Drop states for keys that no longer exist, or a long session of opening and
   // closing tabs holds every document it ever showed.
   useEffect(() => {
