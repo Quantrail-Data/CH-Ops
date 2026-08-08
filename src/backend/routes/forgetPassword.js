@@ -19,7 +19,7 @@ async function hashPassword(pw) {
 }
 
 // verify the mail send the OTP
-router.post("/email/verify", (req, res, next) => {
+router.post("/email/verify", async (req, res, next) => {
   try {
     const { email } = req.body;
 
