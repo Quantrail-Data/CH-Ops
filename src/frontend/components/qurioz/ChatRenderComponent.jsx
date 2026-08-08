@@ -243,7 +243,7 @@ function ChatRenderComponent({
           reformUserQuestionhandler();
         }
       }}
-      style={{ resize: "none", maxWidth: "700px" }} // Removed height: auto and overflow: auto
+      style={{ resize: "none", maxWidth: "700px" }} 
     />
     <div
       style={{
