@@ -52,23 +52,11 @@ export default function AllCharts({ onEdit }) {
   async function load() {
     try {
       const [c, d] = await Promise.all([apiFetch('/api/dashboards/charts'), apiFetch('/api/dashboards')]);
-      const byKey = new Map();
+      const byId = new Map();
       for (const ch of c) {
-        const key = `${ch.name || ''}::${ch.chartType || ''}::${ch.chartSubtype || ''}`;
-        if (!byKey.has(key)) {
-          byKey.set(key, ch);
-        } else {
-          const existing = byKey.get(key);
-          const a = Number(existing.id);
-          const b = Number(ch.id);
-          if (!Number.isNaN(a) && !Number.isNaN(b)) {
-            if (b > a) byKey.set(key, ch);
-          } else {
-            byKey.set(key, ch);
-          }
-        }
+        byId.set(String(ch.id), ch);
       }
-      const deduped = Array.from(byKey.values());
+      const deduped = Array.from(byId.values());
       setCharts(deduped);
       setDashboards(d);
     } catch { }
@@ -149,6 +137,9 @@ export default function AllCharts({ onEdit }) {
 
       const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
       const isBarChart = barChartTypes.includes(selected?.chartSubtype);
+      const isScatterLike = selected?.chartSubtype === 'scatter' || selected?.chartSubtype === 'basic_scatter' || selected?.chartSubtype === 'bubble' || selected?.chartType === 'scatter' || selected?.chartType === 'bubble';
+      const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
+      const isPieChart = pieChartTypes.includes(selected?.chartSubtype);
 
       const resolvedLegend = previewTools.fullscreen
         ? {
@@ -191,16 +182,6 @@ export default function AllCharts({ onEdit }) {
             textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor }
           };
 
-      const gridTop = previewTools.fullscreen
-        ? 24
-        : isSmallScreen
-          ? (supportsLegend && hasLegend && showLegend ? 72 : 20)
-          : (supportsLegend && hasLegend && showLegend ? 56 : 20);
-
-      const gridLeft = previewTools.fullscreen
-        ? (supportsLegend && hasLegend && showLegend ? 240 : extraLeftForYAxisName)
-        : (supportsLegend && hasLegend && showLegend ? 20 : extraLeftForYAxisName);
-
       const baseOption = withZoomable({
         ...previewOpt,
         toolbox: { show: false },
@@ -217,18 +198,54 @@ export default function AllCharts({ onEdit }) {
         return 0;
       };
 
-      const computeInterval = (tickCount, maxLabels) => {
-        if (!tickCount || tickCount <= maxLabels) return 0;
-        const interval = Math.ceil(tickCount / Math.max(1, maxLabels)) - 1;
-        return Math.max(0, interval);
-      };
-
-      const maxLabels = previewTools.fullscreen ? 8 : isSmallScreen ? 3 : 4;
       const tickCount = determineTickCount(baseOption);
-      const axisInterval = computeInterval(tickCount, maxLabels);
+
+      const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
+      const dataLabelFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10;
+      const xRotate = isBarChart ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
+      const axisNameGapX = isBarChart ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
+      const axisMarginX = isBarChart ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+      const seriesLabelWidth = tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64;
+
+      const gridTop = previewTools.fullscreen
+        ? Math.max(28, tickCount > 40 ? 40 : 28)
+        : isSmallScreen
+          ? (supportsLegend && hasLegend && showLegend ? 76 : Math.max(22, tickCount > 40 ? 28 : 22))
+          : (supportsLegend && hasLegend && showLegend ? Math.max(62, tickCount > 40 ? 68 : 62) : Math.max(24, tickCount > 40 ? 30 : 24));
+
+      const gridLeft = previewTools.fullscreen
+        ? (supportsLegend && hasLegend && showLegend ? 240 : extraLeftForYAxisName)
+        : (supportsLegend && hasLegend && showLegend ? 20 : extraLeftForYAxisName);
+
+      const gridBottomAuto = isBarChart
+        ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
+        : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
+
+      const shouldShowDataLabels = (() => {
+        if (isPieChart) return true;
+
+        if (previewTools.fullscreen) return true;
+
+        if (isSmallScreen) {
+          if (tickCount > 20) return false;
+
+          if (isBarChart && tickCount > 15) return false;
+
+          if (!isBarChart && tickCount > 25) return false;
+        }
+
+        if (!isSmallScreen && !previewTools.fullscreen) {
+          if (tickCount > 50) return false;
+          if (isBarChart && tickCount > 35) return false;
+          if (!isBarChart && tickCount > 40) return false;
+        }
+
+        return true;
+      })();
 
       const chartOption = {
         ...baseOption,
+        animationDurationUpdate: 120,
         grid: Array.isArray(baseOption.grid)
           ? baseOption.grid.map((g) => ({
             ...g,
@@ -236,7 +253,7 @@ export default function AllCharts({ onEdit }) {
             top: gridTop,
             left: gridLeft,
             right: 24,
-            bottom: Math.max(parseInt(g?.bottom, 10) || 18, isBarChart ? 120 : 70),
+            bottom: Math.max(parseInt(g?.bottom, 10) || 18, gridBottomAuto),
           }))
           : {
             ...baseOption.grid,
@@ -246,56 +263,80 @@ export default function AllCharts({ onEdit }) {
             right: 24,
             bottom: Math.max(
               parseInt(baseOption?.grid?.bottom, 10) || 18,
-              isBarChart ? 120 : 70,
+              gridBottomAuto,
             ),
           },
         xAxis: Array.isArray(baseOption.xAxis)
           ? baseOption.xAxis.map((axis) => ({
             ...axis,
             nameLocation: "middle",
-            nameGap: isBarChart ? 100 : Math.max(axis?.nameGap || 25, 42),
+            nameGap: axisNameGapX,
             axisLabel: {
               ...axis?.axisLabel,
-              rotate: isBarChart ? 45 : 0,
-              align: isBarChart ? 'right' : 'left',
-              margin: Math.max(axis?.axisLabel?.margin || 8, isBarChart ? 20 : 14),
+              rotate: xRotate,
+              align: isBarChart || xRotate > 0 ? 'right' : 'left',
+              margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
               hideOverlap: false,
+              showMinLabel: true,
+              showMaxLabel: true,
+              interval: 0,
               color: isDarkColor,
-              interval: axisInterval,
+              fontSize: axisFontSize,
               formatter: (v) => {
                 try {
+                  const n = Number(v);
+                  if (Number.isFinite(n)) {
+                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                  }
                   const s = String(v);
-                  return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                  const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
                 } catch { return v; }
               },
             },
+            nameTextStyle: {
+              ...(axis?.nameTextStyle || {}),
+              color: isDarkColor,
+              fontSize: Math.max(8, axisFontSize - 1),
+              fontWeight: 'bold'
+            }
           }))
           : baseOption.xAxis
             ? {
               ...baseOption.xAxis,
               nameLocation: "middle",
-              nameGap: isBarChart ? 100 : Math.max(baseOption?.xAxis?.nameGap || 25, 42),
+              nameGap: axisNameGapX,
               axisLabel: {
                 ...baseOption?.xAxis?.axisLabel,
-                rotate: isBarChart ? 45 : 0,
-                align: isBarChart ? 'right' : 'left',
+                rotate: xRotate,
+                align: isBarChart || xRotate > 0 ? 'right' : 'left',
                 margin: Math.max(
                   baseOption?.xAxis?.axisLabel?.margin || 8,
-                  isBarChart ? 20 : 14,
+                  axisMarginX,
                 ),
                 hideOverlap: false,
+                showMinLabel: true,
+                showMaxLabel: true,
+                interval: 0,
                 color: isDarkColor,
-                interval: axisInterval,
+                fontSize: axisFontSize,
                 formatter: (v) => {
                   try {
+                    const n = Number(v);
+                    if (Number.isFinite(n)) {
+                      if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                      if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                    }
                     const s = String(v);
-                    return s.length > 20 ? s.slice(0, 17) + "…" : s;
+                    const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                    return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
                   } catch { return v; }
                 },
               },
               nameTextStyle: {
                 color: isDarkColor,
-                fontSize: 10,
+                fontSize: Math.max(8, axisFontSize - 1),
                 fontWeight: 'bold'
               }
             }
@@ -306,12 +347,28 @@ export default function AllCharts({ onEdit }) {
             axisLabel: {
               ...axis?.axisLabel,
               color: isDarkColor,
+              hideOverlap: false,
+              showMinLabel: true,
+              showMaxLabel: true,
+              interval: 0,
+              fontSize: axisFontSize,
+              formatter: (v) => {
+                try {
+                  const n = Number(v);
+                  if (Number.isFinite(n)) {
+                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                  }
+                  return v;
+                } catch { return v; }
+              },
             },
             nameLocation: axis?.nameLocation || 'middle',
             nameGap: Math.max(axis?.nameGap || 25, 42),
             nameTextStyle: {
+              ...(axis?.nameTextStyle || {}),
               color: isDarkColor,
-              fontSize: 10,
+              fontSize: Math.max(8, axisFontSize - 1),
               fontWeight: 'bold'
             }
           }))
@@ -321,17 +378,86 @@ export default function AllCharts({ onEdit }) {
               axisLabel: {
                 ...baseOption?.yAxis?.axisLabel,
                 color: isDarkColor,
+                hideOverlap: false,
+                showMinLabel: true,
+                showMaxLabel: true,
+                interval: 0,
+                fontSize: axisFontSize,
+                formatter: (v) => {
+                  try {
+                    const n = Number(v);
+                    if (Number.isFinite(n)) {
+                      if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                      if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                    }
+                    return v;
+                  } catch { return v; }
+                },
               },
               nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
               nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, 42),
               nameTextStyle: {
+                ...(baseOption?.yAxis?.nameTextStyle || {}),
                 color: isDarkColor,
-                fontSize: 10,
+                fontSize: Math.max(8, axisFontSize - 1),
                 fontWeight: 'bold'
               }
             }
             : baseOption.yAxis,
       };
+
+      if (Array.isArray(chartOption.series) && chartOption.series.length) {
+        chartOption.series = chartOption.series.map((s) => {
+          if (!s || !s.type) return s;
+          if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
+          return {
+            ...s,
+            clip: true,
+            labelLayout: {
+              hideOverlap: true,
+              moveOverlap: 'shiftY'
+            },
+            label: {
+              ...(s.label || {}),
+              show: shouldShowDataLabels,
+              position: s.type === 'bar' ? 'top' : 'top',
+              distance: tickCount > 50 ? 5 : 8,
+              color: isDarkColor,
+              overflow: 'truncate',
+              width: seriesLabelWidth,
+              hideOverlap: true,
+              fontSize: dataLabelFontSize,
+              formatter: (p) => {
+                try {
+                  const raw = Array.isArray(p?.value) ? p.value[p.value.length - 1] : p?.value;
+                  const n = Number(raw);
+                  if (Number.isFinite(n)) {
+                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                    return `${n}`;
+                  }
+                  const t = String(raw ?? "");
+                  const maxLen = tickCount > 80 ? 5 : tickCount > 60 ? 6 : tickCount > 40 ? 7 : 8;
+                  return t.length > maxLen ? t.slice(0, maxLen - 1) + "…" : t;
+                } catch {
+                  return p?.value;
+                }
+              },
+            },
+            emphasis: {
+              ...(s.emphasis || {}),
+              label: {
+                ...((s.emphasis && s.emphasis.label) || {}),
+                show: true,
+                position: 'top',
+                distance: 10,
+                color: isDarkColor,
+                hideOverlap: false,
+              },
+            },
+          };
+        });
+      }
 
       const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
       const isPie = Array.isArray(baseOption.series) && (baseOption.series.some(s => s.type === 'pie') || pieSubtypes.includes(selected?.chartSubtype));
@@ -379,8 +505,8 @@ export default function AllCharts({ onEdit }) {
         };
 
         chartOption.grid = Array.isArray(chartOption.grid)
-          ? chartOption.grid.map((g) => ({ ...g, top: previewTools.fullscreen ? g.top : (isSmallScreen ? 72 : 80) }))
-          : { ...(chartOption.grid || {}), top: previewTools.fullscreen ? (chartOption.grid?.top || gridTop) : (isSmallScreen ? 72 : 80) };
+          ? chartOption.grid.map((g) => ({ ...g, top: previewTools.fullscreen ? g.top : (isSmallScreen ? 84 : 92) }))
+          : { ...(chartOption.grid || {}), top: previewTools.fullscreen ? (chartOption.grid?.top || gridTop) : (isSmallScreen ? 84 : 92) };
       }
 
       if (theme === 'dark') {
@@ -444,6 +570,74 @@ export default function AllCharts({ onEdit }) {
             textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 }
           };
         }
+      }
+
+      const isSankey =
+        Array.isArray(chartOption.series) &&
+        chartOption.series.some((s) => s.type === "sankey");
+
+      if (isSankey) {
+        chartOption.series = chartOption.series.map((s) => {
+          if (s.type !== "sankey") return s;
+
+          return {
+            ...s,
+            label: {
+              ...(s.label || {}),
+              color: isDarkColor,
+              fontSize: 13,
+            },
+          };
+        });
+      }
+
+      const isSunBurst =
+        Array.isArray(chartOption.series) &&
+        chartOption.series.some((s) => s.type === "sunburst");
+
+      const isSunBurstVisualmap =
+        Object.keys(chartOption?.visualMap || {})?.length > 0;
+
+      if (isSunBurst) {
+        chartOption.series = chartOption.series.map((s) => {
+          if (s.type !== "sunburst") return s;
+
+          return {
+            ...s,
+            radius: isSunBurstVisualmap ? ["3%", "60%"] : ["5%", "90%"],
+            levels: [
+              {},
+              {
+                label: {
+                  position: "outside",
+                  rotate: "tangential",
+                  distance: 10,
+                  // rotate: 0,
+                },
+                labelLine: {
+                  show: true,
+                  length: 20,
+                  length2: 10,
+                  smooth: false,
+                },
+              },
+              {
+                label: {
+                  position: "outside",
+                  distance: 10,
+                  rotate: 0,
+                  silent: true,
+                },
+                labelLine: {
+                  show: true,
+                  length: 20,
+                  length2: 10,
+                  smooth: false,
+                },
+              },
+            ],
+          };
+        });
       }
 
       previewInst.current.setOption(chartOption, true);

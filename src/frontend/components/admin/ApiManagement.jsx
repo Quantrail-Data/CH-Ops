@@ -350,8 +350,8 @@ export default function ApiManagement() {
   }
 
   function startAddNew() {
-    if (apiKeys.length >= 5) {
-      toast.warning("Maximum 4 API keys allowed");
+    if (apiKeys.length >= 6) {
+      toast.warning("Maximum 5 API keys allowed");
       return;
     }
     setShowAddForm(true);
@@ -594,15 +594,15 @@ export default function ApiManagement() {
               marginBottom: 0,
             }}
           >
-            Configure up to 4 API keys for AI-powered query assistance and
-            insights. Supports OpenAI, Google Gemini, Mistral, Claude
+            Configure up to 5 API keys for AI-powered query assistance and
+            insights. Supports OpenAI, Google Gemini, Mistral, Claude,Ollama
           </p>
         </div>
 
         {apiKeys.length > 0 && (
           <div style={{ marginBottom: 24 }}>
             <label className="form-label" style={{ marginBottom: 12 }}>
-              Saved API Keys ({apiKeys.length}/3)
+              Saved API Keys ({apiKeys.length}/5)
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {apiKeys.map((key) => (
@@ -952,7 +952,7 @@ export default function ApiManagement() {
                   marginTop: 6,
                 }}
               >
-                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...), Claude, and Mistral keys. Keys are encrypted before storage. {apiKeys.length}/4
+                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...), Claude, and Mistral keys. Keys are encrypted before storage. {apiKeys.length}/5
                 keys used.
                 <br />
                 Verify the API key successfully before proceeding to add it
@@ -978,7 +978,7 @@ export default function ApiManagement() {
             </div>
           </form>
         ) : (
-          apiKeys.length < 4 && (
+          apiKeys.length < 5 && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
               <button className="btn btn-primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key
