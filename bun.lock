@@ -14,7 +14,7 @@
         "@codemirror/state": "^6.7.1",
         "@codemirror/view": "^6.43.6",
         "@dagrejs/dagre": "^3.0.0",
-        "@fontsource/b612": "^5.2.7",
+        "@fontsource/b612": "^5.3.0",
         "@fontsource/red-hat-mono": "^5.2.8",
         "@google/genai": "^2.11.0",
         "@lezer/highlight": "^1.2.3",
@@ -233,7 +233,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
 
-    "@fontsource/b612": ["@fontsource/b612@5.2.7", "", {}, "sha512-ALWds7TznSpGM2QUJVqMXLd6GT2LA7XviIbek8YR3+/xoAAjYl6ed0Mh71vFoM8eZv0BSu25D7WMEJw/iwVWlQ=="],
+    "@fontsource/b612": ["@fontsource/b612@5.3.0", "", {}, "sha512-2AQPrSFDI9K00w/lPlgfcqve+ZPdRSCttvVUxcmv+UrnwwaKLMym+/uXmM7+dgPCVBIV9omoXUabFoyBFpc1Vg=="],
 
     "@fontsource/red-hat-mono": ["@fontsource/red-hat-mono@5.2.8", "", {}, "sha512-KiP2OqXbsDAoz6kDNTRjcepp+EeuqxcC2+EWj0MJW3ulpqEA1L5G31KmTRgmnpfxMTqYEESCj99Ldd4rBmC6Xg=="],
 

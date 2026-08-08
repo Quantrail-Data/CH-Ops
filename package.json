@@ -44,7 +44,7 @@
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.6",
     "@dagrejs/dagre": "^3.0.0",
-    "@fontsource/b612": "^5.2.7",
+    "@fontsource/b612": "^5.3.0",
     "@fontsource/red-hat-mono": "^5.2.8",
     "@google/genai": "^2.11.0",
     "@lezer/highlight": "^1.2.3",
