@@ -3,7 +3,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { describe, it, expect, beforeEach, beforeAll, mock } from "bun:test";
-
 const fakeDB = {
   users: [],
 };
@@ -15,7 +14,6 @@ function createQuery() {
   return {
     where: (cond) => {
       let filtered = data;
-
       if (cond?.field === "id") {
         filtered = data.filter((u) => u.id === cond.value);
       }
@@ -82,10 +80,23 @@ const db = {
   }),
 };
 
+const eq = (l, r) => {
+  return { field: l, value: r }
+}
 const jsonMock = mock(() => { });
 const statusMock = mock(() => ({ json: jsonMock }));
 const nextMock = mock();
-
+const loadEnv = () => {
+  return {
+    smtp: {
+      host: 'localhost',
+      port: '3000',
+      user: 'test',
+      pass: '1234',
+      from: 'b@test.com'
+    }
+  }
+}
 const sendNotification = mock();
 
 // Controller functions - populated in beforeAll after mocks are registered.
@@ -104,7 +115,7 @@ let requireEditor;
 beforeAll(async () => {
   mock.module("../../src/backend/db/index.js", () => ({
     db,
-    appUsers: {},
+    appUsers: { username: 'username', id: 'id' },
     alertRules: {},
     alertChannels: {},
     alertRuleChannels: {},
@@ -123,6 +134,17 @@ beforeAll(async () => {
     testChannel: () => { },
   }));
 
+  const drizzle = await import("drizzle-orm");
+  mock.module("drizzle-orm", async () => {
+    return { ...drizzle, eq }
+  })
+
+  mock.module('../../src/backend/utils/env.js', () => {
+    return {
+      loadEnv
+    }
+  })
+
   const mod = await import("../../src/backend/controllers/users.js");
   listUsers = mod.listUsers;
   createUser = mod.createUser;
@@ -132,7 +154,7 @@ beforeAll(async () => {
   requireEditor = mod.requireEditor;
 });
 
-describe("Users Controller", () => {
+describe.only("Users Controller", () => {
   let originalDb;
   originalDb = {
     insert: db.insert,
@@ -258,6 +280,42 @@ describe("Users Controller", () => {
     expect(statusMock).toHaveBeenCalledWith(403);
   });
 
+  it("createUser limits 3 superadmin", async () => {
+    fakeDB.users.push({ id: 1, username: "test1", role: "superadmin" }, { id: 2, username: "test2", role: "superadmin" }, { id: 3, username: "test3", role: "superadmin" })
+    await createUser(
+      {
+        user: { role: "superadmin" },
+        body: {
+          username: "test4",
+          email: "a@test.com",
+          role: "superadmin",
+          audit: {},
+        },
+      },
+      { status: statusMock, json: jsonMock },
+    );
+    expect(jsonMock).toBeCalledWith({
+      error: "Maximum 3 super admins allowed.",
+    })
+  })
+
+  it("createUser sends generated password if SMTP is configured", async () => {
+
+    await createUser({
+      user: { role: "admin" },
+      body: {
+        username: "john",
+        email: "a@test.com",
+        role: "readonly",
+        audit: {},
+      },
+    },
+      { status: statusMock, json: jsonMock },)
+
+    expect(sendNotification).toHaveBeenCalled()
+
+  })
+
   it("updateUser reset password flow", async () => {
     fakeDB.users.push({ id: 1, username: "john", role: "readonly" });
 
@@ -276,6 +334,7 @@ describe("Users Controller", () => {
     expect(jsonMock).toHaveBeenCalledWith(
       expect.objectContaining({ ok: true }),
     );
+    expect(sendNotification).toHaveBeenCalled()
   });
 
   it("deleteUser blocks higher role", () => {
