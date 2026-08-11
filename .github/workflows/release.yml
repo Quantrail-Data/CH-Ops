@@ -5,14 +5,23 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
+# Per-job below. Workflow-level write would hand a write token to the build
+# job, which is the one job that must carry nothing sensitive.
+permissions: {}
+
+# No cancel-in-progress: a half-published release is worse than a slow one.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build ${{ matrix.name }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
+      fail-fast: true
       matrix:
         include:
           - name: linux-x64
@@ -27,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.3.13"
 
@@ -52,8 +61,59 @@ jobs:
       - name: Build ${{ matrix.name }} binary
         run: bun run ${{ matrix.script }}
 
+      # Enforces the rule above rather than relying on everyone having read it.
+      # Greps the binary for our own secret values. Skips GITHUB_TOKEN and
+      # anything under 8 chars, which throws false positives.
+      - name: Verify no secrets were inlined into the binary
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          python3 - "${{ matrix.outfile }}" <<'PY'
+          import json, os, sys
+          binary = sys.argv[1]
+          secrets = json.loads(os.environ["ALL_SECRETS"])
+          blob = open(binary, "rb").read()
+          leaked = [
+              name for name, value in secrets.items()
+              if name != "GITHUB_TOKEN" and value and len(value) >= 8
+              and value.encode() in blob
+          ]
+          if leaked:
+              print("found in %s: %s" % (binary, ", ".join(leaked)))
+              print("--env=inline welded these in. Take them out of the build job.")
+              sys.exit(1)
+          print("clean: %s (%d secrets checked)" % (binary, len(secrets)))
+          PY
+
+      # Only linux can run on this runner; the other two are cross-compiled.
+      - name: Smoke test the binary
+        if: matrix.name == 'linux-x64'
+        env:
+          SUPER_ADMIN_1: smoke-admin
+          SUPER_ADMIN_1_PASSWORD: smoke-password-123
+          SUPER_ADMIN_1_EMAIL: smoke@example.com
+          SESSION_SECRET: smoke-session-secret
+          PORT: 3999
+        run: |
+          ./${{ matrix.outfile }} > smoke.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:3999/api/version" -o version.json; then
+              echo "up after ${i}s:"; cat version.json; echo
+              kill "$pid" 2>/dev/null || true
+              exit 0
+            fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "exited before serving:"; cat smoke.log; exit 1
+            fi
+            sleep 1
+          done
+          echo "timed out waiting for /api/version:"; cat smoke.log
+          kill "$pid" 2>/dev/null || true
+          exit 1
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.outfile }}
           path: ${{ matrix.outfile }}
@@ -63,10 +123,15 @@ jobs:
     name: Publish Release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # for attest-build-provenance
+      id-token: write
+      attestations: write
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
 
@@ -76,8 +141,21 @@ jobs:
           find artifacts -type f -exec cp {} release/ \;
           ls -la release
 
+      # We ship a downloadable binary that holds ClickHouse credentials.
+      # Without these nobody can tell if what they got is what we built.
+      - name: Generate SHA256SUMS
+        working-directory: release
+        run: |
+          sha256sum chops-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'release/chops-*'
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: release/*
           generate_release_notes: true
