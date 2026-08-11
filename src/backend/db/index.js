@@ -43,3 +43,6 @@ export const k8sConnections = schema.k8sConnections;
 
 // The raw handle, for the cluster storage migration.
 export const rawSqlite = sqlite;
+export function assertDatabaseReadable(handle = sqlite) {
+  handle.query('SELECT 1').get();
+}
