@@ -7,6 +7,7 @@ data/
 *.db
 *.sqlite
 *.log
+.*/
 .DS_Store
 bun.lockb
 prisma/migrations/
