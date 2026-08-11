@@ -9,8 +9,14 @@
 # --- Stage 1: Build ---
 FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /app
+# .env.example always matches, so the glob succeeds and the check below reports why
+COPY .env* ./
+# Stop here rather than build for four minutes and crash loop on a missing var
+RUN test -f .env || (echo "ERROR: .env not found. Copy .env.example to .env and set SESSION_SECRET, SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL." >&2; exit 1)
 # Install dependencies first (cached unless package.json changes)
 COPY package.json bun.lock* ./
+# patchedDependencies points here, so it must land before install, not with COPY . .
+COPY patches ./patches
 RUN bun install --frozen-lockfile
 # Copy source and build the frontend
 COPY . .

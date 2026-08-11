@@ -84,9 +84,16 @@ try {
   if (generated.VERSION_INFO) appVersion = { ...generated.VERSION_INFO, ...appVersion };
 } catch {}
 
-await import('./db/migrate.js').catch(() => {});
+try {
+  await import('./db/migrate.js');
+} catch (err) {
+  log.error('Database migration failed, refusing to start:', err?.message || err);
+  process.exit(1);
+}
+
 log.info('Database ready (Drizzle ORM + bun:sqlite)');
 
+import { assertDatabaseReadable } from './db/index.js';
 import { migrateClusterData } from './services/clusterUtils.js';
 migrateClusterData();
 
@@ -114,6 +121,15 @@ app.use((req, res, next) => { req.env = env; next(); });
 
 app.use('/api/auth', rateLimiter(100, 60), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
+app.get('/api/ready', (req, res) => {
+  try {
+    assertDatabaseReadable();
+    res.json({ ok: true });
+  } catch (err) {
+    log.error('Readiness check failed:', err?.message || err);
+    res.status(503).json({ ok: false, error: 'database unavailable' });
+  }
+});
 app.get('/api/version', (req, res) => res.json(appVersion));
 app.use(`/api/forget-password`,ForgetRouter);
 app.use('/api/query', authMiddleware, rateLimiter(10000, 60), queryRoute);
