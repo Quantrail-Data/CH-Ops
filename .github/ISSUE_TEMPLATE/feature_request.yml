@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest something CHOps should be able to do
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us about the problem before the solution. The best requests we get
+        start with what someone was trying to do while a cluster misbehaved.
+
+        Some areas are reserved for the commercial Pro edition. See
+        [CONTRIBUTING.md](https://github.com/Quantrail-Data/CH-Ops/blob/main/CONTRIBUTING.md#what-is-out-of-scope-and-why).
+        You are still welcome to ask; we will just tell you honestly if it
+        belongs on that side of the line.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The workflow or situation, not the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: How do you handle it today?
+      description: Which query do you run, which tool do you switch to?
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like CHOps to do?
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Would you like to build this?
+      options:
+        - label: I would be interested in opening a pull request for this
