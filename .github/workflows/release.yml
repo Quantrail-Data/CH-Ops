@@ -92,7 +92,7 @@ jobs:
           SUPER_ADMIN_1: smoke-admin
           SUPER_ADMIN_1_PASSWORD: smoke-password-123
           SUPER_ADMIN_1_EMAIL: smoke@example.com
-          SESSION_SECRET: smoke-session-secret
+          SESSION_SECRET: smoke-only-not-a-real-secret-0123456789
           PORT: 3999
         run: |
           ./${{ matrix.outfile }} > smoke.log 2>&1 &
