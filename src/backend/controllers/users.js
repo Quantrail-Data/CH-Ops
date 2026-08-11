@@ -216,18 +216,7 @@ export async function updateUser(req, res) {
             error: "You do not have permission to change this user's role.",
           });
       }
-      // Max 3 superadmins
-      if (newRole === "superadmin") {
-        const count = db
-          .select()
-          .from(appUsers)
-          .all()
-          .filter((u) => u.role === "superadmin").length;
-        if (count >= 3)
-          return res
-            .status(400)
-            .json({ error: "Maximum 3 super admins allowed." });
-      }
+
       updates.role = newRole;
     }
 
