@@ -154,7 +154,7 @@ beforeAll(async () => {
   requireEditor = mod.requireEditor;
 });
 
-describe.only("Users Controller", () => {
+describe("Users Controller", () => {
   let originalDb;
   originalDb = {
     insert: db.insert,
@@ -169,6 +169,7 @@ describe.only("Users Controller", () => {
     jsonMock.mockClear();
     statusMock.mockClear();
     nextMock.mockClear();
+    sendNotification.mockReset();
 
     db.insert = originalDb.insert;
     db.update = originalDb.update;
@@ -317,7 +318,7 @@ describe.only("Users Controller", () => {
   })
 
   it("updateUser reset password flow", async () => {
-    fakeDB.users.push({ id: 1, username: "john", role: "readonly" });
+    fakeDB.users.push({ id: 1, username: "john", role: "readonly", email: "john@example.test" });
 
     await updateUser(
       {
@@ -478,6 +479,69 @@ describe.only("Users Controller", () => {
     expect(jsonMock).toHaveBeenCalledWith({
       error: "You do not have permission to change this user's role.",
     });
+  });
+
+  it('allows a superadmin to change a lower-privilege user role', async () => {
+    fakeDB.users.push({ id: 1, username: 'john', role: 'readonly' });
+
+    await updateUser(
+      {
+        params: { id: '1' },
+        user: { userId: 2, role: 'superadmin' },
+        body: { role: 'editor' },
+      },
+      { json: jsonMock, status: statusMock },
+    );
+
+    expect(fakeDB.users[0].role).toBe('editor');
+    expect(jsonMock).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it('resets a password and continues when reset-email delivery fails', async () => {
+    fakeDB.users.push({ id: 1, username: 'john', role: 'readonly', email: 'john@example.test' });
+    sendNotification.mockRejectedValueOnce(new Error('SMTP unavailable'));
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      await updateUser(
+        {
+          params: { id: '1' },
+          user: { userId: 2, role: 'admin' },
+          body: { resetPassword: true },
+        },
+        { json: jsonMock, status: statusMock },
+      );
+    } finally {
+      console.error = originalError;
+    }
+
+    expect(sendNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'email', to: 'john@example.test' }),
+      expect.objectContaining({ name: 'CHOps Password Reset' }),
+    );
+    expect(fakeDB.users[0].mustChangePassword).toBe(true);
+    expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ ok: true, generatedPassword: expect.any(String) }));
+  });
+
+  it('resets a password without attempting email when the user has no address', async () => {
+    fakeDB.users.push({ id: 1, username: 'no-email', role: 'readonly' });
+    const originalLog = console.log;
+    console.log = () => {};
+    try {
+      await updateUser(
+        {
+          params: { id: '1' },
+          user: { userId: 2, role: 'admin' },
+          body: { resetPassword: true },
+        },
+        { json: jsonMock, status: statusMock },
+      );
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(sendNotification).not.toHaveBeenCalled();
+    expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
   });
 
   it("deleteUser self blocked", () => {

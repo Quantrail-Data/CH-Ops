@@ -143,6 +143,17 @@ describe("getConnection", () => {
     expect(JSON.stringify(res.jsonData)).not.toContain("super-secret");
     expect(res.jsonData.clusters[0].nodes[0].hasPassword).toBe(true);
   });
+
+  it('still returns configuration when a background capability warm-up fails', async () => {
+    ensureCapabilities.mockRejectedValueOnce(new Error('cluster unavailable'));
+    const { req, res } = mockReqRes();
+
+    getConnection(req, res);
+    await Promise.resolve();
+
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonData.clusters).toHaveLength(1);
+  });
 });
 
 

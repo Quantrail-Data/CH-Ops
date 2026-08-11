@@ -136,6 +136,31 @@ describe("Create API Keys Controller", () => {
         expect(mockedResponse.status).toHaveBeenCalledWith(201)
     })
 
+    it('reports each blank required field with its specific validation message', () => {
+        const cases = [
+            [{ name: ' ', provider: 'p', apiKey: 'key', model: 'm' }, 'API key name required.'],
+            [{ name: 'name', provider: ' ', apiKey: 'key', model: 'm' }, 'API key provider required.'],
+            [{ name: 'name', provider: 'p', apiKey: ' ', model: 'm' }, 'API key value required.'],
+            [{ name: 'name', provider: 'p', apiKey: 'key', model: ' ' }, 'API key model required.'],
+        ]
+
+        for (const [body, error] of cases) {
+            mockedRequest.body = body
+            createAPIKey(mockedRequest, mockedResponse)
+            expect(mockedResponse.status).toHaveBeenLastCalledWith(400)
+            expect(mockedResponse.json).toHaveBeenLastCalledWith({ error })
+        }
+    })
+
+    it('returns a server error when a duplicate key name reaches the service', () => {
+        mockedRequest.body = { name: 'baseline', apiKey: 'another', model: 'm', provider: 'p' }
+        createAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.status).toHaveBeenCalledWith(500)
+        expect(mockedResponse.json).toHaveBeenCalledWith({
+            error: 'An API key with this name already exists.',
+        })
+    })
+
 })
 
 describe("Fetch API Keys Controller", () => {
@@ -161,6 +186,13 @@ describe("Fetch API Keys Controller", () => {
         } else {
             expect().fail()
         }
+    })
+
+    it('returns 404 for an API key that does not exist', async () => {
+        mockedRequest.params = { id: '999' }
+        await getAPIKeyById(mockedRequest, mockedResponse)
+        expect(mockedResponse.status).toHaveBeenCalledWith(404)
+        expect(mockedResponse.json).toHaveBeenCalledWith({ error: 'API key not found' })
     })
 
 
@@ -204,6 +236,33 @@ describe("Active API Key controller", () => {
             expect().fail()
         }
     })
+
+    it('never returns the active key secret to the client', async () => {
+        await getActiveAPIKey(mockedRequest, mockedResponse)
+        const { apiKey } = mockedResponse.json.mock.calls.at(-1)[0]
+        expect(apiKey).not.toHaveProperty('key')
+        expect(apiKey).toMatchObject({ id: 0, name: 'baseline', isActive: true })
+    })
+
+    it('returns 404 when there is no active key', async () => {
+        keys = []
+        await getActiveAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.status).toHaveBeenCalledWith(404)
+        expect(mockedResponse.json).toHaveBeenCalledWith({ error: 'No active API key found' })
+    })
+
+    it('requires a key id before selecting an active key', () => {
+        setActiveAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.status).toHaveBeenCalledWith(400)
+        expect(mockedResponse.json).toHaveBeenCalledWith({ error: 'Key ID required.' })
+    })
+
+    it('reports an unknown key id when selecting the active key', () => {
+        mockedRequest.body = { keyId: 999 }
+        setActiveAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.status).toHaveBeenCalledWith(400)
+        expect(mockedResponse.json).toHaveBeenCalledWith({ error: 'API key not found.' })
+    })
 })
 
 describe("API Key Contoller", () => {
@@ -233,6 +292,31 @@ describe("API Key Contoller", () => {
         }
     })
 
+    it('validates every field before updating a key', () => {
+        for (const [body, error] of [
+            [{ provider: 'p', apiKey: 'key', model: 'm' }, 'API key name required.'],
+            [{ name: 'name', apiKey: 'key', model: 'm' }, 'API key provider required.'],
+            [{ name: 'name', provider: 'p', model: 'm' }, 'API key value required.'],
+            [{ name: 'name', provider: 'p', apiKey: 'key' }, 'API key model required.'],
+        ]) {
+            mockedRequest.params = { id: '0' }
+            mockedRequest.body = body
+            updateAPIKey(mockedRequest, mockedResponse)
+            expect(mockedResponse.status).toHaveBeenLastCalledWith(400)
+            expect(mockedResponse.json).toHaveBeenLastCalledWith({ error })
+        }
+    })
+
+    it('returns service errors when updating or deleting an unknown key', () => {
+        mockedRequest.params = { id: '999' }
+        mockedRequest.body = { name: 'name', provider: 'p', apiKey: 'key', model: 'm' }
+        updateAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.json).toHaveBeenLastCalledWith({ error: 'API key not found.' })
+
+        deleteAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.json).toHaveBeenLastCalledWith({ error: 'API key not found.' })
+    })
+
 })
 
 
@@ -254,6 +338,33 @@ describe("Test API Key", () => {
 
         expect(mockedResponse.status).toHaveBeenCalledWith(201)
         expect(mockedResponse.json).toHaveBeenCalledWith({ success: false, message: 'failed' })
+    })
+
+    it('requires provider details before testing an API key', async () => {
+        await testAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.status).toHaveBeenCalledWith(422)
+        expect(mockedResponse.json).toHaveBeenCalledWith({
+            success: false, message: 'Provider ID and Model details  must be included!',
+        })
+    })
+
+    it('returns the provider failure reason instead of hiding it', async () => {
+        aiAskMock.mockRejectedValue(new Error('rate limited'))
+        mockedRequest.body = { apiKeys: { name: 'p', model: 'm', apiKey: 'key' } }
+        await testAPIKey(mockedRequest, mockedResponse)
+        expect(mockedResponse.json).toHaveBeenCalledWith({ success: false, message: 'rate limited' })
+    })
+
+    it('passes unexpected test-route errors to Express error handling', async () => {
+        const next = vi.fn()
+        const req = { body: {} }
+        Object.defineProperty(req.body, 'apiKeys', {
+            get() { throw new Error('malformed request body') },
+        })
+
+        await testAPIKey(req, mockedResponse, next)
+
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({ message: 'malformed request body' }))
     })
 
 })
