@@ -570,17 +570,24 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 ## Contributing
 
-We are not accepting external code contributions (pull requests) yet. Before we can merge community code, we need a Contributor License Agreement (CLA) in place, and we are still preparing it. Pull requests opened in the meantime may be closed without review, not because the work is unwelcome, but because we cannot legally incorporate it until the CLA exists.
+Pull requests are open, and bug reports and feature requests are always welcome.
 
-What we **do** welcome right now:
+- **Code.** Fork the repository, make your change, and open a pull request. Your
+  first pull request will prompt you to sign our
+  [Contributor License Agreement](CLA.md), a one-time step that takes a single
+  comment. CHOps is dual licensed, so the CLA lets us ship your work under both
+  the AGPLv3 and our commercial licence while you keep the copyright.
+- **Bug reports.** Open an issue with your CHOps version (from `version.json`),
+  your ClickHouse® database version, and clear steps to reproduce.
+- **Feature requests.** Open an issue describing the problem you want solved.
+  Tell us the use case, not just the proposed solution, so we can find the best
+  fit.
 
-- **Bug reports.** Open an issue with your CHOps version (from `version.json`), your ClickHouse® database version, and clear steps to reproduce.
-- **Feature requests.** Open an issue describing the problem you want solved. Tell us the use case, not just the proposed solution, so we can find the best fit.
-- **Questions and feedback.** If something is confusing or missing from the docs, let us know.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide, and
+[SECURITY.md](SECURITY.md) for reporting vulnerabilities privately.
 
-Once the CLA is ready, we will update this section with contribution guidelines and open the project to pull requests.
-
-And if you have read this far and like what you see, **please consider starring the repository**. It genuinely helps.
+And if you have read this far and like what you see, **please consider starring
+the repository**. It genuinely helps.
 
 ---
 
