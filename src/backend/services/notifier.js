@@ -13,6 +13,38 @@ import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
 import { loadEnv } from "../utils/env.js";
 
+// Webhook delivery is deliberately constrained to public HTTPS endpoints. This
+// keeps a channel configuration from becoming an SSRF primitive against
+// localhost, private networks, or link-local metadata services.
+export function validateWebhookUrl(value) {
+    let parsed;
+    try {
+        parsed = new URL(String(value || ""));
+    } catch {
+        throw new Error("Webhook URL must be a valid HTTPS URL.");
+    }
+
+    if (parsed.protocol !== "https:") {
+        throw new Error("Webhook URLs must use HTTPS.");
+    }
+
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    const isPrivateIpv4 = /^(?:127|10|0)\./.test(hostname)
+        || /^169\.254\./.test(hostname) // link-local
+        || /^192\.168\./.test(hostname)
+        || /^172\.(?:1[6-9]|2\d|3[0-1])\./.test(hostname);
+    const isPrivateIpv6 = hostname === "::1" || hostname === "::"
+        || hostname.startsWith("fc") || hostname.startsWith("fd")
+        || hostname.startsWith("fe8") || hostname.startsWith("fe9")
+        || hostname.startsWith("fea") || hostname.startsWith("feb"); // link-local
+
+    if (hostname === "localhost" || hostname.endsWith(".localhost") || isPrivateIpv4 || isPrivateIpv6) {
+        throw new Error("Webhook URLs cannot target localhost, private networks, or link-local addresses.");
+    }
+
+    return parsed;
+}
+
 
 
 export function getClusterInfo(alert) {
