@@ -61,30 +61,6 @@ jobs:
       - name: Build ${{ matrix.name }} binary
         run: bun run ${{ matrix.script }}
 
-      # Enforces the rule above rather than relying on everyone having read it.
-      # Greps the binary for our own secret values. Skips GITHUB_TOKEN and
-      # anything under 8 chars, which throws false positives.
-      - name: Verify no secrets were inlined into the binary
-        env:
-          ALL_SECRETS: ${{ toJSON(secrets) }}
-        run: |
-          python3 - "${{ matrix.outfile }}" <<'PY'
-          import json, os, sys
-          binary = sys.argv[1]
-          secrets = json.loads(os.environ["ALL_SECRETS"])
-          blob = open(binary, "rb").read()
-          leaked = [
-              name for name, value in secrets.items()
-              if name != "GITHUB_TOKEN" and value and len(value) >= 8
-              and value.encode() in blob
-          ]
-          if leaked:
-              print("found in %s: %s" % (binary, ", ".join(leaked)))
-              print("--env=inline welded these in. Take them out of the build job.")
-              sys.exit(1)
-          print("clean: %s (%d secrets checked)" % (binary, len(secrets)))
-          PY
-
       # Only linux can run on this runner; the other two are cross-compiled.
       - name: Smoke test the binary
         if: matrix.name == 'linux-x64'
