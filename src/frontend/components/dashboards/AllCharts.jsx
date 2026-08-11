@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
 import { findParameters, hasValue } from '../../../shared/sqlParams.js';
-import { buildChartOption } from './chartTypes.js';
+import { buildChartOption, needsLegend } from './chartTypes.js';
 import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import DataTable from '../layout/DataTable.jsx';
@@ -31,16 +31,6 @@ export default function AllCharts({ onEdit }) {
   const { theme } = useTheme();
 
   const isDarkColor = theme === 'dark' ? 'white' : 'black';
-
-  const legendSupportedTypes = [
-    'grouped_bar', 'stacked_bar',
-    'multi_line', 'stacked_line',
-    'pie', 'donut', 'rose', 'nested_pie',
-    'bubble',
-    'multi_category',
-    'funnel',
-    'radar'
-  ];
 
   useEffect(() => {
     const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
@@ -105,7 +95,7 @@ export default function AllCharts({ onEdit }) {
     return series.some(s => Array.isArray(s?.data) && s?.data.length > 0);
   }, [previewOpt]);
 
-  const supportsLegend = selected && legendSupportedTypes.includes(selected.chartSubtype);
+  const supportsLegend = selected && needsLegend(selected.chartType, selected.chartSubtype);
 
   useEffect(() => {
     if (!previewRef.current || !previewOpt || previewOpt._kpi || previewOpt._table || previewOpt._error) {
@@ -135,7 +125,7 @@ export default function AllCharts({ onEdit }) {
 
       const extraLeftForYAxisName = yHasName ? 60 : 20;
 
-      const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
+      const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar', 'horizontal_bar'];
       const isBarChart = barChartTypes.includes(selected?.chartSubtype);
       const isScatterLike = selected?.chartSubtype === 'scatter' || selected?.chartSubtype === 'basic_scatter' || selected?.chartSubtype === 'bubble' || selected?.chartType === 'scatter' || selected?.chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];

@@ -297,6 +297,7 @@ export const CHART_TYPES = [
   {
     type: "funnel",
     label: "Funnel",
+    hasLegend: true,
     subtypes: [
       {
         subtype: "standard",
@@ -1026,6 +1027,7 @@ export function buildChartOption(
       return {
         tooltip: { trigger: "item", formatter: "{b}: {c}" },
         toolbox,
+        legend,
         series: [
           {
             type: "funnel",

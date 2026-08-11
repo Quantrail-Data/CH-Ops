@@ -1685,8 +1685,8 @@ export default function QueryEditor({
             overflow: "hidden",
           }}
         >
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            <div className="editor-sidebar-header">
+          <div style={{ flex: 1,overflowY:"auto"}}>
+            <div className="editor-sidebar-header" style={{width:"100%"}}>
               <Icon className="ti ti-database"></Icon> Explorer
               <button
                 className="btn btn-ghost btn-sm"
@@ -1700,7 +1700,8 @@ export default function QueryEditor({
                 <Icon className="ti ti-refresh"></Icon>
               </button>
             </div>
-            {!editorConnected ? (
+           <div style={{ flex: 1 ,overflowY: "auto",height:"93%"}}>
+              {!editorConnected ? (
               <div
                 style={{
                   display: "flex",
@@ -1721,12 +1722,13 @@ export default function QueryEditor({
               </div>
             ) : (
               dbs.map((db) => (
-                <div key={db} style={{ display: "flex", alignItems: "center" }}>
+                <div key={db} style={{ display: "flex" }}>
                   <div
                     style={{
                       marginLeft: "5px",
+                      paddingTop: "6px",
                       display: "flex",
-                      alignItems: "center",
+                      alignItems: "start",
                       justifyContent: "center",
                     }}
                   >
@@ -1834,6 +1836,7 @@ export default function QueryEditor({
                 </div>
               ))
             )}
+          </div>
           </div>
           <button
             className="sidebar-toggle"
