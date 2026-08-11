@@ -64,7 +64,7 @@ LIMIT 500`;
 }
 
 function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const safeId = queryId.replace(/'/g, "\\\\'");
+  const safeId = queryId.replace(/'/g, "\\'");
 
   const conditions = [
     `query_id = '${safeId}'`,
@@ -261,8 +261,8 @@ describe('buildFlameGraphSql', () => {
 
   it('escapes single quotes in queryId', () => {
     const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: "abc'def", from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00' });
-    expect(sql).toContain("abc\\'def");
-    expect(sql).not.toContain("abc'def'");
+    expect(sql).include("abc\\'def");
+    expect(sql).not.include("abc'def'");
   });
 });
 

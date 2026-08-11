@@ -11,7 +11,7 @@
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
 import { describe, it, expect, vi, mock, beforeAll } from 'bun:test';
-import { getClusterInfo, sendNotification, sendOTPEmail, testChannel, escapeHtml, extractAccountDetails } from '../../src/backend/services/notifier';
+import { getClusterInfo, sendNotification, sendOTPEmail, testChannel, escapeHtml, extractAccountDetails, validateWebhookUrl } from '../../src/backend/services/notifier';
 
 // Extracted formatDetails logic from notifier.js
 function formatDetails(alert) {
@@ -79,6 +79,37 @@ describe('Channel config validation', () => {
   }
 
   it('rejects email without smtp_host', () => { expect(validateChannel({ type: 'email' })).toContain('SMTP'); });
+});
+
+describe('Webhook URL validation', () => {
+  it('accepts public HTTPS URLs', () => {
+    const url = validateWebhookUrl('https://hooks.example.com/alerts');
+    expect(url.href).toBe('https://hooks.example.com/alerts');
+  });
+
+  it('requires HTTPS', () => {
+    expect(() => validateWebhookUrl('http://hooks.example.com/alerts'))
+      .toThrow('Webhook URLs must use HTTPS.');
+  });
+
+  it('rejects localhost, private, and link-local targets', () => {
+    for (const target of [
+      'https://localhost/hook',
+      'https://127.0.0.1/hook',
+      'https://10.0.0.7/hook',
+      'https://172.16.0.7/hook',
+      'https://192.168.0.7/hook',
+      'https://169.254.169.254/latest/meta-data',
+      'https://[::1]/hook',
+      'https://[fc00::1]/hook',
+    ]) {
+      expect(() => validateWebhookUrl(target)).toThrow('private networks');
+    }
+  });
+
+  it('rejects malformed URLs', () => {
+    expect(() => validateWebhookUrl('not a URL')).toThrow('valid HTTPS URL');
+  });
 });
 
 

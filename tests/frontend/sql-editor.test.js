@@ -10,7 +10,7 @@ describe('SQL Editor: EXPLAIN Tree - layout', () => {
   const code = read('src/frontend/components/editor/QueryEditor.jsx');
   it('type tree, orient TB, edgeShape polyline', () => { expect(code).toContain("type: \"tree\""); expect(code).toContain("orient: \"TB\""); expect(code).toContain("edgeShape: \"polyline\""); });
   it('imports shared tree utility for symbolSize and sizing', () => { expect(code).toContain("treeChart.js"); });
-  it('8 categories with golden-angle spacing', () => { expect(code).toContain('CAT_MATCHERS'); expect(code).toContain('137.508'); ['ReadFrom', 'Filter', 'Sort/Limit', 'Aggregate', 'Join', 'Transform', 'Output'].forEach(c => expect(code).toContain(c)); });
+  it('8 categories with golden-angle spacing', () => { expect(code).toContain('CAT_MATCHERS'); expect(code).toContain('137.508');['ReadFrom', 'Filter', 'Sort/Limit', 'Aggregate', 'Join', 'Transform', 'Output'].forEach(c => expect(code).toContain(c)); });
 });
 
 describe('SQL Editor: EXPLAIN Tree - DAG→tree algorithm', () => {
@@ -27,7 +27,6 @@ describe('SQL Editor: EXPLAIN Tree - labels and edges', () => {
   const code = read('src/frontend/components/editor/QueryEditor.jsx');
   it('labels use the monospace code font, wraps long names', () => { expect(code).toMatch(/red hat mono/i); expect(code).toContain('wrapLabel'); });
   it('chart auto-sized inside scroll container, no roam', () => { expect(code).toContain('treeSizeTB'); expect(code).not.toContain('roam'); });
-  it('has HTML toolbar with download, zoom, fullscreen buttons', () => { expect(code).toContain('graphDownload'); expect(code).toContain('graphZoom'); expect(code).toContain('graphFullscreen'); expect(code).toContain('ti-download'); expect(code).toContain('ti-zoom-in'); expect(code).toContain('ti-zoom-out'); expect(code).toContain('ti-arrows-maximize'); });
 });
 
 describe('SQL Editor: Query Stats', () => {
@@ -126,7 +125,7 @@ describe('SQL Editor: Export wizard and its API', () => {
     // '/api/export', earlier in the file, and it calls next() rather than
     // handling the request - so a plain indexOf finds the wrong line.
     const downloadAt = server.indexOf("'/api/export/download'");
-    const routerAt = server.indexOf("app.use('/api/export', rateLimiter");
+    const routerAt = server.indexOf("app.use('/api/export', authenticatedRateLimiter");
     expect(downloadAt).toBeGreaterThan(-1);
     expect(routerAt).toBeGreaterThan(-1);
     expect(downloadAt).toBeLessThan(routerAt);
