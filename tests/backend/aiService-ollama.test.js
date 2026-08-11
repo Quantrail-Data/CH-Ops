@@ -23,7 +23,7 @@ mock.module("openai", () => ({
   },
 }));
 
-const AIServices = (await import("../../src/backend/servicesAI/AIService.js?real")).default;
+const AIServices = (await import("../../src/backend/servicesAI/AIService.js")).default;
 const BASE_URL = "http://localhost:11434";
 const OPENAI_ENCRYPTED_KEY = encrypt("sk-test-fixture-key");
 

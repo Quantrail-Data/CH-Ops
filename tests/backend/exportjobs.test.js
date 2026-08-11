@@ -48,6 +48,8 @@ const {
   cancelJobsForUser,
   issueTicket,
   redeemTicket,
+  startExportSweeper,
+  touchJob,
   exportConfig,
 } = await import("../../src/backend/services/exportJobs.js");
 
@@ -274,6 +276,15 @@ describe("creating a job", () => {
     ).not.toThrow();
   });
 
+  test('holds all users to the server-wide concurrent export limit', () => {
+    startExportStream.mockImplementation(() => new Promise(() => {}));
+    for (let i = 0; i < cfg.maxConcurrent; i++) {
+      makeJob({ username: `user-${i}` });
+    }
+
+    expect(() => makeJob({ username: 'another-user' })).toThrow(/server is busy/i);
+  });
+
   test("refuses a job that would not fit in the remaining space", () => {
     expect(() =>
       makeJob({
@@ -350,6 +361,18 @@ describe("reading a job", () => {
     expect(
       describeJob(job).percent,
     ).toBeNull();
+  });
+
+  test('touching a job records fresh activity', () => {
+    const job = makeJob();
+    const originalNow = Date.now;
+    Date.now = () => 123456;
+    try {
+      touchJob(job);
+    } finally {
+      Date.now = originalNow;
+    }
+    expect(job.lastActivityAt).toBe(123456);
   });
 });
 
@@ -443,6 +466,49 @@ describe("download tickets", () => {
 
     expect(a).not.toBe(b);
     expect(a.length).toBeGreaterThanOrEqual(32);
+  });
+
+  test('an expired ticket is deleted and cannot be redeemed', () => {
+    const job = makeJob();
+    job.state = 'ready';
+    const ticket = issueTicket(job);
+    const originalNow = Date.now;
+    Date.now = () => originalNow() + 60 * 1000 + 1;
+    try {
+      expect(redeemTicket(ticket)).toBeNull();
+      expect(redeemTicket(ticket)).toBeNull();
+    } finally {
+      Date.now = originalNow;
+    }
+  });
+});
+
+describe('export sweeper', () => {
+  test('removes idle completed jobs and expired tickets without retaining the timer', () => {
+    const job = makeJob();
+    job.state = 'ready';
+    job.lastActivityAt = 1;
+    const ticket = issueTicket(job);
+    let sweep;
+    let unrefCalled = false;
+    const originalInterval = globalThis.setInterval;
+    const originalNow = Date.now;
+    globalThis.setInterval = (callback) => {
+      sweep = callback;
+      return { unref() { unrefCalled = true; } };
+    };
+    Date.now = () => cfg.idleTtlMs + 2;
+    try {
+      startExportSweeper();
+      sweep();
+    } finally {
+      globalThis.setInterval = originalInterval;
+      Date.now = originalNow;
+    }
+
+    expect(unrefCalled).toBe(true);
+    expect(getJob(job.id, job.userId)).toBeNull();
+    expect(redeemTicket(ticket)).toBeNull();
   });
 });
 

@@ -140,6 +140,44 @@ describe("getInstallation: spec versus running config", () => {
   });
 });
 
+describe('AKOC discovery', () => {
+  it('lists namespaces by metadata name', async () => {
+    const provider = createAkocProvider(stubClient({ namespaces: [
+      { metadata: { name: 'prod' } }, { metadata: { name: 'staging' } },
+    ] }));
+
+    expect(await provider.listNamespaces()).toEqual(['prod', 'staging']);
+  });
+
+  it('uses AKOC table printer columns when the API honours the Table request', async () => {
+    const client = stubClient({ clickhouseinstallations: {
+      kind: 'Table',
+      columnDefinitions: [
+        { name: 'Name' }, { name: 'Status' }, { name: 'Version' }, { name: 'Clusters' },
+        { name: 'Shards' }, { name: 'Hosts' }, { name: 'Endpoint' }, { name: 'Age' },
+      ],
+      rows: [{ cells: ['analytics', 'Completed', '0.27', '1', '2', '4', 'http://ch', '4d'] }],
+    } });
+
+    expect(await createAkocProvider(client).listInstallations('prod')).toEqual([{
+      namespace: 'prod', name: 'analytics', status: 'Completed', version: '0.27',
+      clusters: '1', shards: '2', hosts: '4', endpoint: 'http://ch', age: '4d',
+    }]);
+  });
+
+  it('falls back to custom-resource rows if the API does not return a Table', async () => {
+    const client = stubClient({ clickhouseinstallations: [
+      { metadata: { name: 'analytics' }, status: { status: 'Completed', hostsCount: 2 } },
+    ] });
+    client.get = async () => ({ kind: 'List' });
+
+    expect(await createAkocProvider(client).listInstallations('prod')).toEqual([{
+      namespace: 'prod', name: 'analytics', status: 'Completed', version: null,
+      clusters: null, shards: null, hosts: 2, endpoint: null,
+    }]);
+  });
+});
+
 describe("isUnmanaged", () => {
   it("treats an installation with an empty status as not being reconciled", async () => {
     // The operator can be configured to watch only some namespaces. An
@@ -367,6 +405,37 @@ describe("getStorage: expansion and survival", () => {
   });
 });
 
+describe('host PVC association', () => {
+  it('attaches PVC metadata to the pod derived from its claim name', async () => {
+    const claim = {
+      metadata: {
+        name: 'data-chi-analytics-c1-0-0-0',
+        labels: {
+          'clickhouse.altinity.com/shard': '0',
+          'clickhouse.altinity.com/replica': '0',
+          'clickhouse.altinity.com/reclaimPolicy': 'Retain',
+        },
+      },
+      spec: { storageClassName: 'fast', resources: { requests: { storage: '10Gi' } } },
+      status: {
+        phase: 'Bound', capacity: { storage: '8Gi' }, allocatedResources: { storage: '10Gi' },
+        allocatedResourceStatuses: { storage: 'NodeResizePending' },
+      },
+    };
+    const provider = createAkocProvider(stubClient({
+      clickhouseinstallations: CHI,
+      '/pods': [pod({ name: 'chi-analytics-c1-0-0-0' })],
+      persistentvolumeclaims: [claim], '/services': [], endpointslices: [],
+    }));
+
+    expect((await provider.getHosts('prod', 'analytics'))[0].volumes).toEqual([{
+      name: claim.metadata.name, shard: 0, replica: 0, phase: 'Bound', storageClass: 'fast',
+      requested: '10Gi', allocated: '10Gi', actual: '8Gi', reclaimPolicy: 'Retain',
+      resizeState: 'NodeResizePending',
+    }]);
+  });
+});
+
 describe("rotation: joining EndpointSlices", () => {
   const chiFixture = { clickhouseinstallations: CHI };
 
@@ -526,5 +595,64 @@ describe("getNetwork: drain survivability", () => {
     expect((await provider.getNetwork("prod", "analytics")).networkPolicies[0].name).toBe(
       "deny-all",
     );
+  });
+});
+
+describe('AKOC network, events, logs, and health', () => {
+  it('maps service addresses and ports plus ingress host rules', async () => {
+    const provider = createAkocProvider(stubClient({
+      '/services': [{
+        metadata: { name: 'ch-http' }, spec: { type: 'LoadBalancer', clusterIP: '10.0.0.10', ports: [{ name: 'http', port: 8123, targetPort: 8123 }] },
+        status: { loadBalancer: { ingress: [{ hostname: 'ch.example.test' }] } },
+      }],
+      networkpolicies: [],
+      ingresses: [{ metadata: { name: 'ui' }, spec: { rules: [{ host: 'ui.example.test' }, {}] } }],
+      poddisruptionbudgets: [],
+    }));
+
+    const network = await provider.getNetwork('prod', 'analytics');
+    expect(network.services[0]).toEqual({
+      name: 'ch-http', type: 'LoadBalancer', clusterIP: '10.0.0.10', externalAddress: 'ch.example.test',
+      ports: [{ name: 'http', port: 8123, targetPort: 8123 }],
+    });
+    expect(network.ingresses).toEqual([{ name: 'ui', hosts: ['ui.example.test'] }]);
+  });
+
+  it('filters installation events and orders newest first', async () => {
+    const provider = createAkocProvider(stubClient({ events: [
+      { type: 'Normal', reason: 'Old', message: 'old', involvedObject: { name: 'chi-analytics-0' }, lastTimestamp: '2026-01-01T00:00:00Z' },
+      { type: 'Warning', reason: 'New', message: 'new', involvedObject: { name: 'analytics' }, count: 2, eventTime: '2026-01-02T00:00:00Z' },
+      { type: 'Normal', reason: 'Other', involvedObject: { name: 'unrelated' } },
+    ] }));
+
+    const events = await provider.getEvents('prod', 'analytics');
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ reason: 'New', count: 2, object: 'analytics' });
+    expect(events[1]).toMatchObject({ reason: 'Old', count: 1 });
+  });
+
+  it('passes log streaming options through to the Kubernetes client', async () => {
+    let received;
+    const client = stubClient({});
+    client.stream = async (path, options) => { received = { path, options }; return 'stream'; };
+    const stream = await createAkocProvider(client).streamLogs('prod', 'chi-0', {
+      container: 'sidecar', tailLines: 50, sinceSeconds: 60, previous: true, timestamps: false,
+      follow: true, limitBytes: 99,
+    });
+
+    expect(stream).toBe('stream');
+    expect(received.options).toEqual({
+      query: { container: 'sidecar', tailLines: 50, sinceSeconds: 60, previous: 'true', timestamps: undefined, follow: 'true', limitBytes: 99 },
+      context: { namespace: 'prod', resource: 'pods/log' },
+    });
+  });
+
+  it('reports an unreachable operator and a reachable one', async () => {
+    const bad = stubClient({});
+    bad.listPage = async () => { const error = new Error('forbidden'); error.code = 403; throw error; };
+    expect(await createAkocProvider(bad).getOperatorHealth('prod')).toEqual({
+      reachable: false, reason: 403, message: 'forbidden',
+    });
+    expect(await createAkocProvider(stubClient({})).getOperatorHealth('prod')).toEqual({ reachable: true });
   });
 });

@@ -284,6 +284,28 @@ describe("POST /ollama/models - SSRF guard", () => {
     expect(res.statusCode).toBe(422);
   });
 
+  it("rejects private, link-local, and multicast IPv6 addresses", async () => {
+    for (const host of ["fc00::1", "fe80::1", "ff02::1"]) {
+      const req = { body: { baseUrl: `http://[${host}]:11434` } };
+      const res = createRes();
+
+      await handler(req, res);
+
+      expect(res.statusCode).toBe(422);
+      expect(res.body.success).toBe(false);
+    }
+  });
+
+  it("rejects a hostname when DNS resolution fails", async () => {
+    mockLookup.mockRejectedValueOnce(new Error("DNS unavailable"));
+    const req = { body: { baseUrl: "http://unresolved.example.test:11434" } };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
+  });
+
   it("allows a public-looking IP through to the fetch step", async () => {
     globalThis.fetch = mock(async () => ({
       ok: true,

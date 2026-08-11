@@ -16,9 +16,11 @@ const {
     clearCapabilities,
     explain,
     hasCapability,
+    ensureCapabilities,
     probeCapabilities,
     probeSessionAffinity,
     rbacContext,
+    unavailableFeatures,
 } = await import('../../src/backend/services/capabilities.js')
 
 beforeEach(() => {
@@ -66,6 +68,37 @@ describe('capabilities service', () => {
         expect(hasCapability('cluster-1', CAPABILITY.REPLICAS)).toBeTrue()
         expect(hasCapability('cluster-1', CAPABILITY.QUERY_LOG)).toBeFalse()
         expect(explain(CAPABILITY.TEXT_LOG)).toContain('logging')
+        expect(explain('unknown')).toContain('not available')
+        expect(unavailableFeatures('cluster-1')).toContainEqual(expect.objectContaining({
+            table: CAPABILITY.TEXT_LOG,
+        }))
+    })
+
+    it('caches successful probes and reports failures without blocking callers', async () => {
+        const node = { host: 'node-1', port: 8123, secure: false, user: 'default', password: '' }
+        executeQuery.mockRejectedValueOnce(new Error('offline'))
+        expect(await probeCapabilities('offline', node)).toEqual({
+            probed: false, error: 'offline', tables: null, deployment: 'unknown',
+        })
+        expect(hasCapability('offline', CAPABILITY.TEXT_LOG)).toBeTrue()
+        expect(unavailableFeatures('offline')).toEqual([])
+
+        executeQuery.mockResolvedValueOnce({ rows: [{ name: 'query_log' }] })
+        await probeCapabilities('cached', node)
+        await probeCapabilities('cached', node)
+        expect(executeQuery).toHaveBeenCalledTimes(2)
+        clearCapabilities('cached')
+        await probeCapabilities('cached', node)
+        expect(executeQuery).toHaveBeenCalledTimes(3)
+    })
+
+    it('uses the cluster node when ensuring capabilities and handles missing clusters', async () => {
+        expect(await ensureCapabilities('missing')).toEqual({
+            probed: false, tables: null, deployment: 'unknown',
+        })
+        getClusterById.mockReturnValue({ nodes: [{ host: 'node-1', port: 8123 }] })
+        executeQuery.mockResolvedValue({ rows: [] })
+        expect((await ensureCapabilities('present')).probed).toBeTrue()
     })
 
     it('checks whether session affinity is sticky across two calls', async () => {
@@ -77,6 +110,14 @@ describe('capabilities service', () => {
         const result = await probeSessionAffinity(node)
 
         expect(result).toEqual({ checked: true, sticky: true, hosts: ['node-a', 'node-a'] })
+    })
+
+    it('handles affinity probes with missing hosts or query failures', async () => {
+        const node = { host: 'node-1' }
+        executeQuery.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ h: 'node-a' }] })
+        expect(await probeSessionAffinity(node)).toEqual({ checked: false, sticky: null })
+        executeQuery.mockRejectedValueOnce(new Error('offline'))
+        expect(await probeSessionAffinity(node)).toEqual({ checked: false, sticky: null })
     })
 
     it('classifies users and flags replicated access storage', async () => {
@@ -101,6 +142,13 @@ describe('capabilities service', () => {
             nodeLocal: true,
         })
         expect(result.accessStorageReplicated).toBeTrue()
+    })
+
+    it('reports an unavailable user inventory', async () => {
+        executeQuery.mockRejectedValueOnce(new Error('denied'))
+        expect(await classifyUsers({ host: 'node-1' })).toEqual({
+            checked: false, error: 'denied', users: [], accessStorageReplicated: false,
+        })
     })
 
     it('builds RBAC context and persists affinity results', async () => {
@@ -134,5 +182,11 @@ describe('capabilities service', () => {
         })
         expect(result.sessionAffinity).toMatchObject({ checked: true, sticky: true })
         expect(setAffinityResult).toHaveBeenCalledWith('conn-1', true)
+    })
+
+    it('returns no RBAC context without a cluster or node', async () => {
+        expect(await rbacContext('missing')).toBeNull()
+        getClusterById.mockReturnValue({ nodes: [] })
+        expect(await rbacContext('empty')).toBeNull()
     })
 })
