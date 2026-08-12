@@ -10,8 +10,9 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
 import { runQuery, testQueryConnection } from '../controllers/query.js';
+import { rateLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 router.post('/', runQuery);
-router.post('/test-connection', testQueryConnection);
+router.post('/test-connection',rateLimiter(10, 60, (req) => `connect:${req.user?.username || req.ip}`), testQueryConnection);
 export default router;

@@ -16,6 +16,7 @@
 import express from 'express';
 import { getClusterNodes } from '../services/clusterUtils.js';
 import { executeQuery } from '../services/clickhouse.js';
+import { rateLimiter } from '../middleware/rateLimiter.js';
 import {
   setCredSession, getCredSessionStatus, clearCredSession, CRED_CONTEXTS,
 } from '../services/chCredStore.js';
@@ -39,16 +40,16 @@ function resolveTargetNode(clusterId, node) {
   return target;
 }
 
-router.post('/connect', async (req, res) => {
+router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.username || req.ip}`), async (req, res) => {
   try {
-    const { clusterId, node, port, user, password } = req.body || {};
+    const { clusterId, node, user, password } = req.body || {};
     if (!user) return res.status(400).json({ error: 'ClickHouse username is required.' });
 
     const target = resolveTargetNode(clusterId, node);
     // Validate the credentials by running a trivial query as that user.
     await executeQuery({
       host: target.host,
-      port: port || target.port || 8123,
+      port: target.port || 8123,
       secure: !!target.secure,
       user,
       password: password ?? '',
