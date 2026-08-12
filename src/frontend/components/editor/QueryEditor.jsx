@@ -1666,6 +1666,11 @@ export default function QueryEditor({
     return AIdbsInfo?.filter((_v) => _v?.isSelected)?.length > 0;
   }
 
+
+   function IsSelectedAiID() {
+    const find = AIdbsInfo?.filter((_v) => _v?.isSelected);
+    return find?.length > 0 ? true : false;
+  }
   return (
     <div
       className="editor-shell"
@@ -2449,7 +2454,7 @@ export default function QueryEditor({
           </button>
 
           <button
-            className="ai-button sql-action-control"
+            className="ai-button sql-action-control btn"
             /* The button's background is var(--accent), a purple in both
                themes, so the label is white in both. It was black on the light
                theme, which put dark text on a mid-purple fill.
@@ -2473,7 +2478,7 @@ export default function QueryEditor({
               flexShrink: 0,
             }}
             onClick={() => GeneratingSQLHandler()}
-            disabled={isAILoadingGenerating}
+            disabled={isAILoadingGenerating || !IsSelectedAiID()}
             title="Generate SQL from a question, using the selected AI database"
           >
             {isAILoadingGenerating ? (

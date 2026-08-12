@@ -240,7 +240,7 @@ export default function Sidebar({
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: 15,
+                gap: 12,
                 userSelect: "none",
               }}
             >
@@ -264,7 +264,7 @@ export default function Sidebar({
               </span>
               {!isCollapsed && (
                 <>
-                  <span style={{ flex: 1, fontSize: "13px", fontWeight: "700" }}>{section.label}</span>
+                  <span style={{ flex: 1, fontSize: "11.5px", fontWeight: "700", whiteSpace: "nowrap", }}>{section.label}</span>
                   <Icon
                     className={`ti ti-chevron-${openSections[section.id] ? "down" : "right"}`}
                     style={{ fontSize: 12, opacity: 0.5 }}
@@ -311,18 +311,18 @@ export default function Sidebar({
                     key={item.id}
                     className={`sidebar-item ${currentRoute === item.id?.replace("/", "") ? "active" : ""}`}
                     onClick={() => navigateTo(item.id, section.id)}
-                    style={{ marginLeft: "10px" }}
+                    style={{ marginLeft: "15px" }}
                   >
-                    <span style={{ fontSize: "14px" }}>{item.label}</span>
+                    <span style={{ fontSize: "13px" }}>{item.label}</span>
                   </div>
                 ) : (
                   <div
                     key={item.id}
                     className={`sidebar-item ${currentRoute === item.id ? "active" : ""}`}
                     onClick={() => navigateTo(item.id, section.id)}
-                    style={{ marginLeft: "10px" }}
+                    style={{ marginLeft: "15px" }}
                   >
-                    <span style={{ fontSize: "14px" }}>{item.label}</span>
+                    <span style={{ fontSize: "13px" }}>{item.label}</span>
                   </div>
                 ),
               )}
