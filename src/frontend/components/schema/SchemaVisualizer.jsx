@@ -283,7 +283,7 @@ function SchemaFlow() {
           if (v > 0) {
             const intensity = loadIntensity(v, edgeMax);
             stroke = loadColour(intensity);
-            sw = 1.5 + 3 * intensity;
+            sw = 1.6;
             op = 0.55 + 0.45 * intensity;
           }
         }

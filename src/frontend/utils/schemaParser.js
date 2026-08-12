@@ -187,6 +187,28 @@ function parseDistributedTarget(createQuery) {
   return { db: '', table: '' };
 }
 
+function parseMaterializedViewTarget(createQuery, defaultDb) {
+  if (!createQuery || typeof createQuery !== 'string') {
+    return { db: '', table: '' };
+  }
+
+  const toMatch = createQuery.match(
+    /\bTO\s+(?:(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_]*))\s*\.\s*)?(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_]*))/i
+  );
+
+  if (!toMatch) {
+    return { db: '', table: '' };
+  }
+
+  const db = toMatch[1] || toMatch[2] || defaultDb;
+  const table = toMatch[3] || toMatch[4] || '';
+
+  return {
+    db,
+    table,
+  };
+}
+
 // Data Fetching
 
 const SYS_FILTER = "WHERE database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema')";
@@ -245,8 +267,19 @@ export function buildGraph(tables, columnsByTable, dictSources, refreshes) {
     
     let targetDatabase = '';
     let targetTable = '';
+
     if (kind === 'distributed' && t.create_table_query) {
       const parsed = parseDistributedTarget(t.create_table_query);
+      targetDatabase = parsed.db;
+      targetTable = parsed.table;
+    }
+
+    if ((kind === 'mv' || kind === 'rmv') && t.create_table_query) {
+      const parsed = parseMaterializedViewTarget(
+        t.create_table_query,
+        t.database
+      );
+
       targetDatabase = parsed.db;
       targetTable = parsed.table;
     }
