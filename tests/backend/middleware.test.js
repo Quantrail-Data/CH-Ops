@@ -36,7 +36,7 @@ function counterNext() {
   return fn;
 }
 
-const getMock = mock(() => ({ id: 1, username: "alice" }));
+const getMock = mock(() => ({ id: 1, username: "alice" ,role:"admin"}));
 
 mock.module("../../src/backend/db/index.js", () => ({
   db: {
@@ -94,7 +94,6 @@ describe("authMiddleware", () => {
     const next = counterNext();
 
     authMiddleware(req, res, next);
-
     expect(res.statusCode).toBe(401);
     // Deliberately the same message as an invalid token: naming the missing
     // account confirms the token itself was valid.
@@ -107,6 +106,7 @@ describe("authMiddleware", () => {
     getMock.mockReturnValueOnce({
       id: 1,
       username: "alice",
+      role:"admin"
     });
 
     const token = create({
@@ -125,7 +125,6 @@ describe("authMiddleware", () => {
     const next = counterNext();
 
     authMiddleware(req, res, next);
-
     expect(next.calls.length).toBe(1);
     expect(req.user.username).toBe("alice");
     expect(req.user.role).toBe("admin");

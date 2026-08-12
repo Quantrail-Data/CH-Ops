@@ -201,7 +201,6 @@ describe("runQuery", () => {
       body: {
         sql: "SELECT 1",
         node: "node1",
-        port: 9000,
         user: "admin",
         password: "secret",
         clusterId: "cluster1",
@@ -214,7 +213,7 @@ describe("runQuery", () => {
 
     expect(mockExecuteQuery).toHaveBeenCalledWith({
       host: "node1",
-      port: 9000,
+      port: 8123,
       secure: false,
       user: "admin",
       password: "secret",
