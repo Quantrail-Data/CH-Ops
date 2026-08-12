@@ -9,8 +9,11 @@ import {
   deleteConnection,
   providerFor,
   readInstallationHosts,
+  readInstallationAddresses,
   testConnection as runConnectionTest,
   OPERATORS,
+  ADDRESSING,
+  RESOLUTION,
 } from '../services/k8sConnections.js';
 import { getAllClusters, saveClusters, MAX_CLUSTERS } from '../services/clusterUtils.js';
 import { clearCapabilities } from '../services/capabilities.js';
@@ -263,6 +266,8 @@ export async function importInstallation(req, res) {
     chUser,
     chPassword,
     acknowledgeCredentialFailure = false,
+    addressingMode = ADDRESSING.AUTO,
+    acknowledgeSharedEndpoint = false,
   } = req.body || {};
 
   if (!OPERATORS[operator]) {
@@ -307,15 +312,27 @@ export async function importInstallation(req, res) {
   }
 
   try {
-    const nodes = await readInstallationHosts(connectionId, namespace, installation, operator);
+    const resolvedPort = port || 8443;
+    const resolvedSecure = secure !== false;
+    const addressing = await readInstallationAddresses({
+      connectionId,
+      namespace,
+      installation,
+      operator,
+      endpoint: endpoint.trim(),
+      port: resolvedPort,
+      secure: resolvedSecure,
+      user: chUser || 'default',
+      password: chPassword || '',
+      mode: addressingMode,
+    });
+
+    const nodes = addressing.nodes;
     if (!nodes.length) {
       return res.status(400).json({
         error: 'That installation reported no hosts. It may not have finished starting.',
       });
     }
-
-    const resolvedPort = port || 8443;
-    const resolvedSecure = secure !== false;
 
     // Checked before anything is written.
     const credentials = await checkClickHouseCredentials({
@@ -335,6 +352,15 @@ export async function importInstallation(req, res) {
       });
     }
 
+    if (!addressing.perNodeAccurate && !acknowledgeSharedEndpoint) {
+      return res.json({
+        needsSharedEndpointConfirmation: true,
+        resolution: addressing.resolution,
+        hosts: nodes.length,
+        endpoint: endpoint.trim(),
+      });
+    }
+
     const cluster = {
       id: `k8s_${namespace}_${installation}`.replace(/[^a-zA-Z0-9_]/g, '_'),
       name: displayName?.trim() || installation,
@@ -345,12 +371,12 @@ export async function importInstallation(req, res) {
       secure: resolvedSecure,
       k8s: { connectionId, namespace, installation, operator },
       // The endpoint is the address queries actually go to.
-      nodes: nodes.map((n) => ({
-        ...n,
-        host: endpoint.trim(),
-        port: resolvedPort,
-        secure: resolvedSecure,
-      })),
+      nodes,
+      k8sAddressing: {
+        mode: addressingMode,
+        resolution: addressing.resolution,
+        perNodeAccurate: addressing.perNodeAccurate,
+      },
     };
 
     try {
@@ -380,23 +406,39 @@ export async function refreshCluster(req, res) {
   }
 
   try {
-    const nodes = await readInstallationHosts(
-      cluster.k8s.connectionId,
-      cluster.k8s.namespace,
-      cluster.k8s.installation,
-      cluster.k8s.operator,
-    );
+    const addressing = await readInstallationAddresses({
+      connectionId: cluster.k8s.connectionId,
+      namespace: cluster.k8s.namespace,
+      installation: cluster.k8s.installation,
+      operator: cluster.k8s.operator,
+      endpoint: cluster.k8sAddressing?.endpoint || cluster.nodes[0]?.host,
+      port: cluster.port ?? 8443,
+      secure: cluster.secure !== false,
+      user: cluster.chUser || 'default',
+      password: cluster.chPassword || '',
+      mode: cluster.k8sAddressing?.mode || ADDRESSING.AUTO,
+    });
 
-    const endpoint = cluster.nodes[0]?.host;
-    const port = cluster.nodes[0]?.port ?? 8443;
+    const previous = cluster.k8sAddressing?.resolution ?? null;
 
     const updated = {
       ...cluster,
-      nodes: nodes.map((n) => ({ ...n, host: endpoint, port })),
+      nodes: addressing.nodes,
+      k8sAddressing: {
+        ...(cluster.k8sAddressing || {}),
+        resolution: addressing.resolution,
+        perNodeAccurate: addressing.perNodeAccurate,
+      },
     };
 
     const others = getAllClusters().filter((c) => c.id !== cluster.id);
     saveClusters([...others, updated]);
+    if (previous && previous !== addressing.resolution) {
+      return res.json({
+        hosts: addressing.nodes.length,
+        addressingChanged: { from: previous, to: addressing.resolution },
+      });
+    }
 
     return res.json({ ok: true, hosts: nodes.length, refreshedAt: new Date().toISOString() });
   } catch (err) {

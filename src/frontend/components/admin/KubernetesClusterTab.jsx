@@ -70,7 +70,14 @@ function TestResult({ result }) {
       </div>
 
       {result.operator && !result.operator.reachable && (
-        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+        <div
+          style={{
+            marginTop: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
           <Icon className="ti ti-alert-triangle" />
           <span>{result.operator.message}</span>
         </div>
@@ -123,6 +130,8 @@ export default function KubernetesClusterTab({ onImported }) {
     caCertificate: "",
     token: "",
   });
+  const [addressingMode, setAddressingMode] = useState("auto");
+  const [sharedEndpointWarning, setSharedEndpointWarning] = useState(null);
   const [pasteBlock, setPasteBlock] = useState("");
   const [testResult, setTestResult] = useState(null);
 
@@ -165,7 +174,9 @@ export default function KubernetesClusterTab({ onImported }) {
     const parsed = parseSetupBlock(text);
     if (parsed) {
       setConn((p) => ({ ...p, ...parsed }));
-      toast.success("Read the address, certificate and token from the pasted block.");
+      toast.success(
+        "Read the address, certificate and token from the pasted block.",
+      );
     }
   }
 
@@ -192,7 +203,9 @@ export default function KubernetesClusterTab({ onImported }) {
       let id = connectionId;
       if (!id) {
         if (!conn.name.trim()) {
-          toast.warning("Give the connection a name so you can recognise it later.");
+          toast.warning(
+            "Give the connection a name so you can recognise it later.",
+          );
           setBusy(false);
           return;
         }
@@ -217,7 +230,9 @@ export default function KubernetesClusterTab({ onImported }) {
     setNamespaces(r.namespaces || []);
     setNamespaceSource(r.source);
     if (r.source === "restricted") {
-      toast.info("This token cannot list namespaces. Type the namespace name instead.");
+      toast.info(
+        "This token cannot list namespaces. Type the namespace name instead.",
+      );
     }
   }
 
@@ -243,7 +258,7 @@ export default function KubernetesClusterTab({ onImported }) {
     setBusy(false);
   }
 
-  async function doImport(acknowledgeCredentialFailure = false) {
+  async function doImport(overrides = {}) {
     if (!endpoint.trim()) {
       toast.warning("A reachable ClickHouse® address is required.");
       return;
@@ -263,7 +278,10 @@ export default function KubernetesClusterTab({ onImported }) {
           secure,
           chUser,
           chPassword,
-          acknowledgeCredentialFailure,
+          acknowledgeCredentialFailure: false,
+          addressingMode,
+          acknowledgeSharedEndpoint:
+            overrides.acknowledgeSharedEndpoint ?? false,
         },
       });
 
@@ -271,6 +289,11 @@ export default function KubernetesClusterTab({ onImported }) {
       if (r.needsConfirmation) {
         setCredentialWarning(r.credentialCheck);
         setBusy(false);
+        return;
+      }
+
+      if (r?.needsSharedEndpointConfirmation) {
+        setSharedEndpointWarning({ hosts: r.hosts, endpoint: r.endpoint });
         return;
       }
 
@@ -340,7 +363,9 @@ export default function KubernetesClusterTab({ onImported }) {
                 <input
                   className="form-input"
                   value={conn.name}
-                  onChange={(e) => setConn((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) =>
+                    setConn((p) => ({ ...p, name: e.target.value }))
+                  }
                   placeholder="Production EKS"
                 />
               </div>
@@ -363,7 +388,9 @@ export default function KubernetesClusterTab({ onImported }) {
                 <input
                   className="form-input"
                   value={conn.apiAddress}
-                  onChange={(e) => setConn((p) => ({ ...p, apiAddress: e.target.value }))}
+                  onChange={(e) =>
+                    setConn((p) => ({ ...p, apiAddress: e.target.value }))
+                  }
                   placeholder="https://10.0.0.5:6443"
                 />
               </div>
@@ -387,17 +414,27 @@ export default function KubernetesClusterTab({ onImported }) {
                   className="form-input"
                   type="password"
                   value={conn.token}
-                  onChange={(e) => setConn((p) => ({ ...p, token: e.target.value }))}
+                  onChange={(e) =>
+                    setConn((p) => ({ ...p, token: e.target.value }))
+                  }
                 />
               </div>
             </>
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={testConnection} disabled={busy}>
+            <button
+              className="btn btn-secondary"
+              onClick={testConnection}
+              disabled={busy}
+            >
               Test connection
             </button>
-            <button className="btn btn-primary" onClick={saveAndContinue} disabled={busy}>
+            <button
+              className="btn btn-primary"
+              onClick={saveAndContinue}
+              disabled={busy}
+            >
               Continue
             </button>
           </div>
@@ -417,23 +454,34 @@ export default function KubernetesClusterTab({ onImported }) {
             >
               {operators.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name} ({o.short})
-                  {o.earlyAccess ? " - early access" : ""}
+                  {o.name} ({o.short}){o.earlyAccess ? " - early access" : ""}
                 </option>
               ))}
             </Select>
             {operators.find((o) => o.id === operator)?.earlyAccess && (
-              <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  marginTop: 4,
+                  color: "var(--text-muted)",
+                }}
+              >
                 Early access. This operator's API is at v1alpha1, which means it
                 may change without a deprecation cycle. We track it and will
-                update, so a future operator release could need a CHOps update to
-                match.
+                update, so a future operator release could need a CHOps update
+                to match.
               </div>
             )}
             {testResult?.operators?.length > 1 && (
-              <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>
-                Both operators are installed in this cluster. Choose the one that
-                manages the installation you are adding.
+              <div
+                style={{
+                  fontSize: 12,
+                  marginTop: 4,
+                  color: "var(--text-muted)",
+                }}
+              >
+                Both operators are installed in this cluster. Choose the one
+                that manages the installation you are adding.
               </div>
             )}
           </div>
@@ -463,14 +511,21 @@ export default function KubernetesClusterTab({ onImported }) {
             )}
           </div>
 
-          <button className="btn btn-secondary" onClick={loadInstallations} disabled={busy}>
+          <button
+            className="btn btn-secondary"
+            onClick={loadInstallations}
+            disabled={busy}
+          >
             Find installations
           </button>
 
           {installations.length > 0 && (
             <div style={{ marginTop: 16 }}>
               <label className="form-label">Installation *</label>
-              <table className="data-table" style={{ width: "100%", marginTop: 6 }}>
+              <table
+                className="data-table"
+                style={{ width: "100%", marginTop: 6 }}
+              >
                 <thead>
                   <tr>
                     <th />
@@ -522,15 +577,85 @@ export default function KubernetesClusterTab({ onImported }) {
 
       {step === 3 && (
         <div>
-          <div className="card" style={{ padding: 12, marginBottom: 16, fontSize: 13 }}>
-            CHOps runs outside your cluster, so the addresses Kubernetes uses
-            internally will not resolve. Enter the address you use to reach
-            ClickHouse® from outside: a load balancer, or a private link
-            endpoint.
+          <div
+            className="card"
+            style={{ padding: 12, marginBottom: 16, fontSize: 13 }}
+          >
+            Enter an address that reaches ClickHouse® from wherever CHOps is
+            running. If CHOps runs inside this cluster, an internal service
+            address works. If it runs outside, use a load balancer or private
+            link endpoint.
             <br />
             <br />
-            If ClickHouse® is not exposed outside the cluster, this will not
-            work. Either expose it, or run CHOps inside the cluster.
+            CHOps also tries to reach each pod individually, so pages showing
+            per-node data can query the node you select. This address is used
+            when that is not possible.
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Pod addressing</label>
+            <Select
+              className="form-select"
+              value={addressingMode}
+              onChange={(e) => setAddressingMode(e.target.value)}
+            >
+              <option value="auto">Auto-detect (recommended)</option>
+              <option value="per-pod">Always connect to pods directly</option>
+              <option value="endpoint">Always use the address above</option>
+            </Select>
+            <div
+              style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}
+            >
+              {addressingMode === "auto" && (
+                <details style={{ marginTop: 12, fontSize: 13 }}>
+                  <summary style={{ cursor: "pointer" }}>
+                    How to expose each pod so per-node data works
+                  </summary>
+                  <div style={{ marginTop: 8 }}>
+                    <p>
+                      If CHOps runs outside this cluster, each pod needs its own
+                      service. For the Altinity operator, add this to your
+                      ClickHouseInstallation and apply it, then rescan here.
+                    </p>
+                    <pre
+                      className="profiler-popup-code"
+                      style={{ fontSize: 12 }}
+                    >
+                      {`spec:
+  templates:
+    serviceTemplates:
+      - name: per-pod
+        generateName: "chendpoint-{chi}-{shard}-{replica}"
+        spec:
+          type: NodePort
+          ports:
+            - name: http
+              port: 8123
+  defaults:
+    templates:
+      replicaServiceTemplate: per-pod`}
+                    </pre>
+                    <p>
+                      <strong>NodePort</strong> opens a port in the 30000 to
+                      32767 range on every node, so CHOps must be able to reach
+                      a node directly and you may need a firewall rule.{" "}
+                      <strong>LoadBalancer</strong> is easier to reach but most
+                      cloud providers bill per service, so two pods means two
+                      load balancers.
+                    </p>
+                    <p>
+                      The simplest option is to run CHOps inside the cluster,
+                      where each pod's internal address works with no extra
+                      setup.
+                    </p>
+                  </div>
+                </details>
+              )}
+              {addressingMode === "per-pod" &&
+                "Skips the check. Use this if a network policy blocks the check but real traffic works."}
+              {addressingMode === "endpoint" &&
+                "Every query goes to the address above. Per-node pages will show one arbitrary pod."}
+            </div>
           </div>
 
           <div className="form-group">
@@ -543,7 +668,9 @@ export default function KubernetesClusterTab({ onImported }) {
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
             <div className="form-group">
               <label className="form-label">Port</label>
               <input
@@ -601,11 +728,13 @@ export default function KubernetesClusterTab({ onImported }) {
               onChange={(e) => setChUser(e.target.value)}
               placeholder="chops"
             />
-            <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>
+            <div
+              style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}
+            >
               Do not use the default user. The operator restricts it to the
               cluster's own pods, so a connection from here is refused and the
-              refusal looks like a wrong password. Use
-              clickhouse-user-setup.sql to create a dedicated user.
+              refusal looks like a wrong password. Use clickhouse-user-setup.sql
+              to create a dedicated user.
             </div>
           </div>
 
@@ -617,7 +746,9 @@ export default function KubernetesClusterTab({ onImported }) {
               value={chPassword}
               onChange={(e) => setChPassword(e.target.value)}
             />
-            <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>
+            <div
+              style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}
+            >
               Entered once for the whole installation. Every host inherits it,
               which is what keeps things working when the cluster is scaled.
             </div>
@@ -627,7 +758,11 @@ export default function KubernetesClusterTab({ onImported }) {
             <button className="btn btn-secondary" onClick={() => setStep(3)}>
               Back
             </button>
-            <button className="btn btn-primary" onClick={() => doImport()} disabled={busy}>
+            <button
+              className="btn btn-primary"
+              onClick={() => doImport()}
+              disabled={busy}
+            >
               {busy ? "Adding..." : "Add cluster"}
             </button>
           </div>
@@ -648,6 +783,21 @@ export default function KubernetesClusterTab({ onImported }) {
         onConfirm={confirmWithoutCredentials}
         onCancel={() => setCredentialWarning(null)}
       />
+
+      {sharedEndpointWarning && (
+        <ConfirmDialog
+          open
+          title="Per-node data will not be accurate for this cluster"
+          message={`CHOps could not reach individual pods, so every query goes to ${sharedEndpointWarning.endpoint}, which distributes across ${sharedEndpointWarning.hosts} pods.`}
+          detail="Current Queries, Merges, Parts and Replication will show one arbitrary pod, and may show a different one on each refresh. Cluster-wide queries in the SQL editor are unaffected."
+          confirmLabel="Import anyway"
+          onCancel={() => setSharedEndpointWarning(null)}
+          onConfirm={() => {
+            setSharedEndpointWarning(null);
+            doImport({ acknowledgeSharedEndpoint: true });
+          }}
+        />
+      )}
     </div>
   );
 }
