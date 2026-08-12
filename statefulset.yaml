@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: chops
+  labels:
+    app: chops
+spec:
+  # Exactly one. Not a placeholder, not a starting point. See the note below.
+  replicas: 1
+  serviceName: chops
+  selector:
+    matchLabels:
+      app: chops
+  template:
+    metadata:
+      labels:
+        app: chops
+    spec:
+      # Uncomment if you pushed to a private registry in Step 2.1.
+      # imagePullSecrets:
+      #   - name: regcred
+
+      securityContext:
+        # Makes the persistent disk writable by the container's user without
+        # needing to know which user id that is.
+        fsGroup: 1000
+
+      containers:
+        - name: chops
+          image: chops:26.3-0.1.6
+          # IfNotPresent means "use the local copy if it exists". Required when
+          # you loaded the image with kind/minikube rather than pushing it.
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 3000
+
+          envFrom:
+            - configMapRef:
+                name: chops-config
+            - secretRef:
+                name: chops-secrets
+
+          # "Is it alive, or should I restart it?" Shallow on purpose.
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # "Is it ready for users?" This is the endpoint added in Part 1.
+          # Without Part 1 this would always say yes, even with no database.
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # "Has it finished starting?" Gives a slow first boot up to 60 seconds
+          # before the liveness probe is allowed to start killing it.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+              # Room for export files on top of the emptyDir limit.
+              ephemeral-storage: 10Gi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: exports
+              mountPath: /app/exports
+
+      volumes:
+        # Scratch space for export files. Wiped when the pod goes away, which is
+        # correct: CHOps loses track of in-flight exports on restart anyway.
+        - name: exports
+          emptyDir:
+            sizeLimit: 8Gi
+
+  # The persistent disk for the database. Kubernetes creates this the first time
+  # and reuses it forever after, including across upgrades.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+        # Uncomment and set if you do not want your cluster's default.
+        # storageClassName: gp3

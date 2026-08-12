@@ -13,9 +13,18 @@ const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, 'chops.db');
 
 if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 
-const sqlite = new Database(DB_PATH, { create: true });
-sqlite.exec('PRAGMA journal_mode = WAL');
-sqlite.exec('PRAGMA foreign_keys = ON');
+let sqlite;
+try {
+  sqlite = new Database(DB_PATH, { create: true });
+  sqlite.exec('PRAGMA journal_mode = WAL');
+  sqlite.exec('PRAGMA foreign_keys = ON');
+} catch (err) {
+  console.error(`Cannot open the CHOps database at ${DB_PATH}`);
+  console.error(`  ${err.message}`);
+  console.error('  The file exists but is not a SQLite database.');
+  console.error('  Check the volume mount, or restore from a backup.');
+  process.exit(1);
+}
 
 // Add columns from newer versions. Safe to run every time - SQLite throws
 // (and we catch) if the column already exists.

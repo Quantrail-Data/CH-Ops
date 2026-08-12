@@ -12,7 +12,8 @@ WORKDIR /app
 # .env.example always matches, so the glob succeeds and the check below reports why
 COPY .env* ./
 # Stop here rather than build for four minutes and crash loop on a missing var
-RUN test -f .env || (echo "ERROR: .env not found. Copy .env.example to .env and set SESSION_SECRET, SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL." >&2; exit 1)
+RUN if [ -f .env.build ]; then cp .env.build .env; fi && \
+    test -f .env || (echo "ERROR: no .env or .env.build found. Copy .env.example to .env and fill it in, or supply a .env.build with the VITE_ values." >&2; exit 1)
 # Install dependencies first (cached unless package.json changes)
 COPY package.json bun.lock* ./
 # patchedDependencies points here, so it must land before install, not with COPY . .
