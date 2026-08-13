@@ -62,7 +62,7 @@ router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.userna
       appUser: req.user.username,
       clusterId,
       node: target.host,
-      port: port || target.port || 8123,
+      port: target.port || 8123,
       chUser: user,
       password: password ?? '',
     });
