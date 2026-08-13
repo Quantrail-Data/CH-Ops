@@ -14,7 +14,7 @@ import {
   discoverFilters, describeConflict, resolveValues,
   chartsAffectedBy, missingRequired, waitingMessage,
 } from '../../utils/dashboardParams.js';
-import { buildChartOption, yAxisNameGap } from './chartTypes.js';
+import { buildChartOption, yAxisNameGap, needsLegend } from './chartTypes.js';
 import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
 import ChartToolbar, { savePng } from '../common/ChartToolbar.jsx';
 import DataTable from '../layout/DataTable.jsx';
@@ -133,11 +133,7 @@ export default function DashboardView({sidebar}) {
   async function loadDashboards() { try { setDashboards(await apiFetch('/api/dashboards')); } catch { } }
   useEffect(() => { loadDashboards(); }, []);
 
-  // Render one chart from its data. Split out of the old loadCharts so a single
-  // tile can be rebuilt without touching the others.
   const renderChart = useCallback((chart, data, error) => {
-    // Guarded like every other reader of this column: a malformed config must
-    // not take down the tile before its real error can be shown.
     const cfg = typeof chart.config === 'string'
       ? (() => { try { return JSON.parse(chart.config); } catch { return {}; } })()
       : (chart.config || {});
@@ -148,22 +144,12 @@ export default function DashboardView({sidebar}) {
     );
   }, []);
 
-  // Run ONE chart. This is the primitive the filter bar needs: previously the
-  // only path was loadCharts(), which refetched the whole dashboard and re-ran
-  // every query serially, so changing one filter would have re-run ten charts.
   const runChart = useCallback(async (chart, values, params) => {
-    // A chart cannot run until every parameter it names outside an optional
-    // block has a value. Caught here rather than sent: ClickHouse would reject
-    // it with "Substitution 'x' is not set" after a pointless round trip, and
-    // that message names neither the filter nor the control to touch.
     const missing = missingRequired(chart.id, params.byChart, values);
     if (missing.length) {
       return { ...chart, _rerunning: false, data: null, chartOption: { _waiting: true, message: waitingMessage(missing) } };
     }
 
-    // Only the parameters this chart actually declares. Sending the whole bar
-    // would make materialize() keep optional blocks for names the chart does
-    // not use, and findParameters would not recognise them anyway.
     const mine = {};
     for (const p of params.byChart.get(chart.id) || []) {
       if (values[p.name] !== undefined) mine[p.name] = values[p.name];
@@ -171,19 +157,12 @@ export default function DashboardView({sidebar}) {
 
     try {
       const r = await runQuery(chart.sqlQuery, Object.keys(mine).length ? { params: mine } : {});
-      // _rerunning is cleared explicitly rather than relied on being absent:
-      // the source object comes from the previous render, so two overlapping
-      // reruns would otherwise carry the flag forward and leave the tile
-      // dimmed for good.
       return { ...chart, _rerunning: false, data: r.rows || [], chartOption: renderChart(chart, r.rows || [], null) };
     } catch (e) {
       return { ...chart, _rerunning: false, data: null, chartOption: renderChart(chart, null, e.message) };
     }
   }, [renderChart]);
 
-  // `prefetched` lets a caller that has already fetched the chart list pass it
-  // in. The load effect below discovers filters before running anything, so
-  // without this every dashboard selection issued the same request twice.
   async function loadCharts(dashId, values, params, prefetched) {
     setLoading(true);
     setTransitioning(true);
@@ -198,14 +177,11 @@ export default function DashboardView({sidebar}) {
       const c = prefetched || await apiFetch(`/api/dashboards/${dashId}/charts`);
       const discovered = params || discoverFilters(c);
       const vals = values || {};
-      // In parallel. Ten charts used to mean ten sequential round trips.
       const enriched = await Promise.all(c.map((chart) => runChart(chart, vals, discovered)));
       enriched.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
 
       const byId = new Map();
-      for (const ch of enriched) {
-        byId.set(String(ch.id), ch);
-      }
+      for (const ch of enriched) byId.set(String(ch.id), ch);
       const deduped = Array.from(byId.values());
       deduped.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
 
@@ -235,8 +211,6 @@ export default function DashboardView({sidebar}) {
     }
   }
 
-  // Re-run only the charts naming a filter that changed. Everything else keeps
-  // the results it already has.
   const rerunAffected = useCallback(async (changedNames, values, params) => {
     const ids = new Set(chartsAffectedBy(changedNames, params.byChart));
     if (!ids.size) return;
@@ -247,9 +221,6 @@ export default function DashboardView({sidebar}) {
     setCharts((prev) => prev.map((c) => byId.get(c.id) || c));
   }, [runChart]);
 
-  // Selecting a dashboard writes it to the URL; the effect below does the
-  // loading. Routing it through the URL rather than loading directly is what
-  // makes a shared link reproduce the same view, and keeps back/forward working.
   function selectDash(d) {
     setShowLegends(true);
     setShowSettings(false);
@@ -258,15 +229,11 @@ export default function DashboardView({sidebar}) {
     setSearchParams(next, { replace: false });
   }
 
-  // Load whenever the dashboard in the URL changes. Filter values come from the
-  // URL too, layered over the dashboard and chart defaults.
   const urlDashId = searchParams.get(DASH_KEY);
   useEffect(() => {
     if (!dashboards.length) return;
     const d = dashboards.find((x) => String(x.id) === String(urlDashId));
     if (!d) {
-      // An id that no longer exists (deleted, or someone else's link) falls
-      // back to no selection rather than a blank page with a spinner.
       if (urlDashId) setSelDash(null);
       loadedDashRef.current = null;
       return;
@@ -316,10 +283,7 @@ export default function DashboardView({sidebar}) {
       await loadCharts(d.id, values, discovered, fetched);
     })();
     return () => { cancelled = true; };
-    // searchParams is intentionally not a dependency: a filter change must not
-    // reload the dashboard, only re-run the affected charts (see applyFilters).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlDashId, dashboards]);
+  }, [urlDashId, dashboards]); 
 
   useEffect(() => {
     mountedRef.current = true;
@@ -346,7 +310,6 @@ export default function DashboardView({sidebar}) {
     setDraft((p) => ({ ...p, [name]: value }));
   }
 
-  // Promote the draft, write it to the URL, and re-run only what changed.
   async function applyFilters() {
     const changed = Object.keys(draft).filter((k) => (draft[k] ?? '') !== (applied[k] ?? ''));
     if (!changed.length) return;
@@ -362,7 +325,6 @@ export default function DashboardView({sidebar}) {
     await rerunAffected(changed, draft, params);
   }
 
-  // Back to defaults, ignoring whatever is in the URL.
   async function resetFilters() {
     const defaults = resolveValues(params.filters, {
       selected: {},
@@ -392,21 +354,37 @@ export default function DashboardView({sidebar}) {
       toast.success('Filter settings saved.');
     } catch (e) { toast.error(e.message); }
   }
-  async function createDash() { if (!newName.trim()) return; try { const d = await apiFetch('/api/dashboards', { method: 'POST', body: JSON.stringify({ name: newName.trim(), columns: newCols }) }); setDashboards(p => [d, ...p]); setNewName(''); setShowCreate(false); toast.success(`Dashboard "${d.name}" created.`); } catch (e) { toast.error(e.message); } }
+
+  async function createDash() {
+    if (!newName.trim()) return;
+    try {
+      const d = await apiFetch('/api/dashboards', { method: 'POST', body: JSON.stringify({ name: newName.trim(), columns: newCols }) });
+      setDashboards(p => [d, ...p]);
+      setNewName('');
+      setShowCreate(false);
+      toast.success(`Dashboard "${d.name}" created.`);
+    } catch (e) { toast.error(e.message); }
+  }
+
   async function deleteDash(id) {
     try {
       await apiFetch(`/api/dashboards/${id}`, { method: 'DELETE', body: {} });
       loadDashboards();
       setSelDash(null);
       setCharts([]);
-      // Clear the id from the URL too, or a reload or a shared link points at a
-      // dashboard that no longer exists.
       setSearchParams(new URLSearchParams(), { replace: true });
       toast.success('Dashboard deleted.');
     } catch (e) { toast.error(e.message); }
     setDel(null);
   }
-  async function deleteChart(id) { try { await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE',body:{} }); if (selDash) await loadCharts(selDash.id, applied); toast.success('Chart removed.'); } catch (e) { toast.error(e.message); } }
+
+  async function deleteChart(id) {
+    try {
+      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body:{} });
+      if (selDash) await loadCharts(selDash.id, applied);
+      toast.success('Chart removed.');
+    } catch (e) { toast.error(e.message); }
+  }
 
   function onDragStart(e, i) { e.dataTransfer.effectAllowed = 'move'; setDragIdx(i); }
   function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
@@ -427,7 +405,6 @@ export default function DashboardView({sidebar}) {
 
   async function saveLayout() {
     try {
-      // In parallel: this was one sequential round trip per chart.
       await Promise.all(charts.map((c) =>
         apiFetch(`/api/dashboards/charts/${c.id}`, {
           method: 'PUT',
@@ -450,7 +427,21 @@ export default function DashboardView({sidebar}) {
     'radar'
   ];
 
-  const hasLegendCharts = charts.some(c => legendSupportedTypes.includes(c.chartSubtype));
+  const legendSupportedChartTypes = [
+    'bar',
+    'line',
+    'pie',
+    'bubble',
+    'funnel',
+    'radar',
+    'scatter'
+  ];
+
+  const hasLegendCharts = charts.some(
+    (c) =>
+      legendSupportedTypes.includes(c.chartSubtype) ||
+      legendSupportedChartTypes.includes(c.chartType)
+  );
 
   const gridClassName = [
     'dashboard-grid',
@@ -651,7 +642,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     return series.some(s => Array.isArray(s?.data) && s?.data.length > 0);
   }, [chart]);
 
-  const supportsLegend = legendSupportedTypes.includes(chart.chartSubtype);
+  const supportsLegend = legendSupportedTypes.includes(chart.chartSubtype) || needsLegend(chart.chartType, chart.chartSubtype);
 
   function getContainerHeight() {
     if (fs) return "calc(100vh - 32px)";
@@ -670,6 +661,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isScatterLike = chart.chartSubtype === 'scatter' || chart.chartSubtype === 'basic_scatter' || chart.chartSubtype === 'bubble' || chart.chartType === 'scatter' || chart.chartType === 'bubble';
   const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
   const isPieChart = pieChartTypes.includes(chart.chartSubtype);
+  const funnelChartTypes = ['funnel'];
+  const isFunnelChart = funnelChartTypes.includes(chart.chartSubtype) || chart.chartType === 'funnel';
 
   const resolvedLegend = fs
     ? {
@@ -680,7 +673,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         left: 0,
         top: 8,
         bottom: 8,
-        width: 220,
+        width: 260,
         textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
       }
     : isSmallScreen
@@ -756,7 +749,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           : Math.max(24, tickCount > 40 ? 30 : 24);
 
   const gridLeft = fs
-    ? (supportsLegend && hasLegend && showLegends ? 240 : 20)
+    ? (supportsLegend && hasLegend && showLegends ? 300 : 20)
     : !isSmallScreen && cols === 4 && supportsLegend && hasLegend && showLegends
       ? 145
       : 20;
@@ -767,23 +760,30 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const shouldShowDataLabels = (() => {
     if (isPieChart) return true;
-    
     if (fs) return true;
-    
     if (isSmallScreen) {
       if (tickCount > 20) return false;
-      
       if (isBarChart && tickCount > 15) return false;
-      
       if (!isBarChart && tickCount > 25) return false;
     }
-    
     if (!isSmallScreen && !fs) {
       if (tickCount > 50) return false;
       if (isBarChart && tickCount > 35) return false;
       if (!isBarChart && tickCount > 40) return false;
     }
-    
+    return true;
+  })();
+
+  const shouldShowFunnelLabels = (() => {
+    if (fs) return true;
+    if (!isFunnelChart) return true;
+    const funnelCount = Array.isArray(chart?.chartOption?.series)
+      ? chart.chartOption.series
+          .filter((s) => s?.type === "funnel")
+          .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+      : 0;
+    if (isSmallScreen && funnelCount > 10) return false;
+    if (!isSmallScreen && funnelCount > 16) return false;
     return true;
   })();
 
@@ -879,7 +879,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             fontSize: Math.max(8, axisFontSize - 1),
             fontWeight: 'bold'
           }
-
         },
     yAxis: Array.isArray(chart?.chartOption?.yAxis)
       ? chart.chartOption.yAxis.map((axis) => ({
@@ -1007,33 +1006,32 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
   const isPie = Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype));
-  
-    const isLine =
-    Array.isArray(opt.series) && opt.series.some((s) => s.type === "line");
+  const isLine = Array.isArray(opt.series) && opt.series.some((s) => s.type === "line");
+  const lineDataLength = Array.isArray(opt.series) && opt.series.some((s) => s.data?.length > 200);
 
-  const lineDataLength = Array.isArray(opt.series) && opt.series.some((s) => s.data?.length >  200)
-  console.log(lineDataLength)
   if (isLine) {
-    opt.xAxis = {
-      ...opt.xAxis,
-      nameGap:40,
+    const getXAxisBase = () => Array.isArray(opt.xAxis) ? opt.xAxis[0] : opt.xAxis;
+    const xBase = getXAxisBase();
+    const xNext = {
+      ...xBase,
+      nameGap: 40,
       axisLabel: {
-        ...opt?.xAxis?.axisLabel,
-        rotate: fs ? opt?.axisLabel?.rotate : 0,
-        interval:fs ? opt?.axisLabel?.interval : lineDataLength  ? 500 :50,
-        formatter: fs ? opt?.axisLabel?.formatter :(v) => {
-          try {
-            const s = String(v);
-            return lineDataLength ? s.length > 10 ? s.slice(0, 3) + "…" : s : s.length > 10 ? s.slice(0, 10) + "…" : s;
-          } catch {
-            return v;
-          }
-        },
+        ...(xBase?.axisLabel || {}),
+        rotate: fs ? (xBase?.axisLabel?.rotate || 0) : 0,
+        interval: fs ? (xBase?.axisLabel?.interval || 0) : (lineDataLength ? 500 : 50),
+        formatter: fs
+          ? (xBase?.axisLabel?.formatter || ((v) => v))
+          : (v) => {
+              try {
+                const s = String(v);
+                return lineDataLength ? (s.length > 10 ? s.slice(0, 3) + "…" : s) : (s.length > 10 ? s.slice(0, 10) + "…" : s);
+              } catch { return v; }
+            },
       },
     };
+    opt.xAxis = Array.isArray(opt.xAxis) ? [xNext] : xNext;
   }
-  
-  
+
   if (isPie) {
     opt.series = opt.series.map((s) => {
       if (s.type !== 'pie') return s;
@@ -1051,23 +1049,16 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           : (s.center || ['50%', '57%']);
       return {
         ...s,
-        avoidLabelOverlap: false,
-        labelLayout: {
-          hideOverlap: false,
-          moveOverlap: 'shiftY'
-        },
+        avoidLabelOverlap: true,
         label: {
           ...(s.label || {}),
-          show: true,
           formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
           color: isDarkColor,
-          fontSize: Math.max(8, dataLabelFontSize),
+          fontSize: 11,
           overflow: 'truncate',
-          width: tickCount > 40 ? 72 : 94,
         },
         labelLine: {
           ...(s.labelLine || {}),
-          show: true,
           length: 8,
           length2: 8,
           smooth: false,
@@ -1090,13 +1081,70 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     };
   }
 
-    const isSankey =
-    Array.isArray(opt.series) && opt.series.some((s) => s.type === "sankey");
+  if (Array.isArray(opt.series)) {
+    opt.series = opt.series.map((s) => {
+      if (!s || s.type !== "funnel") return s;
+      return {
+        ...s,
+        minSize: s.minSize ?? '0%',
+        maxSize: s.maxSize ?? '100%',
+        gap: Math.max(0, s.gap ?? 1),
+        left: fs && supportsLegend && hasLegend && showLegends ? '22%' : (s.left ?? '10%'),
+        top: fs && supportsLegend && hasLegend && showLegends ? '8%' : (s.top ?? '10%'),
+        width: fs && supportsLegend && hasLegend && showLegends ? '74%' : (s.width ?? '80%'),
+        height: fs && supportsLegend && hasLegend && showLegends ? '84%' : (s.height ?? '80%'),
+        labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' },
+        label: {
+          ...(s.label || {}),
+          show: shouldShowFunnelLabels,
+          color: isDarkColor,
+          overflow: 'truncate',
+          width: fs ? 220 : (isSmallScreen ? 110 : 160),
+          fontSize: fs ? 12 : (isSmallScreen ? 10 : 11),
+        },
+        labelLine: {
+          ...(s.labelLine || {}),
+          show: shouldShowFunnelLabels,
+          lineStyle: {
+            ...(s.labelLine?.lineStyle || {}),
+            color: isDarkColor,
+            opacity: 1,
+          },
+        },
+        itemStyle: {
+          ...(s.itemStyle || {}),
+          borderColor: isDarkColor,
+        },
+        emphasis: {
+          ...(s.emphasis || {}),
+          label: {
+            ...((s.emphasis && s.emphasis.label) || {}),
+            show: true,
+            color: isDarkColor,
+          },
+          labelLine: {
+            ...((s.emphasis && s.emphasis.labelLine) || {}),
+            show: true,
+            lineStyle: {
+              ...((s.emphasis && s.emphasis.labelLine && s.emphasis.labelLine.lineStyle) || {}),
+              color: isDarkColor,
+              opacity: 1,
+            },
+          },
+          itemStyle: {
+            ...((s.emphasis && s.emphasis.itemStyle) || {}),
+            borderColor: isDarkColor,
+          },
+        },
+      };
+    });
+  }
+
+  const isSankey = Array.isArray(opt.series) && opt.series.some((s) => s.type === "sankey");
 
   if (isSankey) {
     opt.series = opt.series.map((s) => {
       if (s.type !== "sankey") return s;
-
       return {
         ...s,
         label: {
@@ -1117,10 +1165,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         if (s.type === 'sankey') {
           return {
             ...s,
-            label: {
-              ...(s.label || {}),
-              color: isDarkColor,
-            },
+            label: { ...(s.label || {}), color: isDarkColor },
             itemStyle: {
               ...(s.itemStyle || {}),
               borderColor: 'rgba(255,255,255,0.08)',
@@ -1171,15 +1216,12 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     }
   }
 
-    const isSunBurst =
-    Array.isArray(opt.series) && opt.series.some((s) => s.type === "sunburst");
-
+  const isSunBurst = Array.isArray(opt.series) && opt.series.some((s) => s.type === "sunburst");
   const isSunBurstVisualmap = Object.keys(opt?.visualMap || {})?.length > 0;
 
   if (isSunBurst) {
     opt.series = opt.series.map((s) => {
       if (s.type !== "sunburst") return s;
-
       return {
         ...s,
         radius: isSunBurstVisualmap ? ["3%", "70%"] : ["5%", "90%"],
@@ -1218,7 +1260,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     });
   }
 
-
   useEffect(() => {
     if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) return;
     try {
@@ -1242,12 +1283,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         const range = end - start;
         const newStart = Math.max(0, start + range * 0.1);
         const newEnd = Math.min(100, end - range * 0.1);
-        inst.current.dispatchAction({
-          type: 'dataZoom',
-          start: newStart,
-          end: newEnd,
-          dataZoomIndex: 0
-        });
+        inst.current.dispatchAction({ type: 'dataZoom', start: newStart, end: newEnd, dataZoomIndex: 0 });
       } else {
         inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 50, dataZoomIndex: 0 });
       }
@@ -1264,12 +1300,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         const range = end - start;
         const newStart = Math.max(0, start - range * 0.1);
         const newEnd = Math.min(100, end + range * 0.1);
-        inst.current.dispatchAction({
-          type: 'dataZoom',
-          start: newStart,
-          end: newEnd,
-          dataZoomIndex: 0
-        });
+        inst.current.dispatchAction({ type: 'dataZoom', start: newStart, end: newEnd, dataZoomIndex: 0 });
       } else {
         inst.current.dispatchAction({ type: 'dataZoom', start: 50, end: 100, dataZoomIndex: 0 });
       }
@@ -1278,12 +1309,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   function resetZoom() {
     if (inst.current) {
-      inst.current.dispatchAction({
-        type: 'dataZoom',
-        start: 0,
-        end: 100,
-        dataZoomIndex: 0
-      });
+      inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 100, dataZoomIndex: 0 });
     }
   }
 
@@ -1311,6 +1337,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     fullscreenFun: true,
     legendFun: isSmallScreen && supportsLegend && hasLegend,
   };
+  const funnelControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
 
   return (
     <div
@@ -1318,10 +1351,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       style={{
         padding: 16,
         ...wrap,
-        // Hovering a filter highlights the charts it drives. The rule that a
-        // chart responds to a filter only if its SQL names that parameter runs
-        // against what people expect from other tools, so it is made visible
-        // rather than left to be discovered.
         ...(highlighted ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : {}),
         ...(chart._rerunning ? { opacity: 0.6 } : {}),
       }}
@@ -1353,7 +1382,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               onToggleLegend={() => {}}
               legendVisible={showLegends}
               style={{ flexWrap: 'nowrap' }}
-              isWantFeature={chart.chartType === 'pie' ? pieChartControlsFlags : (chart.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)}
+              isWantFeature={
+                chart.chartType === 'pie'
+                  ? pieChartControlsFlags
+                  : (chart.chartType === 'funnel' || chart.chartSubtype === 'funnel')
+                    ? funnelControlsFlags
+                    : (chart.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)
+              }
             />
           )}
           {opt && (opt._error || opt._waiting || opt._kpi || opt._table) && (
