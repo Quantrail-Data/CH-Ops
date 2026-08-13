@@ -191,7 +191,7 @@ function SchemaFlow() {
     const incoming = new Map(),
       outgoing = new Map();
     for (const e of graphData.edges) {
-      if (!visibleKeys.has(e.from) || !visibleKeys.has(e.to)) continue;
+      // if (!visibleKeys.has(e.from) || !visibleKeys.has(e.to)) continue;
       if (!incoming.has(e.to)) incoming.set(e.to, []);
       if (!outgoing.has(e.from)) outgoing.set(e.from, []);
       incoming.get(e.to).push(e.from);
@@ -452,7 +452,7 @@ function SchemaFlow() {
           <Select
             className="form-select"
             value={tableFilter}
-            onChange={(e) => setTableFilter(e.target.value)}
+            onChange={(e) => {setTableFilter(e.target.value); setSelectedKey((prev) => (prev === e.target.value ? null : e.target.value));}}
             style={{
               width: 240,
               fontFamily: "var(--font-code)",
