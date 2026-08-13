@@ -191,7 +191,7 @@ function SchemaFlow() {
     const incoming = new Map(),
       outgoing = new Map();
     for (const e of graphData.edges) {
-      // if (!visibleKeys.has(e.from) || !visibleKeys.has(e.to)) continue;
+      if (!visibleKeys.has(e.from) || !visibleKeys.has(e.to)) continue;
       if (!incoming.has(e.to)) incoming.set(e.to, []);
       if (!outgoing.has(e.from)) outgoing.set(e.from, []);
       incoming.get(e.to).push(e.from);
