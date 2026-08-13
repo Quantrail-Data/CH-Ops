@@ -999,227 +999,270 @@ function QueryLogSearch({ sidebar }) {
           {filtersOpen ? "Collapse" : "Expand"} Filters
         </button>
       </div>
-      {filtersOpen && (
-        <div className="card" style={{ padding: "20px", marginBottom: "20px" }}>
-          <form onSubmit={handleSearch}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "10px",
-                marginBottom: "30px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-around",
-                  width: "24rem",
-                }}
-              >
-                <div
-                  style={{
-                    width: `${(window?.innerWidth - (sidebar ? 150 : 300)) / 5}px `,
-                  }}
-                >
-                  {" "}
-                  <DateTimePicker
-                    label="From (required)"
-                    value={from}
-                    onChange={handleDateOnChange}
-                    name="From"
-                  />
-                </div>
-                <div
-                  style={{
-                    width: `${(window?.innerWidth - (sidebar ? 150 : 300)) / 5}px `,
-                  }}
-                >
-                  {" "}
-                  <DateTimePicker
-                    label="To (required)"
-                    value={to}
-                    onChange={handleDateOnChange}
-                    name="To"
-                  />
-                </div>
-              </div>
+    {filtersOpen && (
+  <div
+    className="card"
+    style={{
+      padding: "20px",
+      marginBottom: "20px",
+      borderRadius: "12px",
+    }}
+  >
+    <form onSubmit={handleSearch}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: "16px",
+          flexWrap: "wrap",
+          width: "100%",
+        }}
+      >
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  width: "16rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Exception Code</label>
-                  <Select
-                    className="form-select"
-                    value={exceptionCode}
-                    onChange={(e) => setExceptionCode(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {codesQ.data?.map((r) => (
-                      <option key={r.exception_code}>{r.exception_code}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Is Initial</label>
-                  <Select
-                    className="form-select"
-                    value={isInitial}
-                    onChange={(e) => setIsInitial(e.target.value)}
-                  >
-                    <option value="">Any</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </Select>
-                </div>
-              </div>
+<div
+  style={{
+    display: "flex",
+    alignItems: "flex-end",
+    gap: "40px", // 
+    flex: "2 1 680px",
+    minWidth: "650px",
+    marginRight:"50px"
+  }}
+>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  width: "16rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Initial User</label>
-                  <Select
-                    className="form-select"
-                    value={initialUser}
-                    onChange={(e) => setInitialUser(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {usersQ.data?.map((r) => (
-                      <option key={r.initial_user}>{r.initial_user}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Direction</label>
-                  <Select
-                    className="form-select"
-                    value={sortDir}
-                    onChange={(e) => setSortDir(e.target.value)}
-                  >
-                    <option value="DESC">Desc</option>
-                    <option value="ASC">Asc</option>
-                  </Select>
-                </div>
-              </div>
+  <div
+    style={{
+      flex: "1 1 320px",
+      minWidth: "320px",
+      marginRight:"10px"
+    }}
+  >
+    <DateTimePicker
+      label="From (required)"
+      value={from}
+      onChange={handleDateOnChange}
+      name="From"
+    />
+  </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  width: "16rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Sort By</label>
-                  <Select
-                    className="form-select"
-                    value={sortField}
-                    onChange={(e) => setSortField(e.target.value)}
-                  >
-                    {SORTS.map((s) => (
-                      <option key={s.k} value={s.k}>
-                        {s.l}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
 
-                <div className="form-group">
-                  <label className="form-label">Query Kind</label>
-                  <Select
-                    className="form-select"
-                    value={queryKind}
-                    onChange={(e) => setQueryKind(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {kindsQ.data?.map((r) => (
-                      <option key={r.query_kind}>{r.query_kind}</option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "14px",
-                marginBottom: "30px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  width: "42rem",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Type</label>
-                  <Select
-                    style={widthStyle_2}
-                    className="form-select"
-                    value={queryType}
-                    onChange={(e) => setQueryType(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {typesQ.data?.map((r) => (
-                      <option key={r.type}>{r.type}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Exception (text)</label>
-                  <input
-                    className="form-input"
-                    value={exceptionText}
-                    style={widthStyle_2}
-                    onChange={(e) => setExceptionText(e.target.value)}
-                    placeholder="partial..."
-                  />
-                </div>
-              </div>
-              <button
-                className="btn btn-primary"
-                type="submit"
-                disabled={searchQ.loading}
-              >
-                {searchQ.loading ? (
-                  <>
-                    <span className="loading-spinner"></span> Searching...
-                  </>
-                ) : (
-                  <>
-                    <Icon className="ti ti-search"></Icon> Search
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+  <div
+    style={{
+      flex: "1 1 320px",
+      minWidth: "320px",
+    }}
+  >
+    <DateTimePicker
+      label="To (required)"
+      value={to}
+      onChange={handleDateOnChange}
+      name="To"
+    />
+  </div>
+</div>
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1 1 160px",
+            minWidth: "150px",
+          }}
+        >
+          <label className="form-label">Exception Code</label>
+          <Select
+            className="form-select"
+            value={exceptionCode}
+            onChange={(e) => setExceptionCode(e.target.value)}
+          >
+            <option value="">All</option>
+            {codesQ.data?.map((r) => (
+              <option key={r.exception_code}>
+                {r.exception_code}
+              </option>
+            ))}
+          </Select>
         </div>
-      )}
+
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1 1 130px",
+            minWidth: "120px",
+          }}
+        >
+          <label className="form-label">Is Initial</label>
+          <Select
+            className="form-select"
+            value={isInitial}
+            onChange={(e) => setIsInitial(e.target.value)}
+          >
+            <option value="">Any</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </Select>
+        </div>
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1 1 160px",
+            minWidth: "150px",
+          }}
+        >
+          <label className="form-label">Initial User</label>
+          <Select
+            className="form-select"
+            value={initialUser}
+            onChange={(e) => setInitialUser(e.target.value)}
+          >
+            <option value="">All</option>
+            {usersQ.data?.map((r) => (
+              <option key={r.initial_user}>
+                {r.initial_user}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1 1 120px",
+            minWidth: "110px",
+          }}
+        >
+          <label className="form-label">Direction</label>
+          <Select
+            className="form-select"
+            value={sortDir}
+            onChange={(e) => setSortDir(e.target.value)}
+          >
+            <option value="DESC">Desc</option>
+            <option value="ASC">Asc</option>
+          </Select>
+        </div>
+
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1 1 150px",
+            minWidth: "140px",
+          }}
+        >
+          <label className="form-label">Sort By</label>
+          <Select
+            className="form-select"
+            value={sortField}
+            onChange={(e) => setSortField(e.target.value)}
+          >
+            {SORTS.map((s) => (
+              <option key={s.k} value={s.k}>
+                {s.l}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1 1 150px",
+            minWidth: "140px",
+          }}
+        >
+          <label className="form-label">Query Kind</label>
+          <Select
+            className="form-select"
+            value={queryKind}
+            onChange={(e) => setQueryKind(e.target.value)}
+          >
+            <option value="">All</option>
+            {kindsQ.data?.map((r) => (
+              <option key={r.query_kind}>
+                {r.query_kind}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1 1 130px",
+            minWidth: "120px",
+          }}
+        >
+          <label className="form-label">Type</label>
+          <Select
+            className="form-select"
+            value={queryType}
+            onChange={(e) => setQueryType(e.target.value)}
+          >
+            <option value="">All</option>
+            {typesQ.data?.map((r) => (
+              <option key={r.type}>
+                {r.type}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div
+          className="form-group"
+          style={{
+            flex: "1.5 1 180px",
+            minWidth: "170px",
+          }}
+        >
+          <label className="form-label">Exception</label>
+          <input
+            className="form-input"
+            value={exceptionText}
+            onChange={(e) => setExceptionText(e.target.value)}
+            placeholder="Search exception..."
+          />
+        </div>
+
+        <div
+          style={{
+            flex: "0 0 120px",
+          }}
+        >
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={searchQ.loading}
+            style={{
+              width: "100%",
+              minHeight: "40px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {searchQ.loading ? (
+              <>
+                <span className="loading-spinner"></span>
+                Searching...
+              </>
+            ) : (
+              <>
+                <Icon className="ti ti-search"></Icon>
+                Search
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+)}
+
       {submitted && !searchQ.loading && (
         <DataTable
           rows={searchQ.data || []}

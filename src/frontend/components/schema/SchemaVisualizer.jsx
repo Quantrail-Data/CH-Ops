@@ -452,7 +452,7 @@ function SchemaFlow() {
           <Select
             className="form-select"
             value={tableFilter}
-            onChange={(e) => setTableFilter(e.target.value)}
+            onChange={(e) => {setTableFilter(e.target.value); setSelectedKey((prev) => (prev === e.target.value ? null : e.target.value));}}
             style={{
               width: 240,
               fontFamily: "var(--font-code)",
