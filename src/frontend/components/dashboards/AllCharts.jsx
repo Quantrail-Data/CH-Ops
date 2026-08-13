@@ -130,6 +130,8 @@ export default function AllCharts({ onEdit }) {
       const isScatterLike = selected?.chartSubtype === 'scatter' || selected?.chartSubtype === 'basic_scatter' || selected?.chartSubtype === 'bubble' || selected?.chartType === 'scatter' || selected?.chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
       const isPieChart = pieChartTypes.includes(selected?.chartSubtype);
+      const funnelChartTypes = ['funnel'];
+      const isFunnelChart = funnelChartTypes.includes(selected?.chartSubtype) || selected?.chartType === 'funnel';
 
       const resolvedLegend = previewTools.fullscreen
         ? {
@@ -230,6 +232,19 @@ export default function AllCharts({ onEdit }) {
           if (!isBarChart && tickCount > 40) return false;
         }
         
+        return true;
+      })();
+
+      const shouldShowFunnelLabels = (() => {
+        if (previewTools.fullscreen) return true;
+        if (!isFunnelChart) return true;
+        const funnelCount = Array.isArray(baseOption.series)
+          ? baseOption.series
+              .filter((s) => s?.type === "funnel")
+              .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+          : 0;
+        if (isSmallScreen && funnelCount > 10) return false;
+        if (!isSmallScreen && funnelCount > 16) return false;
         return true;
       })();
 
@@ -499,6 +514,64 @@ export default function AllCharts({ onEdit }) {
           : { ...(chartOption.grid || {}), top: previewTools.fullscreen ? (chartOption.grid?.top || gridTop) : (isSmallScreen ? 84 : 92) };
       }
 
+      if (Array.isArray(chartOption.series)) {
+        chartOption.series = chartOption.series.map((s) => {
+          if (!s || s.type !== "funnel") return s;
+          return {
+            ...s,
+            minSize: s.minSize ?? '0%',
+            maxSize: s.maxSize ?? '100%',
+            gap: Math.max(0, s.gap ?? 1),
+            labelLayout: {
+              hideOverlap: true,
+              moveOverlap: 'shiftY',
+            },
+            label: {
+              ...(s.label || {}),
+              show: shouldShowFunnelLabels,
+              color: isDarkColor,
+              overflow: 'truncate',
+              width: previewTools.fullscreen ? 220 : (isSmallScreen ? 110 : 160),
+              fontSize: previewTools.fullscreen ? 12 : (isSmallScreen ? 10 : 11),
+            },
+            labelLine: {
+              ...(s.labelLine || {}),
+              show: shouldShowFunnelLabels,
+              lineStyle: {
+                ...(s.labelLine?.lineStyle || {}),
+                color: isDarkColor,
+                opacity: 1,
+              },
+            },
+            itemStyle: {
+              ...(s.itemStyle || {}),
+              borderColor: isDarkColor,
+            },
+            emphasis: {
+              ...(s.emphasis || {}),
+              label: {
+                ...((s.emphasis && s.emphasis.label) || {}),
+                show: true,
+                color: isDarkColor,
+              },
+              labelLine: {
+                ...((s.emphasis && s.emphasis.labelLine) || {}),
+                show: true,
+                lineStyle: {
+                  ...((s.emphasis && s.emphasis.labelLine && s.emphasis.labelLine.lineStyle) || {}),
+                  color: isDarkColor,
+                  opacity: 1,
+                },
+              },
+              itemStyle: {
+                ...((s.emphasis && s.emphasis.itemStyle) || {}),
+                borderColor: isDarkColor,
+              },
+            },
+          };
+        });
+      }
+
       if (theme === 'dark') {
         const shadowlessSeriesTypes = ['sankey', 'sunburst', 'graph', 'tree'];
         if (Array.isArray(chartOption.series)) {
@@ -602,7 +675,6 @@ export default function AllCharts({ onEdit }) {
                   position: "outside",
                   rotate: "tangential",
                   distance: 10,
-                  // rotate: 0,
                 },
                 labelLine: {
                   show: true,
@@ -646,7 +718,7 @@ export default function AllCharts({ onEdit }) {
     buildChart();
   }, [previewOpt, previewTools.fullscreen, isDarkColor, hasLegend, selected, showLegend, isSmallScreen]);
 
-  useEffect(() => () => { if (previewRef.current) disposeChart(previewRef.current); }, []);
+  useEffect(() => () => { if (previewRef.current) disposeChart(ref.current); }, []);
   useEffect(() => { const t = setTimeout(() => previewInst.current?.resize(), 150); return () => clearTimeout(t); }, [previewTools.fullscreen, showLegend, isSmallScreen]);
 
   async function performDeleteChartById(id) { 
@@ -674,6 +746,12 @@ export default function AllCharts({ onEdit }) {
     fullscreenFun: true,
   };
   const sankeyControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
+  const funnelControlsFlags = {
     zoomFun: false,
     resetFun: false,
     saveFun: true,
@@ -736,7 +814,13 @@ export default function AllCharts({ onEdit }) {
                   onZoomReset={previewTools.zoomReset}
                   onSave={previewTools.save}
                   onToggleFullscreen={previewTools.toggleFullscreen}
-                  isWantFeature={selected.chartType === 'pie' ? pieChartControlsFlags : (selected.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)}
+                  isWantFeature={
+                    selected.chartType === 'pie'
+                      ? pieChartControlsFlags
+                      : (selected.chartType === 'funnel' || selected.chartSubtype === 'funnel')
+                        ? funnelControlsFlags
+                        : (selected.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)
+                  }
                 />
                 <div ref={previewRef} style={{ height: previewTools.fullscreen ? 'calc(100vh - 100px)' : (isSmallScreen ? 450 : 380), width: '100%', flex: 1 }} />
               </>
