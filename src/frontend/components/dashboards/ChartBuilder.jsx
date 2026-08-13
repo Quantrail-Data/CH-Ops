@@ -272,6 +272,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const isScatterLike = chartSubtype === 'scatter' || chartSubtype === 'basic_scatter' || chartSubtype === 'bubble' || chartType === 'scatter' || chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
       const isPieChart = pieChartTypes.includes(chartSubtype);
+      const funnelChartTypes = ['funnel'];
+      const isFunnelChart = funnelChartTypes.includes(chartSubtype) || chartType === 'funnel';
 
       const resolvedLegend = previewTools.fullscreen
         ? {
@@ -384,6 +386,19 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           if (!isBarChart && tickCount > 40) return false;
         }
         
+        return true;
+      })();
+
+      const shouldShowFunnelLabels = (() => {
+        if (previewTools.fullscreen) return true;
+        if (!isFunnelChart) return true;
+        const funnelCount = Array.isArray(baseOption.series)
+          ? baseOption.series
+              .filter((s) => s?.type === "funnel")
+              .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+          : 0;
+        if (isSmallScreen && funnelCount > 10) return false;
+        if (!isSmallScreen && funnelCount > 16) return false;
         return true;
       })();
 
@@ -621,23 +636,16 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           
           return {
             ...s,
-            avoidLabelOverlap: false,
-            labelLayout: {
-              hideOverlap: false,
-              moveOverlap: 'shiftY'
-            },
+            avoidLabelOverlap: true,
             label: {
               ...(s.label || {}),
-              show: true,
               formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
               color: isDarkColor,
-              fontSize: Math.max(8, dataLabelFontSize),
+              fontSize: 11,
               overflow: 'truncate',
-              width: tickCount > 40 ? 72 : 94,
             },
             labelLine: {
               ...(s.labelLine || {}),
-              show: true,
               length: 8,
               length2: 8,
               smooth: false,
@@ -693,7 +701,65 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         }
       }
 
-            const isSankey =
+      if (Array.isArray(enhancedOption.series)) {
+        enhancedOption.series = enhancedOption.series.map((s) => {
+          if (!s || s.type !== "funnel") return s;
+          return {
+            ...s,
+            minSize: s.minSize ?? '0%',
+            maxSize: s.maxSize ?? '100%',
+            gap: Math.max(0, s.gap ?? 1),
+            labelLayout: {
+              hideOverlap: true,
+              moveOverlap: 'shiftY',
+            },
+            label: {
+              ...(s.label || {}),
+              show: shouldShowFunnelLabels,
+              color: isDarkColor,
+              overflow: 'truncate',
+              width: previewTools.fullscreen ? 220 : (isSmallScreen ? 110 : 160),
+              fontSize: previewTools.fullscreen ? 12 : (isSmallScreen ? 10 : 11),
+            },
+            labelLine: {
+              ...(s.labelLine || {}),
+              show: shouldShowFunnelLabels,
+              lineStyle: {
+                ...(s.labelLine?.lineStyle || {}),
+                color: isDarkColor,
+                opacity: 1,
+              },
+            },
+            itemStyle: {
+              ...(s.itemStyle || {}),
+              borderColor: isDarkColor,
+            },
+            emphasis: {
+              ...(s.emphasis || {}),
+              label: {
+                ...((s.emphasis && s.emphasis.label) || {}),
+                show: true,
+                color: isDarkColor,
+              },
+              labelLine: {
+                ...((s.emphasis && s.emphasis.labelLine) || {}),
+                show: true,
+                lineStyle: {
+                  ...((s.emphasis && s.emphasis.labelLine && s.emphasis.labelLine.lineStyle) || {}),
+                  color: isDarkColor,
+                  opacity: 1,
+                },
+              },
+              itemStyle: {
+                ...((s.emphasis && s.emphasis.itemStyle) || {}),
+                borderColor: isDarkColor,
+              },
+            },
+          };
+        });
+      }
+
+      const isSankey =
         Array.isArray(enhancedOption.series) &&
         enhancedOption.series.some((s) => s.type === "sankey");
 
@@ -1060,6 +1126,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     fullscreenFun: true,
   };
   const sankeyControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
+  const funnelControlsFlags = {
     zoomFun: false,
     resetFun: false,
     saveFun: true,
@@ -1729,7 +1801,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           onZoomReset={previewTools.zoomReset}
                           onSave={previewTools.save}
                           onToggleFullscreen={previewTools.toggleFullscreen}
-                          isWantFeature={chartType === "pie" ? pieChartControlsFlags : chartControlsFlags }
+                          isWantFeature={
+                            chartType === "pie"
+                              ? pieChartControlsFlags
+                              : chartType === "funnel" || chartSubtype === "funnel"
+                                ? funnelControlsFlags
+                                : chartType === "sankey"
+                                  ? sankeyControlsFlags
+                                  : chartControlsFlags
+                          }
                         />
                       )}
                       <div
