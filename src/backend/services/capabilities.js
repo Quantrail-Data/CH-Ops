@@ -59,6 +59,7 @@ export async function probeCapabilities(clusterId, node) {
       user: node.user,
       password: node.password,
       readOnly: true,
+      timeoutMs: 10000,
       sql: "SELECT name FROM system.tables WHERE database = 'system'",
     });
   } catch (err) {
@@ -130,6 +131,7 @@ export async function probeSessionAffinity(node) {
       user: node.user,
       password: node.password,
       readOnly: true,
+      timeoutMs: 10000,
       sql: 'SELECT hostName() AS h',
     });
 
@@ -155,6 +157,7 @@ export async function classifyUsers(node) {
       user: node.user,
       password: node.password,
       readOnly: true,
+      timeoutMs: 10000,
       sql: 'SELECT name, storage FROM system.users',
     });
 

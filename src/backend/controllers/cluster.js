@@ -234,6 +234,7 @@ export async function testConnection(req, res) {
       user: resolvedUser,
       password: resolvedPassword,
       secure: resolvedSecure,
+      timeoutMs: 10000,
       sql: "SELECT version() AS version, uptime() AS uptime",
     });
 

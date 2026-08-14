@@ -200,6 +200,7 @@ async function checkClickHouseCredentials({ host, port, secure, user, password }
       user,
       password,
       readOnly: true,
+      timeoutMs: 10000,
       sql: 'SELECT version() AS version',
     });
     return { ok: true, version: result?.rows?.[0]?.version ?? null };
