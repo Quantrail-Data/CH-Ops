@@ -130,11 +130,21 @@ export async function resolveNodeAddresses({
   password,
   mode = ADDRESSING.AUTO,
 }) {
-  const withEndpoint = () => ({
-    resolution: RESOLUTION.ENDPOINT,
-    nodes: nodes.map((n) => ({ ...n, host: endpoint, port, secure })),
-    perNodeAccurate: false,
-  });
+  const withEndpoint = () => {
+    // Writing an undefined host fails the notNull constraint on cluster_node
+    // with an error that names the column and not the cause. Say what is wrong
+    // while we still know.
+    if (!endpoint) {
+      throw new Error(
+        'No ClickHouse address is set for this cluster. Edit it and set one, then try again.',
+      );
+    }
+    return {
+      resolution: RESOLUTION.ENDPOINT,
+      nodes: nodes.map((n) => ({ ...n, host: endpoint, port, secure })),
+      perNodeAccurate: false,
+    };
+  };
 
   if (mode === ADDRESSING.ENDPOINT) return withEndpoint();
 

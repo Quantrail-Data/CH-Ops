@@ -1,15 +1,16 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Loads environment configs. SESSION_SECRET is required. Super admin credentials are optional and only used for first-run seeding and the .env recovery login.
-
+// Loads environment configs, requiring a super admin and SESSION_SECRET for seeding databases and auth fallbacks.
 
 import path from "node:path";
 
 export function loadEnv() {
-  // Super admin credentials are only needed to seed the very first user, and
-  // for the .env recovery login in controllers/auth.js. Neither is required on
-  // a deployment that already has users, so the check lives in db/migrate.js
-  // where the users table can be consulted. See A3 in the batch A guide.
+  if (!process.env.SUPER_ADMIN_1 || !process.env.SUPER_ADMIN_1_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
+    // Backward compat: check legacy single-admin format
+    if (!process.env.SUPER_ADMIN || !process.env.SUPER_ADMIN_PASSWORD || !process.env.SUPER_ADMIN_EMAIL) {
+      throw new Error('Missing required env: SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL');
+    }
+  }
   if (!process.env.SESSION_SECRET) throw new Error('Missing required env: SESSION_SECRET');
 
   // Collect up to 3 super admins from numbered env vars
