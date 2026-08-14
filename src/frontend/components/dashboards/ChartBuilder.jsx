@@ -93,6 +93,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     filename: "chart-preview",
   });
 
+  const smallScreenOverlapRef = useRef(false);
+
   useEffect(() => {
     apiFetch("/api/dashboards")
       .then(setDashboards)
@@ -203,6 +205,35 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }, [data, mapping, fields]);
 
   useEffect(() => {
+    smallScreenOverlapRef.current = false;
+  }, [data, mapping, chartType, chartSubtype]);
+
+  function countSunburstNodes(dataNode) {
+    if (!dataNode) return 0;
+    if (Array.isArray(dataNode)) {
+      return dataNode.reduce((acc, n) => acc + countSunburstNodes(n), 0);
+    }
+    let count = 1;
+    if (Array.isArray(dataNode.children)) {
+      count += dataNode.children.reduce((acc, c) => acc + countSunburstNodes(c), 0);
+    }
+    return count;
+  }
+
+  function collectSunburstNames(dataNode, names = []) {
+    if (!dataNode) return names;
+    if (Array.isArray(dataNode)) {
+      dataNode.forEach(n => collectSunburstNames(n, names));
+      return names;
+    }
+    if (dataNode.name) names.push(dataNode.name);
+    if (Array.isArray(dataNode.children)) {
+      dataNode.children.forEach(c => collectSunburstNames(c, names));
+    }
+    return names;
+  }
+
+  useEffect(() => {
     if (!data?.length || (chartType !== "table" && !fields.length)) {
       setChartOption(null);
       return;
@@ -271,54 +302,83 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const isBarChart = barChartTypes.includes(chartSubtype);
       const isScatterLike = chartSubtype === 'scatter' || chartSubtype === 'basic_scatter' || chartSubtype === 'bubble' || chartType === 'scatter' || chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
-      const isPieChart = pieChartTypes.includes(chartSubtype);
+      const isPieChart = pieChartTypes.includes(chartSubtype) || (Array.isArray(chartOption.series) && chartOption.series.some(s => s.type === 'pie'));
+      const funnelChartTypes = ['funnel'];
+      const isFunnelChart = funnelChartTypes.includes(chartSubtype) || chartType === 'funnel';
+      const isSunBurst = Array.isArray(chartOption.series) && chartOption.series.some((s) => s.type === "sunburst");
 
-      const resolvedLegend = previewTools.fullscreen
-        ? {
-            ...chartOption.legend,
-            show: hasLegendCheck && legendVisible,
-            type: 'scroll',
-            orient: 'vertical',
+      let sunburstLegendData = [];
+      if (isSunBurst) {
+        const sunburstSeries = chartOption.series.filter(s => s.type === 'sunburst');
+        sunburstSeries.forEach((s) => {
+          if (!s) return;
+          if (Array.isArray(s.data)) {
+            s.data.forEach(n => collectSunburstNames(n, sunburstLegendData));
+          } else {
+            collectSunburstNames(s.data, sunburstLegendData);
+          }
+        });
+        sunburstLegendData = Array.from(new Set(sunburstLegendData)).slice(0, 200);
+      }
+
+      let legendConfig = {
+        ...chartOption.legend,
+        textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor },
+        type: 'scroll',
+        pageIconColor: isDarkColor,
+        pageIconInactiveColor: 'var(--text-muted)',
+        pageTextStyle: { color: isDarkColor },
+      };
+
+      if (isSunBurst && sunburstLegendData.length > 0) {
+        legendConfig = {
+          ...legendConfig,
+          data: sunburstLegendData,
+          show: legendVisible,
+          orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
+          ...(previewTools.fullscreen ? {
             left: 0,
             top: 8,
             bottom: 8,
             width: 220,
-            textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
-          }
-        : isSmallScreen
-          ? {
-              ...chartOption.legend,
-              show: hasLegendCheck && legendVisible,
-              type: 'scroll',
-              orient: 'horizontal',
-              left: 0,
-              right: 0,
-              top: 0,
-              width: '100%',
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
-            }
-          : {
-              ...chartOption.legend,
-              show: hasLegendCheck && legendVisible,
-              type: 'scroll',
-              left: 0,
-              right: 0,
-              top: 0,
-              orient: "horizontal",
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor }
-            };
+          } : {
+            left: 0,
+            right: 0,
+            top: 0,
+            width: '100%',
+          })
+        };
+      } else if (isSunBurst) {
+        legendConfig.show = false;
+      } else {
+        legendConfig = {
+          ...legendConfig,
+          show: hasLegendCheck && legendVisible,
+          orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
+          ...(previewTools.fullscreen ? {
+            left: 0,
+            top: 8,
+            bottom: 8,
+            width: 220,
+          } : {
+            left: 0,
+            right: 0,
+            top: 0,
+            width: '100%',
+          })
+        };
+      }
 
       const baseOption = withZoomable({
         ...chartOption,
         toolbox: { show: false },
-        legend: resolvedLegend,
+        legend: legendConfig,
       });
+
+      if (isSunBurst && sunburstLegendData.length > 0) {
+        baseOption.legend.data = sunburstLegendData;
+        baseOption.legend.show = legendVisible;
+      }
 
       const tickCount = (() => {
         if (!baseOption) return 0;
@@ -349,26 +409,65 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       // (a count axis reaching 120,000,000 needs roughly twice the old 42px).
       const yNameGap = yAxisNameGap(baseOption);
 
+      const isSunBurstChart = isSunBurst;
+      const sunburstLegendHeight = (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 40 : 0;
+
       const gridTop = previewTools.fullscreen
         ? Math.max(28, tickCount > 40 ? 40 : 28)
         : isSmallScreen
-          ? (hasLegendCheck && legendVisible ? 76 : Math.max(22, tickCount > 40 ? 28 : 22))
-          : hasLegendCheck && legendVisible
+          ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 76 : Math.max(22, tickCount > 40 ? 28 : 22))
+          : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible)
             ? Math.max(62, tickCount > 40 ? 68 : 62)
-            : Math.max(24, tickCount > 40 ? 30 : 24);
+            : Math.max(24, tickCount > 40 ? 30 : 24));
 
       const gridLeft = previewTools.fullscreen
-        ? (hasLegendCheck && legendVisible ? 240 : extraLeftForYAxisName)
-        : (hasLegendCheck && legendVisible ? 20 : extraLeftForYAxisName);
+        ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 240 : extraLeftForYAxisName)
+        : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 20 : extraLeftForYAxisName);
 
       const gridBottomAuto = isBarChart
         ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
         : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
+      const totalDataPoints = Array.isArray(baseOption.series)
+        ? baseOption.series.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : (s?.data ? 1 : 0)), 0)
+        : tickCount;
+
+      const densityThresholdFullscreen = 220;
+      const densityThresholdSmall = 30;
+      const tickThresholdNormal = 50;
+      const tickThresholdSmall = 30;
+
+      const densityThreshold = previewTools.fullscreen ? densityThresholdFullscreen : (isSmallScreen ? densityThresholdSmall : densityThresholdNormal);
+      const tickThreshold = previewTools.fullscreen ? tickThresholdFullscreen : (isSmallScreen ? tickThresholdSmall : tickThresholdNormal);
+
+      const hideLabelsDueToDensity = totalDataPoints > densityThreshold || tickCount > tickThreshold;
+
+      const pieSeries = Array.isArray(baseOption.series) ? baseOption.series.filter(s => s?.type === 'pie') : [];
+      const pieSliceCount = pieSeries.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0);
+      const hidePieLabels = pieSliceCount > 16;
+
+      const lineLabelHideThreshold = 25;
+      const shouldHideLineLabelsByCount = tickCount > lineLabelHideThreshold;
+
+      const sunburstSeries = Array.isArray(baseOption.series) ? baseOption.series.filter(s => s?.type === 'sunburst') : [];
+      const sunburstNodeCount = sunburstSeries.reduce((acc, s) => {
+        if (!s) return acc;
+        if (Array.isArray(s.data)) {
+          return acc + s.data.reduce((a, n) => a + countSunburstNodes(n), 0);
+        }
+        return acc + countSunburstNodes(s.data);
+      }, 0);
+      const hideSunburstLabels = sunburstNodeCount > 15;
+
+      const smallOverlapNow = isSmallScreen && (totalDataPoints > densityThresholdSmall || tickCount > tickThresholdSmall || pieSliceCount > 16 || shouldHideLineLabelsByCount || hideSunburstLabels);
+      if (smallOverlapNow) smallScreenOverlapRef.current = true;
+
+      const finalHideLabels = hideLabelsDueToDensity || smallScreenOverlapRef.current || hidePieLabels || shouldHideLineLabelsByCount || hideSunburstLabels;
+
       const shouldShowDataLabels = (() => {
-        if (isPieChart) return true;
+        if (isPieChart) return !finalHideLabels;
         
-        if (previewTools.fullscreen) return true;
+        if (previewTools.fullscreen) return !finalHideLabels;
         
         if (isSmallScreen) {
           if (tickCount > 20) return false;
@@ -384,11 +483,35 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           if (!isBarChart && tickCount > 40) return false;
         }
         
+        return !finalHideLabels;
+      })();
+
+      const shouldShowFunnelLabels = (() => {
+        if (previewTools.fullscreen) return !finalHideLabels;
+        if (!isFunnelChart) return !finalHideLabels;
+        const funnelCount = Array.isArray(baseOption.series)
+          ? baseOption.series
+              .filter((s) => s?.type === "funnel")
+              .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+          : 0;
+        if (isSmallScreen && funnelCount > 10) return false;
+        if (!isSmallScreen && funnelCount > 16) return false;
+        if (finalHideLabels) return false;
         return true;
       })();
 
+      const tooltipWidth = previewTools.fullscreen ? 420 : (isSmallScreen ? 220 : 300);
+      const tooltipMaxHeight = previewTools.fullscreen ? 320 : 240;
+      const tooltipExtraCss = `max-height: ${tooltipMaxHeight}px; overflow: auto; -webkit-overflow-scrolling: touch; width: ${tooltipWidth}px; pointer-events: auto;`;
+
       const enhancedOption = {
         ...baseOption,
+        tooltip: {
+          ...(baseOption.tooltip || {}),
+          confine: true,
+          enterable: true,
+          extraCssText: tooltipExtraCss,
+        },
         animationDurationUpdate: 120,
         grid: Array.isArray(baseOption.grid)
           ? baseOption.grid.map((g) => ({
@@ -550,6 +673,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           if (!s || !s.type) return s;
 
           if (s.type === 'bar' || s.type === 'line' || s.type === 'scatter') {
+            const isLineType = s.type === 'line' || !!s.areaStyle;
+            const hideForLine = isLineType && (tickCount > lineLabelHideThreshold || finalHideLabels);
+            const showLabelForSeries = shouldShowDataLabels && !hideForLine;
+
+            const labelPosition = s.type === 'bar' ? 'top' : (isLineType ? 'top' : (s.label?.position || 'top'));
+            const labelDistance = isLineType ? (tickCount > 50 ? 4 : 6) : (tickCount > 50 ? 5 : 8);
+            const labelFont = isLineType ? (previewTools.fullscreen ? Math.max(9, dataLabelFontSize) : dataLabelFontSize) : dataLabelFontSize;
+
             return {
               ...s,
               clip: true,
@@ -559,14 +690,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               },
               label: {
                 ...(s.label || {}),
-                show: shouldShowDataLabels,
-                position: s.type === 'bar' ? 'top' : ((s.type === 'line' || s.type === 'scatter') ? 'top' : (s.label?.position || 'top')),
-                distance: tickCount > 50 ? 5 : 8,
+                show: showLabelForSeries,
+                position: labelPosition,
+                distance: labelDistance,
                 color: isDarkColor,
                 overflow: 'truncate',
                 width: seriesLabelWidth,
                 hideOverlap: true,
-                fontSize: dataLabelFontSize,
+                fontSize: labelFont,
                 formatter: (p) => {
                   try {
                     const raw = Array.isArray(p?.value) ? p.value[p.value.length - 1] : p?.value;
@@ -621,23 +752,19 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           
           return {
             ...s,
-            avoidLabelOverlap: false,
-            labelLayout: {
-              hideOverlap: false,
-              moveOverlap: 'shiftY'
-            },
+            avoidLabelOverlap: true,
             label: {
               ...(s.label || {}),
-              show: true,
+              show: !finalHideLabels,
               formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
               color: isDarkColor,
-              fontSize: Math.max(8, dataLabelFontSize),
+              fontSize: 11,
               overflow: 'truncate',
-              width: tickCount > 40 ? 72 : 94,
+              width: previewTools.fullscreen ? 240 : (isSmallScreen ? 160 : 220),
+              lineHeight: 18,
             },
             labelLine: {
               ...(s.labelLine || {}),
-              show: true,
               length: 8,
               length2: 8,
               smooth: false,
@@ -693,7 +820,65 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         }
       }
 
-            const isSankey =
+      if (Array.isArray(enhancedOption.series)) {
+        enhancedOption.series = enhancedOption.series.map((s) => {
+          if (!s || s.type !== "funnel") return s;
+          return {
+            ...s,
+            minSize: s.minSize ?? '0%',
+            maxSize: s.maxSize ?? '100%',
+            gap: Math.max(0, s.gap ?? 1),
+            labelLayout: {
+              hideOverlap: true,
+              moveOverlap: 'shiftY',
+            },
+            label: {
+              ...(s.label || {}),
+              show: shouldShowFunnelLabels,
+              color: isDarkColor,
+              overflow: 'truncate',
+              width: previewTools.fullscreen ? 220 : (isSmallScreen ? 110 : 160),
+              fontSize: previewTools.fullscreen ? 12 : (isSmallScreen ? 10 : 11),
+            },
+            labelLine: {
+              ...(s.labelLine || {}),
+              show: shouldShowFunnelLabels,
+              lineStyle: {
+                ...(s.labelLine?.lineStyle || {}),
+                color: isDarkColor,
+                opacity: 1,
+              },
+            },
+            itemStyle: {
+              ...(s.itemStyle || {}),
+              borderColor: isDarkColor,
+            },
+            emphasis: {
+              ...(s.emphasis || {}),
+              label: {
+                ...((s.emphasis && s.emphasis.label) || {}),
+                show: true,
+                color: isDarkColor,
+              },
+              labelLine: {
+                ...((s.emphasis && s.emphasis.labelLine) || {}),
+                show: true,
+                lineStyle: {
+                  ...((s.emphasis && s.emphasis.labelLine && s.emphasis.labelLine.lineStyle) || {}),
+                  color: isDarkColor,
+                  opacity: 1,
+                },
+              },
+              itemStyle: {
+                ...((s.emphasis && s.emphasis.itemStyle) || {}),
+                borderColor: isDarkColor,
+              },
+            },
+          };
+        });
+      }
+
+      const isSankey =
         Array.isArray(enhancedOption.series) &&
         enhancedOption.series.some((s) => s.type === "sankey");
 
@@ -713,53 +898,96 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         });
       }
 
-       const isSunBurst =
-    Array.isArray(enhancedOption.series) && enhancedOption.series.some((s) => s.type === "sunburst");
-  
-  const isSunBurstVisualmap = Object.keys(enhancedOption?.visualMap || {})?.length > 0;
+      if (isSunBurst) {
+        const isSunBurstVisualmap = Object.keys(enhancedOption?.visualMap || {})?.length > 0;
 
-  if (isSunBurst ) {
-    enhancedOption.series = enhancedOption.series.map((s) => {
-      if (s.type !== "sunburst") return s;
+        let allSunburstNames = [];
+        sunburstSeries.forEach((s) => {
+          if (!s) return;
+          if (Array.isArray(s.data)) {
+            s.data.forEach(n => collectSunburstNames(n, allSunburstNames));
+          } else {
+            collectSunburstNames(s.data, allSunburstNames);
+          }
+        });
+        
+        const uniqueLegendData = Array.from(new Set(allSunburstNames)).slice(0, 200);
 
-      return {
-        ...s,
-        radius: isSunBurstVisualmap ? ["3%","65%"] : ["5%", "90%"],
-        levels: [
-          {},
-          {
-            label: {
-              position: "outside",
-              rotate: "tangential",
-              distance: 10,
-              rotate: 0,
-            },
-            labelLine: {
-              show: true,
-              length: 20,
-              length2: 10,
-              smooth: false,
-            },
-          },
-          {
-            label: {
-              position: "outside",
-              distance: 10,
-              rotate: 0,
-              silent: true,
-            },
-            labelLine: {
-              show: true,
-              length: 20,
-              length2: 10,
-              smooth: false,
-            },
-          },
-        ],
-      };
-    });
-  }
+        enhancedOption.series = enhancedOption.series.map((s) => {
+          if (s.type !== "sunburst") return s;
 
+          const nodeCount = Array.isArray(s.data) ? s.data.reduce((a, n) => a + countSunburstNodes(n), 0) : countSunburstNodes(s.data);
+          const hideSunburst = nodeCount > 15;
+
+          return {
+            ...s,
+            radius: isSunBurstVisualmap ? ["3%","65%"] : ["5%", "90%"],
+            levels: [
+              {},
+              {
+                label: {
+                  position: "outside",
+                  rotate: "tangential",
+                  distance: 10,
+                  rotate: 0,
+                  show: !hideSunburst
+                },
+                labelLine: {
+                  show: true,
+                  length: 20,
+                  length2: 10,
+                  smooth: false,
+                },
+              },
+              {
+                label: {
+                  position: "outside",
+                  distance: 10,
+                  rotate: 0,
+                  silent: true,
+                  show: !hideSunburst
+                },
+                labelLine: {
+                  show: true,
+                  length: 20,
+                  length2: 10,
+                  smooth: false,
+                },
+              },
+            ],
+          };
+        });
+
+        if (uniqueLegendData.length > 0) {
+          enhancedOption.legend = {
+            ...(enhancedOption.legend || {}),
+            data: uniqueLegendData,
+            show: legendVisible,
+            orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
+            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor },
+            type: 'scroll',
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
+            ...(previewTools.fullscreen ? {
+              left: 0,
+              top: 8,
+              bottom: 8,
+              width: 220,
+            } : {
+              left: 0,
+              right: 0,
+              top: 0,
+              width: '100%',
+            })
+          };
+        } else {
+          enhancedOption.legend = {
+            ...(enhancedOption.legend || {}),
+            show: false
+          };
+        }
+      }
 
       previewInst.current.setOption(enhancedOption, true);
       setTimeout(() => previewInst.current?.resize(), 50);
@@ -817,7 +1045,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         } else {
           let idx = 1;
           while (true) {
-            const candidate = `Untitled ${String(idx).padStart(2, "0")}`;
+            const candidate = `Untitled ${String(idx).padStart(2, "00")}`;
             if (!used.has(candidate.toLowerCase())) {
               normalizedName = candidate;
               break;
@@ -1047,6 +1275,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     return final;
   }
 
+  const isSunBurstChartType = chartType === 'sunburst' || chartSubtype === 'sunburst';
+
   const pieChartControlsFlags = {
     zoomFun: false,
     resetFun: false,
@@ -1060,6 +1290,18 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     fullscreenFun: true,
   };
   const sankeyControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
+  const funnelControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
+  const sunburstControlsFlags = {
     zoomFun: false,
     resetFun: false,
     saveFun: true,
@@ -1722,14 +1964,24 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     >
                       {chartOption && (
                         <ChartToolbar
-                          zoomable={!!chartOption?.xAxis}
+                          zoomable={!!chartOption?.xAxis && !isSunBurstChartType}
                           fullscreen={previewTools.fullscreen}
                           onZoomIn={previewTools.zoomIn}
                           onZoomOut={previewTools.zoomOut}
                           onZoomReset={previewTools.zoomReset}
                           onSave={previewTools.save}
                           onToggleFullscreen={previewTools.toggleFullscreen}
-                          isWantFeature={chartType === "pie" ? pieChartControlsFlags : chartControlsFlags }
+                          isWantFeature={
+                            isSunBurstChartType
+                              ? sunburstControlsFlags
+                              : chartType === "pie"
+                                ? pieChartControlsFlags
+                                : chartType === "funnel" || chartSubtype === "funnel"
+                                  ? funnelControlsFlags
+                                  : chartType === "sankey"
+                                    ? sankeyControlsFlags
+                                    : chartControlsFlags
+                          }
                         />
                       )}
                       <div

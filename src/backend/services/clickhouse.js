@@ -15,9 +15,9 @@ function maxResultBytes() {
 export async function executeQuery({
   host, port = 8123, secure = false, user = 'default', password = '',
   sql, readOnly = false, params = {}, settings = {},
-  // Export streams to a file and must never be truncated. Every other caller
-  // hands its result to a browser, and gets the ceiling.
   noResultLimit = false,
+  signal,
+  timeoutMs = null,
   }) {
   const proto = secure ? 'https' : 'http';
   // Apply ClickHouse's readonly setting as the authoritative guard for read-
@@ -59,11 +59,37 @@ export async function executeQuery({
 
   const fullSql = isDataQuery && !isExplainRaw ? trimmed + '\nFORMAT JSONEachRow' : trimmed;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
-    body: fullSql,
-  });
+  const controller = timeoutMs != null ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  // Both, when both exist. AbortSignal.any fires on whichever comes first.
+  let abortSignal;
+  if (signal && controller) abortSignal = AbortSignal.any([signal, controller.signal]);
+  else if (signal) abortSignal = signal;
+  else if (controller) abortSignal = controller.signal;
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
+      body: fullSql,
+      signal: abortSignal,
+    });
+  } catch (err) {
+    if (timer) clearTimeout(timer);
+    // fetch reports both a timeout and a client disconnect as AbortError, and
+    // "The operation was aborted" tells an operator nothing.
+    if (err?.name === 'AbortError') {
+      throw new Error(
+        controller?.signal.aborted
+          ? `Query timed out after ${timeoutMs}ms.`
+          : 'Query cancelled.',
+      );
+    }
+    throw err;
+  }
+  if (timer) clearTimeout(timer);
 
   const text = await res.text();
   if (!res.ok) throw new Error(text.trim());

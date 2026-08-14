@@ -283,7 +283,7 @@ function SchemaFlow() {
           if (v > 0) {
             const intensity = loadIntensity(v, edgeMax);
             stroke = loadColour(intensity);
-            sw = 1.5 + 3 * intensity;
+            sw = 1.6;
             op = 0.55 + 0.45 * intensity;
           }
         }
@@ -452,7 +452,7 @@ function SchemaFlow() {
           <Select
             className="form-select"
             value={tableFilter}
-            onChange={(e) => setTableFilter(e.target.value)}
+            onChange={(e) => {setTableFilter(e.target.value); setSelectedKey((prev) => (prev === e.target.value ? null : e.target.value));}}
             style={{
               width: 240,
               fontFamily: "var(--font-code)",

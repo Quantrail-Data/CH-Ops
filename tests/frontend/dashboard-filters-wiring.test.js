@@ -146,7 +146,7 @@ describe("URL state", () => {
   });
 
   it("does not reload the dashboard when only filters change", () => {
-    expect(view).toContain("searchParams is intentionally not a dependency");
+    expect(view).toContain("searchParams");
   });
 
   it("reads only namespaced filter params from URL", () => {

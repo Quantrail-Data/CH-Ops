@@ -42,6 +42,9 @@ export function authMiddleware(req, res, next) {
     return res.status(403).json({ error: 'Password change required.', code: 'MUST_CHANGE_PASSWORD' });
   }
 
-  req.user = payload;
+  // The role comes from the database, not the token. The record is already
+  // loaded above. Reading it from the token meant a demotion did not take
+  // effect until the token expired, up to two hours later.
+  req.user = { ...payload, role: found.role };
   next();
 }
