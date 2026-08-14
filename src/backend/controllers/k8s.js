@@ -370,6 +370,7 @@ export async function importInstallation(req, res) {
       port: resolvedPort,
       secure: resolvedSecure,
       k8s: { connectionId, namespace, installation, operator },
+      endpoint: endpoint.trim(),
       // The endpoint is the address queries actually go to.
       nodes,
       k8sAddressing: {
@@ -397,12 +398,47 @@ export async function importInstallation(req, res) {
   }
 }
 
+
+export async function verifyClusterConnection(req, res) {
+  const { endpoint, port, secure, chUser, chPassword, clusterId } = req.body || {};
+
+  if (!endpoint?.trim()) {
+    return res.status(400).json({ error: 'ClickHouse address is required.' });
+  }
+
+  let password = chPassword;
+  // Blank means keep the stored one, so test with that rather than an empty
+  // string, which would fail for a reason the user did not cause.
+  if (!password && clusterId) {
+    const existing = getAllClusters().find((c) => c.id === clusterId);
+    password = existing?.chPassword ?? '';
+  }
+
+  const result = await checkClickHouseCredentials({
+    host: endpoint.trim(),
+    port: Number(port) || 8443,
+    secure: secure !== false,
+    user: chUser || 'default',
+    password: password || '',
+  });
+
+  return res.json(result);
+}
+
 // POST /api/k8s/clusters/:id/refresh
 export async function refreshCluster(req, res) {
   const cluster = getAllClusters().find((c) => c.id === req.params.id);
   if (!cluster) return res.status(404).json({ error: 'Cluster not found.' });
   if (cluster.kind !== 'k8s') {
     return res.status(400).json({ error: 'That cluster was not added through Kubernetes.' });
+  }
+
+  if (!cluster.endpoint) {
+    return res.json({
+      ok: false,
+      message:
+        'This cluster has no stored ClickHouse address. Edit it, set the address, and save.',
+    });
   }
 
   try {
@@ -443,5 +479,50 @@ export async function refreshCluster(req, res) {
     return res.json({ ok: true, hosts: nodes.length, refreshedAt: new Date().toISOString() });
   } catch (err) {
     return fail(res, err);
+  }
+}
+
+
+export async function reresolveCluster(req, res) {
+  const cluster = getAllClusters().find((c) => c.id === req.params.id);
+  if (!cluster) return res.status(404).json({ error: 'Cluster not found.' });
+  if (cluster.kind !== 'k8s') return res.json({ ok: true, skipped: true });
+
+  try {
+    const addressing = await readInstallationAddresses({
+      connectionId: cluster.k8s.connectionId,
+      namespace: cluster.k8s.namespace,
+      installation: cluster.k8s.installation,
+      operator: cluster.k8s.operator,
+      endpoint: cluster.endpoint,
+      port: cluster.port ?? 8443,
+      secure: cluster.secure !== false,
+      user: cluster.chUser || 'default',
+      password: cluster.chPassword || '',
+      mode: cluster.k8sAddressing?.mode || ADDRESSING.AUTO,
+    });
+
+    const others = getAllClusters().filter((c) => c.id !== cluster.id);
+    saveClusters([
+      ...others,
+      {
+        ...cluster,
+        nodes: addressing.nodes,
+        k8sAddressing: {
+          ...(cluster.k8sAddressing || {}),
+          resolution: addressing.resolution,
+          perNodeAccurate: addressing.perNodeAccurate,
+        },
+      },
+    ]);
+
+    return res.json({
+      ok: true,
+      hosts: addressing.nodes.length,
+      perNodeAccurate: addressing.perNodeAccurate,
+    });
+  } catch (err) {
+    // The cluster was still saved. Report it rather than failing the edit.
+    return res.json({ ok: false, message: err.message });
   }
 }

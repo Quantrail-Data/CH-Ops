@@ -187,6 +187,7 @@ export const clusters = sqliteTable("cluster", {
   chPasswordEnc: text("ch_password_enc"),
   port: integer("port"),
   secure: integer("secure", { mode: "boolean" }).notNull().default(false),
+  endpoint: text("endpoint"),
 
   // Set only when kind is 'k8s'.
   k8sConnectionId: text("k8s_connection_id"),
