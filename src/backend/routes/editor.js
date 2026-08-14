@@ -53,6 +53,7 @@ router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.userna
       secure: !!target.secure,
       user,
       password: password ?? '',
+      timeoutMs: 10000,
       sql: 'SELECT 1',
     });
 

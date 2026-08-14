@@ -124,6 +124,9 @@ export async function runQuery(req, res) {
       }
     }
 
+    const clientGone = new AbortController();
+    req.on('close', () => clientGone.abort());
+
     const result = await executeQuery({
       host: targetNode.host,
       port:  targetNode.port || 8123,
@@ -134,6 +137,7 @@ export async function runQuery(req, res) {
       params: finalParams,
       readOnly: !!readOnly,
       settings: onlyKnownSettings(settings),
+      signal: clientGone.signal,
     });
 
     if (result && result.stats) {

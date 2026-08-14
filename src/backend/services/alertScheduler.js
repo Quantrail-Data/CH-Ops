@@ -151,6 +151,7 @@ async function evaluateRule(rule, allNodes, now) {
             user: node.user, password: node.password, sql: rule.sql,
             // Alert rules are SELECTs. Everywhere else applies this guard.
             readOnly: true,
+            timeoutMs: 120000,
           })
         )
       );
