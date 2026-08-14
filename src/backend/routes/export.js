@@ -169,6 +169,7 @@ router.post("/jobs", (req, res) => {
   try {
     const job = createJob({
       username: req.user?.username,
+      jti:req.user.jti,
       sql,
       format,
       compression: compression || "none",
