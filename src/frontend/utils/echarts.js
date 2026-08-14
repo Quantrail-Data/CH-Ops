@@ -166,13 +166,25 @@ export function getThemeName() {
 
 export function initChart(el) {
   const existing = echarts.getInstanceByDom(el);
-  if (existing) existing.dispose();
+  if (existing) {
+    try {
+      existing.clear();
+      existing.dispose();
+    } catch (e) {
+    }
+  }
   const chart = echarts.init(el, getThemeName(), { renderer: "canvas" });
 
   // Charts no longer get an in-canvas ECharts toolbox. Controls (zoom, save,
   // full screen) are provided by the shared HTML ChartToolbar in each chart's
   // header, which never overlaps the figure and uses a CSS-overlay full screen
   // instead of the browser's native fullscreen.
+  if (el._ro) {
+    try {
+      el._ro.disconnect();
+    } catch (e) {
+    }
+  }
   const ro = new ResizeObserver(() => chart.resize());
   ro.observe(el);
   el._ro = ro;
@@ -181,9 +193,20 @@ export function initChart(el) {
 
 export function disposeChart(el) {
   if (!el) return;
-  el._ro?.disconnect();
+  if (el._ro) {
+    try {
+      el._ro.disconnect();
+    } catch (e) {
+    }
+    el._ro = null;
+  }
   const inst = echarts.getInstanceByDom(el);
-  if (inst) inst.dispose();
+  if (!inst) return;
+  try {
+    inst.clear();
+    inst.dispose();
+  } catch (e) {
+  }
 }
 
 // Inject a programmatic-only inside dataZoom on cartesian charts so the HTML
