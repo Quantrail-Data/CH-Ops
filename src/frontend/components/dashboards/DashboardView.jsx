@@ -589,6 +589,7 @@ export default function DashboardView({sidebar}) {
                   isAdmin={isAdmin} 
                   canEdit={canEdit} 
                   showLegends={showLegends} 
+                  setShowLegends={setShowLegends}
                   legendSupportedTypes={legendSupportedTypes}
                   highlighted={!!hoveredFilter && (params.byChart.get(chart.id) || []).some((p) => p.name === hoveredFilter)}
                   filterNames={(params.byChart.get(chart.id) || []).map((p) => p.name)} 
@@ -607,7 +608,7 @@ export default function DashboardView({sidebar}) {
   );
 }
 
-function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, showLegends, legendSupportedTypes, highlighted = false, filterNames = [] }) {
+function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, showLegends, legendSupportedTypes, highlighted = false, filterNames = [], setShowLegends }) {
   const ref = useRef(null);
   const inst = useRef(null);
   const [fs, setFs] = useState(false);
@@ -663,6 +664,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isPieChart = pieChartTypes.includes(chart.chartSubtype);
   const funnelChartTypes = ['funnel'];
   const isFunnelChart = funnelChartTypes.includes(chart.chartSubtype) || chart.chartType === 'funnel';
+
+  const tooltipWidth = fs ? 420 : (isSmallScreen ? 220 : 300);
+  const tooltipMaxHeight = fs ? 320 : 240;
+  const tooltipExtraCss = `max-height: ${tooltipMaxHeight}px; overflow: auto; -webkit-overflow-scrolling: touch; width: ${tooltipWidth}px; pointer-events: auto;`;
 
   const resolvedLegend = fs
     ? {
@@ -758,9 +763,24 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
     : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
+  const isLine = Array.isArray(chart?.chartOption?.series) && chart.chartOption.series.some((s) => s.type === "line");
+  const isStackedArea = Array.isArray(chart?.chartOption?.series) && chart.chartOption.series.some(s => s.stack && (s.areaStyle || s.type === 'line'));
+
   const shouldShowDataLabels = (() => {
     if (isPieChart) return true;
-    if (fs) return true;
+    if (fs) {
+      if (tickCount > 150) return false;
+      if (isBarChart && tickCount > 35) return false;
+      if (!isBarChart && tickCount > 40) return false;
+      return true;
+    }
+
+    if (isLine) {
+      if (isSmallScreen) {
+        return tickCount <= 20;
+      }
+      return tickCount <= 25;
+    }
     if (isSmallScreen) {
       if (tickCount > 20) return false;
       if (isBarChart && tickCount > 15) return false;
@@ -786,6 +806,18 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     if (!isSmallScreen && funnelCount > 16) return false;
     return true;
   })();
+
+  function countSunburstNodes(dataNode) {
+    if (!dataNode) return 0;
+    if (Array.isArray(dataNode)) {
+      return dataNode.reduce((acc, n) => acc + countSunburstNodes(n), 0);
+    }
+    let count = 1;
+    if (Array.isArray(dataNode.children)) {
+      count += dataNode.children.reduce((acc, c) => acc + countSunburstNodes(c), 0);
+    }
+    return count;
+  }
 
   const opt = {
     ...chart.chartOption,
@@ -951,6 +983,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         }
   };
 
+  opt.tooltip = {
+    ...(opt.tooltip || {}),
+    confine: true,
+    enterable: true,
+    extraCssText: tooltipExtraCss,
+  };
+
   if (Array.isArray(opt.series) && opt.series.length) {
     opt.series = opt.series.map((s) => {
       if (!s || !s.type) return s;
@@ -1006,34 +1045,14 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
   const isPie = Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype));
-  const isLine = Array.isArray(opt.series) && opt.series.some((s) => s.type === "line");
   const lineDataLength = Array.isArray(opt.series) && opt.series.some((s) => s.data?.length > 200);
 
-  if (isLine) {
-    const getXAxisBase = () => Array.isArray(opt.xAxis) ? opt.xAxis[0] : opt.xAxis;
-    const xBase = getXAxisBase();
-    const xNext = {
-      ...xBase,
-      nameGap: 40,
-      axisLabel: {
-        ...(xBase?.axisLabel || {}),
-        rotate: fs ? (xBase?.axisLabel?.rotate || 0) : 0,
-        interval: fs ? (xBase?.axisLabel?.interval || 0) : (lineDataLength ? 500 : 50),
-        formatter: fs
-          ? (xBase?.axisLabel?.formatter || ((v) => v))
-          : (v) => {
-              try {
-                const s = String(v);
-                return lineDataLength ? (s.length > 10 ? s.slice(0, 3) + "…" : s) : (s.length > 10 ? s.slice(0, 10) + "…" : s);
-              } catch { return v; }
-            },
-      },
-    };
-    opt.xAxis = Array.isArray(opt.xAxis) ? [xNext] : xNext;
-  }
+  if (Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype))) {
+    const pieSeries = opt.series.filter(s => s.type === 'pie');
+    const pieSliceCount = pieSeries.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0);
+    const hidePieLabels = pieSliceCount > 16;
 
-  if (isPie) {
-    opt.series = opt.series.map((s) => {
+    opt.series = (opt.series || []).map((s) => {
       if (s.type !== 'pie') return s;
       const defaultBaseRadius = chart.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
       const baseRadius = s.radius || defaultBaseRadius;
@@ -1052,10 +1071,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         avoidLabelOverlap: true,
         label: {
           ...(s.label || {}),
+          show: !hidePieLabels && shouldShowDataLabels,
           formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
           color: isDarkColor,
           fontSize: 11,
           overflow: 'truncate',
+          width: fs ? 240 : (isSmallScreen ? 160 : 220),
+          lineHeight: 18,
         },
         labelLine: {
           ...(s.labelLine || {}),
@@ -1079,6 +1101,57 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       ...(opt.grid || {}),
       top: fs ? (opt.grid?.top || gridTop) : (isSmallScreen ? 72 : 80),
     };
+  }
+
+  if (isStackedArea) {
+    opt.tooltip = {
+      ...(opt.tooltip || {}),
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      confine: true,
+      enterable: true,
+      extraCssText: tooltipExtraCss,
+      formatter: function(params) {
+        try {
+          if (!Array.isArray(params)) return params?.name || '';
+          const axisLabel = params[0]?.axisValue ?? params[0]?.name ?? '';
+          const total = params.reduce((s, p) => s + (Number(p?.value ?? 0) || 0), 0);
+          const lines = [];
+          lines.push(axisLabel);
+          for (const p of params) {
+            const value = Number(p?.value ?? 0) || 0;
+            const pct = total ? ((value / total) * 100).toFixed(1) + '%' : '';
+            lines.push(`${p.seriesName}: ${value}${pct ? ' (' + pct + ')' : ''}`);
+          }
+          return lines.join('<br/>');
+        } catch (e) {
+          return '';
+        }
+      }
+    };
+  } else if (Array.isArray(opt.series) && opt.series.some(s => s.type === 'line' && s.data?.length > 50)) {
+    opt.tooltip = {
+      ...(opt.tooltip || {}),
+      trigger: 'axis',
+      confine: true,
+      enterable: true,
+      extraCssText: tooltipExtraCss,
+      formatter: function(params) {
+        try {
+          if (!Array.isArray(params)) return params?.name || '';
+          const lines = [];
+          for (const p of params) {
+            const value = Number(p?.value ?? 0) || 0;
+            lines.push(`${p.seriesName}: ${value}`);
+          }
+          return lines.join('<br/>');
+        } catch (e) {
+          return '';
+        }
+      }
+    };
+  } else {
+    opt.tooltip = { ...(opt.tooltip || {}), confine: true, enterable: true, extraCssText: tooltipExtraCss };
   }
 
   if (Array.isArray(opt.series)) {
@@ -1220,11 +1293,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isSunBurstVisualmap = Object.keys(opt?.visualMap || {})?.length > 0;
 
   if (isSunBurst) {
+    let sunburstNodeCount = 0;
     opt.series = opt.series.map((s) => {
       if (s.type !== "sunburst") return s;
+      const nodeCount = Array.isArray(s.data) ? s.data.reduce((a, n) => a + countSunburstNodes(n), 0) : countSunburstNodes(s.data);
+      sunburstNodeCount += nodeCount;
+      const hideSunburst = nodeCount > 15;
       return {
         ...s,
-        radius: isSunBurstVisualmap ? ["3%", "70%"] : ["5%", "90%"],
+        radius: isSunBurstVisualmap ? ["3%","70%"] : ["5%", "90%"],
         levels: [
           {},
           {
@@ -1233,6 +1310,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               rotate: "tangential",
               distance: 10,
               rotate: 0,
+              show: !hideSunburst
             },
             labelLine: {
               show: true,
@@ -1247,6 +1325,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               distance: 10,
               rotate: 0,
               silent: true,
+              show: !hideSunburst
             },
             labelLine: {
               show: true,
@@ -1258,6 +1337,37 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ],
       };
     });
+
+    const sunburstNodes = [];
+    const collectNames = (node) => {
+      if (!node) return;
+      if (Array.isArray(node)) {
+        node.forEach(collectNames);
+        return;
+      }
+      if (node.name) sunburstNodes.push(node.name);
+      if (Array.isArray(node.children)) {
+        node.children.forEach(collectNames);
+      }
+    };
+    opt.series.forEach((s) => {
+      if (!s || s.type !== 'sunburst') return;
+      if (Array.isArray(s.data)) s.data.forEach(collectNames);
+      else collectNames(s.data);
+    });
+    const uniqueLegendData = Array.from(new Set(sunburstNodes)).slice(0, 200);
+    if (!opt.legend) opt.legend = {};
+    if (uniqueLegendData.length) {
+      opt.legend.data = uniqueLegendData;
+      opt.legend.show = supportsLegend && hasLegend && showLegends && uniqueLegendData.length > 0;
+      if (!opt.legend.orient) opt.legend.orient = fs ? 'vertical' : (isSmallScreen ? 'horizontal' : (cols === 4 ? 'vertical' : 'vertical'));
+      opt.legend.textStyle = { ...(opt.legend.textStyle || {}), color: isDarkColor };
+      opt.legend.type = opt.legend.type || 'scroll';
+      opt.legend.pageIconColor = isDarkColor;
+      opt.legend.pageIconInactiveColor = opt.legend.pageIconInactiveColor || 'var(--text-muted)';
+    } else {
+      opt.legend.show = supportsLegend && hasLegend && showLegends;
+    }
   }
 
   useEffect(() => {
@@ -1379,7 +1489,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
                   return next;
                 });
               }}
-              onToggleLegend={() => {}}
+              onToggleLegend={() => { if (setShowLegends) setShowLegends(prev => !prev); }}
               legendVisible={showLegends}
               style={{ flexWrap: 'nowrap' }}
               isWantFeature={
@@ -1412,9 +1522,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         </div>
       </div>
       {opt?._error && <div className="alert-banner danger" style={{ fontSize: '13px' }}><Icon className="ti ti-alert-circle"></Icon> {opt.message}</div>}
-      {/* Waiting, not failing. Nothing is broken here: a value is missing.
-          Rendering this in red would train people to ignore red on a
-          dashboard, which is expensive everywhere else. */}
       {opt?._waiting && (
         <div className="alert-banner warning" style={{ fontSize: '13px' }}>
           <Icon className="ti ti-clock"></Icon> {opt.message}
