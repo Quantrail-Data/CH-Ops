@@ -81,7 +81,7 @@ export default function AllCharts({ onEdit }) {
 
       const r = await runQuery(chart.sqlQuery, Object.keys(values).length ? { params: values } : {});
       const cfg = typeof chart.config === 'string' ? JSON.parse(chart.config) : chart.config;
-      setPreviewOpt(buildChartOption(chart.chartType, chart.chartSubtype, r.rows || [], cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend }));
+      setPreviewOpt(buildChartOption(chart.chartType, chart.chartSubtype, r.rows || [], cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend } ));
     } catch (e) { setPreviewOpt({ _error: true, message: e.message }); }
     setPreviewLoading(false);
   }
@@ -104,6 +104,10 @@ export default function AllCharts({ onEdit }) {
         previewInst.current = null; 
       }
       return;
+    }
+    if (previewInst.current) {
+      disposeChart(previewRef.current);
+      previewInst.current = null;
     }
     buildChart();
   }, [theme, showLegend]);
@@ -130,6 +134,12 @@ export default function AllCharts({ onEdit }) {
       const isScatterLike = selected?.chartSubtype === 'scatter' || selected?.chartSubtype === 'basic_scatter' || selected?.chartSubtype === 'bubble' || selected?.chartType === 'scatter' || selected?.chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
       const isPieChart = pieChartTypes.includes(selected?.chartSubtype);
+      const funnelChartTypes = ['funnel'];
+      const isFunnelChart = funnelChartTypes.includes(selected?.chartSubtype) || selected?.chartType === 'funnel';
+
+      const tooltipWidth = previewTools.fullscreen ? 420 : (isSmallScreen ? 220 : 300);
+      const tooltipMaxHeight = previewTools.fullscreen ? 320 : 240;
+      const tooltipExtraCss = `max-height: ${tooltipMaxHeight}px; overflow: auto; -webkit-overflow-scrolling: touch; width: ${tooltipWidth}px; pointer-events: auto;`;
 
       const resolvedLegend = previewTools.fullscreen
         ? {
@@ -176,6 +186,12 @@ export default function AllCharts({ onEdit }) {
         ...previewOpt,
         toolbox: { show: false },
         legend: resolvedLegend,
+        tooltip: {
+          ...(previewOpt?.tooltip || {}),
+          confine: true,
+          enterable: true,
+          extraCssText: tooltipExtraCss,
+        },
       });
 
       const determineTickCount = (opt) => {
@@ -213,23 +229,38 @@ export default function AllCharts({ onEdit }) {
 
       const shouldShowDataLabels = (() => {
         if (isPieChart) return true;
-        
-        if (previewTools.fullscreen) return true;
-        
+        if (previewTools.fullscreen) {
+          if (tickCount > 150) return false;
+          if (isBarChart && tickCount > 35) return false;
+          if (!isBarChart && tickCount > 40) return false;
+          return true;
+        }
+
         if (isSmallScreen) {
           if (tickCount > 20) return false;
-          
           if (isBarChart && tickCount > 15) return false;
-          
           if (!isBarChart && tickCount > 25) return false;
         }
-        
+
         if (!isSmallScreen && !previewTools.fullscreen) {
           if (tickCount > 50) return false;
           if (isBarChart && tickCount > 35) return false;
           if (!isBarChart && tickCount > 40) return false;
         }
-        
+
+        return true;
+      })();
+
+      const shouldShowFunnelLabels = (() => {
+        if (previewTools.fullscreen) return true;
+        if (!isFunnelChart) return true;
+        const funnelCount = Array.isArray(baseOption.series)
+          ? baseOption.series
+              .filter((s) => s?.type === "funnel")
+              .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+          : 0;
+        if (isSmallScreen && funnelCount > 10) return false;
+        if (!isSmallScreen && funnelCount > 16) return false;
         return true;
       })();
 
@@ -452,6 +483,10 @@ export default function AllCharts({ onEdit }) {
       const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
       const isPie = Array.isArray(baseOption.series) && (baseOption.series.some(s => s.type === 'pie') || pieSubtypes.includes(selected?.chartSubtype));
       if (isPie) {
+        const pieSeries = baseOption.series.filter(s => s.type === 'pie');
+        const pieSliceCount = pieSeries.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0);
+        const hidePieLabels = pieSliceCount > 16;
+
         chartOption.series = baseOption.series.map((s) => {
           if (s.type !== 'pie') return s;
           const defaultBaseRadius = selected?.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
@@ -471,10 +506,13 @@ export default function AllCharts({ onEdit }) {
             avoidLabelOverlap: true,
             label: {
               ...(s.label || {}),
+              show: !hidePieLabels && shouldShowDataLabels,
               formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
               color: isDarkColor,
               fontSize: 11,
               overflow: 'truncate',
+              width: previewTools.fullscreen ? 240 : (isSmallScreen ? 160 : 220),
+              lineHeight: 18,
             },
             labelLine: {
               ...(s.labelLine || {}),
@@ -497,6 +535,68 @@ export default function AllCharts({ onEdit }) {
         chartOption.grid = Array.isArray(chartOption.grid)
           ? chartOption.grid.map((g) => ({ ...g, top: previewTools.fullscreen ? g.top : (isSmallScreen ? 84 : 92) }))
           : { ...(chartOption.grid || {}), top: previewTools.fullscreen ? (chartOption.grid?.top || gridTop) : (isSmallScreen ? 84 : 92) };
+      }
+
+      if (Array.isArray(chartOption.series)) {
+        chartOption.series = chartOption.series.map((s) => {
+          if (!s || s.type !== "funnel") return s;
+          return {
+            ...s,
+            minSize: s.minSize ?? '0%',
+            maxSize: s.maxSize ?? '100%',
+            gap: Math.max(0, s.gap ?? 1),
+            left: previewTools.fullscreen && supportsLegend && hasLegend && showLegend ? '22%' : (s.left ?? '10%'),
+            top: previewTools.fullscreen && supportsLegend && hasLegend && showLegend ? '8%' : (s.top ?? '10%'),
+            width: previewTools.fullscreen && supportsLegend && hasLegend && showLegend ? '74%' : (s.width ?? '80%'),
+            height: previewTools.fullscreen && supportsLegend && hasLegend && showLegend ? '84%' : (s.height ?? '80%'),
+            labelLayout: {
+              hideOverlap: true,
+              moveOverlap: 'shiftY',
+            },
+            label: {
+              ...(s.label || {}),
+              show: shouldShowFunnelLabels,
+              color: isDarkColor,
+              overflow: 'truncate',
+              width: previewTools.fullscreen ? 220 : (isSmallScreen ? 110 : 160),
+              fontSize: previewTools.fullscreen ? 12 : (isSmallScreen ? 10 : 11),
+            },
+            labelLine: {
+              ...(s.labelLine || {}),
+              show: shouldShowFunnelLabels,
+              lineStyle: {
+                ...(s.labelLine?.lineStyle || {}),
+                color: isDarkColor,
+                opacity: 1,
+              },
+            },
+            itemStyle: {
+              ...(s.itemStyle || {}),
+              borderColor: isDarkColor,
+            },
+            emphasis: {
+              ...(s.emphasis || {}),
+              label: {
+                ...((s.emphasis && s.emphasis.label) || {}),
+                show: true,
+                color: isDarkColor,
+              },
+              labelLine: {
+                ...((s.emphasis && s.emphasis.labelLine) || {}),
+                show: true,
+                lineStyle: {
+                  ...((s.emphasis && s.emphasis.labelLine && s.emphasis.labelLine.lineStyle) || {}),
+                  color: isDarkColor,
+                  opacity: 1,
+                },
+              },
+              itemStyle: {
+                ...((s.emphasis && s.emphasis.itemStyle) || {}),
+                borderColor: isDarkColor,
+              },
+            },
+          };
+        });
       }
 
       if (theme === 'dark') {
@@ -589,6 +689,24 @@ export default function AllCharts({ onEdit }) {
         Object.keys(chartOption?.visualMap || {})?.length > 0;
 
       if (isSunBurst) {
+        let totalNodes = 0;
+        const countNodes = (node) => {
+          if (!node) return 0;
+          if (Array.isArray(node)) return node.reduce((acc, n) => acc + countNodes(n), 0);
+          let c = 1;
+          if (Array.isArray(node.children)) c += node.children.reduce((a, n) => a + countNodes(n), 0);
+          return c;
+        };
+        for (const s of chartOption.series) {
+          if (s.type !== 'sunburst') continue;
+          if (Array.isArray(s.data)) {
+            totalNodes += s.data.reduce((a, n) => a + countNodes(n), 0);
+          } else {
+            totalNodes += countNodes(s.data);
+          }
+        }
+        const hideSunburst = totalNodes > 15;
+
         chartOption.series = chartOption.series.map((s) => {
           if (s.type !== "sunburst") return s;
 
@@ -602,7 +720,7 @@ export default function AllCharts({ onEdit }) {
                   position: "outside",
                   rotate: "tangential",
                   distance: 10,
-                  // rotate: 0,
+                  show: !hideSunburst
                 },
                 labelLine: {
                   show: true,
@@ -617,6 +735,7 @@ export default function AllCharts({ onEdit }) {
                   distance: 10,
                   rotate: 0,
                   silent: true,
+                  show: !hideSunburst
                 },
                 labelLine: {
                   show: true,
@@ -679,6 +798,12 @@ export default function AllCharts({ onEdit }) {
     saveFun: true,
     fullscreenFun: true,
   };
+  const funnelControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
 
   return (
     <div className="page-content">
@@ -736,7 +861,13 @@ export default function AllCharts({ onEdit }) {
                   onZoomReset={previewTools.zoomReset}
                   onSave={previewTools.save}
                   onToggleFullscreen={previewTools.toggleFullscreen}
-                  isWantFeature={selected.chartType === 'pie' ? pieChartControlsFlags : (selected.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)}
+                  isWantFeature={
+                    selected.chartType === 'pie'
+                      ? pieChartControlsFlags
+                      : (selected.chartType === 'funnel' || selected.chartSubtype === 'funnel')
+                        ? funnelControlsFlags
+                        : (selected.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)
+                  }
                 />
                 <div ref={previewRef} style={{ height: previewTools.fullscreen ? 'calc(100vh - 100px)' : (isSmallScreen ? 450 : 380), width: '100%', flex: 1 }} />
               </>

@@ -46,6 +46,7 @@ async function query(cluster, sql) {
     user: node.user,
     password: node.password,
     readOnly: true,
+    timeoutMs: 10000,
     sql,
   });
   return result?.rows ?? [];

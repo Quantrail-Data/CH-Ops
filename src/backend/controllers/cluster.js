@@ -92,7 +92,7 @@ export function updateCluster(req, res) {
       return res.status(404).json({ error: "Cluster not found." });
     }
 
-    const { name, nodes } = req.body;
+    const { name, nodes, chUser, chPassword, endpoint, port, secure } = req.body;
     if (name !== undefined) {
       if (!name?.trim()) {
         return res.status(400).json({ error: "Cluster name required." });
@@ -142,6 +142,29 @@ export function updateCluster(req, res) {
       clusters[idx].nodes = nodeArr;
     }
 
+    if (chUser !== undefined) clusters[idx].chUser = chUser || 'default';
+
+
+    if (chPassword) clusters[idx].chPassword = chPassword;
+
+    if (endpoint !== undefined) {
+      if (!endpoint?.trim()) {
+        return res.status(400).json({ error: 'ClickHouse address is required.' });
+      }
+      clusters[idx].endpoint = endpoint.trim();
+    }
+
+    if (port !== undefined) {
+      const p = Number(port);
+      if (!Number.isInteger(p) || p < 1 || p > 65535) {
+        return res.status(400).json({ error: 'Port must be between 1 and 65535.' });
+      }
+      clusters[idx].port = p;
+    }
+
+    if (secure !== undefined) clusters[idx].secure = !!secure;
+
+    
     saveClusters(clusters);
 
     res.json(maskClusterPasswords(clusters[idx]));
@@ -211,6 +234,7 @@ export async function testConnection(req, res) {
       user: resolvedUser,
       password: resolvedPassword,
       secure: resolvedSecure,
+      timeoutMs: 10000,
       sql: "SELECT version() AS version, uptime() AS uptime",
     });
 

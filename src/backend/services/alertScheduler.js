@@ -146,9 +146,12 @@ async function evaluateRule(rule, allNodes, now) {
     if (!errorMsg) {
       const nodeResults = await Promise.allSettled(
         nodes.map(node =>
-          executeQuery({
+            executeQuery({
             host: node.host, port: node.port, secure: !!node.secure,
             user: node.user, password: node.password, sql: rule.sql,
+            // Alert rules are SELECTs. Everywhere else applies this guard.
+            readOnly: true,
+            timeoutMs: 120000,
           })
         )
       );
