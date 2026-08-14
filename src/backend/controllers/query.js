@@ -45,7 +45,7 @@ function onlyKnownSettings(input) {
 }
 
 export async function runQuery(req, res) {
-  const { sql, node, user, password, port, clusterId, strictAuth, useSession, context, params, settings } = req.body;
+  const { sql, node, user, password, clusterId, strictAuth, useSession, context, params, settings } = req.body;
   let { readOnly } = req.body;
   if (!sql) return res.status(400).json({ error: 'Missing SQL' });
 
@@ -126,7 +126,7 @@ export async function runQuery(req, res) {
 
     const result = await executeQuery({
       host: targetNode.host,
-      port: port || targetNode.port || 8123,
+      port:  targetNode.port || 8123,
       secure: !!targetNode.secure,
       user: resolvedUser,
       password: resolvedPassword,
@@ -153,7 +153,7 @@ export async function runQuery(req, res) {
 }
 
 export async function testQueryConnection(req, res) {
-  const { node, user, password, port, clusterId } = req.body;
+  const { node, user, password, clusterId } = req.body;
   if (!node) return res.status(400).json({ ok: false, message: 'Node host required.' });
 
   const clusterNodes = getClusterNodes(clusterId);
@@ -169,7 +169,7 @@ export async function testQueryConnection(req, res) {
   try {
     await executeQuery({
       host: targetNode.host,
-      port: port || targetNode.port || 8123,
+      port:  targetNode.port || 8123,
       secure: !!targetNode.secure,
       user: user || targetNode.user || 'default',
       password: password ?? targetNode.password ?? '',

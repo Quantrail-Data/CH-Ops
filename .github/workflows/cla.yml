@@ -1,0 +1,121 @@
+name: CLA Assistant
+
+# pull_request_target because the action needs a write token on fork PRs.
+#
+# DO NOT add actions/checkout here. Checking out head.sha under
+# pull_request_target runs fork code with a write token. Tests and builds go in
+# unit-tests.yaml, which is on plain pull_request.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  # One job that always runs, so the "CLA" check always reports. If we skipped
+  # the job on internal PRs instead, and CLA is a required check on main, those
+  # PRs would sit forever waiting for a status that never arrives.
+  cla:
+    name: CLA
+    runs-on: ubuntu-latest
+    steps:
+      # pull_request_target gives us head.repo in the payload; issue_comment
+      # doesn't, so that path costs an API call.
+      - name: Is this PR from a fork?
+        id: pr
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const base = context.payload.repository.full_name;
+            let head;
+
+            if (context.eventName === 'pull_request_target') {
+              head = context.payload.pull_request.head.repo?.full_name ?? null;
+            } else {
+              // Comments on plain issues aren't our business.
+              if (!context.payload.issue?.pull_request) {
+                core.setOutput('external', 'false');
+                return;
+              }
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.issue.number,
+              });
+              head = pr.head.repo?.full_name ?? null;
+            }
+
+            // null head means the fork was deleted. Treat as external: we'd
+            // rather ask for acceptance we didn't need than skip one we did.
+            const external = head === null || head !== base;
+            core.info(`base=${base} head=${head ?? '(deleted)'} external=${external}`);
+            core.setOutput('external', String(external));
+
+      # Internal branches mean write access, and write access means an employee
+      # or a Corporate CLA signatory. Nothing to collect.
+      #
+      # Caveat for maintainers: this trusts that an internal branch only carries
+      # your own work. Landing someone else's patch on an internal branch gets
+      # their code in with no acceptance on file. If you do that, either have
+      # them accept, or handle it under section 8(d).
+      - name: Check or record CLA acceptance
+        if: >
+          steps.pr.outputs.external == 'true' &&
+          (github.event_name == 'pull_request_target' ||
+           github.event.comment.body == 'recheck' ||
+           github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA')
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fine-grained PAT, Contents rw, scoped to the consents repo only.
+          # GITHUB_TOKEN can't write cross-repo.
+          # NOTE: expires within a year. When it does, every external PR stalls
+          # on a red check with no obvious cause. Diarise the expiry.
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_CONSENT_STORE_TOKEN }}
+        with:
+          # Private repo. These are personal data under the DPDP Act, and
+          # there's no reason to publish who accepted what and when.
+          remote-organization-name: 'Quantrail-Data'
+          remote-repository-name: 'chops-cla-consents'
+          branch: 'main'
+
+          # The action doesn't record which revision of CLA.md was accepted,
+          # so the version lives in the path. Bump on a terms change, not on a
+          # typo fix, or old acceptances silently read as covering new terms.
+          # Keep the old files, they're the record for whoever accepted then.
+          path-to-signatures: 'consents/v1.0/cla.json'
+
+          # The JSON is just an index; the acceptance is the PR comment it
+          # points at, and its author can still edit it. Lock to freeze it.
+          lock-pullrequest-aftermerge: true
+
+          path-to-document: 'https://github.com/Quantrail-Data/CH-Ops/blob/main/CLA.md'
+
+          # Maintainers are handled by the fork check above, so this is only
+          # for bots that open PRs from forks and can't accept anything.
+          allowlist: 'dependabot[bot],github-actions[bot]'
+
+          custom-notsigned-prcomment: >
+            Thanks for the pull request, we appreciate it. Like many open source
+            projects, we ask everyone who contributes to accept our
+            [Contributor License Agreement](https://github.com/Quantrail-Data/CH-Ops/blob/main/CLA.md)
+            before we can merge. It takes about ten seconds and you will not be
+            asked again.
+
+
+            To accept, post a comment on this pull request with exactly this
+            sentence:
+          custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
+          custom-allsigned-prcomment: >
+            Everyone has accepted the CLA. Thanks, a maintainer will review this
+            shortly.
+
+
+            Already accepted but this is still showing as pending? Comment
+            `recheck` and it will run again.
