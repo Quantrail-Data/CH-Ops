@@ -74,12 +74,14 @@ describe('RBAC: canChangeRole - readonly caller', () => {
 describe('RBAC: Middleware exports', () => {
   it('exports requireAdmin middleware', () => { expect(code).toContain('export function requireAdmin'); });
   it('no longer exports the duplicate requireSuperAdmin', () => {
-    // It was a byte-identical copy of requireAdmin whose name said superadmin
-    // and whose behaviour said admin. Call sites now use requireAdmin.
-    expect(code).not.toContain('export function requireSuperAdmin');
+    // Matched on the exact name rather than a substring, so it does not fire on requireSuperAdminOnly, which is a different function 
+    expect(code).not.toMatch(/export function requireSuperAdmin\s*\(/);
   });
-  it('exports requireEditor middleware', () => { expect(code).toContain('export function requireEditor'); });
-});
+
+  it('exports requireSuperAdminOnly, which checks the role it names', () => {
+    expect(code).toContain('export function requireSuperAdminOnly');
+    expect(code).toContain("req.user?.role !== 'superadmin'");
+  });
 
 describe('RBAC: User management permissions', () => {
   it('only admin+ can create users', () => { expect(code).toContain("isAdminLevel(req.user?.role)"); });
