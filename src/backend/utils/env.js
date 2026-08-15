@@ -1,5 +1,5 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
+// author -> kathir Moorthy, kathir dhasan, Praveen kumar
 // Loads environment configs, requiring a super admin and SESSION_SECRET for seeding databases and auth fallbacks.
 
 import path from "node:path";
@@ -41,6 +41,8 @@ export function loadEnv() {
     port: parseInt(process.env.PORT || '3000', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
     disableEnvLogin: process.env.DISABLE_ENV_LOGIN === 'true',
+    // Mirrors DISABLE_ENV_LOGIN. Stops the SMTP_* fallback once the settings page is configured
+    disableEnvSmtp: process.env.DISABLE_ENV_SMTP === 'true',
     frontendLink:process.env.FRONTEND_LINK,
     smtp: {
       host: process.env.SMTP_HOST || '',
