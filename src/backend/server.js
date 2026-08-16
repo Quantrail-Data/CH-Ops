@@ -40,6 +40,7 @@ import authRoute from './routes/auth.js';
 import queryRoute from './routes/query.js';
 import configRoute from './routes/config.js';
 import settingsRoute from './routes/settings.js';
+import trustedCaRoute from './routes/trustedCa.js';
 import systemSmtpRoute from './routes/systemSmtp.js';
 import alertsRoute from './routes/alerts.js';
 import dashboardsRoute from './routes/dashboards.js';
@@ -73,9 +74,7 @@ onRevoke((jti) => { try { cancelJobsForJti(jti); } catch {} });
 pruneExpired();
 setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
 
-// version.generated.js is written by scripts/generate-version.mjs from
-// version.json, the single source of truth. loadEnv() used to supply this from
-// CLICKHOUSEVERSION / MAJOR / MINOR / 
+// version.generated.js is written by scripts/generate-version.mjs from version.json
 
 let appVersion = { version: '0.0.0' };
 try {
@@ -136,6 +135,7 @@ app.use('/api/query', authMiddleware, rateLimiter(10000, 60), queryRoute);
 app.use('/api/editor', authMiddleware,rateLimiter(10000, 60), editorRoute);
 app.use('/api/config', authMiddleware,rateLimiter(10000, 60), configRoute);
 app.use('/api/settings', authMiddleware,rateLimiter(10000, 60), settingsRoute);
+app.use('/api/trusted-cas', authMiddleware, rateLimiter(60, 60), trustedCaRoute);
 app.use('/api/system-smtp', authMiddleware, rateLimiter(30, 60), systemSmtpRoute);
 app.use('/api/alerts', authMiddleware,rateLimiter(10000, 60), alertsRoute);
 app.use('/api/dashboards', authMiddleware,rateLimiter(10000, 60), dashboardsRoute);
