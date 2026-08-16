@@ -146,6 +146,18 @@ sqlite.exec(`
     expires_at TEXT,
     UNIQUE (jti, context)
   );
+  CREATE TABLE IF NOT EXISTS trusted_ca (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    pem TEXT NOT NULL,
+    subject TEXT,
+    issuer TEXT,
+    fingerprint TEXT,
+    not_before TEXT,
+    not_after TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Add columns that may be missing from earlier versions.
