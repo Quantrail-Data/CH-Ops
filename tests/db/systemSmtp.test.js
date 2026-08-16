@@ -26,9 +26,18 @@ const db = drizzle(sqlite, { schema });
 mock.module("../../src/backend/db/index.js", () => ({
   db,
   appSettings: schema.appSettings,
+  alertRules: schema.alertRules,
+  alertChannels: schema.alertChannels,
+  alertRuleChannels: schema.alertRuleChannels,
+  dashboards: schema.dashboards,
+  charts: schema.charts,
+  appUsers: schema.appUsers,
   clusters: schema.clusters,
   clusterNodes: schema.clusterNodes,
+  k8sConnections: schema.k8sConnections,
+  trustedCas: schema.trustedCas,
   rawSqlite: sqlite,
+  assertDatabaseReadable: () => {},
 }));
 
 const { readStoredSmtp, saveSystemSmtp, deleteSystemSmtp } = await import(
