@@ -5,6 +5,7 @@
 import crypto from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db, trustedCas } from '../db/index.js';
+import { trustedCas } from '../db/schema.js';
 
 // Built once and reused. Rebuilt whenever a certificate is added or removed.
 
