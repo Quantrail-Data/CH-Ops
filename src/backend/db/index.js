@@ -26,8 +26,8 @@ try {
   process.exit(1);
 }
 
-// Add columns from newer versions. Safe to run every time - SQLite throws
-// (and we catch) if the column already exists.
+// Add columns from newer versions. Safe to run every time - SQLite throws  if the column already exists.
+
 try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN nodes TEXT"); } catch {}
 try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN cluster_id TEXT"); } catch {}
 
@@ -35,8 +35,7 @@ export const db = drizzle(sqlite, { schema });
 
 // Re-export schema tables for convenience.
 // Explicit individual exports are used (instead of `export { } from './schema.js'`)
-// because Bun's static ESM checker cannot always resolve the re-export chain when
-// the same module is also imported as a namespace above.
+
 export const appSettings = schema.appSettings;
 export const alertRules = schema.alertRules;
 export const alertChannels = schema.alertChannels;
@@ -49,6 +48,7 @@ export const appUsers = schema.appUsers;
 export const clusters = schema.clusters;
 export const clusterNodes = schema.clusterNodes;
 export const k8sConnections = schema.k8sConnections;
+export const trustedCas = schema.trustedCas;
 
 // The raw handle, for the cluster storage migration.
 export const rawSqlite = sqlite;

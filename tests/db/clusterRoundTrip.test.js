@@ -3,10 +3,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 
-
-// Runs as its own `bun test tests/db` invocation, not with tests/backend.
-
-
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -62,9 +58,18 @@ const db = drizzle(sqlite, { schema });
 mock.module("../../src/backend/db/index.js", () => ({
   db,
   appSettings: schema.appSettings,
+  alertRules: schema.alertRules,
+  alertChannels: schema.alertChannels,
+  alertRuleChannels: schema.alertRuleChannels,
+  dashboards: schema.dashboards,
+  charts: schema.charts,
+  appUsers: schema.appUsers,
   clusters: schema.clusters,
   clusterNodes: schema.clusterNodes,
+  k8sConnections: schema.k8sConnections,
+  trustedCas: schema.trustedCas,
   rawSqlite: sqlite,
+  assertDatabaseReadable: () => {},
 }));
 
 
