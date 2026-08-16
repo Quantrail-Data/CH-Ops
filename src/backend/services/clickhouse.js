@@ -3,6 +3,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { isDataQuery as sqlIsDataQuery, leadingKeyword } from '../../shared/sqlClassify.js';
+import { getCaBundle } from './trustedCa.js';
 
 // The ceiling on how much a single query may return to the application.
 const DEFAULT_MAX_RESULT_BYTES = 128 * 1024 * 1024;
@@ -70,11 +71,16 @@ export async function executeQuery({
 
   let res;
   try {
+    // Certificates the operator has told us to trust. Supplying them adds to the system list rather than replacing it,
+    // so a cluster with a publicly signed certificate is unaffected. 
+    const caBundle = getCaBundle();
+
     res = await fetch(url, {
       method: 'POST',
       headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
       body: fullSql,
       signal: abortSignal,
+      ...(caBundle ? { tls: { ca: caBundle } } : {}),
     });
   } catch (err) {
     if (timer) clearTimeout(timer);
@@ -149,10 +155,12 @@ export async function executeQueryWithBody({
   url.searchParams.set('max_execution_time', String(maxExecutionTime));
   url.searchParams.set('max_memory_usage', String(maxMemoryUsage));
 
+  const caBundle2 = getCaBundle();
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
     body,
+    ...(caBundle2 ? { tls: { ca: caBundle2 } } : {}),
   });
 
   const text = await res.text();
