@@ -68,13 +68,20 @@ export function deleteTrustedCa(id) {
 export function getCaBundle() {
   if (cachedBundle !== null) return cachedBundle || null;
 
-  const rows = db.select().from(trustedCas).all();
+  let rows;
+  try {
+    rows = db.select().from(trustedCas).all();
+  } catch {
+    // No certificates is the correct answer when the table cannot be read
+    cachedBundle = '';
+    return null;
+  }
+
   if (!rows.length) {
     cachedBundle = '';
     return null;
   }
 
-  // Supplying these adds to the system list rather than replacing it
   cachedBundle = rows.map(r => r.pem.trim()).join('\n');
   return cachedBundle;
 }
