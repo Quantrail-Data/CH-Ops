@@ -3,6 +3,7 @@
 // author -> Sanjeev Kumar G
 
 import { normalizeForExport } from "../../shared/sqlExport.js";
+import { getCaBundle } from './trustedCa.js';
 
 
 const SAFE_SETTING_NAME = /^[a-z0-9_]+$/i;
@@ -35,11 +36,13 @@ export async function startExportStream({
   const url = buildUrl({ host, port, secure, settings, queryId });
   const body = `${normalizeForExport(sql)}\nFORMAT ${format}`;
 
+  const caBundle = getCaBundle();
   const res = await fetch(url, {
     method: "POST",
     headers: authHeaders(user, password),
     body,
     signal,
+    ...(caBundle ? { tls: { ca: caBundle } } : {}),
   });
 
   if (!res.ok) {
@@ -56,10 +59,13 @@ export async function measureBytes({
   const url = buildUrl({ host, port, secure, settings });
   url.searchParams.set("max_execution_time", "30");
 
+  const caBundle = getCaBundle();
   const res = await fetch(url, {
     method: "POST",
     headers: authHeaders(user, password),
-    body: `${sql}\nFORMAT ${format}`,
+    body,
+    signal,
+    ...(caBundle ? { tls: { ca: caBundle } } : {}),
   });
 
   if (!res.ok) {
@@ -87,10 +93,14 @@ export async function killExportQuery({ host, port, secure, user, password, quer
   const proto = secure ? "https" : "http";
   const safeId = String(queryId).replace(/'/g, "''");
   try {
+    // Inside the try, not above it. This function is written never to throw,
+    // and reading the bundle touches the database.
+    const caBundle = getCaBundle();
     await fetch(`${proto}://${host}:${port || 8123}/`, {
       method: "POST",
       headers: authHeaders(user, password),
       body: `KILL QUERY WHERE query_id = '${safeId}' ASYNC`,
+      ...(caBundle ? { tls: { ca: caBundle } } : {}),
     });
   } catch {
     

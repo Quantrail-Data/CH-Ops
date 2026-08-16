@@ -246,3 +246,20 @@ export const k8sConnections = sqliteTable("k8s_connection", {
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });
+
+export const trustedCas = sqliteTable("trusted_ca", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  pem: text("pem").notNull(),
+
+  // Parsed once when saved, so the list can be shown without re-parsing every
+  // certificate on every page load.
+  subject: text("subject"),
+  issuer: text("issuer"),
+  fingerprint: text("fingerprint"),
+  notBefore: text("not_before"),
+  notAfter: text("not_after"),
+
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+});
