@@ -40,6 +40,7 @@ import authRoute from './routes/auth.js';
 import queryRoute from './routes/query.js';
 import configRoute from './routes/config.js';
 import settingsRoute from './routes/settings.js';
+import systemSmtpRoute from './routes/systemSmtp.js';
 import alertsRoute from './routes/alerts.js';
 import dashboardsRoute from './routes/dashboards.js';
 import usersRoute from './routes/users.js';
@@ -74,9 +75,8 @@ setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
 
 // version.generated.js is written by scripts/generate-version.mjs from
 // version.json, the single source of truth. loadEnv() used to supply this from
-// CLICKHOUSEVERSION / MAJOR / MINOR / ... environment variables that nothing
-// ever sets, so /api/version answered with a bag of undefined and only
-// .version was patched in below.
+// CLICKHOUSEVERSION / MAJOR / MINOR / 
+
 let appVersion = { version: '0.0.0' };
 try {
   const generated = await import('./version.generated.js');
@@ -101,9 +101,9 @@ const app = express();
 
 // Opt-in, and deliberately not defaulted to true. Behind a reverse proxy
 // (the Caddy setup in the README) req.ip is the proxy without this, so every
-// client shares one rate-limit bucket. Trusting X-Forwarded-For blindly is
-// worse though: anyone could spoof the header and evade the limiter entirely.
+// client shares one rate-limit bucket.
 // Set TRUST_PROXY to the number of proxies in front of CHOps.
+
 if (process.env.TRUST_PROXY) {
   app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
 }
@@ -112,7 +112,7 @@ app.use(securityHeaders);
 app.use(requestLogger);
 // Mounted ahead of the global parser: body-parser sets req._body and every
 // later parser skips, so a tighter limit declared on the route itself never
-// applied. These two paths carry SQL and are capped tighter than the rest.
+// applied. 
 app.use('/api/query', express.json({ limit: '512kb' }));
 app.use('/api/export', express.json({ limit: '512kb' }));
 app.use(express.json({ limit: '2mb' }));
@@ -136,6 +136,7 @@ app.use('/api/query', authMiddleware, rateLimiter(10000, 60), queryRoute);
 app.use('/api/editor', authMiddleware,rateLimiter(10000, 60), editorRoute);
 app.use('/api/config', authMiddleware,rateLimiter(10000, 60), configRoute);
 app.use('/api/settings', authMiddleware,rateLimiter(10000, 60), settingsRoute);
+app.use('/api/system-smtp', authMiddleware, rateLimiter(30, 60), systemSmtpRoute);
 app.use('/api/alerts', authMiddleware,rateLimiter(10000, 60), alertsRoute);
 app.use('/api/dashboards', authMiddleware,rateLimiter(10000, 60), dashboardsRoute);
 app.use('/api/users', authMiddleware,rateLimiter(10000, 60), usersRoute);
