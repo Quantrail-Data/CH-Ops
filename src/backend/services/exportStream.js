@@ -63,8 +63,7 @@ export async function measureBytes({
   const res = await fetch(url, {
     method: "POST",
     headers: authHeaders(user, password),
-    body,
-    signal,
+    body: `${sql}\nFORMAT ${format}`,
     ...(caBundle ? { tls: { ca: caBundle } } : {}),
   });
 
