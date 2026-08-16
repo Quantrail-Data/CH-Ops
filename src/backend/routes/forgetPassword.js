@@ -6,6 +6,7 @@ import { issueOTP, verifyOTP, redeemResetToken } from "../services/OTPservice";
 import { log } from "../services/logger.js";
 import { loadEnv } from "../utils/env";
 import { sendOTPEmail } from "../services/notifier";
+import { resolveSystemSmtp } from "../services/systemSmtp.js";
 
 const router = Router();
 
@@ -38,7 +39,7 @@ router.post("/email/verify", async (req, res) => {
 
     const otp = issueOTP(user.id);
     try {
-      await sendOTPEmail(email, otp, env?.smtp || {});
+      await sendOTPEmail(email, otp, resolveSystemSmtp() || {});
     } catch (err) {
       log.error("Password reset email failed:", err?.message || err);
     }
