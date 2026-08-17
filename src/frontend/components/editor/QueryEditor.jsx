@@ -67,7 +67,7 @@ import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
-const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
+const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS ?? "aiselectedid";
 
 // Query history - stored in localStorage, capped at 100 entries
 const HISTORY_KEY = "chops_query_history";
