@@ -1,0 +1,15 @@
+.git
+node_modules
+dist
+data
+coverage
+*.db
+*.sqlite
+*.log
+.env
+.env.build
+.DS_Store
+chops
+chops-linux-x64
+chops-darwin-arm64
+chops-windows-x64.exe
