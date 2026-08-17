@@ -138,7 +138,7 @@ These are read by the frontend at build time and compiled into the bundle. They 
 | `VITE_SELECTEDAID_DBS` | `aiselectedid` | The browser localStorage key under which the SQL Editor and Qurioz remember which database you selected for AI. |
 | `VITE_QURIOZ_KEY` | `quriozchatstorage` | The browser localStorage key under which Qurioz stores your chat history. |
 
-The example file also lists `VITE_QUERYGENERATIONURL` and `VITE_TLS_REJECT_UNAUTHORIZED`. The current build does not read either of these, so setting them has no effect; they are retained in the example for compatibility and possible future use. Leave them as they are.
+These variables have safe defaults compiled into the code, so you do not need to set them. Set one only if you want to change the local-storage key it controls.
 
 ---
 
