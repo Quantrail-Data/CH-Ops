@@ -31,7 +31,7 @@ const RESULT_MAX_ROWS = 100;
 const RESULT_MAX_HEIGHT = "390px";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
-const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
+const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS ?? "aiselectedid";
 
 const LOADING_PHRASES = [
   "Generating ClickHouse query...",

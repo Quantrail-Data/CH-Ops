@@ -11,17 +11,12 @@ import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
 
 // Each context defaults to an inert value with the SAME SHAPE the provider
 // supplies, rather than to null.
-//
+
 // Every consumer destructures immediately - `const { auth } = useAuth()`,
 // `const { theme } = useTheme()`, `const { selectedClusterId } = useConnection()`
-// - so a null default turns "rendered outside its provider" into a hard crash
-// at the first line of the component. That is the worst possible failure for a
-// context whose whole job is ambient state: the component cannot render at all,
-// and the stack points at the destructure rather than at the missing provider.
-//
+
 // The defaults below let such a component render in its logged-out, unconnected,
-// light-theme state instead. Nothing silently half-works: `auth` is null, so
-// anything gated on a user still behaves as though there is none.
+// light-theme state instead. 
 
 const NO_AUTH = Object.freeze({
   auth: null,
@@ -82,7 +77,7 @@ export function useQuriozChatContext() {
   return useContext(QuriozChatContext) ?? NO_QURIOZ_CHAT;
 }
 
-const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY;
+const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY ?? "quriozchatstorage";
 export default function App() {
   // Auth
   const [auth, setAuth] = useState(() => {
