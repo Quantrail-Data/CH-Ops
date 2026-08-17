@@ -1,13 +1,10 @@
 #!/usr/bin/env bun
 // generate-version.mjs
-//
+// author - rva, jkr
 // Writes src/backend/version.generated.js exporting the resolved app version
-// (see resolveVersion.mjs) as a literal string constant. This runs at build/
-// dev-start time, on a machine that actually has the env var or git checkout
-// available - a compiled binary has neither of those on the end user's
-// machine, so the version has to be baked in now, not computed at runtime.
-//
+// (see resolveVersion.mjs) as a literal string constant. 
 // Run before starting/building: node scripts/generate-version.mjs
+
 import { writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveVersion } from "./resolveVersion.mjs";
@@ -15,10 +12,7 @@ import { resolveVersion } from "./resolveVersion.mjs";
 const version = resolveVersion();
 
 // version.json is the single source of truth for the release identity
-// (clickhouseVersion, major/minor/patch, display, codename). It is baked in
-// here alongside the build string so /api/version can answer with real fields.
-// It previously read these from CLICKHOUSEVERSION / MAJOR / MINOR / ...
-// environment variables that nothing sets, and answered with undefined.
+
 let info = {};
 try {
   info = JSON.parse(
@@ -27,6 +21,16 @@ try {
 } catch {
   // Building from a tree without version.json: the build string still works.
 }
+
+// Derive the display string and the numeric parts from the resolved version, so the API
+// output and the backup metadata keep the same shape.
+const semver = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
+if (semver) {
+  info.major = Number(semver[1]);
+  info.minor = Number(semver[2]);
+  info.patch = Number(semver[3]);
+}
+info.display = version;
 
 const outPath = fileURLToPath(
   new URL("../src/backend/version.generated.js", import.meta.url),
