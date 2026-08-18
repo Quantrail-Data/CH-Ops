@@ -1,11 +1,11 @@
 # Connecting a Kubernetes Cluster
 
-CHOps connects to ClickHouse® clusters running in Kubernetes. Instead of typing
+CHOps connects to ClickHouse&reg; clusters running in Kubernetes. Instead of typing
 in each host, you point it at an installation and it reads the host list from
 the cluster and keeps it current.
 
-This page covers **AKOC**, the Altinity® Kubernetes Operator for ClickHouse®.
-For the Official ClickHouse® Kubernetes Operator (OCKO), see
+This page covers **AKOC**, the Altinity&reg; Kubernetes Operator for ClickHouse&reg;.
+For the Official ClickHouse&reg; Kubernetes Operator (OCKO), see
 [Connecting a Cluster Managed by OCKO](kubernetes-ocko.md).
 
 It assumes you have not done this before. Every step says what to type, what you
@@ -39,13 +39,13 @@ CHOps makes **two separate connections**, over two separate paths:
 | Connection | For | Needs |
 |---|---|---|
 | Kubernetes API | Reading the shape of your cluster: hosts, storage, events | An address, a CA certificate, a token |
-| ClickHouse® | Queries, dashboards, alerts | A reachable address, a username, a password |
+| ClickHouse&reg; | Queries, dashboards, alerts | A reachable address, a username, a password |
 
 They are independent. One can work while the other does not, and CHOps reports
 them separately for exactly that reason.
 
 **Why this matters.** CHOps runs outside your Kubernetes cluster. Inside a
-cluster, ClickHouse® is reachable at addresses like
+cluster, ClickHouse&reg; is reachable at addresses like
 `chi-demo-main-0-0-0.demo.svc.cluster.local`. Those resolve only inside the
 cluster. From outside they mean nothing.
 
@@ -61,18 +61,18 @@ Kubernetes discovery works wherever you control the Kubernetes API.
 
 | Deployment | How | Requirement |
 |---|---|---|
-| ClickHouse® under AKOC on self-managed Kubernetes | Kubernetes discovery | Reachable API and exposed ClickHouse® |
-| ClickHouse® under AKOC on EKS, AKS or GKE | Kubernetes discovery | Same, and CHOps must be allowed past any API IP restrictions |
-| ClickHouse® under AKOC on K3s or minikube | Kubernetes discovery | For testing |
-| Altinity.Cloud® BYOK | Kubernetes discovery | The cluster is yours, so it behaves like managed Kubernetes |
+| ClickHouse&reg; under AKOC on self-managed Kubernetes | Kubernetes discovery | Reachable API and exposed ClickHouse&reg; |
+| ClickHouse&reg; under AKOC on EKS, AKS or GKE | Kubernetes discovery | Same, and CHOps must be allowed past any API IP restrictions |
+| ClickHouse&reg; under AKOC on K3s or minikube | Kubernetes discovery | For testing |
+| Altinity.Cloud&reg; BYOK | Kubernetes discovery | The cluster is yours, so it behaves like managed Kubernetes |
 
 ### Deployments that use Direct connection instead
 
 | Deployment | Why |
 |---|---|
-| ClickHouse® Cloud | Managed service. No Kubernetes API is exposed to you |
-| Altinity.Cloud® hosted | Managed service. Altinity runs the cluster, not you |
-| ClickHouse® on a VM or bare metal | No Kubernetes involved |
+| ClickHouse&reg; Cloud | Managed service. No Kubernetes API is exposed to you |
+| Altinity.Cloud&reg; hosted | Managed service. Altinity runs the cluster, not you |
+| ClickHouse&reg; on a VM or bare metal | No Kubernetes involved |
 
 These are not gaps. A managed service gives you a database endpoint and nothing
 else, so there is no Kubernetes API for CHOps to read and nothing missing when
@@ -234,7 +234,7 @@ Then `kubectl get svc -n YOUR-NAMESPACE` and look under `EXTERNAL-IP`. It can
 take a minute or two to appear.
 
 **Before you do this**, you are putting a database on the public internet.
-Restrict it with a firewall, a security group, or ClickHouse® user network
+Restrict it with a firewall, a security group, or ClickHouse&reg; user network
 rules.
 
 ### Option C: internal load balancer, recommended
@@ -311,7 +311,7 @@ one.
 
 ### Step 2 of 4: Operator and installation
 
-Choose **Altinity® Kubernetes Operator for ClickHouse® (AKOC)**. When only one
+Choose **Altinity&reg; Kubernetes Operator for ClickHouse&reg; (AKOC)**. When only one
 operator is installed CHOps pre-selects it from the test result, so usually you
 are confirming rather than choosing.
 
@@ -339,7 +339,7 @@ what keeps things working when somebody scales the cluster and new hosts appear.
 CHOps tests the credentials before saving. If they do not work it says which
 half failed and asks whether to add the cluster anyway. Adding anyway is
 reasonable: the Kubernetes screens still work, which is what you need while
-diagnosing why ClickHouse® will not answer.
+diagnosing why ClickHouse&reg; will not answer.
 
 ### Confirm it worked
 
@@ -481,8 +481,8 @@ The cluster runs in your cloud account and you have access to it, so follow
 whichever of EKS, AKS or GKE it runs on.
 
 Two differences: Altinity manages the operator, so do not change operator
-settings without talking to them; and the ClickHouse® endpoint is already
-exposed, so use the address from the Altinity.Cloud® console rather than
+settings without talking to them; and the ClickHouse&reg; endpoint is already
+exposed, so use the address from the Altinity.Cloud&reg; console rather than
 creating your own service.
 
 ---
@@ -493,7 +493,7 @@ creating your own service.
 
 Open the cluster in CHOps.
 
-- **Kubernetes screens work, queries fail.** The ClickHouse® address or the
+- **Kubernetes screens work, queries fail.** The ClickHouse&reg; address or the
   credentials. See parts 5 and 6.
 - **Queries work, Kubernetes screens fail.** The API address, certificate or
   token. Continue below.

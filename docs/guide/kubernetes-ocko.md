@@ -1,10 +1,10 @@
 # Connecting a Cluster Managed by OCKO
 
-CHOps supports two Kubernetes operators for ClickHouse®. This page covers the
-**Official ClickHouse® Kubernetes Operator (OCKO)**, published by ClickHouse
+CHOps supports two Kubernetes operators for ClickHouse&reg;. This page covers the
+**Official ClickHouse&reg; Kubernetes Operator (OCKO)**, published by ClickHouse
 Inc.
 
-For the Altinity® Kubernetes Operator for ClickHouse® (AKOC), see
+For the Altinity&reg; Kubernetes Operator for ClickHouse&reg; (AKOC), see
 [Connecting a Kubernetes Cluster](kubernetes-connect.md). Most of that page
 applies here too, so this one covers only what differs.
 
@@ -68,7 +68,7 @@ The same three things as AKOC:
 - `kubectl` working against the cluster, and permission to create service
   accounts and roles
 - Network access from CHOps to the Kubernetes API
-- A ClickHouse® endpoint CHOps can reach
+- A ClickHouse&reg; endpoint CHOps can reach
 
 Plus one thing specific to OCKO. It requires **cert-manager**, because the
 operator registers admission webhooks that need certificates. If the operator
@@ -166,7 +166,7 @@ says so.
 
 **This step has an extra field for OCKO.**
 
-Choose **Official ClickHouse® Kubernetes Operator (OCKO)** from the operator
+Choose **Official ClickHouse&reg; Kubernetes Operator (OCKO)** from the operator
 dropdown. If only one operator is installed, CHOps pre-selects it from the test
 result, so usually you are confirming rather than choosing.
 
@@ -289,10 +289,10 @@ the likely cause and it is worth telling us which operator version you moved to.
 
 ## Naming
 
-**OCKO** is the Official ClickHouse® Kubernetes Operator, published by
+**OCKO** is the Official ClickHouse&reg; Kubernetes Operator, published by
 ClickHouse Inc.
 
-**AKOC** is the Altinity® Kubernetes Operator for ClickHouse®, published by
+**AKOC** is the Altinity&reg; Kubernetes Operator for ClickHouse&reg;, published by
 Altinity Inc.
 
 CHOps supports both and is affiliated with neither. See
