@@ -90,7 +90,7 @@ function MapTable({ data, emptyLabel }) {
   );
 }
 
-export default function QueryDetailModal({ row, onClose, onKill, canKill }) {
+export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill }) {
   const toast = useToast();
   const navigate = useNavigate();
   const [openIn, setOpenIn] = useState("");
@@ -368,18 +368,18 @@ export default function QueryDetailModal({ row, onClose, onKill, canKill }) {
             <button
               className="btn btn-danger btn-sm"
               onClick={() => onKill(row, { sync: false })}
-              disabled={!canKill}
+              disabled={!canKill || !rowData}
               style={!canKill ? { opacity: 0.35, cursor: "not-allowed" } : {}}
-              title={canKill ? "Send the kill and return immediately" : "Admin access required"}
+              title={!rowData ? "Query is not available" : canKill ? "Send the kill and return immediately" : "Admin access required"}
             >
               <Icon className="ti ti-player-stop" /> Kill async
             </button>
             <button
               className="btn btn-danger btn-sm"
               onClick={() => onKill(row, { sync: true })}
-              disabled={!canKill}
+              disabled={!canKill || !rowData}
               style={!canKill ? { opacity: 0.35, cursor: "not-allowed" } : {}}
-              title={canKill ? "Wait until the query has actually stopped" : "Admin access required"}
+              title={!rowData ? "Query is not available" : canKill ? "Wait until the query has actually stopped" : "Admin access required"}
             >
               <Icon className="ti ti-player-stop" /> Kill sync
             </button>
