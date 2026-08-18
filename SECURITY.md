@@ -1,6 +1,6 @@
 # Security Policy
 
-CHOps holds ClickHouse® credentials, issues session tokens, and executes SQL on
+CHOps holds ClickHouse&reg; credentials, issues session tokens, and executes SQL on
 your behalf. We take reports about it seriously.
 
 ## Reporting a vulnerability
@@ -46,7 +46,7 @@ published from it.
 
 **Out of scope:**
 
-- Vulnerabilities in ClickHouse® itself. Report those to ClickHouse, Inc.
+- Vulnerabilities in ClickHouse&reg; itself. Report those to ClickHouse, Inc.
 - Vulnerabilities in third-party dependencies, unless CHOps uses them in a way
   that makes the impact materially worse. Dependabot covers routine updates.
 - Findings that require an attacker to already hold `superadmin` credentials, or
@@ -62,7 +62,7 @@ These are documented behaviours. They are worth knowing, and they are not
 findings:
 
 - `SESSION_SECRET` both signs session tokens and derives the key that encrypts
-  stored ClickHouse® passwords. Rotating it invalidates every stored credential.
+  stored ClickHouse&reg; passwords. Rotating it invalidates every stored credential.
 - Rate limiting keys on `req.ip`. Behind a reverse proxy you must set
   `TRUST_PROXY` to the number of proxies in front of CHOps, or every client
   shares one bucket. We do not trust `X-Forwarded-For` by default because a
