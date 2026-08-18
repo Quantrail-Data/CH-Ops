@@ -165,9 +165,6 @@ describe("runQuery", () => {
     const res = createRes();
 
     await runQuery(req, res);
-    console.log(res)
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), 200);
 
     expect(mockExecuteQuery).toHaveBeenCalledWith({
       host: "node1",
@@ -181,7 +178,6 @@ describe("runQuery", () => {
       // controller passes has to appear here.
       params: {},
       settings: {},
-      signal: controller.signal,
     });
 
     expect(res.statusCode).toBe(200);
@@ -212,8 +208,6 @@ describe("runQuery", () => {
       },
       on:() => true
     };
-        const controller = new AbortController();
-    setTimeout(() => controller.abort(), 200);
 
     const res = createRes();
 
@@ -229,7 +223,6 @@ describe("runQuery", () => {
       readOnly: false,
       params: {},
       settings: {},
-      signal:controller.signal,
     });
   });
 

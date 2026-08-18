@@ -37,6 +37,7 @@ export default function SortableDataTable({
   selectedKeys,
   onSelectionChange,
   onRowClick,
+  onClickSetData,
   activeKey,
 }) {
   const scrollRef = useRef(null);
@@ -133,17 +134,18 @@ export default function SortableDataTable({
                 textAlign: col.numeric ? "right" : "left",
                 userSelect: "none",
                 whiteSpace: "nowrap",
-                color: state ? "var(--accent)" : undefined,
+                color: state ? "var(--accent)" : undefined 
               }}
               title={col.sortable ? `Sort by ${col.label.toLowerCase()}` : undefined}
               aria-sort={state === "asc" ? "ascending" : state === "desc" ? "descending" : undefined}
             >
               <span
                 style={{
-                  display: "inline-flex",
+                  display: "flex",
                   alignItems: "center",
+                  justifyContent: col.numeric ? "flex-end" : "flex-start",
                   gap: 4,
-                  flexDirection: col.numeric ? "row-reverse" : "row",
+                  width: "100%",
                 }}
               >
                 {col.label}
@@ -160,7 +162,7 @@ export default function SortableDataTable({
   if (!rows.length) {
     return (
       <div className={wrapClass} style={{ minHeight: 80 }}>
-        <table className="data-table">
+        <table className="data-table" >
           {header}
           <tbody></tbody>
         </table>
@@ -200,7 +202,9 @@ export default function SortableDataTable({
                 key={key ?? index}
                 data-index={index}
                 ref={virtualize && !unmeasured ? virtualizer.measureElement : undefined}
-                onClick={() => onRowClick && onRowClick(row)}
+                onClick={() => {
+                  if(onRowClick) onRowClick(row); 
+                  if(onClickSetData) onClickSetData(row)}}
                 onMouseEnter={() => setHoverKey(key)}
                 onMouseLeave={() => setHoverKey(null)}
                 style={{
