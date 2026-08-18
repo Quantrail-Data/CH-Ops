@@ -8,22 +8,22 @@ to guess.
 
 ## Attribution
 
-**ClickHouse®** is a registered trademark of ClickHouse, Inc.
+**ClickHouse&reg;** is a registered trademark of ClickHouse, Inc.
 
-**Altinity®**, **Altinity.Cloud®** and **Altinity Stable®** are registered
+**Altinity&reg;**, **Altinity.Cloud&reg;** and **Altinity Stable&reg;** are registered
 trademarks of Altinity Inc.
 
-**Kubernetes®** is a registered trademark of The Linux Foundation.
+**Kubernetes&reg;** is a registered trademark of The Linux Foundation.
 
-The **Official ClickHouse® Kubernetes Operator** is published by ClickHouse,
-Inc. The **Altinity® Kubernetes Operator for ClickHouse®** is published by
+The **Official ClickHouse&reg; Kubernetes Operator** is published by ClickHouse,
+Inc. The **Altinity&reg; Kubernetes Operator for ClickHouse&reg;** is published by
 Altinity Inc.
 
 CHOps is not affiliated with, endorsed by, or sponsored by any of them. These
 names appear here only to identify the software CHOps works with, which is
 nominative use and the only reason they appear at all.
 
-CHOps® and Quantrail™ are marks of Quantrail Data Private Limited.
+CHOps&reg; and Quantrail&trade; are marks of Quantrail Data Private Limited.
 
 ---
 
@@ -32,9 +32,9 @@ CHOps® and Quantrail™ are marks of Quantrail Data Private Limited.
 Two operators are supported, and each has an abbreviation used throughout the
 codebase in file names, function names and variables.
 
-**AKOC** is the Altinity® Kubernetes Operator for ClickHouse®.
+**AKOC** is the Altinity&reg; Kubernetes Operator for ClickHouse&reg;.
 
-**OCKO** is the Official ClickHouse® Kubernetes Operator.
+**OCKO** is the Official ClickHouse&reg; Kubernetes Operator.
 
 
 | Context | Use |
@@ -42,8 +42,8 @@ codebase in file names, function names and variables.
 | File names | `akoc.js`, `ocko.js`, `akocProvider.test.js` |
 | Function names | `createAkocProvider` |
 | Code comments, after first mention | AKOC |
-| First mention in a file header | Altinity® Kubernetes Operator for ClickHouse® |
-| User-facing text, first mention | Altinity® Kubernetes Operator for ClickHouse® |
+| First mention in a file header | Altinity&reg; Kubernetes Operator for ClickHouse&reg; |
+| User-facing text, first mention | Altinity&reg; Kubernetes Operator for ClickHouse&reg; |
 | User-facing text, later mentions | AKOC, or "the operator" |
 
 What we never do is use `Altinity` as an identifier we own. A file called
