@@ -1,7 +1,6 @@
 # Setting Up a Test Cluster
 
-A two replica ClickHouse cluster on K3s, running under AKOC, the Altinity® Kubernetes Operator for ClickHouse®.
-This is what you connect CHOps to while testing.
+A two-replica ClickHouse&reg; cluster on K3s, running under AKOC, the Altinity&reg; Kubernetes Operator for ClickHouse&reg;. This is what you connect CHOps to while you test.
 
 **Time:** about twenty minutes, most of it waiting.
 **You need:** a Linux machine, or a Mac or Windows machine with Docker.
@@ -18,15 +17,14 @@ Every command here is safe to run on a laptop. Nothing touches anything real.
 curl -sfL https://get.k3s.io | sh -
 ```
 
-K3s writes its configuration to a file only root can read, so make it readable
-and tell your shell where it is:
+K3s writes its configuration to a file only root can read, so make it readable and tell your shell where it is:
 
 ```bash
 sudo chmod 644 /etc/rancher/k3s/k3s.yaml
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 ```
 
-To avoid retyping that in every new terminal:
+To avoid a retype of that in every new terminal:
 
 ```bash
 echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc
@@ -34,8 +32,7 @@ echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc
 
 ### On Mac or Windows
 
-K3s only runs on Linux. Install Docker, then k3d, which runs K3s inside a
-container:
+K3s only runs on Linux. Install Docker, then k3d, which runs K3s inside a container:
 
 ```bash
 # Mac
@@ -62,22 +59,19 @@ NAME        STATUS   ROLES                  AGE   VERSION
 mymachine   Ready    control-plane,master   1m    v1.31.4+k3s1
 ```
 
-**`Ready` is the word that matters.** If it says `NotReady`, wait thirty seconds
-and run it again.
+**`Ready` is the word that matters.** If it says `NotReady`, wait thirty seconds and run it again.
 
 ---
 
 ## Step 2: Install AKOC
 
-The operator is the program that turns a ClickHouse installation description
-into actual running pods. CHOps reads what it creates.
+The operator is the program that turns a ClickHouse&reg; installation description into actual running pods. CHOps reads what it creates.
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/Altinity/clickhouse-operator/master/deploy/operator/clickhouse-operator-install-bundle.yaml
 ```
 
-That prints a long list of things it created. Wait for the operator itself to
-start:
+That prints a long list of things it created. Wait for the operator itself to start:
 
 ```bash
 kubectl -n kube-system get pods | grep clickhouse-operator
@@ -87,8 +81,7 @@ kubectl -n kube-system get pods | grep clickhouse-operator
 clickhouse-operator-5b8c9d7f4-x2kqp   2/2   Running   0   45s
 ```
 
-**Wait for `Running` and `2/2`.** The operator runs two containers, and until
-both are up it will not act on anything you create.
+**Wait for `Running` and `2/2`.** The operator runs two containers, and until both are up it will not act on anything you create.
 
 ---
 
@@ -135,19 +128,11 @@ EOF
 
 ### What that says, in plain terms
 
-**Two replicas, one shard.** Two copies of the same data rather than the data
-split in half. Two replicas is the minimum that makes the interesting screens
-worth looking at: a topology grid with something in it, a rotation check that
-can disagree between hosts, and the ON CLUSTER banner.
+**Two replicas, one shard.** Two copies of the same data, rather than the data split in half. Two replicas is the minimum that makes the interesting screens worth a look: a topology grid with something in it, a rotation check that can disagree between hosts, and the ON CLUSTER banner.
 
-**A user called `chops`.** Not `default`, and that is deliberate. The operator
-locks the `default` user to the cluster's own pods, so connecting as `default`
-from outside is refused, and the refusal looks exactly like a wrong password.
-Using a separate user avoids an hour of confusion. You will test that behaviour
-on purpose later.
+**A user called `chops`.** Not `default`, and that is deliberate. The operator locks the `default` user to the cluster's own pods, so a connection as `default` from outside is refused, and the refusal looks exactly like a wrong password. A separate user avoids an hour of confusion. You will test that behavior on purpose later.
 
-**`networks/ip: "::/0"`** means the user may connect from anywhere. Fine for a
-laptop, wrong for anything real.
+**`networks/ip: "::/0"`** means the user may connect from anywhere. Fine for a laptop, wrong for anything real.
 
 **1Gi volumes.** Small. You are not putting data in this.
 
@@ -163,11 +148,9 @@ demo   1          2       InProgress   10s
 demo   1          2       Completed    75s
 ```
 
-Press Ctrl-C when it says `Completed`. That usually takes a minute or two, most
-of which is pulling the ClickHouse image the first time.
+Press Ctrl-C when it says `Completed`. That usually takes a minute or two, most of which is a pull of the ClickHouse&reg; image the first time.
 
-If it stays `InProgress` for more than five minutes, jump to Troubleshooting at
-the end.
+If it stays `InProgress` for more than five minutes, jump to Troubleshooting at the end.
 
 ### Look at what was created
 
@@ -189,18 +172,15 @@ NAME                                    STATUS   CAPACITY
 persistentvolumeclaim/data-chi-demo...   Bound    1Gi
 ```
 
-Two pods, one per replica. The operator creates one StatefulSet per host, which
-is why the pod names all end in `-0`.
+Two pods, one per replica. The operator creates one StatefulSet per host, which is why the pod names all end in `-0`.
 
-The name `chi-demo-main-0-0-0` reads as installation `demo`, cluster `main`,
-shard `0`, replica `0`, pod `0`.
+The name `chi-demo-main-0-0-0` reads as installation `demo`, cluster `main`, shard `0`, replica `0`, pod `0`.
 
 ---
 
 ## Step 4: Make ClickHouse reachable
 
-CHOps runs outside the cluster, so it cannot use the internal addresses above.
-For testing, a port forward is the simplest way in.
+CHOps runs outside the cluster, so it cannot use the internal addresses above. For testing, a port forward is the simplest way in.
 
 **Open a new terminal and leave this running:**
 
@@ -212,7 +192,7 @@ kubectl port-forward -n chtest service/clickhouse-demo 8123:8123
 Forwarding from 127.0.0.1:8123 -> 8123
 ```
 
-Do not close that terminal. Everything stops working when you do.
+Do not close that terminal. Everything stops when you do.
 
 **Check it from another terminal:**
 
@@ -232,8 +212,10 @@ curl "http://localhost:8123/?user=chops&password=chops-test-password" \
 ```
 
 ```
-chi-demo-main-0-0-0    24.8.14.10459
+chi-demo-main-0-0-0    26.3.1.1
 ```
+
+CHOps needs ClickHouse&reg; 26.3 or newer. The version shown here comes from whatever image the Altinity&reg; operator pulled, and your build number will differ. If the reported version is older than 26.3, pin a 26.3-or-newer ClickHouse&reg; image in the installation before you connect CHOps.
 
 If both of those work, you are ready to point CHOps at it.
 
@@ -241,7 +223,7 @@ If both of those work, you are ready to point CHOps at it.
 
 | Field | Value |
 |---|---|
-| ClickHouse address | `localhost` |
+| ClickHouse&reg; address | `localhost` |
 | Port | `8123` |
 | TLS | disabled |
 | Username | `chops` |
@@ -255,8 +237,7 @@ If both of those work, you are ready to point CHOps at it.
 
 ### Scale the cluster
 
-The interesting screens only do something when the cluster changes. Add a third
-replica:
+The interesting screens only do something when the cluster changes. Add a third replica:
 
 ```bash
 kubectl patch chi demo -n chtest --type=merge \
@@ -278,8 +259,7 @@ kubectl patch chi demo -n chtest --type=merge \
 
 ### Restart a pod
 
-Useful for testing whether the topology screen notices a host going out of
-rotation.
+Useful to test whether the topology screen notices a host going out of rotation.
 
 ```bash
 kubectl delete pod -n chtest chi-demo-main-0-1-0
@@ -289,13 +269,13 @@ Kubernetes starts a replacement within seconds.
 
 ### Make a pod crash
 
-For testing the previous-container log read:
+To test the previous-container log read:
 
 ```bash
 kubectl exec -n chtest chi-demo-main-0-0-0 -- kill 1
 ```
 
-That stops ClickHouse. The pod restarts, and its restart count goes up:
+That stops ClickHouse&reg;. The pod restarts, and its restart count goes up:
 
 ```bash
 kubectl get pods -n chtest
@@ -303,8 +283,7 @@ kubectl get pods -n chtest
 
 ### Turn on troubleshoot mode
 
-This disables the operator's health probes, which changes what every readiness
-indicator means:
+This disables the operator's health probes, which changes what every readiness indicator means:
 
 ```bash
 kubectl patch chi demo -n chtest --type=merge -p '{"spec":{"troubleshoot":"yes"}}'
@@ -342,7 +321,7 @@ kubectl logs -n chtest chi-demo-main-0-0-0 --previous --tail=50
 kubectl exec -it -n chtest chi-demo-main-0-0-0 -- clickhouse-client
 ```
 
-Useful for checking what CHOps should be seeing:
+Useful to check what CHOps should be seeing:
 
 ```sql
 SELECT cluster, shard_num, replica_num, host_name FROM system.clusters;
@@ -372,11 +351,9 @@ kubectl describe pod -n chtest chi-demo-main-0-0-0 | tail -20
 
 The bottom of that output lists events, which almost always name the problem.
 
-**`ImagePullBackOff`** means it cannot download ClickHouse. Check your internet
-connection; the first pull is a few hundred megabytes.
+**`ImagePullBackOff`** means it cannot download ClickHouse&reg;. Check your internet connection. The first pull is a few hundred megabytes.
 
-**`Pending`** with a message about volumes means storage is not being
-provisioned. On K3s this should work out of the box:
+**`Pending`** with a message about volumes means storage is not being provisioned. On K3s this should work out of the box:
 
 ```bash
 kubectl get storageclass
@@ -384,14 +361,13 @@ kubectl get storageclass
 
 You should see `local-path` marked as default.
 
-**`CrashLoopBackOff`** means ClickHouse starts and immediately stops. Read the
-logs:
+**`CrashLoopBackOff`** means ClickHouse&reg; starts and immediately stops. Read the logs:
 
 ```bash
 kubectl logs -n chtest chi-demo-main-0-0-0 --previous
 ```
 
-### Nothing happens after applying the installation
+### Nothing happens after you apply the installation
 
 The operator is probably not running:
 
@@ -403,22 +379,18 @@ If it is missing, the install in Step 2 did not work. Run it again.
 
 ### Port forward keeps dying
 
-It stops when the pod it connects through restarts. Just run it again. For
-something more durable, use a NodePort instead:
+It stops when the pod it connects through restarts. Just run it again. For something more durable, use a NodePort instead:
 
 ```bash
 kubectl patch svc clickhouse-demo -n chtest -p '{"spec":{"type":"NodePort"}}'
 kubectl get svc clickhouse-demo -n chtest
 ```
 
-The output shows a port in the 30000s. Connect to your machine's address on that
-port instead of `localhost:8123`.
+The output shows a port in the 30000s. Connect to your machine's address on that port instead of `localhost:8123`.
 
 ### Authentication failed
 
-You almost certainly used `default` rather than `chops`. The operator restricts
-`default` to the cluster's own pods, and the rejection is indistinguishable from
-a wrong password.
+You almost certainly used `default` rather than `chops`. The operator restricts `default` to the cluster's own pods, and the rejection is indistinguishable from a wrong password.
 
 Check the user exists:
 
@@ -441,28 +413,23 @@ Wait a minute, then repeat Step 3.
 
 ## Two things this cluster cannot test
 
-Worth knowing so you do not chase them as bugs.
+Worth knowing, so you do not chase them as bugs.
 
-**Volume expansion.** K3s provisions storage with local-path, which does not
-support growing a volume. CHOps will correctly report that volumes cannot be
-expanded. If you want to exercise that path, install Longhorn:
+**Volume expansion.** K3s provisions storage with local-path, which does not support a growth of a volume. CHOps will correctly report that volumes cannot be expanded. If you want to exercise that path, install Longhorn (or a current release):
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/deploy/longhorn.yaml
 ```
 
-Then set `storageClassName: longhorn` in the volume claim template and recreate
-the installation.
+Then set `storageClassName: longhorn` in the volume claim template and recreate the installation.
 
-**Pagination.** Four pods is nowhere near the 500 item page size, so a bug in
-handling the continuation cursor cannot show up here. That test needs 600 dummy
-pods created deliberately, and it is described in the implementation guide.
+**Pagination.** Four pods is nowhere near the 500-item page size, so a bug in the handling of the continuation cursor cannot show up here. That test needs 600 dummy pods created deliberately, and it is described in the implementation guide.
 
 ---
 
 ## Cleaning up
 
-Remove the ClickHouse cluster but keep Kubernetes:
+Remove the ClickHouse&reg; cluster but keep Kubernetes:
 
 ```bash
 kubectl delete namespace chtest
