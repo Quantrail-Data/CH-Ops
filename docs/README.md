@@ -7,7 +7,7 @@ CHOps is a web-based administration and monitoring dashboard for ClickHouse&reg;
 CHOps connects to your ClickHouse&reg; cluster over the HTTP interface and provides the following capabilities:
 
 - Real-time cluster health monitoring with automatic refresh
-- Kubernetes insights for clusters run under the Altinity&reg; Kubernetes Operator for ClickHouse&reg; (AKOC) or OCKO
+- Kubernetes insights for clusters run under the Altinity&reg; Kubernetes Operator for ClickHouse&reg; (AKOC) or Official ClickHouse&reg; Kubernetes Operator (OCKO)
 - Query management, including running queries, analytics, and query-log search
 - Deep query analysis: a flame-graph query profiler, a processors pipeline view, per-query metric timelines, and side-by-side query comparison
 - Table and part inspection with compression statistics
