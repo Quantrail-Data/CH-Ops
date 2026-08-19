@@ -10,6 +10,9 @@ import { createAkocProvider } from './k8s/akoc.js';
 import { createOckoProvider } from './k8s/ocko.js';
 import { discoverVersion, OCKO_GROUP } from './k8s/ockoPaths.js';
 import { K8S_ERROR } from './k8s/errors.js';
+import { resolveNodeAddresses, ADDRESSING, RESOLUTION } from './k8s/addressing.js';
+
+export { ADDRESSING, RESOLUTION };
 
 // Everything CHOps reads, expressed the way SelfSubjectRulesReview reports it
 const REQUIRED_PERMISSIONS = [
@@ -280,4 +283,36 @@ export async function readInstallationHosts(connectionId, namespace, installatio
       podName: h.podName,
       secure: false,
     }));
+}
+
+
+// Same as readInstallationHosts, but also decides how each pod should be
+// reached. Returns { nodes, resolution, perNodeAccurate }.
+export async function readInstallationAddresses({
+  connectionId,
+  namespace,
+  installation,
+  operator = 'akoc',
+  endpoint,
+  port,
+  secure,
+  user,
+  password,
+  mode,
+}) {
+  const { client } = providerFor(connectionId, operator);
+  const nodes = await readInstallationHosts(connectionId, namespace, installation, operator);
+  if (!nodes.length) return { nodes: [], resolution: null, perNodeAccurate: false };
+
+  return resolveNodeAddresses({
+    client,
+    namespace,
+    nodes,
+    endpoint,
+    port,
+    secure,
+    user,
+    password,
+    mode,
+  });
 }

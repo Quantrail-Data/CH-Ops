@@ -106,7 +106,7 @@ const swiperDatas = [
 ];
 
 const OTP_Component = ({ setFormStatus }) => {
-  const [otp, setOpt] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
@@ -140,7 +140,11 @@ const OTP_Component = ({ setFormStatus }) => {
           email
         })
       });
+      console.log(res)
       if (res?.success) {
+        // sessionStorage, not localStorage: this is a credential and it should
+        // disappear when the tab closes rather than persist on disk.
+        sessionStorage.setItem("otp-reset-token", res.resetToken);
         setFormStatus("forget-change")
       }
     }
@@ -198,8 +202,8 @@ const OTP_Component = ({ setFormStatus }) => {
           {/* <label className="form-label">Email-ID</label> */}
           <OtpInput
             value={otp}
-            onChange={setOpt}
-            numInputs={5}
+            onChange={setOtp}
+            numInputs={6}
             inputType="tel"
             renderSeparator={<span> </span>}
             renderInput={(props) => (
@@ -282,9 +286,15 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch("/api/forget-password/change/password", { method: "POST", body: JSON.stringify({ password: passwords?.confirmPassword, email: localStorage?.getItem("otp-mail") }) })
+      const res = await apiFetch("/api/forget-password/change/password", {
+        method: "POST", body: JSON.stringify({
+          password: passwords?.confirmPassword,
+          resetToken: sessionStorage.getItem("otp-reset-token"),
+        })
+      })
       if (res?.success) {
         localStorage.removeItem("otp-mail");
+        sessionStorage.removeItem("otp-reset-token");
         setFormStatus("login")
       }
     }
@@ -553,7 +563,7 @@ export default function LoginPage() {
     try {
       const res = await apiFetch("/api/forget-password/email/verify", { method: "POST", body: JSON.stringify({ email: verfiyEmail }) })
       if (res?.success) {
-        localStorage?.setItem("otp-mail", res?.email);
+        localStorage?.setItem("otp-mail", verfiyEmail);
         setFormStatus("forget-otp");
         Toast?.success("OTP generated!")
 

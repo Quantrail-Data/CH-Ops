@@ -9,11 +9,19 @@
 # --- Stage 1: Build ---
 FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /app
+# .env.example always matches, so the glob succeeds and the check below reports why
+
 # Install dependencies first (cached unless package.json changes)
 COPY package.json bun.lock* ./
+# patchedDependencies points here, so it must land before install, not with COPY . .
+COPY patches ./patches
 RUN bun install --frozen-lockfile
 # Copy source and build the frontend
 COPY . .
+# App version, passed by the release pipeline. When it is empty, resolveVersion()
+# reads version.json instead, so a plain "docker build" still shows a real version.
+ARG VERSION=""
+ENV VERSION=${VERSION}
 RUN bun run build
 # Remove dev dependencies after build
 RUN rm -rf node_modules && bun install --frozen-lockfile --production

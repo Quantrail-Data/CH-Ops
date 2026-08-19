@@ -14,6 +14,8 @@ import {
   listInstallations,
   getInstallation,
   importInstallation,
+  verifyClusterConnection,
+  reresolveCluster,
   refreshCluster,
 } from '../controllers/k8s.js';
 import {
@@ -52,6 +54,8 @@ router.post('/import', requireAdmin, importInstallation);
 
 // Manual refresh re-reads the host list.
 router.post('/clusters/:id/refresh', refreshCluster);
+router.post('/clusters/:id/reresolve', requireAdmin, reresolveCluster);
+router.post('/clusters/verify', requireAdmin, verifyClusterConnection);
 
 // Insight.
 router.get('/insight/:clusterId/topology', getTopology);

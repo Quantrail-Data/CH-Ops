@@ -107,6 +107,7 @@ router.post("/estimate", async (req, res) => {
       sql: `EXPLAIN ESTIMATE ${normalizeForExport(sql)}`,
       readOnly: true,
       noResultLimit: true,
+      timeoutMs: 10000,
     });
     answer.rows = (est.rows || []).reduce((sum, r) => sum + Number(r.rows || 0), 0);
   } catch {
@@ -115,6 +116,7 @@ router.post("/estimate", async (req, res) => {
         ...target,
         sql: `${wrapForCount(sql)} SETTINGS max_execution_time = 20`,
         readOnly: true,
+        timeoutMs: 10000,
         noResultLimit: true,
       });
       answer.rows = Number(counted.rows?.[0]?.c || 0);
@@ -170,6 +172,7 @@ router.post("/jobs", (req, res) => {
   try {
     const job = createJob({
       username: req.user?.username,
+      jti: req.user.jti,
       sql,
       format,
       compression: compression || "none",

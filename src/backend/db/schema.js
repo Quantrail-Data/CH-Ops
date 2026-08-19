@@ -187,6 +187,7 @@ export const clusters = sqliteTable("cluster", {
   chPasswordEnc: text("ch_password_enc"),
   port: integer("port"),
   secure: integer("secure", { mode: "boolean" }).notNull().default(false),
+  endpoint: text("endpoint"),
 
   // Set only when kind is 'k8s'.
   k8sConnectionId: text("k8s_connection_id"),
@@ -241,6 +242,23 @@ export const k8sConnections = sqliteTable("k8s_connection", {
 
   // Result of the hostName() probe: whether two queries on one connection reach the same
   affinityOk: integer("affinity_ok", { mode: "boolean" }),
+
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+});
+
+export const trustedCas = sqliteTable("trusted_ca", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  pem: text("pem").notNull(),
+
+  // Parsed once when saved, so the list can be shown without re-parsing every
+  // certificate on every page load.
+  subject: text("subject"),
+  issuer: text("issuer"),
+  fingerprint: text("fingerprint"),
+  notBefore: text("not_before"),
+  notAfter: text("not_after"),
 
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),

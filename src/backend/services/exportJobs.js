@@ -64,7 +64,7 @@ export function safeFileName(input, fallback) {
 
 
 export function createJob({
-  username, sql, format, compression, settings, filename, bom,
+  username, jti,sql, format, compression, settings, filename, bom,
   node, estimatedBytes, creds,
 }) {
   const fmt = findFormat(format);
@@ -102,6 +102,7 @@ export function createJob({
   const job = {
     id,
     userId: username,
+    jti,
     state: "running",
     createdAt: Date.now(),
     lastActivityAt: Date.now(),
@@ -249,7 +250,15 @@ export function cancelJobsForUser(username) {
   }
 }
 
-
+// Called when a token is revoked, which is what logging out does. A running
+// export holds decrypted ClickHouse credentials for its whole life, so it
+// should not outlive the session that started it.
+export function cancelJobsForJti(jti) {
+  if (!jti) return;
+  for (const job of [...jobs.values()]) {
+    if (job.jti === jti) cancelJob(job.id, job.userId);
+  }
+}
 
 const tickets = new Map();
 
@@ -262,10 +271,10 @@ export function issueTicket(job) {
 export function redeemTicket(ticket) {
   const found = tickets.get(ticket);
   if (!found) return null;
-  if (found.expiresAt < Date.now()) {
-    tickets.delete(ticket);
-    return null;
-  }
+  // Single use. The old code only deleted expired tickets, so a valid one
+  // worked repeatedly for its whole 60 second life.
+  tickets.delete(ticket);
+  if (found.expiresAt < Date.now()) return null;
   const job = jobs.get(found.jobId);
   if (!job || job.state !== "ready") return null;
   return job;

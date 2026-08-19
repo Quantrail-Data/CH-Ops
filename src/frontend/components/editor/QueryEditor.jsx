@@ -67,6 +67,7 @@ import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
+const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS ?? "aiselectedid";
 
 // Query history - stored in localStorage, capped at 100 entries
 const HISTORY_KEY = "chops_query_history";
@@ -1667,7 +1668,7 @@ export default function QueryEditor({
   }
 
 
-   function IsSelectedAiID() {
+  function IsSelectedAiID() {
     const find = AIdbsInfo?.filter((_v) => _v?.isSelected);
     return find?.length > 0 ? true : false;
   }
@@ -1690,8 +1691,8 @@ export default function QueryEditor({
             overflow: "hidden",
           }}
         >
-          <div style={{ flex: 1,overflowY:"auto"}}>
-            <div className="editor-sidebar-header" style={{width:"100%"}}>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <div className="editor-sidebar-header" style={{ width: "100%" }}>
               <Icon className="ti ti-database"></Icon> Explorer
               <button
                 className="btn btn-ghost btn-sm"
@@ -1705,143 +1706,143 @@ export default function QueryEditor({
                 <Icon className="ti ti-refresh"></Icon>
               </button>
             </div>
-           <div style={{ flex: 1 ,overflowY: "auto",height:"93%"}}>
+            <div style={{ flex: 1, overflowY: "auto", height: "93%" }}>
               {!editorConnected ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "28px 16px",
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                  fontSize: "13px",
-                }}
-              >
-                <Icon
-                  className="ti ti-lock"
-                  style={{ fontSize: 22, opacity: 0.6 }}
-                ></Icon>
-                <span>Connect to browse databases.</span>
-              </div>
-            ) : (
-              dbs.map((db) => (
-                <div key={db} style={{ display: "flex" }}>
-                  <div
-                    style={{
-                      marginLeft: "5px",
-                      paddingTop: "6px",
-                      display: "flex",
-                      alignItems: "start",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <AIKeyButton
-                      dbdetails={isFindDatabase(db)}
-                      dataSelectionHandler={dataSelectionHandler}
-                      connectDatabaseID={connectDatabaseID}
-                    />
-                  </div>
-
-                  <div style={{ width: "100%" }}>
-                    <div
-                      className={
-                        "editor-db-item" + (selectedDb === db ? " active" : "")
-                      }
-                      onClick={() =>
-                        setSelectedDb(selectedDb === db ? null : db)
-                      }
-                    >
-                      <Icon
-                        className={
-                          "ti ti-chevron-" +
-                          (selectedDb === db ? "down" : "right")
-                        }
-                        style={{ fontSize: 14, opacity: 0.5 }}
-                      ></Icon>
-                      <Icon className="ti ti-database-import"></Icon>
-                      <span style={{ flex: 1, fontSize: "12px" }}>{db}</span>
-                    </div>
-                    {selectedDb === db && (
-                      <div
-                        style={{
-                          borderLeft: "2px solid var(--accent-border)",
-                          marginLeft: 14,
-                        }}
-                      >
-                        {tablesLoading ? (
-                          <div
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: "13px",
-                              color: "var(--text-secondary)",
-                            }}
-                          >
-                            <span
-                              className="loading-spinner"
-                              style={{
-                                width: 12,
-                                height: 12,
-                                display: "inline-block",
-                                verticalAlign: "middle",
-                                marginRight: 6,
-                              }}
-                            ></span>{" "}
-                            Loading...
-                          </div>
-                        ) : tables.length === 0 ? (
-                          <div
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: "13px",
-                              color: "var(--text-muted)",
-                            }}
-                          >
-                            No tables
-                          </div>
-                        ) : (
-                          tables.map((t) => (
-                            <div
-                              key={t.name}
-                              className="editor-table-item"
-                              title={`${t.name} (${t.engine})`}
-                            >
-                              <Icon
-                                className={"ti " + engineIcon(t.engine)}
-                              ></Icon>
-                              <span
-                                style={{ flex: 1, cursor: "pointer" }}
-                                onClick={() =>
-                                  insertText(selectedDb + "." + t.name + " ")
-                                }
-                              >
-                                {t.name}
-                              </span>
-                              <Icon
-                                className="ti ti-code"
-                                title="View DDL"
-                                style={{
-                                  fontSize: 14,
-                                  cursor: "pointer",
-                                  opacity: 0.5,
-                                  flexShrink: 0,
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  showDdl(selectedDb, t.name);
-                                }}
-                              ></Icon>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "28px 16px",
+                    textAlign: "center",
+                    color: "var(--text-muted)",
+                    fontSize: "13px",
+                  }}
+                >
+                  <Icon
+                    className="ti ti-lock"
+                    style={{ fontSize: 22, opacity: 0.6 }}
+                  ></Icon>
+                  <span>Connect to browse databases.</span>
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                dbs.map((db) => (
+                  <div key={db} style={{ display: "flex" }}>
+                    <div
+                      style={{
+                        marginLeft: "5px",
+                        paddingTop: "6px",
+                        display: "flex",
+                        alignItems: "start",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <AIKeyButton
+                        dbdetails={isFindDatabase(db)}
+                        dataSelectionHandler={dataSelectionHandler}
+                        connectDatabaseID={connectDatabaseID}
+                      />
+                    </div>
+
+                    <div style={{ width: "100%" }}>
+                      <div
+                        className={
+                          "editor-db-item" + (selectedDb === db ? " active" : "")
+                        }
+                        onClick={() =>
+                          setSelectedDb(selectedDb === db ? null : db)
+                        }
+                      >
+                        <Icon
+                          className={
+                            "ti ti-chevron-" +
+                            (selectedDb === db ? "down" : "right")
+                          }
+                          style={{ fontSize: 14, opacity: 0.5 }}
+                        ></Icon>
+                        <Icon className="ti ti-database-import"></Icon>
+                        <span style={{ flex: 1, fontSize: "12px" }}>{db}</span>
+                      </div>
+                      {selectedDb === db && (
+                        <div
+                          style={{
+                            borderLeft: "2px solid var(--accent-border)",
+                            marginLeft: 14,
+                          }}
+                        >
+                          {tablesLoading ? (
+                            <div
+                              style={{
+                                padding: "8px 12px",
+                                fontSize: "13px",
+                                color: "var(--text-secondary)",
+                              }}
+                            >
+                              <span
+                                className="loading-spinner"
+                                style={{
+                                  width: 12,
+                                  height: 12,
+                                  display: "inline-block",
+                                  verticalAlign: "middle",
+                                  marginRight: 6,
+                                }}
+                              ></span>{" "}
+                              Loading...
+                            </div>
+                          ) : tables.length === 0 ? (
+                            <div
+                              style={{
+                                padding: "8px 12px",
+                                fontSize: "13px",
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              No tables
+                            </div>
+                          ) : (
+                            tables.map((t) => (
+                              <div
+                                key={t.name}
+                                className="editor-table-item"
+                                title={`${t.name} (${t.engine})`}
+                              >
+                                <Icon
+                                  className={"ti " + engineIcon(t.engine)}
+                                ></Icon>
+                                <span
+                                  style={{ flex: 1, cursor: "pointer" }}
+                                  onClick={() =>
+                                    insertText(selectedDb + "." + t.name + " ")
+                                  }
+                                >
+                                  {t.name}
+                                </span>
+                                <Icon
+                                  className="ti ti-code"
+                                  title="View DDL"
+                                  style={{
+                                    fontSize: 14,
+                                    cursor: "pointer",
+                                    opacity: 0.5,
+                                    flexShrink: 0,
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showDdl(selectedDb, t.name);
+                                  }}
+                                ></Icon>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
           <button
             className="sidebar-toggle"
