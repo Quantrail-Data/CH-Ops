@@ -132,6 +132,7 @@ export default function CurrentQueries() {
   const [selectedKeys, setSelectedKeys] = useState(new Set());
   const [vanished, setVanished] = useState(0);
   const [activeRow, setActiveRow] = useState(null);
+  const [activeRowModal, setActiveRowModal] = useState(null);
   const [killTargets, setKillTargets] = useState(null);
   const [killScope, setKillScope] = useState("");
   const [killSync, setKillSync] = useState(false);
@@ -620,6 +621,7 @@ export default function CurrentQueries() {
         selectedKeys={selectedKeys}
         onSelectionChange={setSelectedKeys}
         onRowClick={setActiveRow}
+        onClickSetData = {setActiveRowModal}
         activeKey={activeRow?.query_id}
         emptyMessage={
           loading
@@ -640,10 +642,11 @@ export default function CurrentQueries() {
         {frozen && <span>auto refresh off</span>}
       </div>
 
-      {activeRow && (
+      {activeRowModal && (
         <QueryDetailModal
-          row={activeRow}
-          onClose={() => setActiveRow(null)}
+          row={activeRowModal}
+          rowData = {activeRow}
+          onClose={() =>{ setActiveRow(null); setActiveRowModal(null);}}
           canKill={isAdmin}
           onKill={(row, opts) => openKill([row], "", opts)}
         />

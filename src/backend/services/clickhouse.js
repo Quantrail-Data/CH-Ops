@@ -3,6 +3,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { isDataQuery as sqlIsDataQuery, leadingKeyword } from '../../shared/sqlClassify.js';
+import { getCaBundle } from './trustedCa.js';
 
 function validateClickHouseHost(host) {
   if (typeof host !== 'string') {
@@ -56,11 +57,42 @@ export async function executeQuery({ host, port = 8123, secure = false, user = '
 
   const fullSql = isDataQuery && !isExplainRaw ? trimmed + '\nFORMAT JSONEachRow' : trimmed;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
-    body: fullSql,
-  });
+  const controller = timeoutMs != null ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  // Both, when both exist. AbortSignal.any fires on whichever comes first.
+  let abortSignal;
+  if (signal && controller) abortSignal = AbortSignal.any([signal, controller.signal]);
+  else if (signal) abortSignal = signal;
+  else if (controller) abortSignal = controller.signal;
+
+  let res;
+  try {
+    // Certificates the operator has told us to trust. Supplying them adds to the system list rather than replacing it,
+    // so a cluster with a publicly signed certificate is unaffected. 
+    const caBundle = getCaBundle();
+
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
+      body: fullSql,
+      signal: abortSignal,
+      ...(caBundle ? { tls: { ca: caBundle } } : {}),
+    });
+  } catch (err) {
+    if (timer) clearTimeout(timer);
+    // fetch reports both a timeout and a client disconnect as AbortError, and
+    // "The operation was aborted" tells an operator nothing.
+    if (err?.name === 'AbortError') {
+      throw new Error(
+        controller?.signal.aborted
+          ? `Query timed out after ${timeoutMs}ms.`
+          : 'Query cancelled.',
+      );
+    }
+    throw err;
+  }
+  if (timer) clearTimeout(timer);
 
   const text = await res.text();
   if (!res.ok) throw new Error(text.trim());
@@ -120,10 +152,12 @@ export async function executeQueryWithBody({
   url.searchParams.set('max_execution_time', String(maxExecutionTime));
   url.searchParams.set('max_memory_usage', String(maxMemoryUsage));
 
-  const res = await fetch(url, {
+  const caBundle2 = getCaBundle();
+  const res = await fetch(url.toString(), {
     method: 'POST',
     headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
     body,
+    ...(caBundle2 ? { tls: { ca: caBundle2 } } : {}),
   });
 
   const text = await res.text();

@@ -6,7 +6,9 @@ import { randomBytes } from "crypto";
 import { eq, desc } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { sendNotification } from "../services/notifier.js";
-import { loadEnv } from "../utils/env.js";
+import { revokeToken } from "../services/jwt.js";
+import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
+import { resolveSystemSmtp } from '../services/systemSmtp.js';
 
 const VALID_ROLES = ["superadmin", "admin", "editor", "readonly"];
 
@@ -53,12 +55,13 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
-// NOTE: requireSuperAdmin used to live here as a byte-identical copy of
-// requireAdmin above - same isAdminLevel() check, same message. The name said
-// superadmin and the behaviour said admin, which is the kind of thing a route
-// author reads once and believes. Its call sites now use requireAdmin. If a
-// genuine superadmin-only guard is ever needed, add one that actually checks
-// for it rather than reviving this name.
+// Allows only super admins to perform actions and access the features
+
+export function requireSuperAdminOnly(req, res, next) {
+  if (req.user?.role !== 'superadmin')
+    return res.status(403).json({ error: "Superadmin access required." });
+  next();
+}
 
 // Blocks readonly users. Used on routes where editors can write.
 export function requireEditor(req, res, next) {
@@ -150,8 +153,7 @@ export async function createUser(req, res) {
     // Email the generated password if SMTP is configured
     if (email) {
       try {
-        const env = loadEnv();
-        const smtp = env.smtp;
+        const smtp = resolveSystemSmtp();
         if (smtp.host) {
           const emailConfig = {
             type: "email",
@@ -227,9 +229,8 @@ export async function updateUser(req, res) {
       updates.mustChangePassword = true;
       db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
 
-      const env = loadEnv();
-      const smtp = env.smtp;
-      if (smtp.host && target.email) {
+      const smtp = resolveSystemSmtp();
+      if (smtp?.host && target.email) {
         try {
           const emailConfig = {
             type: "email",

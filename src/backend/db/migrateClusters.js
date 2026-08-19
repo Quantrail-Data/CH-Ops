@@ -101,6 +101,7 @@ export function createClusterTables(sqlite) {
       ch_password_enc TEXT,
       port INTEGER,
       secure INTEGER NOT NULL DEFAULT 0,
+      endpoint TEXT,
       k8s_connection_id TEXT,
       k8s_namespace TEXT,
       k8s_installation TEXT,

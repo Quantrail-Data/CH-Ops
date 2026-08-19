@@ -52,6 +52,10 @@ function rowsToCluster(clusterRow, nodeRows) {
     version: clusterRow.version,
     chUser: clusterRow.chUser || null,
     hasClusterPassword: !!clusterRow.chPasswordEnc,
+    chPassword: decrypt(clusterRow.chPasswordEnc || ''),
+    endpoint: clusterRow.endpoint || null,
+    port: clusterRow.port ?? 8123,
+    secure: !!clusterRow.secure,
     k8s: clusterRow.kind === 'k8s'
       ? {
         connectionId: clusterRow.k8sConnectionId,
@@ -140,6 +144,7 @@ function saveClustersToTables(clusters) {
         port: cluster.port ?? first?.port ?? 8123,
         secure: cluster.secure ?? !!first?.secure,
         chUser: cluster.chUser ?? null,
+        endpoint: cluster.endpoint ?? null,
         k8sConnectionId: cluster.k8s?.connectionId ?? null,
         k8sNamespace: cluster.k8s?.namespace ?? null,
         k8sInstallation: cluster.k8s?.installation ?? null,
@@ -188,10 +193,12 @@ export function getAllClusters() {
 
 // Strip decrypted node passwords from anything about to leave the server
 export function maskClusterPasswords(cluster) {
+  const { chPassword, ...rest } = cluster;
   return {
-    ...cluster,
-    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
-      ...rest,
+    ...rest,
+    hasChPassword: !!chPassword,
+    nodes: (cluster.nodes || []).map(({ password, ...node }) => ({
+      ...node,
       hasPassword: !!password,
     })),
   };

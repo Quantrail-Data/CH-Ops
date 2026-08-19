@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Displays an audit trail of active database privileges and explicit permission grants for a specific identity.
 
-
 import React, { useEffect, useRef, useState } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
@@ -134,6 +133,20 @@ function UserTree() {
   const chartRef = useRef(null);
   const chartInst = useRef(null);
 
+  const chartDomKey = `${sel || 'none'}-${themeKey}-${zoom}-${fullscreen ? 'fs' : 'nf'}`;
+
+  function clearChart() {
+    const el = chartRef.current;
+    const inst = chartInst.current;
+    chartInst.current = null;
+    if (inst) {
+      try { inst.clear(); } catch (e) {}
+      try { inst.dispose(); } catch (e) {}
+    } else if (el) {
+      try { disposeChart(el); } catch (e) {}
+    }
+  }
+
   // load users
   useEffect(() => {
     usersQ.execute(`
@@ -145,7 +158,10 @@ function UserTree() {
 
   // load ALL grants + ALL role grants
   useEffect(() => {
-    if (!sel) return;
+    if (!sel) {
+      clearChart();
+      return;
+    }
 
     grantsQ.execute(`
       SELECT
@@ -170,22 +186,27 @@ function UserTree() {
 
   // render chart
   useEffect(() => {
+    if (!sel) {
+      clearChart();
+      return;
+    }
+
     if (
-      !sel ||
       !grantsQ.data ||
       !roleGrantsQ.data ||
       !chartRef.current
     ) return;
 
+    const el = chartRef.current;
+    if (!el.isConnected) return;
+
     const isDark =
       document.documentElement.getAttribute('data-theme') === 'dark';
 
-    // direct roles assigned to user
     const directRoles = roleGrantsQ.data
       .filter(r => r.user_name === sel)
       .map(r => r.granted_role_name);
 
-    // direct grants assigned to user
     const directUserGrants = grantsQ.data
       .filter(g => g.user_name === sel)
       .map(g => ({
@@ -244,24 +265,18 @@ function UserTree() {
 
     const size = treeSize(tree);
 
-    if (chartInst.current) {
-      disposeChart(chartRef.current);
-      chartInst.current = null;
-    }
+    el.style.width = Math.round(size.width * zoom) + 'px';
+    el.style.height = Math.round(size.height * zoom) + 'px';
 
-    chartRef.current.style.width =
-      Math.round(size.width * zoom) + 'px';
-
-    chartRef.current.style.height =
-      Math.round(size.height * zoom) + 'px';
-
-    chartInst.current = initChart(chartRef.current);
+    clearChart();
+    const inst = initChart(el);
+    chartInst.current = inst;
 
     const series = treeSeries(tree, isDark);
 
     series.symbolSize = Math.round(12 * zoom);
 
-    chartInst.current.setOption(
+    inst.setOption(
       {
         tooltip: {
           trigger: 'item',
@@ -273,14 +288,30 @@ function UserTree() {
       true
     );
 
-    chartInst.current.resize();
+    inst.resize();
+
+    return () => {
+      if (chartInst.current === inst) {
+        chartInst.current = null;
+        try { inst.clear(); } catch (e) {}
+        try { inst.dispose(); } catch (e) {}
+      }
+    };
 
   }, [
+
     sel,
+
     grantsQ.data,
+
     roleGrantsQ.data,
+
     themeKey,
+
     zoom,
+
+    fullscreen,
+
   ]);
 
   // theme watcher
@@ -300,9 +331,7 @@ function UserTree() {
   // cleanup
   useEffect(() => {
     return () => {
-      if (chartRef.current) {
-        disposeChart(chartRef.current);
-      }
+      clearChart();
     };
   }, []);
 
@@ -380,10 +409,9 @@ function UserTree() {
               }
             : {
               padding: 16,
-          marginBottom: 20,
-          height:"35rem",
-          overflow:"auto",
-
+              marginBottom: 20,
+              height: sel ? "35rem" : "auto",
+              overflow: sel ? "auto" : "visible",
             }
         }
       >
@@ -467,7 +495,7 @@ function UserTree() {
                 }
           }
         >
-          <div ref={chartRef}>
+          <div key={chartDomKey} ref={chartRef}>
             {!sel && (
               <div className="empty-state">
                 <p>Select a user.</p>
@@ -495,6 +523,20 @@ function RoleTree() {
   const chartRef = useRef(null);
   const chartInst = useRef(null);
 
+  const chartDomKey = `${sel || 'none'}-${themeKey}-${zoom}-${fullscreen ? 'fs' : 'nf'}`;
+
+  function clearChart() {
+    const el = chartRef.current;
+    const inst = chartInst.current;
+    chartInst.current = null;
+    if (inst) {
+      try { inst.clear(); } catch (e) {}
+      try { inst.dispose(); } catch (e) {}
+    } else if (el) {
+      try { disposeChart(el); } catch (e) {}
+    }
+  }
+
   // load roles
   useEffect(() => {
     rolesQ.execute(`
@@ -506,7 +548,10 @@ function RoleTree() {
 
   // load all grants + role hierarchy
   useEffect(() => {
-    if (!sel) return;
+    if (!sel) {
+      clearChart();
+      return;
+    }
 
     grantsQ.execute(`
       SELECT
@@ -530,12 +575,19 @@ function RoleTree() {
 
   // render chart
   useEffect(() => {
+    if (!sel) {
+      clearChart();
+      return;
+    }
+
     if (
-      !sel ||
       !grantsQ.data ||
       !roleGrantsQ.data ||
       !chartRef.current
     ) return;
+
+    const el = chartRef.current;
+    if (!el.isConnected) return;
 
     const isDark =
       document.documentElement.getAttribute('data-theme') === 'dark';
@@ -548,24 +600,18 @@ function RoleTree() {
 
     const size = treeSize(tree);
 
-    if (chartInst.current) {
-      disposeChart(chartRef.current);
-      chartInst.current = null;
-    }
+    el.style.width = Math.round(size.width * zoom) + 'px';
+    el.style.height = Math.round(size.height * zoom) + 'px';
 
-    chartRef.current.style.width =
-      Math.round(size.width * zoom) + 'px';
-
-    chartRef.current.style.height =
-      Math.round(size.height * zoom) + 'px';
-
-    chartInst.current = initChart(chartRef.current);
+    clearChart();
+    const inst = initChart(el);
+    chartInst.current = inst;
 
     const series = treeSeries(tree, isDark);
 
     series.symbolSize = Math.round(12 * zoom);
 
-    chartInst.current.setOption(
+    inst.setOption(
       {
         tooltip: {
           trigger: 'item',
@@ -577,14 +623,30 @@ function RoleTree() {
       true
     );
 
-    chartInst.current.resize();
+    inst.resize();
+
+    return () => {
+      if (chartInst.current === inst) {
+        chartInst.current = null;
+        try { inst.clear(); } catch (e) {}
+        try { inst.dispose(); } catch (e) {}
+      }
+    };
 
   }, [
+
     sel,
+
     grantsQ.data,
+
     roleGrantsQ.data,
+
     themeKey,
+
     zoom,
+
+    fullscreen,
+
   ]);
 
   // theme watcher
@@ -604,9 +666,7 @@ function RoleTree() {
   // cleanup
   useEffect(() => {
     return () => {
-      if (chartRef.current) {
-        disposeChart(chartRef.current);
-      }
+      clearChart();
     };
   }, []);
 
@@ -684,9 +744,9 @@ function RoleTree() {
               }
             : {
               padding: 16,
-          marginBottom: 20,
-          height:"35rem",
-          overflow:"auto"
+              marginBottom: 20,
+              height: sel ? "35rem" : "auto",
+              overflow: sel ? "auto" : "visible",
             }
         }
       >
@@ -770,7 +830,7 @@ function RoleTree() {
                 }
           }
         >
-          <div ref={chartRef}>
+          <div key={chartDomKey} ref={chartRef}>
             {!sel && (
               <div className="empty-state">
                 <p>Select a role.</p>
@@ -840,10 +900,15 @@ function FullOverview() {
       <DataTable
         rows={uq.data || []}
         columns={[
+
           'name',
+
           'auth_type',
+
           'host_ip',
+
           'roles',
+
         ]}
         emptyMessage="No users."
         variant="fixed"
@@ -876,11 +941,17 @@ function FullOverview() {
       <DataTable
         rows={gq.data || []}
         columns={[
+
           'user_name',
+
           'role_name',
+
           'access_type',
+
           'database',
+
           'table',
+
         ]}
         emptyMessage="No grants."
         variant="fixed"

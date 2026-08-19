@@ -149,6 +149,7 @@ const CORE_NAV_ITEMS = [
       { id: "admin/cluster", label: "Cluster Management" },
       { id: "admin/profiles", label: "Storage Profiles" },
       { id: "admin/channels", label: "Notification Channels" },
+      { id: "admin/trusted-cas", label: "Trusted CAs" },
       { id: "admin/app-backup", label: "App Data Backup" },
       { id: "admin/api-management", label: "AI API Keys" },
     ],
