@@ -10,11 +10,12 @@ import {
   removeNodes,
 } from './clusterUtils.js';
 import { readInstallationHosts } from './k8sConnections.js';
+import { getConfig } from './appConfig.js';
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
 
 // A host must be absent from this many consecutive successful refreshes before it is removed.
-const MISSES_BEFORE_REMOVAL = 3;
+
 
 // Retries when the version check fails, meaning somebody wrote in between.
 const MAX_VERSION_RETRIES = 3;
@@ -123,7 +124,7 @@ export function pruneMissingHosts(clusterId, intervalMs = DEFAULT_INTERVAL_MS) {
 
   removeNodes(clusterId, stale.map((n) => n.id));
   log?.info?.(
-    `k8s sync: removed ${stale.length} host(s) from ${clusterId} after ${MISSES_BEFORE_REMOVAL} missed refreshes`,
+    `k8s sync: removed ${stale.length} host(s) from ${clusterId} after ${getConfig('k8s.missesBeforeRemoval')} missed refreshes`,
   );
   return stale.length;
 }
@@ -141,7 +142,7 @@ export async function refreshAll() {
 }
 
 // Start the timer.
-export function startK8sSync({ intervalMs = DEFAULT_INTERVAL_MS } = {}) {
+export function startK8sSync({ intervalMs = getConfig('k8s.syncIntervalMs') } = {}) {
   if (interval) return;
 
   async function tick() {
@@ -163,6 +164,14 @@ export function startK8sSync({ intervalMs = DEFAULT_INTERVAL_MS } = {}) {
   // Do not run immediately on boot.
   interval = setInterval(tick, intervalMs);
   interval.unref?.();
+}
+
+export function restartK8sSync() {
+  if (interval) {
+    clearInterval(interval);
+    interval = null;
+  }
+  startK8sSync({ intervalMs: getConfig('k8s.syncIntervalMs') });
 }
 
 export function stopK8sSync() {

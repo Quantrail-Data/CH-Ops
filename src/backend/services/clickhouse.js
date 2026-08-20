@@ -4,13 +4,13 @@
 
 import { isDataQuery as sqlIsDataQuery, leadingKeyword } from '../../shared/sqlClassify.js';
 import { getCaBundle } from './trustedCa.js';
+import { getConfig } from './appConfig.js';
 
 // The ceiling on how much a single query may return to the application.
-const DEFAULT_MAX_RESULT_BYTES = 128 * 1024 * 1024;
+
 
 function maxResultBytes() {
-  const n = Number(process.env.MAX_RESULT_BYTES);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_MAX_RESULT_BYTES;
+  return getConfig('query.maxResultBytes');
 }
 
 export async function executeQuery({

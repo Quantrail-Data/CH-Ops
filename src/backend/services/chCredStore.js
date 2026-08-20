@@ -22,6 +22,7 @@ import { eq, and, lt } from 'drizzle-orm';
 import { db as defaultDb } from '../db/index.js';
 import { chCredSession } from '../db/schema.js';
 import { encrypt, decrypt } from './crypto.js';
+import { getConfig } from './appConfig.js';
 
 // The application always uses the default database. Tests may inject an
 // isolated in-memory database through __setDb so they never touch real data;
@@ -37,7 +38,7 @@ const VALID_CONTEXTS = new Set(Object.values(CRED_CONTEXTS));
 
 // Credential session lifetime. Matches the 2-hour JWT expiry so an encrypted
 // password never outlives the login it belongs to.
-const TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+// 2 hours
 
 function nowIso() {
   return new Date().toISOString();
@@ -66,7 +67,7 @@ export function setCredSession({ jti, context, appUser, clusterId, node, port, c
   pruneExpired();
 
   const encryptedPassword = encrypt(password ?? '');
-  const expiresAt = new Date(Date.now() + TTL_MS).toISOString();
+  const expiresAt = new Date(Date.now() + getConfig('security.sessionTtlMs')).toISOString();
   const where = and(eq(chCredSession.jti, jti), eq(chCredSession.context, context));
 
   const existing = activeDb.select().from(chCredSession).where(where).get();
