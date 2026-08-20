@@ -52,6 +52,7 @@ const MemoryAllocator = lazy(() => import("../monitoring/MemoryAllocator.jsx"));
 const AlertRules = lazy(() => import("../alerting/AlertRules.jsx"));
 const NotificationChannels = lazy(() => import("../admin/NotificationChannels.jsx"),);
 const TrustedCas = lazy(() => import("../admin/TrustedCas.jsx"));
+const AppConfig = lazy(() => import("../admin/AppConfig.jsx"));
 const RbacViewGrants = lazy(() => import("../rbac/RbacViewGrants.jsx"));
 const RbacUsers = lazy(() => import("../rbac/RbacUsers.jsx"));
 const RbacRoles = lazy(() => import("../rbac/RbacRoles.jsx"));
@@ -118,6 +119,7 @@ const CORE_ROUTES = [
   ["admin/api-management", ApiManagement],
   ["admin/channels", NotificationChannels],
   ["admin/trusted-cas", TrustedCas],
+  ["admin/app-config", AppConfig],
   ["/qurioz", QuriozChatComponent],
 
   // ["/qurioz/:session_id?", QuriozChatComponent],

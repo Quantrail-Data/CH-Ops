@@ -322,6 +322,13 @@ export const SEARCH_CATALOG = [
     keywords: ["certificate", "certificate authority", "ca", "tls", "ssl", "https", "self-signed", "internal ca", "unable to verify"],
   },
   {
+    id: "admin/app-config",
+    title: "App Config",
+    section: "Admin",
+    description: "Limits on exports, queries and other CHOps behaviour.",
+    keywords: ["config", "settings", "limits", "export limit", "quota", "storage", "concurrent"],
+  },
+  {
     id: "admin/api-management",
     title: "AI API Keys",
     section: "Admin",

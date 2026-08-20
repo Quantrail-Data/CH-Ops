@@ -109,6 +109,9 @@ export const PAGE_HEADERS = {
   "admin/trusted-cas": [
     "Trusted certificate authorities"
   ],
+  "admin/app-config": [
+    "App Config"
+  ],
   "custom/builder": [
     "Chart Builder"
   ],
@@ -1260,6 +1263,10 @@ export const PAGE_TEXT = {
     "Cancel",
     "Close",
     "Internal CA"
+  ],
+  "admin/app-config": [
+    "Save",
+    "Reset"
   ],
   "/qurioz": [
     "Database Schema Generator",
