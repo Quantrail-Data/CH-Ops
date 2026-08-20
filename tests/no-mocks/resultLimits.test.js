@@ -3,6 +3,7 @@
 // Contributors - Praveen kumar, Kathir Moorthy
 
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
+import { invalidateConfigCache } from "../../src/backend/services/appConfig.js";
 
 // The backend ceiling. maxResultBytes() reads process.env on every call rather
 // than caching it at module load, so setting the variable immediately before the
@@ -12,6 +13,8 @@ let calls = [];
 
 beforeEach(() => {
   calls = [];
+  delete process.env.MAX_RESULT_BYTES;
+  invalidateConfigCache();
   global.fetch = mock(async (url) => {
     calls.push(new URL(url));
     return { ok: true, status: 200, headers: { get: () => null }, text: async () => "" };
@@ -36,6 +39,7 @@ describe("max_result_bytes", () => {
 
   it("is raised by the environment, for a larger host", async () => {
     process.env.MAX_RESULT_BYTES = String(512 * 1024 * 1024);
+    invalidateConfigCache();
     const { executeQuery } = await import("../../src/backend/services/clickhouse.js");
     await executeQuery({ ...NODE, sql: "SELECT 1" });
     expect(last().searchParams.get("max_result_bytes")).toBe(String(512 * 1024 * 1024));
@@ -43,6 +47,7 @@ describe("max_result_bytes", () => {
 
   it("ignores a nonsense value rather than sending it", async () => {
     process.env.MAX_RESULT_BYTES = "not a number";
+    invalidateConfigCache();
     const { executeQuery } = await import("../../src/backend/services/clickhouse.js");
     await executeQuery({ ...NODE, sql: "SELECT 1" });
     expect(last().searchParams.get("max_result_bytes")).toBe(String(128 * 1024 * 1024));

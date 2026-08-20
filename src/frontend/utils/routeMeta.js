@@ -114,4 +114,5 @@ export const BREADCRUMB_MAP = {
   "admin/api-management": ["Administration", "API Management"],
   "admin/channels": ["Administration", "Notification Channels"],
   "admin/trusted-cas": ["Administration", "Trusted Certificate Authorities"],
+  "admin/app-config": ["Administration", "App Config"],
 };

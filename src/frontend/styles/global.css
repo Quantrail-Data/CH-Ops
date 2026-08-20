@@ -4591,3 +4591,36 @@ select.sql-action-control {
 .app-main {
   min-height: 0;
 }
+
+
+/* App Config rows.
+   A grid, so the input and buttons sit in the same place on every row however
+   long the description is. The first column takes the remaining width, so the
+   card grows with the page rather than stopping at a fixed size. */
+.appconfig-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.appconfig-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Below this the fixed controls leave the description about 150px, which wraps
+   to a word per line. Move them under it instead. */
+@media (max-width: 720px) {
+  .appconfig-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .appconfig-controls {
+    justify-content: flex-start;
+  }
+}

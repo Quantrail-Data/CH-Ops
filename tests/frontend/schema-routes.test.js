@@ -86,7 +86,7 @@ describe("Routes: Auth", () => {
   it("has brute-force lockout", () => {
     expect(code).toContain("checkLockout");
     expect(code).toContain("recordFailure");
-    expect(code).toContain("MAX_FAILURES");
+    expect(code).toContain("getConfig('security.maxFailures')");
   });
   it("supports DISABLE_ENV_LOGIN", () => {
     expect(code).toContain("disableEnvLogin");
@@ -423,8 +423,8 @@ describe("Services: JWT", () => {
     expect(code).toContain("revokeToken");
     expect(code).toContain("blocklist");
   });
-  it("2h token expiry", () => {
-    expect(code).toContain("'2h'");
+  it("token expiry comes from the session length setting", () => {
+    expect(code).toContain("getConfig('security.sessionTtlMs')");
   });
 });
 
