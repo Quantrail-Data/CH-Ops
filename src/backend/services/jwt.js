@@ -10,6 +10,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
+import { getConfig } from './appConfig.js';
 
 let secret = null;
 
@@ -18,7 +19,8 @@ export const setSecret = (s) => { secret = s; };
 export const create = (payload) => {
   if (!secret) throw new Error('JWT secret not set. Call setSecret() first.');
   const jti = randomBytes(16).toString('hex');
-  return jwt.sign({ ...payload, jti }, secret, { expiresIn: '2h' });
+  const ttlSeconds = Math.floor(getConfig('security.sessionTtlMs') / 1000);
+  return jwt.sign({ ...payload, jti }, secret, { expiresIn: ttlSeconds });
 };
 
 export const verify = (token) => {
