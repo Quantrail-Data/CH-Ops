@@ -11,18 +11,19 @@ import { log } from "./logger.js";
 import { startExportStream, killExportQuery } from "./exportStream.js";
 import { writeExportFile } from "./exportCompress.js";
 import { findFormat, findCompression } from "../../shared/exportFormats.js";
+import { getConfig } from './appConfig.js';
 
-const cfg = loadEnv().exportCfg;
+const exportDir = loadEnv().exportCfg.dir;
 const jobs = new Map();
 
 
 
 export function initExportStorage() {
-  fs.mkdirSync(cfg.dir, { recursive: true, mode: 0o700 });
-  for (const entry of fs.readdirSync(cfg.dir)) {
-    fs.rmSync(path.join(cfg.dir, entry), { recursive: true, force: true });
+  fs.mkdirSync(exportDir, { recursive: true, mode: 0o700 });
+  for (const entry of fs.readdirSync(exportDir)) {
+    fs.rmSync(path.join(exportDir, entry), { recursive: true, force: true });
   }
-  log.info("Export storage ready", { dir: cfg.dir });
+  log.info("Export storage ready", { dir: exportDir });
 }
 
 function totalBytesOnDisk() {
@@ -80,20 +81,20 @@ export function createJob({
       if (job.userId === username) mine += 1;
     }
   }
-  if (mine >= cfg.maxPerUser) {
-    throw badRequest(`You already have ${cfg.maxPerUser} exports running. Wait for one to finish.`);
+  if (mine >= getConfig('export.maxPerUser')) {
+    throw badRequest(`You already have ${getConfig('export.maxPerUser')} exports running. Wait for one to finish.`);
   }
-  if (running >= cfg.maxConcurrent) {
+  if (running >= getConfig('export.maxConcurrent')) {
     throw badRequest("The server is busy with other exports. Please try again shortly.");
   }
 
-  const remaining = cfg.maxTotalBytes - totalBytesOnDisk();
+  const remaining = getConfig('export.maxTotalBytes') - totalBytesOnDisk();
   if (estimatedBytes && estimatedBytes > remaining) {
     throw badRequest("Not enough export space left on the server for a file this size.");
   }
 
   const id = crypto.randomUUID();
-  const dir = path.join(cfg.dir, id);
+  const dir = path.join(exportDir, id);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 
   const leaf = safeFileName(filename, "export");
@@ -151,11 +152,11 @@ async function runJob(job) {
       compression: job.compression,
       innerName: job.innerName,
       bom: job.bom,
-      limitBytes: cfg.maxJobBytes,
+      limitBytes: getConfig('export.maxJobBytes'),
       onBytes: (total) => {
         job.bytesRead = total;
         const spaceUsed = totalBytesOnDisk() + total;
-        if (spaceUsed > cfg.maxTotalBytes) {
+        if (spaceUsed > getConfig('export.maxTotalBytes')) {
           job.abort.abort();
         }
       },
@@ -286,7 +287,7 @@ export function startExportSweeper() {
     const now = Date.now();
     for (const job of [...jobs.values()]) {
       if (job.state === "running") continue;
-      if (now - job.lastActivityAt > cfg.idleTtlMs) {
+      if (now - job.lastActivityAt > getConfig('export.idleTtlMs')) {
         removeFiles(job);
         jobs.delete(job.id);
       }
@@ -299,7 +300,15 @@ export function startExportSweeper() {
 }
 
 export function exportConfig() {
-  return cfg;
+  return {
+    dir: exportDir,
+    maxJobBytes: getConfig('export.maxJobBytes'),
+    maxTotalBytes: getConfig('export.maxTotalBytes'),
+    maxConcurrent: getConfig('export.maxConcurrent'),
+    maxPerUser: getConfig('export.maxPerUser'),
+    idleTtlMs: getConfig('export.idleTtlMs'),
+    warnBytes: getConfig('export.warnBytes'),
+  };
 }
 
 function badRequest(message) {
