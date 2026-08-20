@@ -96,23 +96,31 @@ function readClustersFromTables() {
 
 // Diff the incoming list against what is stored and write the difference.
 function ensureUniqueClusterNames(clusters, existingRows = []) {
-  const used = new Set((existingRows || []).map(c => (c.name || '').trim().toLowerCase()));
-  const names = [];
+  const clusterIds = new Set(
+    clusters.map(cluster => cluster.id).filter(Boolean)
+  );
+
+  const used = new Set(
+    existingRows
+      .filter(row => !clusterIds.has(row.id))
+      .map(row => (row.name || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
 
   return clusters.map((cluster, index) => {
-    const baseName = (cluster.name || '').trim() || `Cluster ${index + 1}`;
+    const baseName =
+      (cluster.name || '').trim() || `Cluster ${index + 1}`;
+
     let candidate = baseName;
     let suffix = 2;
-    let normalized = candidate.trim().toLowerCase();
 
-    while (used.has(normalized)) {
+    while (used.has(candidate.toLowerCase())) {
       candidate = `${baseName} ${suffix}`;
-      normalized = candidate.trim().toLowerCase();
       suffix += 1;
     }
 
-    used.add(normalized);
-    names.push(candidate);
+    used.add(candidate.toLowerCase());
+
     return {
       ...cluster,
       id: cluster.id || `cluster_${index + 1}`,

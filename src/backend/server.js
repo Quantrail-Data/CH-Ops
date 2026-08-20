@@ -95,6 +95,7 @@ log.info('Database ready (Drizzle ORM + bun:sqlite)');
 
 import { assertDatabaseReadable } from './db/index.js';
 import { migrateClusterData } from './services/clusterUtils.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 migrateClusterData();
 
 const app = express();
