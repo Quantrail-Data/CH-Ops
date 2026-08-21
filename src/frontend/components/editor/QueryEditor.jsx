@@ -61,7 +61,12 @@ import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
 import ExplainOptions from "./ExplainOptions.jsx";
-import { composeStatement, settingsFor } from "./explainOptions.js";
+import {
+  composeStatement,
+  settingsFor,
+  isVersion267OrLater,
+  initialTicked,
+} from "./explainOptions.js";
 
 import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
@@ -296,9 +301,13 @@ export default function QueryEditor({
     clusterName,
     user,
     nodeName,
+    serverVersion
   } = useConnection();
+
+
   // Session affinity for the selected cluster. Null outside Kubernetes.
   const affinityCtx = useRbacContext();
+  // const serverVersion = "26.3.9.8" || capabilities?.serverVersion || null ;
   // Everything that used to be a useState above now belongs to a tab. The
   // aliases below keep the names the rest of this file already uses.
   const tabs_ = useQueryTabs();
@@ -319,9 +328,7 @@ export default function QueryEditor({
   const setSql = useCallback(
     (v) => {
       updateTab(activeId, {
-        sql: typeof v === "function"
-          ? v(sql)
-          : v,
+        sql: typeof v === "function" ? v(sql) : v,
       });
     },
     [activeId, sql, updateTab],
@@ -476,6 +483,7 @@ export default function QueryEditor({
   const [panelDragging, setPanelDragging] = useState(false);
   // The concurrent-run question.
   const [runConfirm, setRunConfirm] = useState(null);
+  const [analyzeConfirm, setAnalyzeConfirm] = useState(null);
   const [closeConfirm, setCloseConfirm] = useState(null);
 
   // How many rows to ask for.
@@ -1186,6 +1194,12 @@ export default function QueryEditor({
   /* Run the visible tab. */
   const runActiveTab = useCallback(() => {
     const id = activeIdRef.current;
+    const thisTab = tabsRef.current.find((t) => t.id === id);
+    if (thisTab?.explainType === "EXPLAIN ANALYZE" && !analyzeConfirm) {
+      setAnalyzeConfirm({ id });
+      return;
+    }
+
     const busy = tabsRef.current.filter(
       (t) => t.id !== id && runtimeRef.current[t.id]?.running,
     );
@@ -1304,7 +1318,7 @@ export default function QueryEditor({
           ExplainOptionSelector.type !== "" &&
           ExplainOptionSelector.type !== "GENERAL RUN";
         const validExplain = isExplain
-          ? `${composeStatement(ExplainOptionSelector.type, explainTicked)} ${text}`
+          ? `${composeStatement(ExplainOptionSelector.type, explainTicked, serverVersion)} ${text}`
           : text;
 
         // Required settings travel as request settings, never appended to the
@@ -1312,6 +1326,13 @@ export default function QueryEditor({
         const r = await runEditorQuery(validExplain, editorCreds, {
           params: paramValues,
           settings: {
+            ...(isExplain
+              ? settingsFor(
+                  explainTicked,
+                  ExplainOptionSelector.type,
+                  serverVersion,
+                )
+              : {}),
             ...(isExplain ? settingsFor(explainTicked) : {}),
             // STOP THE SERVER SENDING ROWS WE ARE GOING TO THROW AWAY.
             max_result_rows: rowCap + 1,
@@ -1623,7 +1644,7 @@ export default function QueryEditor({
     : // NO HEIGHT HERE.
       // This was 90.5vh, an inline style, which beats the stylesheet and is why
       // fixing .editor-shell in global.css changed nothing at all.
-      {height:"90.5vh"};
+      { height: "90.5vh" };
 
   const effectiveQueryId = featureQueryId || lastQueryId || qidFromUrl || null;
 
@@ -1659,7 +1680,6 @@ export default function QueryEditor({
           setSql(
             `/*\n\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n--${MultipleDBSelected() ? `DATABASE_NAME's` : `DATABASE_NAME`} : ${SelectedDBNames() || ""}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
           );
-
         }
       } catch (error) {
         toast?.error(error?.message);
@@ -1683,8 +1703,7 @@ export default function QueryEditor({
     return AIdbsInfo?.filter((_v) => _v?.isSelected)?.length > 0;
   }
 
-
-   function IsSelectedAiID() {
+  function IsSelectedAiID() {
     const find = AIdbsInfo?.filter((_v) => _v?.isSelected);
     return find?.length > 0 ? true : false;
   }
@@ -1707,8 +1726,8 @@ export default function QueryEditor({
             overflow: "hidden",
           }}
         >
-          <div style={{ flex: 1,overflowY:"auto"}}>
-            <div className="editor-sidebar-header" style={{width:"100%"}}>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <div className="editor-sidebar-header" style={{ width: "100%" }}>
               <Icon className="ti ti-database"></Icon> Explorer
               <button
                 className="btn btn-ghost btn-sm"
@@ -1722,143 +1741,144 @@ export default function QueryEditor({
                 <Icon className="ti ti-refresh"></Icon>
               </button>
             </div>
-           <div style={{ flex: 1 ,overflowY: "auto",height:"93%"}}>
+            <div style={{ flex: 1, overflowY: "auto", height: "93%" }}>
               {!editorConnected ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "28px 16px",
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                  fontSize: "13px",
-                }}
-              >
-                <Icon
-                  className="ti ti-lock"
-                  style={{ fontSize: 22, opacity: 0.6 }}
-                ></Icon>
-                <span>Connect to browse databases.</span>
-              </div>
-            ) : (
-              dbs.map((db) => (
-                <div key={db} style={{ display: "flex" }}>
-                  <div
-                    style={{
-                      marginLeft: "5px",
-                      paddingTop: "6px",
-                      display: "flex",
-                      alignItems: "start",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <AIKeyButton
-                      dbdetails={isFindDatabase(db)}
-                      dataSelectionHandler={dataSelectionHandler}
-                      connectDatabaseID={connectDatabaseID}
-                    />
-                  </div>
-
-                  <div style={{ width: "100%" }}>
-                    <div
-                      className={
-                        "editor-db-item" + (selectedDb === db ? " active" : "")
-                      }
-                      onClick={() =>
-                        setSelectedDb(selectedDb === db ? null : db)
-                      }
-                    >
-                      <Icon
-                        className={
-                          "ti ti-chevron-" +
-                          (selectedDb === db ? "down" : "right")
-                        }
-                        style={{ fontSize: 14, opacity: 0.5 }}
-                      ></Icon>
-                      <Icon className="ti ti-database-import"></Icon>
-                      <span style={{ flex: 1, fontSize: "12px" }}>{db}</span>
-                    </div>
-                    {selectedDb === db && (
-                      <div
-                        style={{
-                          borderLeft: "2px solid var(--accent-border)",
-                          marginLeft: 14,
-                        }}
-                      >
-                        {tablesLoading ? (
-                          <div
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: "13px",
-                              color: "var(--text-secondary)",
-                            }}
-                          >
-                            <span
-                              className="loading-spinner"
-                              style={{
-                                width: 12,
-                                height: 12,
-                                display: "inline-block",
-                                verticalAlign: "middle",
-                                marginRight: 6,
-                              }}
-                            ></span>{" "}
-                            Loading...
-                          </div>
-                        ) : tables.length === 0 ? (
-                          <div
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: "13px",
-                              color: "var(--text-muted)",
-                            }}
-                          >
-                            No tables
-                          </div>
-                        ) : (
-                          tables.map((t) => (
-                            <div
-                              key={t.name}
-                              className="editor-table-item"
-                              title={`${t.name} (${t.engine})`}
-                            >
-                              <Icon
-                                className={"ti " + engineIcon(t.engine)}
-                              ></Icon>
-                              <span
-                                style={{ flex: 1, cursor: "pointer" }}
-                                onClick={() =>
-                                  insertText(selectedDb + "." + t.name + " ")
-                                }
-                              >
-                                {t.name}
-                              </span>
-                              <Icon
-                                className="ti ti-code"
-                                title="View DDL"
-                                style={{
-                                  fontSize: 14,
-                                  cursor: "pointer",
-                                  opacity: 0.5,
-                                  flexShrink: 0,
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  showDdl(selectedDb, t.name);
-                                }}
-                              ></Icon>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "28px 16px",
+                    textAlign: "center",
+                    color: "var(--text-muted)",
+                    fontSize: "13px",
+                  }}
+                >
+                  <Icon
+                    className="ti ti-lock"
+                    style={{ fontSize: 22, opacity: 0.6 }}
+                  ></Icon>
+                  <span>Connect to browse databases.</span>
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                dbs.map((db) => (
+                  <div key={db} style={{ display: "flex" }}>
+                    <div
+                      style={{
+                        marginLeft: "5px",
+                        paddingTop: "6px",
+                        display: "flex",
+                        alignItems: "start",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <AIKeyButton
+                        dbdetails={isFindDatabase(db)}
+                        dataSelectionHandler={dataSelectionHandler}
+                        connectDatabaseID={connectDatabaseID}
+                      />
+                    </div>
+
+                    <div style={{ width: "100%" }}>
+                      <div
+                        className={
+                          "editor-db-item" +
+                          (selectedDb === db ? " active" : "")
+                        }
+                        onClick={() =>
+                          setSelectedDb(selectedDb === db ? null : db)
+                        }
+                      >
+                        <Icon
+                          className={
+                            "ti ti-chevron-" +
+                            (selectedDb === db ? "down" : "right")
+                          }
+                          style={{ fontSize: 14, opacity: 0.5 }}
+                        ></Icon>
+                        <Icon className="ti ti-database-import"></Icon>
+                        <span style={{ flex: 1, fontSize: "12px" }}>{db}</span>
+                      </div>
+                      {selectedDb === db && (
+                        <div
+                          style={{
+                            borderLeft: "2px solid var(--accent-border)",
+                            marginLeft: 14,
+                          }}
+                        >
+                          {tablesLoading ? (
+                            <div
+                              style={{
+                                padding: "8px 12px",
+                                fontSize: "13px",
+                                color: "var(--text-secondary)",
+                              }}
+                            >
+                              <span
+                                className="loading-spinner"
+                                style={{
+                                  width: 12,
+                                  height: 12,
+                                  display: "inline-block",
+                                  verticalAlign: "middle",
+                                  marginRight: 6,
+                                }}
+                              ></span>{" "}
+                              Loading...
+                            </div>
+                          ) : tables.length === 0 ? (
+                            <div
+                              style={{
+                                padding: "8px 12px",
+                                fontSize: "13px",
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              No tables
+                            </div>
+                          ) : (
+                            tables.map((t) => (
+                              <div
+                                key={t.name}
+                                className="editor-table-item"
+                                title={`${t.name} (${t.engine})`}
+                              >
+                                <Icon
+                                  className={"ti " + engineIcon(t.engine)}
+                                ></Icon>
+                                <span
+                                  style={{ flex: 1, cursor: "pointer" }}
+                                  onClick={() =>
+                                    insertText(selectedDb + "." + t.name + " ")
+                                  }
+                                >
+                                  {t.name}
+                                </span>
+                                <Icon
+                                  className="ti ti-code"
+                                  title="View DDL"
+                                  style={{
+                                    fontSize: 14,
+                                    cursor: "pointer",
+                                    opacity: 0.5,
+                                    flexShrink: 0,
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showDdl(selectedDb, t.name);
+                                  }}
+                                ></Icon>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
           <button
             className="sidebar-toggle"
@@ -2564,11 +2584,22 @@ export default function QueryEditor({
                 alone. Taking "the remaining letters in lowercase" literally
                 would give "Ast" and "(json)", which reads as a mistake rather
                 than as a style. */}
+            onChange=
+            {(e) => {
+              const nextType = e.target.value;
+              setExplainType(nextType);
+              setExplainTicked(initialTicked(nextType, serverVersion));
+            }}
             <option value="GENERAL RUN">Select Explain</option>
             <option value="EXPLAIN">Explain</option>
             <option value="EXPLAIN SYNTAX">Explain syntax</option>
             <option value="EXPLAIN QUERY TREE">Explain query tree</option>
             <option value="EXPLAIN PLAN">Explain plan</option>
+            {isVersion267OrLater(serverVersion) && (
+              <option value="EXPLAIN ANALYZE">
+                Explain analyze (runs the query)
+              </option>
+            )}
             <option value="EXPLAIN PIPELINE">Explain pipeline</option>
             <option value="EXPLAIN ESTIMATE">Explain estimate</option>
             <option value="EXPLAIN AST graph = 1">Explain AST (graph)</option>
@@ -3339,7 +3370,7 @@ export default function QueryEditor({
           </div>
         </div>
       )}
-      
+
       {previewOpen && (
         <div className="modal-overlay" onClick={() => setPreviewOpen(false)}>
           <div
@@ -3377,9 +3408,8 @@ export default function QueryEditor({
                 <Icon className="ti ti-x"></Icon>
               </button>
             </div>
-            
-             <QueryPreviewPanel sql={sql} values={paramValues} />
-            
+
+            <QueryPreviewPanel sql={sql} values={paramValues} />
           </div>
         </div>
       )}
@@ -3520,6 +3550,20 @@ export default function QueryEditor({
         onConfirm={() => {
           const id = runConfirm?.id;
           setRunConfirm(null);
+          if (id) doRunRef.current?.(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!analyzeConfirm}
+        title="Explain analyze runs your query"
+        message="Unlike the other explain options, this one runs the query to measure it. It reads the same data, takes the same time, and counts against your quota. It will not work on a distributed table, on a streaming read, or inside a transaction that has already failed."
+        detail="The results are discarded. Only the timings are shown."
+        confirmLabel="Run and measure"
+        onCancel={() => setAnalyzeConfirm(null)}
+        onConfirm={() => {
+          const id = analyzeConfirm?.id;
+          setAnalyzeConfirm(null);
           if (id) doRunRef.current?.(id);
         }}
       />

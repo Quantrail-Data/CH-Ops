@@ -387,6 +387,7 @@ export const PAGE_TEXT = {
     "Explain syntax",
     "Explain query tree",
     "Explain plan",
+    "Explain analyze (runs the query)",
     "Explain pipeline",
     "Explain estimate",
     "Explain AST (graph)",

@@ -1,13 +1,33 @@
 // ExplainOptions.jsx - checkbox row under the EXPLAIN dropdown.
-// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Contributors - Kathirmoorthy, Kathirdhasan, Praveen
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React from "react";
-import { optionsFor } from "./explainOptions.js";
+import React, { useState } from "react";
+import { basicOptionsFor, advancedOptionsFor } from "./explainOptions.js";
+
+function Checkbox({ option, ticked, onToggle }) {
+  return (
+    <label
+      title={option.help}
+      style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer" }}
+    >
+      <input
+        type="checkbox"
+        checked={!!ticked[option.key]}
+        onChange={() => onToggle(option.key)}
+      />
+      {option.label}
+    </label>
+  );
+}
 
 export default function ExplainOptions({ explainType, ticked, onToggle }) {
-  const opts = optionsFor(explainType);
-  if (!opts.length) return null;
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const basic = basicOptionsFor(explainType);
+  const advanced = advancedOptionsFor(explainType);
+  if (!basic.length && !advanced.length) return null;
 
   return (
     <div
@@ -16,8 +36,7 @@ export default function ExplainOptions({ explainType, ticked, onToggle }) {
         gap: 14,
         alignItems: "center",
         flexWrap: "wrap",
-        // Right aligned, so the options sit under the actions they modify
-        // rather than starting at the far left of an otherwise empty row.
+
         justifyContent: "flex-end",
         padding: "4px 16px",
         borderBottom: "1px solid var(--border-default)",
@@ -26,20 +45,31 @@ export default function ExplainOptions({ explainType, ticked, onToggle }) {
         flexShrink: 0,
       }}
     >
-      {opts.map((o) => (
-        <label
-          key={o.key}
-          title={o.help}
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer" }}
-        >
-          <input
-            type="checkbox"
-            checked={!!ticked[o.key]}
-            onChange={() => onToggle(o.key)}
-          />
-          {o.label}
-        </label>
+      {basic.map((o) => (
+        <Checkbox key={o.key} option={o} ticked={ticked} onToggle={onToggle} />
       ))}
+
+      {showAdvanced &&
+        advanced.map((o) => (
+          <Checkbox key={o.key} option={o} ticked={ticked} onToggle={onToggle} />
+        ))}
+
+      {advanced.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--text-accent)",
+            cursor: "pointer",
+            fontSize: "0.75rem",
+            padding: 0,
+          }}
+        >
+          {showAdvanced ? "Less" : "More"}
+        </button>
+      )}
     </div>
   );
 }
