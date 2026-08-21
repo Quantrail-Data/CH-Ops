@@ -178,6 +178,7 @@ describe("getCapabilities", () => {
     expect(res.jsonData).toEqual({
       probed: false,
       deployment: undefined,
+      version:null,
       unavailable: [],
     });
   });

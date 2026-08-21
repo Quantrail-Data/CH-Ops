@@ -64,9 +64,28 @@ export async function probeCapabilities(clusterId, node) {
     });
   } catch (err) {
     // A failed probe must not block the connection.
-    return { probed: false, error: err.message, tables: null, deployment: 'unknown' };
+    return { probed: false, error: err.message, tables: null, deployment: 'unknown', version: null};
   }
 
+  
+  let version = null;
+  try {
+    const versionResult = await executeQuery({
+      host: node.host,
+      port: node.port,
+      secure: node.secure,
+      user: node.user,
+      password: node.password,
+      readOnly: true,
+      timeoutMs: 10000,
+      sql: 'SELECT version()',
+    });
+    const firstRow = rowsOf(versionResult)[0];
+    version = firstRow ? String(Object.values(firstRow)[0]) : null;
+  } catch {
+
+  }
+  
   const names = new Set(rowsOf(result).map((r) => `system.${r.name}`));
 
   // SharedMergeTree keeps every ReplicatedMergeTree introspection table except the
@@ -79,7 +98,9 @@ export async function probeCapabilities(clusterId, node) {
     probed: true,
     tables: names,
     deployment: sharedMergeTree ? 'shared-merge-tree' : 'standard',
+    version,
   };
+
 
   cache.set(clusterId, entry);
   return entry;
