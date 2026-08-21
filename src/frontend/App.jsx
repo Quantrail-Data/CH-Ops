@@ -8,6 +8,7 @@ import useIdleTimeout from "./hooks/useIdleTimeout.js";
 import LoginPage from "./components/layout/LoginPage.jsx";
 import MainLayout from "./components/layout/MainLayout.jsx";
 import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
+import { apiFetch } from "./utils/api.js";
 
 // Each context defaults to an inert value with the SAME SHAPE the provider
 // supplies, rather than to null.
@@ -16,7 +17,10 @@ import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
 // `const { theme } = useTheme()`, `const { selectedClusterId } = useConnection()`
 
 // The defaults below let such a component render in its logged-out, unconnected,
-// light-theme state instead. 
+// light-theme state instead.
+
+
+
 
 const NO_AUTH = Object.freeze({
   auth: null,
@@ -42,6 +46,7 @@ const NO_CONNECTION = Object.freeze({
   connected: false,
   error: null,
   clusterName: "",
+  serverVersion: null,
   setConnection: () => {},
   testConnection: () => {},
   reloadConfig: () => {},
@@ -203,6 +208,7 @@ export default function App() {
     connected: false,
     error: null,
     clusterName: "",
+    serverVersion: null,
   });
 
 
@@ -333,9 +339,32 @@ export default function App() {
         port: first.port || 8123,
         connected: Object?.keys(first)?.length > 0 ? true : false,
         error: null,
+        serverVersion: null,
       };
     });
   }
+
+  useEffect(() => {
+    const clusterId = connection.selectedClusterId;
+    if (!clusterId) return;
+
+    let cancelled = false;
+
+    apiFetch(`/api/config/capabilities/${encodeURIComponent(clusterId)}`)
+      .then((r) => {
+        if (cancelled) return;
+        setConnection((prev) => ({ ...prev, serverVersion: r.version ?? null }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setConnection((prev) => ({ ...prev, serverVersion: null }));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection.selectedClusterId]);
 
   // No password argument: the browser does not hold one. The backend resolves
   // the stored credential for this node from the cluster configuration.
