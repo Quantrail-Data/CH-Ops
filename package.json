@@ -35,7 +35,7 @@
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.111.0",
+    "@anthropic-ai/sdk": "^0.118.0",
     "@clickhouse/client": "^1.21.0",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/lang-sql": "^6.10.0",
