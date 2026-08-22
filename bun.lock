@@ -15,7 +15,7 @@
         "@codemirror/view": "^6.43.6",
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource/b612": "^5.2.7",
-        "@fontsource/red-hat-mono": "^5.2.8",
+        "@fontsource/red-hat-mono": "^5.3.0",
         "@google/genai": "^2.11.0",
         "@lezer/highlight": "^1.2.3",
         "@mistralai/mistralai": "^2.4.1",
@@ -248,7 +248,7 @@
 
     "@fontsource/b612": ["@fontsource/b612@5.2.7", "", {}, "sha512-ALWds7TznSpGM2QUJVqMXLd6GT2LA7XviIbek8YR3+/xoAAjYl6ed0Mh71vFoM8eZv0BSu25D7WMEJw/iwVWlQ=="],
 
-    "@fontsource/red-hat-mono": ["@fontsource/red-hat-mono@5.2.8", "", {}, "sha512-KiP2OqXbsDAoz6kDNTRjcepp+EeuqxcC2+EWj0MJW3ulpqEA1L5G31KmTRgmnpfxMTqYEESCj99Ldd4rBmC6Xg=="],
+    "@fontsource/red-hat-mono": ["@fontsource/red-hat-mono@5.3.0", "", {}, "sha512-rXSQpg6TLRd+WLhcN9qGIarP9/HVouhmdKJcCv1R3+c2mznJ2GUUaTpkKhFN6LO2Sg7lRvb8CIaXYQqvqY6aPw=="],
 
     "@google/genai": ["@google/genai@2.11.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-d2Csf29vS0GfHc52H0MG25ccY4FKvvbDgqDlEovLrPLF8sPegWr/GGO+LMOy85/1SnX0iV0zDAW7R8SsvWg8Vg=="],
 
