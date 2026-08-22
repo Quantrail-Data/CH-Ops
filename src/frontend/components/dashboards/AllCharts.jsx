@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
 import { findParameters, hasValue } from '../../../shared/sqlParams.js';
-import { buildChartOption, needsLegend } from './chartTypes.js';
+import { buildChartOption, needsLegend, yAxisNameGap } from './chartTypes.js';
 import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import DataTable from '../layout/DataTable.jsx';
 import ConfirmModal from '../layout/ConfirmModal.jsx';
 import { useTheme, useAuth } from "../../App.jsx";
+import Select from "../common/Select.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -27,6 +28,11 @@ export default function AllCharts({ onEdit }) {
   const previewInst = useRef(null);
   const previewTools = useChartTools(() => previewInst.current, { filename: 'chart' });
   const [del, setDel] = useState(null);
+  const previewContainerRef = useRef(null);
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterDashboard, setFilterDashboard] = useState('all');
 
   const { theme } = useTheme()
 
@@ -53,7 +59,40 @@ export default function AllCharts({ onEdit }) {
   }
   useEffect(() => { load(); }, []);
 
+  const chartTypes = useMemo(() => {
+    const types = new Set();
+    charts.forEach(c => {
+      if (c.chartType) types.add(c.chartType);
+    });
+    return Array.from(types).sort();
+  }, [charts]);
+
+  const filteredCharts = useMemo(() => {
+    return charts.filter(chart => {
+      // Search filter - search chart name
+      const matchesSearch = chart.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
+      
+      // Type filter - filter based on chart types
+      const matchesType = filterType === 'all' || chart.chartType === filterType;
+      
+      // Dashboard filter - filter based on dashboards
+      const matchesDashboard = filterDashboard === 'all' || String(chart.dashboardId) === filterDashboard;
+      
+      return matchesSearch && matchesType && matchesDashboard;
+    });
+  }, [charts, searchTerm, filterType, filterDashboard]);
+
   async function preview(chart) {
+    if (selected?.id === chart.id) {
+      setSelected(null);
+      setPreviewOpt(null);
+      if (previewInst.current) {
+        disposeChart(previewRef.current);
+        previewInst.current = null;
+      }
+      return;
+    }
+
     setSelected(chart); setPreviewLoading(true); setPreviewOpt(null); setShowLegend(true);
     try {
       const cfg0 = typeof chart.config === 'string' ? (() => { try { return JSON.parse(chart.config); } catch { return {}; } })() : (chart.config || {});
@@ -71,6 +110,11 @@ export default function AllCharts({ onEdit }) {
             `Set a default in the Chart Builder, or open it on a dashboard where the filter can be supplied.`,
         });
         setPreviewLoading(false);
+        setTimeout(() => {
+          if (previewContainerRef.current) {
+            previewContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
         return;
       }
 
@@ -82,6 +126,12 @@ export default function AllCharts({ onEdit }) {
       const r = await runQuery(chart.sqlQuery, Object.keys(values).length ? { params: values } : {});
       const cfg = typeof chart.config === 'string' ? JSON.parse(chart.config) : chart.config;
       setPreviewOpt(buildChartOption(chart.chartType, chart.chartSubtype, r.rows || [], cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend } ));
+      
+      setTimeout(() => {
+        if (previewContainerRef.current) {
+          previewContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     } catch (e) { setPreviewOpt({ _error: true, message: e.message }); }
     setPreviewLoading(false);
   }
@@ -131,6 +181,7 @@ export default function AllCharts({ onEdit }) {
 
       const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar', 'horizontal_bar'];
       const isBarChart = barChartTypes.includes(selected?.chartSubtype);
+      const isHeatmap = selected?.chartType === 'heatmap' || selected?.chartSubtype === 'heatmap';
       const isScatterLike = selected?.chartSubtype === 'scatter' || selected?.chartSubtype === 'basic_scatter' || selected?.chartSubtype === 'bubble' || selected?.chartType === 'scatter' || selected?.chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
       const isPieChart = pieChartTypes.includes(selected?.chartSubtype);
@@ -151,7 +202,7 @@ export default function AllCharts({ onEdit }) {
             top: 8,
             bottom: 8,
             width: 220,
-            textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor }
+            textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor, fontSize: 16 }
           }
         : isSmallScreen
           ? {
@@ -206,12 +257,19 @@ export default function AllCharts({ onEdit }) {
 
       const tickCount = determineTickCount(baseOption);
 
-      const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
-      const dataLabelFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10;
-      const xRotate = isBarChart ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-      const axisNameGapX = isBarChart ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
-      const axisMarginX = isBarChart ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
-      const seriesLabelWidth = tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64;
+      const isFullscreen = previewTools.fullscreen;
+      const axisFontSize = isFullscreen 
+        ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
+        : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
+      const dataLabelFontSize = isFullscreen
+        ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
+        : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
+      const xRotate = isBarChart || isHeatmap ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
+      const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
+      const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+      const seriesLabelWidth = isFullscreen
+        ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+        : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
 
       const gridTop = previewTools.fullscreen
         ? Math.max(28, tickCount > 40 ? 40 : 28)
@@ -223,11 +281,23 @@ export default function AllCharts({ onEdit }) {
         ? (supportsLegend && hasLegend && showLegend ? 240 : extraLeftForYAxisName)
         : (supportsLegend && hasLegend && showLegend ? 20 : extraLeftForYAxisName);
 
-      const gridBottomAuto = isBarChart
+      const gridBottomAuto = isBarChart || isHeatmap
         ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
         : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
       const shouldShowDataLabels = (() => {
+        if (isHeatmap) {
+          const totalHeatmapCells = Array.isArray(baseOption.series)
+            ? baseOption.series.reduce((acc, s) => {
+                if (s.type === 'heatmap' && Array.isArray(s.data)) {
+                  return acc + s.data.length;
+                }
+                return acc;
+              }, 0)
+            : 0;
+          if (totalHeatmapCells > 15) return false;
+          return true;
+        }
         if (isPieChart) return true;
         if (previewTools.fullscreen) {
           if (tickCount > 150) return false;
@@ -295,7 +365,7 @@ export default function AllCharts({ onEdit }) {
               axisLabel: {
                 ...axis?.axisLabel,
                 rotate: xRotate,
-                align: isBarChart || xRotate > 0 ? 'right' : 'left',
+                align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
                 margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
                 hideOverlap: false,
                 showMinLabel: true,
@@ -331,7 +401,7 @@ export default function AllCharts({ onEdit }) {
                 axisLabel: {
                   ...baseOption?.xAxis?.axisLabel,
                   rotate: xRotate,
-                  align: isBarChart || xRotate > 0 ? 'right' : 'left',
+                  align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
                   margin: Math.max(
                     baseOption?.xAxis?.axisLabel?.margin || 8,
                     axisMarginX,
@@ -385,7 +455,7 @@ export default function AllCharts({ onEdit }) {
                 },
               },
               nameLocation: axis?.nameLocation || 'middle',
-              nameGap: Math.max(axis?.nameGap || 25, 42),
+              nameGap: Math.max(axis?.nameGap || 25, yAxisNameGap(baseOption)),
               nameTextStyle: {
                 ...(axis?.nameTextStyle || {}),
                 color: isDarkColor,
@@ -416,7 +486,7 @@ export default function AllCharts({ onEdit }) {
                   },
                 },
                 nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
-                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, 42),
+                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yAxisNameGap(baseOption)),
                 nameTextStyle: {
                   ...(baseOption?.yAxis?.nameTextStyle || {}),
                   color: isDarkColor,
@@ -427,10 +497,56 @@ export default function AllCharts({ onEdit }) {
             : baseOption.yAxis,
       };
 
+      if (isHeatmap) {
+        if (Array.isArray(chartOption.series)) {
+          chartOption.series = chartOption.series.map((s) => {
+            if (!s || s.type !== 'heatmap') return s;
+            
+            const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
+            const shouldHideHeatmapLabels = totalHeatmapCells > 15;
+            
+            return {
+              ...s,
+              label: {
+                ...(s.label || {}),
+                show: shouldHideHeatmapLabels ? false : (s.label?.show !== undefined ? s.label.show : true),
+                color: isDarkColor,
+                fontSize: previewTools.fullscreen ? Math.min(14, axisFontSize + 3) : Math.min(10, axisFontSize),
+                formatter: (params) => {
+                  if (params && params.value && params.value.length >= 3) {
+                    const val = params.value[2];
+                    if (typeof val === 'number') {
+                      if (Math.abs(val) >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+                      if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(1)}K`;
+                      return val;
+                    }
+                    return val;
+                  }
+                  return '';
+                }
+              },
+              emphasis: {
+                ...(s.emphasis || {}),
+                label: {
+                  ...((s.emphasis && s.emphasis.label) || {}),
+                  show: true,
+                  color: isDarkColor,
+                  fontSize: previewTools.fullscreen ? 16 : 12,
+                }
+              }
+            };
+          });
+        }
+      }
+
       if (Array.isArray(chartOption.series) && chartOption.series.length) {
         chartOption.series = chartOption.series.map((s) => {
           if (!s || !s.type) return s;
           if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
+          const labelFont = previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize;
+          const labelWidth = previewTools.fullscreen 
+            ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+            : seriesLabelWidth;
           return {
             ...s,
             clip: true,
@@ -445,9 +561,9 @@ export default function AllCharts({ onEdit }) {
               distance: tickCount > 50 ? 5 : 8,
               color: isDarkColor,
               overflow: 'truncate',
-              width: seriesLabelWidth,
+              width: labelWidth,
               hideOverlap: true,
-              fontSize: dataLabelFontSize,
+              fontSize: labelFont,
               formatter: (p) => {
                 try {
                   const raw = Array.isArray(p?.value) ? p.value[p.value.length - 1] : p?.value;
@@ -471,9 +587,10 @@ export default function AllCharts({ onEdit }) {
                 ...((s.emphasis && s.emphasis.label) || {}),
                 show: true,
                 position: 'top',
-                distance: 10,
+                distance: previewTools.fullscreen ? 16 : 10,
                 color: isDarkColor,
                 hideOverlap: false,
+                fontSize: previewTools.fullscreen ? 16 : 12,
               },
             },
           };
@@ -492,7 +609,7 @@ export default function AllCharts({ onEdit }) {
           const defaultBaseRadius = selected?.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
           const baseRadius = s.radius || defaultBaseRadius;
           const finalRadius = previewTools.fullscreen
-            ? baseRadius
+            ? (selected?.chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
             : isSmallScreen
               ? (selected?.chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
               : (selected?.chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
@@ -509,15 +626,15 @@ export default function AllCharts({ onEdit }) {
               show: !hidePieLabels && shouldShowDataLabels,
               formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
               color: isDarkColor,
-              fontSize: 11,
+              fontSize: previewTools.fullscreen ? 15 : 11,
               overflow: 'truncate',
-              width: previewTools.fullscreen ? 240 : (isSmallScreen ? 160 : 220),
-              lineHeight: 18,
+              width: previewTools.fullscreen ? 340 : (isSmallScreen ? 160 : 220),
+              lineHeight: previewTools.fullscreen ? 26 : 18,
             },
             labelLine: {
               ...(s.labelLine || {}),
-              length: 8,
-              length2: 8,
+              length: previewTools.fullscreen ? 16 : 8,
+              length2: previewTools.fullscreen ? 16 : 8,
               smooth: false,
             },
             radius: finalRadius,
@@ -527,8 +644,8 @@ export default function AllCharts({ onEdit }) {
 
         chartOption.legend = {
           ...(chartOption.legend || {}),
-          textStyle: { ...(chartOption.legend?.textStyle || {}), fontSize: isSmallScreen ? 10 : 12, color: isDarkColor },
-          itemGap: 12,
+          textStyle: { ...(chartOption.legend?.textStyle || {}), fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 12), color: isDarkColor },
+          itemGap: previewTools.fullscreen ? 18 : 12,
           pageIconColor: isDarkColor,
         };
 
@@ -558,8 +675,8 @@ export default function AllCharts({ onEdit }) {
               show: shouldShowFunnelLabels,
               color: isDarkColor,
               overflow: 'truncate',
-              width: previewTools.fullscreen ? 220 : (isSmallScreen ? 110 : 160),
-              fontSize: previewTools.fullscreen ? 12 : (isSmallScreen ? 10 : 11),
+              width: previewTools.fullscreen ? 320 : (isSmallScreen ? 110 : 160),
+              fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 11),
             },
             labelLine: {
               ...(s.labelLine || {}),
@@ -580,6 +697,7 @@ export default function AllCharts({ onEdit }) {
                 ...((s.emphasis && s.emphasis.label) || {}),
                 show: true,
                 color: isDarkColor,
+                fontSize: previewTools.fullscreen ? 18 : 12,
               },
               labelLine: {
                 ...((s.emphasis && s.emphasis.labelLine) || {}),
@@ -611,6 +729,7 @@ export default function AllCharts({ onEdit }) {
                 label: {
                   ...(s.label || {}),
                   color: isDarkColor,
+                  fontSize: previewTools.fullscreen ? 18 : 14,
                 },
                 itemStyle: {
                   ...(s.itemStyle || {}),
@@ -643,6 +762,7 @@ export default function AllCharts({ onEdit }) {
                 textBorderWidth: 2,
                 textShadowColor: 'transparent',
                 textShadowBlur: 0,
+                fontSize: previewTools.fullscreen ? (lbl?.fontSize ? lbl.fontSize + 4 : 16) : (lbl?.fontSize || 12),
               };
               if (!lbl) return { textStyle: baseTextStyle };
               return { ...lbl, textStyle: baseTextStyle };
@@ -657,7 +777,7 @@ export default function AllCharts({ onEdit }) {
           });
           chartOption.legend = {
             ...(chartOption.legend || {}),
-            textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 }
+            textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0, fontSize: previewTools.fullscreen ? 16 : 12 }
           };
         }
       }
@@ -675,7 +795,7 @@ export default function AllCharts({ onEdit }) {
             label: {
               ...(s.label || {}),
               color: isDarkColor,
-              fontSize: 13,
+              fontSize: previewTools.fullscreen ? 18 : 13,
             },
           };
         });
@@ -719,28 +839,30 @@ export default function AllCharts({ onEdit }) {
                 label: {
                   position: "outside",
                   rotate: "tangential",
-                  distance: 10,
-                  show: !hideSunburst
+                  distance: previewTools.fullscreen ? 20 : 10,
+                  show: !hideSunburst,
+                  fontSize: previewTools.fullscreen ? 16 : 11,
                 },
                 labelLine: {
                   show: true,
-                  length: 20,
-                  length2: 10,
+                  length: previewTools.fullscreen ? 30 : 20,
+                  length2: previewTools.fullscreen ? 20 : 10,
                   smooth: false,
                 },
               },
               {
                 label: {
                   position: "outside",
-                  distance: 10,
+                  distance: previewTools.fullscreen ? 20 : 10,
                   rotate: 0,
                   silent: true,
-                  show: !hideSunburst
+                  show: !hideSunburst,
+                  fontSize: previewTools.fullscreen ? 14 : 10,
                 },
                 labelLine: {
                   show: true,
-                  length: 20,
-                  length2: 10,
+                  length: previewTools.fullscreen ? 30 : 20,
+                  length2: previewTools.fullscreen ? 20 : 10,
                   smooth: false,
                 },
               },
@@ -823,12 +945,83 @@ export default function AllCharts({ onEdit }) {
           )}
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? (isSmallScreen ? '1fr' : '1fr 1fr') : '1fr', gap: 16 }}>
+      
+      {/* Search and Filter Bar */}
+      <div style={{ 
+        display: 'flex', 
+        gap: 12, 
+        marginBottom: 16, 
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        background: 'var(--bg-card)',
+        padding: '12px 16px',
+        borderRadius: 'var(--radius)',
+        border: '1px solid var(--border-color)'
+      }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Search charts by name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '100%' }}
+          />
+        </div>
+        
+        <div style={{ minWidth: '150px' }}>
+          <Select
+            className="form-select"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            style={{ width: '100%', cursor: 'pointer' }}
+          >
+            <option value="all">All Types</option>
+            {chartTypes.map(type => (
+              <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+            ))}
+          </Select>
+        </div>
+        
+        <div style={{ minWidth: '150px' }}>
+          <Select
+            className="form-select"
+            value={filterDashboard}
+            onChange={(e) => setFilterDashboard(e.target.value)}
+            style={{ width: '100%', cursor: 'pointer' }}
+          >
+            <option value="all">All Dashboards</option>
+            {dashboards.map(d => (
+              <option key={d.id} value={String(d.id)}>{d.name}</option>
+            ))}
+          </Select>
+        </div>
+        
+        {(searchTerm || filterType !== 'all' || filterDashboard !== 'all') && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              setSearchTerm('');
+              setFilterType('all');
+              setFilterDashboard('all');
+            }}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            <Icon className="ti ti-x"></Icon> Clear
+          </button>
+        )}
+        
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          {filteredCharts.length} chart{filteredCharts.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="data-table-wrap dt-single">
           <table className="data-table">
             <thead><tr><th>Name</th><th>Type</th><th>Dashboard</th><th>Actions</th></tr></thead>
             <tbody>
-              {charts.map(c => (
+              {filteredCharts.map(c => (
                 <tr key={c.id} onClick={() => preview(c)} style={{ cursor: 'pointer', background: selected?.id === c.id ? 'var(--accent-soft)' : undefined }}>
                   <td style={{ fontWeight: 600 }}>{c.name}</td>
                   <td>{c.chartType} / {c.chartSubtype}</td>
@@ -840,13 +1033,22 @@ export default function AllCharts({ onEdit }) {
                   </td>
                 </tr>
               ))}
-              {charts.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>No charts.</td></tr>}
+              {filteredCharts.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>No charts found matching your criteria.</td></tr>}
             </tbody>
           </table>
         </div>
         {selected && (
-          <div className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: isSmallScreen ? '600px' : '420px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: 8 }}>{selected.name}</div>
+          <div ref={previewContainerRef} className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: isSmallScreen ? '500px' : '420px', width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>{selected.name}</div>
+              <button 
+                className="btn btn-ghost btn-sm" 
+                onClick={() => { setSelected(null); setPreviewOpt(null); if (previewInst.current) { disposeChart(previewRef.current); previewInst.current = null; } }}
+                title="Close preview"
+              >
+                <Icon className="ti ti-x" style={{ fontSize: 16 }}></Icon>
+              </button>
+            </div>
             {previewLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
             {previewOpt?._error && <div className="alert-banner danger" style={{ fontSize: '13px' }}><Icon className="ti ti-alert-circle"></Icon> {previewOpt.message}</div>}
             {previewOpt?._kpi && <div style={{ textAlign: 'center', padding: 32 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{previewOpt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)' }}>{previewOpt.value}</div></div>}
