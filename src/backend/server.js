@@ -60,6 +60,9 @@ import editorRoute from "./routes/editor.js";
 import { onRevoke } from './services/jwt.js';
 import { clearCredSessionByJti, pruneExpired } from './services/chCredStore.js';
 
+import aiConnectRoute from './routes/aiConnect.js';
+import aiSchemaRoute from './routes/aiSchema.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let env;
@@ -150,6 +153,11 @@ app.use('/api/export', rateLimiter(10000, 60), authMiddleware, exportRoute);
 app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
 app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
 app.use("/api/schema-studio", authMiddleware,rateLimiter(10000, 60), schemaStudioRoute);
+
+// version3 Qurioz 
+app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiConnectRoute);
+app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiSchemaRoute);
+
 
 function serveEmbedded(prefix) {
   return (req, res, next) => {

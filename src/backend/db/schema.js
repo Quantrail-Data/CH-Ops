@@ -14,6 +14,7 @@ export const appSettings = sqliteTable("app_setting", {
   category: text("category").notNull().default("general"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  
 });
 
 // Alert Rules
@@ -141,6 +142,55 @@ export const aiDatabaseDetails = sqliteTable("ai_database_details", {
   is_valid: integer("is_valid", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
+
+
+// Qurioz AI Chats 
+export const aiChat = sqliteTable("ai_chat",{
+  id: integer("id").primaryKey({autoIncrement : true}),
+  appUser: text("app_user").notNull(),
+  title: text("title"),
+  clusterId: text("cluster_id"),
+  node: text("node"),
+  selectedTables: text("selected_tables").notNull().default("[]"),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt : text("updated_at").default(sql`(datetime('now'))`),
+})
+
+// Qurioz ai_chat_message
+export const aiChatMessage = sqliteTable("ai_chat_message",{
+  id: integer("id").primaryKey({autoIncrement: true}),
+  chatId: integer("chat_id")
+  .notNull().
+  references(() => aiChat.id, {onDelete: "cascade"}),
+  instruction: text("instruction").notNull(),
+  // Null when generation failed; errorCode says why.
+  sql: text("sql"),
+  // A non-SQL reply, when the question did not call for one.
+  responseText: text("response_text"),
+  ddlSnapshot: text("ddl_snapshot"),
+  // Set when the snapshot exceeded 256 KB and was cut short.
+  ddlTruncated: integer("ddl_truncated", { mode: "boolean" }).notNull().default(false),
+  tokensEstimated: integer("tokens_estimated"),
+  provider: text("provider"),
+  model: text("model"),
+  errorCode: text("error_code"),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+})
+
+// qurioz ai_ddl_cache table
+export const aiDdlCache = sqliteTable("ai_ddl_cache", {
+  id: integer("id").primaryKey({autoIncrement:true}),
+  clusterId: text("cluster_id").notNull(),
+  node: text("node").notNull(),
+  databaseName: text("database_name").notNull(),
+  tableName: text("table_name").notNull(),
+  ddl: text("ddl").notNull(),
+  charCount: integer("char_count").notNull(),
+  fetchedAt: text("fetched_at").default(sql`(datetime('now'))`),
+}, (t) => ({
+  ddlCacheTarget: unique("ai_ddl_cache_target")
+    .on(t.clusterId, t.node, t.databaseName, t.tableName),
+}));
 
 // Schema Studio per-user ClickHouse credential session.
 //

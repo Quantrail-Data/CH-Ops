@@ -32,7 +32,7 @@ export function __setDb(d) {
 }
 
 // Valid credential contexts. A row must belong to exactly one feature.
-export const CRED_CONTEXTS = Object.freeze({ EDITOR: 'editor', SCHEMA_STUDIO: 'schema-studio' });
+export const CRED_CONTEXTS = Object.freeze({ EDITOR: 'editor', SCHEMA_STUDIO: 'schema-studio', QURIOZ: 'qurioz' });
 const VALID_CONTEXTS = new Set(Object.values(CRED_CONTEXTS));
 
 // Credential session lifetime. Matches the 2-hour JWT expiry so an encrypted
