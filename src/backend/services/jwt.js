@@ -5,29 +5,42 @@
 // is in-memory and auto-clears expired entries. Tokens are stateless
 // so revoking all tokens for a user isn't supported - the 2-hour
 // expiry is the primary defense against stolen tokens.
+// The signing keys are made by CHOps and change every day. See
+// services/jwtKeys.js. Two keys are kept, so a change does not sign
+// anybody out: the new key signs, and the old one can still read.
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
+import { signingKey, readingKeys } from './jwtKeys.js';
 import { getConfig } from './appConfig.js';
 
-let secret = null;
-
-export const setSecret = (s) => { secret = s; };
+// There is no setSecret any more. The keys come from services/jwtKeys.js, which
+// makes them itself. Nothing has to be passed in at start-up.
 
 export const create = (payload) => {
-  if (!secret) throw new Error('JWT secret not set. Call setSecret() first.');
   const jti = randomBytes(16).toString('hex');
-  const ttlSeconds = Math.floor(getConfig('security.sessionTtlMs') / 1000);
-  return jwt.sign({ ...payload, jti }, secret, { expiresIn: ttlSeconds });
+  return jwt.sign({ ...payload, jti }, signingKey(), { expiresIn: '2h' });
 };
 
 export const verify = (token) => {
-  if (!secret) throw new Error('JWT secret not set. Call setSecret() first.');
-  const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
-  if (blocklist.has(payload.jti)) throw new Error('Token revoked');
-  return payload;
+  let lastError = null;
+
+  for (const key of readingKeys()) {
+    let payload;
+    try {
+      payload = jwt.verify(token, key, { algorithms: ['HS256'] });
+    } catch (err) {
+      lastError = err;
+      continue;
+    }
+
+    if (blocklist.has(payload.jti)) throw new Error('Token revoked');
+    return payload;
+  }
+
+  throw lastError || new Error('Token is not valid');
 };
 
 // In-memory set of revoked token IDs. Auto-cleaned every time a new

@@ -579,7 +579,7 @@ docker run -d \
 
 Pass environment variables through the `docker compose` env file or `docker run -e`:
 
-- `SESSION_SECRET` (required): a random string for JWT signing and credential encryption.
+- `ENCRYPTION_SECRET` (required): a random string that makes the key for stored credentials. It cannot be changed after the first start.
 - `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL` (required): the first super admin, seeded on first startup.
 - `DISABLE_ENV_LOGIN=true` (optional): disable the .env login fallback in production.
 - `PORT=3000` (default): the HTTP port inside the container.
