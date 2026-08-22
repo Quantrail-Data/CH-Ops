@@ -94,6 +94,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   });
 
   const smallScreenOverlapRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     apiFetch("/api/dashboards")
@@ -184,12 +192,18 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         readOnly: true,
         ...(Object.keys(values).length ? { params: values } : {}),
       });
-      setData(r.rows || []);
-      setColumns(r.columns || []);
+      if (isMountedRef.current) {
+        setData(r.rows || []);
+        setColumns(r.columns || []);
+      }
     } catch (e) {
-      setError(e.message);
+      if (isMountedRef.current) {
+        setError(e.message);
+      }
     }
-    setRunning(false);
+    if (isMountedRef.current) {
+      setRunning(false);
+    }
   }
 
   useEffect(() => {
@@ -276,7 +290,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   ]);
 
   useEffect(() => {
-    if (!previewRef.current) return;
+    if (!previewRef.current || !isMountedRef.current) return;
     if (
       !chartOption ||
       chartOption._kpi ||
@@ -284,14 +298,23 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       chartOption._error
     ) {
       if (previewInst.current) {
-        disposeChart(previewRef.current);
+        try {
+          disposeChart(previewRef.current);
+        } catch (e) {
+        }
         previewInst.current = null;
       }
       return;
     }
     try {
-      if (!previewInst.current)
-        previewInst.current = initChart(previewRef.current);
+      if (!previewInst.current) {
+        try {
+          previewInst.current = initChart(previewRef.current);
+        } catch (e) {
+          console.warn('Failed to init chart:', e);
+          return;
+        }
+      }
 
       const isDarkColor = theme === 'dark' ? 'white' : 'black';
 
@@ -300,6 +323,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
       const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar', 'horizontal_bar'];
       const isBarChart = barChartTypes.includes(chartSubtype);
+      const isHeatmap = chartType === 'heatmap' || chartSubtype === 'heatmap';
       const isScatterLike = chartSubtype === 'scatter' || chartSubtype === 'basic_scatter' || chartSubtype === 'bubble' || chartType === 'scatter' || chartType === 'bubble';
       const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
       const isPieChart = pieChartTypes.includes(chartSubtype) || (Array.isArray(chartOption.series) && chartOption.series.some(s => s.type === 'pie'));
@@ -392,12 +416,19 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         ? baseOption.series.filter((s) => s?.type === 'bar').length
         : 0;
 
-      const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
-      const dataLabelFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10;
-      const xRotate = isBarChart ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-      const axisNameGapX = isBarChart ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
-      const axisMarginX = isBarChart ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
-      const seriesLabelWidth = tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64;
+      const isFullscreen = previewTools.fullscreen;
+      const axisFontSize = isFullscreen 
+        ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
+        : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
+      const dataLabelFontSize = isFullscreen
+        ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
+        : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
+      const xRotate = isBarChart || isHeatmap ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
+      const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
+      const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+      const seriesLabelWidth = isFullscreen
+        ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+        : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
 
       const yHasName = Array.isArray(baseOption.yAxis)
         ? baseOption.yAxis.some((a) => !!a?.name)
@@ -424,7 +455,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 240 : extraLeftForYAxisName)
         : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 20 : extraLeftForYAxisName);
 
-      const gridBottomAuto = isBarChart
+      const gridBottomAuto = isBarChart || isHeatmap
         ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
         : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
@@ -436,6 +467,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const densityThresholdSmall = 30;
       const tickThresholdNormal = 50;
       const tickThresholdSmall = 30;
+
+      const densityThresholdNormal = 50;
+      const tickThresholdFullscreen = 80;
 
       const densityThreshold = previewTools.fullscreen ? densityThresholdFullscreen : (isSmallScreen ? densityThresholdSmall : densityThresholdNormal);
       const tickThreshold = previewTools.fullscreen ? tickThresholdFullscreen : (isSmallScreen ? tickThresholdSmall : tickThresholdNormal);
@@ -466,6 +500,19 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
       const shouldShowDataLabels = (() => {
         if (isPieChart) return !finalHideLabels;
+        
+        if (isHeatmap) {
+          const totalHeatmapCells = Array.isArray(baseOption.series)
+            ? baseOption.series.reduce((acc, s) => {
+                if (s.type === 'heatmap' && Array.isArray(s.data)) {
+                  return acc + s.data.length;
+                }
+                return acc;
+              }, 0)
+            : 0;
+          if (totalHeatmapCells > 15) return false;
+          return !finalHideLabels;
+        }
         
         if (previewTools.fullscreen) return !finalHideLabels;
         
@@ -538,7 +585,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               axisLabel: {
                 ...axis?.axisLabel,
                 rotate: xRotate,
-                align: isBarChart || xRotate > 0 ? 'right' : 'left',
+                align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
                 margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
                 hideOverlap: false,
                 showMinLabel: true,
@@ -574,7 +621,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 axisLabel: {
                   ...baseOption?.xAxis?.axisLabel,
                   rotate: xRotate,
-                  align: isBarChart || xRotate > 0 ? 'right' : 'left',
+                  align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
                   margin: Math.max(baseOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
                   hideOverlap: false,
                   showMinLabel: true,
@@ -668,6 +715,48 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             : baseOption.yAxis,
       };
 
+      if (isHeatmap) {
+        if (Array.isArray(enhancedOption.series)) {
+          enhancedOption.series = enhancedOption.series.map((s) => {
+            if (!s || s.type !== 'heatmap') return s;
+            
+            const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
+            const shouldHideHeatmapLabels = totalHeatmapCells > 15;
+            
+            return {
+              ...s,
+              label: {
+                ...(s.label || {}),
+                show: shouldHideHeatmapLabels ? false : (s.label?.show !== undefined ? s.label.show : true),
+                color: isDarkColor,
+                fontSize: previewTools.fullscreen ? Math.min(14, axisFontSize + 3) : Math.min(10, axisFontSize),
+                formatter: (params) => {
+                  if (params && params.value && params.value.length >= 3) {
+                    const val = params.value[2];
+                    if (typeof val === 'number') {
+                      if (Math.abs(val) >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+                      if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(1)}K`;
+                      return val;
+                    }
+                    return val;
+                  }
+                  return '';
+                }
+              },
+              emphasis: {
+                ...(s.emphasis || {}),
+                label: {
+                  ...((s.emphasis && s.emphasis.label) || {}),
+                  show: true,
+                  color: isDarkColor,
+                  fontSize: previewTools.fullscreen ? 16 : 12,
+                }
+              }
+            };
+          });
+        }
+      }
+
       if (Array.isArray(enhancedOption.series) && enhancedOption.series.length) {
         enhancedOption.series = enhancedOption.series.map((s) => {
           if (!s || !s.type) return s;
@@ -679,7 +768,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
             const labelPosition = s.type === 'bar' ? 'top' : (isLineType ? 'top' : (s.label?.position || 'top'));
             const labelDistance = isLineType ? (tickCount > 50 ? 4 : 6) : (tickCount > 50 ? 5 : 8);
-            const labelFont = isLineType ? (previewTools.fullscreen ? Math.max(9, dataLabelFontSize) : dataLabelFontSize) : dataLabelFontSize;
+            const labelFont = isLineType 
+              ? (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize) 
+              : (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize);
+            const labelWidth = previewTools.fullscreen 
+              ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+              : seriesLabelWidth;
 
             return {
               ...s,
@@ -695,7 +789,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 distance: labelDistance,
                 color: isDarkColor,
                 overflow: 'truncate',
-                width: seriesLabelWidth,
+                width: labelWidth,
                 hideOverlap: true,
                 fontSize: labelFont,
                 formatter: (p) => {
@@ -721,9 +815,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   ...((s.emphasis && s.emphasis.label) || {}),
                   show: true,
                   position: 'top',
-                  distance: 10,
+                  distance: previewTools.fullscreen ? 16 : 10,
                   color: isDarkColor,
                   hideOverlap: false,
+                  fontSize: previewTools.fullscreen ? 16 : 12,
                 },
               },
             };
@@ -740,7 +835,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           const defaultBaseRadius = chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
           const baseRadius = s.radius || defaultBaseRadius;
           const finalRadius = previewTools.fullscreen
-            ? baseRadius
+            ? (chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
             : isSmallScreen
               ? (chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
               : (chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
@@ -758,15 +853,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               show: !finalHideLabels,
               formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
               color: isDarkColor,
-              fontSize: 11,
+              fontSize: previewTools.fullscreen ? 15 : 11,
               overflow: 'truncate',
-              width: previewTools.fullscreen ? 240 : (isSmallScreen ? 160 : 220),
-              lineHeight: 18,
+              width: previewTools.fullscreen ? 340 : (isSmallScreen ? 160 : 220),
+              lineHeight: previewTools.fullscreen ? 26 : 18,
             },
             labelLine: {
               ...(s.labelLine || {}),
-              length: 8,
-              length2: 8,
+              length: previewTools.fullscreen ? 16 : 8,
+              length2: previewTools.fullscreen ? 16 : 8,
               smooth: false,
             },
             radius: finalRadius,
@@ -776,8 +871,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
         enhancedOption.legend = {
           ...(enhancedOption.legend || {}),
-          textStyle: { ...(enhancedOption.legend?.textStyle || {}), fontSize: isSmallScreen ? 10 : 12, color: isDarkColor },
-          itemGap: 12,
+          textStyle: { ...(enhancedOption.legend?.textStyle || {}), fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 12), color: isDarkColor },
+          itemGap: previewTools.fullscreen ? 18 : 12,
           pageIconColor: isDarkColor,
         };
 
@@ -801,6 +896,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 textBorderWidth: 2,
                 textShadowColor: 'transparent',
                 textShadowBlur: 0,
+                fontSize: previewTools.fullscreen ? (lbl?.fontSize ? lbl.fontSize + 4 : 16) : (lbl?.fontSize || 12),
               };
               if (!lbl) return { textStyle: baseTextStyle };
               return { ...lbl, textStyle: baseTextStyle };
@@ -815,7 +911,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           });
           enhancedOption.legend = {
             ...(enhancedOption.legend || {}),
-            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 }
+            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0, fontSize: previewTools.fullscreen ? 16 : 12 }
           };
         }
       }
@@ -837,8 +933,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               show: shouldShowFunnelLabels,
               color: isDarkColor,
               overflow: 'truncate',
-              width: previewTools.fullscreen ? 220 : (isSmallScreen ? 110 : 160),
-              fontSize: previewTools.fullscreen ? 12 : (isSmallScreen ? 10 : 11),
+              width: previewTools.fullscreen ? 320 : (isSmallScreen ? 110 : 160),
+              fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 11),
             },
             labelLine: {
               ...(s.labelLine || {}),
@@ -859,6 +955,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 ...((s.emphasis && s.emphasis.label) || {}),
                 show: true,
                 color: isDarkColor,
+                fontSize: previewTools.fullscreen ? 18 : 12,
               },
               labelLine: {
                 ...((s.emphasis && s.emphasis.labelLine) || {}),
@@ -928,29 +1025,31 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 label: {
                   position: "outside",
                   rotate: "tangential",
-                  distance: 10,
+                  distance: previewTools.fullscreen ? 20 : 10,
                   rotate: 0,
-                  show: !hideSunburst
+                  show: !hideSunburst,
+                  fontSize: previewTools.fullscreen ? 16 : 11,
                 },
                 labelLine: {
                   show: true,
-                  length: 20,
-                  length2: 10,
+                  length: previewTools.fullscreen ? 30 : 20,
+                  length2: previewTools.fullscreen ? 20 : 10,
                   smooth: false,
                 },
               },
               {
                 label: {
                   position: "outside",
-                  distance: 10,
+                  distance: previewTools.fullscreen ? 20 : 10,
                   rotate: 0,
                   silent: true,
-                  show: !hideSunburst
+                  show: !hideSunburst,
+                  fontSize: previewTools.fullscreen ? 14 : 10,
                 },
                 labelLine: {
                   show: true,
-                  length: 20,
-                  length2: 10,
+                  length: previewTools.fullscreen ? 30 : 20,
+                  length2: previewTools.fullscreen ? 20 : 10,
                   smooth: false,
                 },
               },
@@ -964,11 +1063,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             data: uniqueLegendData,
             show: legendVisible,
             orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
-            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor },
+            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, fontSize: previewTools.fullscreen ? 16 : 12 },
             type: 'scroll',
             pageIconColor: isDarkColor,
             pageIconInactiveColor: 'var(--text-muted)',
-            pageTextStyle: { color: isDarkColor },
+            pageTextStyle: { color: isDarkColor, fontSize: previewTools.fullscreen ? 14 : 11 },
             ...(previewTools.fullscreen ? {
               left: 0,
               top: 8,
@@ -989,20 +1088,43 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         }
       }
 
-      previewInst.current.setOption(enhancedOption, true);
-      setTimeout(() => previewInst.current?.resize(), 50);
+      if (previewInst.current) {
+        previewInst.current.setOption(enhancedOption, true);
+        setTimeout(() => {
+          if (previewInst.current) {
+            try {
+              previewInst.current.resize();
+            } catch (e) {
+            }
+          }
+        }, 50);
+      }
     } catch (err) {
       setChartOption({ _error: true, message: err.message });
     }
   }, [chartOption, previewTools.fullscreen, isSmallScreen, showLegend, theme, shouldShowLegend]);
 
   useEffect(() => {
-    setTimeout(() => previewInst.current?.resize(), 150);
+    setTimeout(() => {
+      if (previewInst.current) {
+        try {
+          previewInst.current.resize();
+        } catch (e) {
+        }
+      }
+    }, 150);
   }, [fullscreen, bottomOpen, previewTools.fullscreen, isSmallScreen]);
 
   useEffect(
     () => () => {
-      if (previewRef.current) disposeChart(previewRef.current);
+      if (previewInst.current) {
+        try {
+          disposeChart(previewRef.current);
+        } catch (e) {
+          // Ignore dispose errors
+        }
+        previewInst.current = null;
+      }
     },
     [],
   );
@@ -1166,7 +1288,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   function changeType(t) {
-    disposeChart(previewRef?.current);
+    if (previewInst.current) {
+      try {
+        disposeChart(previewRef.current);
+      } catch (e) {
+      }
+      previewInst.current = null;
+    }
     setChartType(t);
     const f = CHART_TYPES.find((x) => x.type === t)?.subtypes[0];
     setChartSubtype(f?.subtype || "");
@@ -1584,16 +1712,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           Config & Preview
         </div>
         {bottomOpen && (
-          <div
-            style={{ display: "grid", gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr", gap: 0 }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             <div
               style={{
                 padding: 12,
-                borderRight: isSmallScreen ? "none" : "1px solid var(--border-default)",
-                borderBottom: isSmallScreen ? "1px solid var(--border-default)" : "none",
                 overflow: "auto",
-                maxHeight: isSmallScreen ? "60vh" : "60vh",
+                maxHeight: isSmallScreen ? "35vh" : "60vh",
+                borderBottom: "1px solid var(--border-default)",
               }}
             >
               <div
@@ -1652,7 +1777,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
+                      gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
                       gap: 8,
                     }}
                   >
@@ -1831,12 +1956,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 </div>
               )}
             </div>
-            <div style={{ padding: 12, minHeight: isSmallScreen ? "60vh" : "50vh", overflow: "auto" }}>
+            <div style={{ padding: 12, minHeight: isSmallScreen ? "65vh" : "50vh", overflow: "auto" }}>
               <ErrorBoundary
                 resetKeys={[chartOption]}
                 fallback={(err) => (
-                  <div
-                    className="alert-banner danger"
+                  <div                    className="alert-banner danger"
                     style={{ fontSize: "13px" }}
                   >
                     <Icon className="ti ti-alert-circle"></Icon> Chart preview
@@ -1989,7 +2113,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         style={{
                           height: previewTools.fullscreen
                             ? "calc(100vh - 96px)"
-                            : isSmallScreen ? 350 : 430,
+                            : isSmallScreen ? 500 : 430,
                           width: "100%",
                           overflow: "visible",
                           paddingBottom: 30,
