@@ -308,9 +308,9 @@ describe("Services: Crypto", () => {
     expect(code).toContain("crypto.salt");
     expect(code).toContain("randomBytes(32)");
   });
-  it("requires 32+ character SESSION_SECRET", () => {
-    expect(code).toContain("sessionSecret.length < 32");
-  });
+  it("requires 32+ character ENCRYPTION_SECRET", () => {
+      expect(code).toContain("encryptionSecret.length < 32");
+    });
 });
 
 describe("Security: SSRF Prevention", () => {
@@ -447,8 +447,8 @@ describe("Server: Safety", () => {
   it("helpful error when not built", () => {
     expect(code).toContain("Frontend not built");
   });
-  it("initializes crypto from session secret", () => {
-    expect(code).toContain("initCrypto(env.sessionSecret)");
+  it("initializes crypto from encryption secret", () => {
+    expect(code).toContain("initCrypto(env.encryptionSecret)");
   });
   it("SQL endpoints have a 512kb body limit mounted before the global parser", () => {
     const tight = code.indexOf("app.use('/api/query', express.json({ limit: '512kb' }))");

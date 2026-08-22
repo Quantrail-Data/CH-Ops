@@ -7,7 +7,6 @@ import jwt from "jsonwebtoken";
 
 import { authMiddleware } from "../../src/backend/middleware/auth.js";
 import {
-  setSecret,
   create,
   verify,
   revokeToken,
@@ -65,7 +64,6 @@ mock.module("../../src/backend/db/index.js", () => ({
 }));
 
 describe("authMiddleware", () => {
-  beforeAll(() => setSecret("middleware-test-secret-32chars-minimum!"));
 
   it("missing Authorization header -> 401, next not called", () => {
     const res = mockRes();
