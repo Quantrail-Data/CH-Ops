@@ -311,7 +311,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         try {
           previewInst.current = initChart(previewRef.current);
         } catch (e) {
-          console.warn('Failed to init chart:', e);
+          console.warn('Failed to init chart:', e.message);
           return;
         }
       }
