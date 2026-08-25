@@ -11,9 +11,9 @@
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
 import { describe, it, expect, beforeAll } from 'bun:test';
-import { setSecret, create, verify, revokeToken, onRevoke } from '../../src/backend/services/jwt.js';
+import { create, verify, revokeToken, onRevoke } from '../../src/backend/services/jwt.js';
 
-beforeAll(() => setSecret('test-jwt-secret-32chars-minimum!'));
+
 
 describe('JWT Service', () => {
   it('creates a valid JWT string with 3 parts', () => {
@@ -51,13 +51,10 @@ describe('JWT Service', () => {
     expect(p.exp - p.iat).toBe(7200); // 2h
   });
 
-  it('throws if secret is not set', () => {
-    const origSecret = 'test-jwt-secret-32chars-minimum!';
-    setSecret(null);
-    expect(() => create({ username: 'admin' })).toThrow('JWT secret not set');
-    setSecret(origSecret);
+  it('makes a key by itself, so a token can always be signed', () => {
+    const token = create({ username: 'admin' });
+    expect(verify(token).username).toBe('admin');
   });
-
   it('rejects revoked tokens', () => {
     const token = create({ username: 'admin' });
     const p = verify(token); // works before revocation

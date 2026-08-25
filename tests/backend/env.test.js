@@ -12,7 +12,7 @@ beforeAll(() => {
   process.env.SUPER_ADMIN_2 = 'admin2';
   process.env.SUPER_ADMIN_2_PASSWORD = 'pass2';
     process.env.SUPER_ADMIN_2_EMAIL = 'admin@gmail.com'
-  process.env.SESSION_SECRET = 'long_random_secret_32_chars_min!';
+  process.env.ENCRYPTION_SECRET = 'long_random_secret_32_chars_min!';
   process.env.SMTP_HOST = 'smtp.example.com';
   process.env.SMTP_PORT = '465';
 });
@@ -115,10 +115,21 @@ describe('Env Loader - validation', () => {
     process.env.SUPER_ADMIN_1_PASSWORD = saved1p;
   });
 
-  it('throws on missing SESSION_SECRET', () => {
-    const saved = process.env.SESSION_SECRET;
-    delete process.env.SESSION_SECRET;
-    expect(() => loadEnv()).toThrow();
-    process.env.SESSION_SECRET = saved;
-  });
+  it('throws on missing ENCRYPTION_SECRET', () => {
+      const saved = process.env.ENCRYPTION_SECRET;
+      delete process.env.ENCRYPTION_SECRET;
+      expect(() => loadEnv()).toThrow(/ENCRYPTION_SECRET/);
+      process.env.ENCRYPTION_SECRET = saved;
+    });
+
+    it('tells a person who is upgrading to rename the value', () => {
+      const saved = process.env.ENCRYPTION_SECRET;
+      delete process.env.ENCRYPTION_SECRET;
+      process.env.SESSION_SECRET = 'the-old-value-at-least-32-characters-long';
+
+      expect(() => loadEnv()).toThrow(/keep the same value/);
+
+      delete process.env.SESSION_SECRET;
+      process.env.ENCRYPTION_SECRET = saved;
+    });
 });
