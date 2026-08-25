@@ -47,7 +47,7 @@ CHOps checks its environment at startup. It exits at once if a required value is
 | `SUPER_ADMIN_1` | The user name of the first super admin. This is your first login. |
 | `SUPER_ADMIN_1_PASSWORD` | The password for that account. Use a strong one. |
 | `SUPER_ADMIN_1_EMAIL` | The email for that account. The server does not start without it. |
-| `SESSION_SECRET` | A random string of 32 characters or more. It signs login sessions and derives the key that encrypts stored ClickHouse&reg; passwords. Make one with `openssl rand -hex 32`. |
+| `ENCRYPTION_SECRET` | A random string of 32 characters or more. It makes the key that encrypts stored ClickHouse&reg; passwords, the system email password, and AI provider keys. Make one with `openssl rand -hex 32`. Never change it after the first start. |
 
 Everything else has a default. A minimal configuration looks like this:
 
@@ -55,10 +55,10 @@ Everything else has a default. A minimal configuration looks like this:
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=change_me_to_a_strong_password
 SUPER_ADMIN_1_EMAIL=you@example.com
-SESSION_SECRET=paste_output_of_openssl_rand_hex_32_here
+ENCRYPTION_SECRET=paste_output_of_openssl_rand_hex_32_here
 ```
 
-> Do not change `SESSION_SECRET` after the first run. It is the encryption key for every stored ClickHouse&reg; password. If you change it, those saved credentials become unreadable, and you must enter them again.
+> Do not change `ENCRYPTION_SECRET` after the first run. It is the encryption key for every stored ClickHouse&reg; password. If you change it, those saved credentials become unreadable, and you must enter them again.
 
 The [Configuration](getting-started/configuration.md) page lists every variable.
 
@@ -70,7 +70,7 @@ The image is published to two registries. Both are public. Pull the image and ru
 
 ```bash
 docker run -d --name chops -p 3000:3000 \
-  -e SESSION_SECRET="$(openssl rand -hex 32)" \
+  -e ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
   -e SUPER_ADMIN_1=admin \
   -e SUPER_ADMIN_1_PASSWORD=change_me_to_a_strong_password \
   -e SUPER_ADMIN_1_EMAIL=you@example.com \
@@ -97,7 +97,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - SESSION_SECRET=replace-with-a-long-random-value
+      - ENCRYPTION_SECRET=replace-with-a-long-random-value
       - SUPER_ADMIN_1=admin
       - SUPER_ADMIN_1_PASSWORD=change_me_to_a_strong_password
       - SUPER_ADMIN_1_EMAIL=you@example.com
@@ -127,7 +127,7 @@ chmod +x chops-linux-x64
 SUPER_ADMIN_1=admin \
 SUPER_ADMIN_1_PASSWORD=change_me_to_a_strong_password \
 SUPER_ADMIN_1_EMAIL=you@example.com \
-SESSION_SECRET=$(openssl rand -hex 32) \
+ENCRYPTION_SECRET=$(openssl rand -hex 32) \
 ./chops-linux-x64
 ```
 
@@ -275,7 +275,7 @@ CHOps keeps all of its state in a SQLite database at `data/chops.db`. It also wr
 
 ## Troubleshooting
 
-**The server exits at once with "Missing required env."** One of the four required values is unset. Confirm `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET` are all set. Under Docker, only variables in the service `environment:` or an `env_file:` reach the container.
+**The server exits at once with "Missing required env."** One of the four required values is unset. Confirm `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET` are all set. Under Docker, only variables in the service `environment:` or an `env_file:` reach the container.
 
 **"Frontend not built."** You started the production server without a build. Run `bun run build`, then `bun src/backend/server.js`. In development, use `bun run dev`.
 
@@ -285,9 +285,9 @@ CHOps keeps all of its state in a SQLite database at `data/chops.db`. It also wr
 
 **Port already in use.** Set a different port in `.env`, for example `PORT=3001`, and restart. In Docker, change the port mapping, for example `-p 3001:3000`.
 
-**Login worked before but stopped after a config change.** If you changed `SESSION_SECRET`, CHOps can no longer decrypt the stored ClickHouse&reg; passwords. Restore the original secret, or enter the affected credentials again.
+**Login worked before but stopped after a config change.** If you changed `ENCRYPTION_SECRET`, CHOps can no longer decrypt the stored ClickHouse&reg; passwords. Restore the original secret, or enter the affected credentials again.
 
-**A `SESSION_SECRET` shorter than 32 characters exits at startup.** The encryption key derivation needs 32 characters or more. Make one with `openssl rand -hex 32`.
+**A `ENCRYPTION_SECRET` shorter than 32 characters exits at startup.** The encryption key derivation needs 32 characters or more. Make one with `openssl rand -hex 32`.
 
 ---
 
