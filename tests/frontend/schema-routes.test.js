@@ -413,8 +413,10 @@ describe("Services: JWT", () => {
   it("has no default secret", () => {
     expect(code).not.toContain("secret = 'default'");
   });
-  it("throws if secret not set", () => {
-    expect(code).toContain("JWT secret not set");
+  it("makes its own signing key, so there is nothing to set", () => {
+  // jwtKeys.js makes one on first use, so that error cannot happen.
+  expect(code).toContain("signingKey()");
+  expect(code).not.toContain("setSecret");
   });
   it("includes jti in tokens", () => {
     expect(code).toContain("jti");
