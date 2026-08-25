@@ -20,8 +20,10 @@ import { getConfig } from './appConfig.js';
 // makes them itself. Nothing has to be passed in at start-up.
 
 export const create = (payload) => {
-  const jti = randomBytes(16).toString('hex');
-  return jwt.sign({ ...payload, jti }, signingKey(), { expiresIn: '2h' });
+const jti = randomBytes(16).toString('hex');
+// Both changes together
+const ttlSeconds = Math.floor(getConfig('security.sessionTtlMs') / 1000);
+return jwt.sign({ ...payload, jti }, signingKey(), { expiresIn: ttlSeconds });
 };
 
 export const verify = (token) => {
