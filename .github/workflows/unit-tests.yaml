@@ -26,7 +26,7 @@ jobs:
       # Dummy values for unit tests only. Not real credentials.
       SUPER_ADMIN_1: test-admin
       SUPER_ADMIN_1_PASSWORD: test-password-123
-      SESSION_SECRET: test-session-secret
+      ENCRYPTION_SECRET: test-encryption-secret-at-least-32-characters
       SUPER_ADMIN_1_EMAIL: abc@gmail.com
 
     steps:
@@ -114,7 +114,7 @@ jobs:
           SUPER_ADMIN_1: smoke-admin
           SUPER_ADMIN_1_PASSWORD: smoke-password-123
           SUPER_ADMIN_1_EMAIL: smoke@example.com
-          SESSION_SECRET: smoke-only-not-a-real-secret-0123456789
+          ENCRYPTION_SECRET: smoke-only-not-a-real-secret-0123456789
           PORT: 3999
         run: |
           ./chops-linux-x64 > smoke.log 2>&1 &

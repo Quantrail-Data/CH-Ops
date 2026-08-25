@@ -28,8 +28,6 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('keeps the read-only guard on the query run', () => {
     expect(code).toContain('isReadOnlySql(sql)');
-    // The call gained a params argument so a parameterized chart can be
-    // previewed with its defaults; readOnly is still non-negotiable.
     expect(code).toContain('runQuery(sql.trim(), {');
     expect(code).toContain('readOnly: true');
   });
@@ -37,14 +35,11 @@ describe('ChartBuilder: preview never crashes the page', () => {
   it('previews a parameterized chart with its defaults', () => {
     expect(code).toContain('paramDefaults');
     expect(code).toContain('findParameters');
-    // A required parameter with no default is explained rather than sent, so
-    // the author does not get ClickHouse's substitution error instead.
     expect(code).toContain('to preview this chart');
   });
 
   it('warns when a parameter sits outside an optional block', () => {
     expect(code).toContain('outside an optional');
-    // A warning, never a block: some filters genuinely should be mandatory.
     expect(code).toContain('alert-banner warning');
   });
 
@@ -73,8 +68,8 @@ describe('ChartBuilder: preview never crashes the page', () => {
   });
 
   it('resizes preview after chart render and layout toggles', () => {
-    expect(code).toContain('setTimeout(() => previewInst.current?.resize(), 50);');
-    expect(code).toContain('setTimeout(() => previewInst.current?.resize(), 150);');
+    expect(code).toMatch(/setTimeout\(\(\)\s*=>\s*\{[\s\S]*previewInst\.current[\s\S]*resize\(\)[\s\S]*\}\s*,\s*50\s*\);/);
+    expect(code).toMatch(/setTimeout\(\(\)\s*=>\s*\{[\s\S]*previewInst\.current[\s\S]*resize\(\)[\s\S]*\}\s*,\s*150\s*\);/);
   });
 
   it('keeps zoom reset support in the component', () => {
@@ -92,5 +87,14 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toContain('const chartControlsFlags = {');
     expect(code).toContain('zoomFun: true');
     expect(code).toContain('resetFun: true');
+  });
+
+  it('keeps fullscreen-aware preview toolbar wiring', () => {
+    expect(code).toContain('fullscreen={previewTools.fullscreen}');
+    expect(code).toContain('zoomable={!!chartOption?.xAxis && !isSunBurstChartType}');
+  });
+
+  it('keeps chart-change broadcast after save/update', () => {
+    expect(code).toContain("window.dispatchEvent(new Event('charts:changed'))");
   });
 });

@@ -26,8 +26,8 @@ describe('AES-256-GCM Crypto', () => {
 it('if session secret is null throw error', () => {      
   // Wrap the call inside an arrow function
   expect(() => initCrypto(null)).toThrow(
-    'SESSION_SECRET must be at least 32 characters for encryption key derivation. Generate one with: openssl rand -hex 32'
-  );   
+      'ENCRYPTION_SECRET must be at least 32 characters for encryption key derivation. Generate one with: openssl rand -hex 32'
+    );  
 });
 
 
@@ -110,7 +110,7 @@ it('if session secret is null throw error', () => {
     // Cannot re-test initCrypto in the same process since it's already initialized,
     // but we can verify the source enforces the length check
     const code = require('fs').readFileSync('src/backend/services/crypto.js', 'utf8');
-    expect(code).toContain('sessionSecret.length < 32');
+    expect(code).toContain('encryptionSecret.length < 32');
   });
 
   it('uses per-install random salt file', () => {
