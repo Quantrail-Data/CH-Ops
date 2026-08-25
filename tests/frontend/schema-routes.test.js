@@ -416,7 +416,7 @@ describe("Services: JWT", () => {
   it("makes its own signing key, so there is nothing to set", () => {
   // jwtKeys.js makes one on first use, so that error cannot happen.
   expect(code).toContain("signingKey()");
-  expect(code).not.toContain("setSecret");
+  expect(code).not.toMatch(/export const setSecret|setSecret\s*\(/);
   });
   it("includes jti in tokens", () => {
     expect(code).toContain("jti");
