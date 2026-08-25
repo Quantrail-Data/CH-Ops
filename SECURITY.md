@@ -61,8 +61,8 @@ published from it.
 These are documented behaviours. They are worth knowing, and they are not
 findings:
 
-- `SESSION_SECRET` both signs session tokens and derives the key that encrypts
-  stored ClickHouse&reg; passwords. Rotating it invalidates every stored credential.
+- `ENCRYPTION_SECRET` derives the key that encrypts stored credentials. It
+  cannot be rotated: a new value makes every stored credential unreadable.
 - Rate limiting keys on `req.ip`. Behind a reverse proxy you must set
   `TRUST_PROXY` to the number of proxies in front of CHOps, or every client
   shares one bucket. We do not trust `X-Forwarded-For` by default because a
