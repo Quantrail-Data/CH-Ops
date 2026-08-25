@@ -111,17 +111,17 @@ curl http://your-clickhouse-host:8123/ping
 # Should print: Ok.
 ```
 
-CHOps needs a session secret and one super-admin account. The `SESSION_SECRET` must be 32 characters or more. Make one with `openssl rand -hex 32`.
+CHOps needs a session secret and one super-admin account. The `ENCRYPTION_SECRET` must be 32 characters or more. Make one with `openssl rand -hex 32`.
 
 ### Run with Docker
 
 ```bash
 # 1. Make a session secret.
-export SESSION_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_SECRET=$(openssl rand -hex 32)
 
 # 2. Start the container.
 docker run -d --name chops -p 3000:3000 \
-  -e SESSION_SECRET="$SESSION_SECRET" \
+  -e ENCRYPTION_SECRET="$ENCRYPTION_SECRET" \
   -e SUPER_ADMIN_1=admin \
   -e SUPER_ADMIN_1_PASSWORD=change-this-password \
   -e SUPER_ADMIN_1_EMAIL=you@example.com \
@@ -146,7 +146,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - SESSION_SECRET=replace-with-a-long-random-value
+      - ENCRYPTION_SECRET=replace-with-a-long-random-value
       - SUPER_ADMIN_1=admin
       - SUPER_ADMIN_1_PASSWORD=change-this-password
       - SUPER_ADMIN_1_EMAIL=you@example.com
@@ -174,7 +174,7 @@ chmod +x chops-linux-x64
 SUPER_ADMIN_1=admin \
 SUPER_ADMIN_1_PASSWORD=secret \
 SUPER_ADMIN_1_EMAIL=you@example.com \
-SESSION_SECRET=$(openssl rand -hex 32) \
+ENCRYPTION_SECRET=$(openssl rand -hex 32) \
 ./chops-linux-x64
 ```
 
@@ -184,7 +184,7 @@ The binary makes `data/chops.db` in its working directory at startup.
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `SESSION_SECRET` | Yes | Signs sessions and derives the encryption key. Use 32 characters or more. Keep it. Do not change it later, or stored ClickHouse&reg; passwords become unreadable. |
+| `ENCRYPTION_SECRET` | Yes | Signs sessions and derives the encryption key. Use 32 characters or more. Keep it. Do not change it later, or stored ClickHouse&reg; passwords become unreadable. |
 | `SUPER_ADMIN_1` | Yes | The first admin user name. |
 | `SUPER_ADMIN_1_PASSWORD` | Yes | The first admin password. Change it. |
 | `SUPER_ADMIN_1_EMAIL` | Yes | The first admin email. |
@@ -263,7 +263,7 @@ cp .env.example .env
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_secure_password_here
 SUPER_ADMIN_1_EMAIL=you@example.com
-SESSION_SECRET=paste_a_random_string_here
+ENCRYPTION_SECRET=paste_a_random_string_here
 ```
 
 Make the session secret with `openssl rand -hex 32`. It must be 32 characters or more. Keep it private. Do not change it later, or stored ClickHouse&reg; passwords become unreadable.
@@ -437,7 +437,7 @@ CHOps ships with several hardening measures. Here is what each does and why it m
 
 **Password hashing (Argon2id)**: CHOps hashes account passwords with Argon2id before storage. Argon2id is a memory-hard algorithm and the current industry recommendation. Even with the SQLite file in hand, an attacker cannot reverse the hash. Older SHA-256 hashes upgrade on each user's next login.
 
-**Encrypted credentials**: CHOps encrypts ClickHouse&reg; connection passwords with AES-256-GCM before it writes them to SQLite. The key comes from `SESSION_SECRET`, so the database file alone is not enough to read them. Legacy plaintext values keep working and are encrypted on the next save.
+**Encrypted credentials**: CHOps encrypts ClickHouse&reg; connection passwords with AES-256-GCM before it writes them to SQLite. The key comes from `ENCRYPTION_SECRET`, so the database file alone is not enough to read them. Legacy plaintext values keep working and are encrypted on the next save.
 
 **Login protection**: After 5 failed attempts for the same user name within 15 minutes, CHOps locks that account for a time. Error messages stay vague ("Invalid credentials.") so an attacker cannot find valid user names.
 
@@ -563,9 +563,9 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 **Port already in use**: Set a different port in `.env` with `PORT=3001`.
 
-**Binary crashes on startup**: Make sure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET` are set. The binary needs them, just like the dev server.
+**Binary crashes on startup**: Make sure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET` are set. The binary needs them, just like the dev server.
 
-**Container starts then restarts in a loop**: Check `docker logs chops`. A missing `SUPER_ADMIN_1_EMAIL`, or a `SESSION_SECRET` shorter than 32 characters, exits on startup. Both report which value is wrong.
+**Container starts then restarts in a loop**: Check `docker logs chops`. A missing `SUPER_ADMIN_1_EMAIL`, or a `ENCRYPTION_SECRET` shorter than 32 characters, exits on startup. Both report which value is wrong.
 
 **Password reset emails never arrive**: Set the `SMTP_*` values in `.env` and restart. Without them, CHOps cannot send the reset code.
 

@@ -48,14 +48,14 @@ Edit `/opt/chops/.env`:
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_strong_password_here
 SUPER_ADMIN_1_EMAIL=you@example.com
-SESSION_SECRET=paste_a_64_char_random_string_here
+ENCRYPTION_SECRET=paste_a_64_char_random_string_here
 PORT=3000
 NODE_ENV=production
 ```
 
-`SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET` are all required. The server exits on startup if any is missing. See [Configuration](../getting-started/configuration.md) for the full list.
+`SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET` are all required. The server exits on startup if any is missing. See [Configuration](../getting-started/configuration.md) for the full list.
 
-Generate a strong SESSION_SECRET (it must be at least 32 characters):
+Generate a strong ENCRYPTION_SECRET (it must be at least 32 characters):
 
 ```bash
 openssl rand -hex 32
@@ -521,9 +521,9 @@ The database migration is safe to run on an existing database. It only creates t
 
 **Certificate errors**: make sure your domain's DNS A record points to your server's public IP. Caddy needs ports 80 and 443 open to complete the ACME challenge.
 
-**"SESSION_SECRET must be at least 32 characters"**: your `.env` file has a SESSION_SECRET shorter than 32 characters. Generate a new one with `openssl rand -hex 32`.
+**"ENCRYPTION_SECRET must be at least 32 characters"**: your `.env` file has a ENCRYPTION_SECRET shorter than 32 characters. Generate a new one with `openssl rand -hex 32`.
 
-**"Missing required env" on startup**: one of `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, or `SESSION_SECRET` is unset. Under systemd, confirm they are in the `EnvironmentFile`. Under Docker, confirm they are passed to the container.
+**"Missing required env" on startup**: one of `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, or `ENCRYPTION_SECRET` is unset. Under systemd, confirm they are in the `EnvironmentFile`. Under Docker, confirm they are passed to the container.
 
 **Permission denied errors**: make sure the `chops` user owns the data directory: `sudo chown -R chops:chops /opt/chops/data`.
 
@@ -546,7 +546,7 @@ cd CH-Ops
 # Create your .env file and edit it
 cp .env.example .env
 nano .env
-# Set SESSION_SECRET (openssl rand -hex 32), SUPER_ADMIN_1,
+# Set ENCRYPTION_SECRET (openssl rand -hex 32), SUPER_ADMIN_1,
 # SUPER_ADMIN_1_PASSWORD, and SUPER_ADMIN_1_EMAIL
 
 # Build and run
@@ -567,7 +567,7 @@ docker build -t chops .
 docker run -d \
   --name chops \
   -p 3000:3000 \
-  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -e ENCRYPTION_SECRET=$(openssl rand -hex 32) \
   -e SUPER_ADMIN_1=admin \
   -e SUPER_ADMIN_1_PASSWORD=your_strong_password_here \
   -e SUPER_ADMIN_1_EMAIL=you@example.com \
