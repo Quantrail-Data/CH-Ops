@@ -281,9 +281,9 @@ Max rows applies to every place in CHOps where you write SQL: the SQL Editor, Co
 
 ### The administrator's ceiling
 
-There is a second limit that you cannot change, on the total **size** of a result, not the number of rows. It exists because a row count cannot express width. Five thousand rows of a short string is nothing. Five thousand rows, each with a stack trace, is hundreds of megabytes.
+There is a second limit, on the total **size** of a result, not the number of rows. It exists because a row count cannot express width. Five thousand rows of a short string is nothing. Five thousand rows, each with a stack trace, is hundreds of megabytes.
 
-It defaults to 128 MB. An administrator sets it with `MAX_RESULT_BYTES` in the CHOps environment, so whoever runs your CHOps server can raise it on a larger machine. Whichever limit is reached first stops the transfer. See [Configuration](../getting-started/configuration.md).
+It defaults to 128 MB. An administrator changes it under **Administration > App Config**, on the Queries tab, so whoever runs your CHOps server can raise it on a larger machine. The change applies at once, with no restart. Whichever limit is reached first stops the transfer. See [App Config](admin.md#app-config).
 
 ---
 

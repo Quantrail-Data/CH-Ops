@@ -61,8 +61,16 @@ published from it.
 These are documented behaviours. They are worth knowing, and they are not
 findings:
 
-- `ENCRYPTION_SECRET` derives the key that encrypts stored credentials. It
-  cannot be rotated: a new value makes every stored credential unreadable.
+- `ENCRYPTION_SECRET` derives the key that encrypts stored ClickHouse&reg;
+  passwords, the system email password, and AI provider keys. It cannot be
+  changed: a new value makes all of those unreadable, and they cannot be
+  recovered. It was called `SESSION_SECRET` in earlier versions.
+- Login tokens are signed with keys CHOps makes itself and changes every day.
+  Those keys are in the CHOps database, not in a file, and nobody sets them. Two
+  are kept at a time, so a daily change signs nobody out.
+- The list of signed-out tokens is held in memory. A restart forgets it, and
+  those tokens work again until they run out on their own, which is at most one
+  session length.
 - Rate limiting keys on `req.ip`. Behind a reverse proxy you must set
   `TRUST_PROXY` to the number of proxies in front of CHOps, or every client
   shares one bucket. We do not trust `X-Forwarded-For` by default because a

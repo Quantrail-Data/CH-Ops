@@ -101,7 +101,7 @@ This makes it easy, for example, to keep a fast and inexpensive model active for
 
 ## How the key is stored
 
-CHOps encrypts every AI provider credential with AES-256-GCM before it writes it to its SQLite database, the same encryption it applies to ClickHouse&reg; connection passwords. The encryption key is derived from your `SESSION_SECRET`, so the database file on its own is not enough to read a stored credential. If you rotate `SESSION_SECRET`, the credentials stored before can no longer be decrypted and you must re-enter them, exactly as you would re-enter ClickHouse&reg; credentials.
+CHOps encrypts every AI provider credential with AES-256-GCM before it writes it to its SQLite database, the same encryption it applies to ClickHouse&reg; connection passwords. The encryption key is derived from your `ENCRYPTION_SECRET`, so the database file on its own is not enough to read a stored credential. If you rotate `ENCRYPTION_SECRET`, the credentials stored before can no longer be decrypted and you must re-enter them, exactly as you would re-enter ClickHouse&reg; credentials.
 
 For day-to-day use, the secret value never leaves the server. Qurioz calls the provider from the CHOps backend, and ordinary status checks (such as which provider is active) return only the provider name and model, never the value. The decrypted value is available only to admin-level users, through the explicit "reveal" endpoints the page uses to pre-fill an edit form. Treat the ability to open this page as equivalent to holding the credentials.
 
@@ -143,5 +143,5 @@ Because CHOps always shows the generated SQL before it runs, you stay in control
 | Ollama test fails to connect | The base URL is wrong, or the Ollama server is not running or not reachable | Check the base URL and that the Ollama server is up and reachable from the CHOps server. |
 | Provider reports "service unavailable" | A temporary provider outage or high demand | Retry later, or switch the active credential to a different provider. |
 | "Unsupported AI provider" | The saved provider is not one of the five supported options | Recreate the credential using GEMINI, OPEN AI, CLAUDE, MISTRAL, or OLLAMA. |
-| A key worked before but stopped after maintenance | `SESSION_SECRET` was changed, so stored credentials can no longer be decrypted | Re-enter each AI credential on this page and re-test. |
+| A key worked before but stopped after maintenance | `ENCRYPTION_SECRET` was changed, so stored credentials can no longer be decrypted | Re-enter each AI credential on this page and re-test. |
 | Generated SQL references missing tables or looks wrong | The model lacked enough schema context or misread the request | Rephrase the question more specifically, or edit the SQL by hand before you run it. |
