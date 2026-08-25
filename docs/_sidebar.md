@@ -52,12 +52,15 @@
     - [Data Lifecycle](guide/backups.md)
   - Control Panel
     - [User Management](guide/admin.md#user-management)
+    - [System Email](guide/admin.md#system-email)
     - [Cluster Management](guide/admin.md#cluster-management)
+    - [Trusted CAs](guide/admin.md#trusted-cas)
     - [Connecting a Kubernetes Cluster](guide/kubernetes-connect.md)
     - [Connecting a Cluster Managed by OCKO](guide/kubernetes-ocko.md)
     - [Storage Profiles](guide/admin.md#storage-profiles)
     - [Notification Channels](guide/alerting.md#alert-channels)
     - [App Data Backup](guide/admin.md#app-data-backup)
+    - [App Config](guide/admin.md#app-config)
     - [AI API Keys](guide/ai-api-keys.md)
 - Development
   - [Testing](development/testing.md)
