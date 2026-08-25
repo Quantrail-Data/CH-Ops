@@ -80,7 +80,7 @@ There is nothing to copy alongside the binary, no `LD_LIBRARY_PATH` to set, and 
 
 ## Configuration
 
-The binary still needs environment variables, just like the dev server. The required set is `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET`. The server exits on startup if any of these is missing. See [Configuration](../getting-started/configuration.md) for the full list. Provide them in one of three ways.
+The binary still needs environment variables, just like the dev server. The required set is `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET`. The server exits on startup if any of these is missing. See [Configuration](../getting-started/configuration.md) for the full list. Provide them in one of three ways.
 
 **Option 1: A `.env` file** in the working directory, which CHOps reads automatically:
 
@@ -88,7 +88,7 @@ The binary still needs environment variables, just like the dev server. The requ
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_password
 SUPER_ADMIN_1_EMAIL=you@example.com
-SESSION_SECRET=your_random_string
+ENCRYPTION_SECRET=your_random_string
 PORT=3000
 ```
 
@@ -98,14 +98,14 @@ PORT=3000
 export SUPER_ADMIN_1=admin
 export SUPER_ADMIN_1_PASSWORD=your_password
 export SUPER_ADMIN_1_EMAIL=you@example.com
-export SESSION_SECRET=your_random_string
+export ENCRYPTION_SECRET=your_random_string
 ./chops-linux-x64
 ```
 
 **Option 3: Inline** (useful for quick testing):
 
 ```bash
-SUPER_ADMIN_1=admin SUPER_ADMIN_1_PASSWORD=secret SUPER_ADMIN_1_EMAIL=you@example.com SESSION_SECRET=abc ./chops-linux-x64
+SUPER_ADMIN_1=admin SUPER_ADMIN_1_PASSWORD=secret SUPER_ADMIN_1_EMAIL=you@example.com ENCRYPTION_SECRET=abc ./chops-linux-x64
 ```
 
 ## Database
@@ -118,7 +118,7 @@ The binary is typically 60 to 90 MB, depending on the platform. This includes th
 
 ## Troubleshooting
 
-**Binary fails to start.** Make sure all required environment variables are set: `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET`. The server validates these on startup and exits if any is missing.
+**Binary fails to start.** Make sure all required environment variables are set: `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET`. The server validates these on startup and exits if any is missing.
 
 **"Frontend not built" error from the binary.** This should not happen if you used one of the `build:binary` commands, because each runs `build` and `embed` before it compiles. If you invoked `bun build --compile` by hand, make sure you ran `bun run build` and then `bun run embed` first, so that `src/backend/embeddedAssets.js` exists and gets bundled.
 
