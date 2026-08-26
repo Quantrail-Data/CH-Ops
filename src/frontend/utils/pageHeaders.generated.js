@@ -575,7 +575,9 @@ export const PAGE_TEXT = {
     "Min",
     "Max",
     "Preview",
-    "Map columns to see preview."
+    "Map columns to see preview.",
+    "New Chat",
+    "New chat"
   ],
   "tools/schema-studio": [
     "Checking connection...",
@@ -1251,7 +1253,9 @@ export const PAGE_TEXT = {
     "Min",
     "Max",
     "Preview",
-    "Map columns to see preview."
+    "Map columns to see preview.",
+    "New Chat",
+    "New chat"
   ],
   "custom/builder": [
     "Chart building is only available for administrators.",

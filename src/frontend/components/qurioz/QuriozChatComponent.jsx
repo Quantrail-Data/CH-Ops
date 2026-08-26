@@ -16,9 +16,131 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useNavigate } from "react-router-dom";
 import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
 import { motion } from "framer-motion";
+import HistoryShowBubbleComponent from './HistoryShowBubbleComponent.jsx'
 
 const chat_length = 1000;
 const CHAT_LIMIT = chat_length * 2;
+
+
+const sessions = [
+  {
+    "id": 5,
+    "appUser": "admin",
+    "title": "hello",
+    "clusterId": "cluster_1787038133419",
+    "node": "localhost",
+    "selectedTables": [
+      {
+        "database": "analytics_db",
+        "table": "order_summary"
+      },
+      {
+        "database": "analytics_db",
+        "table": "product_sales"
+      },
+      {
+        "database": "cell_tower",
+        "table": "cell_towers"
+      }
+    ],
+    "createdAt": "2026-08-25 06:35:33",
+    "updatedAt": "2026-08-25T06:35:36.623Z"
+  },
+  {
+    "id": 2,
+    "appUser": "admin",
+    "title": "get the product data from the google",
+    "clusterId": "cluster_1787038133419",
+    "node": "localhost",
+    "selectedTables": [
+      {
+        "database": "analytics_db",
+        "table": "order_summary"
+      },
+      {
+        "database": "analytics_db",
+        "table": "product_sales"
+      },
+      {
+        "database": "cell_tower",
+        "table": "cell_towers"
+      },
+      {
+        "database": "google",
+        "table": "customer"
+      },
+      {
+        "database": "google",
+        "table": "employees"
+      },
+      {
+        "database": "google",
+        "table": "orders"
+      }
+    ],
+    "createdAt": "2026-08-18 09:42:49",
+    "updatedAt": "2026-08-21T05:20:37.699Z"
+  },
+  {
+    "id": 1,
+    "appUser": "admin",
+    "title": "can the me cell tower data",
+    "clusterId": "cluster_1787038133419",
+    "node": "localhost",
+    "selectedTables": [
+      {
+        "database": "sales_db",
+        "table": "customers"
+      },
+      {
+        "database": "qone",
+        "table": "chat_messages"
+      },
+      {
+        "database": "cell_tower",
+        "table": "cell_towers"
+      },
+      {
+        "database": "google",
+        "table": "customer"
+      },
+      {
+        "database": "google",
+        "table": "employees"
+      },
+      {
+        "database": "google",
+        "table": "orders"
+      },
+      {
+        "database": "google",
+        "table": "product"
+      },
+      {
+        "database": "google",
+        "table": "sales"
+      }
+    ],
+    "createdAt": "2026-08-18 09:38:42",
+    "updatedAt": "2026-08-18T11:16:25.591Z"
+  },
+  {
+    "id": 4,
+    "appUser": "admin",
+    "title": "hello",
+    "clusterId": "cluster_1787038133419",
+    "node": "localhost",
+    "selectedTables": [
+      {
+        "database": "ecom_data",
+        "table": "customers"
+      }
+    ],
+    "createdAt": "2026-08-18 10:49:02",
+    "updatedAt": "2026-08-18T10:49:04.959Z"
+  }
+]
+
 
 function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   const {
@@ -260,7 +382,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       ? responseAIQuery?.generated_sql
                       : `${responseAIQuery?.generated_sql} limit 10`;
 
-                      
+
 
                     const QueryResult = await RunSqlQueryhandler(SQL);
 
@@ -568,10 +690,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           };
           replaceChat(UpdatedMessage);
         } else {
-            const originalSql = responseAIQuery?.generated_sql || "";
-            const hasLimit = /\blimit\b/i.test(originalSql);
-            const SQL = hasLimit ? originalSql : `${originalSql} LIMIT 10`;
-            const QueryResult = await RunSqlQueryhandler(SQL);
+          const originalSql = responseAIQuery?.generated_sql || "";
+          const hasLimit = /\blimit\b/i.test(originalSql);
+          const SQL = hasLimit ? originalSql : `${originalSql} LIMIT 10`;
+          const QueryResult = await RunSqlQueryhandler(SQL);
 
           if (QueryResult?.success) {
             UpdatedMessage = {
@@ -929,135 +1051,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             gap: "10px",
           }}
         >
-          <button
-            className="btn btn-ghost"
-            title="Clear All Chats"
-            disabled={isNewChat()}
-            onClick={() => {
-              setShowConfrimDelete(true);
-            }}
-          >
-            <Icon className="ti ti-eraser"></Icon>
-          </button>
-
-          <div
-            className="form-group"
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: "20px",
-            }}
-          >
-            <div
-              className="select-db-ai"
-              style={{ minWidth: "200px", maxWidth: "250px" }}
-            >
-              <div
-                className="select-db-header"
-                style={{
-                  display: "flex",
-                  width: "100%",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-                onMouseEnter={() => setShowdbs(true)}
-                onMouseLeave={() => setShowdbs(false)}
-              >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
-                >
-                  {isAllowForRequestHandler() ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0px",
-                      }}
-                    >
-                      <div className="conn-indicator connected"> </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="conn-indicator disconnected"> </div>
-                    </div>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {isAllowForRequestHandler()
-                      ? "Database Selected"
-                      : "Database Not Selected"}
-                  </span>
-                </div>
-                <div>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => setShowDBModel(true)}
-                  >
-                    <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
-                  </button>
-                </div>
-              </div>
-              {showdbs &&
-                (updateSelection?.length > 0 ? (
-                  <div
-                    onMouseLeave={() => setShowdbs(false)}
-                    onMouseEnter={() => setShowdbs(true)}
-                    style={{
-                      position: "absolute",
-                      padding: "5px",
-                      border: "1px solid var(--border-default",
-                      borderRadius: "10px",
-                      maxWidth: "250px",
-                      minWidth: "200px",
-                      overflow: "auto",
-                      maxHeight: "200px",
-                      backgroundColor: "var(--bg-page)",
-                    }}
-                  >
-                    {updateSelection?.map(
-                      (u) =>
-                        u?.id && (
-                          <div
-                            key={u?.name}
-                            style={{
-                              cursor: "pointer",
-                              backgroundColor: u?.isAllowForRequest
-                                ? "var(--accent)"
-                                : "",
-                              color: u?.isAllowForRequest ? "white" : undefined,
-                            }}
-                            className="select-db-option"
-                            onClick={() => selectForAllowForRequestHandler(u)}
-                          >
-                            <span
-                              style={{ fontSize: "11px", fontWeight: "600" }}
-                            >
-                              {u?.name}
-                            </span>
-                            <Icon
-                              className={`ti ti-${u?.isAllowForRequest ? "check" : "x"}`}
-                              style={{
-                                fontSize: "11px",
-                                color: u?.isAllowForRequest
-                                  ? "white"
-                                  : undefined,
-                              }}
-                            />
-                          </div>
-                        ),
-                    )}
-                  </div>
-                ) : (
-                  <div></div>
-                ))}
-            </div>
-          </div>
+          <HistoryShowBubbleComponent chatSession={sessions} />
         </div>
 
         {apikeys?.length > 0 ? (
@@ -1122,7 +1116,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         />
       ) : (
         <>
-          <div className="chat-area" style={{height:"auto"}}>
+          <div className="chat-area" style={{ height: "auto" }}>
             {quriozMessage?.map((message, index) => {
               return (
                 <ChatRenderComponent
