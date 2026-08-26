@@ -659,6 +659,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
   const isBarChart = barChartTypes.includes(chart.chartSubtype);
+  const isHeatmap = chart.chartType === 'heatmap' || chart.chartSubtype === 'heatmap';
   const isScatterLike = chart.chartSubtype === 'scatter' || chart.chartSubtype === 'basic_scatter' || chart.chartSubtype === 'bubble' || chart.chartType === 'scatter' || chart.chartType === 'bubble';
   const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
   const isPieChart = pieChartTypes.includes(chart.chartSubtype);
@@ -679,7 +680,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       top: 8,
       bottom: 8,
       width: 260,
-      textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+      textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor, fontSize: 16 }
     }
     : isSmallScreen
       ? {
@@ -736,12 +737,19 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     return 0;
   }, [chart]);
 
-  const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
-  const dataLabelFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10;
-  const xRotate = isBarChart ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-  const axisNameGapX = isBarChart ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
-  const axisMarginX = isBarChart ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
-  const seriesLabelWidth = tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64;
+  const isFullscreen = fs;
+  const axisFontSize = isFullscreen
+    ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
+    : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
+  const dataLabelFontSize = isFullscreen
+    ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
+    : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
+  const xRotate = isBarChart || isHeatmap ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
+  const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
+  const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+  const seriesLabelWidth = isFullscreen
+    ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+    : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
 
   const gridTop = fs
     ? Math.max(28, tickCount > 40 ? 40 : 28)
@@ -759,7 +767,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       ? 145
       : 20;
 
-  const gridBottomAuto = isBarChart
+  const gridBottomAuto = isBarChart || isHeatmap
     ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
     : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
@@ -767,6 +775,18 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isStackedArea = Array.isArray(chart?.chartOption?.series) && chart.chartOption.series.some(s => s.stack && (s.areaStyle || s.type === 'line'));
 
   const shouldShowDataLabels = (() => {
+    if (isHeatmap) {
+      const totalHeatmapCells = Array.isArray(chart?.chartOption?.series)
+        ? chart.chartOption.series.reduce((acc, s) => {
+          if (s.type === 'heatmap' && Array.isArray(s.data)) {
+            return acc + s.data.length;
+          }
+          return acc;
+        }, 0)
+        : 0;
+      if (totalHeatmapCells > 15) return false;
+      return true;
+    }
     if (isPieChart) return true;
     if (fs) {
       if (tickCount > 150) return false;
@@ -838,14 +858,14 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     xAxis: Array.isArray(chart?.chartOption?.xAxis)
       ? chart.chartOption.xAxis.map((axis) => ({
         ...axis,
-        type: isBarChart ? 'category' : axis?.type,
+        type: isBarChart || isHeatmap ? 'category' : axis?.type,
         nameGap: axisNameGapX,
         nameLocation: "middle",
         position: 'bottom',
         axisLabel: {
           ...axis?.axisLabel,
           rotate: xRotate,
-          align: isBarChart || xRotate > 0 ? 'right' : 'left',
+          align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
           color: isDarkColor,
           margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
           hideOverlap: false,
@@ -876,14 +896,14 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       }))
       : {
         ...chart?.chartOption?.xAxis,
-        type: isBarChart ? 'category' : chart?.chartOption?.xAxis?.type,
+        type: isBarChart || isHeatmap ? 'category' : chart?.chartOption?.xAxis?.type,
         nameGap: axisNameGapX,
         nameLocation: "middle",
         position: 'bottom',
         axisLabel: {
           ...chart?.chartOption?.xAxis?.axisLabel,
           rotate: xRotate,
-          align: isBarChart || xRotate > 0 ? 'right' : 'left',
+          align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
           color: isDarkColor,
           margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
           hideOverlap: false,
@@ -990,10 +1010,57 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     extraCssText: tooltipExtraCss,
   };
 
+  if (isHeatmap) {
+    if (Array.isArray(opt.series)) {
+      opt.series = opt.series.map((s) => {
+        if (!s || s.type !== 'heatmap') return s;
+
+        const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
+        const shouldHideHeatmapLabels = totalHeatmapCells > 15;
+
+        return {
+          ...s,
+          label: {
+            ...(s.label || {}),
+            show: shouldHideHeatmapLabels ? false : (s.label?.show !== undefined ? s.label.show : true),
+            color: isDarkColor,
+            fontSize: fs ? Math.min(14, axisFontSize + 3) : Math.min(10, axisFontSize),
+            formatter: (params) => {
+              if (params && params.value && params.value.length >= 3) {
+                const val = params.value[2];
+                if (typeof val === 'number') {
+                  if (Math.abs(val) >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+                  if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(1)}K`;
+                  return val;
+                }
+                return val;
+              }
+              return '';
+            }
+          },
+          emphasis: {
+            ...(s.emphasis || {}),
+            label: {
+              ...((s.emphasis && s.emphasis.label) || {}),
+              show: true,
+              color: isDarkColor,
+              fontSize: fs ? 16 : 12,
+            }
+          }
+        };
+      });
+    }
+  }
+
   if (Array.isArray(opt.series) && opt.series.length) {
     opt.series = opt.series.map((s) => {
       if (!s || !s.type) return s;
       if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
+      // In fullscreen, use larger label font sizes
+      const labelFont = fs ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize;
+      const labelWidth = fs
+        ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+        : seriesLabelWidth;
       return {
         ...s,
         clip: true,
@@ -1008,9 +1075,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           distance: tickCount > 50 ? 5 : 8,
           color: isDarkColor,
           overflow: 'truncate',
-          width: seriesLabelWidth,
+          width: labelWidth,
           hideOverlap: true,
-          fontSize: dataLabelFontSize,
+          fontSize: labelFont,
           formatter: (p) => {
             try {
               const raw = Array.isArray(p?.value) ? p.value[p.value.length - 1] : p?.value;
@@ -1034,9 +1101,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             ...((s.emphasis && s.emphasis.label) || {}),
             show: true,
             position: 'top',
-            distance: 10,
+            distance: fs ? 16 : 10,
             color: isDarkColor,
             hideOverlap: false,
+            fontSize: fs ? 16 : 12,
           },
         },
       };
@@ -1057,7 +1125,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       const defaultBaseRadius = chart.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
       const baseRadius = s.radius || defaultBaseRadius;
       const finalRadius = fs
-        ? baseRadius
+        ? (chart.chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
         : isSmallScreen
           ? (chart.chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
           : (chart.chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
@@ -1074,15 +1142,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           show: !hidePieLabels && shouldShowDataLabels,
           formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
           color: isDarkColor,
-          fontSize: 11,
+          fontSize: fs ? 15 : 11,
           overflow: 'truncate',
-          width: fs ? 240 : (isSmallScreen ? 160 : 220),
-          lineHeight: 18,
+          width: fs ? 340 : (isSmallScreen ? 160 : 220),
+          lineHeight: fs ? 26 : 18,
         },
         labelLine: {
           ...(s.labelLine || {}),
-          length: 8,
-          length2: 8,
+          length: fs ? 16 : 8,
+          length2: fs ? 16 : 8,
           smooth: false,
         },
         radius: finalRadius,
@@ -1092,8 +1160,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
     opt.legend = {
       ...(opt.legend || {}),
-      textStyle: { ...(opt.legend?.textStyle || {}), fontSize: isSmallScreen ? 10 : 12, color: isDarkColor },
-      itemGap: 12,
+      textStyle: { ...(opt.legend?.textStyle || {}), fontSize: fs ? 16 : (isSmallScreen ? 10 : 12), color: isDarkColor },
+      itemGap: fs ? 18 : 12,
       pageIconColor: isDarkColor,
     };
 
@@ -1172,8 +1240,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           show: shouldShowFunnelLabels,
           color: isDarkColor,
           overflow: 'truncate',
-          width: fs ? 220 : (isSmallScreen ? 110 : 160),
-          fontSize: fs ? 12 : (isSmallScreen ? 10 : 11),
+          width: fs ? 320 : (isSmallScreen ? 110 : 160),
+          fontSize: fs ? 16 : (isSmallScreen ? 10 : 11),
         },
         labelLine: {
           ...(s.labelLine || {}),
@@ -1194,6 +1262,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             ...((s.emphasis && s.emphasis.label) || {}),
             show: true,
             color: isDarkColor,
+            fontSize: fs ? 18 : 12,
           },
           labelLine: {
             ...((s.emphasis && s.emphasis.labelLine) || {}),
@@ -1223,7 +1292,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         label: {
           ...(s.label || {}),
           color: isDarkColor,
-          fontSize: 14,
+          fontSize: fs ? 18 : 14,
         },
       };
     });
@@ -1238,7 +1307,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         if (s.type === 'sankey') {
           return {
             ...s,
-            label: { ...(s.label || {}), color: isDarkColor },
+            label: { ...(s.label || {}), color: isDarkColor, fontSize: fs ? 18 : 14 },
             itemStyle: {
               ...(s.itemStyle || {}),
               borderColor: 'rgba(255,255,255,0.08)',
@@ -1270,6 +1339,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             textBorderWidth: 2,
             textShadowColor: 'transparent',
             textShadowBlur: 0,
+            fontSize: fs ? (lbl?.fontSize ? lbl.fontSize + 4 : 16) : (lbl?.fontSize || 12),
           };
           if (!lbl) return { textStyle: baseTextStyle };
           return { ...lbl, textStyle: baseTextStyle };
@@ -1284,7 +1354,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       });
       opt.legend = {
         ...(opt.legend || {}),
-        textStyle: { ...(opt.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 }
+        textStyle: { ...(opt.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0, fontSize: fs ? 16 : 12 }
       };
     }
   }
@@ -1308,29 +1378,31 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             label: {
               position: "outside",
               rotate: "tangential",
-              distance: 10,
+              distance: fs ? 20 : 10,
               rotate: 0,
-              show: !hideSunburst
+              show: !hideSunburst,
+              fontSize: fs ? 16 : 11,
             },
             labelLine: {
               show: true,
-              length: 20,
-              length2: 10,
+              length: fs ? 30 : 20,
+              length2: fs ? 20 : 10,
               smooth: false,
             },
           },
           {
             label: {
               position: "outside",
-              distance: 10,
+              distance: fs ? 20 : 10,
               rotate: 0,
               silent: true,
-              show: !hideSunburst
+              show: !hideSunburst,
+              fontSize: fs ? 14 : 10,
             },
             labelLine: {
               show: true,
-              length: 20,
-              length2: 10,
+              length: fs ? 30 : 20,
+              length2: fs ? 20 : 10,
               smooth: false,
             },
           },
@@ -1361,10 +1433,11 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       opt.legend.data = uniqueLegendData;
       opt.legend.show = supportsLegend && hasLegend && showLegends && uniqueLegendData.length > 0;
       if (!opt.legend.orient) opt.legend.orient = fs ? 'vertical' : (isSmallScreen ? 'horizontal' : (cols === 4 ? 'vertical' : 'vertical'));
-      opt.legend.textStyle = { ...(opt.legend.textStyle || {}), color: isDarkColor };
+      opt.legend.textStyle = { ...(opt.legend.textStyle || {}), color: isDarkColor, fontSize: fs ? 16 : 12 };
       opt.legend.type = opt.legend.type || 'scroll';
       opt.legend.pageIconColor = isDarkColor;
       opt.legend.pageIconInactiveColor = opt.legend.pageIconInactiveColor || 'var(--text-muted)';
+      opt.legend.pageTextStyle = { ...(opt.legend.pageTextStyle || {}), fontSize: fs ? 14 : 11 };
     } else {
       opt.legend.show = supportsLegend && hasLegend && showLegends;
     }

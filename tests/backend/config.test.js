@@ -205,6 +205,7 @@ describe("getCapabilities", () => {
     expect(res.jsonData).toEqual({
       probed: true,
       deployment: 'standard',
+      version: null,
       unavailable: [
         {
           table: 'system.text_log',
