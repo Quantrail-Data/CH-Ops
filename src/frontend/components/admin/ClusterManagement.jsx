@@ -9,6 +9,7 @@ import { useToast } from "../layout/Toast.jsx";
 import { useConnection } from "../../App.jsx";
 import { useAuth } from "../../App.jsx";
 import KubernetesClusterTab from "./KubernetesClusterTab.jsx";
+import ConfirmDialog from "../editor/ConfirmDialog.jsx";
 
 const MAX_CLUSTERS = 3;
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -186,6 +187,14 @@ export default function ClusterManagement() {
   // wizard only when asked.
   const [showK8sWizard, setShowK8sWizard] = useState(false);
 
+  const [editingK8s, setEditingK8s] = useState(null);
+  const [k8sForm, setK8sForm] = useState(null);
+  const [k8sVerify, setK8sVerify] = useState(null);
+  const [k8sSaving, setK8sSaving] = useState(false);
+
+
+  const [deleting, setDeleting] = useState(null);
+
   // Each tab shows only its own kind. A cluster imported from an installation
   // has no business appearing under Direct connection, where its nodes are not
   // editable and half the form does not apply.
@@ -325,11 +334,113 @@ export default function ClusterManagement() {
       toast.error(err.message);
     }
   }
+  
+useEffect(() => {
+    if (!editingK8s) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape" && !k8sSaving) setEditingK8s(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editingK8s, k8sSaving]);
+
+
+function startEditK8s(cluster) {
+    setEditingK8s(cluster);
+    setK8sForm({
+      name: cluster.name,
+      endpoint: cluster.endpoint || cluster.nodes?.[0]?.host || "",
+      port: cluster.port ?? 8443,
+      secure: cluster.secure !== false,
+      chUser: cluster.chUser || "default",
+      // Never prefilled. The browser does not receive it, and empty means
+      // unchanged on save.
+      chPassword: "",
+    });
+    setK8sVerify(null);
+  }
+
+  async function verifyK8s() {
+    setK8sVerify({ testing: true });
+    try {
+      const r = await apiFetch("/api/k8s/clusters/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          clusterId: editingK8s.id,
+          endpoint: k8sForm.endpoint,
+          port: k8sForm.port,
+          secure: k8sForm.secure,
+          chUser: k8sForm.chUser,
+          chPassword: k8sForm.chPassword,
+        }),
+      });
+      setK8sVerify(r);
+      return r;
+    } catch (err) {
+      const failed = { ok: false, message: err.message };
+      setK8sVerify(failed);
+      return failed;
+    }
+  }
+
+  async function saveK8s() {
+    if (!k8sForm.name?.trim()) {
+      toast.warning("Cluster name is required.");
+      return;
+    }
+    if (!k8sForm.endpoint?.trim()) {
+      toast.warning("ClickHouse address is required.");
+      return;
+    }
+
+    setK8sSaving(true);
+    try {
+      // Test first, stop on failure. Saving settings that do not connect breaks
+      // alerts and scheduled jobs silently.
+      const check = await verifyK8s();
+      if (!check.ok) {
+        toast.error("Could not connect with these settings. Nothing was saved.");
+        return;
+      }
+
+      await apiFetch(`/api/cluster/${editingK8s.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: k8sForm.name.trim(),
+          endpoint: k8sForm.endpoint.trim(),
+          port: Number(k8sForm.port),
+          secure: k8sForm.secure,
+          chUser: k8sForm.chUser,
+          ...(k8sForm.chPassword ? { chPassword: k8sForm.chPassword } : {}),
+        }),
+      });
+
+      const addressing = await apiFetch(
+        `/api/k8s/clusters/${editingK8s.id}/reresolve`,
+        { method: "POST" },
+      ).catch(() => ({ ok: false }));
+
+      if (addressing.ok === false && addressing.message) {
+        toast.warning(`Saved, but node addresses could not be refreshed: ${addressing.message}`);
+      }
+
+      toast.success("Cluster updated.");
+      setEditingK8s(null);
+      load();
+      if (reloadConfig) reloadConfig();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setK8sSaving(false);
+    }
+  }
+
 
   async function remove(id) {
     try {
       await apiFetch(`/api/cluster/${id}`, { method: "DELETE", body: {} });
       toast.success("Cluster deleted.");
+      setDeleting(null);
       load();
       if (reloadConfig) reloadConfig();
     } catch (err) {
@@ -538,13 +649,13 @@ export default function ClusterManagement() {
                 <div style={{ display: "flex", gap: 6 }}>
                   <button
                     className="btn btn-secondary btn-sm"
-                    onClick={() => startEdit(c)}
+                    onClick={() => (c.kind === "k8s" ? startEditK8s(c) : startEdit(c))}
                   >
                     <Icon className="ti ti-edit"></Icon> Edit
                   </button>
                   <button
                     className="btn btn-danger btn-sm"
-                    onClick={() => remove(c.id)}
+                    onClick={() => setDeleting(c)}
                   >
                     <Icon className="ti ti-trash"></Icon>
                   </button>
@@ -583,6 +694,167 @@ export default function ClusterManagement() {
           ))}
         </div>
       ) : null}
+
+      {editingK8s && k8sForm && (
+        <div className="modal-overlay" >
+          <div
+            className="modal-box"
+            style={{ maxWidth: 520, width: "94%" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <Icon className="ti ti-edit" />
+              <span style={{ fontWeight: 600 }}>Edit cluster</span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Cluster name</label>
+              <input
+                className="form-input"
+                value={k8sForm.name}
+                onChange={(e) => setK8sForm((p) => ({ ...p, name: e.target.value }))}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">ClickHouse address</label>
+              <input
+                className="form-input"
+                value={k8sForm.endpoint}
+                onChange={(e) => {
+                  setK8sForm((p) => ({ ...p, endpoint: e.target.value }));
+                  setK8sVerify(null);
+                }}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <div className="form-group" style={{ flex: "0 0 120px" }}>
+                <label className="form-label">Port</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  value={k8sForm.port}
+                  onChange={(e) => {
+                    setK8sForm((p) => ({ ...p, port: e.target.value }));
+                    setK8sVerify(null);
+                  }}
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div
+                className="form-group"
+                style={{ display: "flex", alignItems: "flex-end", paddingBottom: 8 }}
+              >
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={k8sForm.secure}
+                    onChange={(e) => {
+                      setK8sForm((p) => ({ ...p, secure: e.target.checked }));
+                      setK8sVerify(null);
+                    }}
+                  />
+                  Use TLS
+                </label>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">ClickHouse user</label>
+              <input
+                className="form-input"
+                value={k8sForm.chUser}
+                onChange={(e) => {
+                  setK8sForm((p) => ({ ...p, chUser: e.target.value }));
+                  setK8sVerify(null);
+                }}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">ClickHouse password</label>
+              <input
+                className="form-input"
+                type="password"
+                value={k8sForm.chPassword}
+                onChange={(e) => {
+                  setK8sForm((p) => ({ ...p, chPassword: e.target.value }));
+                  setK8sVerify(null);
+                }}
+                placeholder={
+                  editingK8s.hasChPassword
+                    ? "Leave blank to keep the current password"
+                    : "No password set"
+                }
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+              Nodes come from the installation and are re-read on refresh.
+            </p>
+
+            {k8sVerify && !k8sVerify.testing && (
+              <div
+                className={k8sVerify.ok ? "alert-banner info" : "alert-banner danger"}
+                style={{ marginBottom: 12, fontSize: 12 }}
+              >
+                <Icon className={k8sVerify.ok ? "ti ti-check" : "ti ti-alert-triangle"} />
+                <span>
+                  {k8sVerify.ok
+                    ? `Connected. ClickHouse ${k8sVerify.version ?? ""}`.trim()
+                    : k8sVerify.message || "Could not connect."}
+                </span>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={verifyK8s}
+                disabled={k8sSaving || k8sVerify?.testing}
+              >
+                Test connection
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setEditingK8s(null)}
+                disabled={k8sSaving}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={saveK8s} disabled={k8sSaving}>
+                {k8sSaving ? "Testing and saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
+      <ConfirmDialog
+        open={!!deleting}
+        tone="danger"
+        title="Delete this cluster?"
+        message={
+          deleting
+            ? `"${deleting.name}" will be removed from CHOps, along with its ${deleting.nodes?.length ?? 0} node${
+                deleting.nodes?.length === 1 ? "" : "s"
+              }.`
+            : ""
+        }
+        detail={
+          deleting?.kind === "k8s"
+            ? "Nothing in Kubernetes is changed, and the Kubernetes connection is kept so it can be used for other installations. Dashboards and alerts that point at this cluster will stop working."
+            : "Dashboards and alerts that point at this cluster will stop working."
+        }
+        confirmLabel="Delete cluster"
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => remove(deleting.id)}
+      />
     </div>
   );
 }

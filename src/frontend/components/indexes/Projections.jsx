@@ -571,27 +571,38 @@ function AddProjection() {
               placeholder="proj_name"
             />
           </div>
-          <div
-            className="form-group"
-            style={{ display: "flex", alignItems: "center", paddingTop: 22 }}
+             <div
+          className="form-group"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            paddingTop: 22,
+            gap: 6,
+          }}
+        >
+        <div className="form-label">
+
+          <label
+          className="switch"
+            style={{
+              display: "flex",
+              gap: 6,
+              cursor: "pointer",
+              fontSize: "14px",
+              marginRight:"5px"
+            }}
           >
-            <label
-              style={{
-                display: "flex",
-                gap: 6,
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={ifNotExists}
-                onChange={(e) => setIfNotExists(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
-              />{" "}
-              IF NOT EXISTS
-            </label>
-          </div>
+            <input
+              type="checkbox"
+              checked={ifNotExists}
+              onChange={(e) => setIfNotExists(e.target.checked)}
+              style={{ accentColor: "var(--accent)" }}
+            />{" "}
+            <span class="slider"></span>
+          </label>
+          IF NOT EXISTS
+      </div>
+        </div>
         </div>
 
         <div className="form-group" style={{ marginBottom: 14 }}>
@@ -764,27 +775,38 @@ function DropProjection() {
               ))}
             </Select>
           </div>
-          <div
-            className="form-group"
-            style={{ display: "flex", alignItems: "center", paddingTop: 22 }}
+             <div
+          className="form-group"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            paddingTop: 22,
+            gap: 6,
+          }}
+        >
+        <div className="form-label">
+
+          <label
+          className="switch"
+            style={{
+              display: "flex",
+              gap: 6,
+              cursor: "pointer",
+              fontSize: "14px",
+              marginRight:"5px"
+            }}
           >
-            <label
-              style={{
-                display: "flex",
-                gap: 6,
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={ifExists}
-                onChange={(e) => setIfExists(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
-              />{" "}
-              IF EXISTS
-            </label>
-          </div>
+            <input
+              type="checkbox"
+              checked={ifExists}
+              onChange={(e) => setIfExists(e.target.checked)}
+              style={{ accentColor: "var(--accent)" }}
+            />{" "}
+            <span class="slider"></span>
+          </label>
+          IF EXISTS
+      </div>
+        </div>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
@@ -897,26 +919,37 @@ function MaterializeProjection() {
             />
           </div>
           <div
-            className="form-group"
-            style={{ display: "flex", alignItems: "center", paddingTop: 22 }}
+          className="form-group"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            paddingTop: 22,
+            gap: 6,
+          }}
+        >
+        <div className="form-label">
+
+          <label
+          className="switch"
+            style={{
+              display: "flex",
+              gap: 6,
+              cursor: "pointer",
+              fontSize: "14px",
+              marginRight:"5px"
+            }}
           >
-            <label
-              style={{
-                display: "flex",
-                gap: 6,
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={ifExists}
-                onChange={(e) => setIfExists(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
-              />{" "}
-              IF EXISTS
-            </label>
-          </div>
+            <input
+              type="checkbox"
+              checked={ifExists}
+              onChange={(e) => setIfExists(e.target.checked)}
+              style={{ accentColor: "var(--accent)" }}
+            />{" "}
+            <span class="slider"></span>
+          </label>
+          IF EXISTS
+      </div>
+        </div>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
@@ -1019,27 +1052,38 @@ function ClearProjection() {
               style={{ fontFamily: "var(--font-code)" }}
             />
           </div>
-          <div
-            className="form-group"
-            style={{ display: "flex", alignItems: "center", paddingTop: 22 }}
+             <div
+          className="form-group"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            paddingTop: 22,
+            gap: 6,
+          }}
+        >
+        <div className="form-label">
+
+          <label
+          className="switch"
+            style={{
+              display: "flex",
+              gap: 6,
+              cursor: "pointer",
+              fontSize: "14px",
+              marginRight:"5px"
+            }}
           >
-            <label
-              style={{
-                display: "flex",
-                gap: 6,
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={ifExists}
-                onChange={(e) => setIfExists(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
-              />{" "}
-              IF EXISTS
-            </label>
-          </div>
+            <input
+              type="checkbox"
+              checked={ifExists}
+              onChange={(e) => setIfExists(e.target.checked)}
+              style={{ accentColor: "var(--accent)" }}
+            />{" "}
+            <span class="slider"></span>
+          </label>
+          IF EXISTS
+      </div>
+        </div>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>

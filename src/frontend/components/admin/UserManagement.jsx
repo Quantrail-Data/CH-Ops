@@ -30,6 +30,119 @@ export default function UserManagement() {
   const [del, setDel] = useState(null);
   const [changePw, setChangePw] = useState({ show: false, current: { value: '', isView: false }, newPw: { value: '', isView: false }, confirm: { value: '', isView: false } });
   const [roleChange, setRoleChange] = useState(null);
+  // The System Email tab. Superadmin only, because these settings hold a
+  // password.
+  const [tab, setTab] = useState('users');
+  const [smtp, setSmtp] = useState(null);
+  const [smtpForm, setSmtpForm] = useState(null);
+  const [smtpBusy, setSmtpBusy] = useState(false);
+  const [smtpResult, setSmtpResult] = useState(null);
+  const [testTo, setTestTo] = useState('');
+
+  async function loadSmtp() {
+    try {
+      const r = await apiFetch('/api/system-smtp');
+      setSmtp(r);
+      setSmtpForm({
+        host: r.host,
+        port: r.port,
+        secure: r.secure,
+        user: r.user,
+        from: r.from,
+        // Never prefilled. Blank on save means unchanged.
+        password: '',
+      });
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  async function testConnection() {
+    setSmtpBusy(true);
+    setSmtpResult(null);
+    try {
+      const r = await apiFetch('/api/system-smtp/test-connection', {
+        method: 'POST',
+        body: JSON.stringify(smtpForm),
+      });
+      setSmtpResult(r.ok
+        ? { ok: true, message: 'Connected and authenticated.' }
+        : { ok: false, message: r.message || 'Could not connect.' });
+    } catch (err) {
+      setSmtpResult({ ok: false, message: err.message });
+    } finally {
+      setSmtpBusy(false);
+    }
+  }
+
+  async function sendTestEmail() {
+    if (!testTo.trim()) { toast.warning('Enter an address to send to.'); return; }
+    setSmtpBusy(true);
+    setSmtpResult(null);
+    try {
+      const r = await apiFetch('/api/system-smtp/test-email', {
+        method: 'POST',
+        body: JSON.stringify({ ...smtpForm, to: testTo.trim() }),
+      });
+      setSmtpResult(r.ok
+        ? { ok: true, message: `Sent to ${testTo.trim()}. Check the inbox.` }
+        : { ok: false, message: r.message || 'Could not send.' });
+    } catch (err) {
+      setSmtpResult({ ok: false, message: err.message });
+    } finally {
+      setSmtpBusy(false);
+    }
+  }
+
+  async function saveSmtp() {
+    setSmtpBusy(true);
+    setSmtpResult(null);
+    try {
+      // The server tests before saving and refuses on failure, so a broken
+      // configuration cannot be stored.
+      const r = await apiFetch('/api/system-smtp', {
+        method: 'PUT',
+        body: JSON.stringify(smtpForm),
+      });
+      setSmtp(r);
+      setSmtpForm(p => ({ ...p, password: '' }));
+      toast.success('System email settings saved.');
+    } catch (err) {
+      setSmtpResult({ ok: false, message: err.message });
+    } finally {
+      setSmtpBusy(false);
+    }
+  }
+
+  async function deleteSmtp() {
+    setSmtpBusy(true);
+    try {
+      const r = await apiFetch('/api/system-smtp', { method: 'DELETE' });
+      setSmtp(r);
+      setSmtpForm({ host: '', port: '587', secure: false, user: '', from: '', password: '' });
+      toast.success('Deleted. Falling back to the server environment.');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSmtpBusy(false);
+    }
+  }
+
+  function smtpFormReady() {
+    if (!smtpForm) return false;
+    if (!smtpForm.host?.trim()) return false;
+    if (!smtpForm.from?.trim()) return false;
+
+    const port = parseInt(smtpForm.port, 10);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return false;
+
+    // A relay with no authentication needs neither, which is valid. A username
+    // without a password is not, unless one is already stored and the blank
+    // field means "unchanged".
+    if (smtpForm.user?.trim() && !smtpForm.password && !smtp?.hasPassword) return false;
+
+    return true;
+  }
 
   async function load() {
     try { setUsers(await apiFetch('/api/users')); } catch (e) { toast.error('Failed to load users: ' + e.message); }
@@ -143,6 +256,8 @@ export default function UserManagement() {
     );
   }
 
+  const tableWrapStyle = users && users.length > 0 ? { minHeight: 0, paddingBottom: 0 } : {};
+
   return (
     <div className="page-content">
       <div className="section-header">
@@ -153,6 +268,24 @@ export default function UserManagement() {
         </div>
       </div>
 
+      {myRole === 'superadmin' && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+          <button
+            className={tab === 'users' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+            onClick={() => setTab('users')}
+          >
+            Users
+          </button>
+          <button
+            className={tab === 'smtp' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+            onClick={() => { setTab('smtp'); setSmtpResult(null); if (!smtp) loadSmtp(); }}
+          >
+            System Email
+          </button>
+        </div>
+      )}
+
+      {tab === 'users' && (<>
       {changePw.show && (
         <div className="card" style={{ padding: 20, marginBottom: 16, maxWidth: 480 }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: 16 }}><Icon className="ti ti-key" style={{ color: 'var(--accent)', marginRight: 6 }}></Icon> Change Password</h3>
@@ -254,7 +387,7 @@ export default function UserManagement() {
         </form>
       )}
 
-      <div className="data-table-wrap dt-single">
+      <div className="data-table-wrap dt-single" style={tableWrapStyle}>
         <table className="data-table">
           <thead><tr><th>Username</th><th>Role</th><th>Email</th><th>Last Login</th><th>Actions</th></tr></thead>
           <tbody>
@@ -295,6 +428,141 @@ export default function UserManagement() {
           </tbody>
         </table>
       </div>
+      </>)}
+
+      {tab === 'smtp' && smtpForm && (
+        <div className="card" style={{ padding: 20, maxWidth: 560, margin: '0 auto' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>
+            <Icon className="ti ti-mail" style={{ color: 'var(--accent)', marginRight: 6 }} />
+            System email
+          </h3>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+            Used for new account credentials and password reset codes. Separate
+            from the SMTP on alert channels.
+          </p>
+
+          <div style={{ fontSize: 12, marginBottom: 16 }}>
+            Currently using:{' '}
+            <strong>
+              {smtp?.source === 'database'
+                ? 'the configuration below'
+                : smtp?.source === 'environment'
+                  ? 'SMTP_HOST from the server environment'
+                  : 'nothing. Password reset and credential emails are unavailable.'}
+            </strong>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">SMTP host</label>
+            <input className="form-input" style={{ width: '100%' }}
+              value={smtpForm.host}
+              onChange={e => { setSmtpForm(p => ({ ...p, host: e.target.value })); setSmtpResult(null); }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+            <div className="form-group" style={{ flex: '0 0 120px', marginBottom: 0 }}>
+              <label className="form-label">Port</label>
+              <input className="form-input" type="number" style={{ width: '100%' }}
+                value={smtpForm.port}
+                onChange={e => { setSmtpForm(p => ({ ...p, port: e.target.value })); setSmtpResult(null); }} />
+            </div>
+            {/* Sits in the row rather than in its own form-group, so it lines up
+                with the input beside it rather than with a label that is not there. */}
+            <label style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 13, height: 38, cursor: 'pointer',
+            }}>
+              <input type="checkbox" checked={smtpForm.secure}
+                onChange={e => { setSmtpForm(p => ({ ...p, secure: e.target.checked })); setSmtpResult(null); }} />
+              Use TLS
+            </label>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Username</label>
+            <input className="form-input" style={{ width: '100%' }}
+              value={smtpForm.user}
+              onChange={e => { setSmtpForm(p => ({ ...p, user: e.target.value })); setSmtpResult(null); }} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input className="form-input" type="password" style={{ width: '100%' }}
+              value={smtpForm.password}
+              placeholder={smtp?.hasPassword ? 'Leave blank to keep the current password' : 'No password set'}
+              onChange={e => { setSmtpForm(p => ({ ...p, password: e.target.value })); setSmtpResult(null); }} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">From address</label>
+            <input className="form-input" style={{ width: '100%' }}
+              value={smtpForm.from}
+              placeholder="CHOps &lt;noreply@example.com&gt;"
+              onChange={e => { setSmtpForm(p => ({ ...p, from: e.target.value })); setSmtpResult(null); }} />
+          </div>
+
+          {!smtpFormReady() && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+              {!smtpForm.host?.trim()
+                ? 'Enter an SMTP host to continue.'
+                : !smtpForm.from?.trim()
+                  ? 'Enter a from address to continue.'
+                  : smtpForm.user?.trim() && !smtpForm.password && !smtp?.hasPassword
+                    ? 'Enter the password for this username, or clear the username if the server needs no authentication.'
+                    : 'Enter a port between 1 and 65535.'}
+            </div>
+          )}
+
+          {smtpResult && (
+            <div className={smtpResult.ok ? 'alert-banner info' : 'alert-banner danger'}
+              style={{ marginBottom: 12, fontSize: 12 }}>
+              <Icon className={smtpResult.ok ? 'ti ti-check' : 'ti ti-alert-triangle'} />
+              <span>{smtpResult.message}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16 }}>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="form-label">Send a test email to</label>
+              <input className="form-input" style={{ width: '100%' }}
+                value={testTo} onChange={e => setTestTo(e.target.value)} />
+            </div>
+            <button className="btn btn-secondary btn-sm"
+              disabled={smtpBusy || !smtpFormReady() || !testTo.trim()}
+              onClick={() => sendTestEmail()}>Send test email</button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary btn-sm" disabled={smtpBusy || !smtpFormReady()}
+              onClick={() => testConnection()}>Test connection</button>
+            {smtp?.configured && (
+              <button className="btn btn-danger btn-sm" disabled={smtpBusy}
+                onClick={() => deleteSmtp()}>Delete configuration</button>
+            )}
+            <button className="btn btn-primary btn-sm" disabled={smtpBusy || !smtpFormReady()}
+              onClick={() => saveSmtp()}>{smtpBusy ? 'Working...' : 'Save'}</button>
+          </div>
+
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border-default)', fontSize: 12, color: 'var(--text-muted)' }}>
+            <strong>If email stops working</strong>
+            <p>
+              Delete the configuration above to fall back to the SMTP_* values in
+              the server environment. This takes effect immediately, with no
+              restart.
+            </p>
+            <p>
+              With nothing configured here, CHOps uses SMTP_HOST, SMTP_PORT,
+              SMTP_USER, SMTP_PASS and SMTP_FROM from the environment. Set
+              DISABLE_ENV_SMTP=true to stop that once this page is configured.
+            </p>
+            <p>
+              If you cannot sign in at all, the super admin credentials in the
+              server environment still work. See DISABLE_ENV_LOGIN.
+            </p>
+          </div>
+        </div>
+      )}
+
       {del && <ConfirmModal title="Delete User" message="Delete this user?" onConfirm={() => deleteUser(del)} onCancel={() => setDel(null)} danger />}
       {roleChange && <ConfirmModal title="Change Role" message={`Change "${roleChange.username}" from ${roleChange.fromRole} to ${roleChange.toRole}?`} onConfirm={confirmRoleChange} onCancel={cancelRoleChange} />}
     </div>

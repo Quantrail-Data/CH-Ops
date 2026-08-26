@@ -6,7 +6,9 @@ import { randomBytes } from "crypto";
 import { eq, desc } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { sendNotification } from "../services/notifier.js";
-import { loadEnv } from "../utils/env.js";
+import { revokeToken } from "../services/jwt.js";
+import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
+import { resolveSystemSmtp } from "../services/systemSmtp.js";
 
 const VALID_ROLES = ["superadmin", "admin", "editor", "readonly"];
 
@@ -53,12 +55,13 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
-// NOTE: requireSuperAdmin used to live here as a byte-identical copy of
-// requireAdmin above - same isAdminLevel() check, same message. The name said
-// superadmin and the behaviour said admin, which is the kind of thing a route
-// author reads once and believes. Its call sites now use requireAdmin. If a
-// genuine superadmin-only guard is ever needed, add one that actually checks
-// for it rather than reviving this name.
+// Allows only super admins to perform actions and access the features
+
+export function requireSuperAdminOnly(req, res, next) {
+  if (req.user?.role !== "superadmin")
+    return res.status(403).json({ error: "Superadmin access required." });
+  next();
+}
 
 // Blocks readonly users. Used on routes where editors can write.
 export function requireEditor(req, res, next) {
@@ -150,8 +153,7 @@ export async function createUser(req, res) {
     // Email the generated password if SMTP is configured
     if (email) {
       try {
-        const env = loadEnv();
-        const smtp = env.smtp;
+        const smtp = resolveSystemSmtp();
         if (smtp.host) {
           const emailConfig = {
             type: "email",
@@ -172,9 +174,9 @@ export async function createUser(req, res) {
             threshold: 0,
             lastValue: 0,
             lastRunAt: new Date().toISOString(),
-          }).catch(() => { });
+          }).catch(() => {});
         }
-      } catch { }
+      } catch {}
     }
 
     res
@@ -203,18 +205,14 @@ export async function updateUser(req, res) {
     if (req.body.role !== undefined && req.body.role !== target.role) {
       const newRole = req.body.role;
       if (!VALID_ROLES.includes(newRole)) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`,
+        });
       }
       if (!canChangeRole(req.user?.role, target.role, newRole)) {
-        return res
-          .status(403)
-          .json({
-            error: "You do not have permission to change this user's role.",
-          });
+        return res.status(403).json({
+          error: "You do not have permission to change this user's role.",
+        });
       }
 
       updates.role = newRole;
@@ -227,9 +225,8 @@ export async function updateUser(req, res) {
       updates.mustChangePassword = true;
       db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
 
-      const env = loadEnv();
-      const smtp = env.smtp;
-      if (smtp.host && target.email) {
+      const smtp = resolveSystemSmtp();
+      if (smtp?.host && target.email) {
         try {
           const emailConfig = {
             type: "email",
@@ -252,10 +249,15 @@ export async function updateUser(req, res) {
             lastRunAt: new Date().toISOString(),
           });
         } catch (emailErr) {
-          console.error("Failed to send password reset email:", emailErr.message);
+          console.error(
+            "Failed to send password reset email:",
+            emailErr.message,
+          );
         }
       } else if (!target.email) {
-        console.log(`User ${target.username} has no email configured, password not sent via email`);
+        console.log(
+          `User ${target.username} has no email configured, password not sent via email`,
+        );
       }
 
       return res.json({ ok: true, generatedPassword: pw });
@@ -284,11 +286,9 @@ export function deleteUser(req, res) {
     const callerLevel = ROLE_LEVEL[req.user?.role] || 0;
     const targetLevel = ROLE_LEVEL[target.role] || 0;
     if (targetLevel >= callerLevel) {
-      return res
-        .status(403)
-        .json({
-          error: "Cannot delete a user with equal or higher privileges.",
-        });
+      return res.status(403).json({
+        error: "Cannot delete a user with equal or higher privileges.",
+      });
     }
 
     db.delete(appUsers).where(eq(appUsers.id, id)).run();

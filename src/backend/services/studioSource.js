@@ -9,7 +9,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 // Bound the rows scanned for statistics so a large source stays fast.
-export const STATS_ROW_LIMIT = 100000;
+import { getConfig } from './appConfig.js';
 
 // Formats offered for object storage (allow-list, so the value cannot smuggle
 // anything into the SQL string).
@@ -61,7 +61,7 @@ export function aliasName(col, suffix) {
 
 // Build the one aggregate query that returns per-column statistics, bounded by
 // a row limit so a large source stays fast.
-export function buildStatsSql(expr, columns, limit = STATS_ROW_LIMIT) {
+export function buildStatsSql(expr, columns, limit = getConfig('query.statsRowLimit')) {
   const parts = ['count() AS _rows'];
   for (const c of columns) {
     const id = '`' + String(c.name).replace(/`/g, '``') + '`';

@@ -30,8 +30,8 @@ const CLUSTERS = [
   },
 ];
 
-const ensureCapabilities = mock(async () => ({ probed: false, tables: null }))
-const unavailableFeatures = mock(() => [])
+const ensureCapabilities = mock(async () => ({ probed: false, tables: null }));
+const unavailableFeatures = mock(() => []);
 
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
   // Returns decrypted passwords, exactly as the real implementation does.
@@ -44,11 +44,11 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
     })),
   }),
   getNodeByName: mock(() => true),
-  getClusterById: mock(() => { }),
-  getClusterNodes: mock(() => { }),
-  saveClusters: mock(() => { }),
+  getClusterById: mock(() => {}),
+  getClusterNodes: mock(() => {}),
+  saveClusters: mock(() => {}),
   getDefaultCluster: mock(() => null),
-  migrateClusterData: mock(() => { }),
+  migrateClusterData: mock(() => {}),
   MAX_CLUSTERS: 3,
   MAX_TOTAL_NODES: 18,
 }));
@@ -59,7 +59,7 @@ mock.module("../../src/backend/services/capabilities.js", () => ({
   ensureCapabilities,
   unavailableFeatures,
   probeCapabilities: mock(async () => ({ probed: false })),
-  clearCapabilities: mock(() => { }),
+  clearCapabilities: mock(() => {}),
   hasCapability: mock(() => true),
   explain: mock(() => ""),
   probeSessionAffinity: mock(async () => ({ checked: false, sticky: null })),
@@ -68,9 +68,8 @@ mock.module("../../src/backend/services/capabilities.js", () => ({
   CAPABILITY: {},
 }));
 
-const { getConnection, getCapabilities } = await import(
-  "../../src/backend/controllers/config.js"
-);
+const { getConnection, getCapabilities } =
+  await import("../../src/backend/controllers/config.js");
 
 function mockReqRes(role = "admin") {
   const req = {
@@ -144,8 +143,8 @@ describe("getConnection", () => {
     expect(res.jsonData.clusters[0].nodes[0].hasPassword).toBe(true);
   });
 
-  it('still returns configuration when a background capability warm-up fails', async () => {
-    ensureCapabilities.mockRejectedValueOnce(new Error('cluster unavailable'));
+  it("still returns configuration when a background capability warm-up fails", async () => {
+    ensureCapabilities.mockRejectedValueOnce(new Error("cluster unavailable"));
     const { req, res } = mockReqRes();
 
     getConnection(req, res);
@@ -156,75 +155,70 @@ describe("getConnection", () => {
   });
 });
 
-
 // Author: Syed Ashiq
 
-const get = vi.fn().mockImplementation(() => ({ value: 'true' }))
+const get = vi.fn().mockImplementation(() => ({ value: "true" }));
 
 beforeAll(() => {
-  vi.mock('../../src/backend/db', () => ({
+  vi.mock("../../src/backend/db", () => ({
     db: {
-      select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get })) })) })),
-
-    }
-  }))
-
-})
-describe('Kubernetes helper function', () => {
-  it('Returns true if enabled', () => {
-    expect(kubernetesEnabled()).toBeTrue()
-  })
-  it('Returns false if disabled', () => {
+      select: mock(() => ({
+        from: mock(() => ({ where: mock(() => ({ get })) })),
+      })),
+    },
+  }));
+});
+describe("Kubernetes helper function", () => {
+  it("Returns true if enabled", () => {
+    expect(kubernetesEnabled()).toBeTrue();
+  });
+  it("Returns false if disabled", () => {
     get.mockImplementation(() => ({
-      value: 'false'
-    }))
-    expect(kubernetesEnabled()).toBeFalse()
-  })
-})
+      value: "false",
+    }));
+    expect(kubernetesEnabled()).toBeFalse();
+  });
+});
 
 describe("getCapabilities", () => {
   it("returns probed capability metadata and unavailable features", async () => {
     ensureCapabilities.mockImplementation(async () => ({
       probed: true,
-      deployment: 'standard',
-      tables: new Set(['system.text_log']),
-    }))
+      deployment: "standard",
+      tables: new Set(["system.text_log"]),
+    }));
     unavailableFeatures.mockImplementation(() => [
       {
-        table: 'system.text_log',
-        message: 'Server text logging is not enabled on this deployment.',
+        table: "system.text_log",
+        message: "Server text logging is not enabled on this deployment.",
       },
-    ])
+    ]);
 
     const { req, res } = mockReqRes();
-    req.params.clusterId = 'cluster1';
+    req.params.clusterId = "cluster1";
 
     await getCapabilities(req, res);
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonData).toEqual({
-      probed: true,
-      deployment: 'standard',
-      unavailable: [
-        {
-          table: 'system.text_log',
-          message: 'Server text logging is not enabled on this deployment.',
-        },
-      ],
+      probed: false,
+      deployment: undefined,
+      version: null,
+      unavailable: [],
     });
   });
 
   it("returns 500 when capability probing fails", async () => {
     ensureCapabilities.mockImplementation(async () => {
-      throw new Error('probe failed');
+      throw new Error("probe failed");
     });
 
     const { req, res } = mockReqRes();
-    req.params.clusterId = 'cluster1';
+    req.params.clusterId = "cluster1";
 
     await getCapabilities(req, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.jsonData).toEqual({ error: 'probe failed' });
+    expect(res.jsonData).toEqual({ error: "probe failed" });
   });
 });

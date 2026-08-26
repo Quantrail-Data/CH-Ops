@@ -106,7 +106,7 @@ const swiperDatas = [
 ];
 
 const OTP_Component = ({ setFormStatus }) => {
-  const [otp, setOpt] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
@@ -135,22 +135,27 @@ const OTP_Component = ({ setFormStatus }) => {
     const email = localStorage?.getItem("otp-mail");
     try {
       const res = await apiFetch("/api/forget-password/otp/verify", {
-        method: "POST", body: JSON.stringify({
+        method: "POST",
+        body: JSON.stringify({
           otp,
-          email
-        })
+          email,
+        }),
       });
+      console.log(res);
       if (res?.success) {
-        setFormStatus("forget-change")
+        // sessionStorage, not localStorage: this is a credential and it should
+        // disappear when the tab closes rather than persist on disk.
+        sessionStorage.setItem("otp-reset-token", res.resetToken);
+        setFormStatus("forget-change");
       }
-    }
-    catch (err) {
-      setError("Unable to verify the OTP. It may be invalid, or a server error occurred. Please try again.")
-    }
-    finally {
+    } catch (err) {
+      setError(
+        "Unable to verify the OTP. It may be invalid, or a server error occurred. Please try again.",
+      );
+    } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <motion.div
@@ -198,8 +203,8 @@ const OTP_Component = ({ setFormStatus }) => {
           {/* <label className="form-label">Email-ID</label> */}
           <OtpInput
             value={otp}
-            onChange={setOpt}
-            numInputs={5}
+            onChange={setOtp}
+            numInputs={6}
             inputType="tel"
             renderSeparator={<span> </span>}
             renderInput={(props) => (
@@ -255,15 +260,51 @@ const OTP_Component = ({ setFormStatus }) => {
           </button>
         </div>
 
-        <div style={{ margin: "15px 0px", fontSize: "11px", fontWeight: "bold", textAlign: "center" }} className="alert-banner info">
+        <div
+          style={{
+            margin: "15px 0px",
+            fontSize: "11px",
+            fontWeight: "bold",
+            textAlign: "center",
+          }}
+          className="alert-banner info"
+        >
           Verification code is going to expire in
-          <span style={{ color: timer < 10 ? "#ff5454" : theme === "dark" ? "white" : "blue" }}> 00:{timer < 10 ? `0${timer}` : timer}</span>
-
+          <span
+            style={{
+              color:
+                timer < 10 ? "#ff5454" : theme === "dark" ? "white" : "blue",
+            }}
+          >
+            {" "}
+            00:{timer < 10 ? `0${timer}` : timer}
+          </span>
         </div>
-        <div style={{ height: "1px", width: "100%", backgroundColor: "lightgray", margin: "10px 0px" }}></div>
-        <div style={{ textAlign: "center", color: "#ff5454", display: "flex", alignItems: "center", gap: "5px", marginTop: "10px" }} >
-          <Icon className="ti ti-info-circle" style={{ color: "#ff5454", fontSize: "13px" }} />
-          <p className="" style={{ fontSize: "10px" }}>Do not refresh this page until OTP verification is complete.</p>
+        <div
+          style={{
+            height: "1px",
+            width: "100%",
+            backgroundColor: "lightgray",
+            margin: "10px 0px",
+          }}
+        ></div>
+        <div
+          style={{
+            textAlign: "center",
+            color: "#ff5454",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+            marginTop: "10px",
+          }}
+        >
+          <Icon
+            className="ti ti-info-circle"
+            style={{ color: "#ff5454", fontSize: "13px" }}
+          />
+          <p className="" style={{ fontSize: "10px" }}>
+            Do not refresh this page until OTP verification is complete.
+          </p>
         </div>
       </form>
     </motion.div>
@@ -271,31 +312,40 @@ const OTP_Component = ({ setFormStatus }) => {
 };
 
 const ChangePasswordComponent = ({ setFormStatus }) => {
-  const [passwords, setPasswords] = useState({ newPassword: null, confirmPassword: null });
-  const [showPassword, setShowPassword] = useState({ showNewP: false, showCurrP: false });
+  const [passwords, setPasswords] = useState({
+    newPassword: null,
+    confirmPassword: null,
+  });
+  const [showPassword, setShowPassword] = useState({
+    showNewP: false,
+    showCurrP: false,
+  });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch("/api/forget-password/change/password", { method: "POST", body: JSON.stringify({ password: passwords?.confirmPassword, email: localStorage?.getItem("otp-mail") }) })
+      const res = await apiFetch("/api/forget-password/change/password", {
+        method: "POST",
+        body: JSON.stringify({
+          password: passwords?.confirmPassword,
+          resetToken: sessionStorage.getItem("otp-reset-token"),
+        }),
+      });
       if (res?.success) {
         localStorage.removeItem("otp-mail");
-        setFormStatus("login")
+        sessionStorage.removeItem("otp-reset-token");
+        setFormStatus("login");
       }
-    }
-    catch (err) {
+    } catch (err) {
       setError(err);
-    }
-    finally {
+    } finally {
       setLoading(false);
     }
-  }
-
+  };
 
   return (
     <motion.div
@@ -344,10 +394,7 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
           style={{ marginBottom: "20px", width: "100%" }}
         >
           <label className="form-label">New Password</label>
-          <div
-            className=""
-            style={{ width: "100%", position: "relative" }}
-          >
+          <div className="" style={{ width: "100%", position: "relative" }}>
             <input
               className="form-input"
               style={{
@@ -357,7 +404,9 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
               }}
               type={showPassword?.showNewP ? "text" : "password"}
               value={passwords?.newPassword}
-              onChange={(e) => setPasswords({ ...passwords, newPassword: e?.target?.value })}
+              onChange={(e) =>
+                setPasswords({ ...passwords, newPassword: e?.target?.value })
+              }
               required
             />
             <div
@@ -369,7 +418,12 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
                 cursor: "pointer",
               }}
               title={showPassword?.showNewP ? "hide" : "show"}
-              onClick={() => setShowPassword({ ...showPassword, showNewP: !showPassword?.showNewP })}
+              onClick={() =>
+                setShowPassword({
+                  ...showPassword,
+                  showNewP: !showPassword?.showNewP,
+                })
+              }
             >
               {showPassword?.showNewP ? (
                 <Icon className="ti ti-eye-off" />
@@ -377,7 +431,6 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
                 <Icon className="ti ti-eye" />
               )}
             </div>
-
           </div>
         </div>
         <div
@@ -385,21 +438,24 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
           style={{ marginBottom: "20px", width: "100%" }}
         >
           <label className="form-label">Confirm Password</label>
-          <div
-            className=""
-            style={{ width: "100%", position: "relative", }}
-          >
+          <div className="" style={{ width: "100%", position: "relative" }}>
             <input
               className="form-input"
               style={{
                 width: "100%",
                 paddingRight: "35px",
                 height: "40px",
-                border: (passwords?.confirmPassword && (passwords?.confirmPassword !== passwords?.newPassword)) ? "1px solid #ff5454" : ""
+                border:
+                  passwords?.confirmPassword &&
+                  passwords?.confirmPassword !== passwords?.newPassword
+                    ? "1px solid #ff5454"
+                    : "",
               }}
               type={showPassword?.showCurrP ? "text" : "password"}
               value={passwords?.confirmPassword}
-              onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+              onChange={(e) =>
+                setPasswords({ ...passwords, confirmPassword: e.target.value })
+              }
               required
             />
             <div
@@ -411,7 +467,12 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
                 cursor: "pointer",
               }}
               title={showPassword?.showCurrP ? "hide" : "show"}
-              onClick={() => setShowPassword({ ...showPassword, showCurrP: !showPassword?.showCurrP })}
+              onClick={() =>
+                setShowPassword({
+                  ...showPassword,
+                  showCurrP: !showPassword?.showCurrP,
+                })
+              }
             >
               {showPassword?.showCurrP ? (
                 <Icon className="ti ti-eye-off" />
@@ -419,7 +480,6 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
                 <Icon className="ti ti-eye" />
               )}
             </div>
-
           </div>
         </div>
 
@@ -435,7 +495,10 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
               height: "45px",
               fontSize: "15px",
             }}
-            disabled={(passwords?.confirmPassword && (passwords?.confirmPassword !== passwords?.newPassword))}
+            disabled={
+              passwords?.confirmPassword &&
+              passwords?.confirmPassword !== passwords?.newPassword
+            }
           >
             {loading ? (
               <>
@@ -457,13 +520,10 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
             )}
           </button>
         </div>
-
-
       </form>
     </motion.div>
-  )
-}
-
+  );
+};
 
 // animation: marquee-scroll 15s linear infinite;
 export default function LoginPage() {
@@ -482,7 +542,7 @@ export default function LoginPage() {
 
   const [verfiyEmail, setVerifyEmail] = useState("");
 
-  useEffect(() => { });
+  useEffect(() => {});
 
   // Close the enlarged-image preview on Escape while it is open.
   useEffect(() => {
@@ -546,28 +606,28 @@ export default function LoginPage() {
 
   async function handleEmailVerifiySubmit(e) {
     e.preventDefault();
-    setError(null)
+    setError(null);
     setLoading(true);
     setPassword("");
-    setUsername("")
+    setUsername("");
     try {
-      const res = await apiFetch("/api/forget-password/email/verify", { method: "POST", body: JSON.stringify({ email: verfiyEmail }) })
+      const res = await apiFetch("/api/forget-password/email/verify", {
+        method: "POST",
+        body: JSON.stringify({ email: verfiyEmail }),
+      });
       if (res?.success) {
-        localStorage?.setItem("otp-mail", res?.email);
+        localStorage?.setItem("otp-mail", verfiyEmail);
         setFormStatus("forget-otp");
-        Toast?.success("OTP generated!")
-
+        Toast?.success("OTP generated!");
       }
-    }
-    catch (err) {
-      setError("Invalid user. No account is associated with this email address")
-    }
-
-    finally {
-      setLoading(false)
+    } catch (err) {
+      setError(
+        "Invalid user. No account is associated with this email address",
+      );
+    } finally {
+      setLoading(false);
     }
   }
-
 
   return (
     <div
@@ -715,7 +775,12 @@ export default function LoginPage() {
                       )}
                     </div>
                     <div className="forget-password-con">
-                      <p title="Forget password" onClick={() => setFormStatus("forget-mail")}>Forget password ?</p>
+                      <p
+                        title="Forget password"
+                        onClick={() => setFormStatus("forget-mail")}
+                      >
+                        Forget password ?
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -808,7 +873,10 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <form onSubmit={handleEmailVerifiySubmit} className="login-form-con">
+              <form
+                onSubmit={handleEmailVerifiySubmit}
+                className="login-form-con"
+              >
                 <div className="form-group" style={{ marginBottom: "14px" }}>
                   <label className="form-label">Email-ID</label>
                   <input
@@ -855,14 +923,26 @@ export default function LoginPage() {
                   </button>
                 </div>
                 <div style={{ textAlign: "center", margin: "10px 0px" }}>
-                  <p style={{ fontSize: "13px" }}>Have an account? <span style={{ color: "blue", cursor: "pointer" }} onClick={() => setFormStatus("login")}>Back to Login</span></p>
+                  <p style={{ fontSize: "13px" }}>
+                    Have an account?{" "}
+                    <span
+                      style={{ color: "blue", cursor: "pointer" }}
+                      onClick={() => setFormStatus("login")}
+                    >
+                      Back to Login
+                    </span>
+                  </p>
                 </div>
               </form>
             </motion.div>
           )}
-          {formStatus === "forget-otp" && <OTP_Component setFormStatus={setFormStatus} />}
+          {formStatus === "forget-otp" && (
+            <OTP_Component setFormStatus={setFormStatus} />
+          )}
 
-          {formStatus === "forget-change" && <ChangePasswordComponent setFormStatus={setFormStatus} />}
+          {formStatus === "forget-change" && (
+            <ChangePasswordComponent setFormStatus={setFormStatus} />
+          )}
         </div>
         <div className="right-container-login">
           <div className="top-con">

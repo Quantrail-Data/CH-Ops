@@ -145,6 +145,18 @@ sqlite.exec(`
     expires_at TEXT,
     UNIQUE (jti, context)
   );
+  CREATE TABLE IF NOT EXISTS trusted_ca (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    pem TEXT NOT NULL,
+    subject TEXT,
+    issuer TEXT,
+    fingerprint TEXT,
+    not_before TEXT,
+    not_after TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Add columns that may be missing from earlier versions.
@@ -153,6 +165,7 @@ sqlite.exec(`
 const migrations = [
   "ALTER TABLE alert_rule ADD COLUMN nodes TEXT",
   "ALTER TABLE alert_rule ADD COLUMN cluster_id TEXT",
+  "ALTER TABLE cluster ADD COLUMN endpoint TEXT",
   // Dashboard filter presentation. SQLite backfills existing rows with the
   // DEFAULT when a column is added, so dashboards created before this read as
   // '{}' rather than NULL. The reader is defensive about NULL anyway, since a
@@ -190,6 +203,27 @@ if (existing.length === 0) {
 
 // Seed super admin users from .env (argon2id)
 const existingUsers = db.select().from(schema.appUsers).all();
+
+// A fresh database with no admin configured leaves nobody able to log in, so
+// this is a real misconfiguration and worth stopping for. Once users exist the
+// variables are inert, which is why the check is here and not in loadEnv.
+if (existingUsers.length === 0) {
+  const hasNumbered =
+    process.env.SUPER_ADMIN_1 &&
+    process.env.SUPER_ADMIN_1_PASSWORD &&
+    process.env.SUPER_ADMIN_1_EMAIL;
+  const hasLegacy =
+    process.env.SUPER_ADMIN &&
+    process.env.SUPER_ADMIN_PASSWORD &&
+    process.env.SUPER_ADMIN_EMAIL;
+  if (!hasNumbered && !hasLegacy) {
+    console.error('  This database has no users, and no super admin is configured.');
+    console.error('  Set SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL');
+    console.error('  so the first account can be created, then start CHOps again.');
+    process.exit(1);
+  }
+}
+
 if (existingUsers.length === 0) {
   let seeded = 0;
   for (let i = 1; i <= 3; i++) {

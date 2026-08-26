@@ -551,7 +551,6 @@ OR
 CANNOT_GENERATE_SQL
      `;
 
-
     let sql = await this.AIProvider.ask(prompt);
 
     sql = sql

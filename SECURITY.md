@@ -1,6 +1,6 @@
 # Security Policy
 
-CHOps holds ClickHouse® credentials, issues session tokens, and executes SQL on
+CHOps holds ClickHouse&reg; credentials, issues session tokens, and executes SQL on
 your behalf. We take reports about it seriously.
 
 ## Reporting a vulnerability
@@ -46,7 +46,7 @@ published from it.
 
 **Out of scope:**
 
-- Vulnerabilities in ClickHouse® itself. Report those to ClickHouse, Inc.
+- Vulnerabilities in ClickHouse&reg; itself. Report those to ClickHouse, Inc.
 - Vulnerabilities in third-party dependencies, unless CHOps uses them in a way
   that makes the impact materially worse. Dependabot covers routine updates.
 - Findings that require an attacker to already hold `superadmin` credentials, or
@@ -61,8 +61,16 @@ published from it.
 These are documented behaviours. They are worth knowing, and they are not
 findings:
 
-- `SESSION_SECRET` both signs session tokens and derives the key that encrypts
-  stored ClickHouse® passwords. Rotating it invalidates every stored credential.
+- `ENCRYPTION_SECRET` derives the key that encrypts stored ClickHouse&reg;
+  passwords, the system email password, and AI provider keys. It cannot be
+  changed: a new value makes all of those unreadable, and they cannot be
+  recovered. It was called `SESSION_SECRET` in earlier versions.
+- Login tokens are signed with keys CHOps makes itself and changes every day.
+  Those keys are in the CHOps database, not in a file, and nobody sets them. Two
+  are kept at a time, so a daily change signs nobody out.
+- The list of signed-out tokens is held in memory. A restart forgets it, and
+  those tokens work again until they run out on their own, which is at most one
+  session length.
 - Rate limiting keys on `req.ip`. Behind a reverse proxy you must set
   `TRUST_PROXY` to the number of proxies in front of CHOps, or every client
   shares one bucket. We do not trust `X-Forwarded-For` by default because a

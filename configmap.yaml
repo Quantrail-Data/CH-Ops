@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chops-config
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+
+  # Where the database file lives. This directory is on the persistent disk.
+  DB_PATH: "/app/data/chops.db"
+
+  # Where export files are written. Deliberately NOT on the persistent disk.
+  # See Step 2.5 for why.
+  EXPORT_DIR: "/app/exports"
+
+  # Total size all export files may occupy. Must stay below the 8Gi limit set on
+  # the exports volume in the StatefulSet, or Kubernetes evicts the pod when it
+  # fills up, which takes the database down with it.
+  EXPORT_MAX_TOTAL_BYTES: "6442450944"
+
+  # Largest single export. 4Gi.
+  EXPORT_MAX_JOB_BYTES: "4294967296"

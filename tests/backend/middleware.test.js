@@ -7,7 +7,6 @@ import jwt from "jsonwebtoken";
 
 import { authMiddleware } from "../../src/backend/middleware/auth.js";
 import {
-  setSecret,
   create,
   verify,
   revokeToken,
@@ -36,7 +35,7 @@ function counterNext() {
   return fn;
 }
 
-const getMock = mock(() => ({ id: 1, username: "alice" }));
+const getMock = mock(() => ({ id: 1, username: "alice" ,role:"admin"}));
 
 mock.module("../../src/backend/db/index.js", () => ({
   db: {
@@ -65,7 +64,6 @@ mock.module("../../src/backend/db/index.js", () => ({
 }));
 
 describe("authMiddleware", () => {
-  beforeAll(() => setSecret("middleware-test-secret-32chars-minimum!"));
 
   it("missing Authorization header -> 401, next not called", () => {
     const res = mockRes();
@@ -94,7 +92,6 @@ describe("authMiddleware", () => {
     const next = counterNext();
 
     authMiddleware(req, res, next);
-
     expect(res.statusCode).toBe(401);
     // Deliberately the same message as an invalid token: naming the missing
     // account confirms the token itself was valid.
@@ -107,6 +104,7 @@ describe("authMiddleware", () => {
     getMock.mockReturnValueOnce({
       id: 1,
       username: "alice",
+      role:"admin"
     });
 
     const token = create({
@@ -125,7 +123,6 @@ describe("authMiddleware", () => {
     const next = counterNext();
 
     authMiddleware(req, res, next);
-
     expect(next.calls.length).toBe(1);
     expect(req.user.username).toBe("alice");
     expect(req.user.role).toBe("admin");

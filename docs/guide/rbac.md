@@ -1,12 +1,8 @@
 # Database RBAC
 
-This section manages ClickHouse®'s own users, roles and settings profiles: who
-may connect to your database, what they may read and write, and what limits
-apply to their queries.
+This section manages ClickHouse&reg;'s own users, roles, and settings profiles. It controls who may connect to your database, what they may read and write, and what limits apply to their queries.
 
-Four pages: [View Grants](#view-grants), [Users](#users), [Roles](#roles) and
-[Settings Profiles](#settings-profiles). Every action previews the SQL before it
-runs.
+There are four pages: [View Grants](#view-grants), [Users](#users), [Roles](#roles), and [Settings Profiles](#settings-profiles). Every action shows the SQL before it runs.
 
 ---
 
@@ -26,17 +22,13 @@ runs.
 
 ## 1. Two different sets of users
 
-The most common confusion, worth settling before anything else.
+This is the most common confusion. Settle it first.
 
-**CHOps users** are accounts for CHOps itself: who can log into this interface
-and what they may do here. They live in CHOps's own database and are managed
-under [Control Panel, User Management](admin.md#user-management).
+**CHOps users** are accounts for CHOps itself. They control who can log in to this interface and what they can do here. They live in the CHOps database. You manage them under [Control Panel, User Management](admin.md#user-management).
 
-**ClickHouse® users** are accounts on your database server: who may connect and
-what data they may touch. They live in ClickHouse® and are managed here.
+**ClickHouse&reg; users** are accounts on your database server. They control who may connect and what data they may touch. They live in ClickHouse&reg;. You manage them here.
 
-They are unrelated. A CHOps administrator is not automatically a ClickHouse®
-administrator, and creating a user here does not let anyone log into CHOps.
+The two sets are not related. A CHOps administrator is not automatically a ClickHouse&reg; administrator. If you make a user here, that person cannot log in to CHOps.
 
 | Question | Where |
 |---|---|
@@ -49,95 +41,67 @@ administrator, and creating a user here does not let anyone log into CHOps.
 
 ## 2. Where ClickHouse stores access
 
-Worth knowing, because it decides whether a user you create exists on one server
-or all of them.
+Know this. It decides whether a user you make exists on one server or all of them.
 
-ClickHouse® has two ways of holding users and roles.
+ClickHouse&reg; holds users and roles in one of two ways.
 
-**Local directory**, the default. Each server keeps its own copy. Create a user
-on one node and it exists only there.
+**Local directory** is the default. Each server keeps its own copy. If you make a user on one node, it exists only there.
 
-**Replicated access storage**, which must be configured. Users and roles are
-coordinated through Keeper and exist across the cluster automatically.
+**Replicated access storage** must be configured. ClickHouse&reg; coordinates users and roles through Keeper, so they exist across the whole cluster.
 
 ### Why it matters
 
-On a cluster using local storage, creating a user without `ON CLUSTER` produces
-a user that works on the node you happened to be connected to and nowhere else.
-Everything looks fine until a query lands on a different replica.
+On a cluster with local storage, a user you make without `ON CLUSTER` exists on the node you connected to and nowhere else. Everything looks correct until a query reaches a different replica.
 
-That failure is confusing because it is intermittent: it depends which node the
-connection reached.
+That failure is hard to find, because it is intermittent. It depends on which node the connection reached.
 
-**On a Kubernetes cluster**, CHOps checks this and shows a banner on these
-screens when `ON CLUSTER` is advisable, so you do not have to remember which
-storage your cluster uses.
+On a Kubernetes cluster, CHOps checks the access configuration. It shows a banner on these screens when `ON CLUSTER` is advisable. You do not have to remember which storage your cluster uses.
 
-There is also a third category. Users defined in the server's XML configuration,
-including `default` and the operator's own account, are read-only here. They are
-not managed through SQL, so they cannot be altered from this interface.
+There is also a third group. Users defined in the server XML configuration, such as `default` and the operator account, are read-only here. They are not managed through SQL, so you cannot change them from this interface.
 
 ---
 
 ## 3. ON CLUSTER
 
-Every create, alter, grant and drop offers an `ON CLUSTER` option, which runs the
-statement on every node rather than just the one you are connected to.
+Every create, alter, grant, and drop offers an `ON CLUSTER` option. It runs the statement on every node, not only the node you connected to.
 
-**Use it whenever your cluster has more than one node and you are not certain
-access is replicated.** Applying to all nodes when it was already replicated is
-harmless. Not applying when it was needed leaves the cluster inconsistent.
+Use it when your cluster has more than one node and you are not sure access is replicated. To apply a change to all nodes when it was already replicated does no harm. To not apply it when it was needed leaves the cluster inconsistent.
 
-An inconsistent cluster is the worst outcome here, because it works most of the
-time. A user exists on three nodes out of four, and one connection in four
-fails.
+An inconsistent cluster is the worst outcome here, because it works most of the time. A user exists on three nodes out of four, and one connection in four fails.
 
 ### On a Kubernetes cluster
 
-CHOps reads the cluster's access configuration and turns the option on by
-default where it should be, with a banner explaining why. The banner appears
-only when it is actually relevant.
+CHOps reads the cluster access configuration. It turns the option on by default where it should be, and it shows a banner that explains why. The banner appears only when it is relevant.
 
-You can still turn it off, in the rare case where a change really is meant for
-one node.
+You can still turn it off. This is for the rare case when a change is meant for one node.
 
 ---
 
 ## View Grants
 
-A read-only view of who has what.
+This is a read-only view of who has what.
 
-Grants appear as a tree you expand: from grantee, to database, to table, to the
-privileges held.
+Grants appear as a tree that you expand: from grantee, to database, to table, to the privileges held.
 
 ### How to use it
 
-**Before changing anything.** Look at what a user already has before granting
-more. Duplicated grants are harmless but they make the picture harder to read
-later.
+**Before you change anything.** Look at what a user already has before you grant more. Duplicate grants do no harm, but they make the picture harder to read later.
 
-**When someone reports a permission error.** Find them here first. It is faster
-than reading the error, and it shows what they do have as well as what they do
-not.
+**When someone reports a permission error.** Find the user here first. It is faster than reading the error. It shows what the user does have and what the user does not.
 
-**During a review.** Expanding everything gives you the full picture, which is
-what an auditor asks for.
+**During a review.** Expand everything for the full picture. That is what an auditor asks for.
 
-### Reading the tree
+### How to read the tree
 
-Privileges granted at a database level cover every table in it, including tables
-created later. That is convenient and it is also how people end up with more
-access than intended.
+A privilege granted at the database level covers every table in the database, including tables made later. This is convenient. It is also how people get more access than intended.
 
-A privilege granted through a role appears under the role, not under each user
-holding it. If a user seems to have fewer privileges than they clearly do, check
-their roles.
+A privilege granted through a role appears under the role, not under each user that holds it. If a user seems to have fewer privileges than they clearly do, check their roles.
 
 ---
 
 ## Users
 
-Manages ClickHouse® accounts. Five tabs, each previewing its SQL.
+This page manages ClickHouse&reg; accounts. It has five tabs. Each tab shows its SQL.
 
 ### List
 
@@ -145,87 +109,65 @@ The users that already exist.
 
 ### Create
 
-Choose the authentication method and password, and optionally a default
-database, a default role, the host addresses the account may connect from, and
-an expiry time.
+Choose the authentication method and password. You can also set a default database, a default role, the host addresses the account may connect from, and an expiry time.
 
-**The host restriction is a security control, not a convenience.** A user
-restricted to a known address cannot be used from anywhere else even with the
-correct password. It is one of the more effective things on this page.
+**The host restriction is a security control, not a convenience.** A user restricted to a known address cannot connect from anywhere else, even with the correct password. It is one of the strongest controls on this page.
 
-**Valid Until** suits temporary access: a contractor, an investigation, a
-migration. The account stops working on its own, which is more reliable than a
-reminder to remove it.
+**Valid Until** suits temporary access, such as a contractor, an investigation, or a migration. The account stops working on its own. This is more reliable than a reminder to remove it.
 
-**A default role** is applied automatically when the user connects, so they do
-not have to activate it. Without one, a user granted a role may still find
-themselves with no privileges until they use `SET ROLE`.
+**A default role** applies automatically when the user connects, so the user does not activate it. Without a default role, a user with a granted role may have no privileges until they run `SET ROLE`.
 
 ### Alter
 
-The widest tab. Rename the user, reset authentication, add or drop permitted
-hosts, add or drop settings and profiles, and change the expiry.
+This is the widest tab. Rename the user, reset the authentication, add or drop permitted hosts, add or drop settings and profiles, and change the expiry.
 
-Resetting authentication is the tab to use when someone's password must change.
+Use this tab to reset authentication when a password must change.
 
 ### Grant and Revoke
 
-Give or take one specific privilege, on a database and table, with an optional
-`ON CLUSTER`.
+Give or take one privilege, on a database and table, with an optional `ON CLUSTER`.
 
-**Grant to roles rather than users** wherever you can. See
-[section 8](#8-patterns-worth-adopting).
+**Grant to roles, not to users,** wherever you can. See [section 8](#8-patterns-worth-adopting).
 
 ### Drop
 
-Removes a user. You must type the username to confirm, which is deliberate: this
-is not reversible and a mistyped name in a list is easy to click.
+This removes a user. You must type the user name to confirm. This is deliberate, because a drop is not reversible and a wrong name in a list is easy to click.
 
-Dropping a user does not affect anything they created. Their tables remain.
+To drop a user does not affect anything they made. Their tables stay.
 
 ---
 
 ## Roles
 
-A role is a named bundle of privileges. Grant the role to people rather than
-granting each privilege to each person.
+A role is a named group of privileges. Grant the role to people, rather than grant each privilege to each person.
 
-The same five tabs as Users: **List**, **Create**, **Alter**, **Grant/Revoke**
-and **Drop**.
+Roles have the same five tabs as Users: **List**, **Create**, **Alter**, **Grant/Revoke**, and **Drop**.
 
 **Create** names the role, with an optional `ON CLUSTER`.
 
-**Alter** renames it and adds or drops attached settings and profiles, with
-shortcuts to drop all settings or all profiles at once.
+**Alter** renames the role and adds or drops attached settings and profiles. It has shortcuts to drop all settings or all profiles at once.
 
-**Grant/Revoke** works exactly as it does for users.
+**Grant/Revoke** works the same way as it does for users.
 
 **Drop** asks you to type the role name.
 
 ### Why roles are worth the extra step
 
-Changing what a group can do becomes one edit rather than one per person.
+To change what a group can do becomes one edit, not one edit per person.
 
-More importantly, it makes access reviewable. "Which analysts can read the
-finance database" is answerable by looking at one role. The same question across
-forty individually granted users is not.
+Roles also make access reviewable. "Which analysts can read the finance database" is answerable from one role. The same question across forty individually granted users is not.
 
-**Dropping a role removes its privileges from everyone holding it.** That is
-usually what you want, and it is worth being certain about first.
+**To drop a role removes its privileges from everyone that holds it.** This is usually what you want. Be sure of it first.
 
 ---
 
 ## Settings Profiles
 
-A settings profile is a reusable group of ClickHouse® settings applied to users
-and roles: how much memory a query may use, whether someone may run DDL, how
-long a query may run.
+A settings profile is a reusable group of ClickHouse&reg; settings applied to users and roles. It controls how much memory a query may use, whether a user may run DDL, and how long a query may run.
 
-Four tabs: **Profiles**, **Create**, **Alter**, **Drop**.
+There are four tabs: **Profiles**, **Create**, **Alter**, **Drop**.
 
-Rather than facing hundreds of settings as one list, CHOps groups them into
-collapsible sections. Open a group, set what you care about, leave the rest
-alone.
+CHOps groups the settings into collapsible sections, so you do not face hundreds of settings as one list. Open a group, set what you care about, and leave the rest.
 
 | Group | Examples |
 |---|---|
@@ -233,37 +175,30 @@ alone.
 | Read Limits | max_rows_to_read, max_bytes_to_read, read_overflow_mode |
 | Result Limits | max_result_rows, max_result_bytes, result_overflow_mode |
 | JOIN | join_algorithm, join_overflow_mode, join_use_nulls |
-| Permissions and Access | readonly, allow_ddl, allow_introspection_functions |
+| Permissions & Access | readonly, allow_ddl, allow_introspection_functions |
 | Logging | log_queries, log_query_threads, log_comment |
 | INSERT | max_insert_block_size, insert_quorum, async_insert |
-| Networking and Timeouts | connect_timeout, receive_timeout, max_network_bandwidth |
+| Networking & Timeouts | connect_timeout, receive_timeout, max_network_bandwidth |
 | Distributed Queries | max_parallel_replicas, prefer_localhost_replica, skip_unavailable_shards |
-| Merges and Mutations | background_pool_size, mutations_sync |
+| Merges & Mutations | background_pool_size, mutations_sync |
 | Query Optimization | optimize_read_in_order, force_primary_key, optimize_move_to_prewhere |
 | Data Formats | date_time_input_format, date_time_output_format, input_format_csv_delimiter |
-| S3 and Cloud Storage | s3_max_connections, s3_truncate_on_insert |
-| Advanced and Experimental | enable_filesystem_cache, flatten_nested, alter_sync |
+| S3 & Cloud Storage | s3_max_connections, s3_truncate_on_insert |
+| Advanced & Experimental | enable_filesystem_cache, flatten_nested, alter_sync |
 
-Every setting uses its exact ClickHouse® name, so what you set matches the
-official documentation. The form rejects invalid values, and a free-form field
-takes any setting not shown in the groups, written as
-`distributed_ddl_task_timeout=300, insert_quorum=2`.
+Every setting uses its exact ClickHouse&reg; name, so what you set matches the official documentation. The form rejects invalid values. A free-form field takes any setting that is not shown in the groups, written as `distributed_ddl_task_timeout=300, insert_quorum=2`.
 
-**Alter** also adds or drops profiles attached to this one, and can drop all
-settings or all profiles at once. **Drop** asks you to type the name.
+**Alter** also adds or drops profiles attached to this one. It can drop all settings or all profiles at once. **Drop** asks you to type the name.
 
 ### The settings that matter most
 
-**`readonly`** is the blunt instrument. It stops a user modifying anything, and
-it is the right starting point for an analyst account.
+**`readonly`** is the strongest control. It stops a user from changing anything. It is the right start for an analyst account.
 
-**`max_memory_usage`** is what stops one query taking down a server. Set it on
-any profile used by people running exploratory queries.
+**`max_memory_usage`** stops one query from taking down a server. Set it on any profile used by people who run exploratory queries.
 
-**`max_execution_time`** stops a runaway query holding resources indefinitely.
+**`max_execution_time`** stops a runaway query from holding resources with no end.
 
-**`allow_ddl`** decides whether a user may create or drop objects. Off for
-anyone who does not need it.
+**`allow_ddl`** decides whether a user may create or drop objects. Turn it off for anyone who does not need it.
 
 Those four cover most of what a profile is for. The rest is tuning.
 
@@ -271,92 +206,67 @@ Those four cover most of what a profile is for. The rest is tuning.
 
 ## 8. Patterns worth adopting
 
-**Privileges on roles, roles on people.** Grant to a role, then grant the role.
-The extra step pays back the first time someone joins or leaves.
+**Privileges on roles, roles on people.** Grant privileges to a role, then grant the role to people. The extra step pays back the first time someone joins or leaves.
 
-**A profile per kind of user, not per person.** An analyst profile, an
-application profile, an admin profile. Attach them to roles.
+**A profile per kind of user, not per person.** Make an analyst profile, an application profile, and an admin profile. Attach them to roles.
 
-**Restrict hosts wherever you can.** An application account that only ever
-connects from three known addresses should say so. It turns a leaked password
-into a much smaller problem.
+**Restrict hosts wherever you can.** An application account that only connects from three known addresses should say so. This makes a leaked password a much smaller problem.
 
-**Use Valid Until for anything temporary.** Access that expires on its own beats
-access that relies on someone remembering.
+**Use Valid Until for anything temporary.** Access that expires on its own is better than access that depends on someone to remember it.
 
-**Review with View Grants periodically.** Access accumulates. Nobody notices
-until someone asks who can read a table, and the answer takes an afternoon.
+**Review with View Grants often.** Access accumulates. Nobody notices until someone asks who can read a table, and the answer takes an afternoon.
 
-**Use ON CLUSTER unless you are certain you should not.** Applying to all nodes
-when it was unnecessary costs nothing. The reverse leaves an inconsistent
-cluster that fails intermittently.
+**Use ON CLUSTER unless you are sure you should not.** To apply a change to all nodes when it was not needed costs nothing. The reverse leaves an inconsistent cluster that fails intermittently.
 
 ---
 
 ## 9. When something does not work
 
-### A user I created cannot connect from another node
+### A user I made cannot connect from another node
 
-Almost certainly access storage. The user exists on the node you were connected
-to and nowhere else.
+This is almost always the access storage. The user exists on the node you connected to and nowhere else.
 
-Recreate with `ON CLUSTER`, or configure replicated access storage so it stops
-happening. See [section 2](#2-where-clickhouse-stores-access).
+Make the user again with `ON CLUSTER`, or configure replicated access storage so it stops. See [section 2](#2-where-clickhouse-stores-access).
 
 ### A user has a role but no privileges
 
-The role is granted but not active. Either set it as their default role, or have
-them run `SET ROLE`.
+The role is granted but not active. Set it as the user's default role, or have the user run `SET ROLE`.
 
-Default role is the better fix, since it needs nothing from the user.
+A default role is the better fix, because it needs nothing from the user.
 
 ### I cannot alter the default user
 
-Users defined in the server's XML configuration cannot be changed through SQL.
-`default` is usually one of them, as is the operator's own account on an
-operator-managed cluster.
+Users defined in the server XML configuration cannot be changed through SQL. `default` is usually one of them, as is the operator account on an operator-managed cluster.
 
 Change those in the server configuration instead.
 
 ### Permission denied on a table the user should see
 
-Check View Grants first. Common causes are a privilege granted on a different
-database, a grant that covers some tables and not this one, or a role that was
-never activated.
+Check View Grants first. Common causes are a privilege granted on a different database, a grant that covers some tables but not this one, or a role that was never activated.
 
-Remember that a database-level grant covers tables created afterwards, but a
-table-level grant obviously does not cover a new table.
+Remember that a database-level grant covers tables made later, but a table-level grant does not cover a new table.
 
 ### A grant worked but the user still cannot connect
 
-Connecting and having privileges are different. Check the host restriction and
-the expiry, since either will refuse a connection regardless of what the account
-is allowed to do once inside.
+To connect and to have privileges are different things. Check the host restriction and the expiry. Either one refuses a connection, whatever the account may do once inside.
 
 ### Changes seem to apply and then revert
 
-On a cluster without replicated access storage, connecting through a load
-balancer means consecutive statements can reach different nodes. A change made
-on one node genuinely is not on another.
+On a cluster without replicated access storage, a load balancer can send consecutive statements to different nodes. A change made on one node is genuinely not on another.
 
-`ON CLUSTER` solves this. CHOps warns about it on a Kubernetes cluster because
-that arrangement makes it likely.
+`ON CLUSTER` solves this. CHOps warns about it on a Kubernetes cluster, because that arrangement makes it likely.
 
 ### I dropped a role and people lost access
 
-Expected. A role's privileges belong to the role, so removing it removes them
-from everyone who held it.
+This is expected. A role's privileges belong to the role, so to remove the role removes them from everyone that held it.
 
-Recreate the role and re-grant it, or grant the privileges directly as an
-interim measure.
+Make the role again and grant it again, or grant the privileges directly as a temporary measure.
 
 ---
 
 ## Related pages
 
-- [User Management](admin.md#user-management) for CHOps's own accounts, which
-  are unrelated to these
-- [SQL Editor](sql-editor.md) for running access statements by hand
-- [Session Log](logs.md#session-log) for auditing who actually connected
-- [The Kubernetes Page](kubernetes-page.md) for why CHOps recommends
-  `ON CLUSTER` on an operator-managed cluster
+- [User Management](admin.md#user-management) for CHOps's own accounts, which are not related to these
+- [SQL Editor](sql-editor.md) to run access statements by hand
+- [Session Log](logs.md#session-log) to audit who connected
+- [The Kubernetes Page](kubernetes-page.md) for why CHOps recommends `ON CLUSTER` on an operator-managed cluster

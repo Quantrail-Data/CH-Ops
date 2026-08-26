@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Loads environment configs, requiring a super admin and SESSION_SECRET for seeding databases and auth fallbacks.
+// author -> kathir Moorthy, kathir dhasan, Praveen kumar
+// Loads environment configs. ENCRYPTION_SECRET makes the key that encrypts stored credentials, and must never change once set.
 
 import path from "node:path";
 
@@ -11,7 +11,17 @@ export function loadEnv() {
       throw new Error('Missing required env: SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL');
     }
   }
-  if (!process.env.SESSION_SECRET) throw new Error('Missing required env: SESSION_SECRET');
+  if (!process.env.ENCRYPTION_SECRET) {
+    if (process.env.SESSION_SECRET) {
+      throw new Error(
+        'SESSION_SECRET is now called ENCRYPTION_SECRET. Rename it in your .env file and keep the same value. ' +
+        'A different value makes stored ClickHouse and email passwords unreadable, and they cannot be recovered.',
+      );
+    }
+    throw new Error(
+      'Missing required env: ENCRYPTION_SECRET. Make one with: openssl rand -hex 32',
+    );
+  }
 
   // Collect up to 3 super admins from numbered env vars
   const superAdmins = [];
@@ -37,10 +47,12 @@ export function loadEnv() {
       warnBytes: parseInt(process.env.EXPORT_WARN_BYTES || String(1024 * 1024 * 1024), 10),
     },
     superAdmins,
-    sessionSecret: process.env.SESSION_SECRET,
+    encryptionSecret: process.env.ENCRYPTION_SECRET,
     port: parseInt(process.env.PORT || '3000', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
     disableEnvLogin: process.env.DISABLE_ENV_LOGIN === 'true',
+    // Mirrors DISABLE_ENV_LOGIN. Stops the SMTP_* fallback once the settings page is configured
+    disableEnvSmtp: process.env.DISABLE_ENV_SMTP === 'true',
     frontendLink:process.env.FRONTEND_LINK,
     smtp: {
       host: process.env.SMTP_HOST || '',

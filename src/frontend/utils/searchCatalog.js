@@ -314,6 +314,20 @@ export const SEARCH_CATALOG = [
     description: "Notification channels: email, Slack, Google Chat, Teams, PagerDuty.",
     keywords: ["alert channels", "notification channels", "email", "slack", "webhook", "pagerduty", "microsoft teams", "google chat", "notify", "integrations"],
   },
+    {
+    id: "admin/trusted-cas",
+    title: "Trusted CAs",
+    section: "Admin",
+    description: "Certificate authorities CHOps trusts when connecting to ClickHouse over TLS.",
+    keywords: ["certificate", "certificate authority", "ca", "tls", "ssl", "https", "self-signed", "internal ca", "unable to verify"],
+  },
+  {
+    id: "admin/app-config",
+    title: "App Config",
+    section: "Admin",
+    description: "Limits on exports, queries and other CHOps behaviour.",
+    keywords: ["config", "settings", "limits", "export limit", "quota", "storage", "concurrent"],
+  },
   {
     id: "admin/api-management",
     title: "AI API Keys",
@@ -324,13 +338,7 @@ export const SEARCH_CATALOG = [
 ];
 
 // Fold in already-existing constants (breadcrumb labels + scraped headers).
-// The curated `keywords` above carry intent and synonyms. On top of them we
-// merge two constant sources that already exist in the codebase, so they stay
-// in sync automatically:
-//   1. BREADCRUMB_MAP  - section, page, and sub-tab labels per route.
-//   2. PAGE_HEADERS     - constant in-page section headers scraped at build time.
-// Token search (with IDF) down-weights the generic labels this adds, so the
-// merge improves recall without drowning out the specific terms.
+
 
 function breadcrumbTerms(id) {
   const out = [];

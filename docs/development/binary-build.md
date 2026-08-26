@@ -1,8 +1,8 @@
 # Building a Standalone Binary
 
-> **You may not need to build one.** Prebuilt binaries and builds for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). Download the asset for your platform (`chops-linux-x64`, `chops-darwin-arm64`, or `chops-windows-x64.exe`) and run it with the required environment variables. Build your own only when you need a custom build; the rest of this page covers that.
+> **You may not need to build one.** Prebuilt binaries for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). Download the asset for your platform (`chops-linux-x64`, `chops-darwin-arm64`, or `chops-windows-x64.exe`) and run it with the required environment variables. Build your own only when you need a custom build. The rest of this page covers that.
 
-CHOps can be compiled into a single self-contained executable using Bun's `--compile` flag. The binary bundles the Bun runtime, all JavaScript code, `node_modules`, the pre-built frontend, and the documentation into one file. The target machine does not need Bun, Node.js, or any other runtime installed.
+CHOps can be compiled into a single self-contained executable with Bun's `--compile` flag. The binary bundles the Bun runtime, all JavaScript code, `node_modules`, the pre-built frontend, and the documentation into one file. The target machine does not need Bun, Node.js, or any other runtime installed.
 
 ## Why build a binary?
 
@@ -13,7 +13,7 @@ CHOps can be compiled into a single self-contained executable using Bun's `--com
 
 ## Build commands
 
-Run `bun install` before building. It installs dependencies and, importantly, applies the `@xenova/transformers` patch that makes the compiled binary self-contained. Building without a completed `bun install` produces a binary that crashes at startup on native modules (see [Native dependencies and the AI runtime](#native-dependencies-and-the-ai-runtime)).
+Run `bun install` before you build. It installs dependencies and applies the `@xenova/transformers` patch that makes the compiled binary self-contained. A build without a completed `bun install` produces a binary that crashes at startup on native modules (see [Native dependencies and the AI runtime](#native-dependencies-and-the-ai-runtime)).
 
 ```bash
 bun install
@@ -37,9 +37,9 @@ Each `build:binary` command runs three steps in order:
 
 ### How the frontend and docs get into the binary
 
-The frontend is not embedded by `bun --compile` finding `dist/` on disk. It is embedded because the `embed` step turns `dist/` and `docs/` into the `embeddedAssets.js` module, which the compiler then bundles like any other imported code. At runtime, `server.js` imports `./embeddedAssets.js`: in the compiled binary that module is present, so the frontend and the documentation are served straight from memory, with no files needed on disk. When you run from source instead (dev or `bun src/backend/server.js`), the generated module is absent, and `server.js` falls back to serving `dist/` and `docs/` from the filesystem.
+The frontend is not embedded because `bun --compile` finds `dist/` on disk. It is embedded because the `embed` step turns `dist/` and `docs/` into the `embeddedAssets.js` module, which the compiler then bundles like any other imported code. At runtime, `server.js` imports `./embeddedAssets.js`. In the compiled binary that module is present, so the frontend and the documentation are served straight from memory, with no files needed on disk. When you run from source instead (dev or `bun src/backend/server.js`), the generated module is absent, and `server.js` falls back to serving `dist/` and `docs/` from the filesystem.
 
-This is why the `embed` step matters: skipping it produces a binary with no embedded frontend, which then reports "Frontend not built" when run from a directory that has no `dist/`.
+This is why the `embed` step matters. To skip it produces a binary with no embedded frontend, which then reports "Frontend not built" when run from a directory that has no `dist/`.
 
 ## Running the binary
 
@@ -66,8 +66,8 @@ CHOps fixes this at the dependency level with a Bun patch, applied automatically
 
 The patch, in `patches/`, makes two changes to `@xenova/transformers`:
 
-- It forces the ONNX runtime to the WebAssembly backend (`onnxruntime-web`, a direct dependency) instead of the native `onnxruntime-node`. WebAssembly has no native addon and no sibling shared library, so it behaves identically whether run from source or compiled.
-- It defers loading `sharp` until an image is actually processed, rather than importing it at module load. CHOps only runs text feature-extraction, so that path never executes, and the compiled binary no longer needs sharp's native binary at boot.
+- It forces the ONNX runtime to the WebAssembly backend (`onnxruntime-web`, a direct dependency) instead of the native `onnxruntime-node`. WebAssembly has no native addon and no sibling shared library, so it behaves the same way whether run from source or compiled.
+- It defers the load of `sharp` until an image is actually processed, rather than an import at module load. CHOps only runs text feature-extraction, so that path never executes, and the compiled binary no longer needs sharp's native binary at boot.
 
 With the patch in place, a normal build produces a genuinely self-contained binary that needs no external native libraries on the host:
 
@@ -80,7 +80,7 @@ There is nothing to copy alongside the binary, no `LD_LIBRARY_PATH` to set, and 
 
 ## Configuration
 
-The binary still needs environment variables, just like the dev server. The required set is `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET`; the server exits on startup if any of these is missing. See [Configuration](../getting-started/configuration.md) for the full list. Provide them in one of three ways.
+The binary still needs environment variables, just like the dev server. The required set is `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET`. The server exits on startup if any of these is missing. See [Configuration](../getting-started/configuration.md) for the full list. Provide them in one of three ways.
 
 **Option 1: A `.env` file** in the working directory, which CHOps reads automatically:
 
@@ -88,7 +88,7 @@ The binary still needs environment variables, just like the dev server. The requ
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_password
 SUPER_ADMIN_1_EMAIL=you@example.com
-SESSION_SECRET=your_random_string
+ENCRYPTION_SECRET=your_random_string
 PORT=3000
 ```
 
@@ -98,14 +98,14 @@ PORT=3000
 export SUPER_ADMIN_1=admin
 export SUPER_ADMIN_1_PASSWORD=your_password
 export SUPER_ADMIN_1_EMAIL=you@example.com
-export SESSION_SECRET=your_random_string
+export ENCRYPTION_SECRET=your_random_string
 ./chops-linux-x64
 ```
 
 **Option 3: Inline** (useful for quick testing):
 
 ```bash
-SUPER_ADMIN_1=admin SUPER_ADMIN_1_PASSWORD=secret SUPER_ADMIN_1_EMAIL=you@example.com SESSION_SECRET=abc ./chops-linux-x64
+SUPER_ADMIN_1=admin SUPER_ADMIN_1_PASSWORD=secret SUPER_ADMIN_1_EMAIL=you@example.com ENCRYPTION_SECRET=abc ./chops-linux-x64
 ```
 
 ## Database
@@ -114,14 +114,14 @@ The SQLite database (`data/chops.db`) is created at runtime in the current worki
 
 ## Binary size
 
-The binary is typically 60 to 90 MB depending on the platform. This includes the Bun runtime, all application code, all npm dependencies, and the embedded frontend and docs.
+The binary is typically 60 to 90 MB, depending on the platform. This includes the Bun runtime, all application code, all npm dependencies, and the embedded frontend and docs.
 
 ## Troubleshooting
 
-**Binary fails to start.** Make sure all required environment variables are set: `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET`. The server validates these on startup and exits if any is missing.
+**Binary fails to start.** Make sure all required environment variables are set: `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET`. The server validates these on startup and exits if any is missing.
 
-**"Frontend not built" error from the binary.** This should not happen if you used one of the `build:binary` commands, since each runs `build` and `embed` before compiling. If you invoked `bun build --compile` by hand, make sure you ran `bun run build` and then `bun run embed` first so that `src/backend/embeddedAssets.js` exists and gets bundled.
+**"Frontend not built" error from the binary.** This should not happen if you used one of the `build:binary` commands, because each runs `build` and `embed` before it compiles. If you invoked `bun build --compile` by hand, make sure you ran `bun run build` and then `bun run embed` first, so that `src/backend/embeddedAssets.js` exists and gets bundled.
 
-**`ERR_DLOPEN_FAILED: libonnxruntime.so...` or `Cannot find module '.../sharp-*.node'` at startup.** The `@xenova/transformers` patch was not applied, so the binary is trying to load a native module. Confirm that `patches/@xenova%2Ftransformers@2.17.2.patch` exists and that `patchedDependencies` is present in `package.json`, run `bun install` (which applies patches), then rebuild. See [Native dependencies and the AI runtime](#native-dependencies-and-the-ai-runtime).
+**`ERR_DLOPEN_FAILED: libonnxruntime.so...` or `Cannot find module '.../sharp-*.node'` at startup.** The `@xenova/transformers` patch was not applied, so the binary tries to load a native module. Confirm that `patches/@xenova%2Ftransformers@2.17.2.patch` exists and that `patchedDependencies` is present in `package.json`, run `bun install` (which applies patches), then rebuild. See [Native dependencies and the AI runtime](#native-dependencies-and-the-ai-runtime).
 
-**Cross-compiled binary does not run.** Ensure you used the correct target for the destination platform. A `bun-linux-x64` binary will not run on ARM Linux, macOS, or Windows.
+**Cross-compiled binary does not run.** Make sure you used the correct target for the destination platform. A `bun-linux-x64` binary will not run on ARM Linux, macOS, or Windows.

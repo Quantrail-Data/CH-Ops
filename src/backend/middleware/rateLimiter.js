@@ -19,9 +19,9 @@ const sweeper = setInterval(() => {
 }, 60 * 1000);
 sweeper.unref?.();
 
-export function rateLimiter(maxRequests = 10000, windowSeconds = 60) {
+export function rateLimiter(maxRequests = 10000, windowSeconds = 60, keyFn = null) {
   return (req, res, next) => {
-    const key = req.ip + ':' + req.baseUrl;
+    const key = keyFn ? keyFn(req) : req.ip + ':' + req.baseUrl;
     const now = Date.now();
     const windowMs = windowSeconds * 1000;
 

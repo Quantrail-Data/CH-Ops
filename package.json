@@ -1,6 +1,5 @@
 {
   "name": "chops",
-  "version": "26.3-0.1.6",
   "description": "CHOps - ClickHouse® Administration Dashboard",
   "author": "Quantrail™ Data Private Limited",
   "type": "module",
@@ -8,10 +7,11 @@
     "dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
     "dev:backend": "bun run gen:version && bun --watch src/backend/server.js",
     "dev:frontend": "vite",
-    "build": "bun run gen:version && vite build",
+    "build": "bun run gen:version && bun run gen:icons && vite build",
     "embed": "bun scripts/embed-static.js",
     "gen:search-headers": "node scripts/build-search-headers.mjs",
     "gen:version": "node scripts/generate-version.mjs",
+    "gen:icons": "node scripts/build-icon-sprite.mjs",
     "build:binary": "bun run build && bun run embed && bun build src/backend/server.js --compile --outfile chops",
     "build:binary:linux": "bun run build && bun run embed && bun build src/backend/server.js --compile --target=bun-linux-x64 --outfile chops-linux-x64",
     "build:binary:mac": "bun run build && bun run embed && bun build src/backend/server.js --compile --target=bun-darwin-arm64 --outfile chops-darwin-arm64",
@@ -20,9 +20,9 @@
     "build:standalone:linux": "bun run build && bun run embed && bun build src/backend/server.js --compile --env=inline --target=bun-linux-x64 --outfile chops-linux-x64",
     "build:standalone:windows": "bun run build && bun run embed && bun build src/backend/server.js --compile --env=inline --target=bun-windows-x64 --outfile chops-windows-x64.exe",
     "test": "bun run test:backend && vitest run tests/frontend",
-    "test:backend": "bun test --isolate tests/backend && bun test --isolate tests/isolated",
+    "test:backend": "bun test --isolate tests/backend && bun test --isolate tests/isolated && bun test tests/db && bun test tests/net",
     "test:coverage": "bun run test:backend:coverage && bun run test:frontend:coverage",
-    "test:backend:coverage": "bun test --isolate --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage/backend tests/backend",
+    "test:backend:coverage": "bun test --isolate tests/backend && bun test tests/db && bun test tests/net",
     "test:frontend:coverage": "vitest run tests/frontend --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
@@ -107,10 +107,8 @@
     "undici": "^6.28.0",
     "svgo": "^3.3.4",
     "ip-address": "^10.3.1",
-    "js-yaml": "^4.3.1",
     "protobufjs": "^7.6.5"
   },
-  "private": true,
   "peerDependencies": {
     "typescript": "^6.0.3"
   },

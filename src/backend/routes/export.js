@@ -11,11 +11,20 @@ import { getCredSession, CRED_CONTEXTS } from "../services/chCredStore.js";
 import { executeQuery } from "../services/clickhouse.js";
 import { measureBytes } from "../services/exportStream.js";
 import {
-  createJob, getJob, describeJob, cancelJob, touchJob,
-  issueTicket, redeemTicket, exportConfig,
+  createJob,
+  getJob,
+  describeJob,
+  cancelJob,
+  touchJob,
+  issueTicket,
+  redeemTicket,
+  exportConfig,
 } from "../services/exportJobs.js";
 import {
-  normalizeForExport, isSelectLike, wrapForCount, wrapForSample,
+  normalizeForExport,
+  isSelectLike,
+  wrapForCount,
+  wrapForSample,
 } from "../../shared/sqlExport.js";
 import { findFormat, OPTIONS } from "../../shared/exportFormats.js";
 import { materialize } from "../../shared/sqlParams.js";
@@ -60,7 +69,6 @@ function onlyKnownSettings(input) {
   return clean;
 }
 
-
 router.post("/estimate", async (req, res) => {
   const { sql: rawSql, format, params } = req.body || {};
   if (!rawSql) return res.status(400).json({ error: "Missing SQL." });
@@ -96,10 +104,15 @@ router.post("/estimate", async (req, res) => {
   };
 
   const selectLike = isSelectLike(sql);
-  const answer = { selectLike, rows: null, bytes: null, exact: false, warnBytes: exportConfig().warnBytes };
+  const answer = {
+    selectLike,
+    rows: null,
+    bytes: null,
+    exact: false,
+    warnBytes: exportConfig().warnBytes,
+  };
 
   if (!selectLike) return res.json(answer);
-
 
   try {
     const est = await executeQuery({
@@ -107,14 +120,19 @@ router.post("/estimate", async (req, res) => {
       sql: `EXPLAIN ESTIMATE ${normalizeForExport(sql)}`,
       readOnly: true,
       noResultLimit: true,
+      timeoutMs: 10000,
     });
-    answer.rows = (est.rows || []).reduce((sum, r) => sum + Number(r.rows || 0), 0);
+    answer.rows = (est.rows || []).reduce(
+      (sum, r) => sum + Number(r.rows || 0),
+      0,
+    );
   } catch {
     try {
       const counted = await executeQuery({
         ...target,
         sql: `${wrapForCount(sql)} SETTINGS max_execution_time = 20`,
         readOnly: true,
+        timeoutMs: 10000,
         noResultLimit: true,
       });
       answer.rows = Number(counted.rows?.[0]?.c || 0);
@@ -123,7 +141,6 @@ router.post("/estimate", async (req, res) => {
       answer.rows = null;
     }
   }
-
 
   if (answer.rows) {
     try {
@@ -144,9 +161,17 @@ router.post("/estimate", async (req, res) => {
   res.json(answer);
 });
 
-
 router.post("/jobs", (req, res) => {
-  const { sql: rawSql, format, compression, filename, bom, settings, estimatedBytes, params } = req.body || {};
+  const {
+    sql: rawSql,
+    format,
+    compression,
+    filename,
+    bom,
+    settings,
+    estimatedBytes,
+    params,
+  } = req.body || {};
   if (!rawSql) return res.status(400).json({ error: "Missing SQL." });
 
   let sql;
@@ -170,6 +195,7 @@ router.post("/jobs", (req, res) => {
   try {
     const job = createJob({
       username: req.user?.username,
+      jti: req.user.jti,
       sql,
       format,
       compression: compression || "none",
@@ -193,15 +219,14 @@ router.get("/jobs/:id", (req, res) => {
   res.json(describeJob(job));
 });
 
-
 router.post("/jobs/:id/ticket", (req, res) => {
   const job = getJob(req.params.id, req.user?.username);
   if (!job) return res.status(404).json({ error: "Export not found." });
-  if (job.state !== "ready") return res.status(409).json({ error: "Export is not ready yet." });
+  if (job.state !== "ready")
+    return res.status(409).json({ error: "Export is not ready yet." });
   touchJob(job);
   res.json({ ticket: issueTicket(job) });
 });
-
 
 router.delete("/jobs/:id", (req, res) => {
   const ok = cancelJob(req.params.id, req.user?.username);
@@ -218,11 +243,15 @@ const routeLimiter = rateLimit({
 
 downloadRouter.get("/:ticket", routeLimiter, (req, res) => {
   const job = redeemTicket(req.params.ticket);
-  if (!job) return res.status(404).json({ error: "This download link has expired." });
+  if (!job)
+    return res.status(404).json({ error: "This download link has expired." });
 
   touchJob(job);
   res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Disposition", `attachment; filename="${job.fileName}"`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${job.fileName}"`,
+  );
   res.setHeader("Content-Length", String(job.bytesWritten));
 
   const stream = fs.createReadStream(job.filePath);

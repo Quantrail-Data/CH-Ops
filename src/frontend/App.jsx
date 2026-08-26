@@ -8,20 +8,19 @@ import useIdleTimeout from "./hooks/useIdleTimeout.js";
 import LoginPage from "./components/layout/LoginPage.jsx";
 import MainLayout from "./components/layout/MainLayout.jsx";
 import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
+import { apiFetch } from "./utils/api.js";
 
 // Each context defaults to an inert value with the SAME SHAPE the provider
 // supplies, rather than to null.
-//
+
 // Every consumer destructures immediately - `const { auth } = useAuth()`,
 // `const { theme } = useTheme()`, `const { selectedClusterId } = useConnection()`
-// - so a null default turns "rendered outside its provider" into a hard crash
-// at the first line of the component. That is the worst possible failure for a
-// context whose whole job is ambient state: the component cannot render at all,
-// and the stack points at the destructure rather than at the missing provider.
-//
+
 // The defaults below let such a component render in its logged-out, unconnected,
-// light-theme state instead. Nothing silently half-works: `auth` is null, so
-// anything gated on a user still behaves as though there is none.
+// light-theme state instead.
+
+
+
 
 const NO_AUTH = Object.freeze({
   auth: null,
@@ -47,6 +46,7 @@ const NO_CONNECTION = Object.freeze({
   connected: false,
   error: null,
   clusterName: "",
+  serverVersion: null,
   setConnection: () => {},
   testConnection: () => {},
   reloadConfig: () => {},
@@ -82,7 +82,7 @@ export function useQuriozChatContext() {
   return useContext(QuriozChatContext) ?? NO_QURIOZ_CHAT;
 }
 
-const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY;
+const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY ?? "quriozchatstorage";
 export default function App() {
   // Auth
   const [auth, setAuth] = useState(() => {
@@ -208,6 +208,7 @@ export default function App() {
     connected: false,
     error: null,
     clusterName: "",
+    serverVersion: null,
   });
 
 
@@ -338,9 +339,32 @@ export default function App() {
         port: first.port || 8123,
         connected: Object?.keys(first)?.length > 0 ? true : false,
         error: null,
+        serverVersion: null,
       };
     });
   }
+
+  useEffect(() => {
+    const clusterId = connection.selectedClusterId;
+    if (!clusterId) return;
+
+    let cancelled = false;
+
+    apiFetch(`/api/config/capabilities/${encodeURIComponent(clusterId)}`)
+      .then((r) => {
+        if (cancelled) return;
+        setConnection((prev) => ({ ...prev, serverVersion: r.version ?? null }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setConnection((prev) => ({ ...prev, serverVersion: null }));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection.selectedClusterId]);
 
   // No password argument: the browser does not hold one. The backend resolves
   // the stored credential for this node from the cluster configuration.
