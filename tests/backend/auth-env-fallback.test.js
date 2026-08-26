@@ -44,7 +44,7 @@ mock.module("../../src/backend/db/index.js", () => ({
 }));
 
 const { login } = await import("../../src/backend/controllers/auth.js");
-const { setSecret, verify } = await import("../../src/backend/services/jwt.js");
+const { verify } = await import("../../src/backend/services/jwt.js");
 
 function mockRes() {
   return {
@@ -62,11 +62,10 @@ function mockRes() {
 }
 
 beforeAll(() => {
-  setSecret("env-fallback-test-secret-32-chars-minimum!");
   process.env.SUPER_ADMIN_1 = "recovery";
   process.env.SUPER_ADMIN_1_PASSWORD = "recovery-password";
   process.env.SUPER_ADMIN_1_EMAIL = "recovery@example.com";
-  process.env.SESSION_SECRET = "env-fallback-test-secret-32-chars-minimum!";
+  process.env.ENCRYPTION_SECRET = "env-fallback-test-secret-32-chars-minimum!";
   delete process.env.DISABLE_ENV_LOGIN;
 });
 

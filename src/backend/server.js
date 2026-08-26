@@ -26,7 +26,6 @@ try {
 import { log } from './services/logger.js';
 
 import { loadEnv } from './utils/env.js';
-import { setSecret } from './services/jwt.js';
 import { initCrypto } from './services/crypto.js';
 import { authMiddleware } from './middleware/auth.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
@@ -66,8 +65,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let env;
 try { env = loadEnv(); } catch (err) { console.error(`  Config error: ${err.message}`); process.exit(1); }
 
-setSecret(env.sessionSecret);
-initCrypto(env.sessionSecret);
+initCrypto(env.encryptionSecret);
 
 onRevoke(clearCredSessionByJti);
 onRevoke((jti) => { try { cancelJobsForJti(jti); } catch { } });
