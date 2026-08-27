@@ -3,8 +3,7 @@
 //   GET  /api/ai/status      - which provider/model will run a generation
 //   GET  /api/ai/databases   - databases on the connected cluster
 //   GET  /api/ai/tables      - tables in ?databases=a,b
-//   POST /api/ai/ddl         - CREATE TABLE for the selected tables (cached)
-//   POST /api/ai/estimate    - will this selection fit the model's context?
+//   POST /api/ai/ddl         - CREATE TABLE and context estimate for selected tables (cached)
 //
 // Every ClickHouse call runs under the caller's own credentials, resolved
 // server-side from an encrypted session. The browser never sends a ClickHouse
@@ -28,12 +27,15 @@ import { getAiStatus } from "../services/studioAi.js";
 import { CRED_CONTEXTS } from "../services/chCredStore.js";
 import * as DdlService from "../servicesAI/DdlService.js";
 import { buildPrompt, joinPrompt } from "../servicesAI/PromptBuilder.js";
-import { estimateTokens, isOversize, limitKeyFor } from "../servicesAI/TokenEstimator.js";
+import {
+  estimateTokens,
+  isOversize,
+  limitKeyFor,
+} from "../servicesAI/TokenEstimator.js";
 import { CONTEXT_LIMITS } from "../servicesAI/constants.js";
-import {normaliseTables, fail, resolveContext } from "./aiRouteHelpers.js"
+import { normaliseTables, fail, resolveContext } from "./aiRouteHelpers.js";
 
 const router = express.Router();
-
 
 // Shared by the routes below: what identifies the caller and where to connect.
 // jti comes from the verified token, never the body.
@@ -45,7 +47,6 @@ function connectionFor(req) {
     node: req.body?.node ?? req.query?.node ?? null,
   };
 }
-
 
 // Which provider and model a generation will use. Never returns the API key.
 router.get("/status", (req, res) => {
@@ -75,18 +76,27 @@ router.get("/tables", async (req, res) => {
       .filter(Boolean);
 
     if (databases.length === 0) {
-      return res.status(422).json({ error: "A databases query parameter is required." });
+      return res
+        .status(422)
+        .json({ error: "A databases query parameter is required." });
     }
 
-    res.json({ tables: await DdlService.listTables({ ...connectionFor(req), databases }) });
+    res.json({
+      tables: await DdlService.listTables({ ...connectionFor(req), databases }),
+    });
   } catch (e) {
     fail(res, e);
   }
 });
 
-// { tables, forceRefresh } -> { results, failures }
+// { tables, forceRefresh, instruction, previousInstruction, previousSql }
+// -> { results, failures, tokensEstimated, charCount, provider, model,
+//      contextLimit, oversize, tableCount }
+//
 // A table that cannot be read lands in failures; the rest still come back.
-router.post("/ddl", async (req, res) => {
+// The estimate is calculated from the exact DDL fetched for this request so a
+// single CTA can both load schema context and validate its size.
+router.post("/ddl-estimate", async (req, res) => {
   try {
     const tables = normaliseTables(req.body?.tables);
     if (tables.length === 0) {
@@ -97,28 +107,6 @@ router.post("/ddl", async (req, res) => {
       ...connectionFor(req),
       tables,
       forceRefresh: !!req.body?.forceRefresh,
-    });
-
-    res.json({ results, failures });
-  } catch (e) {
-    fail(res, e);
-  }
-});
-
-// Estimate the prompt this selection would produce, so the client can warn
-// before spending a generation. Uses the real PromptBuilder rather than summing
-// DDL lengths, so the number reflects what would actually be sent.
-router.post("/estimate", async (req, res) => {
-  try {
-    const tables = normaliseTables(req.body?.tables);
-    if (tables.length === 0) {
-      return res.status(422).json({ error: "A tables array is required." });
-    }
-
-    const { results, failures } = await DdlService.fetchDdl({
-      ...connectionFor(req),
-      tables,
-      forceRefresh: false,
     });
 
     const prompt = joinPrompt(
@@ -134,14 +122,16 @@ router.post("/estimate", async (req, res) => {
     const tokensEstimated = estimateTokens(prompt.length);
 
     res.json({
+      results,
+      failures,
       tokensEstimated,
       charCount: prompt.length,
       provider: status.provider ?? null,
       model: status.model ?? null,
-      contextLimit: CONTEXT_LIMITS[limitKeyFor(status.provider)]?.default ?? null,
+      contextLimit:
+        CONTEXT_LIMITS[limitKeyFor(status.provider)]?.default ?? null,
       oversize: isOversize(tokensEstimated, status.provider),
       tableCount: results.length,
-      failures,
     });
   } catch (e) {
     fail(res, e);
