@@ -57,12 +57,16 @@ import {
 } from "./services/exportJobs.js";
 import ForgetRouter from "./routes/forgetPassword.js";
 
-import databaseAIConnection from "./routes/databaseAIConnection.js";
-import sqlAIChat from "./routes/sqlAIChat.js";
 import schemaStudioRoute from "./routes/schemaStudio.js";
 import editorRoute from "./routes/editor.js";
 import { onRevoke } from "./services/jwt.js";
 import { clearCredSessionByJti, pruneExpired } from "./services/chCredStore.js";
+
+// Qurioz
+import aiConnectRoute from "./routes/aiConnect.js";
+import aiSchemaRoute from "./routes/aiSchema.js";
+import aiGenerateRoute from "./routes/aiGenerate.js";
+import aiChatRoute from "./routes/aiChats.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -235,9 +239,18 @@ app.use(
 app.use("/api/export/download", rateLimiter(10000, 60), downloadRouter);
 app.use("/api/export", rateLimiter(10000, 60), authMiddleware, exportRoute);
 
-app.use("/api/ai/database", authMiddleware, databaseAIConnection);
-app.use("/api/ai/sql", authMiddleware, sqlAIChat);
-app.use("/api/schema-studio", authMiddleware, schemaStudioRoute);
+app.use(
+  "/api/schema-studio",
+  authMiddleware,
+  rateLimiter(10000, 60),
+  schemaStudioRoute,
+);
+
+// version3 Qurioz
+app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiConnectRoute);
+app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiSchemaRoute);
+app.use("/api/ai", authMiddleware, aiGenerateRoute);
+app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiChatRoute);
 
 function serveEmbedded(prefix) {
   return (req, res, next) => {

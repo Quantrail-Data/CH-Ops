@@ -374,4 +374,23 @@ export function migrateClusterData() {
   } catch { }
 }
 
+// SSRF protection: only hosts in the configured cluster are reachable.
+export function resolveTargetNode(clusterId, node){
+  const nodes = getClusterNodes(clusterId);
+  if (!nodes.length) {
+    const e = new Error('No cluster nodes configured');
+    e.status = 400;
+    throw e;
+  }
+  const target = node ? nodes.find((n) => n.host === node) : nodes[0];
+  if(!target) {
+    const e = new Error('Node not found in cluster configuration.');
+    e.status = 400;
+    throw e;
+
+  }
+  return target;
+
+}
+
 export { MAX_CLUSTERS, MAX_TOTAL_NODES };
