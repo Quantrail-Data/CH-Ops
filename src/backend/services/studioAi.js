@@ -24,7 +24,7 @@ export function getActiveAiConfig() {
   return {
     provider: String(active.provider || '').toUpperCase(),
     model: active.model,
-    apiKey: decrypt(active.encryptedKey),
+    apiKey: active.encryptedKey,
   };
 }
 

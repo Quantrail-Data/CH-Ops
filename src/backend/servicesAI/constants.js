@@ -16,6 +16,11 @@ export const CONTEXT_LIMITS = {
     ollama : {default : 24000}
 }
 
+// Maximum number of characters allowed for an AI chat title.
+// If no title is provided, the title is generated from the user's question.
+
+export const TITLE_MAX_CHARS = 80;
+
 export const SETTING_KEYS = Object.freeze({
   CHAT_RETENTION_MAX_PER_USER: "ai.chat.retention.maxPerUser",
   CHAT_RETENTION_MAX_AGE_DAYS: "ai.chat.retention.maxAgeDays",

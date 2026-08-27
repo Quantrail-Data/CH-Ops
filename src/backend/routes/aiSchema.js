@@ -30,17 +30,10 @@ import * as DdlService from "../servicesAI/DdlService.js";
 import { buildPrompt, joinPrompt } from "../servicesAI/PromptBuilder.js";
 import { estimateTokens, isOversize, limitKeyFor } from "../servicesAI/TokenEstimator.js";
 import { CONTEXT_LIMITS } from "../servicesAI/constants.js";
+import {normaliseTables, fail, resolveContext } from "./aiRouteHelpers.js"
 
 const router = express.Router();
 
-// The default credential context, and the only other one a caller may ask for.
-const CTX = CRED_CONTEXTS.QURIOZ;
-const VALID_CONTEXTS = new Set(Object.values(CRED_CONTEXTS));
-
-function resolveContext(req) {
-  const requested = req.body?.context ?? req.query?.context;
-  return VALID_CONTEXTS.has(requested) ? requested : CTX;
-}
 
 // Shared by the routes below: what identifies the caller and where to connect.
 // jti comes from the verified token, never the body.
@@ -53,29 +46,6 @@ function connectionFor(req) {
   };
 }
 
-function fail(res, e) {
-  res.status(e?.statusCode || e?.status || 400).json({
-    error: e?.message || "Request failed.",
-    ...(e?.code ? { code: e.code } : {}),
-  });
-}
-
-// Normalise a selection into [{ database, table }], accepting either that shape
-// or "db.table" strings, which is what a URL-driven client tends to send.
-function normaliseTables(tables) {
-  if (!Array.isArray(tables)) return [];
-  return tables
-    .map((t) => {
-      if (typeof t === "string") {
-        const dot = t.indexOf(".");
-        if (dot < 1) return null;
-        return { database: t.slice(0, dot), table: t.slice(dot + 1) };
-      }
-      if (t?.database && t?.table) return { database: t.database, table: t.table };
-      return null;
-    })
-    .filter(Boolean);
-}
 
 // Which provider and model a generation will use. Never returns the API key.
 router.get("/status", (req, res) => {

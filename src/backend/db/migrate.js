@@ -120,17 +120,6 @@ sqlite.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
-  CREATE TABLE IF NOT EXISTS ai_database_details (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    credentials TEXT NOT NULL,
-    database_id TEXT NOT NULL,
-    database_type TEXT NOT NULL,
-    client TEXT NOT NULL,
-    cluster_id TEXT NOT NULL,
-    node_id TEXT NOT NULL,
-    is_valid INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
   CREATE TABLE IF NOT EXISTS ch_cred_session (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     app_user TEXT NOT NULL,
@@ -209,6 +198,7 @@ const migrations = [
   // row written by an older binary against a migrated database can still
   // arrive without it.
   "ALTER TABLE dashboard ADD COLUMN filters TEXT DEFAULT '{}'",
+  "DROP TABLE IF EXISTS ai_database_details",
 ];
 
 for (const sql of migrations) {
