@@ -1,9 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Security vulnerability
-    url: https://github.com/Quantrail-Data/CH-Ops/security/advisories/new
-    about: Report privately. Please never open a public issue for a vulnerability.
-    about: Setup, configuration, and feature guides.
   - name: Commercial licence or CHOps Pro
     url: https://ch-ops.io
     about: Questions about the commercial licence, Pro features, or support.
