@@ -5,6 +5,7 @@ const createK8sClient = mock();
 const createAkocProvider = mock();
 const createOckoProvider = mock();
 const discoverVersion = mock();
+const resolveNodeAddresses = mock();
 
 mock.module('drizzle-orm', () => ({ eq: (field, value) => ({ field, value }) }));
 mock.module('../../src/backend/services/crypto.js', () => ({
@@ -21,6 +22,11 @@ mock.module('../../src/backend/services/k8s/ockoPaths.js', () => ({
   OCKO_GROUP: 'clickhouse.com', discoverVersion,
 }));
 mock.module('../../src/backend/services/k8s/errors.js', () => ({ K8S_ERROR: { FORBIDDEN: 'FORBIDDEN' } }));
+mock.module('../../src/backend/services/k8s/addressing.js', () => ({
+  ADDRESSING: { AUTO: 'auto', PER_POD: 'per-pod', ENDPOINT: 'endpoint' },
+  RESOLUTION: { FQDN: 'fqdn', PER_POD_SERVICE: 'service', ENDPOINT: 'endpoint' },
+  resolveNodeAddresses,
+}));
 mock.module('../../src/backend/db/index.js', () => ({
   k8sConnections: { id: 'id' },
   db: {
@@ -39,7 +45,7 @@ mock.module('../../src/backend/db/index.js', () => ({
 
 const {
   checkPermissions, deleteConnection, detectOperators, getConnection, listConnections,
-  providerFor, readInstallationHosts, saveConnection, setAffinityResult, testConnection,
+  providerFor, readInstallationAddresses, readInstallationHosts, saveConnection, setAffinityResult, testConnection,
 } = await import('../../src/backend/services/k8sConnections.js');
 
 beforeEach(() => {
@@ -47,7 +53,7 @@ beforeEach(() => {
     id: 'c1', name: 'Production', apiAddress: 'https://k8s.example', caCertificate: 'CA', tokenEnc: 'enc:token',
     namespacesJson: '["prod"]', affinityOk: null, createdAt: 'old', updatedAt: 'old',
   }];
-  for (const fn of [createK8sClient, createAkocProvider, createOckoProvider, discoverVersion]) fn.mockReset();
+  for (const fn of [createK8sClient, createAkocProvider, createOckoProvider, discoverVersion, resolveNodeAddresses]) fn.mockReset();
 });
 
 describe('Kubernetes connection persistence', () => {
@@ -134,5 +140,36 @@ describe('installation host mapping', () => {
       { name: 'main-0-1', host: 'node.example', port: 8123, shard: 0, replica: 1, podName: 'pod-1', secure: false },
       { name: 'main-0-2', host: 'pod-2', port: 8123, shard: 0, replica: 2, podName: 'pod-2', secure: false },
     ]);
+  });
+
+  it('returns an empty address result without resolution when no hosts are available', async () => {
+    createK8sClient.mockReturnValue('client');
+    createAkocProvider.mockReturnValue({ getHosts: mock().mockResolvedValue([]) });
+
+    expect(await readInstallationAddresses({
+      connectionId: 'c1', namespace: 'prod', installation: 'main', endpoint: 'clickhouse.example', port: 8443,
+    })).toEqual({ nodes: [], resolution: null, perNodeAccurate: false });
+    expect(resolveNodeAddresses).not.toHaveBeenCalled();
+  });
+
+  it('passes mapped hosts and connection options to address resolution', async () => {
+    createK8sClient.mockReturnValue('client');
+    createOckoProvider.mockReturnValue({ getHosts: mock().mockResolvedValue([
+      { cluster: 'main', shard: 0, replica: 0, fqdn: 'pod.example', podName: 'pod-0' },
+    ]) });
+    const resolved = { nodes: [{ host: 'public.example' }], resolution: 'endpoint', perNodeAccurate: false };
+    resolveNodeAddresses.mockResolvedValue(resolved);
+
+    await expect(readInstallationAddresses({
+      connectionId: 'c1', namespace: 'prod', installation: 'main', operator: 'ocko',
+      endpoint: 'public.example', port: 8443, secure: true, user: 'chops', password: 'secret', mode: 'endpoint',
+    })).resolves.toBe(resolved);
+    expect(resolveNodeAddresses).toHaveBeenCalledWith({
+      client: 'client', namespace: 'prod', endpoint: 'public.example', port: 8443, secure: true,
+      user: 'chops', password: 'secret', mode: 'endpoint',
+      nodes: [{
+        name: 'main-0-0', host: 'pod.example', port: 8123, shard: 0, replica: 0, podName: 'pod-0', secure: false,
+      }],
+    });
   });
 });

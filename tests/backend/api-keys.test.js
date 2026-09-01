@@ -13,12 +13,7 @@ import { beforeEach, describe, expect, it, mock, vi } from "bun:test"
 import { createApiKey, deleteApiKey, getActiveApiKey, getAllApiKeys, getApiKeyById, getApiKeysWithValues, setActiveApiKey, updateApiKey } from "../../src/backend/services/apiKeys"
 import { initCrypto } from "../../src/backend/services/crypto"
 
-try {
-
-    initCrypto(process.env.SESSION_SECRET)
-} catch {
-
-}
+initCrypto(process.env.SESSION_SECRET || 'test-session-secret-minimum-32-characters-long!')
 
 let keys = []
 
