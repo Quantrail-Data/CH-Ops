@@ -15,12 +15,7 @@ import { initCrypto } from '../../src/backend/services/crypto'
 
 
 
-try {
-
-    initCrypto(process.env.SESSION_SECRET)
-} catch {
-
-}
+initCrypto(process.env.SESSION_SECRET || 'test-session-secret-minimum-32-characters-long!')
 
 
 const cfg = { name: 'GEMINI', provider: 'GEMINI', model: 'gemini-flash-latest', encryptedKey: 'test' }

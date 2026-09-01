@@ -14,11 +14,7 @@ import { describe, it, expect } from 'bun:test'
 import AIServices from '../../src/backend/servicesAI/AIService'
 import { initCrypto } from '../../src/backend/services/crypto'
 
-try {
-    initCrypto(process.env.SESSION_SECRET)
-} catch {
-
-}
+initCrypto(process.env.SESSION_SECRET || 'test-session-secret-minimum-32-characters-long!')
 
 describe("AI Service", () => {
     it("Returns Error on missing provider", () => {
