@@ -109,6 +109,9 @@ export const PAGE_HEADERS = {
   "admin/trusted-cas": [
     "Trusted certificate authorities"
   ],
+  "admin/app-config": [
+    "App Config"
+  ],
   "custom/builder": [
     "Chart Builder"
   ],
@@ -384,6 +387,7 @@ export const PAGE_TEXT = {
     "Explain syntax",
     "Explain query tree",
     "Explain plan",
+    "Explain analyze (runs the query)",
     "Explain pipeline",
     "Explain estimate",
     "Explain AST (graph)",
@@ -1261,6 +1265,10 @@ export const PAGE_TEXT = {
     "Close",
     "Internal CA"
   ],
+  "admin/app-config": [
+    "Save",
+    "Reset"
+  ],
   "/qurioz": [
     "Database Schema Generator",
     "Add Schema",
@@ -1325,11 +1333,15 @@ export const PAGE_TEXT = {
   ],
   "custom/charts": [
     "Legend",
+    "All Types",
+    "All Dashboards",
+    "Clear",
     "Name",
     "Type",
     "Dashboard",
     "Actions",
-    "No charts.",
+    "No charts found matching your criteria.",
+    "Search charts by name...",
     "Value:"
   ]
 };

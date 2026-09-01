@@ -4,46 +4,49 @@
 
 import { isDataQuery as sqlIsDataQuery, leadingKeyword } from '../../shared/sqlClassify.js';
 import { getCaBundle } from './trustedCa.js';
+import { getConfig } from './appConfig.js';
 
-function validateClickHouseHost(host) {
-  if (typeof host !== 'string') {
-    throw new TypeError('ClickHouse host must be a string');
-  }
+// The ceiling on how much a single query may return to the application.
 
-  const normalizedHost = host.trim();
-  if (!normalizedHost) {
-    throw new Error('ClickHouse host is required');
-  }
 
-  if (!/^[A-Za-z0-9.-]+$/.test(normalizedHost)) {
-    throw new Error(`Invalid ClickHouse host: ${host}`);
-  }
-
-  if (normalizedHost.startsWith('.') || normalizedHost.endsWith('.') || normalizedHost.includes('..')) {
-    throw new Error(`Invalid ClickHouse host: ${host}`);
-  }
-
-  return normalizedHost;
+function maxResultBytes() {
+  return getConfig('query.maxResultBytes');
 }
 
-function buildClickHouseUrl({ host, port, secure, readOnly = false }) {
-  const normalizedHost = validateClickHouseHost(host);
-  const url = new URL(`${secure ? 'https' : 'http'}://127.0.0.1/`);
-  url.hostname = normalizedHost;
-  url.port = String(port);
+export async function executeQuery({
+  host, port = 8123, secure = false, user = 'default', password = '',
+  sql, readOnly = false, params = {}, settings = {},
+  noResultLimit = false,
+  signal,
+  timeoutMs = null,
+}) {
+  const proto = secure ? 'https' : 'http';
+  // Apply ClickHouse's readonly setting as the authoritative guard for read-
+  // only requests.
+  const url = new URL(`${proto}://${host}:${port}/`);
+  if (readOnly) url.searchParams.set('readonly', '1');
 
-  if (readOnly) {
-    url.searchParams.set('readonly', '1');
+  // Parameter and setting names become part of the request URL, so they are
+  // validated before use.
+  const SAFE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  for (const [k, v] of Object.entries(params || {})) {
+    if (!SAFE_NAME.test(k)) throw new Error(`Invalid parameter name: ${k}`);
+    if (v === undefined || v === null) continue;
+    url.searchParams.set(`param_${k}`, String(v));
+  }
+  // The ceiling goes on FIRST, so an explicit setting from the caller still
+  // wins. That matters for the editor, which sends its own row limit alongside.
+  if (!noResultLimit) {
+    url.searchParams.set('max_result_bytes', String(maxResultBytes()));
+    // Stop cleanly at the limit rather than raising TOO_MANY_ROWS_OR_BYTES,
+    url.searchParams.set('result_overflow_mode', 'break');
   }
 
-  return url;
-}
-
-export async function executeQuery({ host, port = 8123, secure = false, user = 'default', password = '', sql, readOnly = false }) {
-  // Apply ClickHouse's readonly setting as the authoritative guard for read-only
-  // requests. Restricting yourself to readonly=1 is always allowed, so this is
-  // safe to send even if the user's profile is not already read-only.
-  const url = buildClickHouseUrl({ host, port, secure, readOnly });
+  for (const [k, v] of Object.entries(settings || {})) {
+    if (!SAFE_NAME.test(k)) throw new Error(`Invalid setting name: ${k}`);
+    if (v === undefined || v === null || v === '') continue;
+    url.searchParams.set(k, String(v));
+  }
 
   // Strip trailing semicolons and classify (comment/quote-safe) to decide whether
   // to append FORMAT JSONEachRow. Uses the same shared classifier as everywhere.

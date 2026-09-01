@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { create, verify, revokeToken } from "../services/jwt.js";
 import { loadEnv } from "../utils/env.js";
+import { getConfig } from '../services/appConfig.js';
 
 export async function hashPassword(pw) {
   return Bun.password.hash(pw, {
@@ -44,20 +45,18 @@ export function safeCompare(a, b) {
 // Tracks failed login timestamps per username (lowercase).
 // 5 failures in 15 minutes = locked out.
 const loginAttempts = new Map();
-const MAX_FAILURES = 5;
-const LOCKOUT_MS = 15 * 60 * 1000;
 
 export function checkLockout(username) {
   const key = username.toLowerCase().trim();
   const entry = loginAttempts.get(key);
   if (!entry) return false;
-  const cutoff = Date.now() - LOCKOUT_MS;
+  const cutoff = Date.now() - getConfig('security.lockoutMs');
   entry.times = entry.times.filter((t) => t > cutoff);
   if (entry.times.length === 0) {
     loginAttempts.delete(key);
     return false;
   }
-  return entry.times.length >= MAX_FAILURES;
+  return entry.times.length >= getConfig('security.maxFailures');
 }
 
 function recordFailure(username) {

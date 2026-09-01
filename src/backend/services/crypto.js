@@ -2,7 +2,7 @@
 //
 // Encrypts sensitive data (ClickHouse passwords, API keys) before
 // storing in SQLite. Uses a per-installation salt derived from
-// SESSION_SECRET via scrypt (memory-hard key derivation). Each
+// ENCRYPTION_SECRET via scrypt (memory-hard key derivation). Each
 // encryption uses a fresh random IV, so the same plaintext produces
 // different ciphertext each time. Values are tagged "v1:" so a genuine
 // decryption failure can be reported instead of being mistaken for a
@@ -16,9 +16,9 @@ import path from 'path';
 
 let derivedKey = null;
 
-export function initCrypto(sessionSecret) {
-  if (!sessionSecret || sessionSecret.length < 32) {
-    throw new Error('SESSION_SECRET must be at least 32 characters for encryption key derivation. Generate one with: openssl rand -hex 32');
+export function initCrypto(encryptionSecret) {
+  if (!encryptionSecret || encryptionSecret.length < 32) {
+    throw new Error('ENCRYPTION_SECRET must be at least 32 characters for encryption key derivation. Generate one with: openssl rand -hex 32');
   }
 
   // Load or create the per-install salt
@@ -42,7 +42,7 @@ export function initCrypto(sessionSecret) {
     }
   }
 
-  derivedKey = scryptSync(sessionSecret, salt, 32);
+  derivedKey = scryptSync(encryptionSecret, salt, 32);
 }
 
 // Ciphertext is tagged with a version prefix: "v1:iv:tag:ciphertext".
@@ -50,7 +50,7 @@ export function initCrypto(sessionSecret) {
 // The prefix exists to tell two very different situations apart. Without it,
 // "this was never encrypted" and "this is encrypted but I cannot read it" both
 // looked like a three-part string that failed to decrypt, and both returned the
-// input unchanged. A wrong SESSION_SECRET therefore produced a silent garbage
+// input unchanged. A wrong ENCRYPTION_SECRET therefore produced a silent garbage
 // password and an authentication error from ClickHouse, instead of saying the
 // key was wrong.
 const V1 = 'v1:';
@@ -97,7 +97,7 @@ export function decrypt(encryptedStr) {
     }
     if (out === null) {
       throw new Error(
-        'Credential could not be decrypted. This usually means SESSION_SECRET ' +
+        'Credential could not be decrypted. This usually means ENCRYPTION_SECRET ' +
         'has changed since the value was stored.',
       );
     }

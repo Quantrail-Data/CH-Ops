@@ -256,6 +256,8 @@ export default function UserManagement() {
     );
   }
 
+  const tableWrapStyle = users && users.length > 0 ? { minHeight: 0, paddingBottom: 0 } : {};
+
   return (
     <div className="page-content">
       <div className="section-header">
@@ -385,7 +387,7 @@ export default function UserManagement() {
         </form>
       )}
 
-      <div className="data-table-wrap dt-single">
+      <div className="data-table-wrap dt-single" style={tableWrapStyle}>
         <table className="data-table">
           <thead><tr><th>Username</th><th>Role</th><th>Email</th><th>Last Login</th><th>Actions</th></tr></thead>
           <tbody>

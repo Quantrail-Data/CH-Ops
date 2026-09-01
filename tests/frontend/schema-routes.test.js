@@ -86,7 +86,7 @@ describe("Routes: Auth", () => {
   it("has brute-force lockout", () => {
     expect(code).toContain("checkLockout");
     expect(code).toContain("recordFailure");
-    expect(code).toContain("MAX_FAILURES");
+    expect(code).toContain("getConfig('security.maxFailures')");
   });
   it("supports DISABLE_ENV_LOGIN", () => {
     expect(code).toContain("disableEnvLogin");
@@ -308,9 +308,9 @@ describe("Services: Crypto", () => {
     expect(code).toContain("crypto.salt");
     expect(code).toContain("randomBytes(32)");
   });
-  it("requires 32+ character SESSION_SECRET", () => {
-    expect(code).toContain("sessionSecret.length < 32");
-  });
+  it("requires 32+ character ENCRYPTION_SECRET", () => {
+      expect(code).toContain("encryptionSecret.length < 32");
+    });
 });
 
 describe("Security: SSRF Prevention", () => {
@@ -413,8 +413,10 @@ describe("Services: JWT", () => {
   it("has no default secret", () => {
     expect(code).not.toContain("secret = 'default'");
   });
-  it("throws if secret not set", () => {
-    expect(code).toContain("JWT secret not set");
+  it("makes its own signing key, so there is nothing to set", () => {
+  // jwtKeys.js makes one on first use, so that error cannot happen.
+  expect(code).toContain("signingKey()");
+  expect(code).not.toMatch(/export const setSecret|setSecret\s*\(/);
   });
   it("includes jti in tokens", () => {
     expect(code).toContain("jti");
@@ -423,8 +425,8 @@ describe("Services: JWT", () => {
     expect(code).toContain("revokeToken");
     expect(code).toContain("blocklist");
   });
-  it("2h token expiry", () => {
-    expect(code).toContain("'2h'");
+  it("token expiry comes from the session length setting", () => {
+    expect(code).toContain("getConfig('security.sessionTtlMs')");
   });
 });
 
@@ -447,8 +449,8 @@ describe("Server: Safety", () => {
   it("helpful error when not built", () => {
     expect(code).toContain("Frontend not built");
   });
-  it("initializes crypto from session secret", () => {
-    expect(code).toContain("initCrypto(env.sessionSecret)");
+  it("initializes crypto from encryption secret", () => {
+    expect(code).toContain("initCrypto(env.encryptionSecret)");
   });
   it("SQL endpoints have a 512kb body limit mounted before the global parser", () => {
     const tight = code.indexOf("app.use('/api/query', express.json({ limit: '512kb' }))");

@@ -5,6 +5,7 @@
 
 import { paths, selectors } from './client.js';
 import { executeQuery } from '../clickhouse.js';
+import { getConfig } from '../appConfig.js';
 
 export const ADDRESSING = Object.freeze({
  
@@ -23,7 +24,7 @@ export const RESOLUTION = Object.freeze({
 });
 
 
-const PROBE_TIMEOUT_MS = 3000;
+
 
 
 async function probe({ host, port, secure, user, password }) {
@@ -36,7 +37,7 @@ async function probe({ host, port, secure, user, password }) {
       password,
       readOnly: true,
       sql: 'SELECT 1',
-      timeoutMs: PROBE_TIMEOUT_MS,
+      timeoutMs: getConfig('k8s.probeTimeoutMs'),
     });
     return true;
   } catch {

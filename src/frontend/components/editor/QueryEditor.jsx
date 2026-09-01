@@ -61,7 +61,12 @@ import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
 import ExplainOptions from "./ExplainOptions.jsx";
-import { composeStatement, settingsFor } from "./explainOptions.js";
+import {
+  composeStatement,
+  settingsFor,
+  isVersion267OrLater,
+  initialTicked,
+} from "./explainOptions.js";
 
 import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
@@ -292,9 +297,13 @@ export default function QueryEditor({
     port,
     user,
     nodeName,
+    serverVersion
   } = useConnection();
+
+
   // Session affinity for the selected cluster. Null outside Kubernetes.
   const affinityCtx = useRbacContext();
+  // const serverVersion = "26.3.9.8" || capabilities?.serverVersion || null ;
   // Everything that used to be a useState above now belongs to a tab. The
   // aliases below keep the names the rest of this file already uses.
   const tabs_ = useQueryTabs();
@@ -312,11 +321,12 @@ export default function QueryEditor({
 
   const sql = activeTab.sql;
   const setSql = useCallback(
-    (v) =>
+    (v) => {
       updateTab(activeId, {
-        sql: typeof v === "function" ? v(activeTab.sql) : v,
-      }),
-    [activeId, activeTab.sql, updateTab],
+        sql: typeof v === "function" ? v(sql) : v,
+      });
+    },
+    [activeId, sql, updateTab],
   );
 
   const {
@@ -463,6 +473,7 @@ export default function QueryEditor({
   const [panelDragging, setPanelDragging] = useState(false);
   // The concurrent-run question.
   const [runConfirm, setRunConfirm] = useState(null);
+  const [analyzeConfirm, setAnalyzeConfirm] = useState(null);
   const [closeConfirm, setCloseConfirm] = useState(null);
 
   // How many rows to ask for.
@@ -1169,6 +1180,12 @@ export default function QueryEditor({
   /* Run the visible tab. */
   const runActiveTab = useCallback(() => {
     const id = activeIdRef.current;
+    const thisTab = tabsRef.current.find((t) => t.id === id);
+    if (thisTab?.explainType === "EXPLAIN ANALYZE" && !analyzeConfirm) {
+      setAnalyzeConfirm({ id });
+      return;
+    }
+
     const busy = tabsRef.current.filter(
       (t) => t.id !== id && runtimeRef.current[t.id]?.running,
     );
@@ -1287,7 +1304,7 @@ export default function QueryEditor({
           ExplainOptionSelector.type !== "" &&
           ExplainOptionSelector.type !== "GENERAL RUN";
         const validExplain = isExplain
-          ? `${composeStatement(ExplainOptionSelector.type, explainTicked)} ${text}`
+          ? `${composeStatement(ExplainOptionSelector.type, explainTicked, serverVersion)} ${text}`
           : text;
 
         // Required settings travel as request settings, never appended to the
@@ -1295,6 +1312,13 @@ export default function QueryEditor({
         const r = await runEditorQuery(validExplain, editorCreds, {
           params: paramValues,
           settings: {
+            ...(isExplain
+              ? settingsFor(
+                explainTicked,
+                ExplainOptionSelector.type,
+                serverVersion,
+              )
+              : {}),
             ...(isExplain ? settingsFor(explainTicked) : {}),
             // STOP THE SERVER SENDING ROWS WE ARE GOING TO THROW AWAY.
             max_result_rows: rowCap + 1,
@@ -1643,7 +1667,6 @@ export default function QueryEditor({
           setSql(
             `/*\n\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n--${MultipleDBSelected() ? `DATABASE_NAME's` : `DATABASE_NAME`} : ${SelectedDBNames() || ""}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
           );
-
         }
       } catch (error) {
         toast?.error(error?.message);
@@ -1666,7 +1689,6 @@ export default function QueryEditor({
   function MultipleDBSelected() {
     return AIdbsInfo?.filter((_v) => _v?.isSelected)?.length > 0;
   }
-
 
   function IsSelectedAiID() {
     const find = AIdbsInfo?.filter((_v) => _v?.isSelected);
@@ -1748,7 +1770,8 @@ export default function QueryEditor({
                     <div style={{ width: "100%" }}>
                       <div
                         className={
-                          "editor-db-item" + (selectedDb === db ? " active" : "")
+                          "editor-db-item" +
+                          (selectedDb === db ? " active" : "")
                         }
                         onClick={() =>
                           setSelectedDb(selectedDb === db ? null : db)
@@ -2459,7 +2482,7 @@ export default function QueryEditor({
             /* The button's background is var(--accent), a purple in both
                themes, so the label is white in both. It was black on the light
                theme, which put dark text on a mid-purple fill.
-
+  
                nowrap and a tighter gap so the label cannot wrap as the row
                fills up. The text is shortened rather than squeezed: a button
                whose label wraps to two lines changes the height of the whole
@@ -2548,11 +2571,22 @@ export default function QueryEditor({
                 alone. Taking "the remaining letters in lowercase" literally
                 would give "Ast" and "(json)", which reads as a mistake rather
                 than as a style. */}
+            onChange=
+            {(e) => {
+              const nextType = e.target.value;
+              setExplainType(nextType);
+              setExplainTicked(initialTicked(nextType, serverVersion));
+            }}
             <option value="GENERAL RUN">Select Explain</option>
             <option value="EXPLAIN">Explain</option>
             <option value="EXPLAIN SYNTAX">Explain syntax</option>
             <option value="EXPLAIN QUERY TREE">Explain query tree</option>
             <option value="EXPLAIN PLAN">Explain plan</option>
+            {isVersion267OrLater(serverVersion) && (
+              <option value="EXPLAIN ANALYZE">
+                Explain analyze (runs the query)
+              </option>
+            )}
             <option value="EXPLAIN PIPELINE">Explain pipeline</option>
             <option value="EXPLAIN ESTIMATE">Explain estimate</option>
             <option value="EXPLAIN AST graph = 1">Explain AST (graph)</option>
@@ -3364,7 +3398,6 @@ export default function QueryEditor({
             </div>
 
             <QueryPreviewPanel sql={sql} values={paramValues} />
-
           </div>
         </div>
       )}
@@ -3505,6 +3538,20 @@ export default function QueryEditor({
         onConfirm={() => {
           const id = runConfirm?.id;
           setRunConfirm(null);
+          if (id) doRunRef.current?.(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!analyzeConfirm}
+        title="Explain analyze runs your query"
+        message="Unlike the other explain options, this one runs the query to measure it. It reads the same data, takes the same time, and counts against your quota. It will not work on a distributed table, on a streaming read, or inside a transaction that has already failed."
+        detail="The results are discarded. Only the timings are shown."
+        confirmLabel="Run and measure"
+        onCancel={() => setAnalyzeConfirm(null)}
+        onConfirm={() => {
+          const id = analyzeConfirm?.id;
+          setAnalyzeConfirm(null);
           if (id) doRunRef.current?.(id);
         }}
       />
