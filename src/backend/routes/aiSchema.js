@@ -148,4 +148,43 @@ router.post("/estimate", async (req, res) => {
   }
 });
 
+
+router.post("/ddl-estimate", async (req, res) => {
+  try {
+    const tables = normaliseTables(req.body?.tables);
+    if (tables.length === 0) {
+      return res.status(422).json({ error: "empty",tokensEstimated:0 });
+    }
+    const { results, failures } = await DdlService.fetchDdl({
+      ...connectionFor(req),
+      tables,
+      forceRefresh: !!req.body?.forceRefresh,
+    });
+    const prompt = joinPrompt(
+      buildPrompt({
+        instruction: req.body?.instruction ?? "",
+        ddlBlocks: results,
+        previousInstruction: req.body?.previousInstruction ?? null,
+        previousSql: req.body?.previousSql ?? null,
+      }),
+    );
+    const status = getAiStatus();
+    const tokensEstimated = estimateTokens(prompt.length);
+    res.json({
+      results,
+      failures,
+      tokensEstimated,
+      // charCount: prompt.length,
+      // provider: status.provider ?? null,
+      // model: status.model ?? null,
+      // contextLimit:
+      //   CONTEXT_LIMITS[limitKeyFor(status.provider)]?.default ?? null,
+      // oversize: isOversize(tokensEstimated, status.provider),
+      // tableCount: results.length,
+    });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
 export default router;

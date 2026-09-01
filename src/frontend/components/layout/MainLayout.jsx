@@ -119,8 +119,7 @@ const CORE_ROUTES = [
   ["admin/channels", NotificationChannels],
   ["admin/trusted-cas", TrustedCas],
   ["/qurioz", QuriozChatComponent],
-  
-  // ["/qurioz/:session_id?", QuriozChatComponent],
+  ["/qurioz/:session_id?", QuriozChatComponent],
 ];
 
 

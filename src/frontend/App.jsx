@@ -100,7 +100,7 @@ export default function App() {
       return [];
     }
   };
-  const [quriozMessage, setQuriozMessage] = useState(readStoredChat);
+  const [quriozMessage, setQuriozMessage] = useState([]);
 
   function QURIOZLENGTH() {
     return quriozMessage?.length;
@@ -136,7 +136,7 @@ export default function App() {
     if (!chat) {
       localStorage.setItem(ContextChatKey, JSON.stringify([]));
     } else {
-      setQuriozMessage(readStoredChat());
+      setQuriozMessage([]);
     }
   }, [auth]);
 

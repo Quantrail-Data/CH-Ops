@@ -355,7 +355,7 @@ export function resolveTargetNode(clusterId, node){
     e.status = 400;
     throw e;
   }
-  const target = node ? nodes.find((n) => n.host === node) : nodes[0];
+  const target = node ? nodes.find((n) => n.name === node) : nodes[0];
   if(!target) {
     const e = new Error('Node not found in cluster configuration.');
     e.status = 400;

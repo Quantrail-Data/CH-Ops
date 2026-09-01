@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Main container managing state, message history, and UI layouts for the AI chat interface.
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import ChatInputComponent from "./ChatInputComponent";
@@ -16,10 +16,287 @@ import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useNavigate } from "react-router-dom";
 import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 const chat_length = 1000;
 const CHAT_LIMIT = chat_length * 2;
+const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
+
+function responseBodyStructTableDatabase(genTables) {
+  if (!genTables) return [];
+
+  let result = [];
+  Object.keys(genTables)?.forEach((_v) => {
+    const tables = genTables[_v];
+    if (tables) {
+      tables?.forEach((_t) => {
+        if (_t?.isSelected) {
+          result.push({
+            database: _v,
+            table: _t?.table,
+          });
+        }
+      });
+    }
+  });
+  return result ? result : [];
+}
+
+function HistoryShowBubbleComponent({ chatSession }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [chats, setChats] = useState(chatSession || []);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingChatId, setEditingChatId] = useState(null);
+  const [title, setTitle] = useState("");
+  const [menuPosition, setMenuPosition] = useState(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => setChats(chatSession || []), [chatSession]);
+
+  useEffect(() => {
+    if (openMenuId === null) return undefined;
+    const closeMenu = (event) => {
+      if (!menuRef.current?.contains(event.target)) setOpenMenuId(null);
+    };
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
+  }, [openMenuId]);
+
+  const isNewSession = chats.length === 0;
+
+  function startEditing(chat) {
+    setTitle(chat.title || "");
+    setEditingChatId(chat.id);
+    setOpenMenuId(null);
+    setMenuPosition(null);
+  }
+
+  function saveTitle(chatId) {
+    const nextTitle = title.trim();
+    if (nextTitle) {
+      setChats((currentChats) =>
+        currentChats.map((chat) =>
+          chat.id === chatId ? { ...chat, title: nextTitle } : chat,
+        ),
+      );
+    }
+    setEditingChatId(null);
+  }
+
+  function deleteChat(chatId) {
+    setChats((currentChats) =>
+      currentChats.filter((chat) => chat.id !== chatId),
+    );
+    setOpenMenuId(null);
+    setMenuPosition(null);
+  }
+
+  return (
+    <AnimatePresence>
+      {!isOpen && (
+        <motion.div
+          style={{
+            position: "absolute",
+            top: "0rem",
+            width: "50px",
+          }}
+          title="History"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1, ease: "easeInOut" }}
+        >
+          <button className="btn btn-ghost" onClick={() => setIsOpen(!isOpen)}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="icon icon-tabler icons-tabler-outline icon-tabler-history-toggle"
+            >
+              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+              <path d="M10 20.777a8.942 8.942 0 0 1 -2.48 -.969" />
+              <path d="M14 3.223a9.003 9.003 0 0 1 0 17.554" />
+              <path d="M4.579 17.093a8.961 8.961 0 0 1 -1.227 -2.592" />
+              <path d="M3.124 10.5c.16 -.95 .468 -1.85 .9 -2.675l.169 -.305" />
+              <path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356" />
+              <path d="M12 8v4l3 3" />
+            </svg>
+          </button>
+        </motion.div>
+      )}
+      {isOpen && (
+        <motion.div
+          style={{
+            position: "absolute",
+            border: "1px solid var(--border-default)",
+            top: "0rem",
+            borderRadius: "10px",
+            padding: "10px",
+            backgroundColor: "var(--bg-page)",
+            zIndex: 99999,
+          }}
+          initial={{ opacity: 0, width: "0rem", height: "0vh" }}
+          animate={{
+            opacity: 1,
+            width: "20rem",
+            height: "70vh",
+          }}
+          exit={{ opacity: 0, width: "0rem", height: "0vh" }}
+        >
+          <div className="header-history">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              <Icon className="ti ti-chevron-left" />
+            </button>
+            <button className="btn btn-ghost">
+              <Icon className="ti ti-plus" />
+              New Chat
+            </button>
+          </div>
+
+          <div className="chat-sesion-body">
+            {isNewSession ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  height: "70%",
+                }}
+              >
+                <Icon className="ti ti-info-circle" />
+                <span
+                  style={{
+                    color: "var(--text-secondary)",
+                    fontSize: "12px",
+                    margin: "10px 0px",
+                  }}
+                >
+                  No chats founded
+                </span>
+              </div>
+            ) : (
+              chats.map((chat) => {
+                return (
+                  <div className="chat-session-tab" key={chat.id}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {editingChatId === chat.id ? (
+                        <input
+                          autoFocus
+                          className="form-input"
+                          style={{
+                            width: "100%",
+                            height: "24px",
+                            minHeight: 0,
+                            padding: "2px 6px",
+                            boxSizing: "border-box",
+                            fontSize: "13px",
+                            lineHeight: "18px",
+                          }}
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          onBlur={() => saveTitle(chat.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter")
+                              event.currentTarget.blur();
+                          }}
+                        />
+                      ) : (
+                        <span>{chat?.title}</span>
+                      )}
+                    </div>
+                    <div style={{ flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        title="More options"
+                        aria-label={`More options for ${chat.title}`}
+                        aria-expanded={openMenuId === chat.id}
+                        onClick={(event) => {
+                          if (openMenuId === chat.id) {
+                            setOpenMenuId(null);
+                            setMenuPosition(null);
+                            return;
+                          }
+                          const bounds =
+                            event.currentTarget.getBoundingClientRect();
+                          setMenuPosition({
+                            left: Math.min(
+                              Math.max(8, bounds.right - 128),
+                              window.innerWidth - 136,
+                            ),
+                            top:
+                              window.innerHeight - bounds.bottom < 96
+                                ? bounds.top - 88
+                                : bounds.bottom + 4,
+                          });
+                          setOpenMenuId(chat.id);
+                        }}
+                      >
+                        <svg
+                          width="20"
+                          height="20"
+                          fill="#fff"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M12 10a2 2 0 1 0 2 2 2 2 0 0 0-2-2m-7 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2m14 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2" />
+                        </svg>
+                      </button>
+                      {openMenuId === chat.id &&
+                        menuPosition &&
+                        createPortal(
+                          <ul
+                            ref={menuRef}
+                            className="cui-select-menu"
+                            style={{
+                              position: "fixed",
+                              left: menuPosition.left,
+                              top: menuPosition.top,
+                              zIndex: 4000,
+                              minWidth: "120px",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <li
+                              className="cui-select-opt"
+                              onClick={() => startEditing(chat)}
+                            >
+                              <Icon className="ti ti-edit" /> <span>Edit</span>
+                            </li>
+
+                            <li
+                              className="cui-select-opt"
+                              onClick={() => deleteChat(chat.id)}
+                              style={{ color: "var(--color-danger, #e5484d)" }}
+                            >
+                              <Icon className="ti ti-trash" />{" "}
+                              <span>Delete</span>
+                            </li>
+                          </ul>,
+                          document.body,
+                        )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   const {
@@ -41,11 +318,19 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     selectedNode,
     nodeName,
   } = useConnection();
+
+  const editorCredsRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState({ status: false, message: null });
   const { session_id } = useParams();
   const [showConfrirmDelete, setShowConfrimDelete] = useState(false);
   const [dbs, setDbs] = useState([]);
+
+  const [genTables, setGenTables] = useState({});
+  const [estimateScore, setEstimateScore] = useState(null);
+
+  // const {id} = useParams()
+
   const [apikey, setApiKey] = useState({
     status: false,
     id: null,
@@ -53,11 +338,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   });
   const [apikeys, setApikeys] = useState([]);
 
-  const { theme } = useTheme();
+  const [chatSession, setChatSession] = useState([]);
 
-  function isDark() {
-    return theme === "dark";
-  }
+  const { theme } = useTheme();
 
   const [showdbs, setShowdbs] = useState(false);
   const [showDBModel, setShowDBModel] = useState(false);
@@ -65,16 +348,48 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   const [isNewSelectAll, setIsNewSelectAll] = useState(false);
   const [updateSelection, setUpdateSelection] = useState([]);
   const [isUpdateSelectAll, setIsUpdateSelectAll] = useState(false);
-
   const [dbLoading, setDBLoading] = useState({ flag: false, message: null });
   const [alertMessage, setAlertMessage] = useState({
     flag: false,
     message: null,
   });
-
+  const [editorCreds, setEditorCreds] = useState(null);
+  const editorConnected = !!editorCreds;
+  const [connUser, setConnUser] = useState("");
+  const [connPassword, setConnPassword] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [connError, setConnError] = useState(null);
+  // default cred password view flag
+  const [isViewFlag, setIsViewFlag] = useState(false);
   const toast = useToast();
 
   const navigate = useNavigate();
+
+  function isDark() {
+    return theme === "dark";
+  }
+
+  useEffect(() => {
+    function setupDDLLS() {
+      const isThere = localStorage.getItem(DDLTABLE_DATABASE_KEY);
+      if (isThere) {
+        const { selectdbDDL, estimate } = JSON.parse(isThere);
+        setGenTables(selectdbDDL);
+        setEstimateScore(estimate);
+        return;
+      }
+
+      localStorage.setItem(
+        DDLTABLE_DATABASE_KEY,
+        JSON.stringify({ selectdbDDL: {}, estimate: null }),
+      );
+      setGenTables({});
+      setEstimateScore(null);
+      return;
+    }
+
+    setupDDLLS();
+  }, []);
 
   useEffect(() => {
     const fetchAPIKEY_Details = async () => {
@@ -101,81 +416,98 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
   const loadDbs = () =>
     new Promise((res, rej) => {
-      runQuery("SELECT name FROM system.databases ORDER BY name")
-        .then((r) => {
-          setDbs(r);
-          return res((r.rows || []).map((r) => r.name));
+      if (!editorCreds) rej([]);
+      apiFetch("/api/ai/databases", { method: "GET" })
+        .then((resp) => {
+          res(resp?.databases);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error(err);
           rej([]);
         });
     });
 
-  async function initSetup() {
-    const databases = await loadDbs();
-
-    if (clusters?.length === 0) {
-      return;
-    }
-    try {
-      const response = await apiFetch("/api/ai/database/generated/databaseid", {
-        method: "POST",
-        body: JSON.stringify({
-          cluster_id: selectedClusterId,
-          node_id: nodeName,
-        }),
-      });
-      if (response?.success) {
-        setUpdateSelection(
-          response?.databaseIDs?.map((database) => {
-            const cred = JSON.parse(database?.credentials);
-            return {
-              name: cred?.database,
-              id: database?.database_id,
-              isSelected: false,
-              isAllowForRequest: true,
-            };
-          }),
-        );
-
+  useEffect(() => {
+    async function initSetup() {
+      editorCredsRef.current = editorCreds;
+      try {
+        const databases = await loadDbs();
+        console.log(databases);
         setNewSelection(
-          databases
-            ?.filter((_v) => {
-              return !response?.databaseIDs
-                ?.map((database) => {
-                  const cred = JSON.parse(database?.credentials);
-                  return cred?.database;
-                })
-                ?.includes(_v);
-            })
-            ?.map((_v) => ({
-              name: _v,
-              id: null,
-              isSelected: false,
-              isAllowForRequest: true,
-            })),
+          databases?.map((_v) => ({
+            name: _v,
+            id: null,
+            isSelected: false,
+            isAllowForRequest: true,
+          })) || [],
         );
+      } catch (err) {
+        setNewSelection([]);
       }
-    } catch (err) {
-      console.log(err?.message);
     }
-    return;
-  }
+    initSetup();
+  }, [editorCreds]);
 
   useEffect(() => {
-    initSetup();
-  }, [clusters, clusterName, selectedClusterId]);
-
-  const editingContentHandler = (quest, id) => {
-    setChatMessage((prev) =>
-      prev?.map((value) => {
-        if (value?.id === id) {
-          return { ...value, question: quest };
+    let cancelled = false;
+    apiFetch("/api/ai/connect", { method: "GET" })
+      .then((s) => {
+        if (!cancelled && s?.connected && s.chUser) {
+          setEditorCreds({ user: s.chUser });
         }
-        return value;
-      }),
-    );
-  };
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleConnect() {
+    if (!connUser.trim()) {
+      toast.error("Username is required.");
+      return;
+    }
+    setConnecting(true);
+    setConnError(null);
+    const candidate = { user: connUser.trim(), password: connPassword };
+    try {
+      // await editorConnect(candidate);
+      const connectCred = await apiFetch("/api/ai/connect", {
+        method: "POST",
+        body: JSON.stringify({
+          clusterId: selectedClusterId,
+          node: nodeName,
+          user: connUser,
+          password: connPassword,
+        }),
+      });
+
+      setEditorCreds({ user: candidate.user });
+      setConnPassword("");
+      toast.success("DB connected succesfully");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    try {
+      // await editorDisconnect();
+      console.log("dis");
+    } catch {}
+    setEditorCreds(null);
+    setConnUser("");
+    setConnPassword("");
+    setConnError(null);
+    setDbs([]);
+    setSelectedDb(null);
+    setTables([]);
+    setAcWords([]);
+  }
+
+
 
   const ToggelChartHandler = (message) => {
     if (message) {
@@ -207,55 +539,81 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   };
 
   const userSubmitMessagehandler = async (userQuestion) => {
-    const databaseIDS =
-      updateSelection
-        ?.filter((_v) => _v?.isAllowForRequest)
-        ?.map((_v) => _v?.id) || [];
-    if (apikey?.id) {
-      if (QURIOZLENGTH() <= CHAT_LIMIT) {
-        setIsLoading(true);
-        try {
-          if (userQuestion?.length > 0) {
-            if (databaseIDS?.length > 0) {
-              if (isNewChat()) {
-                const userQuestionMessage = {
-                  id: Date.now(),
-                  type: "user",
-                  userQuestion: userQuestion,
-                };
-                insertMessage(userQuestionMessage);
-                ScrollBottomAuto();
+    const result = responseBodyStructTableDatabase(genTables);
 
-                const responseAIQuery = await await apiFetch(
-                  `/api/ai/sql/generate-sql`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON?.stringify({
-                      database_ids: databaseIDS,
-                      user_question: userQuestion?.trim(),
-                    }),
-                  },
+    if (apikey?.id) {
+      setIsLoading(true);
+      try {
+        if (userQuestion?.length > 0) {
+          if (result?.length > 0) {
+            if (isNewChat()) {
+              const userQuestionMessage = {
+                id: Date.now(),
+                type: "user",
+                userQuestion: userQuestion,
+              };
+              insertMessage(userQuestionMessage);
+              ScrollBottomAuto();
+
+              const responseAIQuery = await await apiFetch("/api/ai/generate", {
+                method: "POST",
+                body: JSON.stringify({
+                  chatId: session_id ?? null,
+                  instruction: userQuestion,
+                  tables: result,
+                  clusterId: selectedClusterId,
+                  node: nodeName,
+                  previousInstruction: null,
+                  previousSql: null,
+                  forceRefreshDdl: false,
+                }),
+              });
+
+              console.log(responseAIQuery);
+
+              if (responseAIQuery) {
+                // const responseSQL = responseAIQuery?.generated_sql?.includes(
+                //   "--Unable to generate SQL",
+                // );
+                const responseSQL = isMessageFinders(
+                  responseAIQuery?.sql,
                 );
 
-                if (responseAIQuery?.success) {
-                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
-                  //   "--Unable to generate SQL",
-                  // );
-                  const responseSQL = isMessageFinders(
-                    responseAIQuery?.generated_sql,
-                  );
+                if (responseSQL) {
+                  insertMessage({
+                    id: Date.now(),
+                    type: "bot",
+                    isLoading: false,
+                    sql: responseAIQuery?.sql,
+                    showResponse: true,
+                    tableData: [],
+                    chart: {
+                      isOpen: false,
+                      chartOption: {},
+                      error: { status: false, message: "" },
+                      editorOption: {},
+                    },
+                    error: { status: false, message: null },
+                    aiError: { status: false, message: null },
+                  });
+                  setIsLoading(false);
+                } else {
+                  const SQL = responseAIQuery?.sql
+                    ?.toLowerCase()
+                    .includes("limit")
+                    ? responseAIQuery?.sql
+                    : `${responseAIQuery?.sql} limit 10`;
 
-                  if (responseSQL) {
+                  const QueryResult = await RunSqlQueryhandler(SQL);
+
+                  if (QueryResult?.success) {
                     insertMessage({
                       id: Date.now(),
                       type: "bot",
                       isLoading: false,
-                      sql: responseAIQuery?.generated_sql,
+                      sql: SQL,
                       showResponse: true,
-                      tableData: [],
+                      tableData: QueryResult?.rows || [],
                       chart: {
                         isOpen: false,
                         chartOption: {},
@@ -267,116 +625,134 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                     });
                     setIsLoading(false);
                   } else {
-                    const SQL = responseAIQuery?.generated_sql
-                      ?.toLowerCase()
-                      .includes("limit")
-                      ? responseAIQuery?.generated_sql
-                      : `${responseAIQuery?.generated_sql} limit 10`;
-
-                      
-
-                    const QueryResult = await RunSqlQueryhandler(SQL);
-
-                    if (QueryResult?.success) {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: QueryResult?.rows || [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: false, message: null },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    } else {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: QueryResult?.rows || [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: true, message: QueryResult?.message },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    }
+                    insertMessage({
+                      id: Date.now(),
+                      type: "bot",
+                      isLoading: false,
+                      sql: SQL,
+                      showResponse: true,
+                      tableData: QueryResult?.rows || [],
+                      chart: {
+                        isOpen: false,
+                        chartOption: {},
+                        error: { status: false, message: "" },
+                        editorOption: {},
+                      },
+                      error: { status: true, message: QueryResult?.message },
+                      aiError: { status: false, message: null },
+                    });
+                    setIsLoading(false);
                   }
-                } else {
-                  insertMessage({
-                    id: Date.now(),
-                    type: "bot",
-                    isLoading: false,
-                    sql: "",
-                    showResponse: true,
-                    tableData: [],
-                    chart: {
-                      isOpen: false,
-                      chartOption: {},
-                      error: { status: false, message: "" },
-                      editorOption: {},
-                    },
-                    error: { status: false, message: null },
-                    aiError: {
-                      status: true,
-                      message:
-                        responseAIQuery?.message ||
-                        "Error occurs on generating the query!",
-                    },
-                  });
-                  setIsLoading(false);
                 }
               } else {
-                const userQuestionMessage = {
+                insertMessage({
                   id: Date.now(),
-                  type: "user",
-                  userQuestion: userQuestion,
-                };
-                insertMessage(userQuestionMessage);
-                ScrollBottomAuto();
-
-                const responseAIQuery = await await apiFetch(
-                  `/api/ai/sql/generate-sql`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON?.stringify({
-                      database_ids: databaseIDS,
-                      user_question: userQuestion?.trim(),
-                    }),
+                  type: "bot",
+                  isLoading: false,
+                  sql: "",
+                  showResponse: true,
+                  tableData: [],
+                  chart: {
+                    isOpen: false,
+                    chartOption: {},
+                    error: { status: false, message: "" },
+                    editorOption: {},
                   },
+                  error: { status: false, message: null },
+                  aiError: {
+                    status: true,
+                    message:
+                      responseAIQuery?.message ||
+                      "Error occurs on generating the query!",
+                  },
+                });
+                setIsLoading(false);
+              }
+            } else {
+              const userQuestionMessage = {
+                id: Date.now(),
+                type: "user",
+                userQuestion: userQuestion,
+              };
+              insertMessage(userQuestionMessage);
+              ScrollBottomAuto();
+
+             
+              const responseAIQuery = await await apiFetch("/api/ai/generate", {
+                method: "POST",
+                body: JSON.stringify({
+                  chatId: session_id ?? null,
+                  instruction: userQuestion,
+                  tables: result,
+                  clusterId:selectedClusterId,
+                  node: nodeName,
+                  previousInstruction: null,
+                  previousSql: null,
+                  forceRefreshDdl: false,
+                }),
+              });
+              console.log(responseAIQuery);
+
+              if (responseAIQuery) {
+                // const responseSQL = responseAIQuery?.generated_sql?.includes(
+                //   "--Unable to generate SQL",
+                // );
+
+                const responseSQL = isMessageFinders(
+                  responseAIQuery?.sql,
                 );
 
-                if (responseAIQuery?.success) {
-                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
-                  //   "--Unable to generate SQL",
-                  // );
+                if (responseSQL) {
+                  insertMessage({
+                    id: Date.now(),
+                    type: "bot",
+                    isLoading: false,
+                    sql: responseAIQuery?.sql,
+                    showResponse: true,
+                    tableData: [],
+                    chart: {
+                      isOpen: false,
+                      chartOption: {},
+                      error: { status: false, message: "" },
+                      editorOption: {},
+                    },
+                    error: { status: false, message: null },
+                    aiError: { status: false, message: null },
+                  });
+                  setIsLoading(false);
+                } else {
+                  const SQL = responseAIQuery?.sql
+                    ?.toLowerCase()
+                    .includes("limit")
+                    ? responseAIQuery?.sql
+                    : `${responseAIQuery?.sql} limit 10`;
 
-                  const responseSQL = isMessageFinders(
-                    responseAIQuery?.generated_sql,
-                  );
+                  const QueryResult = await RunSqlQueryhandler(SQL);
 
-                  if (responseSQL) {
+                  if (QueryResult?.success) {
                     insertMessage({
                       id: Date.now(),
                       type: "bot",
                       isLoading: false,
-                      sql: responseAIQuery?.generated_sql,
+                      sql: SQL,
+                      showResponse: true,
+                      tableData: QueryResult?.rows || [],
+                      chart: {
+                        isOpen: false,
+                        chartOption: {},
+                        error: { status: false, message: "" },
+                        editorOption: {},
+                      },
+                      error: { status: false, message: null },
+                      aiError: { status: false, message: null },
+                    });
+                    setIsLoading(false);
+                  } else {
+                    insertMessage({
+                      id: Date.now(),
+                      type: "bot",
+                      isLoading: false,
+                      sql: SQL,
                       showResponse: true,
                       tableData: [],
                       chart: {
@@ -389,124 +765,68 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       aiError: { status: false, message: null },
                     });
                     setIsLoading(false);
-                  } else {
-                    const SQL = responseAIQuery?.generated_sql
-                      ?.toLowerCase()
-                      .includes("limit")
-                      ? responseAIQuery?.generated_sql
-                      : `${responseAIQuery?.generated_sql} limit 10`;
-
-                    const QueryResult = await RunSqlQueryhandler(SQL);
-
-                    if (QueryResult?.success) {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: QueryResult?.rows || [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: false, message: null },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    } else {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: false, message: null },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    }
                   }
-                } else {
-                  insertMessage({
-                    id: Date.now(),
-                    type: "bot",
-                    isLoading: false,
-                    sql: "",
-                    showResponse: true,
-                    tableData: [],
-                    chart: {
-                      isOpen: false,
-                      chartOption: {},
-                      error: { status: false, message: "" },
-                      editorOption: {},
-                    },
-                    error: { status: false, message: null },
-                    aiError: {
-                      status: true,
-                      message:
-                        responseAIQuery?.message ||
-                        "Failed to fetch the generating the response",
-                    },
-                  });
-                  setIsLoading(false);
                 }
+              } else {
+                insertMessage({
+                  id: Date.now(),
+                  type: "bot",
+                  isLoading: false,
+                  sql: "",
+                  showResponse: true,
+                  tableData: [],
+                  chart: {
+                    isOpen: false,
+                    chartOption: {},
+                    error: { status: false, message: "" },
+                    editorOption: {},
+                  },
+                  error: { status: false, message: null },
+                  aiError: {
+                    status: true,
+                    message:
+                      responseAIQuery?.message ||
+                      "Failed to fetch the generating the response",
+                  },
+                });
+                setIsLoading(false);
               }
-            } else {
-              toast?.warning(`Select Database and generate the ID!`);
             }
+          } else {
+            toast?.warning(`Select Database and generate the ID!`);
           }
-        } catch (err) {
-          insertMessage({
-            id: Date.now(),
-            type: "bot",
-            isLoading: false,
-            sql: "",
-            showResponse: true,
-            tableData: [],
-            chart: {
-              isOpen: false,
-              chartOption: {},
-              error: { status: false, message: "" },
-              editorOption: {},
-            },
-            error: { status: false, message: null },
-            aiError: {
-              status: true,
-              message:
-                err?.message === "Failed to fetch"
-                  ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
-                  : err?.message ||
-                    "Request failed to load. Please check your internet connection and try again.",
-            },
-          });
-        } finally {
-          setIsLoading(false);
-          setTimeout(() => {
-            ScrollBottomAuto();
-          }, 500);
         }
-      } else {
+      } catch (err) {
         insertMessage({
           id: Date.now(),
           type: "bot",
           isLoading: false,
+          sql: "",
+          showResponse: true,
+          tableData: [],
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: { status: false, message: null },
           aiError: {
             status: true,
             message:
-              "The chat limit has been exceeded. Please clear the old chat and continue the conversation.",
+              err?.message === "Failed to fetch"
+                ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
+                : err?.message ||
+                  "Request failed to load. Please check your internet connection and try again.",
           },
         });
+      } finally {
+        setIsLoading(false);
+        setTimeout(() => {
+          ScrollBottomAuto();
+        }, 500);
       }
+      
     } else {
       const userQuestionMessage = {
         id: Date.now(),
@@ -580,10 +900,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             aiError: { status: false, message: null },
           };
         } else {
-            const originalSql = responseAIQuery?.generated_sql || "";
-            const hasLimit = /\blimit\b/i.test(originalSql);
-            const SQL = hasLimit ? originalSql : `${originalSql} LIMIT 10`;
-            const QueryResult = await RunSqlQueryhandler(SQL);
+          const originalSql = responseAIQuery?.generated_sql || "";
+          const hasLimit = /\blimit\b/i.test(originalSql);
+          const SQL = hasLimit ? originalSql : `${originalSql} LIMIT 10`;
+          const QueryResult = await RunSqlQueryhandler(SQL);
 
           if (QueryResult?.success) {
             UpdatedMessage = {
@@ -652,55 +972,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   };
 
-  const DeleteDatabaseConnectionID = async () => {
-    setDBLoading({
-      flag: true,
-      message: "Deleting the schema ID. Please wait...",
-    });
-    try {
-      const dbs = updateSelection
-        ?.filter((_v) => _v?.isSelected)
-        ?.map((_db) => ({ dname: _db?.name, id: _db?.id }));
-      await apiFetch(`/api/ai/database/delete/schema`, {
-        method: "DELETE",
-        body: JSON.stringify({ database_ids: dbs?.map((_v) => _v?.id) || [] }),
-      });
-      console.log(
-        updateSelection.filter((_v) => {
-          return !dbs?.map((_d) => _d?.id)?.includes(_v?.id);
-        }),
-      );
-      setUpdateSelection((prev) =>
-        prev?.filter((_v) => {
-          return !dbs?.map((_d) => _d?.id)?.includes(_v?.id);
-        }),
-      );
-      setNewSelection((prev) => [
-        ...prev,
-        ...dbs?.map((_v) => ({
-          name: _v?.dname,
-          id: null,
-          isSelected: false,
-          isAllowForRequest: true,
-        })),
-      ]);
-      // toast?.success(`Database connection removed successfully.`);
-      setAlertMessage({
-        flag: true,
-        message: `Database connection removed successfully.`,
-      });
-    } catch (err) {
-      setAlertMessage({ flag: false, message: err?.message });
-      // toast?.error(err?.message);
-    } finally {
-      setDBLoading({ flag: false, message: null });
-      isUpdateSelectAll && setIsUpdateSelectAll(false);
-      setTimeout(() => {
-        setAlertMessage({ flag: false, message: null });
-      }, 2000);
-    }
-  };
-
   async function SelectAIProvider(e) {
     const llm_provider = e?.target?.value;
     const { id } = apikeys?.find((val_) => val_?.name === llm_provider);
@@ -722,22 +993,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   }
 
-  function selectDBGenerateID(database, type) {
+  async function selectDBGenerateID(database, type) {
     if (type === "new") {
-      isNewSelectAll && setIsNewSelectAll(false)
+      isNewSelectAll && setIsNewSelectAll(false);
+      // const tablesGen = await apiFetch(`/api/ai/tables`,{method:'GET'})
       setNewSelection((prev) =>
-        prev?.map((_v) => {
-          if (_v?.name === database) {
-            return {
-              ..._v,
-              isSelected: !_v?.isSelected,
-            };
-          }
-          return _v;
-        }),
-      );
-    } else {
-      setUpdateSelection((prev) =>
         prev?.map((_v) => {
           if (_v?.name === database) {
             return {
@@ -751,21 +1011,32 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   }
 
-  function selectForAllowForRequestHandler(db_con) {
-    setUpdateSelection((prev) =>
-      prev?.map((_b) => {
-        if (_b?.name === db_con?.name) {
-          return { ..._b, isAllowForRequest: !_b?.isAllowForRequest };
-        }
-        return _b;
-      }),
-    );
-  }
-
   function isSelectDb(database, type) {
     return type === "new"
       ? newSelection?.some((_v) => _v?.name === database && _v?.isSelected)
       : updateSelection?.some((_v) => _v?.name === database && _v?.isSelected);
+  }
+
+  function isDisableSelectDb(database) {
+    const dbSelected = Object.keys(genTables)?.find((_v) => _v === database);
+    return dbSelected ? true : false;
+  }
+
+  function isSelectTable(database, table) {
+    const value = genTables[database];
+    if (!value) return false;
+    return value?.find((_v) => _v?.table === table)?.isSelected ?? false;
+  }
+
+  function SetterLSDDL(data, estimate) {
+    localStorage.setItem(
+      DDLTABLE_DATABASE_KEY,
+      JSON.stringify({ selectdbDDL: data, estimate: estimate }),
+    );
+  }
+
+  function GetterLSDDL() {
+    return JSON.parse(localStorage?.getItem(DDLTABLE_DATABASE_KEY));
   }
 
   async function databaseSchemaSetterHandler(type) {
@@ -819,45 +1090,41 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
     setDBLoading({
       flag: true,
-      message: "Creating the database schema ID. Please wait...",
+      message: "Getting table information. Please wait…",
     });
     try {
       const req = newSelection
         ?.filter((_v) => _v?.isSelected)
         ?.map((_v) => _v?.name);
-      const requestBody = JSON.stringify({
-        database_type: "clickhouse",
-        credentials: { port, username: user, password, host: selectedNode },
-        databases: req || [],
-        cluster_id: selectedClusterId,
-        node_id: nodeName,
-      });
 
-      const responseInsert = await apiFetch("/api/ai/database/connect", {
-        method: "POST",
-        body: requestBody,
-      });
+      const responseInsert = await apiFetch(
+        `/api/ai/tables?databases=${req?.join(",")}`,
+        {
+          method: "GET",
+        },
+      );
 
-      if (responseInsert?.success) {
-        setNewSelection((prev) =>
-          prev?.filter((_v) => {
-            return !req?.includes(_v?.name);
-          }),
-        );
-        setUpdateSelection((prev) => [
-          ...prev,
-          ...responseInsert?.database_id?.map((_v) => ({
-            name: _v?.database,
-            id: _v?.databaseId,
-            isSelected: false,
-            isAllowForRequest: true,
-          })),
-        ]);
-        // toast?.success(`Database ID is created successfully!`);
-        setAlertMessage({
-          flag: true,
-          message: `Database ID is created successfully!`,
+      if (responseInsert?.tables) {
+        const { tables } = responseInsert;
+        // console.log(tables)
+        const splitDatabaseTables = { ...genTables };
+        tables.forEach((_v) => {
+          const isFind = Object.keys(splitDatabaseTables).find(
+            (_key) => _key === _v?.database,
+          );
+          if (isFind) {
+            splitDatabaseTables[_v?.database] = [
+              ...splitDatabaseTables[_v?.database],
+              { isSelected: false, table: _v?.table },
+            ];
+          } else {
+            splitDatabaseTables[_v?.database] = [
+              { isSelected: false, table: _v?.table },
+            ];
+          }
         });
+        setGenTables(splitDatabaseTables);
+        SetterLSDDL(splitDatabaseTables, estimateScore);
       }
     } catch (err) {
       setAlertMessage({
@@ -869,7 +1136,38 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       setTimeout(() => {
         setAlertMessage({ flag: false, message: null });
       }, 2000);
-      isNewSelectAll && setIsNewSelectAll(false)
+      isNewSelectAll && setIsNewSelectAll(false);
+    }
+  }
+
+  async function GenerateDDL_EsitmateHandler() {
+    setDBLoading({
+      flag: true,
+      message: "Getting table information. Please wait…",
+    });
+    try {
+      const result = responseBodyStructTableDatabase(genTables);
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(genTables, tokensEstimated);
+    } catch (err) {
+      setAlertMessage({
+        flag: true,
+        message: err?.message,
+      });
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
     }
   }
 
@@ -903,12 +1201,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     return;
   }
 
-  function isEnableRefreshSchema() {
-    return updateSelection?.length > 0
-      ? updateSelection?.some((item) => item?.isSelected)
-      : false;
-  }
-
   function isEnableAddButton() {
     return newSelection?.length > 0
       ? newSelection?.some((_v) => _v?.isSelected)
@@ -919,6 +1211,81 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     return updateSelection?.length > 0
       ? updateSelection.some((item) => item?.isAllowForRequest)
       : false;
+  }
+
+  function isEmptyTableAndDatabase() {
+    return Object.keys(genTables)?.length === 0;
+  }
+
+  function SelectTablehandler(db, table) {
+    const setter = { ...genTables };
+    setter[db] = setter[db]?.map((_v) => {
+      if (_v?.table === table) {
+        return { ..._v, isSelected: !_v?.isSelected };
+      }
+      return _v;
+    });
+    // SetterLSDDL(setter);
+    setGenTables(setter);
+  }
+
+  async function DeleteDatabaseDDLHandler(db) {
+    setDBLoading({
+      flag: true,
+      message: "Deleting table and refreshing estimate information…",
+    });
+
+    const setter = { ...genTables };
+    delete setter[db];
+
+    try {
+      let result = [];
+      Object.keys(setter)?.forEach((_v) => {
+        const tables = genTables[_v];
+        if (tables) {
+          tables?.forEach((_t) => {
+            if (_t?.isSelected) {
+              result.push({
+                database: _v,
+                table: _t?.table,
+              });
+            }
+          });
+        }
+      });
+
+      if (!result) {
+        return;
+      }
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(setter, tokensEstimated);
+      setGenTables(setter);
+    } catch (err) {
+      if (err?.message === "empty") {
+        SetterLSDDL(setter, 0);
+        setGenTables(setter);
+        setEstimateScore(0);
+      } else {
+        setAlertMessage({
+          flag: true,
+          message: err?.message,
+        });
+      }
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
+    }
   }
 
   return (
@@ -933,198 +1300,205 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           zIndex: 10,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexDirection: "row",
-            gap: "10px",
-          }}
-        >
-          <button
-            className="btn btn-ghost"
-            title="Clear All Chats"
-            disabled={isNewChat()}
-            onClick={() => {
-              setShowConfrimDelete(true);
-            }}
-          >
-            <Icon className="ti ti-eraser"></Icon>
-          </button>
-
-          <div
-            className="form-group"
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: "20px",
-            }}
-          >
-            <div
-              className="select-db-ai"
-              style={{ minWidth: "200px", maxWidth: "250px" }}
-            >
-              <div
-                className="select-db-header"
-                style={{
-                  display: "flex",
-                  width: "100%",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-                onMouseEnter={() => setShowdbs(true)}
-                onMouseLeave={() => setShowdbs(false)}
-              >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
-                >
-                  {isAllowForRequestHandler() ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0px",
-                      }}
-                    >
-                      <div className="conn-indicator connected"> </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="conn-indicator disconnected"> </div>
-                    </div>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {isAllowForRequestHandler()
-                      ? "Database Selected"
-                      : "Database Not Selected"}
-                  </span>
-                </div>
-                <div>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => setShowDBModel(true)}
-                  >
-                    <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
-                  </button>
-                </div>
-              </div>
-              {showdbs &&
-                (updateSelection?.length > 0 ? (
-                  <div
-                    onMouseLeave={() => setShowdbs(false)}
-                    onMouseEnter={() => setShowdbs(true)}
-                    style={{
-                      position: "absolute",
-                      padding: "5px",
-                      border: "1px solid var(--border-default",
-                      borderRadius: "10px",
-                      maxWidth: "250px",
-                      minWidth: "200px",
-                      overflow: "auto",
-                      maxHeight: "200px",
-                      backgroundColor: "var(--bg-page)",
-                    }}
-                  >
-                    {updateSelection?.map(
-                      (u) =>
-                        u?.id && (
-                          <div
-                            key={u?.name}
-                            style={{
-                              cursor: "pointer",
-                              backgroundColor: u?.isAllowForRequest
-                                ? "var(--accent)"
-                                : "",
-                              color: u?.isAllowForRequest ? "white" : undefined,
-                            }}
-                            className="select-db-option"
-                            onClick={() => selectForAllowForRequestHandler(u)}
-                          >
-                            <span
-                              style={{ fontSize: "11px", fontWeight: "600" }}
-                            >
-                              {u?.name}
-                            </span>
-                            <Icon
-                              className={`ti ti-${u?.isAllowForRequest ? "check" : "x"}`}
-                              style={{
-                                fontSize: "11px",
-                                color: u?.isAllowForRequest
-                                  ? "white"
-                                  : undefined,
-                              }}
-                            />
-                          </div>
-                        ),
-                    )}
-                  </div>
-                ) : (
-                  <div></div>
-                ))}
-            </div>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <HistoryShowBubbleComponent chatSession={chatSession} />
         </div>
 
-        {apikeys?.length > 0 ? (
-          <div>
-            <Select
-              className="form-input"
-              value={apikey?.serviceName}
-              onChange={SelectAIProvider}
-              style={{
-                width: "150px",
-                padding: "5px",
-                paddingLeft: "10px",
-                fontSize: "10px",
-              }}
-            >
-              {apikeys?.map((u) => (
-                <option
-                  key={u?.id}
-                  value={u?.name}
+        <div style={{display:"flex",alignItems:"center",gap:"20px"}}>
+          {!editorConnected ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon
+                  className="ti ti-user"
+                  style={{ fontSize: 15, opacity: 0.55 }}
+                  // aria-hidden="true"
+                ></Icon>
+                <input
+                  className="form-input"
                   style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
+                    height: 28,
+                    width: 150,
                     fontSize: "12px",
+                    padding: "0 6px",
+                  }}
+                  placeholder="user"
+                  title="ClickHouse username"
+                  aria-label="ClickHouse username"
+                  value={connUser}
+                  onChange={(e) => setConnUser(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleConnect();
+                  }}
+                  autoComplete="off"
+                />
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon
+                  className="ti ti-lock"
+                  style={{ fontSize: 15, opacity: 0.55 }}
+                  // aria-hidden="true"
+                ></Icon>
+                <div
+                  style={{
+                    position: "relative",
                   }}
                 >
-                  {u?.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        ) : (
-          <div
-            className={`api-details alert-banner danger `}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              cursor: "pointer",
-              borderRadius: "5px",
-              gap: "10px",
-              padding: "5px 15px",
-            }}
-            title={
-              apikey?.status
-                ? `Active API key: ${apikey?.serviceName}`
-                : "No AI API key selected."
-            }
-            onClick={() => navigate("/admin/api-management")}
-          >
-            <Icon className="ti ti-key" style={{ fontSize: "13px" }}></Icon>
-            <div className="details">
-              <h6 style={{ fontSize: "10px" }}>{"NO API KEY"} </h6>
+                  <input
+                    className="form-input"
+                    type={isViewFlag ? "text" : "password"}
+                    style={{
+                      height: 28,
+                      width: 150,
+                      fontSize: "12px",
+                      padding: "0 6px",
+                      paddingRight: "30px",
+                    }}
+                    placeholder="password"
+                    title="ClickHouse password"
+                    aria-label="ClickHouse password"
+                    value={connPassword}
+                    onChange={(e) => setConnPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleConnect();
+                    }}
+                    autoComplete="off"
+                  />
+                  <div onClick={() => setIsViewFlag(!isViewFlag)}>
+                    <Icon
+                      className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "17%",
+                        fontSize: "17px",
+                      }}
+                    />
+                  </div>
+                </div>
+              </span>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleConnect}
+                disabled={connecting || !connUser.trim()}
+                title={`Connect to ${selectedNode || "node"}:${port}`}
+              >
+                {connecting ? (
+                  <span className="loading-spinner"></span>
+                ) : (
+                  <Icon className="ti ti-plug"></Icon>
+                )}{" "}
+                Go
+              </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: "12px",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <button
+                className="btn btn-ghost"
+                onClick={() => setShowDBModel(true)}
+              >
+                <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
+              </button>
+              <Icon
+                className="ti ti-plug-connected"
+                style={{ fontSize: 15, color: "var(--color-success)" }}
+              ></Icon>
+              <span>
+                <strong style={{ color: "var(--text-primary)" }}>
+                  {editorCreds.user}
+                </strong>
+                <span style={{ color: "var(--text-muted)" }}>
+                  {" "}
+                  @ {selectedNode}:{port}
+                </span>
+              </span>
+
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handleDisconnect}
+                title="Disconnect and clear credentials"
+                style={{ padding: "2px 6px" }}
+              >
+                <Icon className="ti ti-logout"></Icon>
+              </button>
+            </div>
+          )}
+
+          {apikeys?.length > 0 ? (
+            <div>
+              <Select
+                className="form-input"
+                value={apikey?.serviceName}
+                onChange={SelectAIProvider}
+                style={{
+                  width: "150px",
+                  padding: "5px",
+                  paddingLeft: "10px",
+                  fontSize: "10px",
+                }}
+              >
+                {apikeys?.map((u) => (
+                  <option
+                    key={u?.id}
+                    value={u?.name}
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {u?.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div
+                className={`api-details alert-banner danger `}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  borderRadius: "5px",
+                  gap: "10px",
+                  padding: "5px 15px",
+                }}
+                title={
+                  apikey?.status
+                    ? `Active API key: ${apikey?.serviceName}`
+                    : "No AI API key selected."
+                }
+                onClick={() => navigate("/admin/api-management")}
+              >
+                <Icon className="ti ti-key" style={{ fontSize: "13px" }}></Icon>
+                <div className="details">
+                  <h6 style={{ fontSize: "10px" }}>{"NO API KEY"} </h6>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {isNewChat() ? (
@@ -1134,7 +1508,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         />
       ) : (
         <>
-          <div className="chat-area" style={{height:"auto"}}>
+          <div className="chat-area" style={{ height: "auto" }}>
             {quriozMessage?.map((message, index) => {
               return (
                 <ChatRenderComponent
@@ -1201,6 +1575,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
               borderRadius: "10px",
               padding: "15px",
               position: "relative",
+              maxHeight: "80vh",
             }}
           >
             <div
@@ -1214,8 +1589,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
               <div
                 style={{ display: "flex", alignItems: "center", gap: "10px" }}
               >
-                <Icon className="ti ti-database" />
-                <h5>Database Schema Generator</h5>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
+                  <Icon className="ti ti-database" />
+                  <h5>Database Schema & Estimate Generator</h5>
+                </div>
               </div>
               <div
                 style={{
@@ -1248,7 +1627,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   justifyContent: "space-between",
                 }}
               >
-                <h5>Database Schema Generator</h5>{" "}
+                <h5>Databases</h5>{" "}
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "10px" }}
                 >
@@ -1356,7 +1735,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                     <>
                       {" "}
                       <Icon className="ti ti-plus" />
-                      Add Schema
+                      Get Tables
                     </>
                   </button>
                 </div>
@@ -1374,37 +1753,45 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 }}
                 className="alert-banner dbcard"
               >
-                {newSelection?.map((_b, i) => {
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => selectDBGenerateID(_b?.name, "new")}
-                      className="db-select-model"
-                      style={{
-                        cursor: "pointer",
-                        margin: "3px",
-                        padding: "5px 15px",
-                        borderRadius: "5px",
-                        border: "1px solid var(--border-default)",
-                        display: "flex",
-                        alignItems: "center",
-                        backgroundColor: isSelectDb(_b?.name, "new")
-                          ? "var(--accent)"
-                          : "transparent",
-                        color: isSelectDb(_b?.name, "new")
-                          ? "white"
-                          : isDark()
-                            ? "lightgray"
-                            : "gray",
-                        gap: "10px",
-                      }}
-                    >
-                      <span style={{ fontSize: "12px", fontWeight: "700" }}>
-                        {_b?.name}
-                      </span>
-                    </div>
-                  );
-                })}
+                {newSelection?.length > 0 ? (
+                  newSelection?.map((_b, i) => {
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => selectDBGenerateID(_b?.name, "new")}
+                        className="db-select-model"
+                        style={{
+                          cursor: "pointer",
+                          margin: "3px",
+                          padding: "5px 15px",
+                          borderRadius: "5px",
+                          border: "1px solid var(--border-default)",
+                          display: "flex",
+                          alignItems: "center",
+                          backgroundColor:
+                            isSelectDb(_b?.name, "new") ||
+                            isDisableSelectDb(_b?.name)
+                              ? "var(--accent)"
+                              : "transparent",
+                          color:
+                            isSelectDb(_b?.name, "new") ||
+                            isDisableSelectDb(_b?.name)
+                              ? "white"
+                              : isDark()
+                                ? "lightgray"
+                                : "gray",
+                          gap: "10px",
+                        }}
+                      >
+                        <span style={{ fontSize: "12px", fontWeight: "700" }}>
+                          {_b?.name}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div></div>
+                )}
               </div>
             </div>
             <div
@@ -1417,7 +1804,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             ></div>
 
             {/* selected */}
-            <div>
+            <div style={{ width: "100%" }}>
               <div
                 style={{
                   display: "flex",
@@ -1425,102 +1812,50 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   justifyContent: "space-between",
                 }}
               >
-                <h5>Database Schema Generated</h5>
+                <h5>Database & Tables</h5>
                 <div style={{ gap: "10px", display: "flex" }}>
-                  <button
-                    onClick={() => selectAllHandler("update")}
-                    className={`btn btn-ghost`}
+                  <div
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isUpdateSelectAll
-                        ? "var(--accent)"
-                        : undefined,
-                      color: isUpdateSelectAll && "white",
-                      ...{
-                        fontSize: "11px",
-                        padding: "5px 10px",
-                        height: "30px",
-                      },
+                      gap: "10px",
                     }}
+                    className="btn btn-ghost"
                   >
-                    {!isUpdateSelectAll ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="17"
-                        height="17"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="icon icon-tabler icons-tabler-outline icon-tabler-select-all"
-                      >
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M8 9a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1l0 -6" />
-                        <path d="M12 20v.01" />
-                        <path d="M16 20v.01" />
-                        <path d="M8 20v.01" />
-                        <path d="M4 20v.01" />
-                        <path d="M4 16v.01" />
-                        <path d="M4 12v.01" />
-                        <path d="M4 8v.01" />
-                        <path d="M4 4v.01" />
-                        <path d="M8 4v.01" />
-                        <path d="M12 4v.01" />
-                        <path d="M16 4v.01" />
-                        <path d="M20 4v.01" />
-                        <path d="M20 8v.01" />
-                        <path d="M20 12v.01" />
-                        <path d="M20 16v.01" />
-                        <path d="M20 20v.01" />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="17"
-                        height="17"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="icon icon-tabler icons-tabler-outline icon-tabler-deselect"
-                      >
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M12 8h3a1 1 0 0 1 1 1v3" />
-                        <path d="M16 16h-7a1 1 0 0 1 -1 -1v-7" />
-                        <path d="M12 20v.01" />
-                        <path d="M16 20v.01" />
-                        <path d="M8 20v.01" />
-                        <path d="M4 20v.01" />
-                        <path d="M4 16v.01" />
-                        <path d="M4 12v.01" />
-                        <path d="M4 8v.01" />
-                        <path d="M8 4v.01" />
-                        <path d="M12 4v.01" />
-                        <path d="M16 4v.01" />
-                        <path d="M20 4v.01" />
-                        <path d="M20 8v.01" />
-                        <path d="M20 12v.01" />
-                        <path d="M20 16v.01" />
-                        <path d="M3 3l18 18" />
-                      </svg>
-                    )}
-                    <span style={{ fontSize: "11px" }}>
-                      {isUpdateSelectAll ? "Deselect All" : "Select All"}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="orange"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="icon icon-tabler icons-tabler-outline icon-tabler-chart-column"
+                    >
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                      <path d="M4 20h3" />
+                      <path d="M17 20h3" />
+                      <path d="M10.5 20h3" />
+                      <path d="M4 16h3" />
+                      <path d="M17 16h3" />
+                      <path d="M10.5 16h3" />
+                      <path d="M4 12h3" />
+                      <path d="M17 12h3" />
+                      <path d="M10.5 12h3" />
+                      <path d="M4 8h3" />
+                      <path d="M17 8h3" />
+                      <path d="M4 4h3" />
+                    </svg>
+                    <span style={{ fontSize: "10px" }}>
+                      Estimate : {estimateScore ? estimateScore : 0}
                     </span>
-                  </button>
-
+                  </div>
                   <button
                     className="btn btn-primary"
-                    disabled={
-                      !isEnableRefreshSchema() || updateSelection?.length === 0
-                    }
-                    onClick={() => databaseSchemaSetterHandler("refresh")}
+                    // disabled={!isEnableRefreshSchema()}
+                    onClick={() => GenerateDDL_EsitmateHandler()}
                     style={{
                       fontSize: "11px",
                       padding: "5px 10px",
@@ -1529,28 +1864,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   >
                     <>
                       <Icon className="ti ti-refresh" />
-                      Refresh Selected Schema
-                    </>
-                  </button>
-
-                  <button
-                    className="btn btn-danger"
-                    onClick={() => {
-                      DeleteDatabaseConnectionID();
-                    }}
-                    style={{
-                      fontSize: "11px",
-                      padding: "5px 10px",
-                      height: "30px",
-                    }}
-                    disabled={
-                      !isEnableRefreshSchema() || updateSelection?.length === 0
-                    }
-                  >
-                    <>
-                      {" "}
-                      <Icon className="ti ti-trash" />
-                      Delete Schema's
+                      Generate DDL & Estimate
                     </>
                   </button>
                 </div>
@@ -1564,42 +1878,128 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   minHeight: "100px",
                   maxHeight: "300px",
                   alignItems: "start",
+                  overflowY: "auto",
                 }}
-                className="alert-banner dbcard"
+                className=""
               >
-                {updateSelection?.map((_b, i) => {
-                  return (
+                {isEmptyTableAndDatabase() ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                    }}
+                  >
                     <div
-                      key={i}
-                      onClick={() => selectDBGenerateID(_b?.name, "update")}
-                      className="db-select-model"
                       style={{
-                        cursor: "pointer",
-                        margin: "3px",
-                        padding: "5px 15px",
-                        borderRadius: "5px",
-                        border: "1px solid var(--border-default)",
-                        // width:"180px",
                         display: "flex",
                         alignItems: "center",
-                        backgroundColor: isSelectDb(_b?.name, "update")
-                          ? "var(--accent)"
-                          : "transparent",
-                        color: isSelectDb(_b?.name, "update")
-                          ? "white"
-                          : isDark()
-                            ? "lightgray"
-                            : "gray",
-                        justifyContent: "space-between",
-                        gap: "20px",
+                        flexDirection: "column",
                       }}
                     >
-                      <span style={{ fontSize: "12px", fontWeight: "700" }}>
-                        {_b?.name}
+                      <Icon className="ti ti-info-circle" />
+                      <span style={{ fontSize: "10px" }}>
+                        No Table and DDL info founded!
                       </span>
                     </div>
-                  );
-                })}
+                  </div>
+                ) : (
+                  <div style={{ width: "100%" }}>
+                    {Object.keys(genTables)?.map((_v, idx) => {
+                      return (
+                        <div style={{ width: "100%" }}>
+                          <div
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <h3
+                              style={{
+                                fontSize: "13px",
+                                paddingBottom: "8px",
+                                margin: "5px 0px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "5px",
+                              }}
+                            >
+                              {" "}
+                              <Icon
+                                className="ti ti-database"
+                                style={{ fontSize: "13px" }}
+                              />
+                              {_v}
+                            </h3>
+                            <button
+                              className="btn btn-ghost"
+                              title={`Delete the DDL of ${_v}`}
+                              onClick={() => DeleteDatabaseDDLHandler(_v)}
+                            >
+                              <Icon className="ti ti-trash" />
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {genTables[_v]?.map((_t, idx) => {
+                              return (
+                                <div
+                                  onClick={() =>
+                                    SelectTablehandler(_v, _t?.table)
+                                  }
+                                  key={`tables_${idx}_${_t?.table}`}
+                                  className="db-select-model"
+                                  style={{
+                                    cursor: "pointer",
+                                    margin: "3px",
+                                    padding: "5px 15px",
+                                    borderRadius: "5px",
+                                    border: "1px solid var(--border-default)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    backgroundColor: isSelectTable(
+                                      _v,
+                                      _t?.table,
+                                    )
+                                      ? "var(--accent)"
+                                      : "transparent",
+                                    color: isSelectTable(_v, _t?.table)
+                                      ? "white"
+                                      : isDark()
+                                        ? "lightgray"
+                                        : "gray",
+                                    gap: "10px",
+                                  }}
+                                >
+                                  <Icon
+                                    className="ti ti-table"
+                                    style={{ fontSize: "13px" }}
+                                  />
+                                  <span
+                                    style={{
+                                      fontSize: "12px",
+                                      fontWeight: "700",
+                                    }}
+                                  >
+                                    {_t?.table}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

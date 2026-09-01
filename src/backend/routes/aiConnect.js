@@ -49,6 +49,7 @@ router.post(
       });
       res.json(getCredSessionStatus(req.user.jti, CRED_CONTEXTS.QURIOZ));
     } catch (e) {
+      console.error(e)
       res.status(e.status || 400).json({ error: e.message });
     }
   },

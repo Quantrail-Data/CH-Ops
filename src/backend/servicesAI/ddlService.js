@@ -69,7 +69,7 @@ export function resolveTarget({ jti, context, clusterId, node }) {
   if (nodes.length === 0) throw httpError("No cluster nodes configured.", 400);
 
   const wantedHost = node ?? sess.node ?? null;
-  const target = wantedHost ? nodes.find((n) => n.host === wantedHost) : nodes[0];
+  const target = wantedHost ? nodes.find((n) => n.name === wantedHost) : nodes[0];
   if (!target) throw httpError("Node not found in cluster configuration.", 400);
 
   return {
