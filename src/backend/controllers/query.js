@@ -161,7 +161,7 @@ export async function testQueryConnection(req, res) {
   if (!node) return res.status(400).json({ ok: false, message: 'Node host required.' });
 
   const clusterNodes = getClusterNodes(clusterId);
-  const targetNode = clusterNodes.find(n => n.host === node);
+  const targetNode = clusterNodes.find(n => n.name === node);
   if (!targetNode) {
     return res.json({ ok: false, message: 'Node not found in cluster configuration.' });
   }

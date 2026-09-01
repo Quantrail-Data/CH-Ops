@@ -42,7 +42,7 @@ router.post(
         context: CRED_CONTEXTS.QURIOZ,
         appUser: req.user.username,
         clusterId,
-        node: target.host,
+        node: target.name,
         port: target.port || 8123,
         chUser: user,
         password: password ?? "",

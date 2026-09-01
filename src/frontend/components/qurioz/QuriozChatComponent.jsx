@@ -43,54 +43,309 @@ function responseBodyStructTableDatabase(genTables) {
   return result ? result : [];
 }
 
-function HistoryShowBubbleComponent({ chatSession }) {
+function HistoryShowBubbleComponent() {
   const [isOpen, setIsOpen] = useState(false);
-  const [chats, setChats] = useState(chatSession || []);
+  const [chats, setChats] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [editingChatId, setEditingChatId] = useState(null);
   const [title, setTitle] = useState("");
   const [menuPosition, setMenuPosition] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   const menuRef = useRef(null);
 
-  useEffect(() => setChats(chatSession || []), [chatSession]);
+  const toast = useToast();
+  const navigate = useNavigate();
+
+  const { replaceChat } = useQuriozChatContext();
+
+  const loadHistory = async () => {
+    setIsLoading(true);
+
+    try {
+      const response = await apiFetch("/api/ai/chats", {
+        method: "GET",
+      });
+
+      setChats(Array.isArray(response?.chats) ? response.chats : []);
+    } catch (error) {
+      console.error("Failed to load chat history:", error);
+
+      setChats([]);
+
+      toast.error(error?.message || "Failed to load chat history");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (openMenuId === null) return undefined;
+    if (!isOpen) return;
+
+    loadHistory();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (openMenuId === null) return;
+
     const closeMenu = (event) => {
-      if (!menuRef.current?.contains(event.target)) setOpenMenuId(null);
+      if (!menuRef.current?.contains(event.target)) {
+        setOpenMenuId(null);
+        setMenuPosition(null);
+      }
     };
     document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
+
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+    };
   }, [openMenuId]);
 
-  const isNewSession = chats.length === 0;
+  useEffect(() => {
+    if (openMenuId === null) return;
 
-  function startEditing(chat) {
-    setTitle(chat.title || "");
+    const closeMenu = () => {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    };
+
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [openMenuId]);
+
+  const startEditing = (event, chat) => {
+    event?.stopPropagation();
+
+    setTitle(chat?.title || "");
     setEditingChatId(chat.id);
+
     setOpenMenuId(null);
     setMenuPosition(null);
-  }
+  };
 
-  function saveTitle(chatId) {
+  const cancelEditing = () => {
+    setEditingChatId(null);
+    setTitle("");
+  };
+
+  const saveTitle = async (chatId) => {
     const nextTitle = title.trim();
-    if (nextTitle) {
+
+    if (!nextTitle) {
+      toast.error("Chat title cannot be empty");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await apiFetch(`/api/ai/chats/${chatId}`, {
+        method: "PATCH",
+        body: {
+          title: nextTitle,
+        },
+      });
+
       setChats((currentChats) =>
         currentChats.map((chat) =>
-          chat.id === chatId ? { ...chat, title: nextTitle } : chat,
+          chat.id === chatId
+            ? {
+                ...chat,
+                title: nextTitle,
+              }
+            : chat,
         ),
       );
-    }
-    setEditingChatId(null);
-  }
 
-  function deleteChat(chatId) {
-    setChats((currentChats) =>
-      currentChats.filter((chat) => chat.id !== chatId),
-    );
+      toast.success("Chat title updated");
+    } catch (error) {
+      console.error("Chat title update failed:", error);
+
+      toast.error(error?.message || "Chat title update failed");
+    } finally {
+      setIsSaving(false);
+      setEditingChatId(null);
+      setTitle("");
+    }
+  };
+
+  const handleTitleKeyDown = (event, chatId) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.currentTarget.blur();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEditing();
+    }
+  };
+
+  const deleteChat = async (event, chatId) => {
+    event?.stopPropagation();
+
+    try {
+      await apiFetch(`/api/ai/chats/${chatId}`, {
+        method: "DELETE",
+      });
+
+      setChats((currentChats) =>
+        currentChats.filter((chat) => chat.id !== chatId),
+      );
+
+      toast.success("Chat deleted successfully");
+
+      const currentPath = window.location.pathname;
+      const currentChatId = currentPath.split("/").pop();
+
+      if (String(currentChatId) === String(chatId)) {
+        replaceChat([]);
+        navigate("/qurioz");
+      }
+    } catch (error) {
+      console.error("Chat delete failed:", error);
+
+      toast.error(error?.message || "Chat delete failed");
+    } finally {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    }
+  };
+
+  const createHisMsgArr = (messages = []) => {
+    if (!Array.isArray(messages)) {
+      return [];
+    }
+
+    const timestamp = Date.now();
+
+    return messages.flatMap((chat, index) => [
+      {
+        id: `${timestamp}-${index}-user`,
+        ai_id: chat?.id,
+        type: "user",
+        userQuestion: chat?.instruction || "",
+        showResponse: true,
+      },
+
+      {
+        id: `${timestamp}-${index}-bot`,
+        ai_id: chat?.id,
+        type: "bot",
+
+        sql: chat?.sql || chat?.responseText || "",
+
+        sqlFlag: Boolean(chat?.sql),
+
+        tableData: chat?.tableData || [],
+
+        chart: {
+          isOpen: chat?.chart?.isOpen || false,
+          chartOption: chat?.chart?.chartOption || {},
+          error: chat?.chart?.error || {
+            status: false,
+            message: "",
+          },
+          editorOption: chat?.chart?.editorOption || {},
+        },
+
+        error: chat?.error || {
+          status: false,
+          message: null,
+        },
+
+        aiError: chat?.aiError || {
+          status: false,
+          message: null,
+        },
+      },
+    ]);
+  };
+
+  const handleOpenHistMsg = async (event, chatId) => {
+    event?.stopPropagation();
+
+    if (!chatId) {
+      toast.error("Invalid chat");
+      return;
+    }
+
     setOpenMenuId(null);
     setMenuPosition(null);
-  }
+
+    try {
+      const response = await apiFetch(`/api/ai/chats/${chatId}`, {
+        method: "GET",
+      });
+
+      const messageHistory = createHisMsgArr(response?.messages);
+      console.log(response)
+
+      replaceChat(messageHistory);
+
+      navigate(`/qurioz/${chatId}`);
+
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Failed to open chat:", error);
+
+      toast.error(error?.message || "Failed to open chat");
+    }
+  };
+
+  const handleNewChat = () => {
+    replaceChat([]);
+
+    setEditingChatId(null);
+    setTitle("");
+    setOpenMenuId(null);
+    setMenuPosition(null);
+
+    navigate("/qurioz");
+
+    setIsOpen(false);
+  };
+
+  const handleMenuToggle = (event, chatId) => {
+    event.stopPropagation();
+    if (openMenuId === chatId) {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+
+    const menuWidth = 128;
+    const menuHeight = 88;
+    const spacing = 4;
+
+    let left = bounds.right - menuWidth;
+
+    left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+    const shouldOpenAbove =
+      window.innerHeight - bounds.bottom < menuHeight + spacing;
+
+    const top = shouldOpenAbove
+      ? bounds.top - menuHeight - spacing
+      : bounds.bottom + spacing;
+
+    setMenuPosition({
+      left,
+      top,
+    });
+
+    setOpenMenuId(chatId);
+  };
+
+  const isNewSession = chats.length === 0;
 
   return (
     <AnimatePresence>
@@ -102,12 +357,26 @@ function HistoryShowBubbleComponent({ chatSession }) {
             width: "50px",
           }}
           title="History"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1, ease: "easeInOut" }}
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          exit={{
+            opacity: 0,
+          }}
+          transition={{
+            duration: 1,
+            ease: "easeInOut",
+          }}
         >
-          <button className="btn btn-ghost" onClick={() => setIsOpen(!isOpen)}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setIsOpen(true)}
+            aria-label="Open chat history"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="20"
@@ -115,10 +384,10 @@ function HistoryShowBubbleComponent({ chatSession }) {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="icon icon-tabler icons-tabler-outline icon-tabler-history-toggle"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="icon icon-tabler icons-tabler-outline icon-tabler-history-toggle"
             >
               <path stroke="none" d="M0 0h24v24H0z" fill="none" />
               <path d="M10 20.777a8.942 8.942 0 0 1 -2.48 -.969" />
@@ -131,6 +400,7 @@ function HistoryShowBubbleComponent({ chatSession }) {
           </button>
         </motion.div>
       )}
+
       {isOpen && (
         <motion.div
           style={{
@@ -142,29 +412,65 @@ function HistoryShowBubbleComponent({ chatSession }) {
             backgroundColor: "var(--bg-page)",
             zIndex: 99999,
           }}
-          initial={{ opacity: 0, width: "0rem", height: "0vh" }}
+          initial={{
+            opacity: 0,
+            width: "0rem",
+            height: "0vh",
+          }}
           animate={{
             opacity: 1,
             width: "20rem",
             height: "70vh",
           }}
-          exit={{ opacity: 0, width: "0rem", height: "0vh" }}
+          exit={{
+            opacity: 0,
+            width: "0rem",
+            height: "0vh",
+          }}
         >
           <div className="header-history">
             <button
+              type="button"
               className="btn btn-ghost"
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={() => {
+                setIsOpen(false);
+                setOpenMenuId(null);
+                setMenuPosition(null);
+              }}
+              aria-label="Close chat history"
             >
               <Icon className="ti ti-chevron-left" />
             </button>
-            <button className="btn btn-ghost">
+
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={handleNewChat}
+            >
               <Icon className="ti ti-plus" />
               New Chat
             </button>
           </div>
-
           <div className="chat-sesion-body">
-            {isNewSession ? (
+            {isLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "70%",
+                }}
+              >
+                <span
+                  style={{
+                    color: "var(--text-secondary)",
+                    fontSize: "12px",
+                  }}
+                >
+                  Loading chats...
+                </span>
+              </div>
+            ) : isNewSession ? (
               <div
                 style={{
                   display: "flex",
@@ -175,6 +481,7 @@ function HistoryShowBubbleComponent({ chatSession }) {
                 }}
               >
                 <Icon className="ti ti-info-circle" />
+
                 <span
                   style={{
                     color: "var(--text-secondary)",
@@ -182,114 +489,119 @@ function HistoryShowBubbleComponent({ chatSession }) {
                     margin: "10px 0px",
                   }}
                 >
-                  No chats founded
+                  No chats found
                 </span>
               </div>
             ) : (
-              chats.map((chat) => {
-                return (
-                  <div className="chat-session-tab" key={chat.id}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {editingChatId === chat.id ? (
-                        <input
-                          autoFocus
-                          className="form-input"
-                          style={{
-                            width: "100%",
-                            height: "24px",
-                            minHeight: 0,
-                            padding: "2px 6px",
-                            boxSizing: "border-box",
-                            fontSize: "13px",
-                            lineHeight: "18px",
-                          }}
-                          value={title}
-                          onChange={(event) => setTitle(event.target.value)}
-                          onBlur={() => saveTitle(chat.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter")
-                              event.currentTarget.blur();
-                          }}
-                        />
-                      ) : (
-                        <span>{chat?.title}</span>
-                      )}
-                    </div>
-                    <div style={{ flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        title="More options"
-                        aria-label={`More options for ${chat.title}`}
-                        aria-expanded={openMenuId === chat.id}
-                        onClick={(event) => {
-                          if (openMenuId === chat.id) {
-                            setOpenMenuId(null);
-                            setMenuPosition(null);
-                            return;
-                          }
-                          const bounds =
-                            event.currentTarget.getBoundingClientRect();
-                          setMenuPosition({
-                            left: Math.min(
-                              Math.max(8, bounds.right - 128),
-                              window.innerWidth - 136,
-                            ),
-                            top:
-                              window.innerHeight - bounds.bottom < 96
-                                ? bounds.top - 88
-                                : bounds.bottom + 4,
-                          });
-                          setOpenMenuId(chat.id);
+              chats.map((chat) => (
+                <div className="chat-session-tab" key={chat.id}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      cursor: editingChatId === chat.id ? "default" : "pointer",
+                    }}
+                    onClick={(event) => {
+                      if (editingChatId !== chat.id) {
+                        handleOpenHistMsg(event, chat.id);
+                      }
+                    }}
+                  >
+                    {editingChatId === chat.id ? (
+                      <input
+                        autoFocus
+                        disabled={isSaving}
+                        className="form-input"
+                        style={{
+                          width: "100%",
+                          height: "24px",
+                          minHeight: 0,
+                          padding: "2px 6px",
+                          boxSizing: "border-box",
+                          fontSize: "13px",
+                          lineHeight: "18px",
                         }}
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        onBlur={() => saveTitle(chat.id)}
+                        onKeyDown={(event) =>
+                          handleTitleKeyDown(event, chat.id)
+                        }
+                        onClick={(event) => event.stopPropagation()}
+                      />
+                    ) : (
+                      <span title={chat?.title || "Untitled chat"}>
+                        {chat?.title || "Untitled chat"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      flexShrink: 0,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      title="More options"
+                      aria-label={`More options for ${
+                        chat?.title || "Untitled chat"
+                      }`}
+                      aria-expanded={openMenuId === chat.id}
+                      onClick={(event) => handleMenuToggle(event, chat.id)}
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
                       >
-                        <svg
-                          width="20"
-                          height="20"
-                          fill="#fff"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
+                        <path d="M12 10a2 2 0 1 0 2 2 2 2 0 0 0-2-2m-7 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2m14 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2" />
+                      </svg>
+                    </button>
+
+                    {openMenuId === chat.id &&
+                      menuPosition &&
+                      createPortal(
+                        <ul
+                          ref={menuRef}
+                          className="cui-select-menu"
+                          style={{
+                            position: "fixed",
+                            left: menuPosition.left,
+                            top: menuPosition.top,
+                            zIndex: 4000,
+                            minWidth: "120px",
+                            overflow: "hidden",
+                          }}
                         >
-                          <path d="M12 10a2 2 0 1 0 2 2 2 2 0 0 0-2-2m-7 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2m14 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2" />
-                        </svg>
-                      </button>
-                      {openMenuId === chat.id &&
-                        menuPosition &&
-                        createPortal(
-                          <ul
-                            ref={menuRef}
-                            className="cui-select-menu"
+                          <li
+                            className="cui-select-opt"
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => startEditing(event, chat)}
+                          >
+                            <Icon className="ti ti-edit" />
+                            <span>Edit</span>
+                          </li>
+                          <li
+                            className="cui-select-opt"
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => deleteChat(event, chat.id)}
                             style={{
-                              position: "fixed",
-                              left: menuPosition.left,
-                              top: menuPosition.top,
-                              zIndex: 4000,
-                              minWidth: "120px",
-                              overflow: "hidden",
+                              color: "var(--color-danger, #e5484d)",
                             }}
                           >
-                            <li
-                              className="cui-select-opt"
-                              onClick={() => startEditing(chat)}
-                            >
-                              <Icon className="ti ti-edit" /> <span>Edit</span>
-                            </li>
-
-                            <li
-                              className="cui-select-opt"
-                              onClick={() => deleteChat(chat.id)}
-                              style={{ color: "var(--color-danger, #e5484d)" }}
-                            >
-                              <Icon className="ti ti-trash" />{" "}
-                              <span>Delete</span>
-                            </li>
-                          </ul>,
-                          document.body,
-                        )}
-                    </div>
+                            <Icon className="ti ti-trash" />
+                            <span>Delete</span>
+                          </li>
+                        </ul>,
+                        document.body,
+                      )}
                   </div>
-                );
-              })
+                </div>
+              ))
             )}
           </div>
         </motion.div>
@@ -368,6 +680,58 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   function isDark() {
     return theme === "dark";
   }
+
+  const createHisMsgArr = (messages = []) => {
+    const timestamp = Date.now();
+
+    return messages.flatMap((chat, index) => [
+      {
+        id: `${timestamp}-${index}-user`,
+        ai_id: chat?.id,
+        type: "user",
+        userQuestion: chat?.instruction,
+        showResponse: true,
+      },
+      {
+        id: `${timestamp}-${index}-bot`,
+        ai_id: chat?.id,
+        type: "bot",
+        sql: chat?.sql ? chat?.sql : chat?.responseText,
+        sqlFlag: chat?.sql ? true : false,
+        tableData: [],
+        chart: {
+          isOpen: false,
+          chartOption: {},
+          error: { status: false, message: "" },
+          editorOption: {},
+        },
+        error: { status: false, message: null },
+        aiError: { status: false, message: null },
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    const loadMessage = async () => {
+      try {
+        if (session_id) {
+          const response = await apiFetch(`/api/ai/chats/${session_id}`, {
+            method: "GET",
+          });
+
+          const messageHis = createHisMsgArr(response?.messages);
+          console.log(messageHis);
+          // messageHis.map((chat) => {
+          //   insertMessage(chat);
+          // });
+          replaceChat(messageHis);
+        }
+      } catch (error) {
+        console.log(error.message);
+      }
+    };
+    loadMessage();
+  }, [session_id]);
 
   useEffect(() => {
     function setupDDLLS() {
@@ -507,8 +871,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     setAcWords([]);
   }
 
-
-
   const ToggelChartHandler = (message) => {
     if (message) {
       const updatedChart = {
@@ -522,7 +884,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
   const RunSqlQueryhandler = async (sql) => {
     try {
-      if (connected && sql) {
+      if ( sql) {
         const connectionOption = {
           node: selectedNode,
           user,
@@ -575,9 +937,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 // const responseSQL = responseAIQuery?.generated_sql?.includes(
                 //   "--Unable to generate SQL",
                 // );
-                const responseSQL = isMessageFinders(
-                  responseAIQuery?.sql,
-                );
+                const responseSQL = isMessageFinders(responseAIQuery?.sql);
 
                 if (responseSQL) {
                   insertMessage({
@@ -677,14 +1037,13 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
               insertMessage(userQuestionMessage);
               ScrollBottomAuto();
 
-             
               const responseAIQuery = await await apiFetch("/api/ai/generate", {
                 method: "POST",
                 body: JSON.stringify({
                   chatId: session_id ?? null,
                   instruction: userQuestion,
                   tables: result,
-                  clusterId:selectedClusterId,
+                  clusterId: selectedClusterId,
                   node: nodeName,
                   previousInstruction: null,
                   previousSql: null,
@@ -698,9 +1057,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 //   "--Unable to generate SQL",
                 // );
 
-                const responseSQL = isMessageFinders(
-                  responseAIQuery?.sql,
-                );
+                const responseSQL = isMessageFinders(responseAIQuery?.sql);
 
                 if (responseSQL) {
                   insertMessage({
@@ -826,7 +1183,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           ScrollBottomAuto();
         }, 500);
       }
-      
     } else {
       const userQuestionMessage = {
         id: Date.now(),
@@ -1304,7 +1660,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           <HistoryShowBubbleComponent chatSession={chatSession} />
         </div>
 
-        <div style={{display:"flex",alignItems:"center",gap:"20px"}}>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           {!editorConnected ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span
