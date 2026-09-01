@@ -1,5 +1,5 @@
 {
-  "version": "0.2.2",
+  "version": "0.2.3",
   "codename": "chops",
   "clickhouseVersion": "26.3",
   "clickhouseCompat": ">=26.3"
