@@ -203,10 +203,15 @@ describe("getCapabilities", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonData).toEqual({
-      probed: false,
-      deployment: undefined,
+      probed: true,
+      deployment: 'standard',
       version: null,
-      unavailable: [],
+      unavailable: [
+        {
+          table: 'system.text_log',
+          message: 'Server text logging is not enabled on this deployment.',
+        },
+      ],
     });
   });
 
