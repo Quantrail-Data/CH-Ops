@@ -892,17 +892,55 @@ export default function MonitoringDashboards() {
       const sorted = [...d].sort(
         (a, b) => (parseFloat(b[valCol]) || 0) - (parseFloat(a[valCol]) || 0),
       );
+
+      const tickCount = sorted.length;
+      const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
+
+      const formatCompact = (v) => {
+        try {
+          const n = Number(v);
+          if (!Number.isFinite(n)) return String(v);
+          const abs = Math.abs(n);
+          if (abs >= 1000000) return `${(n / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
+          if (abs >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+          return n.toLocaleString();
+        } catch {
+          return v;
+        }
+      };
+
+      const maxLabelLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+      const yLabelFormatter = (v) => {
+        try {
+          const s = String(v);
+          return s.length > maxLabelLen ? s.slice(0, maxLabelLen - 1) + "…" : s;
+        } catch { return v; }
+      };
+
+      const yRotate = tickCount > 20 ? 45 : 0;
+      const yLabelWidth = yRotate ? Math.min(260, Math.max(120, 12 * maxLabelLen)) : 220;
+
       return {
         ...baseChartOption(),
-        grid: { left: 12, right: 24, top: 12, bottom: 12, containLabel: true },
+        grid: { left: Math.max(12, yRotate ? yLabelWidth + 12 : 12), right: 24, top: 12, bottom: 12, containLabel: true },
         tooltip: {
           trigger: "axis",
           confine: true,
           axisPointer: { type: "shadow" },
+          formatter: function (params) {
+            try {
+              const p = params[0] || params;
+              const name = p.name || (p.data && p.data.name) || "";
+              const value = (p.data && (p.data.value ?? p.data)) || p.value || 0;
+              return `${name}<br/>${formatCompact(value)}`;
+            } catch {
+              return params;
+            }
+          }
         },
         xAxis: {
           type: "value",
-          axisLabel,
+          axisLabel: { ...axisLabel, formatter: formatCompact, margin: 8, fontSize: axisFontSize },
           axisLine,
           splitLine: { lineStyle: { color: splitColor, opacity: 0.4 } },
         },
@@ -910,7 +948,7 @@ export default function MonitoringDashboards() {
           type: "category",
           inverse: true,
           data: sorted.map((r) => String(r[labelCol])),
-          axisLabel: { ...axisLabel, width: 140, overflow: "truncate" },
+          axisLabel: { ...axisLabel, width: yLabelWidth, overflow: "truncate", rotate: yRotate, formatter: yLabelFormatter, fontSize: axisFontSize },
           axisLine,
         },
         series: [
@@ -1040,6 +1078,7 @@ export default function MonitoringDashboards() {
         series,
       };
     }
+    
     // Single series (light fill is fine when there's only one band)
     const valCol = cols.find((c) => c !== "t") || cols[1];
     return {

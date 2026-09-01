@@ -4,10 +4,10 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { setSecret, create, verify, onRevoke } from '../../src/backend/services/jwt.js';
+import { create, verify, onRevoke } from '../../src/backend/services/jwt.js';
 import { logout } from '../../src/backend/controllers/auth.js';
 
-beforeAll(() => setSecret('test-jwt-secret-32chars-minimum!'));
+
 
 function createRes() {
   return {

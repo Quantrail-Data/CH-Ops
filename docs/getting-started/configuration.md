@@ -66,9 +66,16 @@ New installations should use the numbered `SUPER_ADMIN_1` form above.
 
 | Variable | Required | Default | What it does |
 |----------|----------|---------|--------------|
-| `SESSION_SECRET` | Yes | none | A long random string (32+ characters) that signs login sessions and derives the key that encrypts stored ClickHouse&reg; passwords. Generate one with `openssl rand -hex 32`. |
+| `ENCRYPTION_SECRET` | Yes | none | A long random string (32+ characters). It makes the key that encrypts stored ClickHouse&reg; passwords, the system email password, and AI provider keys. Make one with `openssl rand -hex 32`. |
 
-> Do not change `SESSION_SECRET` after your first run. It is the encryption key for every stored ClickHouse&reg; password, so a change makes those saved credentials unreadable and you must re-enter them.
+> **Never change `ENCRYPTION_SECRET` after your first run.** It makes the key for every stored password, so a new value makes them unreadable and they cannot be recovered. You would have to enter every one again.
+>
+> **Upgrading?** This was called `SESSION_SECRET`. Rename it in your `.env` file
+> and keep the same value. CHOps refuses to start until you rename it, and the
+> message says what to do.
+>
+> Login tokens no longer use this value. CHOps makes its own signing keys and
+> changes them daily, so there is nothing to set for them.
 
 ---
 
@@ -153,3 +160,37 @@ Click the sun or moon icon in the top-right corner to switch themes. CHOps saves
 ## Date and time format
 
 All dates and times in CHOps use the 24-hour format, for example `2026-05-13 14:30:00`, which matches the format ClickHouse&reg; expects.
+
+## Settings that moved into the interface
+
+Fifteen settings that were once environment variables are now on the
+**Administration > App Config** page. You change them there, and they apply at
+once with no restart.
+
+The variables still work. CHOps uses them when nothing is set on the page, so an
+existing deployment needs no change.
+
+| Variable | Where it is now |
+| --- | --- |
+| `EXPORT_MAX_TOTAL_BYTES` | App Config, Exports |
+| `EXPORT_MAX_JOB_BYTES` | App Config, Exports |
+| `EXPORT_MAX_CONCURRENT` | App Config, Exports |
+| `EXPORT_MAX_PER_USER` | App Config, Exports |
+| `EXPORT_WARN_BYTES` | App Config, Exports |
+| `EXPORT_IDLE_TTL_MS` | App Config, Exports |
+| `MAX_RESULT_BYTES` | App Config, Queries |
+
+Eight more settings on that page were never environment variables. They were
+fixed values in the code: the lockout rules, the session length, and the four
+Kubernetes timings.
+
+**These did not move**, and are still set on the server only:
+
+| Variable | Why |
+| --- | --- |
+| `ENCRYPTION_SECRET` | It must exist before CHOps can read a settings table |
+| `SUPER_ADMIN_*` | The way in on first start, and the way back in if you are locked out |
+| `DISABLE_ENV_LOGIN` | It closes a way in. A button that closes your own way in is a way to lock yourself out |
+| `DISABLE_ENV_SMTP` | The same reasoning |
+| `PORT`, `NODE_ENV`, `DB_PATH`, `EXPORT_DIR` | Facts about the deployment, not preferences |
+| `TRUST_PROXY` | A wrong value breaks rate limiting |

@@ -4696,3 +4696,167 @@
  .app-main {
    min-height: 0;
  }
+
+
+ /* App Config rows.
+   A grid, so the input and buttons sit in the same place on every row however
+   long the description is. The first column takes the remaining width, so the
+   card grows with the page rather than stopping at a fixed size. */
+ .appconfig-row {
+   display: grid;
+   grid-template-columns: minmax(220px, 1fr) auto;
+   gap: 16px;
+   align-items: center;
+   padding: 14px 16px;
+ }
+
+ .appconfig-controls {
+   display: flex;
+   gap: 8px;
+   align-items: center;
+   justify-content: flex-end;
+ }
+
+ /* Below this the fixed controls leave the description about 150px, which wraps
+   to a word per line. Move them under it instead. */
+ @media (max-width: 720px) {
+   .appconfig-row {
+     grid-template-columns: 1fr;
+     gap: 10px;
+   }
+
+   .appconfig-controls {
+     justify-content: flex-start;
+   }
+ }
+
+ /* EXPLAIN ANALYZE output. */
+
+ .analyze-output {
+   padding: 12px;
+   /* The parent is a flex column with overflow hidden. Without these, this box
+     grows to fit its content, the parent clips it, and nothing scrolls. */
+   display: flex;
+   flex-direction: column;
+   min-height: 0;
+   height: 100%;
+   box-sizing: border-box;
+ }
+
+ /* The planning and execution split. */
+
+ .analyze-time {
+   margin-bottom: 14px;
+ }
+
+ .analyze-time-head {
+   display: flex;
+   align-items: baseline;
+   justify-content: space-between;
+   gap: 12px;
+   margin-bottom: 6px;
+ }
+
+ .analyze-time-total {
+   font-family: var(--font-mono, monospace);
+   font-size: 12px;
+   color: var(--text-muted);
+ }
+
+ /* The bar itself. Two segments that fill the width between them. */
+ .analyze-time-bar {
+   display: flex;
+   height: 14px;
+   border-radius: 7px;
+   overflow: hidden;
+   background: var(--border-default);
+ }
+
+ .analyze-seg {
+   height: 100%;
+   /* A segment can be very small. This keeps it visible instead of letting it
+     disappear, which would make the bar look like it had one part. */
+   min-width: 2px;
+ }
+
+ .analyze-seg.planning {
+   background: var(--warning, #d08b2c);
+ }
+
+ .analyze-seg.execution {
+   background: var(--accent, #3b82f6);
+ }
+
+ .analyze-time-key {
+   display: flex;
+   gap: 18px;
+   flex-wrap: wrap;
+   margin-top: 6px;
+   font-size: 12px;
+   color: var(--text-muted);
+ }
+
+ .analyze-dot {
+   display: inline-block;
+   width: 9px;
+   height: 9px;
+   border-radius: 50%;
+   margin-right: 6px;
+ }
+
+ .analyze-dot.planning {
+   background: var(--warning, #d08b2c);
+ }
+
+ .analyze-dot.execution {
+   background: var(--accent, #3b82f6);
+ }
+
+ /* The two cards use the classes the rest of the app already uses. Only the
+   bottom margin is changed, because the default is made for a full page. */
+ .analyze-cards {
+   margin-bottom: 14px;
+   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+ }
+
+ .analyze-legend {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   font-size: 12px;
+   color: var(--text-muted);
+   margin-bottom: 10px;
+ }
+
+
+ .analyze-line {
+   /* The spaces must be kept, because the tree is drawn with them. */
+   white-space: pre;
+   border-radius: 3px;
+   padding: 0 4px;
+ }
+
+ .analyze-tree {
+   font-family: var(--font-mono, monospace);
+   font-size: 12px;
+   line-height: 1.6;
+   overflow: auto;
+   /* Takes what is left after the bar, the cards and the message, and scrolls
+     inside it.
+     min-height 0 is required. A flex child will not shrink below its own
+     content without it, so the box stays tall and no scroll bar appears. */
+   flex: 1 1 auto;
+   min-height: 0;
+ }
+
+
+
+ /* The spaces and the line breaks must be kept, because the tree is drawn with
+   them. */
+ .analyze-bar-text {
+   white-space: pre;
+ }
+
+ .analyze-line.slow {
+   background: var(--danger-subtle, rgba(220, 80, 80, 0.14));
+ }

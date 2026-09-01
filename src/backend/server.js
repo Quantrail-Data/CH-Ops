@@ -26,7 +26,6 @@ try {
 import { log } from './services/logger.js';
 
 import { loadEnv } from './utils/env.js';
-import { setSecret } from './services/jwt.js';
 import { initCrypto } from './services/crypto.js';
 import { authMiddleware } from './middleware/auth.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
@@ -40,6 +39,7 @@ import authRoute from './routes/auth.js';
 import queryRoute from './routes/query.js';
 import configRoute from './routes/config.js';
 import settingsRoute from './routes/settings.js';
+import appConfigRoute from './routes/appConfig.js';
 import trustedCaRoute from './routes/trustedCa.js';
 import systemSmtpRoute from './routes/systemSmtp.js';
 import alertsRoute from './routes/alerts.js';
@@ -65,8 +65,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let env;
 try { env = loadEnv(); } catch (err) { console.error(`  Config error: ${err.message}`); process.exit(1); }
 
-setSecret(env.sessionSecret);
-initCrypto(env.sessionSecret);
+initCrypto(env.encryptionSecret);
 
 onRevoke(clearCredSessionByJti);
 onRevoke((jti) => { try { cancelJobsForJti(jti); } catch { } });
@@ -94,6 +93,7 @@ log.info('Database ready (Drizzle ORM + bun:sqlite)');
 
 import { assertDatabaseReadable } from './db/index.js';
 import { migrateClusterData } from './services/clusterUtils.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 migrateClusterData();
 
 const app = express();
@@ -157,6 +157,7 @@ app.use('/api/query', authMiddleware, rateLimiter(10000, 60), queryRoute);
 app.use('/api/editor', authMiddleware, rateLimiter(10000, 60), editorRoute);
 app.use('/api/config', authMiddleware, rateLimiter(10000, 60), configRoute);
 app.use('/api/settings', authMiddleware, rateLimiter(10000, 60), settingsRoute);
+app.use('/api/app-config', authMiddleware, rateLimiter(120, 60), appConfigRoute);
 app.use('/api/trusted-cas', authMiddleware, rateLimiter(60, 60), trustedCaRoute);
 app.use('/api/system-smtp', authMiddleware, rateLimiter(30, 60), systemSmtpRoute);
 app.use('/api/alerts', authMiddleware, rateLimiter(10000, 60), alertsRoute);

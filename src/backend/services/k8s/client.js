@@ -9,9 +9,9 @@ import {
   classifyResponseError,
   isRetryable,
 } from './errors.js';
+import { getConfig } from '../appConfig.js';
 
 const DEFAULT_PAGE_SIZE = 500;
-const DEFAULT_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
 const MAX_PAGES = 100; // guard against a server that never stops paginating
 
@@ -40,7 +40,7 @@ export function createK8sClient({
   apiAddress,
   caCertificate,
   token,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
+  timeoutMs = getConfig('k8s.timeoutMs'),
 }) {
   if (!apiAddress) throw new Error('apiAddress is required');
   if (!caCertificate) throw new Error('caCertificate is required');
