@@ -39,6 +39,7 @@ export default function UserManagement() {
   const [smtpBusy, setSmtpBusy] = useState(false);
   const [smtpResult, setSmtpResult] = useState(null);
   const [testTo, setTestTo] = useState('');
+  const [isSmtpConfigured,setIsSmtpConfigured] = useState(false)
 
   async function loadSmtp() {
     try {
@@ -57,6 +58,17 @@ export default function UserManagement() {
       toast.error(err.message);
     }
   }
+
+  async function checkSmtpconfigured () {
+    try {
+      const r = await apiFetch('/api/system-smtp');
+      setIsSmtpConfigured(r.configured)
+    } catch (error) {
+       setIsSmtpConfigured(false)
+    }
+  }
+
+  useEffect(()=>{ if (tab === 'smtp') return ; checkSmtpconfigured();},[tab])
 
   async function testConnection() {
     setSmtpBusy(true);
@@ -149,7 +161,7 @@ export default function UserManagement() {
     try { setUsers(await apiFetch('/api/users')); } catch (e) { toast.error('Failed to load users: ' + e.message); }
     setLoaded(true);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load();}, []);
 
   function creatableRoles() {
     if (myRole === 'superadmin') return ['superadmin', 'admin', 'editor', 'readonly'];
@@ -197,7 +209,8 @@ export default function UserManagement() {
   async function resetPassword(id) {
     try {
       const r = await apiFetch(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify({ resetPassword: true }) });
-      toast.success(`New password: ${r.generatedPassword}`);
+      setGeneratedPw(r.generatedPassword);
+      toast.success("Password changed successfully.");
     } catch (err) { toast.error(err.message); }
   }
 
@@ -369,7 +382,9 @@ export default function UserManagement() {
           </form>
         </div>
       )}
+      {/* {isSmtpConfigured &&  <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>} */}
 
+      {!isSmtpConfigured && <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon>SMTP is not configured. Email notifications are disabled. You can only create users and retrieve passwords directly in the UI.</div>}
       {generatedPw && <div className="alert-banner success" style={{ marginBottom: 14 }}><Icon className="ti ti-key"></Icon> Generated password: <strong style={{ fontFamily: 'var(--font-code)', marginLeft: 8 }}>{generatedPw}</strong> - share securely with the user.<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setGeneratedPw(null)}><Icon className="ti ti-x"></Icon></button></div>}
 
       {showCreate && isAdmin && (

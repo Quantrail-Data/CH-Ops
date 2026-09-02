@@ -188,14 +188,15 @@ describe("Users Controller", () => {
     expect(statusMock).toHaveBeenCalledWith(400);
   });
 
-  it("createUser rejects duplicate username", async () => {
-    fakeDB.users.push({ id: 1, username: "john" });
+  it("createUser rejects duplicate email", async () => {
+    fakeDB.users.push({ id: 1, username: "john", email:"test@gmail.com"});
 
     await createUser(
       {
         user: { role: "admin" },
         body: {
           username: "john",
+          email:"test@gmail.com",
           audit: {},
         },
       },
@@ -212,6 +213,7 @@ describe("Users Controller", () => {
         body: {
           username: "root",
           role: "superadmin",
+          email:"test@gmail.com",
           audit: {},
         },
       },
@@ -490,6 +492,7 @@ describe("Users Controller", () => {
         user: { role: "admin" },
         body: {
           username: "john",
+          email:"test@gmail.com",
           audit: {},
         },
         ip: "127.0.0.1",

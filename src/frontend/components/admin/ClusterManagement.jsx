@@ -625,7 +625,7 @@ function startEditK8s(cluster) {
       ) : (!k8sEnabled || tab === "direct") || !showK8sWizard ? (
         <div style={{ display: "grid", gap: 14 }}>
           {visibleClusters.map((c) => (
-            <div key={c.id} className="card" style={{ padding: 16 }}>
+            editing !== c.id && <div key={c.id} className="card" style={{ padding: 16 }}>
               <div
                 style={{
                   display: "flex",
