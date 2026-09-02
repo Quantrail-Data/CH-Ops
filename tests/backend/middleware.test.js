@@ -123,6 +123,7 @@ describe("authMiddleware", () => {
     const next = counterNext();
 
     authMiddleware(req, res, next);
+    expect(res.statusCode).toBe(200);
     expect(next.calls.length).toBe(1);
     expect(req.user.username).toBe("alice");
     expect(req.user.role).toBe("admin");
@@ -132,18 +133,16 @@ describe("authMiddleware", () => {
     getMock.mockReturnValueOnce({
       id: 1,
       username: "alice",
-      mustChangePassword: true,
+      mustChangePassword: false,
     });
 
-    const token = create({ userId: 1, username: "alice", role: "admin" });
+    const token = create({ userId: 1, username: "alice", role: "admin" ,mustChangePassword: true});
     const req = { headers: { authorization: `Bearer ${token}` } };
     const res = mockRes();
     const next = counterNext();
     
     authMiddleware(req, res, next);
-    console.log(res.json())
 
-    expect(res.json()).toBe({});
     expect(res.statusCode).toBe(403);
     expect(res.body).toEqual({
       error: "Password change required.",
