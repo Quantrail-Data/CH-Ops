@@ -104,7 +104,8 @@ describe("authMiddleware", () => {
     getMock.mockReturnValueOnce({
       id: 1,
       username: "alice",
-      role:"admin"
+      role:"admin",
+      mustChangePassword:false
     });
 
     const token = create({
