@@ -76,20 +76,23 @@ describe('capabilities service', () => {
 
     it('caches successful probes and reports failures without blocking callers', async () => {
         const node = { host: 'node-1', port: 8123, secure: false, user: 'default', password: '' }
-        executeQuery.mockRejectedValueOnce(new Error('offline'))
+            executeQuery.mockRejectedValueOnce(new Error('offline'))
         expect(await probeCapabilities('offline', node)).toEqual({
             probed: false, error: 'offline', tables: null, deployment: 'unknown',
         })
         expect(hasCapability('offline', CAPABILITY.TEXT_LOG)).toBeTrue()
         expect(unavailableFeatures('offline')).toEqual([])
 
-        executeQuery.mockResolvedValueOnce({ rows: [{ name: 'query_log' }] })
+        executeQuery.mockClear()
+        executeQuery
+            .mockResolvedValueOnce({ rows: [{ name: 'query_log' }] })
+            .mockResolvedValueOnce({ rows: [{ version: '25.6.1' }] })
         await probeCapabilities('cached', node)
         await probeCapabilities('cached', node)
         expect(executeQuery).toHaveBeenCalledTimes(2)
         clearCapabilities('cached')
         await probeCapabilities('cached', node)
-        expect(executeQuery).toHaveBeenCalledTimes(3)
+        expect(executeQuery).toHaveBeenCalledTimes(4)
     })
 
     it('uses the cluster node when ensuring capabilities and handles missing clusters', async () => {

@@ -168,7 +168,7 @@ app.use('/api/k8s', authMiddleware, rateLimiter(10000, 60), k8sRoute);
 app.use('/api/app-backup', authMiddleware, rateLimiter(10000, 60), appBackupRoute);
 app.use('/api/qurioz/api-keys', authMiddleware, rateLimiter(10000, 60), apiKeysRoute);
 app.use('/api/export/download', rateLimiter(10000, 60), downloadRouter);
-app.use('/api/export', rateLimiter(10000, 60), authMiddleware, exportRoute);
+app.use('/api/export', authenticatedRateLimiter, authMiddleware, exportRoute);
 
 app.use("/api/ai/database", authMiddleware, databaseAIConnection);
 app.use("/api/ai/sql", authMiddleware, sqlAIChat);

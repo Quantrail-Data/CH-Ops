@@ -2,10 +2,9 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Contributors - Kathir Moorthy, Praveen kumar, Kathirdhasan
 
-import { describe, it, expect, beforeAll, mock } from "bun:test";
+import { describe, it, expect, beforeAll, beforeEach, mock } from "bun:test";
 import jwt from "jsonwebtoken";
 
-import { authMiddleware } from "../../src/backend/middleware/auth.js";
 import {
   create,
   verify,
@@ -53,17 +52,30 @@ mock.module("../../src/backend/db/index.js", () => ({
       };
     },
   },
+  appSettings: {},
+  alertRules: {},
+  alertChannels: {},
+  alertRuleChannels: {},
+  dashboards: {},
+  charts: {},
   appUsers: {
     id: "id",
   },
-  // clusterUtils imports these, so a suite loading the real module after this
-  // one needs them present.
   clusters: {},
   clusterNodes: {},
   k8sConnections: {},
+  trustedCas: {},
+  rawSqlite: null,
+  assertDatabaseReadable: () => {},
 }));
 
+const { authMiddleware } = await import("../../src/backend/middleware/auth.js");
+
 describe("authMiddleware", () => {
+  beforeEach(() => {
+    getMock.mockReset();
+    getMock.mockImplementation(() => ({ id: 1, username: "alice", role: "admin" }));
+  });
 
   it("missing Authorization header -> 401, next not called", () => {
     const res = mockRes();
@@ -75,12 +87,12 @@ describe("authMiddleware", () => {
   });
 
   it("user not found -> 401", () => {
-    getMock.mockReturnValueOnce(undefined);
-
     const token = create({
       userId: 999,
       username: "ghost",
     });
+
+    getMock.mockReturnValueOnce(undefined);
 
     const req = {
       headers: {

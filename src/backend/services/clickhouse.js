@@ -156,7 +156,7 @@ export async function executeQueryWithBody({
   url.searchParams.set('max_memory_usage', String(maxMemoryUsage));
 
   const caBundle2 = getCaBundle();
-  const res = await fetch(url.toString(), {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'X-ClickHouse-User': user, 'X-ClickHouse-Key': password, 'X-ClickHouse-Summary': '1' },
     body,
