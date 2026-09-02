@@ -139,9 +139,11 @@ describe("authMiddleware", () => {
     const req = { headers: { authorization: `Bearer ${token}` } };
     const res = mockRes();
     const next = counterNext();
-
+    
     authMiddleware(req, res, next);
+    console.log(res.json())
 
+    expect(res.json()).toBe({});
     expect(res.statusCode).toBe(403);
     expect(res.body).toEqual({
       error: "Password change required.",
