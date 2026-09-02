@@ -84,7 +84,7 @@ describe("authMiddleware", () => {
 
     const req = {
       headers: {
-        authorization: `Bearer ${token}`,
+        authorization: `Bearer sdf${token}`,
       },
     };
 
