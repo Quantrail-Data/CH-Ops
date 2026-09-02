@@ -168,8 +168,8 @@ export function initChart(el) {
   const existing = echarts.getInstanceByDom(el);
   if (existing) {
     try {
-      existing.clear();
-      existing.dispose();
+      if (typeof existing.clear === "function") existing.clear();
+      if (typeof existing.dispose === "function") existing.dispose();
     } catch (e) {
     }
   }
@@ -198,13 +198,12 @@ export function disposeChart(el) {
       el._ro.disconnect();
     } catch (e) {
     }
-    el._ro = null;
   }
   const inst = echarts.getInstanceByDom(el);
   if (!inst) return;
   try {
-    inst.clear();
-    inst.dispose();
+    if (typeof inst.clear === "function") inst.clear();
+    if (typeof inst.dispose === "function") inst.dispose();
   } catch (e) {
   }
 }

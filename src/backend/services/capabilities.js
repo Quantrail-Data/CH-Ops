@@ -64,7 +64,7 @@ export async function probeCapabilities(clusterId, node) {
     });
   } catch (err) {
     // A failed probe must not block the connection.
-    return { probed: false, error: err.message, tables: null, deployment: 'unknown', version: null};
+    return { probed: false, error: err.message, tables: null, deployment: 'unknown' };
   }
 
   
