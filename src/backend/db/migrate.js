@@ -104,7 +104,7 @@ sqlite.exec(`
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'readonly',
-    email TEXT,
+    email TEXT UNIQUE,
     must_change_password INTEGER NOT NULL DEFAULT 1,
     last_login_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
