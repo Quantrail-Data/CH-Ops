@@ -167,7 +167,7 @@ const OTP_Component = ({ setFormStatus }) => {
             textAlign: "center",
             marginBottom: "30px",
             lineHeight: "30px",
-            width: "300px",
+            width: "100%",
           }}
           className="login-title"
         >
@@ -208,8 +208,8 @@ const OTP_Component = ({ setFormStatus }) => {
               <input
                 {...props}
                 style={{
-                  width: "50px",
-                  height: "50px",
+                  width: "40px",
+                  height: "40px",
                   margin: "0px 5px",
                   backgroundColor: "transparent",
                   outline: "none",
@@ -251,7 +251,7 @@ const OTP_Component = ({ setFormStatus }) => {
                   gap: "10px",
                 }}
               >
-                Send Verification Code
+                Verify
               </span>
             )}
           </button>
