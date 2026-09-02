@@ -35,7 +35,7 @@ function counterNext() {
   return fn;
 }
 
-const getMock = mock(() => ({ id: 1, username: "alice" ,role:"admin",mustChangePassword:false}));
+const getMock = mock(() => ({ id: 1, username: "alice" ,role:"admin"}));
 
 mock.module("../../src/backend/db/index.js", () => ({
   db: {
@@ -84,7 +84,7 @@ describe("authMiddleware", () => {
 
     const req = {
       headers: {
-        authorization: `Bearer sdf${token}`,
+        authorization: `Bearer s${token}`,
       },
     };
 
@@ -104,8 +104,7 @@ describe("authMiddleware", () => {
     getMock.mockReturnValueOnce({
       id: 1,
       username: "alice",
-      role:"admin",
-      mustChangePassword:false
+      role:"admin"
     });
 
     const token = create({
@@ -133,7 +132,7 @@ describe("authMiddleware", () => {
     getMock.mockReturnValueOnce({
       id: 1,
       username: "alice",
-      mustChangePassword: false,
+      mustChangePassword: true,
     });
 
     const token = create({ userId: 1, username: "alice", role: "admin" });
@@ -158,6 +157,18 @@ describe("authMiddleware", () => {
     expect(res.statusCode).toBe(401);
     expect(res.body).toEqual({ error: "Missing authorization" });
     expect(next.calls.length).toBe(0);
+  });
+
+  it("valid Bearer token -> req.user populated and next called once", () => {
+    const token = create({ username: "alice", role: "admin" });
+    const req = { headers: { authorization: `Bearer ${token}` } };
+    const res = mockRes();
+    const next = counterNext();
+    authMiddleware(req, res, next);
+    expect(next.calls.length).toBe(1);
+    expect(res.statusCode).toBe(200); // untouched
+    expect(req.user.username).toBe("alice");
+    expect(req.user.role).toBe("admin");
   });
 
   it("garbage token -> 401, next not called", () => {
