@@ -35,7 +35,7 @@ function counterNext() {
   return fn;
 }
 
-const getMock = mock(() => ({ id: 1, username: "alice" ,role:"admin"}));
+const getMock = mock(() => ({ id: 1, username: "alice", role: "admin" }));
 
 mock.module("../../src/backend/db/index.js", () => ({
   db: {
@@ -75,12 +75,9 @@ describe("authMiddleware", () => {
   });
 
   it("user not found -> 401", () => {
+    const token = create({ userId: 999, username: "ghost" });
     getMock.mockReturnValueOnce(undefined);
 
-    const token = create({
-      userId: 999,
-      username: "ghost",
-    });
 
     const req = {
       headers: {
@@ -104,7 +101,7 @@ describe("authMiddleware", () => {
     getMock.mockReturnValueOnce({
       id: 1,
       username: "alice",
-      role:"admin"
+      role: "admin",
     });
 
     const token = create({
@@ -199,7 +196,11 @@ describe("authMiddleware", () => {
     const res = mockRes();
     const next = counterNext();
 
-    authMiddleware({ headers: { authorization: `Bearer ${expired}` } }, res, next);
+    authMiddleware(
+      { headers: { authorization: `Bearer ${expired}` } },
+      res,
+      next,
+    );
 
     expect(res.statusCode).toBe(401);
     expect(res.body).toEqual({ error: "Invalid or expired token" });
@@ -213,7 +214,11 @@ describe("authMiddleware", () => {
     const res = mockRes();
     const next = counterNext();
 
-    authMiddleware({ headers: { authorization: `Bearer ${token}` } }, res, next);
+    authMiddleware(
+      { headers: { authorization: `Bearer ${token}` } },
+      res,
+      next,
+    );
 
     expect(res.statusCode).toBe(401);
     expect(res.body).toEqual({ error: "Invalid or expired token" });

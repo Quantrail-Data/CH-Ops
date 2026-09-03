@@ -100,13 +100,16 @@ export async function createUser(req, res) {
     if (!username?.trim())
       return res.status(400).json({ error: "Username required." });
 
+    if (!email?.trim())
+      return res.status(400).json({ error: "Email required." });
+
     const existing = db
       .select()
       .from(appUsers)
-      .where(eq(appUsers.username, username.trim()))
+      .where(eq(appUsers.email, email.trim()))
       .get();
     if (existing)
-      return res.status(409).json({ error: "Username already exists." });
+      return res.status(409).json({ error: "Email already exists." });
 
     // Validate and constrain the role
     let newRole = VALID_ROLES.includes(role) ? role : "readonly";

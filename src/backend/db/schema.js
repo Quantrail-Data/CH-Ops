@@ -108,7 +108,7 @@ export const appUsers = sqliteTable("app_user", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("readonly"), // 'superadmin' | 'admin' | 'editor' | 'readonly'
-  email: text("email"),
+  email: text("email").unique(),
   mustChangePassword: integer("must_change_password", { mode: "boolean" })
     .notNull()
     .default(true),
