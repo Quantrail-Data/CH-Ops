@@ -71,8 +71,9 @@ function ChatRenderComponent({
       ...chatMessage,
       id: chatMessage?.id,
       userQuestion: editMessage,
+    
     };
-    ReFormQuestionSQLGenerating(editMessage, index);
+    ReFormQuestionSQLGenerating(editMessage, index,chatMessage?.messageId);
     replaceChat(updatedUserQuestion);
     setIsEditable(false);
     setEditMessage(null);
@@ -278,7 +279,7 @@ function ChatRenderComponent({
   else if (chatMessage?.type === "bot")
     return chatMessage?.isLoading ? (
       <AILoaderComponent />
-    ) : chatMessage?.aiError?.status ? (
+    ) : (chatMessage?.aiError?.status && chatMessage?.sql === null) ? (
       <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
         <div
           style={{

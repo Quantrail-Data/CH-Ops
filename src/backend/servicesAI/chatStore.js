@@ -58,7 +58,8 @@ function ownedBy(appUser, chatId) {
 // identifiers, so measuring with .length would let an oversize snapshot through.
 function truncateToBytes(text, maxBytes) {
   const s = String(text ?? "");
-  if (Buffer.byteLength(s, "utf8") <= maxBytes) return { text: s, truncated: false };
+  if (Buffer.byteLength(s, "utf8") <= maxBytes)
+    return { text: s, truncated: false };
 
   const buf = Buffer.from(s, "utf8").subarray(0, maxBytes);
   // Walk back off a partial trailing sequence: a continuation byte is 10xxxxxx.
@@ -83,11 +84,18 @@ export async function listChats(appUser) {
 // Returns null for a chat owned by someone else, exactly as for one that does
 // not exist - the caller learns nothing about another user's data.
 export async function getChat(appUser, chatId) {
-  const row = activeDb.select().from(aiChat).where(ownedBy(appUser, chatId)).get();
+  const row = activeDb
+    .select()
+    .from(aiChat)
+    .where(ownedBy(appUser, chatId))
+    .get();
   return shapeChat(row);
 }
 
-export async function createChat(appUser, { title, clusterId, node, selectedTables } = {}) {
+export async function createChat(
+  appUser,
+  { title, clusterId, node, selectedTables } = {},
+) {
   const [row] = activeDb
     .insert(aiChat)
     .values({
@@ -110,7 +118,8 @@ export async function updateChat(appUser, chatId, patch = {}) {
   if ("title" in patch) set.title = patch.title ?? null;
   if ("clusterId" in patch) set.clusterId = patch.clusterId ?? null;
   if ("node" in patch) set.node = patch.node ?? null;
-  if ("selectedTables" in patch) set.selectedTables = encodeTables(patch.selectedTables);
+  if ("selectedTables" in patch)
+    set.selectedTables = encodeTables(patch.selectedTables);
 
   activeDb.update(aiChat).set(set).where(ownedBy(appUser, chatId)).run();
   return getChat(appUser, chatId);
@@ -190,7 +199,6 @@ export async function listMessages(appUser, chatId) {
     .all();
 }
 
-
 export async function updateChatMessage(
   appUser,
   chatId,
@@ -200,12 +208,7 @@ export async function updateChatMessage(
   const chat = activeDb
     .select()
     .from(aiChat)
-    .where(
-      and(
-        eq(aiChat.id, Number(chatId)),
-        eq(aiChat.appUser, appUser),
-      ),
-    )
+    .where(and(eq(aiChat.id, Number(chatId)), eq(aiChat.appUser, appUser)))
     .get();
 
   if (!chat) return null;
@@ -226,8 +229,8 @@ export async function updateChatMessage(
   activeDb
     .update(aiChatMessage)
     .set({
-      instruction: message.instruction ?? existingMessage.instruction,
-      sql: message.sql ?? null,
+      instruction: message.instruction ? message.insertError : existingMessage.instruction,
+      sql: message.sql ? message.sql : existingMessage?.sql,
       responseText: message.responseText ?? null,
       ddlSnapshot: message.ddlSnapshot ?? null,
       ddlTruncated: message.ddlTruncated ?? false,
@@ -235,12 +238,9 @@ export async function updateChatMessage(
       provider: message.provider ?? null,
       model: message.model ?? null,
       errorCode: message.errorCode ?? null,
-    })
+    }) 
     .where(
-      and(
-        eq(aiChatMessage.id, messageId),
-        eq(aiChatMessage.chatId, chat.id),
-      ),
+      and(eq(aiChatMessage.id, messageId), eq(aiChatMessage.chatId, chat.id)),
     )
     .run();
 
@@ -248,10 +248,119 @@ export async function updateChatMessage(
     .select()
     .from(aiChatMessage)
     .where(
-      and(
-        eq(aiChatMessage.id, messageId),
-        eq(aiChatMessage.chatId, chat.id),
-      ),
+      and(eq(aiChatMessage.id, messageId), eq(aiChatMessage.chatId, chat.id)),
     )
     .get();
+}
+
+export async function insertError(
+  appUser,
+  chatId,
+  messageId,
+  error,
+  instruction = null,
+  ddlTruncated = false,
+  sql = null,
+  responseText = null,
+  tokensEstimated = null,
+  ddlSnapshot = null,
+  provider = null,
+  model = null,
+  ddlFailures = null,
+) {
+  const errorCode = JSON.stringify({
+    errorCode: error?.code,
+    message: error?.message,
+  });
+
+  const messageData = {
+    instruction,
+    sql,
+    responseText,
+    ddlSnapshot,
+    ddlTruncated,
+    tokensEstimated,
+    provider,
+    model,
+    errorCode,
+  };
+
+  if (chatId && messageId) {
+    const chat = activeDb
+      .select()
+      .from(aiChat)
+      .where(
+        and(
+          eq(aiChat.id, Number(chatId)),
+          eq(aiChat.appUser, appUser),
+        ),
+      )
+      .get();
+
+    if (!chat) return null;
+
+    const existingMessage = activeDb
+      .select()
+      .from(aiChatMessage)
+      .where(
+        and(
+          eq(aiChatMessage.id, Number(messageId)),
+          eq(aiChatMessage.chatId, chat.id),
+        ),
+      )
+      .get();
+
+    if (!existingMessage) return null;
+
+    activeDb
+      .update(aiChatMessage)
+      .set(messageData)
+      .where(
+        and(
+          eq(aiChatMessage.id, Number(messageId)),
+          eq(aiChatMessage.chatId, chat.id),
+        ),
+      )
+      .run();
+
+    activeDb
+      .update(aiChat)
+      .set({ updatedAt: nowIso() })
+      .where(ownedBy(appUser, chatId))
+      .run();
+
+    const updatedRow = activeDb
+      .select()
+      .from(aiChatMessage)
+      .where(
+        and(
+          eq(aiChatMessage.id, Number(messageId)),
+          eq(aiChatMessage.chatId, chat.id),
+        ),
+      )
+      .get();
+    return updatedRow;
+  }
+
+
+  const chat = await getChat(appUser, chatId);
+
+  if (!chat) return null;
+
+  const [row] = activeDb
+    .insert(aiChatMessage)
+    .values({
+      chatId: chat.id,
+      ...messageData,
+    })
+    .returning()
+    .all();
+
+  activeDb
+    .update(aiChat)
+    .set({ updatedAt: nowIso() })
+    .where(ownedBy(appUser, chatId))
+    .run();
+
+  return row;
 }

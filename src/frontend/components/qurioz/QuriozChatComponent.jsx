@@ -21,6 +21,74 @@ import { createPortal } from "react-dom";
 
 const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
+const createHisMsgArr = async (messages = [], RunSqlQueryhandler) => {
+  const timestamp = Date.now();
+
+  const result = await Promise.all(
+    messages.map(async (chat, index) => {
+      let tablesData = [];
+      let error;
+      let aiError;
+      if (chat?.errorCode) {
+        let err = JSON.parse(chat?.errorCode);
+        error = { status: true, message: err.message };
+        aiError = { status: true, message: err.message };
+      } else {
+        error = { status: false, message: null };
+        aiError = { status: false, message: null };
+      }
+
+      if (chat?.sql) {
+        try {
+          const SQL = chat.sql.toLowerCase().includes("limit")
+            ? chat.sql
+            : `${chat.sql} limit 10`;
+
+          const QueryResult = await RunSqlQueryhandler(SQL);
+
+          if (QueryResult.success) {
+            tablesData = QueryResult?.rows || [];
+          }
+        } catch (err) {
+          tablesData = [];
+        }
+      }
+
+      return [
+        {
+          id: `${timestamp}-${index}-user`,
+          ai_id: chat?.id,
+          chatId: chat?.chatId,
+          type: "user",
+          userQuestion: chat?.instruction,
+          showResponse: true,
+          messageId: chat?.id,
+        },
+        {
+          id: `${timestamp}-${index}-bot`,
+          ai_id: chat?.id,
+          messageId: chat?.id,
+          chatId: chat?.chatId,
+          type: "bot",
+          sql: chat?.sql ? chat.sql : chat?.responseText,
+          sqlFlag: !!chat?.sql,
+          tableData: tablesData,
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: error,
+          aiError: aiError,
+        },
+      ];
+    }),
+  );
+
+  return result.flat();
+};
+
 function responseBodyStructTableDatabase(genTables) {
   if (!genTables) return [];
 
@@ -41,7 +109,7 @@ function responseBodyStructTableDatabase(genTables) {
   return result ? result : [];
 }
 
-function HistoryShowBubbleComponent({ replaceChat }) {
+function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -210,53 +278,6 @@ function HistoryShowBubbleComponent({ replaceChat }) {
     }
   };
 
-  const createHisMsgArr = (messages = []) => {
-    if (!Array.isArray(messages)) {
-      return [];
-    }
-
-    const timestamp = Date.now();
-
-
-    return messages.flatMap((chat, index) => [
-      {
-        id: `${timestamp}-${index}-user`,
-        ai_id: chat?.id,
-        type: "user",
-        userQuestion: chat?.instruction || "",
-        showResponse: true,
-        messageId: chat?.id,
-      },
-
-      {
-        id: `${timestamp}-${index}-bot`,
-        ai_id: chat?.id,
-        messageId: chat?.id,
-        type: "bot",
-        sql: chat?.sql || chat?.responseText || "",
-        sqlFlag: Boolean(chat?.sql),
-        tableData: chat?.tableData || [],
-        chart: {
-          isOpen: chat?.chart?.isOpen || false,
-          chartOption: chat?.chart?.chartOption || {},
-          error: chat?.chart?.error || {
-            status: false,
-            message: "",
-          },
-          editorOption: chat?.chart?.editorOption || {},
-        },
-        error: chat?.error || {
-          status: false,
-          message: null,
-        },
-        aiError: chat?.aiError || {
-          status: false,
-          message: null,
-        },
-      },
-    ]);
-  };
-
   const handleOpenHistMsg = async (event, chatId) => {
     event?.stopPropagation();
 
@@ -273,7 +294,10 @@ function HistoryShowBubbleComponent({ replaceChat }) {
         method: "GET",
       });
 
-      const messageHistory = createHisMsgArr(response?.messages);
+      const messageHistory = await createHisMsgArr(
+        response?.messages,
+        RunSqlQueryhandler,
+      );
 
       replaceChat(messageHistory);
 
@@ -434,8 +458,8 @@ function HistoryShowBubbleComponent({ replaceChat }) {
               className="btn btn-ghost"
               onClick={handleNewChat}
             >
-              <Icon className="ti ti-plus" />
-              New Chat
+              <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
+              <span style={{ fontSize: "10px" }}>New Chat</span>
             </button>
           </div>
           <div className="chat-sesion-body">
@@ -501,7 +525,7 @@ function HistoryShowBubbleComponent({ replaceChat }) {
                         className="form-input"
                         style={{
                           width: "100%",
-                          height: "24px",
+                          height: "30px",
                           minHeight: 0,
                           padding: "2px 6px",
                           boxSizing: "border-box",
@@ -649,8 +673,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
   const editorConnected = !!editorCreds;
 
-  console.log(quriozMessage);
-
   const isNewChat = () => quriozMessage?.length === 0;
 
   const insertMessage = (message) => {
@@ -667,48 +689,15 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     if (Array.isArray(message)) {
       setQuriozMessage(message);
     } else {
-      const messages = quriozMessage.map((msg) =>
-        msg?.id === message?.id ? message : msg,
+      setQuriozMessage((prev) =>
+        prev.map((msg) => (msg?.id === message?.id ? message : msg)),
       );
-      setQuriozMessage(messages);
     }
   };
 
   function isDark() {
     return theme === "dark";
   }
-
-  const createHisMsgArr = (messages = []) => {
-    const timestamp = Date.now();
-
-    return messages.flatMap((chat, index) => [
-      {
-        id: `${timestamp}-${index}-user`,
-        ai_id: chat?.id,
-        type: "user",
-        userQuestion: chat?.instruction,
-        showResponse: true,
-        messageId:chat?.id
-      },
-      {
-        id: `${timestamp}-${index}-bot`,
-        ai_id: chat?.id,
-        messageId:chat?.id,
-        type: "bot",
-        sql: chat?.sql ? chat?.sql : chat?.responseText,
-        sqlFlag: chat?.sql ? true : false,
-        tableData: [],
-        chart: {
-          isOpen: false,
-          chartOption: {},
-          error: { status: false, message: "" },
-          editorOption: {},
-        },
-        error: { status: false, message: null },
-        aiError: { status: false, message: null },
-      },
-    ]);
-  };
 
   useEffect(() => {
     const loadMessage = async () => {
@@ -717,12 +706,13 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           const response = await apiFetch(`/api/ai/chats/${session_id}`, {
             method: "GET",
           });
-          const messageHis = createHisMsgArr(response?.messages);
+          const messageHis = await createHisMsgArr(
+            response?.messages,
+            RunSqlQueryhandler,
+          );
           setQuriozMessage(messageHis);
         }
-      } catch (error) {
-        console.log(error.message);
-      }
+      } catch (error) {}
     };
     loadMessage();
   }, [session_id]);
@@ -851,8 +841,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
   async function handleDisconnect() {
     try {
-      // await editorDisconnect();
-      console.log("dis");
+      await apiFetch("/api/ai/connect", { method: "DELETE" });
     } catch {}
     setEditorCreds(null);
     setConnUser("");
@@ -876,10 +865,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   };
 
   const RunSqlQueryhandler = async (sql) => {
-    if (!editorCreds) {
-      toast.error("Authentication service is not connected. Please try again.");
-      return;
-    }
     try {
       if (sql) {
         const connectionOption = {
@@ -897,289 +882,135 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   };
 
-  const userSubmitMessagehandler = async (userQuestion) => {
+  const requestBodyChat = (
+    session_id,
+    userQuestion,
+    result,
+    selectedClusterId,
+    nodeName,
+    isApiConfigured,
+    messageId = null,
+  ) => {
+    return isNewChat()
+      ? {
+          method: "POST",
+          body: JSON.stringify({
+            chatId: session_id ?? null,
+            instruction: userQuestion,
+            tables: result,
+            clusterId: selectedClusterId,
+            node: nodeName,
+            previousInstruction: null,
+            previousSql: null,
+            forceRefreshDdl: false,
+            messageId: messageId,
+            isApiConfigured: isApiConfigured,
+          }),
+        }
+      : {
+          method: "POST",
+          body: JSON.stringify({
+            chatId: session_id ?? null,
+            instruction: userQuestion,
+            tables: result,
+            clusterId: selectedClusterId,
+            node: nodeName,
+            previousInstruction: null,
+            previousSql: null,
+            forceRefreshDdl: false,
+            messageId: messageId,
+            isApiConfigured: isApiConfigured,
+          }),
+        };
+  };
+
+  const currentSubmitMessageHandler = async (userQuestion) => {
+    // split the database value and selected tables data
     const result = responseBodyStructTableDatabase(genTables);
 
+    //  checking the database or node connected to the application by using auth of database
     if (!editorCreds) {
       toast.error("Authentication service is not connected. Please try again.");
       return;
     }
 
-    
-    if (apikey?.id) {
-      setIsLoading(true);
-      try {
-        if (userQuestion?.length > 0) {
-          if (result?.length > 0) {
-            if (isNewChat()) {
-              const userQuestionMessage = {
-                id: Date.now(),
-                type: "user",
-                userQuestion: userQuestion,
-              };
-              insertMessage(userQuestionMessage);
-              ScrollBottomAuto();
+    if (userQuestion?.length === 0) return; // return empty the user container is empty
 
-              const responseAIQuery = await await apiFetch("/api/ai/generate", {
-                method: "POST",
-                body: JSON.stringify({
-                  chatId: session_id ?? null,
-                  instruction: userQuestion,
-                  tables: result,
-                  clusterId: selectedClusterId,
-                  node: nodeName,
-                  previousInstruction: null,
-                  previousSql: null,
-                  forceRefreshDdl: false,
-                }),
-              });
+    // checking the apikey config not selected or inserted
+    let isApiConfigured = apikey?.id ? true : false;
 
-              console.log(responseAIQuery);
+    // checking the user select the tables and database for ddl and estimated scores
+    if (result?.length === 0) {
+      toast.warning("Select Database and generate the ID!");
+      return;
+    }
 
-              let botresponse = null;
+    setIsLoading(true);
 
-              if (responseAIQuery) {
-                const responseSQL = isMessageFinders(responseAIQuery?.sql);
+    try {
+      // user using the new session or new chat and containue chat qurioz
 
-                if (responseSQL) {
-                  // insertMessage();
-                  botresponse = {
-                    id: Date.now(),
-                    type: "bot",
-                    isLoading: false,
-                    sql: responseAIQuery?.sql,
-                    showResponse: true,
-                    tableData: [],
-                    chart: {
-                      isOpen: false,
-                      chartOption: {},
-                      error: { status: false, message: "" },
-                      editorOption: {},
-                    },
-                    error: { status: false, message: null },
-                    aiError: { status: false, message: null },
-                  };
-                } else {
-                  const SQL = responseAIQuery?.sql
-                    ?.toLowerCase()
-                    .includes("limit")
-                    ? responseAIQuery?.sql
-                    : `${responseAIQuery?.sql} limit 10`;
+      const userQuestionMessage = {
+        id: Date.now(),
+        type: "user",
+        userQuestion: userQuestion,
+      };
+      insertMessage(userQuestionMessage);
+      ScrollBottomAuto();
 
-                  const QueryResult = await RunSqlQueryhandler(SQL);
+      // generate the object or json for request body based the new chat or old chat
+      const requestBody = requestBodyChat(
+        session_id,
+        userQuestion,
+        result,
+        selectedClusterId,
+        nodeName,
+        isApiConfigured,
+      );
 
-                  if (QueryResult?.success) {
-                    // insertMessage();
-                    botresponse = {
-                      id: Date.now(),
-                      type: "bot",
-                      isLoading: false,
-                      sql: SQL,
-                      showResponse: true,
-                      tableData: QueryResult?.rows || [],
-                      chart: {
-                        isOpen: false,
-                        chartOption: {},
-                        error: { status: false, message: "" },
-                        editorOption: {},
-                      },
-                      error: { status: false, message: null },
-                      aiError: { status: false, message: null },
-                    };
-                  } else {
-                    // insertMessage();
-                    botresponse = {
-                      id: Date.now(),
-                      type: "bot",
-                      isLoading: false,
-                      sql: SQL,
-                      showResponse: true,
-                      tableData: QueryResult?.rows || [],
-                      chart: {
-                        isOpen: false,
-                        chartOption: {},
-                        error: { status: false, message: "" },
-                        editorOption: {},
-                      },
-                      error: { status: true, message: QueryResult?.message },
-                      aiError: { status: false, message: null },
-                    };
-                  }
-                }
-              } else {
-                botresponse = {
-                  id: Date.now(),
-                  type: "bot",
-                  isLoading: false,
-                  sql: "",
-                  showResponse: true,
-                  tableData: [],
-                  chart: {
-                    isOpen: false,
-                    chartOption: {},
-                    error: { status: false, message: "" },
-                    editorOption: {},
-                  },
-                  error: { status: false, message: null },
-                  aiError: {
-                    status: true,
-                    message:
-                      responseAIQuery?.message ||
-                      "Error occurs on generating the query!",
-                  },
-                };
-              }
+      const responseAIQuery = await await apiFetch(
+        "/api/ai/generate",
+        requestBody,
+      );
 
-              if (responseAIQuery?.chatId) {
-                navigate(`/qurioz/${responseAIQuery?.chatId}`);
-              }
+      if (responseAIQuery?.chatId && isNewChat()) {
+        setIsLoading(false);
+        navigate(`/qurioz/${responseAIQuery?.chatId}`);
+        return;
+      }
 
-              insertMessage(
-                botresponse ?? {
-                  id: Date.now(),
-                  type: "bot",
-                  isLoading: false,
-                  sql: "-- Error occurs on generating the query!",
-                  showResponse: true,
-                  tableData: [],
-                  chart: {
-                    isOpen: false,
-                    chartOption: {},
-                    error: { status: false, message: "" },
-                    editorOption: {},
-                  },
-                  error: { status: false, message: null },
-                  aiError: { status: false, message: null },
-                },
-              );
+      // check the normal chat like greeting or anyother like hello hi etc........
+      const responseSQL = isMessageFinders(responseAIQuery?.sql);
 
-              setIsLoading(false);
-            } else {
-              const userQuestionMessage = {
-                id: Date.now(),
-                type: "user",
-                userQuestion: userQuestion,
-              };
-              insertMessage(userQuestionMessage);
-              ScrollBottomAuto();
+      if (responseAIQuery?.errorCode) {
+        const error = JSON.parse(responseAIQuery?.errorCode);
 
-              const responseAIQuery = await await apiFetch("/api/ai/generate", {
-                method: "POST",
-                body: JSON.stringify({
-                  chatId: session_id ?? null,
-                  instruction: userQuestion,
-                  tables: result,
-                  clusterId: selectedClusterId,
-                  node: nodeName,
-                  previousInstruction: null,
-                  previousSql: null,
-                  forceRefreshDdl: false,
-                }),
-              });
-
-
-              if (responseAIQuery) {
-                const responseSQL = isMessageFinders(responseAIQuery?.sql);
-                if (responseSQL) {
-                  insertMessage({
-                    id: Date.now(),
-                    type: "bot",
-                    isLoading: false,
-                    sql: responseAIQuery?.sql,
-                    showResponse: true,
-                    tableData: [],
-                    chart: {
-                      isOpen: false,
-                      chartOption: {},
-                      error: { status: false, message: "" },
-                      editorOption: {},
-                    },
-                    error: { status: false, message: null },
-                    aiError: { status: false, message: null },
-                  });
-                  setIsLoading(false);
-                } else {
-                  const SQL = responseAIQuery?.sql
-                    ?.toLowerCase()
-                    .includes("limit")
-                    ? responseAIQuery?.sql
-                    : `${responseAIQuery?.sql} limit 10`;
-
-                  const QueryResult = await RunSqlQueryhandler(SQL);
-
-                  if (QueryResult?.success) {
-                    insertMessage({
-                      id: Date.now(),
-                      type: "bot",
-                      isLoading: false,
-                      sql: SQL,
-                      showResponse: true,
-                      tableData: QueryResult?.rows || [],
-                      chart: {
-                        isOpen: false,
-                        chartOption: {},
-                        error: { status: false, message: "" },
-                        editorOption: {},
-                      },
-                      error: { status: false, message: null },
-                      aiError: { status: false, message: null },
-                    });
-                    setIsLoading(false);
-                  } else {
-                    insertMessage({
-                      id: Date.now(),
-                      type: "bot",
-                      isLoading: false,
-                      sql: SQL,
-                      showResponse: true,
-                      tableData: [],
-                      chart: {
-                        isOpen: false,
-                        chartOption: {},
-                        error: { status: false, message: "" },
-                        editorOption: {},
-                      },
-                      error: { status: false, message: null },
-                      aiError: { status: false, message: null },
-                    });
-                    setIsLoading(false);
-                  }
-                }
-              } else {
-                insertMessage({
-                  id: Date.now(),
-                  type: "bot",
-                  isLoading: false,
-                  sql: "",
-                  showResponse: true,
-                  tableData: [],
-                  chart: {
-                    isOpen: false,
-                    chartOption: {},
-                    error: { status: false, message: "" },
-                    editorOption: {},
-                  },
-                  error: { status: false, message: null },
-                  aiError: {
-                    status: true,
-                    message:
-                      responseAIQuery?.message ||
-                      "Failed to fetch the generating the response",
-                  },
-                });
-                setIsLoading(false);
-              }
-            }
-          } else {
-            toast?.warning(`Select Database and generate the ID!`);
-          }
-        }
-      } catch (err) {
         insertMessage({
           id: Date.now(),
           type: "bot",
           isLoading: false,
-          sql: "",
+          sql: null,
+          showResponse: true,
+          tableData: [],
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: { status: true, message: error?.message },
+          aiError: { status: true, message: error?.message },
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (responseSQL || responseAIQuery?.sql === null) {
+        insertMessage({
+          id: Date.now(),
+          type: "bot",
+          isLoading: false,
+          sql: responseAIQuery?.response_text,
           showResponse: true,
           tableData: [],
           chart: {
@@ -1189,87 +1020,39 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             editorOption: {},
           },
           error: { status: false, message: null },
-          aiError: {
-            status: true,
-            message:
-              err?.message === "Failed to fetch"
-                ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
-                : err?.message ||
-                  "Request failed to load. Please check your internet connection and try again.",
-          },
+          aiError: { status: false, message: null },
         });
-      } finally {
         setIsLoading(false);
-        setTimeout(() => {
-          ScrollBottomAuto();
-        }, 500);
+        return;
       }
-    } else {
-      const userQuestionMessage = {
-        id: Date.now(),
-        type: "user",
-        userQuestion: userQuestion,
-      };
-      insertMessage(userQuestionMessage);
 
-      insertMessage({
-        id: Date.now(),
-        type: "bot",
-        isLoading: false,
-        aiError: {
-          status: true,
-          message:
-            "AI model and token configuration is missing or invalid. Please configure a valid model and token limit to continue.",
-        },
-      });
-      ScrollBottomAuto();
-    }
-  };
+      const SQL = responseAIQuery?.sql?.toLowerCase().includes("limit")
+        ? responseAIQuery?.sql
+        : `${responseAIQuery?.sql} limit 10`;
 
-  const ReFormQuestionSQLGenerating = async (updatedQuestion, UserIndex) => {
-    if (!editorCreds) {
-      toast.error("Authentication service is not connected. Please try again.");
-      return;
-    }
-
-    const databaseIDS =
-      updateSelection
-        ?.filter((_v) => _v?.isAllowForRequest)
-        ?.map((_v) => _v?.id) || [];
-
-    let BotMessagesResponseBelowUser = (quriozMessage || []).filter(
-      (value, indx) => indx === UserIndex + 1,
-    );
-
-    try {
-      let UpdatedMessage = null;
-
-      replaceChat({ ...BotMessagesResponseBelowUser[0], isLoading: true });
-
-      const responseAIQuery = await await apiFetch(`/api/ai/sql/generate-sql`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON?.stringify({
-          database_ids: databaseIDS,
-          user_question: updatedQuestion?.trim(),
-        }),
-      });
-
-      if (responseAIQuery?.success) {
-        // const responseSQL = responseAIQuery?.generated_sql?.includes(
-        //   "--Unable to generate SQL",
-        // );
-
-        const responseSQL = isMessageFinders(responseAIQuery?.generated_sql);
-
-        if (responseSQL) {
-          UpdatedMessage = {
-            id: BotMessagesResponseBelowUser[0]?.id,
+      const QueryResult = await RunSqlQueryhandler(SQL);
+      QueryResult?.success
+        ? insertMessage({
+            id: Date.now(),
             type: "bot",
             isLoading: false,
-            sql: responseAIQuery?.generated_sql,
+            sql: SQL,
+            showResponse: true,
+            tableData: QueryResult?.rows || [],
+            chart: {
+              isOpen: false,
+              chartOption: {},
+              error: { status: false, message: "" },
+              editorOption: {},
+            },
+            error: { status: false, message: null },
+            aiError: { status: false, message: null },
+          })
+        : insertMessage({
+            id: Date.now(),
+            type: "bot",
+            isLoading: false,
+            sql: SQL,
             showResponse: true,
             tableData: [],
             chart: {
@@ -1280,50 +1063,120 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             },
             error: { status: false, message: null },
             aiError: { status: false, message: null },
-          };
+          });
+      setIsLoading(false);
+    } catch (servererror) {
+      insertMessage({
+        id: Date.now(),
+        type: "bot",
+        isLoading: false,
+        sql: "",
+        showResponse: true,
+        tableData: [],
+        chart: {
+          isOpen: false,
+          chartOption: {},
+          error: { status: false, message: "" },
+          editorOption: {},
+        },
+        error: { status: false, message: null },
+        aiError: {
+          status: true,
+          message:
+            servererror?.message === "Failed to fetch"
+              ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
+              : servererror?.message ||
+                "Request failed to load. Please check your internet connection and try again.",
+        },
+      });
+      setIsLoading(false);
+    } finally {
+      isLoading && setIsLoading(false);
+      setTimeout(() => {
+        ScrollBottomAuto();
+      }, 500);
+    }
+  };
+
+  const ReFormQuestionSQLGenerating = async (
+    updatedQuestion,
+    UserIndex,
+    messageId,
+  ) => {
+    if (!editorCreds) {
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
+
+    const result = responseBodyStructTableDatabase(genTables);
+
+    let BotMessagesResponseBelowUser = (quriozMessage || []).filter(
+      (value, indx) => indx === UserIndex + 1,
+    );
+
+    if (!BotMessagesResponseBelowUser) return;
+
+    // checking the apikey config not selected or inserted
+    let isApiConfigured = apikey?.id ? true : false;
+
+    try {
+      replaceChat({ ...BotMessagesResponseBelowUser[0], isLoading: true });
+
+      const requestBody = requestBodyChat(
+        session_id,
+        updatedQuestion,
+        result,
+        selectedClusterId,
+        nodeName,
+        isApiConfigured,
+        messageId,
+      );
+
+      const responseAIQuery = await await apiFetch(
+        "/api/ai/generate",
+        requestBody,
+      );
+
+      if (responseAIQuery?.chatId && responseAIQuery?.messageId) {
+        if (!responseAIQuery?.sql) {
+          replaceChat({
+            ...BotMessagesResponseBelowUser[0],
+            sql: responseAIQuery?.responseText,
+            isLoading: false,
+          });
+          return;
+        }
+
+        const responseSQL = isMessageFinders(responseAIQuery?.sql);
+        if (responseSQL) {
+          replaceChat({
+            ...BotMessagesResponseBelowUser[0],
+            isLoading: false,
+            sql: responseAIQuery?.sql
+              ? responseAIQuery?.sql
+              : responseAIQuery?.responseText,
+          });
         } else {
-          const originalSql = responseAIQuery?.generated_sql || "";
+          const originalSql = responseAIQuery?.sql || "";
           const hasLimit = /\blimit\b/i.test(originalSql);
           const SQL = hasLimit ? originalSql : `${originalSql} LIMIT 10`;
           const QueryResult = await RunSqlQueryhandler(SQL);
 
           if (QueryResult?.success) {
-            UpdatedMessage = {
-              id: BotMessagesResponseBelowUser[0]?.id,
-              type: "bot",
+            replaceChat({
+              ...BotMessagesResponseBelowUser[0],
               isLoading: false,
               sql: SQL,
               showResponse: true,
               tableData: QueryResult?.rows || [],
-              chart: {
-                isOpen: false,
-                chartOption: {},
-                error: { status: false, message: "" },
-                editorOption: {},
-              },
-              error: { status: false, message: null },
-              aiError: { status: false, message: null },
-            };
+            });
           } else {
-            UpdatedMessage = {
-              id: BotMessagesResponseBelowUser[0]?.id,
-              type: "bot",
+            replaceChat({
+              ...BotMessagesResponseBelowUser[0],
               isLoading: false,
               sql: SQL,
-              showResponse: true,
-              tableData: [],
-              chart: {
-                isOpen: false,
-                chartOption: {},
-                error: { status: false, message: "" },
-                editorOption: {},
-              },
-              error: { status: true, message: QueryResult?.message },
-              aiError: { status: false, message: null },
-            };
+            });
           }
-
-          replaceChat(UpdatedMessage);
         }
       }
     } catch (err) {
@@ -1457,7 +1310,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           flag: true,
           message: err?.message,
         });
-        console.log(err?.message);
       } finally {
         setDBLoading({ flag: false, message: null });
         isUpdateSelectAll && setIsUpdateSelectAll(false);
@@ -1475,8 +1327,21 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         ?.filter((_v) => _v?.isSelected)
         ?.map((_v) => _v?.name);
 
+      const findDB =
+        Object.keys(genTables)?.length > 0
+          ? req?.filter((v) => {
+              const find = Object.keys(genTables)?.find((b) => b === v);
+              console.log(find)
+              return find === undefined;
+            })
+          : req;
+        
+      console.log(findDB)
+      
+      if (findDB?.length === 0) return;
+
       const responseInsert = await apiFetch(
-        `/api/ai/tables?databases=${req?.join(",")}`,
+        `/api/ai/tables?databases=${findDB?.join(",")}`,
         {
           method: "GET",
         },
@@ -1484,7 +1349,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
       if (responseInsert?.tables) {
         const { tables } = responseInsert;
-        // console.log(tables)
+
         const splitDatabaseTables = { ...genTables };
         tables.forEach((_v) => {
           const isFind = Object.keys(splitDatabaseTables).find(
@@ -1682,6 +1547,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           <HistoryShowBubbleComponent
             chatSession={chatSession}
             replaceChat={replaceChat}
+            RunSqlQueryhandler={RunSqlQueryhandler}
           />
         </div>
 
@@ -1888,7 +1754,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
       {isNewChat() ? (
         <IntroChatComponent
-          inputSubmitHandler={userSubmitMessagehandler}
+          inputSubmitHandler={currentSubmitMessageHandler}
           isSendDisabled={isAllowForRequestHandler() || !isLoading}
         />
       ) : (
@@ -1920,7 +1786,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             >
               <ChatInputComponent
                 stage={"non-inital"}
-                onSubmit={userSubmitMessagehandler}
+                onSubmit={currentSubmitMessageHandler}
                 isSendDisabled={isAllowForRequestHandler() || isLoading}
               />
             </div>

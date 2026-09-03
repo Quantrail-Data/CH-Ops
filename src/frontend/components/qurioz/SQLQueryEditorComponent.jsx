@@ -5,13 +5,15 @@
 import React, { useState } from "react";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import Icon from "../common/Icon.jsx";
+import { apiFetch } from "../../utils/api.js";
 
-
-const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler,replaceChat }) => {
+const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
   const [editingSql, setEditingSql] = useState({
     isEditing: false,
     sql: chat.sql,
     originalSql: chat.sql,
+    messageId: chat?.messageId,
+    chatId: chat?.chatId,
   });
   // const { replaceChat } = useQuriozChatContext();
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +35,8 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler,replaceChat }) => {
       isEditing: true,
       sql: chat.sql,
       originalSql: chat.sql,
+      messageId: chat?.messageId,
+      chatId: chat?.chatId,
     });
   };
 
@@ -41,6 +45,8 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler,replaceChat }) => {
       isEditing: false,
       sql: chat.sql,
       originalSql: chat.sql,
+      messageId: chat?.messageId,
+      chatId: chat?.chatId,
     });
   };
 
@@ -53,48 +59,80 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler,replaceChat }) => {
   };
 
   const handleUpdateSql = async () => {
-    setIsLoading(true);
-    const response = await RunSqlQueryhandler(editingSql?.sql);
-    let updatedResponse;
-    if (response?.success) {
-      updatedResponse = {
-        ...chat,
-        error: { status: false, message: null },
-        sql: editingSql?.sql,
-        tableData: response?.rows,
-      };
-    } else {
-      updatedResponse = {
-        ...chat,
-        error: { status: true, message: response?.message },
-        sql: editingSql?.sql,
-        tableData: [],
-      };
-    }
+    if (!editingSql) return;
 
-    replaceChat(updatedResponse);
-    setIsLoading(false);
-    setEditingSql({
-      isEditing: false,
-      sql: editingSql.sql,
-      originalSql: editingSql.sql,
-    });
+    try {
+      setIsLoading(true);
+      const response = await RunSqlQueryhandler(editingSql.sql);
+
+      const updatedResponse = {
+        ...chat,
+        sql: editingSql.sql,
+        ...(response?.success
+          ? {
+              error: { status: false, message: null },
+              tableData: response.rows || [],
+            }
+          : {
+              error: {
+                status: true,
+                message: response?.message || "Query execution failed",
+              },
+              tableData: [],
+            }),
+      };
+
+      const res = await apiFetch(
+        `/api/ai/chats/${editingSql?.chatId}/messages/${editingSql?.messageId}`,
+        {
+          method: "PATCH",
+          body: {
+            sql: editingSql.sql,
+            errorCode: response?.success
+              ? null
+              : JSON.stringify({
+                  code: 500,
+                  message: response?.message || "Query execution failed",
+                }),
+          },
+        },
+      );
+
+      replaceChat(updatedResponse);
+    } catch (error) {
+      console.error("Failed to update SQL:", error);
+    } finally {
+      setIsLoading(false);
+      setEditingSql({
+        isEditing: false,
+        sql: "",
+        originalSql: "",
+        messageId: null,
+        chatId: null,
+      });
+    }
   };
 
   const handleRun = async () => {
+    const response = await RunSqlQueryhandler(editingSql.sql);
 
-      // const response = await RunSqlQueryhandler(chat?.sql);
-      // console.log(response)
-      // if (response?.success) {
-      //   updatedResponse = {
-      //     ...chat,
-      //     error: { status: false, message: null },
-      //     sql: chat?.sql,
-      //     tableData: response?.rows,
-      //   };
-      //   replaceChat(updatedResponse);
-      // }
-    await handleUpdateSql()
+    const updatedResponse = {
+      ...chat,
+      sql: editingSql.sql,
+      ...(response?.success
+        ? {
+            error: { status: false, message: null },
+            tableData: response.rows || [],
+          }
+        : {
+            error: {
+              status: true,
+              message: response?.message || "Query execution failed",
+            },
+            tableData: [],
+          }),
+    };
+    replaceChat(updatedResponse);
   };
 
   // Ctrl+Enter is registered inside the editor at Prec.highest rather than as a
