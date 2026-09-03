@@ -13,6 +13,42 @@ function chatId(req, res) {
   return id;
 }
 
+router.patch("/chats/:chatId/messages/:messageId", async (req, res) => {
+  try {
+    const chatId = Number(req.params.chatId);
+    const messageId = Number(req.params.messageId);
+
+    if (!Number.isInteger(chatId) || chatId <= 0) {
+      return res.status(422).json({
+        error: "A numeric chat id is required.",
+      });
+    }
+
+    if (!Number.isInteger(messageId) || messageId <= 0) {
+      return res.status(422).json({
+        error: "A numeric message id is required.",
+      });
+    }
+
+    const message = await ChatStore.updateChatMessage(
+      req.user?.username,
+      chatId,
+      messageId,
+      req.body || {},
+    );
+
+    if (!message) {
+      return res.status(404).json({
+        error: "Chat message not found.",
+      });
+    }
+
+    return res.json({ message });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
 router.get("/chats", async (req, res) => {
   try {
     res.json({ chats: await ChatStore.listChats(req.user?.username) });

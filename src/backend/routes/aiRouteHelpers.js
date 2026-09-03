@@ -30,6 +30,7 @@ export function normaliseTables(tables) {
 // Checks both spellings that exist in this codebase's error objects:
 // AIServices throws { errorCode, statusCode }; hand-thrown Errors in this
 // project use e.status or e.statusCode, inconsistently, depending on the file.
+
 export function fail(res, e) {
   res.status(e?.statusCode || e?.status || 400).json({
     error: e?.message || "Request failed.",

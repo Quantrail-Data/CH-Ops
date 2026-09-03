@@ -5,15 +5,15 @@
 import React, { useState } from "react";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import Icon from "../common/Icon.jsx";
-import { useQuriozChatContext } from "../../App";
 
-const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler }) => {
+
+const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler,replaceChat }) => {
   const [editingSql, setEditingSql] = useState({
     isEditing: false,
     sql: chat.sql,
     originalSql: chat.sql,
   });
-  const { replaceChat } = useQuriozChatContext();
+  // const { replaceChat } = useQuriozChatContext();
   const [isLoading, setIsLoading] = useState(false);
   const [isCopy, setIsCopy] = useState(false);
   const [isRunning, setIsRunning] = useState(false);

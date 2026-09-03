@@ -11,7 +11,7 @@ import { AnimatePresence, motion } from "motion/react";
 import ChartVisualization from "./ChartVisualization";
 import { useToast } from "../layout/Toast";
 import { apiFetch } from "../../utils/api";
-import { useQuriozChatContext, useAuth } from "../../App";
+import {  useAuth } from "../../App";
 import AILoaderComponent from "./AILoaderComponent";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -22,6 +22,7 @@ function ChatRenderComponent({
   RunSqlQueryhandler,
   index,
   ReFormQuestionSQLGenerating,
+  replaceChat
 }) {
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
@@ -37,7 +38,7 @@ function ChatRenderComponent({
 
   const [retryLoading, setRetryLoading] = useState(false);
 
-  const { replaceChat } = useQuriozChatContext();
+  // const {  } = useQuriozChatContext();
 
   const toast = useToast();
   const textareaRef = useRef(null);
@@ -336,6 +337,7 @@ function ChatRenderComponent({
                 <SQLQueryEditorComponent
                   chat={chatMessage}
                   RunSqlQueryhandler={RunSqlQueryhandler}
+                  replaceChat={replaceChat}
                 />
               </motion.div>
 
@@ -499,52 +501,7 @@ function ChatRenderComponent({
                     >
                       <Icon className="ti ti-copy" />
                     </button>
-                    {/* <button
-                      className="icon-action-bot btn btn-ghost"
-                      title={!isTablePresent(chatMessage) ? "Empty data" : "Download Table Data"}
-                      onClick={() =>
-                        setShowDownloadingOption(!showDownloadOption)
-                      }
-                      disabled={!isTablePresent(chatMessage)}
-                    >
-                      {showDownloadOption ? (
-                        <Icon className="ti ti-x"></Icon>
-                      ) : (
-                        <Icon
-                          className="ti ti-download"
-                          style={{ fontSize: 20 }}
-                        />
-                      )}
-                    </button>
-
-                    <AnimatePresence>
-                      {showDownloadOption && (
-                        <motion.div
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          className="download-container"
-                        >
-                          {downloadingFilesDataOptionSetting?.map(
-                            (downloadOpt, indx) => (
-                              <div
-                                className="downloading-btn-table"
-                                key={indx}
-                                onClick={() =>
-                                  downloadDatatable(downloadOpt?.title)
-                                }
-                                title={`Download ${downloadOpt?.title}`}
-                              >
-                                <Icon
-                                  className={`ti ${downloadOpt?.icon}`}
-                                  style={{ color: "white", fontSize: "18px" }}
-                                ></Icon>
-                              </div>
-                            ),
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence> */}
+                    
 
                     <button
                       className="icon-action-bot btn btn-ghost"
@@ -580,6 +537,7 @@ function ChatRenderComponent({
                           ChartData={chatMessage?.tableData}
                           data={chatMessage?.tableData}
                           chatMessage={chatMessage}
+                          replaceChat={replaceChat}
                         />
                       </motion.div>
                     )}

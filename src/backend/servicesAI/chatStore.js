@@ -189,3 +189,69 @@ export async function listMessages(appUser, chatId) {
     .orderBy(aiChatMessage.id)
     .all();
 }
+
+
+export async function updateChatMessage(
+  appUser,
+  chatId,
+  messageId,
+  message = {},
+) {
+  const chat = activeDb
+    .select()
+    .from(aiChat)
+    .where(
+      and(
+        eq(aiChat.id, Number(chatId)),
+        eq(aiChat.appUser, appUser),
+      ),
+    )
+    .get();
+
+  if (!chat) return null;
+
+  const existingMessage = activeDb
+    .select()
+    .from(aiChatMessage)
+    .where(
+      and(
+        eq(aiChatMessage.id, Number(messageId)),
+        eq(aiChatMessage.chatId, chat.id),
+      ),
+    )
+    .get();
+
+  if (!existingMessage) return null;
+
+  activeDb
+    .update(aiChatMessage)
+    .set({
+      instruction: message.instruction ?? existingMessage.instruction,
+      sql: message.sql ?? null,
+      responseText: message.responseText ?? null,
+      ddlSnapshot: message.ddlSnapshot ?? null,
+      ddlTruncated: message.ddlTruncated ?? false,
+      tokensEstimated: message.tokensEstimated ?? null,
+      provider: message.provider ?? null,
+      model: message.model ?? null,
+      errorCode: message.errorCode ?? null,
+    })
+    .where(
+      and(
+        eq(aiChatMessage.id, messageId),
+        eq(aiChatMessage.chatId, chat.id),
+      ),
+    )
+    .run();
+
+  return activeDb
+    .select()
+    .from(aiChatMessage)
+    .where(
+      and(
+        eq(aiChatMessage.id, messageId),
+        eq(aiChatMessage.chatId, chat.id),
+      ),
+    )
+    .get();
+}

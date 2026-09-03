@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main application entry point managing global state, theme providers, and top-level routing layouts.
 
-import React, { useState, useEffect, createContext, useContext } from "react";
+import  { useState, useEffect, createContext, useContext } from "react";
 import {
   setGlobalConnection,
   getActiveApiKey,
@@ -76,12 +76,6 @@ export function useConnection() {
   return useContext(ConnectionContext) ?? NO_CONNECTION;
 }
 
-export const QuriozChatContext = createContext(NO_QURIOZ_CHAT);
-export function useQuriozChatContext() {
-  return useContext(QuriozChatContext) ?? NO_QURIOZ_CHAT;
-}
-
-const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY ?? "quriozchatstorage";
 export default function App() {
   // Auth
   const [auth, setAuth] = useState(() => {
@@ -96,55 +90,6 @@ export default function App() {
   // Always resolve stored chat to an array: a legacy or corrupted value that
   // parses to a non-array (object/null) otherwise makes .map/.filter throw
   // ("quriozMessage.map is not a function").
-  const readStoredChat = () => {
-    try {
-      const v = quriozMessage;
-      return Array.isArray(v) ? v : [];
-    } catch {
-      return [];
-    }
-  };
-  const [quriozMessage, setQuriozMessage] = useState([]);
-
-  function QURIOZLENGTH() {
-    return quriozMessage?.length;
-  }
-
-  const isNewChat = () => quriozMessage?.length === 0;
-
-  const insertMessage = (message) => {
-    if (message) {
-      const messages = [...readStoredChat(), message];
-      setQuriozMessage(messages);
-      // localStorage.setItem(ContextChatKey, JSON.stringify(messages));
-    }
-  };
-
-  const deleteAllChatMessage = () => {
-    setQuriozMessage([]);
-    // localStorage.setItem(ContextChatKey, JSON.stringify([]));
-  };
-
-  const replaceChat = (message) => {
-    if (Array.isArray(message)) {
-      setQuriozMessage(message);
-      // localStorage.setItem(ContextChatKey, JSON.stringify(messages));
-    } else {
-      const messages = readStoredChat().map((msg) =>
-        msg?.id === message?.id ? message : msg,
-      );
-      setQuriozMessage(messages);
-    }
-  };
-
-  // useEffect(() => {
-  //   const chat = localStorage.getItem(ContextChatKey);
-  //   if (!chat) {
-  //     localStorage.setItem(ContextChatKey, JSON.stringify([]));
-  //   } else {
-  //     setQuriozMessage([]);
-  //   }
-  // }, [auth]);
 
   async function loadActiveApiKey() {
     try {
@@ -371,38 +316,27 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
-      <QuriozChatContext.Provider
-        value={{
-          replaceChat,
-          quriozMessage,
-          insertMessage,
-          deleteAllChatMessage,
-          isNewChat,
-          QURIOZLENGTH,
-        }}
-      >
-        <ThemeContext.Provider value={{ theme: themeMode, toggleTheme }}>
-          <ConnectionContext.Provider
-            value={{
-              ...connection,
-              setConnection,
-              testConnection: testConn,
-              reloadConfig: () => loadConfig(),
-              switchCluster,
-            }}
-          >
-            {auth ? (
-              auth.mustChangePassword ? (
-                <ForceChangePassword />
-              ) : (
-                <MainLayout />
-              )
+      <ThemeContext.Provider value={{ theme: themeMode, toggleTheme }}>
+        <ConnectionContext.Provider
+          value={{
+            ...connection,
+            setConnection,
+            testConnection: testConn,
+            reloadConfig: () => loadConfig(),
+            switchCluster,
+          }}
+        >
+          {auth ? (
+            auth.mustChangePassword ? (
+              <ForceChangePassword />
             ) : (
-              <LoginPage />
-            )}
-          </ConnectionContext.Provider>
-        </ThemeContext.Provider>
-      </QuriozChatContext.Provider>
+              <MainLayout />
+            )
+          ) : (
+            <LoginPage />
+          )}
+        </ConnectionContext.Provider>
+      </ThemeContext.Provider>
     </AuthContext.Provider>
   );
 }

@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Main container managing state, message history, and UI layouts for the AI chat interface.
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import ChatInputComponent from "./ChatInputComponent";
@@ -10,7 +10,7 @@ import IntroChatComponent from "./IntroChatComponent.jsx";
 import AILoaderComponent from "./AILoaderComponent";
 import ChatRenderComponent from "./ChatRenderComponent";
 import { useParams } from "react-router-dom";
-import { useConnection, useQuriozChatContext, useTheme } from "../../App.jsx";
+import { useConnection, useTheme } from "../../App.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
@@ -19,8 +19,6 @@ import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 
-const chat_length = 1000;
-const CHAT_LIMIT = chat_length * 2;
 const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
 function responseBodyStructTableDatabase(genTables) {
@@ -43,7 +41,7 @@ function responseBodyStructTableDatabase(genTables) {
   return result ? result : [];
 }
 
-function HistoryShowBubbleComponent() {
+function HistoryShowBubbleComponent({ replaceChat }) {
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -57,8 +55,6 @@ function HistoryShowBubbleComponent() {
 
   const toast = useToast();
   const navigate = useNavigate();
-
-  const { replaceChat } = useQuriozChatContext();
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -202,13 +198,8 @@ function HistoryShowBubbleComponent() {
 
       toast.success("Chat deleted successfully");
 
-      const currentPath = window.location.pathname;
-      const currentChatId = currentPath.split("/").pop();
-
-      if (String(currentChatId) === String(chatId)) {
-        replaceChat([]);
-        navigate("/qurioz");
-      }
+      replaceChat([]);
+      navigate("/qurioz");
     } catch (error) {
       console.error("Chat delete failed:", error);
 
@@ -226,6 +217,7 @@ function HistoryShowBubbleComponent() {
 
     const timestamp = Date.now();
 
+
     return messages.flatMap((chat, index) => [
       {
         id: `${timestamp}-${index}-user`,
@@ -233,19 +225,17 @@ function HistoryShowBubbleComponent() {
         type: "user",
         userQuestion: chat?.instruction || "",
         showResponse: true,
+        messageId: chat?.id,
       },
 
       {
         id: `${timestamp}-${index}-bot`,
         ai_id: chat?.id,
+        messageId: chat?.id,
         type: "bot",
-
         sql: chat?.sql || chat?.responseText || "",
-
         sqlFlag: Boolean(chat?.sql),
-
         tableData: chat?.tableData || [],
-
         chart: {
           isOpen: chat?.chart?.isOpen || false,
           chartOption: chat?.chart?.chartOption || {},
@@ -255,12 +245,10 @@ function HistoryShowBubbleComponent() {
           },
           editorOption: chat?.chart?.editorOption || {},
         },
-
         error: chat?.error || {
           status: false,
           message: null,
         },
-
         aiError: chat?.aiError || {
           status: false,
           message: null,
@@ -286,7 +274,6 @@ function HistoryShowBubbleComponent() {
       });
 
       const messageHistory = createHisMsgArr(response?.messages);
-      console.log(response)
 
       replaceChat(messageHistory);
 
@@ -612,14 +599,6 @@ function HistoryShowBubbleComponent() {
 
 function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   const {
-    quriozMessage,
-    insertMessage,
-    deleteAllChatMessage,
-    isNewChat,
-    replaceChat,
-    QURIOZLENGTH,
-  } = useQuriozChatContext();
-  const {
     clusters,
     clusterName,
     selectedClusterId,
@@ -630,30 +609,24 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     selectedNode,
     nodeName,
   } = useConnection();
-
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { theme } = useTheme();
+  const { session_id } = useParams();
   const editorCredsRef = useRef(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState({ status: false, message: null });
-  const { session_id } = useParams();
   const [showConfrirmDelete, setShowConfrimDelete] = useState(false);
   const [dbs, setDbs] = useState([]);
-
   const [genTables, setGenTables] = useState({});
   const [estimateScore, setEstimateScore] = useState(null);
-
-  // const {id} = useParams()
-
   const [apikey, setApiKey] = useState({
     status: false,
     id: null,
     serviceName: null,
   });
   const [apikeys, setApikeys] = useState([]);
-
-  const [chatSession, setChatSession] = useState([]);
-
-  const { theme } = useTheme();
-
   const [showdbs, setShowdbs] = useState(false);
   const [showDBModel, setShowDBModel] = useState(false);
   const [newSelection, setNewSelection] = useState([]);
@@ -666,16 +639,40 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     message: null,
   });
   const [editorCreds, setEditorCreds] = useState(null);
-  const editorConnected = !!editorCreds;
   const [connUser, setConnUser] = useState("");
   const [connPassword, setConnPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [connError, setConnError] = useState(null);
-  // default cred password view flag
   const [isViewFlag, setIsViewFlag] = useState(false);
-  const toast = useToast();
+  const [chatSession, setChatSession] = useState([]);
+  const [quriozMessage, setQuriozMessage] = useState([]); // chat messages store state
 
-  const navigate = useNavigate();
+  const editorConnected = !!editorCreds;
+
+  console.log(quriozMessage);
+
+  const isNewChat = () => quriozMessage?.length === 0;
+
+  const insertMessage = (message) => {
+    if (Object.keys(message)?.length > 0) {
+      setQuriozMessage((prev) => [...prev, message]);
+    }
+  };
+
+  const deleteAllChatMessage = () => {
+    setQuriozMessage([]);
+  };
+
+  const replaceChat = (message) => {
+    if (Array.isArray(message)) {
+      setQuriozMessage(message);
+    } else {
+      const messages = quriozMessage.map((msg) =>
+        msg?.id === message?.id ? message : msg,
+      );
+      setQuriozMessage(messages);
+    }
+  };
 
   function isDark() {
     return theme === "dark";
@@ -691,10 +688,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         type: "user",
         userQuestion: chat?.instruction,
         showResponse: true,
+        messageId:chat?.id
       },
       {
         id: `${timestamp}-${index}-bot`,
         ai_id: chat?.id,
+        messageId:chat?.id,
         type: "bot",
         sql: chat?.sql ? chat?.sql : chat?.responseText,
         sqlFlag: chat?.sql ? true : false,
@@ -718,13 +717,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           const response = await apiFetch(`/api/ai/chats/${session_id}`, {
             method: "GET",
           });
-
           const messageHis = createHisMsgArr(response?.messages);
-          console.log(messageHis);
-          // messageHis.map((chat) => {
-          //   insertMessage(chat);
-          // });
-          replaceChat(messageHis);
+          setQuriozMessage(messageHis);
         }
       } catch (error) {
         console.log(error.message);
@@ -796,7 +790,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       editorCredsRef.current = editorCreds;
       try {
         const databases = await loadDbs();
-        console.log(databases);
         setNewSelection(
           databases?.map((_v) => ({
             name: _v,
@@ -883,8 +876,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   };
 
   const RunSqlQueryhandler = async (sql) => {
+    if (!editorCreds) {
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
     try {
-      if ( sql) {
+      if (sql) {
         const connectionOption = {
           node: selectedNode,
           user,
@@ -903,6 +900,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   const userSubmitMessagehandler = async (userQuestion) => {
     const result = responseBodyStructTableDatabase(genTables);
 
+    if (!editorCreds) {
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
+
+    
     if (apikey?.id) {
       setIsLoading(true);
       try {
@@ -933,14 +936,14 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
               console.log(responseAIQuery);
 
+              let botresponse = null;
+
               if (responseAIQuery) {
-                // const responseSQL = responseAIQuery?.generated_sql?.includes(
-                //   "--Unable to generate SQL",
-                // );
                 const responseSQL = isMessageFinders(responseAIQuery?.sql);
 
                 if (responseSQL) {
-                  insertMessage({
+                  // insertMessage();
+                  botresponse = {
                     id: Date.now(),
                     type: "bot",
                     isLoading: false,
@@ -955,8 +958,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                     },
                     error: { status: false, message: null },
                     aiError: { status: false, message: null },
-                  });
-                  setIsLoading(false);
+                  };
                 } else {
                   const SQL = responseAIQuery?.sql
                     ?.toLowerCase()
@@ -967,7 +969,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   const QueryResult = await RunSqlQueryhandler(SQL);
 
                   if (QueryResult?.success) {
-                    insertMessage({
+                    // insertMessage();
+                    botresponse = {
                       id: Date.now(),
                       type: "bot",
                       isLoading: false,
@@ -982,10 +985,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       },
                       error: { status: false, message: null },
                       aiError: { status: false, message: null },
-                    });
-                    setIsLoading(false);
+                    };
                   } else {
-                    insertMessage({
+                    // insertMessage();
+                    botresponse = {
                       id: Date.now(),
                       type: "bot",
                       isLoading: false,
@@ -1000,12 +1003,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       },
                       error: { status: true, message: QueryResult?.message },
                       aiError: { status: false, message: null },
-                    });
-                    setIsLoading(false);
+                    };
                   }
                 }
               } else {
-                insertMessage({
+                botresponse = {
                   id: Date.now(),
                   type: "bot",
                   isLoading: false,
@@ -1025,9 +1027,33 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       responseAIQuery?.message ||
                       "Error occurs on generating the query!",
                   },
-                });
-                setIsLoading(false);
+                };
               }
+
+              if (responseAIQuery?.chatId) {
+                navigate(`/qurioz/${responseAIQuery?.chatId}`);
+              }
+
+              insertMessage(
+                botresponse ?? {
+                  id: Date.now(),
+                  type: "bot",
+                  isLoading: false,
+                  sql: "-- Error occurs on generating the query!",
+                  showResponse: true,
+                  tableData: [],
+                  chart: {
+                    isOpen: false,
+                    chartOption: {},
+                    error: { status: false, message: "" },
+                    editorOption: {},
+                  },
+                  error: { status: false, message: null },
+                  aiError: { status: false, message: null },
+                },
+              );
+
+              setIsLoading(false);
             } else {
               const userQuestionMessage = {
                 id: Date.now(),
@@ -1050,15 +1076,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   forceRefreshDdl: false,
                 }),
               });
-              console.log(responseAIQuery);
+
 
               if (responseAIQuery) {
-                // const responseSQL = responseAIQuery?.generated_sql?.includes(
-                //   "--Unable to generate SQL",
-                // );
-
                 const responseSQL = isMessageFinders(responseAIQuery?.sql);
-
                 if (responseSQL) {
                   insertMessage({
                     id: Date.now(),
@@ -1206,6 +1227,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   };
 
   const ReFormQuestionSQLGenerating = async (updatedQuestion, UserIndex) => {
+    if (!editorCreds) {
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
+
     const databaseIDS =
       updateSelection
         ?.filter((_v) => _v?.isAllowForRequest)
@@ -1389,10 +1415,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       DDLTABLE_DATABASE_KEY,
       JSON.stringify({ selectdbDDL: data, estimate: estimate }),
     );
-  }
-
-  function GetterLSDDL() {
-    return JSON.parse(localStorage?.getItem(DDLTABLE_DATABASE_KEY));
   }
 
   async function databaseSchemaSetterHandler(type) {
@@ -1657,7 +1679,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <HistoryShowBubbleComponent chatSession={chatSession} />
+          <HistoryShowBubbleComponent
+            chatSession={chatSession}
+            replaceChat={replaceChat}
+          />
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
@@ -1784,7 +1809,11 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 </strong>
                 <span style={{ color: "var(--text-muted)" }}>
                   {" "}
-                  @ {selectedNode}:{port}
+                  @{" "}
+                  {selectedNode === "localhost"
+                    ? "lh"
+                    : selectedNode.slice(0, 10)}
+                  :{port}
                 </span>
               </span>
 
@@ -1874,6 +1903,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   RunSqlQueryhandler={RunSqlQueryhandler}
                   index={index}
                   ReFormQuestionSQLGenerating={ReFormQuestionSQLGenerating}
+                  replaceChat={replaceChat}
                 />
               );
             })}

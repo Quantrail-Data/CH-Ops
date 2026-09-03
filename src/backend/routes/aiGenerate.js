@@ -21,10 +21,12 @@ router.post(
         previousInstruction = null,
         previousSql = null,
         forceRefreshDdl = false,
-        title=""
+        title="",
+        messageId=null,
+
       } = req.body || {};
 
-      console.log(req.body)
+    
 
       if (!instruction || !String(instruction).trim()) {
         return res.status(422).json({ error: "An instruction is required." });
@@ -72,6 +74,8 @@ router.post(
       
       if (!isFindChatId) return  res.status(409).json({ error: "An chatID is invalid." });
 
+     
+
       const result = await generateSql({
         jti: req.user?.jti,
         context: resolveContext(req),
@@ -84,6 +88,7 @@ router.post(
         previousInstruction,
         previousSql,
         forceRefreshDdl: !!forceRefreshDdl,
+        messageId
       });
 
       return res.json(result);

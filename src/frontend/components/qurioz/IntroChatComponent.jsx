@@ -17,14 +17,7 @@ function IntroChatComponent({inputSubmitHandler,isSendDisabled}) {
 
   return (
     <div className="intro-container" id="intro-search-control">
-        {/* <motion.div
-          initial={{ opacity: 0.5, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7 }}
-        //   className="db-chat-title"
-        >
-            <img src={QuriozImage} style={{width:"150px"}} />
-        </motion.div> */}
+
       <div className="intro-image-continer">
         <motion.div
           initial={{ opacity: 0.5, scale: 0.9 }}
