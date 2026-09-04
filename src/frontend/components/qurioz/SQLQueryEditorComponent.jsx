@@ -100,7 +100,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
 
       replaceChat(updatedResponse);
     } catch (error) {
-      console.error("Failed to update SQL:", error);
+      console.error("Failed to update SQL:", error.message);
     } finally {
       setIsLoading(false);
       setEditingSql({
