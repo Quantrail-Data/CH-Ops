@@ -183,7 +183,7 @@ describe("Global search: wiring", () => {
     expect(gs).toContain("SEARCH_ENTRIES"); // the merged index, not raw catalog
     expect(gs).toContain("useTokenSearch: true");
     expect(gs).toContain("ignoreLocation: true");
-    expect(gs).toMatch(/threshold:\s*0\.4/);
+    expect(gs).toMatch(/threshold:\s*0\.3/);
   });
 
   it("renders a floating bubble and an overlay panel", () => {
