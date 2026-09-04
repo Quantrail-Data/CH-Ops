@@ -121,8 +121,7 @@ const CORE_ROUTES = [
   ["admin/trusted-cas", TrustedCas],
   ["admin/app-config", AppConfig],
   ["/qurioz", QuriozChatComponent],
-  
-  // ["/qurioz/:session_id?", QuriozChatComponent],
+  ["/qurioz/:session_id?", QuriozChatComponent],
 ];
 
 

@@ -4593,6 +4593,53 @@ select.sql-action-control {
 }
 
 
+/* chat qurioz */
+.chat-session-tab {
+  width:100%;
+  margin:5px auto;
+  /* border-bottom:1px solid var(--border-default); */
+  padding:5px;
+  padding-left:10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius:10px;
+  cursor: pointer;
+  color:var(--text-muted);
+}
+
+.chat-session-tab:hover {
+  background-color:rgba(171, 171, 171, 0.074);
+  color:var(--text-primary);
+}
+
+.chat-session-tab div:nth-child(1) span {
+  font-size:13px;
+  font-weight:600;
+  width:90%;
+  text-wrap: inherit;
+}
+.header-history {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom:20px;
+  background-color:var(--bg-page);
+  width:100%;
+}
+
+.header-history button:nth-child(2) {
+  font-size:12px;
+}
+
+.chat-sesion-body {
+  height:60vh;
+  overflow-y: auto;
+
+}
+
+
+
 /* App Config rows.
    A grid, so the input and buttons sit in the same place on every row however
    long the description is. The first column takes the remaining width, so the
