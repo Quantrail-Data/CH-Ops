@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from "motion/react";
 import AlertBanner from '../layout/AlertBanner.jsx';
 import { useAuth } from '../../App.jsx';
 import OnClusterBanner, { useRbacContext } from './OnClusterBanner.jsx';
+import { useToast } from '../layout/Toast.jsx';
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -284,6 +285,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
   const [dropSettings, setDropSettings] = useState('');
   const [open, setOpen] = useState(true);
   const clustersQ = useQuery();
+  const toast = useToast()
   useEffect(() => { clustersQ.execute("SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster"); }, []);
 
   const isAlter = action === 'alter';
@@ -332,8 +334,11 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
       setCustomSettings('');
       setRename('')
       onSuccess();
+      setOnCluster('')
+      toast.success(`Profile ${isAlter ? 'altered' : 'created'} succesfully.`)
     }
-    catch (err) { setResult({ ok: false, msg: err.message }); }
+    catch (err) { setResult({ ok: false, msg: err.message }); toast.error(`Failed to ${isAlter ? 'alter' : 'create'} profile.`)}
+    
     finally {
       setTimeout(() => {
         setResult(null)
