@@ -261,7 +261,7 @@ describe("Users Controller", () => {
         params: { id: "1" },
         user: { userId: 2, role: "admin" },
         body: {
-          resetPassword: true,
+          resetPassword: false,
           audit: {},
         },
       },
