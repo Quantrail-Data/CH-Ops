@@ -3,7 +3,11 @@
 // Main application entry point managing global state, theme providers, and top-level routing layouts.
 
 import React, { useState, useEffect, createContext, useContext } from "react";
-import { setGlobalConnection, getActiveApiKey, logoutRequest } from "./utils/api.js";
+import {
+  setGlobalConnection,
+  getActiveApiKey,
+  logoutRequest,
+} from "./utils/api.js";
 import useIdleTimeout from "./hooks/useIdleTimeout.js";
 import LoginPage from "./components/layout/LoginPage.jsx";
 import MainLayout from "./components/layout/MainLayout.jsx";
@@ -18,9 +22,6 @@ import { apiFetch } from "./utils/api.js";
 
 // The defaults below let such a component render in its logged-out, unconnected,
 // light-theme state instead.
-
-
-
 
 const NO_AUTH = Object.freeze({
   auth: null,
@@ -77,12 +78,6 @@ export function useConnection() {
   return useContext(ConnectionContext) ?? NO_CONNECTION;
 }
 
-export const QuriozChatContext = createContext(NO_QURIOZ_CHAT);
-export function useQuriozChatContext() {
-  return useContext(QuriozChatContext) ?? NO_QURIOZ_CHAT;
-}
-
-const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY ?? "quriozchatstorage";
 export default function App() {
   // Auth
   const [auth, setAuth] = useState(() => {
@@ -92,58 +87,6 @@ export default function App() {
       return null;
     }
   });
-
-  // chat storage context
-  // Always resolve stored chat to an array: a legacy or corrupted value that
-  // parses to a non-array (object/null) otherwise makes .map/.filter throw
-  // ("quriozMessage.map is not a function").
-  const readStoredChat = () => {
-    try {
-      const v = JSON.parse(localStorage.getItem(ContextChatKey) || "[]");
-      return Array.isArray(v) ? v : [];
-    } catch {
-      return [];
-    }
-  };
-  const [quriozMessage, setQuriozMessage] = useState(readStoredChat);
-
-  function QURIOZLENGTH() {
-    return quriozMessage?.length;
-  }
-
-  const isNewChat = () => quriozMessage?.length === 0;
-
-  const insertMessage = (message) => {
-    if (message) {
-      const messages = [...readStoredChat(), message];
-      setQuriozMessage(messages);
-      localStorage.setItem(ContextChatKey, JSON.stringify(messages));
-    }
-  };
-
-  const deleteAllChatMessage = () => {
-    setQuriozMessage([]);
-    localStorage.setItem(ContextChatKey, JSON.stringify([]));
-  };
-
-  const replaceChat = (message) => {
-    if (message) {
-      const messages = readStoredChat().map((msg) =>
-        msg?.id === message?.id ? message : msg,
-      );
-      setQuriozMessage(messages);
-      localStorage.setItem(ContextChatKey, JSON.stringify(messages));
-    }
-  };
-
-  useEffect(() => {
-    const chat = localStorage.getItem(ContextChatKey);
-    if (!chat) {
-      localStorage.setItem(ContextChatKey, JSON.stringify([]));
-    } else {
-      setQuriozMessage(readStoredChat());
-    }
-  }, [auth]);
 
   async function loadActiveApiKey() {
     try {
@@ -211,8 +154,6 @@ export default function App() {
     serverVersion: null,
   });
 
-
-
   // Keep global connection store in sync
   function setConnection(updater) {
     setConnectionState((prev) => {
@@ -224,7 +165,7 @@ export default function App() {
         user: next.user,
         port: next.port,
         clusterId: next.selectedClusterId,
-        connected:true
+        connected: true,
       });
       return next;
     });
@@ -255,7 +196,7 @@ export default function App() {
           // Keep current node selection if it still exists in the selected cluster
           const currentHost = prev.selectedNode;
           const stillExists = nodes.find((n) => n.host === currentHost);
-  
+
           return {
             ...prev,
             connected: nodes?.length > 0 ? true : false,
@@ -290,15 +231,8 @@ export default function App() {
           nodes[0] ||
           {};
 
-
         if (!connection.connected && first?.host) {
-          testConn(
-            first.host,
-            first.user,
-            first.port,
-            token,
-            cluster?.id,
-          );
+          testConn(first.host, first.user, first.port, token, cluster?.id);
         }
       })
       .catch((err) => {
@@ -353,7 +287,10 @@ export default function App() {
     apiFetch(`/api/config/capabilities/${encodeURIComponent(clusterId)}`)
       .then((r) => {
         if (cancelled) return;
-        setConnection((prev) => ({ ...prev, serverVersion: r.version ?? null }));
+        setConnection((prev) => ({
+          ...prev,
+          serverVersion: r.version ?? null,
+        }));
       })
       .catch(() => {
         if (!cancelled) {
@@ -403,34 +340,27 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
-      <QuriozChatContext.Provider
-        value={{
-          replaceChat,
-          quriozMessage,
-          insertMessage,
-          deleteAllChatMessage,
-          isNewChat,
-          QURIOZLENGTH,
-        }}
-      >
-        <ThemeContext.Provider value={{ theme: themeMode, toggleTheme }}>
-          <ConnectionContext.Provider
-            value={{
-              ...connection,
-              setConnection,
-              testConnection: testConn,
-              reloadConfig: () => loadConfig(),
-              switchCluster,
-            }}
-          >
-            {auth ? (
-              auth.mustChangePassword ? <ForceChangePassword /> : <MainLayout />
+      <ThemeContext.Provider value={{ theme: themeMode, toggleTheme }}>
+        <ConnectionContext.Provider
+          value={{
+            ...connection,
+            setConnection,
+            testConnection: testConn,
+            reloadConfig: () => loadConfig(),
+            switchCluster,
+          }}
+        >
+          {auth ? (
+            auth.mustChangePassword ? (
+              <ForceChangePassword />
             ) : (
-              <LoginPage />
-            )}
-          </ConnectionContext.Provider>
-        </ThemeContext.Provider>
-      </QuriozChatContext.Provider>
+              <MainLayout />
+            )
+          ) : (
+            <LoginPage />
+          )}
+        </ConnectionContext.Provider>
+      </ThemeContext.Provider>
     </AuthContext.Provider>
   );
 }
