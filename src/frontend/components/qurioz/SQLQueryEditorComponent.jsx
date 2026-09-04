@@ -114,6 +114,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
   };
 
   const handleRun = async () => {
+    setIsLoading(true);
     const response = await RunSqlQueryhandler(editingSql.sql);
 
     const updatedResponse = {
@@ -133,6 +134,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
           }),
     };
     replaceChat(updatedResponse);
+    setIsLoading(false);
   };
 
   // Ctrl+Enter is registered inside the editor at Prec.highest rather than as a
