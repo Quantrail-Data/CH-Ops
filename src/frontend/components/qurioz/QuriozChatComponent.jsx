@@ -134,7 +134,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
 
       setChats(Array.isArray(response?.chats) ? response.chats : []);
     } catch (error) {
-      console.error("Failed to load chat history:", error);
+      console.error("Failed to load chat history:", error.message);
 
       setChats([]);
 
@@ -229,7 +229,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
 
       toast.success("Chat title updated");
     } catch (error) {
-      console.error("Chat title update failed:", error);
+      console.error("Chat title update failed:", error.message);
 
       toast.error(error?.message || "Chat title update failed");
     } finally {
@@ -269,7 +269,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
       replaceChat([]);
       navigate("/qurioz");
     } catch (error) {
-      console.error("Chat delete failed:", error);
+      console.error("Chat delete failed:", error.message);
 
       toast.error(error?.message || "Chat delete failed");
     } finally {
@@ -305,7 +305,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
 
       setIsOpen(false);
     } catch (error) {
-      console.error("Failed to open chat:", error);
+      console.error("Failed to open chat:", error.message);
 
       toast.error(error?.message || "Failed to open chat");
     }
