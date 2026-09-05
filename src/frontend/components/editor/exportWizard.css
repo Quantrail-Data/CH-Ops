@@ -115,3 +115,27 @@
   color: var(--text-muted);
   margin-left: 6px;
 }
+
+.xw-actions .btn {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.xw-actions .btn .loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.xw-note .ti {
+  vertical-align: middle;
+}

@@ -1,0 +1,83 @@
+# CHOps environment configuration (example)
+#
+# Copy this file to .env and fill in real values. The variables below are the
+# ones the server actually reads (see src/backend/utils/env.js). Only the items
+# marked REQUIRED must be set for the server to start; everything else has a
+# sensible default.
+
+# --- Super admin seeding (REQUIRED) ---------------------------------------
+# At least the first super admin (SUPER_ADMIN_1 + SUPER_ADMIN_1_PASSWORD) must
+# be set. You can define up to three numbered super admins. These accounts are
+# created on first startup and are used for initial setup and emergency login.
+SUPER_ADMIN_1=Kathir
+SUPER_ADMIN_1_PASSWORD=Kathir05
+SUPER_ADMIN_1_EMAIL=kathir@quantrail-data.com
+# SUPER_ADMIN_2=admin2
+# SUPER_ADMIN_2_PASSWORD=another_strong_password
+# SUPER_ADMIN_2_EMAIL=superadmin@mailid
+# SUPER_ADMIN_3=admin3
+# SUPER_ADMIN_3_PASSWORD=yet_another_strong_password
+# SUPER_ADMIN_3_EMAIL=superadmin@mailid
+
+# Legacy single-admin format (still accepted if the numbered vars are absent):
+# SUPER_ADMIN=admin
+# SUPER_ADMIN_PASSWORD=change_me
+# SUPER_ADMIN_EMAIL=change_with_your_mailID
+
+# --- Session / auth (REQUIRED) --------------------------------------------
+# Secret used to sign sessions and to derive encryption keys for stored
+# credentials. Use a long, random value (32+ characters). cmd - openssl rand -hex 32
+
+SESSION_SECRET=9f8a7b6c5d4e3f2a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a
+
+# --- Server -----------------------------------------------------------------
+# Port the backend listens on (default 3000) and the runtime environment.
+PORT=3000
+NODE_ENV=development
+
+# Set to true to disable the .env super-admin login fallback once real users
+# exist in the app database. Leave unset (or false) during initial setup.
+DISABLE_ENV_LOGIN=true
+
+# --- Email (SMTP) for alert notifications (optional) -----------------------
+# Required only if you want CHOps to send alert emails. Without these, email
+# channels simply will not send.
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=kathir@quantrail-data.com
+SMTP_PASS=dqog hiso zgsd jphf
+SMTP_FROM=CHOps <noreply@chops>
+
+# --- Build / version metadata (optional) -----------------------------------
+# Populated by the build pipeline; usually left blank in local development.
+CLICKHOUSEVERSION=
+MAJOR=
+MINOR=
+PATCH=
+DISPLAY=
+VERSION=
+CODENAME=
+
+# --- Qurioz AI vector store (optional) -------------------------------------
+# Connection details for the Qdrant instance used by the AI schema features.
+QDRANTLINK= http://localhost:6333
+QDRANTSCHEMANAME=default
+
+# Frontend Env key-values
+# TLS REJECT_UNAUTHORIZED = '0';
+VITE_TLS_REJECT_UNAUTHORIZED='0'
+
+
+# Chat history key for localstorage 
+VITE_QURIOZ_KEY=quriozchatstorage
+
+
+#QUERY GENERATION chat URL for AI URL server
+VITE_QUERYGENERATIONURL=http://localhost:3005
+
+#SELECTAIIDS for localstorage
+VITE_SELECTEDAID_DBS=aiselectedid
+
+
+# Mail to login page navigating URl
+FRONTEND_LINK=http://localhost:5173

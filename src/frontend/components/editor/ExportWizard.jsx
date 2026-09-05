@@ -81,6 +81,7 @@ export default function ExportWizard({ sql, username, onClose }) {
   const [estimating, setEstimating] = useState(false);
   const [estimate, setEstimate] = useState(null);
   const [tried, setTried] = useState(false);
+  const [estimateError, setEstimateError] = useState(null);
 
   const [format, setFormat] = useState("CSVWithNames");
   const [compression, setCompression] = useState("zip");
@@ -133,17 +134,33 @@ export default function ExportWizard({ sql, username, onClose }) {
   }, []);
 
   async function runEstimate() {
-    if (blockedByParams) return;
+    if (blockedByParams) {
+      toast.error("Cannot estimate: Required parameters need values.");
+      return;
+    }
     setEstimating(true);
+    setEstimateError(null);
+    setEstimate(null);
     try {
       const result = await estimateExport({ sql, format, settings });
-      setEstimate(result);
+      if (result && typeof result === 'object') {
+        setEstimate(result);
+        setTried(true);
+        if (result.rows !== null && result.rows !== undefined) {
+          toast.success(`Estimate complete: ~${formatRows(result.rows)} rows`);
+        } else {
+          toast.info("Estimate complete, but row count could not be determined.");
+        }
+      } else {
+        throw new Error("Invalid response from estimate service");
+      }
     } catch (err) {
+      const errorMsg = err.message || "Could not estimate this query.";
+      setEstimateError(errorMsg);
       setEstimate(null);
-      toast.error(err.message || "Could not estimate this query.");
+      toast.error(errorMsg);
     } finally {
       setEstimating(false);
-      setTried(true);
     }
   }
 
@@ -325,9 +342,16 @@ export default function ExportWizard({ sql, username, onClose }) {
               once first to check it does what you expect.
             </div>
 
+            {estimateError && (
+              <div className="xw-note xw-warn" style={{ marginTop: 12 }}>
+                <Icon className="ti ti-alert-circle" style={{ marginRight: 6 }} />
+                {estimateError}
+              </div>
+            )}
+
             {estimate && (
               <div className="xw-note" style={{ marginTop: 12 }}>
-                {estimate.rows === null ? (
+                {estimate.rows === null || estimate.rows === undefined ? (
                   <>The size of this query could not be estimated.</>
                 ) : (
                   <>
@@ -359,45 +383,55 @@ export default function ExportWizard({ sql, username, onClose }) {
                 className="btn btn-secondary"
                 onClick={runEstimate}
                 disabled={estimating || blockedByParams}
+                style={{ minWidth: "140px" }}
               >
                 {estimating ? (
-                  <span className="loading-spinner" />
+                  <>
+                    <span className="loading-spinner" style={{ marginRight: 6 }} />
+                    Estimating...
+                  </>
                 ) : (
                   <>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
+                      width="18"
+                      height="18"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="icon icon-tabler icons-tabler-outline icon-tabler-filter-2-search"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="icon icon-tabler icons-tabler-outline icon-tabler-filter-2-search"
+                      style={{ marginRight: 4 }}
                     >
                       <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                       <path d="M4 6h16" />
                       <path d="M6 12h8.5" />
                       <path d="M9 18h2" />
-                      <path d="M15 18c0 .796 .316 1.559 .879 2.121c.563 .563 1.326 .879 2.121 .879c.796 0 1.559 -.316 2.121 -.879c.563 -.563 .879 -1.326 .879 -2.121c0 -.796 -.316 -1.559 -.879 -2.121c-.563 -.563 -1.326 -.879 -2.121 -.879c-.796 0 -1.559 .316 -2.121 .879c-.563 .563 -.879 1.326 -.879 2.121" />
+                      <path d="M15 18c0 .796 .316 1.559 .879 2.121c.563 .563 1.326 .879 2.121 .879c.796 0 1.559 -.316 2.121 -.879c.563 -.563 .879 -1.326 .879 -2.121c0 -.796 -.316 -1.559 -.879 -2.121c-.563 -.563 -1.326 -.879 -2.121 -.879c-.796 0 -1.559 .316 -2.121 .879c-.563 .563 -1.326 1.326 -1.326 2.121" />
                       <path d="M20.2 20.2l1.8 1.8" />
                     </svg>
+                    Estimate rows
                   </>
-                )}{" "}
-                Estimate rows
+                )}
               </button>
               <button
                 className="btn btn-primary"
                 onClick={goToStep2}
                 disabled={!tried || blockedByParams}
               >
-                Next
+                Next →
               </button>
             </div>
-            {!tried && (
+            {!tried && !estimating && (
               <div className="xw-help" style={{ textAlign: "right" }}>
                 Run the estimate once before continuing.
+              </div>
+            )}
+            {tried && !estimate && !estimateError && (
+              <div className="xw-help" style={{ textAlign: "right", color: "var(--color-warning)" }}>
+                No estimate data available. Try running the estimate again.
               </div>
             )}
           </div>
@@ -415,10 +449,10 @@ export default function ExportWizard({ sql, username, onClose }) {
                     setFormat(e.target.value);
                     setSettings({});
                   }}
-                  style={{ width: "100%",backgroundColor:"var(--bg-page)" }}
+                  style={{ width: "100%", backgroundColor: "var(--bg-page)" }}
                 >
                   {FORMAT_GROUPS.map((group) => (
-                    <optgroup key={group} label={group} style={{padding:"10px 0px",fontSize:"14px"}}>
+                    <optgroup key={group} label={group} style={{ padding: "10px 0px", fontSize: "14px" }}>
                       {FORMATS.filter((f) => f.group === group).map((f) => (
                         <option key={f.id} value={f.id}>
                           {f.label}

@@ -296,16 +296,6 @@ export default function DashboardView({sidebar}) {
     };
   }, []);
 
-  useEffect(() => {
-    const onFocus = () => {
-      if (selDash && selDash.id) {
-        loadCharts(selDash.id, applied, params);
-      }
-    };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [selDash, applied, params]);
-
   function changeFilter(name, value) {
     setDraft((p) => ({ ...p, [name]: value }));
   }
@@ -574,6 +564,7 @@ export default function DashboardView({sidebar}) {
                 style={{ 
                   opacity: transitioning ? 0 : 1,
                   animationDelay: transitioning ? '0ms' : `${i * 40}ms`,
+                  minWidth: 0,
                 }}
                 draggable={!fs && canEdit} 
                 onDragStart={e => !fs && canEdit && onDragStart(e, i)} 
@@ -647,14 +638,18 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   function getContainerHeight() {
     if (fs) return "calc(100vh - 32px)";
-    if (isSmallScreen) return "520px";
-    return "580px";
+    if (chart?.chartOption?._table) return isSmallScreen ? "420px" : "360px";
+    const isBar = ['simple_bar', 'grouped_bar', 'stacked_bar'].includes(chart.chartSubtype) || chart.chartType === 'bar';
+    if (isSmallScreen) return isBar ? "460px" : "520px";
+    return isBar ? "520px" : "580px";
   }
 
   function getChartHeight() {
     if (fs) return "calc(100vh - 100px)";
-    if (isSmallScreen) return "420px";
-    return "500px";
+    if (chart?.chartOption?._table) return isSmallScreen ? "320px" : "300px";
+    const isBar = ['simple_bar', 'grouped_bar', 'stacked_bar'].includes(chart.chartSubtype) || chart.chartType === 'bar';
+    if (isSmallScreen) return isBar ? "380px" : "420px";
+    return isBar ? "440px" : 500;
   }
 
   const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
@@ -665,6 +660,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isPieChart = pieChartTypes.includes(chart.chartSubtype);
   const funnelChartTypes = ['funnel'];
   const isFunnelChart = funnelChartTypes.includes(chart.chartSubtype) || chart.chartType === 'funnel';
+  const isTreemapChart = chart.chartType === 'treemap' || chart.chartSubtype === 'treemap';
+  const isSunburstChart = chart.chartType === 'sunburst' || chart.chartSubtype === 'sunburst';
 
   const tooltipWidth = fs ? 420 : (isSmallScreen ? 220 : 300);
   const tooltipMaxHeight = fs ? 320 : 240;
@@ -768,7 +765,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       : 20;
 
   const gridBottomAuto = isBarChart || isHeatmap
-    ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
+    ? (tickCount > 80 ? 180 : tickCount > 60 ? 160 : tickCount > 40 ? 140 : tickCount > 24 ? 120 : 110)
     : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
   const isLine = Array.isArray(chart?.chartOption?.series) && chart.chartOption.series.some((s) => s.type === "line");
@@ -1491,13 +1488,21 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   function resetZoom() {
-    if (inst.current) {
-      inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 100, dataZoomIndex: 0 });
+    if (!inst.current) return;
+    if (isTreemapChart) {
+      try {
+        inst.current.clear();
+        inst.current.setOption(withZoomable(opt), true);
+        setTimeout(() => inst.current?.resize(), 50);
+      } catch {}
+      return;
     }
+    if (isSunburstChart) return;
+    inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 100, dataZoomIndex: 0 });
   }
 
   const wrap = fs ? { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', padding: 16, overflow: 'auto', cursor: "default" } :
-    { width: '100%', height: getContainerHeight(), overflow: 'hidden', display: 'flex', flexDirection: 'column' };
+    { width: '100%', height: getContainerHeight(), overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 };
 
   const pieChartControlsFlags = {
     zoomFun: false,
@@ -1527,12 +1532,29 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     fullscreenFun: true,
     legendFun: isSmallScreen && supportsLegend && hasLegend,
   };
+  const treemapControlsFlags = {
+    zoomFun: true,
+    resetFun: true,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
+  const sunburstControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
+
+  const tableScrollMaxHeight = fs ? 'calc(100vh - 240px)' : (isSmallScreen ? 300 : 360);
 
   return (
     <div
       className="card"
       style={{
         padding: 16,
+        minWidth: 0,
         ...wrap,
         ...(highlighted ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : {}),
         ...(chart._rerunning ? { opacity: 0.6 } : {}),
@@ -1549,7 +1571,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
           {opt && !opt._error && !opt._waiting && !opt._kpi && !opt._table && (
             <ChartToolbar
-              zoomable={!!opt?.xAxis}
+              zoomable={!!opt?.xAxis || isTreemapChart}
               fullscreen={fs}
               onZoomIn={zoomIn}
               onZoomOut={zoomOut}
@@ -1566,11 +1588,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               legendVisible={showLegends}
               style={{ flexWrap: 'nowrap' }}
               isWantFeature={
-                chart.chartType === 'pie'
-                  ? pieChartControlsFlags
-                  : (chart.chartType === 'funnel' || chart.chartSubtype === 'funnel')
-                    ? funnelControlsFlags
-                    : (chart.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)
+                isSunburstChart
+                  ? sunburstControlsFlags
+                  : isTreemapChart
+                    ? treemapControlsFlags
+                    : chart.chartType === 'pie'
+                      ? pieChartControlsFlags
+                      : (chart.chartType === 'funnel' || chart.chartSubtype === 'funnel')
+                        ? funnelControlsFlags
+                        : (chart.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)
               }
             />
           )}
@@ -1601,7 +1627,19 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         </div>
       )}
       {opt?._kpi && <div style={{ textAlign: 'center', padding: 24 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{opt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-table)' }}>{opt.value}</div></div>}
-      {opt?._table && <DataTable rows={opt.data} maxRows={fs ? opt?.data?.length || 10 : 5} />}
+
+      {opt?._table && (
+        <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          <div style={{ overflowX: 'auto', width: '100%', minWidth:0 }}>
+            <div style={{ maxHeight: tableScrollMaxHeight, overflowY: 'auto', overflowX: 'auto', minWidth: 0 }}>
+              <div style={{ display: 'block', minWidth: 0 }}>
+                <DataTable rows={opt.data} maxRows={opt?.data?.length || (fs ? 10 : 5)} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!opt?._kpi && !opt?._table && !opt?._error && !opt?._waiting &&
         <div
           ref={ref}
@@ -1611,7 +1649,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             flex: 1,
             position: "relative",
             display: "flex",
-            paddingRight: 0
+            paddingRight: 0,
+            minWidth: 0
           }}
         />}
     </div>

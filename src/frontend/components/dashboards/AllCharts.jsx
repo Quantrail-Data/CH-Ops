@@ -281,8 +281,9 @@ export default function AllCharts({ onEdit }) {
         ? (supportsLegend && hasLegend && showLegend ? 240 : extraLeftForYAxisName)
         : (supportsLegend && hasLegend && showLegend ? 20 : extraLeftForYAxisName);
 
+      // Reduced bottom spacing for bar/heatmap compared to previous values
       const gridBottomAuto = isBarChart || isHeatmap
-        ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
+        ? (tickCount > 80 ? 180 : tickCount > 60 ? 160 : tickCount > 40 ? 140 : tickCount > 24 ? 120 : 110)
         : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
       const shouldShowDataLabels = (() => {
@@ -900,6 +901,18 @@ export default function AllCharts({ onEdit }) {
     finally { setDel(null); } 
   }
 
+  function resetPreviewView() {
+    if (!previewInst.current || !selected) return;
+    const isTreemapNow = selected.chartType === 'treemap' || selected.chartSubtype === 'treemap';
+    if (isTreemapNow) {
+      previewInst.current.clear();
+      buildChart();
+      setTimeout(() => previewInst.current?.resize(), 50);
+      return;
+    }
+    previewTools.zoomReset();
+  }
+
   const dashMap = Object.fromEntries(dashboards.map(d => [d.id, d.name]));
 
   const pieChartControlsFlags = {
@@ -925,6 +938,26 @@ export default function AllCharts({ onEdit }) {
     resetFun: false,
     saveFun: true,
     fullscreenFun: true,
+  };
+  const treemapControlsFlags = {
+    zoomFun: true,
+    resetFun: true,
+    saveFun: true,
+    fullscreenFun: true,
+  };
+  const sunburstControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+  };
+
+  const computePreviewChartHeight = () => {
+    const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar', 'horizontal_bar'];
+    const isBar = selected && barChartTypes.includes(selected.chartSubtype || '');
+    if (previewTools.fullscreen) return 'calc(100vh - 100px)';
+    if (isSmallScreen) return isBar ? 380 : 450;
+    return isBar ? 340 : 380;
   };
 
   return (
@@ -1038,7 +1071,7 @@ export default function AllCharts({ onEdit }) {
           </table>
         </div>
         {selected && (
-          <div ref={previewContainerRef} className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: isSmallScreen ? '500px' : '420px', width: '100%' }}>
+          <div ref={previewContainerRef} className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: (previewOpt && previewOpt._table) ? 'auto' : (isSmallScreen ? '500px' : '420px'), width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: '14px', fontWeight: 600 }}>{selected.name}</div>
               <button 
@@ -1052,26 +1085,30 @@ export default function AllCharts({ onEdit }) {
             {previewLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
             {previewOpt?._error && <div className="alert-banner danger" style={{ fontSize: '13px' }}><Icon className="ti ti-alert-circle"></Icon> {previewOpt.message}</div>}
             {previewOpt?._kpi && <div style={{ textAlign: 'center', padding: 32 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{previewOpt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)' }}>{previewOpt.value}</div></div>}
-            {previewOpt?._table && <DataTable rows={previewOpt.data} maxRows={previewTools.fullscreen ? previewOpt?.data?.length || 10 : 10} />}
+            {previewOpt?._table && <DataTable rows={previewOpt.data} maxRows={previewTools.fullscreen ? (previewOpt?.data?.length || 10) : Math.max(5, Math.min(20, (previewOpt?.data?.length || 0)))} />}
             {!previewOpt?._kpi && !previewOpt?._table && !previewOpt?._error && !previewLoading && (
               <>
                 <ChartToolbar
-                  zoomable={!!previewOpt?.xAxis}
+                  zoomable={!!previewOpt?.xAxis || selected.chartType === 'treemap' || selected.chartSubtype === 'treemap'}
                   fullscreen={previewTools.fullscreen}
                   onZoomIn={previewTools.zoomIn}
                   onZoomOut={previewTools.zoomOut}
-                  onZoomReset={previewTools.zoomReset}
+                  onZoomReset={resetPreviewView}
                   onSave={previewTools.save}
                   onToggleFullscreen={previewTools.toggleFullscreen}
                   isWantFeature={
-                    selected.chartType === 'pie'
-                      ? pieChartControlsFlags
-                      : (selected.chartType === 'funnel' || selected.chartSubtype === 'funnel')
-                        ? funnelControlsFlags
-                        : (selected.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)
+                    selected.chartType === 'sunburst' || selected.chartSubtype === 'sunburst'
+                      ? sunburstControlsFlags
+                      : selected.chartType === 'treemap' || selected.chartSubtype === 'treemap'
+                        ? treemapControlsFlags
+                        : selected.chartType === 'pie'
+                          ? pieChartControlsFlags
+                          : (selected.chartType === 'funnel' || selected.chartSubtype === 'funnel')
+                            ? funnelControlsFlags
+                            : (selected.chartType === 'sankey' ? sankeyControlsFlags : chartControlsFlags)
                   }
                 />
-                <div ref={previewRef} style={{ height: previewTools.fullscreen ? 'calc(100vh - 100px)' : (isSmallScreen ? 450 : 380), width: '100%', flex: 1 }} />
+                <div ref={previewRef} style={{ height: computePreviewChartHeight(), width: '100%', flex: 1 }} />
               </>
             )}
           </div>

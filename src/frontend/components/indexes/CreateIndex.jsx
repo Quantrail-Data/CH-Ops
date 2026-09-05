@@ -114,6 +114,7 @@ function CreateForm() {
       await runQuery(buildSql());
       setResult({ ok: true, msg: 'Index created.' });
       setDb('')
+      setTbl('')
       setCol('')
       setGranularity(1);
       setName('')
