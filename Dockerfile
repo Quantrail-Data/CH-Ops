@@ -7,7 +7,7 @@
 # Or:     docker compose up
 
 # --- Stage 1: Build ---
-FROM oven/bun:1.3.13-alpine AS builder
+FROM oven/bun:1.4.2-alpine AS builder
 WORKDIR /app
 # .env.example always matches, so the glob succeeds and the check below reports why
 
@@ -27,7 +27,7 @@ RUN bun run build
 RUN rm -rf node_modules && bun install --frozen-lockfile --production
 
 # --- Stage 2: Runtime ---
-FROM oven/bun:1.3.13-alpine
+FROM oven/bun:1.4.2-alpine
 WORKDIR /app
 # Non-root user for security
 RUN addgroup -S chops && adduser -S chops -G chops
