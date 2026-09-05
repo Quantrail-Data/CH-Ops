@@ -58,7 +58,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
       onMouseLeave={()=>setInsideCon(false)}
       className={isStage() ? "input-container-search" : "bottom-search-bar"}
       style={{
-        zIndex: 10999,
+        zIndex: isStage() ? 0:10999,
         border: isFocus
           ? `2px solid ${isDark() ? "#8b5cf6" : "#8b5cf6"}`
           : "2px solid rgba(200,200,200,0.1)",
