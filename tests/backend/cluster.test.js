@@ -573,6 +573,255 @@ describe("Cluster Controller", () => {
     });
   });
 
+  describe("updateCluster TLS/port synchronization (bug fix)", () => {
+    it("syncs port to all nodes when cluster port is updated", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          port: 8123,
+          secure: false,
+          nodes: [
+            { name: "node1", host: "10.0.0.1", port: 8123, secure: false },
+            { name: "node2", host: "10.0.0.2", port: 8123, secure: false },
+            { name: "node3", host: "10.0.0.3", port: 8123, secure: false },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { port: 8443 },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(saveClusters).toHaveBeenCalledTimes(1);
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].port).toBe(8443);
+      expect(saved[0].nodes[0].port).toBe(8443);
+      expect(saved[0].nodes[1].port).toBe(8443);
+      expect(saved[0].nodes[2].port).toBe(8443);
+    });
+
+    it("syncs secure flag to all nodes when cluster TLS is enabled", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          port: 8123,
+          secure: false,
+          nodes: [
+            { name: "node1", host: "10.0.0.1", port: 8123, secure: false },
+            { name: "node2", host: "10.0.0.2", port: 8123, secure: false },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { secure: true },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(saveClusters).toHaveBeenCalledTimes(1);
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].secure).toBe(true);
+      expect(saved[0].nodes[0].secure).toBe(true);
+      expect(saved[0].nodes[1].secure).toBe(true);
+    });
+
+    it("syncs secure flag to false when cluster TLS is disabled", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          port: 8443,
+          secure: true,
+          nodes: [
+            { name: "node1", host: "10.0.0.1", port: 8443, secure: true },
+            { name: "node2", host: "10.0.0.2", port: 8443, secure: true },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { secure: false },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].secure).toBe(false);
+      expect(saved[0].nodes[0].secure).toBe(false);
+      expect(saved[0].nodes[1].secure).toBe(false);
+    });
+
+    it("syncs both port and secure when both are updated", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          port: 8123,
+          secure: false,
+          nodes: [
+            { name: "node1", host: "10.0.0.1", port: 8123, secure: false },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { port: 8443, secure: true },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].port).toBe(8443);
+      expect(saved[0].secure).toBe(true);
+      expect(saved[0].nodes[0].port).toBe(8443);
+      expect(saved[0].nodes[0].secure).toBe(true);
+    });
+
+    it("handles clusters with no nodes gracefully", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          port: 8123,
+          secure: false,
+          nodes: [],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { port: 8443, secure: true },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(res.statusCode).toBe(200);
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].port).toBe(8443);
+      expect(saved[0].secure).toBe(true);
+      expect(saved[0].nodes).toEqual([]);
+    });
+
+    it("includes configuration mismatch warning in response when detected", () => {
+      // This tests the validation added to detect inconsistencies
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          port: 8443,
+          secure: true,
+          nodes: [
+            { name: "node1", host: "10.0.0.1", port: 8123, secure: false },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { name: "Cluster-1" },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(res.statusCode).toBe(200);
+      // The response should include a warning about the mismatch
+      expect(res.jsonData._warning).toBeDefined();
+      expect(res.jsonData._warning).toContain("Cluster uses port 8443");
+      expect(res.jsonData._warning).toContain("node1");
+    });
+
+    it("does not include warning when cluster and nodes are in sync", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "cluster1",
+          name: "Cluster-1",
+          port: 8443,
+          secure: true,
+          nodes: [
+            { name: "node1", host: "10.0.0.1", port: 8443, secure: true },
+            { name: "node2", host: "10.0.0.2", port: 8443, secure: true },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { name: "Cluster-1" },
+        { id: "cluster1" },
+      );
+
+      updateCluster(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.jsonData._warning).toBeUndefined();
+    });
+
+    it("syncs port when updating K8s cluster", () => {
+      // K8s clusters should also have nodes synced when port changes
+      getAllClusters.mockReturnValue([
+        {
+          id: "k8s_prod_ch1",
+          name: "Production ClickHouse",
+          kind: "k8s",
+          port: 8123,
+          secure: false,
+          k8s: { connectionId: "conn1", namespace: "default", installation: "ch" },
+          nodes: [
+            { name: "ch-0", host: "10.0.0.1", port: 8123, secure: false, source: "k8s" },
+            { name: "ch-1", host: "10.0.0.2", port: 8123, secure: false, source: "k8s" },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { port: 8443 },
+        { id: "k8s_prod_ch1" },
+      );
+
+      updateCluster(req, res);
+
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].port).toBe(8443);
+      expect(saved[0].nodes[0].port).toBe(8443);
+      expect(saved[0].nodes[1].port).toBe(8443);
+    });
+
+    it("syncs secure flag when updating K8s cluster", () => {
+      getAllClusters.mockReturnValue([
+        {
+          id: "k8s_prod_ch1",
+          name: "Production ClickHouse",
+          kind: "k8s",
+          port: 8123,
+          secure: false,
+          k8s: { connectionId: "conn1", namespace: "default", installation: "ch" },
+          nodes: [
+            { name: "ch-0", host: "10.0.0.1", port: 8123, secure: false, source: "k8s" },
+          ],
+        },
+      ]);
+
+      const { req, res } = mockReqRes(
+        { secure: true },
+        { id: "k8s_prod_ch1" },
+      );
+
+      updateCluster(req, res);
+
+      const saved = saveClusters.mock.calls[0][0];
+      expect(saved[0].secure).toBe(true);
+      expect(saved[0].nodes[0].secure).toBe(true);
+    });
+  });
+
   describe("deleteCluster", () => {
     it("returns 403 for non-admin", () => {
       const { req, res } = mockReqRes(
