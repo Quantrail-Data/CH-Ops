@@ -609,6 +609,7 @@ export const PAGE_TEXT = {
     "Inferring schema...",
     "Drop a file here, or click to choose",
     "CSV (with header), TSV (with header), JSON, NDJSON, Parquet, ORC",
+    "Maximum Supported Rows: 1000",
     "Azure",
     "Parquet",
     "ORC",
