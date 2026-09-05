@@ -9,6 +9,8 @@ import { useToast } from "../layout/Toast.jsx";
 import { composeEngine, composeDistributed } from "../../utils/engineModel.js";
 import { composeCreateTable, validateSpec } from "../../utils/ddlCompose.js";
 import { evaluate, validateDdl, createTables, aiStatus } from "../../utils/studioApi.js";
+import { keyList,joinKey } from "../../utils/ddlCompose.js";
+
 
 function mapColumns(columns) {
   return (columns || []).map((c) => ({
@@ -68,6 +70,19 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
     aiStatus().then(setAi).catch(() => setAi({ configured: false, executable: false }));
   }, []);
 
+  function reFormOrderBy(value) {
+    const tokens = keyList(value)
+    if (Array.isArray(tokens)) {
+      const changeValue = tokens?.map((v)=>{
+        return v.includes(' ') ? "`"+v+"`" : v
+      })
+      return joinKey(changeValue)
+    }
+    return value
+  }
+
+  console.log(form.primaryKey)
+
   // Compose the DDL deterministically from the form.
   const build = useCallback(() => {
     setError(null); setValidation(null); setReview(null);
@@ -81,13 +96,15 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
         columns: cols,
         indexes: form.indexes || [],
         projections: form.projections || [],
-        orderBy: form.orderBy,
-        primaryKey: form.primaryKey,
+        orderBy: reFormOrderBy(form.orderBy),
+        primaryKey: reFormOrderBy(form.primaryKey),
         partitionBy: form.partitionBy,
         sampleBy: form.sampleBy,
         ttl: form.tableTtl,
         settings: form.tableSettings,
       };
+
+      console.log(base)
 
       if (form.distributed) {
         const localName = form.localTableName || `${form.target.table}_local`;
