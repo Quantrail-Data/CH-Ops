@@ -24,7 +24,7 @@ export const BREADCRUMB_MAP = {
 
   "editor/query": ["SQL Tools", "SQL Editor"],
   "tools/profiler": ["SQL Tools", "Query Profiler"],
-  "tools/pipeline": ["Query SQL Tools", "Processors Profile"],
+  "tools/pipeline": ["SQL Tools", "Processors Profile"],
   "tools/metrics": ["SQL Tools", "Query Metrics"],
   "tools/schema-studio": ["SQL Tools", "Schema Studio"],
   "custom/builder": ["Custom Dashboards", "Chart Builder"],

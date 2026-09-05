@@ -1321,25 +1321,28 @@ export default function QueryEditor({
           ? `${composeStatement(ExplainOptionSelector.type, explainTicked, serverVersion)} ${text}`
           : text;
 
+        const hasLimitClause = /LIMIT\s+(\d+|\?)/i.test(text) || /\bLIMIT\s+(\d+|\?)\s*$/i.test(text) || /\bLIMIT\s+(\d+|\?)\s*(;|$)/i.test(text);
+
         // Required settings travel as request settings, never appended to the
-        // user's SQL as a SETTINGS clause.
+        const settings = {
+          ...(isExplain
+            ? settingsFor(
+                explainTicked,
+                ExplainOptionSelector.type,
+                serverVersion,
+              )
+            : {}),
+          ...(isExplain ? settingsFor(explainTicked) : {}),
+        };
+
+        if (!hasLimitClause) {
+          settings.max_result_rows = rowCap + 1;
+          settings.result_overflow_mode = "break";
+        }
+
         const r = await runEditorQuery(validExplain, editorCreds, {
           params: paramValues,
-          settings: {
-            ...(isExplain
-              ? settingsFor(
-                  explainTicked,
-                  ExplainOptionSelector.type,
-                  serverVersion,
-                )
-              : {}),
-            ...(isExplain ? settingsFor(explainTicked) : {}),
-            // STOP THE SERVER SENDING ROWS WE ARE GOING TO THROW AWAY.
-            max_result_rows: rowCap + 1,
-            // Stop cleanly at the limit instead of raising
-            // TOO_MANY_ROWS_OR_BYTES, which is what the default does.
-            result_overflow_mode: "break",
-          },
+          settings: settings,
         });
         if (r.stats) setQueryStats(r.stats);
 
