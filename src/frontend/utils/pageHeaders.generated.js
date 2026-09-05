@@ -1163,6 +1163,7 @@ export const PAGE_TEXT = {
     "ClickHouse user",
     "ClickHouse password",
     "Nodes come from the installation and are re-read on refresh.",
+    "Configuration mismatch detected:",
     "Test connection",
     "node-1",
     "Missing permissions:",
