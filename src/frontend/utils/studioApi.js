@@ -30,8 +30,9 @@ async function handleRaw(res) {
     window.location.reload();
     throw new Error('Session expired.');
   }
+  // console.log(await res.json())
   const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  // if (!res.ok) throw new Error(JSON.stringify(data));
   return data;
 }
 
