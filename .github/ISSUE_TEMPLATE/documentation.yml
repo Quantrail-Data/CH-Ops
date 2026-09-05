@@ -1,0 +1,61 @@
+name: 📚 Documentation Issue
+description: Report incorrect, missing, or misleading information in the CH-Ops documentation.
+title: "[DOCS]: "
+labels: ["documentation", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve the CH-Ops documentation! 
+        Before submitting, please make sure to check existing issues to avoid duplicates.
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What kind of documentation issue are you reporting?
+      options:
+        - "Missing Documentation (a feature/setup guide is missing)"
+        - "Incorrect/Outdated Information"
+        - "Broken Link / Formatting Issue"
+        - "Typo / Grammar Fix"
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-page
+    attributes:
+      label: Affected Page(s)
+      description: Provide the URL(s) or file paths of the documentation page affected.
+      placeholder: "e.g., https://ch-ops.io/docs/setup or docs/configuration.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description of the issue
+      description: Describe what is wrong or missing.
+      placeholder: "The instructions for environment setup fail at Step 3 because..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-change
+    attributes:
+      label: Suggested Content / Fix (Optional)
+      description: If you know how it should be written or fixed, please provide the details here.
+      placeholder: "Update the code block to..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Checklists
+      options:
+        - label: I have verified that this issue is not already reported.
+          required: true
+        - label: I am willing to submit a Pull Request to fix this issue!
+          required: false
