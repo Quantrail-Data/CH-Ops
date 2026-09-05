@@ -160,14 +160,30 @@ export function updateCluster(req, res) {
         return res.status(400).json({ error: 'Port must be between 1 and 65535.' });
       }
       clusters[idx].port = p;
+      // Sync port to all nodes. For K8s clusters, this ensures newly discovered nodes
+      // get the correct port. For direct clusters, this syncs the cluster-level default.
+      if (clusters[idx].nodes?.length) {
+        clusters[idx].nodes = clusters[idx].nodes.map(n => ({ ...n, port: p }));
+      }
     }
 
-    if (secure !== undefined) clusters[idx].secure = !!secure;
+    if (secure !== undefined) {
+      clusters[idx].secure = !!secure;
+      // Sync secure flag to all nodes. For K8s clusters, this ensures all nodes use
+      // the same TLS setting as the cluster. For direct clusters, this syncs the default.
+      if (clusters[idx].nodes?.length) {
+        clusters[idx].nodes = clusters[idx].nodes.map(n => ({ ...n, secure: !!secure }));
+      }
+    }
 
-    
     saveClusters(clusters);
 
-    res.json(maskClusterPasswords(clusters[idx]));
+    const result = maskClusterPasswords(clusters[idx]);
+    const consistency = validateClusterNodeConsistency(clusters[idx]);
+    if (consistency?.warning) {
+      result._warning = consistency.details;
+    }
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message || "Internal server error" });
   }
@@ -266,6 +282,31 @@ function validateNodes(nodes, allClusters, excludeIdx, kind) {
   );
   if (kind !== "k8s" && otherNodes + nodes.length > MAX_TOTAL_NODES)
     return `Maximum ${MAX_TOTAL_NODES} total nodes across all clusters.`;
+
+  return null;
+}
+
+function validateClusterNodeConsistency(cluster) {
+  if (!cluster?.nodes?.length) return null;
+  const clusterPort = cluster.port ?? 8123;
+  const clusterSecure = !!cluster.secure;
+
+  const inconsistentNodes = cluster.nodes.filter(
+    (n) => (n.port ?? 8123) !== clusterPort || !!n.secure !== clusterSecure,
+  );
+
+  if (inconsistentNodes.length > 0) {
+    const details = inconsistentNodes
+      .map(
+        (n) =>
+          `${n.name} (port ${n.port ?? 8123}, ${n.secure ? 'TLS' : 'no TLS'})`,
+      )
+      .join(", ");
+    return {
+      warning: "Cluster-node configuration mismatch detected",
+      details: `Cluster uses port ${clusterPort} (${clusterSecure ? 'TLS' : 'no TLS'}), but nodes ${details} differ. This can cause connection failures.`,
+    };
+  }
 
   return null;
 }
