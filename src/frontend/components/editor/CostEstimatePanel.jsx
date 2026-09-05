@@ -27,7 +27,7 @@ export default function CostEstimatePanel({ estimate, loading }) {
   }
 
   return (
-    <div style={{ padding: 16, overflow: 'auto', fontSize: '13px' }}>
+    <div style={{ padding: 16, overflowX: 'hidden', overflowY: 'auto', fontSize: '13px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
 
       {/* Section 1: Cost Estimate */}
       {estimate.estimateError ? (
@@ -36,56 +36,58 @@ export default function CostEstimatePanel({ estimate, loading }) {
           <span>Estimate unavailable: {estimate.estimateError}</span>
         </div>
       ) : estimate.tables.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 20, width: '100%', maxWidth: '100%', minWidth: 0 }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Cost Estimate
           </div>
-          <table className="data-table" style={{ width: '100%', fontSize: '13px' }}>
-            <thead>
-              <tr>
-                <th>Database</th>
-                <th>Table</th>
-                <th style={{ textAlign: 'right' }}>Parts</th>
-                <th style={{ textAlign: 'right' }}>Est. Rows</th>
-                <th style={{ textAlign: 'right' }}>Marks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {estimate.tables.map((t, i) => (
-                <tr key={i}>
-                  <td style={{ fontFamily: 'var(--font-code)' }}>{t.database}</td>
-                  <td style={{ fontFamily: 'var(--font-code)' }}>{t.table}</td>
-                  <td style={{ textAlign: 'right' }}>{t.parts.toLocaleString()}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-warning)' }}>{fmtRows(t.rows)}</td>
-                  <td style={{ textAlign: 'right' }}>{t.marks.toLocaleString()}</td>
+          <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: 560, fontSize: '13px' }}>
+              <thead>
+                <tr>
+                  <th>Database</th>
+                  <th>Table</th>
+                  <th style={{ textAlign: 'right' }}>Parts</th>
+                  <th style={{ textAlign: 'right' }}>Est. Rows</th>
+                  <th style={{ textAlign: 'right' }}>Marks</th>
                 </tr>
-              ))}
-              {estimate.tables.length > 1 && (
-                <tr style={{ fontWeight: 700, borderTop: '2px solid var(--border-default)' }}>
-                  <td colSpan={2}>Total</td>
-                  <td style={{ textAlign: 'right' }}>{estimate.totalParts.toLocaleString()}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--color-warning)' }}>{fmtRows(estimate.totalRows)}</td>
-                  <td style={{ textAlign: 'right' }}>{estimate.totalMarks.toLocaleString()}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {estimate.tables.map((t, i) => (
+                  <tr key={i}>
+                    <td style={{ fontFamily: 'var(--font-code)' }}>{t.database}</td>
+                    <td style={{ fontFamily: 'var(--font-code)' }}>{t.table}</td>
+                    <td style={{ textAlign: 'right' }}>{t.parts.toLocaleString()}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-warning)' }}>{fmtRows(t.rows)}</td>
+                    <td style={{ textAlign: 'right' }}>{t.marks.toLocaleString()}</td>
+                  </tr>
+                ))}
+                {estimate.tables.length > 1 && (
+                  <tr style={{ fontWeight: 700, borderTop: '2px solid var(--border-default)' }}>
+                    <td colSpan={2}>Total</td>
+                    <td style={{ textAlign: 'right' }}>{estimate.totalParts.toLocaleString()}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--color-warning)' }}>{fmtRows(estimate.totalRows)}</td>
+                    <td style={{ textAlign: 'right' }}>{estimate.totalMarks.toLocaleString()}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Section 2: Existing Indexes */}
       {estimate.indexes.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 20, width: '100%', maxWidth: '100%', minWidth: 0 }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Existing Indexes
           </div>
           {estimate.indexes.map((idx, i) => (
-            <div key={i} className="card" style={{ padding: 12, marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontFamily: 'var(--font-code)', fontWeight: 600 }}>
+            <div key={i} className="card" style={{ padding: 12, marginBottom: 8, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', overflowX: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                <span style={{ fontFamily: 'var(--font-code)', fontWeight: 600, overflowWrap: 'anywhere' }}>
                   {idx.database}.{idx.table}
                 </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>
                   {idx.engine}{idx.totalRows > 0 ? ` | ${fmtRows(idx.totalRows)} rows | ${fmtBytes(idx.totalBytes)}` : ''}
                 </span>
               </div>
@@ -93,39 +95,41 @@ export default function CostEstimatePanel({ estimate, loading }) {
               {idx.sortingKey && (
                 <div style={{ fontSize: '12px', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>ORDER BY:</span>
-                  <span style={{ fontFamily: 'var(--font-code)', color: 'var(--color-success)' }}>{idx.sortingKey}</span>
+                  <span style={{ fontFamily: 'var(--font-code)', color: 'var(--color-success)', overflowWrap: 'anywhere' }}>{idx.sortingKey}</span>
                 </div>
               )}
               {idx.primaryKey && idx.primaryKey !== idx.sortingKey && (
                 <div style={{ fontSize: '12px', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>PRIMARY KEY:</span>
-                  <span style={{ fontFamily: 'var(--font-code)', color: 'var(--color-success)' }}>{idx.primaryKey}</span>
+                  <span style={{ fontFamily: 'var(--font-code)', color: 'var(--color-success)', overflowWrap: 'anywhere' }}>{idx.primaryKey}</span>
                 </div>
               )}
 
               {idx.skippingIndexes.length > 0 ? (
-                <div style={{ marginTop: 6 }}>
+                <div style={{ marginTop: 6, width: '100%', maxWidth: '100%', minWidth: 0 }}>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 4 }}>Data Skipping Indexes:</div>
-                  <table className="data-table" style={{ width: '100%', fontSize: '0.75rem' }}>
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Expression</th>
-                        <th style={{ textAlign: 'right' }}>Granularity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {idx.skippingIndexes.map((si, j) => (
-                        <tr key={j}>
-                          <td style={{ fontFamily: 'var(--font-code)' }}>{si.name}</td>
-                          <td style={{ fontFamily: 'var(--font-code)' }}>{si.type}</td>
-                          <td style={{ fontFamily: 'var(--font-code)' }}>{si.expression}</td>
-                          <td style={{ textAlign: 'right' }}>{si.granularity}</td>
+                  <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+                    <table className="data-table" style={{ width: '100%', minWidth: 680, fontSize: '0.75rem' }}>
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Expression</th>
+                          <th style={{ textAlign: 'right' }}>Granularity</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {idx.skippingIndexes.map((si, j) => (
+                          <tr key={j}>
+                            <td style={{ fontFamily: 'var(--font-code)', whiteSpace: 'nowrap' }}>{si.name}</td>
+                            <td style={{ fontFamily: 'var(--font-code)', whiteSpace: 'nowrap' }}>{si.type}</td>
+                            <td style={{ fontFamily: 'var(--font-code)', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{si.expression}</td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{si.granularity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: 4 }}>
