@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 const getAllClusters = mock(() => {});
 const saveClusters = mock(() => {});
 const getClusterById = mock(() => {});
+const getClusterNodes = mock(() => {});
 const getNodeByName = mock(() => {});
 const maskClusterPasswords = (cluster) => ({
   ...cluster,
@@ -20,6 +21,7 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getAllClusters,
   saveClusters,
   getClusterById,
+  getClusterNodes,
   getNodeByName,
   maskClusterPasswords,
   MAX_CLUSTERS: 3,
