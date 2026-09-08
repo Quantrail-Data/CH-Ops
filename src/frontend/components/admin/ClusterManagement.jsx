@@ -335,17 +335,47 @@ export default function ClusterManagement() {
     }
 
     try {
+      setTestResults({});
       if (editing) {
-        await apiFetch(`/api/cluster/${editing}`, {
+        const response = await apiFetch(`/api/cluster/${editing}`, {
           method: "PUT",
           body: JSON.stringify({ name: form.name, nodes: valid }),
         });
+
+        if (!response.success) {
+          const failedNodes = response.nodes || [];
+
+          const arrayIndexes = failedNodes.map((node) =>
+            valid.findIndex((formNode) => formNode.name === node.name),
+          );
+
+          arrayIndexes.map((idx) =>{
+            const key = `${editing || "new"}-${idx}`;
+            setTestResults((p) => ({ ...p, [key]: { ok: false, msg: "node test is failed check the host and password" } }));
+          })
+
+          return;
+        }
         toast.success(`Cluster "${form.name}" updated.`);
       } else {
-        const res = await apiFetch("/api/cluster", {
+        const response = await apiFetch("/api/cluster", {
           method: "POST",
           body: JSON.stringify({ name: form.name, nodes: valid }),
         });
+        if (!response.success) {
+          const failedNodes = response.nodes || [];
+
+          const arrayIndexes = failedNodes.map((node) =>
+            valid.findIndex((formNode) => formNode.name === node.name),
+          );
+
+          arrayIndexes.map((idx) =>{
+            const key = `${"new"}-${idx}`;
+            setTestResults((p) => ({ ...p, [key]: { ok: false, msg: "node test is failed check the host and password" } }));
+          })
+
+          return;
+        }
         toast.success(`Cluster "${form.name}" created.`);
       }
       setShowForm(false);
@@ -353,6 +383,7 @@ export default function ClusterManagement() {
       load();
       if (reloadConfig) reloadConfig();
     } catch (err) {
+      console.log(err.error);
       toast.error(err.message);
     }
   }
