@@ -16,6 +16,7 @@ sqlite.exec(`CREATE TABLE app_user (
   role TEXT NOT NULL DEFAULT 'readonly',
   email TEXT,
   must_change_password INTEGER NOT NULL DEFAULT 1,
+  init_user INTEGER NOT NULL DEFAULT 0,
   last_login_at TEXT,
   created_at TEXT,
   updated_at TEXT

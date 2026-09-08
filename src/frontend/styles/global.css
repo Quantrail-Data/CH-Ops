@@ -4809,3 +4809,6 @@ select.sql-action-control {
   background: var(--danger-subtle, rgba(220, 80, 80, 0.14));
 }
 
+.react-flow__handle, .react-flow__handle-top {
+  opacity: 0 !important;
+}

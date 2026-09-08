@@ -3,14 +3,19 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Icon from "../common/Icon.jsx";
 
-import darkLogo from "../../assets/chops-dark.svg"
-import lightLogo from "../../assets/chops-light.svg"
+import darkLogo from "../../assets/chops-dark.svg";
+import lightLogo from "../../assets/chops-light.svg";
 import { useTheme } from "../../App.jsx";
 
 function isComplexValue(v) {
@@ -210,11 +215,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
   }
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={onClose}
-      style={{ zIndex: 1000 }}
-    >
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
       <div
         className="modal-box"
         onClick={(e) => e.stopPropagation()}
@@ -239,7 +240,10 @@ function ComplexCellModal({ columnName, value, onClose }) {
               minWidth: 0,
             }}
           >
-            <Icon className="ti ti-braces" style={{ color: "var(--accent)" }}></Icon>
+            <Icon
+              className="ti ti-braces"
+              style={{ color: "var(--accent)" }}
+            ></Icon>
             <span
               style={{
                 overflow: "hidden",
@@ -269,9 +273,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
             >
               <Icon
                 className={`ti ${copied ? "ti-check" : "ti-copy"}`}
-                style={
-                  copied ? { color: "var(--color-success)" } : undefined
-                }
+                style={copied ? { color: "var(--color-success)" } : undefined}
               ></Icon>{" "}
               {copied ? "Copied" : "Copy JSON"}
             </button>
@@ -296,7 +298,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
   );
 }
 
-/* DataTable @param {string} variant - 'single' = full remaining height, one scrollbar pair. 'fixed'  = max 720px (≈20 rows), own scrollbar pair. default  = auto (no constrained height). @param {object} cellRenderers - optional { [columnName]: (value, row) => ReactNode }. When a column has a renderer, its cell is rendered by that function instead of the default primitive/complex handling. Backward compatible: undefined leaves all existing behavior unchanged. */
+/* DataTable @param {string} variant - 'single' = full remaining height, one scrollbar pair. 'fixed' = max 720px (≈20 rows), own scrollbar pair. default = auto (no constrained height). @param {object} cellRenderers - optional { [columnName]: (value, row) => ReactNode }. When a column has a renderer, its cell is rendered by that function instead of the default primitive/complex handling. Backward compatible: undefined leaves all existing behavior unchanged. */
 
 export default function DataTable({
   rows = [],
@@ -316,17 +318,17 @@ export default function DataTable({
   variant,
   s_no = false,
   QuriozFlag = false,
-  overView=false,
-  whiteSpaceFlag=false,
+  overView = false,
+  whiteSpaceFlag = false,
   isShowLogo = false,
-  minHeight=null
+  minHeight = null,
 }) {
   const [expandedCells, setExpandedCells] = useState(new Set());
   const [selectedCell, setSelectedCell] = useState(null);
   // Which complex cell (if any) is open in the modal.
   const [modalCell, setModalCell] = useState(null); // { columnName, value } | null
 
-    const { theme } = useTheme();
+  const { theme } = useTheme();
 
   const cols = columns.length
     ? columns
@@ -359,7 +361,8 @@ export default function DataTable({
     estimateSize: () => estimatedRowHeight,
     // Rows are not a fixed height: a cell can be expanded, and text can wrap.
     // Measuring after render keeps the scrollbar honest instead of guessing.
-    measureElement: (el) => el?.getBoundingClientRect().height ?? estimatedRowHeight,
+    measureElement: (el) =>
+      el?.getBoundingClientRect().height ?? estimatedRowHeight,
     overscan: 12,
   });
 
@@ -411,18 +414,24 @@ export default function DataTable({
 
   if (!rows.length) {
     return (
-      <div className={wrapClass} style={{ minHeight: "80px" }}>
+      <div
+        className={wrapClass}
+        style={{ minHeight: "200px", maxHeight: "200px" }}
+      >
         <table className="data-table">
           <thead style={{ zIndex: QuriozFlag && 0 }}>
             <tr>
               {s_no && !QuriozFlag && <th>S.No</th>}
 
-               {overView ? cols?.map((c)=>{
-                return <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
-              }) : cols.map((c) => (
-                <th key={c}>{c.replace(/_/g, " ")}</th>
-              ))}
-
+              {overView
+                ? cols?.map((c) => {
+                    return (
+                      <th key={c}>
+                        {c?.includes("fmt") ? c?.split("_")[0] : c}
+                      </th>
+                    );
+                  })
+                : cols.map((c) => <th key={c}>{c.replace(/_/g, " ")}</th>)}
 
               {actions && <th>Actions</th>}
             </tr>
@@ -431,15 +440,33 @@ export default function DataTable({
           <tbody></tbody>
         </table>
 
-        {isShowLogo ? <div  style={{ padding: "32px 16px",width:"",display:"flex", flexDirection:"column", justifyContent:"center",alignItems:"center",height:"20rem"}}>
-          <img style={{width:"13rem",opacity:0.3}}  src={theme === "dark" ? lightLogo : darkLogo} alt="" />
-        </div>
-        :
-        <div className="empty-state" style={{ padding: "32px 16px" }}>
-          <Icon className="ti ti-inbox"></Icon>
-          <p>{emptyMessage || "No data found."}</p>
-        </div> 
-        }
+        {isShowLogo ? (
+          <div
+            style={{
+              padding: "32px 16px",
+              width: "",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "20rem",
+            }}
+          >
+            <img
+              style={{ width: "13rem", opacity: 0.3 }}
+              src={theme === "dark" ? lightLogo : darkLogo}
+              alt=""
+            />
+          </div>
+        ) : (
+          <div
+            className="empty-state"
+            style={{ padding: "32px 16px", height: "150px" }}
+          >
+            <Icon className="ti ti-inbox" style={{ fontSize: "20x" }}></Icon>
+            <p>{emptyMessage || "No data found."}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -464,10 +491,11 @@ export default function DataTable({
               // A virtualised table cannot be sized by its content: it has to
               // scroll for there to be anything to virtualise.
               maxHeight:
-                maxHeight ?? (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
+                maxHeight ??
+                (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
               ...(maxHeight || virtualize ? { overflow: "auto" } : null),
               position: "relative",
-              minHeight:minHeight ?? ""
+              minHeight: minHeight ?? "200px",
             }
       }
     >
@@ -476,18 +504,20 @@ export default function DataTable({
           <tr>
             {s_no && !QuriozFlag && <th>S.No</th>}
 
-           {overView ? cols?.map((c)=>{
-               return <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
-              }) : cols.map((c) => (
-                <th key={c}>{c.replace(/_/g, " ")}</th>
-              ))}
+            {overView
+              ? cols?.map((c) => {
+                  return (
+                    <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
+                  );
+                })
+              : cols.map((c) => <th key={c}>{c.replace(/_/g, " ")}</th>)}
 
             {actions && <th>Actions</th>}
 
             {/* The fullscreen control lives in the header's rightmost cell
-                rather than floating over the table. A floating button is inside
-                the scroll container and slides away the moment you scroll; the
-                header is sticky, so this one does not. */}
+ rather than floating over the table. A floating button is inside
+ the scroll container and slides away the moment you scroll; the
+ header is sticky, so this one does not. */}
             {allowFullscreen && rows.length > 0 && (
               <th className="dt-fs-col" aria-label="">
                 <button
@@ -497,7 +527,9 @@ export default function DataTable({
                   title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
                   aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
                 >
-                  <Icon className={`ti ${fullscreen ? "ti-minimize" : "ti-maximize"}`} />
+                  <Icon
+                    className={`ti ${fullscreen ? "ti-minimize" : "ti-maximize"}`}
+                  />
                 </button>
               </th>
             )}
@@ -506,95 +538,121 @@ export default function DataTable({
 
         <tbody>
           {/* Spacer above. Two empty rows stand in for everything scrolled
-              past, which keeps the scrollbar and the row positions honest
-              without those rows existing. */}
+ past, which keeps the scrollbar and the row positions honest
+ without those rows existing. */}
           {virtualize && padTop > 0 && (
             <tr aria-hidden="true">
-              <td colSpan={cols.length + (s_no ? 1 : 0) + (actions ? 1 : 0) + (allowFullscreen && rows.length > 0 ? 1 : 0)} style={{ height: padTop, padding: 0, border: 0 }} />
+              <td
+                colSpan={
+                  cols.length +
+                  (s_no ? 1 : 0) +
+                  (actions ? 1 : 0) +
+                  (allowFullscreen && rows.length > 0 ? 1 : 0)
+                }
+                style={{ height: padTop, padding: 0, border: 0 }}
+              />
             </tr>
           )}
 
           {(virtualize && !unmeasured
             ? virtualRows.map((v) => [visibleRows[v.index], v.index])
-            : (unmeasured ? rows.slice(0, FALLBACK_ROWS) : visibleRows).map((r, i) => [r, i])
+            : (unmeasured ? rows.slice(0, FALLBACK_ROWS) : visibleRows).map(
+                (r, i) => [r, i],
+              )
           ).map(([row, ri]) => (
-              <tr
+            <tr
               key={ri}
               data-index={ri}
               ref={virtualize ? virtualizer.measureElement : undefined}
             >
-                {s_no && <td>{ri + 1}</td>}
+              {s_no && <td>{ri + 1}</td>}
 
-                {cols.map((c, ci) => {
-                  const key = `${ri}-${ci}`;
-                  const raw = row[c];
+              {cols.map((c, ci) => {
+                const key = `${ri}-${ci}`;
+                const raw = row[c];
 
-                  // Custom per-column renderer (opt-in). Takes precedence over the
-                  // default primitive/complex handling and carries no click state.
-                  if (cellRenderers && cellRenderers[c]) {
-                    return (
-                      <td key={c} style={{ whiteSpace: "nowrap" }}>
-                        {cellRenderers[c](raw, row)}
-                      </td>
-                    );
-                  }
+                // Custom per-column renderer (opt-in). Takes precedence over the
+                // default primitive/complex handling and carries no click state.
+                if (cellRenderers && cellRenderers[c]) {
+                  return (
+                    <td key={c} style={{ whiteSpace: "nowrap" }}>
+                      {cellRenderers[c](raw, row)}
+                    </td>
+                  );
+                }
 
-                  const complex = isComplexValue(raw);
+                const complex = isComplexValue(raw);
 
-                  if (complex) {
-                    return (
-                      <td
-                        key={c}
-                        className={`dt-complex${
-                          selectedCell === key ? " cell-selected" : ""
-                        }`}
-                        onClick={() => handleComplexClick(key, c, raw)}
-                        title="Click to expand"
-                        style={{ whiteSpace: "nowrap", cursor: "pointer" }}
-                      >
-                        <span className="dt-complex-caret">▸</span>
-                        <span className="dt-complex-preview">
-                          {complexPreview(raw)}
-                        </span>
-                      </td>
-                    );
-                  }
-
-                  // Primitive cell (unchanged behavior)
-                  const val = raw ?? "";
+                if (complex) {
                   return (
                     <td
                       key={c}
-                      className={`${expandedCells.has(key) ? "expanded" : ""} ${
-                        selectedCell === key ? "cell-selected" : ""
+                      className={`dt-complex${
+                        selectedCell === key ? " cell-selected" : ""
                       }`}
-                      onClick={() => handlePrimitiveClick(key, val)}
-                      onDoubleClick={()=> {typeof onCellClick === "function" && onCellClick(val)}}
-                      style={{
-                        whiteSpace:whiteSpaceFlag ? "pre": (expandedCells.has(key) ? "normal" : "nowrap"),
-                        wordWrap: "break-word",
-                      }}
+                      onClick={() => handleComplexClick(key, c, raw)}
+                      title="Click to expand"
+                      style={{ whiteSpace: "nowrap", cursor: "pointer" }}
                     >
-                      {formatPrimitive(raw)}
+                      <span className="dt-complex-caret">▸</span>
+                      <span className="dt-complex-preview">
+                        {complexPreview(raw)}
+                      </span>
                     </td>
                   );
-                })}
+                }
 
-                {actions && (
+                // Primitive cell (unchanged behavior)
+                const val = raw ?? "";
+                return (
                   <td
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ whiteSpace: "nowrap" }}
+                    key={c}
+                    className={`${expandedCells.has(key) ? "expanded" : ""} ${
+                      selectedCell === key ? "cell-selected" : ""
+                    }`}
+                    onClick={() => handlePrimitiveClick(key, val)}
+                    onDoubleClick={() => {
+                      typeof onCellClick === "function" && onCellClick(val);
+                    }}
+                    style={{
+                      whiteSpace: whiteSpaceFlag
+                        ? "pre"
+                        : expandedCells.has(key)
+                          ? "normal"
+                          : "nowrap",
+                      wordWrap: "break-word",
+                    }}
                   >
-                    {actions(row)}
+                    {formatPrimitive(raw)}
                   </td>
-                )}
-                {allowFullscreen && rows.length > 0 && <td className="dt-fs-col" />}
+                );
+              })}
+
+              {actions && (
+                <td
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {actions(row)}
+                </td>
+              )}
+              {allowFullscreen && rows.length > 0 && (
+                <td className="dt-fs-col" />
+              )}
             </tr>
           ))}
 
           {virtualize && padBottom > 0 && (
             <tr aria-hidden="true">
-              <td colSpan={cols.length + (s_no ? 1 : 0) + (actions ? 1 : 0) + (allowFullscreen && rows.length > 0 ? 1 : 0)} style={{ height: padBottom, padding: 0, border: 0 }} />
+              <td
+                colSpan={
+                  cols.length +
+                  (s_no ? 1 : 0) +
+                  (actions ? 1 : 0) +
+                  (allowFullscreen && rows.length > 0 ? 1 : 0)
+                }
+                style={{ height: padBottom, padding: 0, border: 0 }}
+              />
             </tr>
           )}
         </tbody>
@@ -608,7 +666,8 @@ export default function DataTable({
             color: "var(--text-muted)",
           }}
         >
-          Showing {shownRows.toLocaleString()} of {rows.length.toLocaleString()} rows
+          Showing {shownRows.toLocaleString()} of {rows.length.toLocaleString()}{" "}
+          rows
         </div>
       )}
 

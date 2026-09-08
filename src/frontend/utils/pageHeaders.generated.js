@@ -15,7 +15,7 @@ export const PAGE_HEADERS = {
     "Tables & Parts"
   ],
   "overview/operations": [
-    "Merges, Mutations & Replication"
+    "Merges & Mutations"
   ],
   "overview/ddl": [
     "Distributed DDL & Readonly Tables"
@@ -284,9 +284,9 @@ export const PAGE_TEXT = {
     "Loading...",
     "Merges",
     "Mutations",
-    "Replication Queue",
     "Active Merges",
-    "Active Mutations"
+    "Active Mutations",
+    "Replication Queue"
   ],
   "overview/ddl": [
     "Loading...",
