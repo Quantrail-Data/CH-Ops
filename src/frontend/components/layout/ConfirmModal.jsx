@@ -17,6 +17,7 @@ export default function ConfirmModal({
   confirmText = "Confirm",
   danger = false,
   confirmDisabled = false,
+  cancelHide=false
 }) {
   const confirmBtn = useRef(null);
 
@@ -57,9 +58,9 @@ export default function ConfirmModal({
         <div
           style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}
         >
-          <button className="btn btn-secondary" onClick={onCancel}>
+          {!cancelHide && <button className="btn btn-secondary" onClick={onCancel}>
             Cancel
-          </button>
+          </button>}
           <button
             ref={confirmBtn}
             className={`btn ${danger ? "btn-danger" : "btn-primary"}`}
