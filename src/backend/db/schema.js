@@ -112,6 +112,9 @@ export const appUsers = sqliteTable("app_user", {
   mustChangePassword: integer("must_change_password", { mode: "boolean" })
     .notNull()
     .default(true),
+  initUser:integer("init_user", { mode: "boolean" })
+    .notNull()
+    .default(false),
   lastLoginAt: text("last_login_at"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),

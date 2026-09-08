@@ -106,6 +106,7 @@ sqlite.exec(`
     role TEXT NOT NULL DEFAULT 'readonly',
     email TEXT UNIQUE,
     must_change_password INTEGER NOT NULL DEFAULT 1,
+    init_user INTEGER NOT NULL DEFAULT 0,
     last_login_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
@@ -268,7 +269,7 @@ if (existingUsers.length === 0) {
     const em = process.env[`SUPER_ADMIN_${i}_EMAIL`];
     if (u && p && em) {
       const hash = await Bun.password.hash(p, { algorithm: 'argon2id', memoryCost: 65536, timeCost: 2 });
-      db.insert(schema.appUsers).values({ username: u, passwordHash: hash, role: 'superadmin', mustChangePassword: false,email:em }).run();
+       db.insert(schema.appUsers).values({ username: u, passwordHash: hash, role: 'superadmin', mustChangePassword: false,email:em ,initUser:true}).run();
       console.log(`  Seeded super admin: ${u}`);
       seeded++;
     }
@@ -276,7 +277,7 @@ if (existingUsers.length === 0) {
   // Legacy fallback
   if (seeded === 0 && process.env.SUPER_ADMIN && process.env.SUPER_ADMIN_PASSWORD && process.env.SUPER_ADMIN_EMAIL) {
     const hash = await Bun.password.hash(process.env.SUPER_ADMIN_PASSWORD, { algorithm: 'argon2id', memoryCost: 65536, timeCost: 2 });
-    db.insert(schema.appUsers).values({ username: process.env.SUPER_ADMIN, passwordHash: hash, role: 'superadmin', mustChangePassword: false,email:process.env.SUPER_ADMIN_EMAIL }).run();
+    db.insert(schema.appUsers).values({username: process.env.SUPER_ADMIN, passwordHash: hash, role: 'superadmin', mustChangePassword: false,initUser:true,email:process.env.SUPER_ADMIN_EMAIL}).run();
     console.log(`  Seeded super admin: ${process.env.SUPER_ADMIN}`);
   }
 }

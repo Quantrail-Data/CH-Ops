@@ -47,7 +47,7 @@ export default function UserManagement() {
   const [roleChange, setRoleChange] = useState(null);
   // The System Email tab. Superadmin only, because these settings hold a
   // password.
-  const [tab, setTab] = useState("smtp");
+  const [tab, setTab] = useState("users");
   const [smtp, setSmtp] = useState(null);
   const [smtpForm, setSmtpForm] = useState(null);
   const [smtpBusy, setSmtpBusy] = useState(false);
@@ -259,7 +259,10 @@ export default function UserManagement() {
     setRoleChange(null);
   }
 
-  async function resetPassword(id) {
+async function resetPassword(id,initUser) {
+    if(initUser) {
+      toast.error("Cannot reset passord for init user");
+    }
     try {
       const r = await apiFetch(`/api/users/${id}`, {
         method: "PUT",
@@ -705,7 +708,7 @@ export default function UserManagement() {
               <tbody>
                 {users.map((u) => {
                   const targetLevel = ROLE_LEVEL[u.role] || 0;
-                  const canManage = isAdmin && targetLevel < myLevel;
+                  const canManage = isAdmin && targetLevel <= myLevel;
                   const rolesForTarget = assignableRoles(u.role);
                   return (
                     <tr key={u.id}>
@@ -763,9 +766,9 @@ export default function UserManagement() {
                         >
                           <button
                             className="btn btn-secondary btn-sm"
-                            onClick={() => resetPassword(u.id)}
+                            onClick={() => resetPassword(u.id,u.initUser)}
                             title="Reset Password"
-                            disabled={!canManage}
+                            disabled={!canManage || u.initUser}
                             style={
                               !canManage
                                 ? { opacity: 0.35, cursor: "not-allowed" }
@@ -778,9 +781,9 @@ export default function UserManagement() {
                             className="btn btn-danger btn-sm"
                             onClick={() => setDel(u.id)}
                             title="Delete"
-                            disabled={!canManage}
+                            disabled={!canManage || u.initUser}
                             style={
-                              !canManage
+                              !canManage || u.initUser
                                 ? { opacity: 0.35, cursor: "not-allowed" }
                                 : {}
                             }
