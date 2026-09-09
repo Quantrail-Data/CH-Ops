@@ -48,6 +48,7 @@ const NO_CONNECTION = Object.freeze({
   error: null,
   clusterName: "",
   serverVersion: null,
+  unavailable:[],
   setConnection: () => {},
   testConnection: () => {},
   reloadConfig: () => {},
@@ -152,6 +153,7 @@ export default function App() {
     error: null,
     clusterName: "",
     serverVersion: null,
+    unavailable:[]
   });
 
   // Keep global connection store in sync
@@ -166,6 +168,7 @@ export default function App() {
         port: next.port,
         clusterId: next.selectedClusterId,
         connected: true,
+        unavailable:next.unavailable
       });
       return next;
     });
@@ -274,6 +277,7 @@ export default function App() {
         connected: Object?.keys(first)?.length > 0 ? true : false,
         error: null,
         serverVersion: null,
+        unavailable:[],
       };
     });
   }
@@ -286,10 +290,12 @@ export default function App() {
 
     apiFetch(`/api/config/capabilities/${encodeURIComponent(clusterId)}`)
       .then((r) => {
+        console.log(r)
         if (cancelled) return;
         setConnection((prev) => ({
           ...prev,
           serverVersion: r.version ?? null,
+          unavailable:r.unavailable
         }));
       })
       .catch(() => {

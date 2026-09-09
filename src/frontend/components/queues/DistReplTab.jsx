@@ -24,7 +24,7 @@ function delta(curr, prev) {
   return d > 0 ? `+${fmtInt(d)}` : `${fmtInt(d)}`;
 }
 
-export default function DistReplTab({ view = "replication" }) {
+export default function DistReplTab({ view = "replication" ,unavailable}) {
   const isRepl = view === "replication";
 
   const [repl, setRepl] = useState(null);
@@ -40,6 +40,7 @@ export default function DistReplTab({ view = "replication" }) {
     try {
       if (isRepl) {
         const r = await loadReplication();
+        console.log(r)
         setRepl(r);
         prevRef.current.replTotal = r?.cards ? Number(r.cards.total_pending) : null;
       } else {
@@ -79,6 +80,23 @@ export default function DistReplTab({ view = "replication" }) {
         .some((v) => String(v || "").toLowerCase().includes(f));
     });
   };
+
+const getUnavailableMessage = () => {
+  if(!isRepl) return ;
+  const match = unavailable.find(item => item.table === "system.replication_queue");
+  return match ? match.message : null;
+};
+
+const unavailableMessage = getUnavailableMessage();
+
+if (isRepl && unavailableMessage) {
+  return (
+    <EmptyState icon="ti-git-branch" title="No replicated tables">
+      {unavailableMessage}
+    </EmptyState>
+  );
+}
+
 
   // Replication view
   if (isRepl) {
