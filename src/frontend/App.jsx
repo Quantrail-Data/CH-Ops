@@ -158,7 +158,7 @@ export default function App() {
   function setConnection(updater) {
     setConnectionState((prev) => {
       const next =
-        typeof updater === "function" ? updater(prev) : { ...prev, ...updater };
+      typeof updater === "function" ? updater(prev) : { ...prev, ...updater };
       setGlobalConnection({
         node: next.selectedNode,
         nodeName: next.nodeName,
@@ -232,7 +232,7 @@ export default function App() {
           {};
 
         if (!connection.connected && first?.host) {
-          testConn(first.host, first.user, first.port, token, cluster?.id);
+          testConn(first.name, first.user, first.port, token, cluster?.id);
         }
       })
       .catch((err) => {
@@ -305,7 +305,7 @@ export default function App() {
 
   // No password argument: the browser does not hold one. The backend resolves
   // the stored credential for this node from the cluster configuration.
-  async function testConn(host, user, port, token, clusterId) {
+  async function testConn(name, user, port, token, clusterId) {
     try {
       const cid = clusterId || connection.selectedClusterId;
       const res = await fetch("/api/query/test-connection", {
@@ -315,7 +315,7 @@ export default function App() {
           Authorization: `Bearer ${token || auth?.token}`,
         },
         body: JSON.stringify({
-          node: host,
+          node: name,
           user,
           port,
           clusterId: cid,
