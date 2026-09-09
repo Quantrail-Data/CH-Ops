@@ -87,6 +87,15 @@ const EDITOR_HEIGHT_KEY = "chops_editor_height";
 const EDITOR_HEIGHT_MIN = 90;
 const EDITOR_HEIGHT_DEFAULT = 240;
 
+// A running export outlives the browser:
+const ACTIVE_EXPORT_KEY = "chops_active_export";
+
+function forgetExport() {
+  try {
+    localStorage.removeItem(ACTIVE_EXPORT_KEY);
+  } catch {}
+}
+
 function getEditorHeight() {
   const n = Number(localStorage.getItem(EDITOR_HEIGHT_KEY));
   return Number.isFinite(n) && n >= EDITOR_HEIGHT_MIN
@@ -1217,6 +1226,9 @@ export default function QueryEditor({
       const tabId = runTabId || activeIdRef.current;
       const runTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
       const rowCap = maxRowsRef.current;
+
+       // removing the older export details in localstorage info
+      forgetExport()
 
       const sql = runTab.sql;
       const paramValues = runTab.params;

@@ -59,6 +59,14 @@ function recallExport() {
   }
 }
 
+function isThereExport() {
+  return localStorage?.getItem(ACTIVE_EXPORT_KEY) !== null
+}
+
+
+
+console.log(isThereExport())
+
 function defaultFileName(username) {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -96,6 +104,8 @@ export default function ExportWizard({ sql, username, onClose }) {
 
   const selectLike = useMemo(() => isSelectLike(sql), [sql]);
   const multiple = useMemo(() => hasMultipleStatements(sql), [sql]);
+
+  const [isEstimated,setIsEstimated] = useState(isThereExport())
 
   // Export does not carry parameter values (see routes/export.js). An OPTIONAL
   // parameter degrades acceptably: its /*[ ]*/ block is dropped and the export
@@ -161,6 +171,7 @@ export default function ExportWizard({ sql, username, onClose }) {
       toast.error(errorMsg);
     } finally {
       setEstimating(false);
+      setIsEstimated(true)
     }
   }
 
@@ -380,9 +391,9 @@ export default function ExportWizard({ sql, username, onClose }) {
                 Close
               </button>
               <button
-                className="btn btn-secondary"
+                className={isEstimated ? "btn btn-primary" : "btn btn-secondary"}
                 onClick={runEstimate}
-                disabled={estimating || blockedByParams}
+                disabled={estimating || blockedByParams || isEstimated}
                 style={{ minWidth: "140px" }}
               >
                 {estimating ? (
