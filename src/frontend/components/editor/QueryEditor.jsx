@@ -835,7 +835,7 @@ export default function QueryEditor({
       await editorConnect(candidate);
       setEditorCreds({ user: candidate.user });
       setConnPassword("");
-      toast.success("DB connected succesfully");
+      toast.success("DB connected successfully");
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -2410,7 +2410,7 @@ export default function QueryEditor({
                     style={{ fontSize: "11px", padding: "1px 6px" }}
                     onClick={() => {
                       navigator.clipboard?.writeText(effectiveQueryId);
-                      toast.success("Query ID Copied Succesfully");
+                      toast.success("Query ID Copied Successfully");
                     }}
                     title={"query_id: " + effectiveQueryId}
                   >
@@ -3256,7 +3256,7 @@ export default function QueryEditor({
               onCellClick={(v) => {
                 if (v != null) {
                   navigator.clipboard?.writeText(String(v));
-                  toast.success("Query Text Copied Succesfully");
+                  toast.success("Query Text Copied Successfully");
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }
@@ -3374,7 +3374,7 @@ export default function QueryEditor({
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
                       navigator.clipboard?.writeText(ddlModal.ddl);
-                      toast.success("DDL Text Copied Succesfully");
+                      toast.success("DDL Text Copied Successfully");
                     }}
                   >
                     <Icon className="ti ti-copy"></Icon> Copy
@@ -3500,7 +3500,7 @@ export default function QueryEditor({
                   className="btn btn-secondary btn-sm"
                   onClick={() => {
                     navigator.clipboard?.writeText(sql);
-                    toast.success("Quer Text Copied Succesfully");
+                    toast.success("Quer Text Copied Successfully");
                   }}
                 >
                   <Icon className="ti ti-copy"></Icon> Copy
