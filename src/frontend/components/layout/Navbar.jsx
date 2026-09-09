@@ -195,7 +195,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
         port: node.port || 8123,
         nodeName:name
       }));
-      await testConnection(node?.host, node?.user, node?.port);
+      await testConnection(node?.name, node?.user, node?.port);
       onRefresh();
       setConnecting(false);
     } else setConnection((prev) => ({ ...prev, selectedNode: host }));
