@@ -335,7 +335,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
       setRename('')
       onSuccess();
       setOnCluster('')
-      toast.success(`Profile ${isAlter ? 'altered' : 'created'} succesfully.`)
+      toast.success(`Profile ${isAlter ? 'altered' : 'created'} successfully.`)
     }
     catch (err) { setResult({ ok: false, msg: err.message }); toast.error(`Failed to ${isAlter ? 'alter' : 'create'} profile.`)}
     

@@ -83,7 +83,7 @@ export default function UserManagement() {
   }
 
   useEffect(() => {
-    if (tab === "smtp") return;
+    if (tab === "smtp" && !myLevel === ROLE_LEVEL['superadmin']) return;
     checkSmtpconfigured();
   }, [tab]);
 
@@ -598,7 +598,7 @@ async function resetPassword(id,initUser) {
           )}
           {/* {isSmtpConfigured &&  <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>} */}
 
-          {!isSmtpConfigured && (
+          {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"]&&(
             <div className="alert-banner info" style={{ marginBottom: 14 }}>
               <Icon className="ti ti-info-circle"></Icon>SMTP is not configured.
               Email notifications are disabled. You can only create users and
