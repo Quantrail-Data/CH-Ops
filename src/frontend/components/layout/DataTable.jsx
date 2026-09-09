@@ -483,7 +483,7 @@ export default function DataTable({
               maxHeight: "none",
               overflow: "auto",
               background: "var(--bg-page)",
-              padding: "38px 0 0",
+              // padding: "38px 0 0",
               border: 0,
               borderRadius: 0,
             }

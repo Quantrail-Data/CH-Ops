@@ -586,7 +586,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
               onClick={(e) => {
                 try {
                   navigator.clipboard.writeText(query.query_id);
-                  toast.success("Query ID Copied Succesfully");
+                  toast.success("Query ID Copied Successfully");
                   e.target.closest("button").title = "Copied!";
                   setTimeout(() => {
                     e.target.closest("button") &&
@@ -665,7 +665,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
                 navigator.clipboard.writeText(
                   fullText || query.query_preview || "",
                 );
-                toast.success("Query Text Copied Succesfully");
+                toast.success("Query Text Copied Successfully");
                 e.target.closest("button").textContent = "✓ Copied";
                 setTimeout(() => {
                   if (e.target.closest("button"))

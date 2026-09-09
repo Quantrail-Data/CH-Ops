@@ -445,7 +445,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
               className="btn btn-ghost btn-sm"
               onClick={() => {
                 navigator.clipboard.writeText(query.query_id);
-                toast.success("Query ID Copied Succesfully");
+                toast.success("Query ID Copied Successfully");
               }}
               title="Copy Query ID"
             >
@@ -515,7 +515,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
               navigator.clipboard.writeText(
                 fullText || query.query_preview || "",
               );
-              toast.success("Query Text Copied Succesfully");
+              toast.success("Query Text Copied Successfully");
             }}
           >
             <Icon className="ti ti-copy" style={{ marginRight: 4 }}></Icon> Copy
