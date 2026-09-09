@@ -42,10 +42,11 @@ export function kubernetesEnabled() {
 // GET /api/config/capabilities/:clusterId What this deployment cannot do, and why.
 export async function getCapabilities(req, res) {
   const { clusterId } = req.params;
+  console.log(clusterId)
 
   try {
     const probe = await ensureCapabilities(clusterId);
-    // console.log(probe)
+    console.log(probe)
     res.json({
       probed: probe.probed,
       deployment: probe.deployment,

@@ -20,6 +20,7 @@ import ChartToolbar, {
 import { useToast } from "../layout/Toast.jsx";
 import { useSearchParams } from "react-router-dom";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
+import { useConnection } from "../../App.jsx";
 
 // Trace types
 
@@ -571,6 +572,7 @@ export default function QueryProfiler() {
   const flameTools = useChartTools(() => flameInst.current, {
     filename: "flame-graph",
   });
+  const conn = useConnection()
 
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
@@ -786,6 +788,27 @@ export default function QueryProfiler() {
     saveFun: true,
     fullscreenFun: true,
   };
+
+    const getUnavailableMessage = () => {
+  const match = conn.unavailable.find(item => item.table === "system.trace_log");
+  return match ? match.message : null;
+};
+
+const unavailableMessage = getUnavailableMessage();
+
+if (unavailableMessage) {
+  return (
+    <div className="unavailable-container">
+      <div className="unavailable-icon-wrapper">
+        <Icon className="ti-git-branch" />
+      </div>
+      <div className="unavailable-text">
+        {unavailableMessage}
+      </div>
+    </div>
+  );
+}
+
 
   return (
     <div>
