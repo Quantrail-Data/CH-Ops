@@ -15,6 +15,7 @@ export default function ConfirmDialog({
   tone = "default", // 'default' | 'danger'
   onConfirm,
   onCancel,
+  sql
 }) {
   const confirmRef = useRef(null);
 
@@ -73,6 +74,38 @@ export default function ConfirmDialog({
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "8px 0 0" }}>
             {detail}
           </p>
+        )}
+
+        {sql && (
+          <div style={{marginTop:"1rem"}}>
+                          <pre
+                            style={{
+                              fontFamily: "var(--font-code)",
+                              fontSize: "0.75rem",
+                              lineHeight: 1.6,
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-all",
+                              padding: "12px 6px",
+                              background: "var(--bg-sunken)",
+                              borderRadius: "var(--radius-sm)",
+                              border: "1px solid var(--border-default)",
+                              maxHeight: 400,
+                              overflow: "auto",
+                              color: "var(--text-primary)",
+                            }}
+                          >
+                            {sql.toUpperCase()}
+                          </pre>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                              marginTop: 12,
+                              gap: 8,
+                            }}
+                          >
+                          </div>
+                        </div>
         )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>

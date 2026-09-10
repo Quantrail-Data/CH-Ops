@@ -229,6 +229,18 @@ function clearHistory() {
   } catch {}
 }
 
+// To delete the single history, instead of clear all.
+function deleteHistory(id) {
+  const h = getHistory();
+  const index = h.findIndex(his => his.id === id);
+  if (index === -1) return; 
+  h.splice(index, 1);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  } catch {}
+}
+
+
 // Export helpers - trigger browser download from in-memory data function
 // downloadBlob(content,
 
@@ -494,6 +506,8 @@ export default function QueryEditor({
   const [runConfirm, setRunConfirm] = useState(null);
   const [analyzeConfirm, setAnalyzeConfirm] = useState(null);
   const [closeConfirm, setCloseConfirm] = useState(null);
+  const [deleteConfirmModal,setDeleteConfirmModal] = useState(null);
+  const [onRefresh,setOnRefresh] = useState(false);
 
   // How many rows to ask for.
   const [maxRows, setMaxRowsState] = useState(() => {
@@ -1021,12 +1035,14 @@ export default function QueryEditor({
   };
 
   const loadDbs = useCallback(async () => {
+    setOnRefresh(true)
     const creds = editorCredsRef.current;
     if (!creds) return;
     const response = await fetchDatabaseDetails(creds);
     setDbs(response);
 
     initSetup(response);
+    setOnRefresh(false)
   }, []);
 
   async function loadBookmarks() {
@@ -1506,6 +1522,7 @@ export default function QueryEditor({
       if (lastSqlRef.current) {
         const finished = runtimeRef.current[tabId] || {};
         addHistory({
+          id: crypto.randomUUID(),
           sql: lastSqlRef.current,
           timestamp: new Date().toISOString(),
           rows: finished.totalRows || lastRunMetaRef.current?.written || 0,
@@ -1753,7 +1770,8 @@ export default function QueryEditor({
                 title="Refresh databases"
                 style={{ marginLeft: "auto" }}
               >
-                <Icon className="ti ti-refresh"></Icon>
+                {onRefresh ? <div className="loading-spinner"/> :
+                <Icon className="ti ti-refresh"></Icon>}
               </button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", height: "93%" }}>
@@ -2721,6 +2739,7 @@ export default function QueryEditor({
                         title="Clear history"
                       >
                         <Icon className="ti ti-trash"></Icon>
+                        Clear History
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -2861,6 +2880,9 @@ export default function QueryEditor({
                                 }}
                               ></Icon>{" "}
                               Load
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() =>setDeleteConfirmModal({id:h?.id,query:h.sql})}>
+                            <Icon className="ti ti-trash" style={{ fontSize: 12,padding:"0" }} ></Icon>
                             </button>
                           </div>
                         </div>
@@ -3582,6 +3604,8 @@ export default function QueryEditor({
           if (id) doRunRef.current?.(id);
         }}
       />
+
+      <ConfirmDialog open={!!deleteConfirmModal} tone="danger" title="Delete" message="Do you want to delete this query ?" sql={deleteConfirmModal?.query} onCancel={() => setDeleteConfirmModal(null)} onConfirm={() =>{deleteHistory(deleteConfirmModal?.id); setDeleteConfirmModal(null);setHistory(getHistory());}}/>
 
       {shareOpen && (
         <ShareDialog
