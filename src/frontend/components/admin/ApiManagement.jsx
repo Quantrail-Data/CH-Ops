@@ -980,7 +980,7 @@ export default function ApiManagement() {
                 >
                   {isLoadingKey ? (
 
-                     <div className="loading-spinner"></div>
+                     <div className="loading-spinner" style={{borderTopColor:"white"}}></div>
 
                   ) : (
                     <>
