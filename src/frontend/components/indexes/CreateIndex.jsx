@@ -71,8 +71,8 @@ function CreateForm() {
   const [splitByStringS, setSplitByStringS] = useState(',');
   const [ngramsN, setNgramsN] = useState(3);
   const [sparseMin, setSparseMin] = useState(3);
-  const [sparseMax, setSparseMax] = useState(8);
-  const [sparseCutoff, setSparseCutoff] = useState(2);
+  const [sparseMax, setSparseMax] = useState(100);
+  const [sparseCutoff, setSparseCutoff] = useState(3);
   const [preprocessor, setPreprocessor] = useState('');
   const [dictBlockSize, setDictBlockSize] = useState('');
   const [dictFrontcoding, setDictFrontcoding] = useState('');
