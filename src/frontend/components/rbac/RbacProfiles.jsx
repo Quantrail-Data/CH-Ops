@@ -7,7 +7,7 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
-import { runQuery } from "../../utils/api.js";
+import { runEditorQuery, runQuery } from "../../utils/api.js";
 import DataTable from "../layout/DataTable.jsx";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
@@ -1182,6 +1182,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
   const [addProfiles, setAddProfiles] = useState("");
   const [dropProfiles, setDropProfiles] = useState("");
   const [dropSettings, setDropSettings] = useState("");
+
   const [open, setOpen] = useState(true);
   const clustersQ = useQuery();
   const toast = useToast();
@@ -1202,6 +1203,39 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
       return n;
     });
   }
+  // console.log(settings);
+
+  useEffect(() => {
+    async function getAlterTableSettingProfile() {
+      if (profileName && onCluster && isAlter) {
+        const query = `SELECT *
+        FROM system.settings_profile_elements as sys
+        where sys.profile_name = '${profileName}'`;
+
+        try {
+          const response = await runEditorQuery(query);
+
+          if (Array.isArray(response?.rows) && response?.rows?.length > 0) {
+            let setts = {};
+            response?.rows?.forEach((v) => {
+              if (Number(isNaN(v["value"]))) {
+                setts[v["setting_name"]] = `'${v["value"]}'`;
+              } else {
+                setts[v["setting_name"]] = v["value"];
+              }
+            });
+
+            setSettings({ ...setts });
+          }
+        } catch (err) {
+          console.error(err);
+          setSettings({});
+        }
+      }
+    }
+
+    isAlter && getAlterTableSettingProfile();
+  }, [profileName, onCluster]);
 
   function buildSql() {
     if (!profileName) return "";
@@ -1295,7 +1329,6 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
               />
             </div>
             <div className="form-group">
-             
               <label className="form-label">ON CLUSTER</label>
               <Select
                 className="form-select"
@@ -1307,7 +1340,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
                   <option key={r.cluster}>{r.cluster}</option>
                 ))}
               </Select>
-               <OnClusterBanner rbac={rbac} value={onCluster} />
+              <OnClusterBanner rbac={rbac} value={onCluster} />
             </div>
           </div>
         ) : (
@@ -1329,7 +1362,6 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
               />
             </div>
             <div className="form-group">
-             
               <label className="form-label">ON CLUSTER</label>
               <Select
                 className="form-select"
@@ -1341,7 +1373,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
                   <option key={r.cluster}>{r.cluster}</option>
                 ))}
               </Select>
-               <OnClusterBanner rbac={rbac} value={onCluster} />
+              <OnClusterBanner rbac={rbac} value={onCluster} />
             </div>
           </div>
         )}
