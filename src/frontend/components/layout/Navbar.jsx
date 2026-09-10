@@ -13,7 +13,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
-import { runQuery } from "../../utils/api.js";
+import { editorDisconnect, runQuery } from "../../utils/api.js";
 
 import chopsLightLogo from "../../assets/chops-light.svg";
 import chopsDarkLogo from "../../assets/chops-dark.svg";
@@ -199,6 +199,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
       onRefresh();
       setConnecting(false);
     } else setConnection((prev) => ({ ...prev, selectedNode: host }));
+    await editorDisconnect();
   }
 
   async function handleConnect() {
@@ -222,6 +223,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
       onRefresh();
       setConnecting(false);
     }
+    await editorDisconnect();
   }
 
   return (
