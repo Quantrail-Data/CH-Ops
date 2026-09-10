@@ -1228,7 +1228,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
             setSettings({ ...setts });
           }
         } catch (err) {
-          console.error(err);
+          console.error(err?.message);
           setSettings({});
         }
       }
