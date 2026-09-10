@@ -210,7 +210,6 @@ export async function runQuery(sql, overrides = {}) {
 export async function runEditorQuery(sql, creds, options = {}) {
   if (!sql || typeof sql !== "string") throw new Error("SQL is required.");
   const conn = getGlobalConnection();
-  console.log(conn)
   const base = {
     sql,
     node: conn.nodeName, // from navbar
