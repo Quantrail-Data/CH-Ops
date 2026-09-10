@@ -133,8 +133,7 @@ export function explain(table) {
 // Everything unavailable on this cluster, for a summary panel.
 export function unavailableFeatures(clusterId) {
   const entry = cache.get(clusterId);
-  console.log(entry)
-  if (!entry?.probed || entry.tables.size === 0) {console.log("working"); return []};
+  if (!entry?.probed || entry.tables.size === 0) {return []};
   return Object.values(CAPABILITY)
     .filter((t) => !entry.tables.has(t) && EXPLANATIONS[t])
     .map((t) => ({ table: t, message: EXPLANATIONS[t] }));

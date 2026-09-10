@@ -394,6 +394,7 @@ export const PAGE_TEXT = {
     "Explain pipeline (graph)",
     "Explain plan (JSON)",
     "Running...",
+    "Clear History",
     "No queries yet. Run a query to start recording.",
     "Save",
     "Save current parameter values as defaults",
