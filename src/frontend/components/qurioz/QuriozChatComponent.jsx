@@ -868,7 +868,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     try {
       if (sql) {
         const connectionOption = {
-          node: selectedNode,
+          node: nodeName,
           user,
           password,
           port,
