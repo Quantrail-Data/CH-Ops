@@ -213,6 +213,7 @@ export default function ClusterManagement() {
   const [k8sForm, setK8sForm] = useState(null);
   const [k8sVerify, setK8sVerify] = useState(null);
   const [k8sSaving, setK8sSaving] = useState(false);
+  const [onRefresh,setOnRefresh] = useState(false);
 
 
   const [deleting, setDeleting] = useState(null);
@@ -225,6 +226,7 @@ export default function ClusterManagement() {
   const visibleClusters = k8sEnabled && tab === "k8s" ? k8sClusters : directClusters;
 
   async function load() {
+    setOnRefresh(true);
     try {
       const r = await apiFetch("/api/cluster");
       setClusters(Array.isArray(r) ? r : []);
@@ -232,6 +234,7 @@ export default function ClusterManagement() {
       toast.error("Failed to load clusters: " + e.message);
     }
     setLoaded(true);
+    setOnRefresh(false);
   }
   useEffect(() => {
     load();
@@ -538,7 +541,8 @@ function startEditK8s(cluster) {
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <button className="btn btn-secondary btn-sm" onClick={load}>
-            <Icon className="ti ti-refresh"></Icon>
+           {onRefresh ? <div className="loading-spinner"/> :
+                           <Icon className="ti ti-refresh"></Icon>}
           </button>
           {k8sEnabled && tab === "k8s"
             ? !showK8sWizard &&
