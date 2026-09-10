@@ -959,6 +959,15 @@ function CrashLogSearch({ sidebar, unavailable }) {
       {submitted && !q.loading && (
         <DataTable
           rows={q.data || []}
+          columns={[
+            "timestamp_ns",
+            "event_time",
+            "signal",
+            "quertid",
+            "query",
+            "signal_description",
+            "current_exception_trace_ful",
+          ]}
           emptyMessage="No crash entries found."
           variant="single"
           s_no={true}

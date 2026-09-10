@@ -953,7 +953,7 @@ function SessionLogOverview({ unavailable }) {
                   setDuration(d);
                   setFrom(nextFrom);
                   setTo(nextTo);
-                  load({ duration: d, from: nextFrom, to: nextTo });
+                  // load({ duration: d, from: nextFrom, to: nextTo });
                 }}
               >
                 {d}
@@ -1471,6 +1471,7 @@ function SessionLogSearch({ unavailable }) {
       {submitted && !q.loading && tableExists && (
         <DataTable
           rows={q.data || []}
+          columns={["event_time", "type", "user", "auth_type", "interface", "client_address", "failure_reason"]}
           emptyMessage="No session entries found."
           variant="single"
           s_no={true}
