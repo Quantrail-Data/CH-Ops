@@ -978,7 +978,7 @@ export default function ApiManagement() {
                   title={keyValidationMessage || "Test the API key"}
                   onClick={verifyAPIKeyHandler}
                 >
-                  {!isLoadingKey ? (
+                  {isLoadingKey ? (
 
                      <div className="loading-spinner" style={{borderTopColor:"white"}}></div>
 
