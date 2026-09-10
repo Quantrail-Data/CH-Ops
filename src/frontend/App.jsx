@@ -290,7 +290,6 @@ export default function App() {
 
     apiFetch(`/api/config/capabilities/${encodeURIComponent(clusterId)}`)
       .then((r) => {
-        console.log(r)
         if (cancelled) return;
         setConnection((prev) => ({
           ...prev,
