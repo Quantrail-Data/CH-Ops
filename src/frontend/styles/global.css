@@ -1356,7 +1356,13 @@ input[type="datetime-local"] {
   position: sticky;
   top: 0;
   z-index: 2;
+
 }
+
+/* [data-theme="light"] .data-table thead {
+  background-color:black;
+  border-style:none;
+} */
 
 .data-table th {
   font-family: var(--font-ui);
@@ -1383,8 +1389,13 @@ input[type="datetime-local"] {
   background: var(--glass-dropdown);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   backdrop-filter: blur(24px) saturate(1.4);
+  
 }
 
+[data-theme="light"] .ov-log-table .data-table thead th
+{
+  background-color: var(--th-bg);
+}
 .data-table td {
   padding: 8px 14px;
   border-bottom: 1px solid var(--border-default);
