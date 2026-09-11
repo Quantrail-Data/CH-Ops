@@ -322,6 +322,7 @@ export default function DataTable({
   whiteSpaceFlag = false,
   isShowLogo = false,
   minHeight = null,
+  fixedWidth = false
 }) {
   const [expandedCells, setExpandedCells] = useState(new Set());
   const [selectedCell, setSelectedCell] = useState(null);
@@ -614,14 +615,26 @@ export default function DataTable({
                     onDoubleClick={() => {
                       typeof onCellClick === "function" && onCellClick(val);
                     }}
-                    style={{
+                    style={fixedWidth ? {
                       whiteSpace: whiteSpaceFlag
                         ? "pre"
                         : expandedCells.has(key)
                           ? "normal"
                           : "nowrap",
                       wordWrap: "break-word",
-                    }}
+                      width:"calc(100% / 5)",
+                      maxWidth:0
+                      
+                    } :
+                     {
+                      whiteSpace: whiteSpaceFlag
+                        ? "pre"
+                        : expandedCells.has(key)
+                          ? "normal"
+                          : "nowrap",
+                      wordWrap: "break-word",
+                    }
+                  }
                   >
                     {formatPrimitive(raw)}
                   </td>
