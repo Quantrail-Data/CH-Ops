@@ -1322,6 +1322,19 @@ function SessionLogSearch({ unavailable }) {
           {filtersOpen ? "Collapse" : "Expand"} Filters
         </button>
       </div>
+      {submitted && !q.loading && !tableExists && probeDone && (
+        <div className="alert-banner info" style={{ margin: "10px auto" }}>
+          <Icon
+            className="ti ti-shield-check"
+            style={{ color: "#34d399" }}
+          ></Icon>
+          <p>
+            system.session_log is not present. It is created only when session
+            logging is enabled in the server config, so no session entries can
+            be searched.
+          </p>
+        </div>
+      )}
       {filtersOpen && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <form onSubmit={handleSearch}>
@@ -1363,6 +1376,7 @@ function SessionLogSearch({ unavailable }) {
                       style={{
                         display: "flex",
                         gap: 4,
+                        alignItems:"center",
                         fontSize: "13px",
                         cursor: "pointer",
                         padding: "2px 6px",
@@ -1453,19 +1467,6 @@ function SessionLogSearch({ unavailable }) {
               </button>
             </div>
           </form>
-        </div>
-      )}
-      {submitted && !q.loading && !tableExists && probeDone && (
-        <div className="empty-state">
-          <Icon
-            className="ti ti-shield-check"
-            style={{ color: "#34d399" }}
-          ></Icon>
-          <p>
-            system.session_log is not present. It is created only when session
-            logging is enabled in the server config, so no session entries can
-            be searched.
-          </p>
         </div>
       )}
       {submitted && !q.loading && tableExists && (
