@@ -61,7 +61,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
         zIndex: isStage() ? 0:10999,
         border: isFocus
           ? `2px solid ${isDark() ? "#8b5cf6" : "#8b5cf6"}`
-          : "2px solid rgba(200,200,200,0.1)",
+          : `2px solid ${!isDark() ? "lightgray" : "rgba(200,200,200,0.1)"}`,
         position: "relative",
         ...styleReturnForchatInput(),
       }}
@@ -102,7 +102,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <VoiceSearchButton
                 onTranscript={handleVoiceTranscript}
-                disabled={!isSendDisabled}
+                disabled={isSendDisabled}
                 setAutoFocus={setAutoFocus}
               />
               <AnimatePresence>
@@ -119,7 +119,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
                       }
                     }}
                   >
-                    <div className="qur-chat-btn">
+                    <div style={isSendDisabled ? {backgroundColor:"transparent",cursor:"not-allowed"}:{}} className="qur-chat-btn">
                       <Icon
                         className="ti ti-send"
                         style={{ fontSize: 14, color: "white" }}

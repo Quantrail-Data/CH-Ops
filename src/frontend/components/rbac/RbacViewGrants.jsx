@@ -955,6 +955,7 @@ function FullOverview() {
         ]}
         emptyMessage="No grants."
         variant="fixed"
+        fixedWidth = {true}
       />
     </div>
   );
