@@ -89,7 +89,7 @@
     "@vitejs/plugin-react": "4.4.1",
     "@vitest/coverage-istanbul": "3.2.7",
     "concurrently": "9.1.0",
-    "drizzle-kit": "0.31.1",
+    "drizzle-kit": "0.31.10",
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^5.0.0",
