@@ -97,6 +97,9 @@ export default function ChartToolbar({
     fullscreenFun: true,
     legendFun: true,
   },
+  resetEnabled = zoomable,
+  resetTitle,
+  resetAriaLabel,
 }) {
   return (
     <div
@@ -141,9 +144,9 @@ export default function ChartToolbar({
           variant="ghost"
           size="sm"
           onClick={onZoomReset}
-          disabled={!zoomable}
-          title={zoomable ? "Reset zoom" : "Zoom not available for this chart"}
-          aria-label="Reset zoom"
+          disabled={!resetEnabled}
+          title={resetTitle || (resetEnabled ? "Reset zoom" : "Reset not available for this chart")}
+          aria-label={resetAriaLabel || "Reset zoom"}
         >
           <Icon className="ti ti-zoom-reset"></Icon>
         </Button>

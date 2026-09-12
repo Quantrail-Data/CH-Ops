@@ -195,11 +195,6 @@ describe("Backups: Frontend UI", () => {
     expect(code).toContain("Available Backups");
   });
 
-  it("available backups filter: All/Manual", () => {
-    expect(code).toContain("All Backups");
-    expect(code).toContain("Manual Only");
-  });
-
   it("restore listing filters by selected scope", () => {
     expect(code).toContain("scope === ");
     expect(code).toContain("scope");

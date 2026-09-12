@@ -10,7 +10,7 @@
 //
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { writeFileSync, mkdirSync } from "fs";
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 
 const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%";
 
@@ -35,9 +35,16 @@ function seedToInt(str) {
 
 function generatePassword() {
   const seed = process.env.E2E_ADMIN_SEED;
-  const rand = seed ? mulberry32(seedToInt(seed)) : () => randomBytes(1)[0] / 256;
   let out = "";
-  for (let i = 0; i < 24; i++) out += CHARS[Math.floor(rand() * CHARS.length)];
+  if (seed) {
+    const rand = mulberry32(seedToInt(seed));
+    for (let i = 0; i < 24; i++) out += CHARS[Math.floor(rand() * CHARS.length)];
+  } else {
+    // randomInt does rejection sampling internally, so this is unbiased,
+    // unlike floor(randomBytes(1)[0] / 256 * CHARS.length) which isn't
+    // since 256 isn't a multiple of CHARS.length.
+    for (let i = 0; i < 24; i++) out += CHARS[randomInt(CHARS.length)];
+  }
   return out;
 }
 

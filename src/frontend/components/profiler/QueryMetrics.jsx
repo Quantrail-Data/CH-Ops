@@ -492,20 +492,41 @@ function buildGroupChart(label, unit, columns, rows) {
 
   return {
     ...baseChartOption(),
-    grid: { top: 20, right: 16, bottom: 60, left: 50 },
-    xAxis: { type: "time", position: "bottom" },
-    yAxis: { type: "value", name: yAxisLabel, nameTextStyle: { fontSize: 10 } },
+    grid: { top: 22, right: 20, bottom: 78, left: 68, containLabel: false },
+    xAxis: {
+      type: "time",
+      position: "bottom",
+      axisLabel: {
+        hideOverlap: true,
+        rotate: 20,
+        margin: 12,
+      },
+      splitLine: { show: true },
+    },
+    yAxis: { 
+      type: "value", 
+      name: yAxisLabel, 
+      nameTextStyle: { 
+        fontSize: 11,
+        align: "center"
+      },
+      nameLocation: "middle",
+      nameGap: 50
+    },
     legend: {
       show: true,
-      bottom: 0,
+      bottom: 6,
       left: "center",
+      right: 12,
       type: "scroll",
       textStyle: { fontSize: 10 },
+      itemGap: 12,
     },
     tooltip: { trigger: "axis", confine: true },
     toolbox: {
       ...baseChartOption().toolbox,
       top: -16,
+      right: 8,
       itemSize: 10,
       feature: {
         ...baseChartOption().toolbox?.feature,
@@ -568,7 +589,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
               onClick={(e) => {
                 try {
                   navigator.clipboard.writeText(query.query_id);
-                  toast.success("Query ID Copied Succesfully");
+                  toast.success("Query ID Copied Successfully");
                   e.target.closest("button").title = "Copied!";
                   setTimeout(() => {
                     e.target.closest("button") &&
@@ -591,6 +612,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             marginBottom: 14,
             fontSize: "12px",
             color: "var(--text-muted)",
+            flexWrap: "wrap",
           }}
         >
           <span>
@@ -635,6 +657,8 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
           }}
         >
           <Button
@@ -645,7 +669,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
                 navigator.clipboard.writeText(
                   fullText || query.query_preview || "",
                 );
-                toast.success("Query Text Copied Succesfully");
+                toast.success("Query Text Copied Successfully");
                 e.target.closest("button").textContent = "✓ Copied";
                 setTimeout(() => {
                   if (e.target.closest("button"))
@@ -1307,7 +1331,7 @@ export default function QueryMetrics() {
         key={`charts-grid-${chartLayoutKey}-${themedCharts.length}`}
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(560px, 1fr))",
           gap: 16,
           alignItems: "start",
         }}
@@ -1349,7 +1373,7 @@ export default function QueryMetrics() {
                 key={`chart-card-${group.key}-${themeKey}-${chartLayoutKey}-${idx}`}
                 title={group.label}
                 option={group.option}
-                height={300}
+                height={320}
                 loading={false}
               />
             </div>

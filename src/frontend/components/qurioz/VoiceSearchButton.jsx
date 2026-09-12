@@ -171,10 +171,10 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         disabled={disabled || hasError}
         style={{
           ...styles.button,
-          ...(listening
+          ...(disabled || hasError
+            ? styles.disabledButton
+            : listening
             ? styles.listeningButton
-            : hasError
-            ? styles.errorButton
             : styles.defaultButton)
         }}
         whileHover={!disabled && !hasError ? { scale: 1.05 } : {}}

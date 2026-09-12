@@ -119,6 +119,17 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }, []);
 
   useEffect(() => {
+    if (previewTools.fullscreen) {
+      document.body.classList.add("chart-builder-preview-fullscreen");
+    } else {
+      document.body.classList.remove("chart-builder-preview-fullscreen");
+    }
+    return () => {
+      document.body.classList.remove("chart-builder-preview-fullscreen");
+    };
+  }, [previewTools.fullscreen]);
+
+  useEffect(() => {
     if (editChart) {
       const cfg =
         typeof editChart.config === "string"
@@ -148,6 +159,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const hasAxisLabels = typeInfo?.hasXLabel || false;
   
   const shouldShowLegend = needsLegend(chartType, chartSubtype);
+
+  const isTablePreview = !!chartOption?._table;
+  const previewBodyHeight = previewTools.fullscreen
+    ? "calc(100vh - 96px)"
+    : isSmallScreen
+      ? (isTablePreview ? "52vh" : "42vh")
+      : (isTablePreview ? "48vh" : "430px");
 
   useEffect(() => {
     if (!editChart) {
@@ -414,10 +432,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         return 0;
       })();
 
-      const countSeriesBars = Array.isArray(baseOption.series)
-        ? baseOption.series.filter((s) => s?.type === 'bar').length
-        : 0;
-
       const isFullscreen = previewTools.fullscreen;
       const axisFontSize = isFullscreen 
         ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
@@ -426,8 +440,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
         : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
       const xRotate = isBarChart || isHeatmap ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-      const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
-      const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+      const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 108 : 96) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 56 : 46);
+      const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 10 : 14) : (tickCount > 40 ? 10 : 12);
       const seriesLabelWidth = isFullscreen
         ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
         : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
@@ -443,23 +457,22 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const yNameGap = yAxisNameGap(baseOption);
 
       const isSunBurstChart = isSunBurst;
-      const sunburstLegendHeight = (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 40 : 0;
 
       const gridTop = previewTools.fullscreen
         ? Math.max(28, tickCount > 40 ? 40 : 28)
         : isSmallScreen
-          ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 76 : Math.max(22, tickCount > 40 ? 28 : 22))
+          ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 58 : Math.max(20, tickCount > 40 ? 24 : 20))
           : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible)
-            ? Math.max(62, tickCount > 40 ? 68 : 62)
-            : Math.max(24, tickCount > 40 ? 30 : 24));
+            ? Math.max(52, tickCount > 40 ? 58 : 52)
+            : Math.max(22, tickCount > 40 ? 28 : 22));
 
       const gridLeft = previewTools.fullscreen
         ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 240 : extraLeftForYAxisName)
         : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 20 : extraLeftForYAxisName);
 
       const gridBottomAuto = isBarChart || isHeatmap
-        ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
-        : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
+        ? (tickCount > 80 ? 180 : tickCount > 60 ? 165 : tickCount > 40 ? 150 : tickCount > 24 ? 130 : 112)
+        : (isScatterLike ? (tickCount > 40 ? 92 : 80) : (tickCount > 40 ? 94 : 80));
 
       const totalDataPoints = Array.isArray(baseOption.series)
         ? baseOption.series.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : (s?.data ? 1 : 0)), 0)
@@ -835,7 +848,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         enhancedOption.series = (enhancedOption.series || baseOption.series).map((s) => {
           if (s.type !== 'pie') return s;
           const defaultBaseRadius = chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
-          const baseRadius = s.radius || defaultBaseRadius;
           const finalRadius = previewTools.fullscreen
             ? (chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
             : isSmallScreen
@@ -1369,6 +1381,20 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
   function resetZoom() {
     if (previewInst.current) {
+      const isTreemapNow = chartType === "treemap" || chartSubtype === "treemap";
+      if (isTreemapNow) {
+        previewInst.current.clear();
+        previewInst.current.setOption(chartOption, true);
+        setTimeout(() => {
+          if (previewInst.current) {
+            try {
+              previewInst.current.resize();
+            } catch (e) {
+            }
+          }
+        }, 50);
+        return;
+      }
       previewInst.current.dispatchAction({
         type: "dataZoom",
         start: 0,
@@ -1405,6 +1431,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   const isSunBurstChartType = chartType === 'sunburst' || chartSubtype === 'sunburst';
+  const isTreemapChartType = chartType === 'treemap' || chartSubtype === 'treemap';
 
   const pieChartControlsFlags = {
     zoomFun: false,
@@ -1436,6 +1463,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     saveFun: true,
     fullscreenFun: true,
   };
+  const treemapControlsFlags = {
+    zoomFun: true,
+    resetFun: true,
+    saveFun: true,
+    fullscreenFun: true,
+  };
 
   if (!canBuild) {
     return (
@@ -1458,7 +1491,19 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   return (
-    <div className="page-content" style={shellStyle}>
+    <>
+      <style>{`
+        body.chart-builder-preview-fullscreen .global-search-fab,
+        body.chart-builder-preview-fullscreen [data-global-search-fab],
+        body.chart-builder-preview-fullscreen .floating-search,
+        body.chart-builder-preview-fullscreen .search-fab,
+        body.chart-builder-preview-fullscreen .global-search-icon {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+      `}</style>
+      <div className="page-content" style={shellStyle}>
       <div className="section-header">
         <h2 className="section-title">
           <Icon className="ti ti-chart-dots-3"></Icon>{" "}
@@ -1504,17 +1549,18 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
               gap: 0,
               alignItems: "stretch",
-              height: "50vh",
+              height: isSmallScreen ? "auto" : "50vh",
               minHeight: 0,
             }}
           >
             <div
               style={{
                 padding: 12,
-                borderRight: "1px solid var(--border-default)",
+                borderRight: isSmallScreen ? "none" : "1px solid var(--border-default)",
+                borderBottom: isSmallScreen ? "1px solid var(--border-default)" : "none",
                 display: "flex",
                 flexDirection: "column",
                 minHeight: 0,
@@ -1532,7 +1578,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     borderRadius: "var(--radius-sm)",
                   }}
                 >
-                  <div style={{ height: "100%", minHeight: 320 }}>
+                  <div style={{ height: "100%", minHeight: isSmallScreen ? 220 : 320 }}>
                     <SqlEditor
                       value={sql}
                       onChange={setSql}
@@ -1544,7 +1590,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   </div>
                 </div>
 
-                <div style={{ overflow: "auto", maxHeight: "24vh", marginTop: 8 }}>
+                <div style={{ overflow: "auto", maxHeight: isSmallScreen ? "28vh" : "24vh", marginTop: 8 }}>
                   {paramError && (
                     <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
                       <Icon className="ti ti-alert-circle" /> {paramError}
@@ -1719,14 +1765,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               style={{
                 padding: 12,
                 overflow: "auto",
-                maxHeight: isSmallScreen ? "35vh" : "60vh",
+                maxHeight: isSmallScreen ? "42vh" : "60vh",
                 borderBottom: "1px solid var(--border-default)",
               }}
             >
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
                   gap: 10,
                   marginBottom: 12,
                 }}
@@ -1959,11 +2005,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 </div>
               )}
             </div>
-            <div style={{ padding: 12, minHeight: isSmallScreen ? "65vh" : "50vh", overflow: "auto" }}>
+            <div style={{ padding: 12, minHeight: isSmallScreen ? "42vh" : "360px", overflow: "auto" }}>
               <ErrorBoundary
                 resetKeys={[chartOption]}
                 fallback={(err) => (
-                  <div                    className="alert-banner danger"
+                  <div className="alert-banner danger"
                     style={{ fontSize: "13px" }}
                   >
                     <Icon className="ti ti-alert-circle"></Icon> Chart preview
@@ -2067,7 +2113,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   </div>
                 )}
                 {chartOption?._table && (
-                  <div style={{ maxHeight: 300, overflow: "auto" }}>
+                  <div style={{ height: previewBodyHeight, minHeight: 0, overflow: "auto" }}>
                     <DataTable rows={chartOption.data} />
                   </div>
                 )}
@@ -2091,35 +2137,38 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     >
                       {chartOption && (
                         <ChartToolbar
-                          zoomable={!!chartOption?.xAxis && !isSunBurstChartType}
+                          zoomable={!!chartOption?.xAxis || isTreemapChartType}
                           fullscreen={previewTools.fullscreen}
                           onZoomIn={previewTools.zoomIn}
                           onZoomOut={previewTools.zoomOut}
-                          onZoomReset={previewTools.zoomReset}
+                          onZoomReset={resetZoom}
                           onSave={previewTools.save}
                           onToggleFullscreen={previewTools.toggleFullscreen}
+                          resetEnabled={!!previewInst.current}
+                          resetTitle={isTreemapChartType ? "Restore view" : "Reset zoom"}
+                          resetAriaLabel={isTreemapChartType ? "Restore view" : "Reset zoom"}
                           isWantFeature={
                             isSunBurstChartType
                               ? sunburstControlsFlags
-                              : chartType === "pie"
-                                ? pieChartControlsFlags
-                                : chartType === "funnel" || chartSubtype === "funnel"
-                                  ? funnelControlsFlags
-                                  : chartType === "sankey"
-                                    ? sankeyControlsFlags
-                                    : chartControlsFlags
+                              : isTreemapChartType
+                                ? treemapControlsFlags
+                                : chartType === "pie"
+                                  ? pieChartControlsFlags
+                                  : chartType === "funnel" || chartSubtype === "funnel"
+                                    ? funnelControlsFlags
+                                    : chartType === "sankey"
+                                      ? sankeyControlsFlags
+                                      : chartControlsFlags
                           }
                         />
                       )}
                       <div
                         ref={previewRef}
                         style={{
-                          height: previewTools.fullscreen
-                            ? "calc(100vh - 96px)"
-                            : isSmallScreen ? 500 : 430,
+                          height: previewBodyHeight,
                           width: "100%",
-                          overflow: "visible",
-                          paddingBottom: 30,
+                          overflow: "hidden",
+                          paddingBottom: previewTools.fullscreen ? 0 : (isSmallScreen ? 8 : 12),
                         }}
                       >
                         {!chartOption && (
@@ -2132,7 +2181,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         )}
                       </div>
                     </div>
-                  )} 
+                  )}
               </ErrorBoundary>
             </div>
           </div>
@@ -2181,6 +2230,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           </div>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }

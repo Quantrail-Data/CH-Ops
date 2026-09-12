@@ -539,6 +539,7 @@ function ErrorLogSearch() {
   const [rowLimit, setRowLimit] = useState(500);
   const [submitted, setSubmitted] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [cols,setCols] = useState([	"event_time",	"error",	"last_error_message",	"last_error_query_id"])
   const q = useQuery();
   const errorsQ = useQuery();
 
@@ -576,6 +577,7 @@ function ErrorLogSearch() {
       }
     }
   };
+
 
   return (
     <div>
@@ -635,7 +637,7 @@ function ErrorLogSearch() {
           </div>
         </form>
       </Card>}
-      {submitted && !q.loading && <DataTable rows={q.data || []} emptyMessage="No error entries found." variant="single" s_no={true}/>}
+      {submitted && !q.loading && <DataTable rows={q.data || []} columns={cols} emptyMessage="No error entries found." variant="single" s_no={true}/>}
     </div>
   );
 }

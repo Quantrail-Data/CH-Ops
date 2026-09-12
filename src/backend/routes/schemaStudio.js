@@ -18,25 +18,37 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import express from 'express';
-import { getClusterNodes } from '../services/clusterUtils.js';
-import { executeQuery, executeQueryWithBody } from '../services/clickhouse.js';
+import express from "express";
+import { getClusterNodes } from "../services/clusterUtils.js";
+import { executeQuery, executeQueryWithBody } from "../services/clickhouse.js";
 import {
-  getCredSession, setCredSession, getCredSessionStatus, clearCredSession, CRED_CONTEXTS,
-} from '../services/chCredStore.js';
+  getCredSession,
+  setCredSession,
+  getCredSessionStatus,
+  clearCredSession,
+  CRED_CONTEXTS,
+} from "../services/chCredStore.js";
 import {
   isCreateTableOnly,
-  EVAL_SYSTEM_PROMPT, buildEvalMessage, parseEvalResponse,
-} from '../services/ddlPrompt.js';
+  EVAL_SYSTEM_PROMPT,
+  buildEvalMessage,
+  parseEvalResponse,
+} from "../services/ddlPrompt.js";
 import {
-  formatFromName, buildSourceExpr, buildStatsSql, shapeStats,
-} from '../services/studioSource.js';
-import { completeDdl, getAiStatus } from '../services/studioAi.js';
+  formatFromName,
+  buildSourceExpr,
+  buildStatsSql,
+  shapeStats,
+} from "../services/studioSource.js";
+import { completeDdl, getAiStatus } from "../services/studioAi.js";
+import { error } from "node:console";
 
 const router = express.Router();
 
 // Largest upload accepted (binary formats send the whole file).
 const MAX_UPLOAD = 100 * 1024 * 1024; // 100 MB
+
+const MAX_ROW_CSV = 999;
 
 // Request helpers
 
@@ -45,13 +57,13 @@ const MAX_UPLOAD = 100 * 1024 * 1024; // 100 MB
 function resolveTargetNode(clusterId, node) {
   const nodes = getClusterNodes(clusterId);
   if (!nodes.length) {
-    const e = new Error('No cluster nodes configured.');
+    const e = new Error("No cluster nodes configured.");
     e.status = 400;
     throw e;
   }
   const target = node ? nodes.find((n) => n.host === node) : nodes[0];
   if (!target) {
-    const e = new Error('Node not found in cluster configuration.');
+    const e = new Error("Node not found in cluster configuration.");
     e.status = 400;
     throw e;
   }
@@ -62,7 +74,9 @@ function resolveTargetNode(clusterId, node) {
 function requireSession(req) {
   const sess = getCredSession(req.user?.jti, CRED_CONTEXTS.SCHEMA_STUDIO);
   if (!sess) {
-    const e = new Error('Not connected. Connect with your ClickHouse credentials first.');
+    const e = new Error(
+      "Not connected. Connect with your ClickHouse credentials first.",
+    );
     e.status = 401;
     throw e;
   }
@@ -87,17 +101,22 @@ function sessionQuery(sess, { query, body = null, jsonEachRow = true }) {
 
 // Connection
 
-router.post('/connect', async (req, res) => {
+router.post("/connect", async (req, res) => {
   try {
     // Schema Studio's only write action is CREATE TABLE. The app's own
     // 'readonly' role must not be able to reach it just by supplying its own
     // ClickHouse credentials (this route lets the caller connect as any
     // ClickHouse user, independent of the app-level role).
-    if (req.user?.role === 'readonly') {
-      return res.status(403).json({ error: 'Read-only accounts cannot use Schema Studio.' });
+    if (req.user?.role === "readonly") {
+      return res
+        .status(403)
+        .json({ error: "Read-only accounts cannot use Schema Studio." });
     }
     const { clusterId, node, port, user, password } = req.body || {};
-    if (!user) return res.status(400).json({ error: 'ClickHouse username is required.' });
+    if (!user)
+      return res
+        .status(400)
+        .json({ error: "ClickHouse username is required." });
 
     const target = resolveTargetNode(clusterId, node);
     // Validate by running a trivial query as that user against the node.
@@ -106,8 +125,8 @@ router.post('/connect', async (req, res) => {
       port: port || target.port || 8123,
       secure: !!target.secure,
       user,
-      password: password ?? '',
-      sql: 'SELECT 1',
+      password: password ?? "",
+      sql: "SELECT 1",
     });
 
     setCredSession({
@@ -118,7 +137,7 @@ router.post('/connect', async (req, res) => {
       node: target.host,
       port: port || target.port || 8123,
       chUser: user,
-      password: password ?? '',
+      password: password ?? "",
     });
     res.json(getCredSessionStatus(req.user.jti, CRED_CONTEXTS.SCHEMA_STUDIO));
   } catch (e) {
@@ -126,18 +145,18 @@ router.post('/connect', async (req, res) => {
   }
 });
 
-router.get('/connect', (req, res) => {
+router.get("/connect", (req, res) => {
   res.json(getCredSessionStatus(req.user?.jti, CRED_CONTEXTS.SCHEMA_STUDIO));
 });
 
-router.delete('/connect', (req, res) => {
+router.delete("/connect", (req, res) => {
   clearCredSession(req.user?.jti, CRED_CONTEXTS.SCHEMA_STUDIO);
   res.json({ connected: false });
 });
 
 // Which AI provider will run a generation, for the Generate step to display.
 // Reuses the stored active api_key; never returns the key itself.
-router.get('/ai-status', (req, res) => {
+router.get("/ai-status", (req, res) => {
   try {
     res.json(getAiStatus());
   } catch (e) {
@@ -149,8 +168,8 @@ router.get('/ai-status', (req, res) => {
 // Octet-stream body  -> uploaded file (format in ?format=...).
 // JSON body          -> object storage { objectStore: { provider, ... } }.
 router.post(
-  '/infer',
-  express.raw({ type: 'application/octet-stream', limit: MAX_UPLOAD }),
+  "/infer",
+  express.raw({ type: "application/octet-stream", limit: MAX_UPLOAD }),
   async (req, res) => {
     try {
       const sess = requireSession(req);
@@ -159,28 +178,52 @@ router.post(
       let body = null;
       if (Buffer.isBuffer(req.body) && req.body.length) {
         // Uploaded file. Format comes from the query string.
-        const { format, binary } = formatFromName(req.query.format || req.query.f || '');
+        const { format, binary } = formatFromName(
+          req.query.format || req.query.f || "",
+        );
         if (binary) {
-          expr = buildSourceExpr({ kind: 'upload', format, binary: true });
+          expr = buildSourceExpr({ kind: "upload", format, binary: true });
           body = req.body;
         } else {
           // Text: embed the sample, trimmed to the last complete line.
-          let sample = req.body.toString('utf8');
-          const lastNl = sample.lastIndexOf('\n');
+          let sample = req.body.toString("utf8");
+          const lastNl = sample.lastIndexOf("\n");
           if (lastNl > 0) sample = sample.slice(0, lastNl);
-          expr = buildSourceExpr({ kind: 'upload', format, binary: false, sampleText: sample });
+          expr = buildSourceExpr({
+            kind: "upload",
+            format,
+            binary: false,
+            sampleText: sample,
+          });
         }
       } else {
         // Object storage.
         const objectStore = req.body?.objectStore;
         if (!objectStore || !objectStore.path) {
-          return res.status(400).json({ error: 'Provide a file upload or an object-storage path.' });
+          return res
+            .status(400)
+            .json({
+              error: "Provide a file upload or an object-storage path.",
+            });
         }
-        expr = buildSourceExpr({ kind: 'object', objectStore });
+        expr = buildSourceExpr({ kind: "object", objectStore });
       }
 
       // 1) Columns and types (reads the footer for binary; cheap).
-      const desc = await sessionQuery(sess, { query: `DESC (SELECT * FROM ${expr})`, body });
+      const desc = await sessionQuery(sess, {
+        query: `DESC (SELECT * FROM ${expr})`,
+        body,
+      });
+
+      if (desc?.rows?.length > MAX_ROW_CSV) {
+        return res
+          .status(400)
+          .json({
+            error:
+              " The maximum row limit is 1,000. Please reduce the number of rows and try again.",
+          });
+      }
+
       const columns = desc.rows.map((r) => ({
         name: r.name,
         type: r.type,
@@ -188,14 +231,19 @@ router.post(
         overridden: false,
       }));
       if (!columns.length) {
-        return res.status(400).json({ error: 'No columns inferred from the source.' });
+        return res
+          .status(400)
+          .json({ error: "No columns inferred from the source." });
       }
 
       // 2) Per-column statistics over a bounded sample (same in-memory body).
       let stats = {};
       let sampleRows = 0;
       try {
-        const statsRes = await sessionQuery(sess, { query: buildStatsSql(expr, columns), body });
+        const statsRes = await sessionQuery(sess, {
+          query: buildStatsSql(expr, columns),
+          body,
+        });
         const row = statsRes.rows[0] || {};
         const shaped = shapeStats(row, columns);
         stats = shaped.stats;
@@ -209,17 +257,24 @@ router.post(
 
       res.json({ columns, stats, sample_rows: sampleRows });
     } catch (e) {
-      res.status(e.status || 400).json({ error: e.message });
+      const clickhouseErrorList = ['HTTP request URI invalid or too long','Poco::Exception. Code: 1000, e.code() = 0, HTML Form Exception: Field value too long']
+      if (e.message === clickhouseErrorList[0]) {
+        return res.status(e.status || 414).json({error:e.message,type:'URI LONG'})
+      }
+      if (e.message === clickhouseErrorList[1]) {
+        return res.status(e.status || 414).json({error:e.message,type:'POCO'})
+      }
+      return res.status(e.status || 400).json({ error: e.message, type:'NORMAL' });
     }
   },
 );
 
 // Evaluate (AI review of the composed DDL)
-router.post('/evaluate', async (req, res) => {
+router.post("/evaluate", async (req, res) => {
   try {
     const payload = req.body || {};
     if (!payload.ddl || !String(payload.ddl).trim()) {
-      return res.status(400).json({ error: 'Nothing to evaluate.' });
+      return res.status(400).json({ error: "Nothing to evaluate." });
     }
     const prompt = `${EVAL_SYSTEM_PROMPT}\n\n${buildEvalMessage(payload)}`;
     const raw = await completeDdl(prompt);
@@ -230,13 +285,17 @@ router.post('/evaluate', async (req, res) => {
 });
 
 // Validate
-router.post('/validate', async (req, res) => {
+router.post("/validate", async (req, res) => {
   try {
     const sess = requireSession(req);
     const { ddl } = req.body || {};
-    if (!ddl || !ddl.trim()) return res.status(400).json({ ok: false, error: 'Empty DDL.' });
+    if (!ddl || !ddl.trim())
+      return res.status(400).json({ ok: false, error: "Empty DDL." });
     // EXPLAIN AST parses the statement and fails on syntax errors, no execution.
-    await sessionQuery(sess, { query: `EXPLAIN AST ${ddl}`, jsonEachRow: false });
+    await sessionQuery(sess, {
+      query: `EXPLAIN AST ${ddl}`,
+      jsonEachRow: false,
+    });
     res.json({ ok: true });
   } catch (e) {
     res.json({ ok: false, error: e.message });
@@ -244,25 +303,35 @@ router.post('/validate', async (req, res) => {
 });
 
 // Create
-router.post('/create', async (req, res) => {
+router.post("/create", async (req, res) => {
   try {
     // Defense in depth alongside the /connect gate above, in case a session
     // was established before a role downgrade.
-    if (req.user?.role === 'readonly') {
-      return res.status(403).json({ error: 'Read-only accounts cannot create tables.' });
+    if (req.user?.role === "readonly") {
+      return res
+        .status(403)
+        .json({ error: "Read-only accounts cannot create tables." });
     }
     const sess = requireSession(req);
     const statements = (req.body?.statements || []).filter(Boolean);
-    if (!statements.length) return res.status(400).json({ error: 'Nothing to create.' });
+    if (!statements.length)
+      return res.status(400).json({ error: "Nothing to create." });
 
     for (const s of statements) {
       if (!isCreateTableOnly(s)) {
-        return res.status(400).json({ error: 'Only a single CREATE TABLE statement is allowed per entry.' });
+        return res
+          .status(400)
+          .json({
+            error: "Only a single CREATE TABLE statement is allowed per entry.",
+          });
       }
     }
     // Parse-check all first, then run all in order (local table first).
     for (const s of statements) {
-      await sessionQuery(sess, { query: `EXPLAIN AST ${s}`, jsonEachRow: false });
+      await sessionQuery(sess, {
+        query: `EXPLAIN AST ${s}`,
+        jsonEachRow: false,
+      });
     }
     const created = [];
     for (const s of statements) {

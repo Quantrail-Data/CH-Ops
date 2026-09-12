@@ -127,6 +127,7 @@ function SchemaFlow() {
     (async () => {
       if (loadDays > 0) {
         const hm = await fetchViewsLoad(graphData.nodes, loadDays);
+
         if (cancelled || !mountedRef.current) return;
         setHeatmap(hm);
       } else {
@@ -327,6 +328,7 @@ function SchemaFlow() {
 
     setRfNodes(nodes);
     setRfEdges(edgeList);
+
     adjRef.current = { incoming, outgoing };
   }, [
     graphData,

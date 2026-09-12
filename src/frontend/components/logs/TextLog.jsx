@@ -22,6 +22,7 @@ import { useToast } from "../layout/Toast.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
+import { useConnection } from "../../App.jsx";
 import Card from "../ui/Card.jsx";
 import Button from "../ui/Button.jsx";
 import Tabs from "../ui/Tabs.jsx";
@@ -51,6 +52,7 @@ const LOG_LEVELS = [
 export default function TextLog() {
   const { tab: routeTab = "overview" } = useParams();
   const navigate = useNavigate();
+  const conn = useConnection()
 
   const handleTabChange = (newTab) => {
     navigate(`/logs/text/${newTab}`, { replace: true });
@@ -71,8 +73,8 @@ export default function TextLog() {
         active={routeTab}
         onChange={handleTabChange}
       />
-      {routeTab === "overview" && <TextLogOverview />}
-      {routeTab === "search" && <TextLogSearch />}
+      {routeTab === "overview" && <TextLogOverview unavailable={conn.unavailable} />}
+      {routeTab === "search" && <TextLogSearch unavailable={conn.unavailable} />}
     </div>
   );
 }
@@ -451,7 +453,7 @@ function PlainChartCard({ title, option, height = 320 }) {
   );
 }
 
-function TextLogOverview() {
+function TextLogOverview({unavailable}) {
   const [duration, setDuration] = useState("24h");
   const [from, setFrom] = useState(fmtAgo(24));
   const [to, setTo] = useState(fmtNow());
@@ -545,6 +547,27 @@ function TextLogOverview() {
     ),
   };
 
+    const getUnavailableMessage = () => {
+  const match = unavailable.find(item => item.table === "system.text_log");
+  return match ? match.message : null;
+};
+
+const unavailableMessage = getUnavailableMessage();
+
+if (unavailableMessage) {
+  return (
+    <div className="unavailable-container">
+      <div className="unavailable-icon-wrapper">
+        <Icon className="ti-git-branch" />
+      </div>
+      <div className="unavailable-text">
+        {unavailableMessage}
+      </div>
+    </div>
+  );
+}
+
+
   return (
     <div>
       <Card style={{ padding: 14, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -626,7 +649,7 @@ function TextLogOverview() {
   );
 }
 
-function TextLogSearch() {
+function TextLogSearch({unavailable}) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(24));
   const [to, setTo] = useState(fmtNow());
@@ -691,6 +714,27 @@ function TextLogSearch() {
       }
     }
   };
+
+    const getUnavailableMessage = () => {
+  const match = unavailable.find(item => item.table === "system.text_log");
+  return match ? match.message : null;
+};
+
+const unavailableMessage = getUnavailableMessage();
+
+if (unavailableMessage) {
+  return (
+    <div className="unavailable-container">
+      <div className="unavailable-icon-wrapper">
+        <Icon className="ti-git-branch" />
+      </div>
+      <div className="unavailable-text">
+        {unavailableMessage}
+      </div>
+    </div>
+  );
+}
+
 
   return (
     <div>

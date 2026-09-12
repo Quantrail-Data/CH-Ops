@@ -12,6 +12,7 @@ import IngestionTab from "./IngestionTab.jsx";
 import DistReplTab from "./DistReplTab.jsx";
 import ErrorBoundary from "../layout/ErrorBoundary.jsx";
 import "./queues.css";
+import { useConnection } from "../../App.jsx";
 
 const TABS = [
   { id: "s3", label: "S3 Queue", icon: "ti-bucket" },
@@ -21,6 +22,7 @@ const TABS = [
 ];
 
 export default function QueuesPage() {
+  const conn = useConnection()
   const [tab, setTab] = useState("s3");
 
   return (
@@ -43,7 +45,7 @@ export default function QueuesPage() {
         {tab === "s3" && <IngestionTab source="s3" />}
         {tab === "azure" && <IngestionTab source="azure" />}
         {tab === "distribution" && <DistReplTab view="distribution" />}
-        {tab === "replication" && <DistReplTab view="replication" />}
+        {tab === "replication" && <DistReplTab view="replication" unavailable = {conn.unavailable} />}
       </ErrorBoundary>
     </div>
   );

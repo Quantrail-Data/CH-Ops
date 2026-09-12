@@ -833,7 +833,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
       setEditorCreds({ user: candidate.user });
       setConnPassword("");
-      toast.success("DB connected succesfully");
+      toast.success("DB connected successfully");
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -870,7 +870,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     try {
       if (sql) {
         const connectionOption = {
-          node: selectedNode,
+          node: nodeName,
           user,
           password,
           port,

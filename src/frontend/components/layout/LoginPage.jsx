@@ -359,7 +359,7 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                       className="form-input"
                       style={{
                         width: "100%",
-                        paddingRight: "35px",
+                        paddingRight: "40px",
                         height: "40px",
                       }}
                       type={showPassword?.showNewP ? "text" : "password"}
@@ -371,9 +371,13 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                       className="password-eye"
                       style={{
                         position: "absolute",
-                        right: "15px",
-                        top: "22%",
+                        right: "12px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        alignItems: "center",
                         cursor: "pointer",
+                        userSelect: "none",
                       }}
                       title={showPassword?.showNewP ? "hide" : "show"}
                       onClick={() => setShowPassword({...showPassword,showNewP:!showPassword?.showNewP})}
@@ -384,7 +388,7 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                         <Icon className="ti ti-eye" />
                       )}
                     </div>
-                   
+
                   </div>
                 </div>
                 <div
@@ -400,7 +404,7 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                        className="form-input"
                       style={{
                         width: "100%",
-                        paddingRight: "35px",
+                        paddingRight: "40px",
                         height: "40px",
                         border:(passwords?.confirmPassword && (passwords?.confirmPassword !== passwords?.newPassword)) ? "1px solid #ff5454" : ""
                       }}
@@ -413,9 +417,13 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                       className="password-eye"
                       style={{
                         position: "absolute",
-                        right: "15px",
-                        top: "22%",
+                        right: "12px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        alignItems: "center",
                         cursor: "pointer",
+                        userSelect: "none",
                       }}
                       title={showPassword?.showCurrP ? "hide" : "show"}
                       onClick={() => setShowPassword({...showPassword,showCurrP:!showPassword?.showCurrP})}
@@ -426,7 +434,7 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                         <Icon className="ti ti-eye" />
                       )}
                     </div>
-                    
+
                   </div>
                 </div>
 
@@ -694,7 +702,18 @@ export default function LoginPage() {
                   className="form-group "
                   style={{ marginBottom: "20px", width: "100%" }}
                 >
-                  <label className="form-label">Password</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <label className="form-label">Password</label>
+                    <div className="forget-password-con">
+                      <p title="Forget password" onClick={()=>setFormStatus("forget-mail")}>Forget password ?</p>
+                    </div>
+                  </div>
                   <div
                     className=""
                     style={{ width: "100%", position: "relative" }}
@@ -703,7 +722,7 @@ export default function LoginPage() {
                       className="form-input"
                       style={{
                         width: "100%",
-                        paddingRight: "35px",
+                        paddingRight: "40px",
                         height: "40px",
                       }}
                       type={showPassword ? "text" : "password"}
@@ -715,21 +734,22 @@ export default function LoginPage() {
                       className="password-eye"
                       style={{
                         position: "absolute",
-                        right: "15px",
-                        top: "13%",
+                        right: "12px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        alignItems: "center",
                         cursor: "pointer",
+                        userSelect: "none",
                       }}
                       title={showPassword ? "hide" : "show"}
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => setShowPassword((prev) => !prev)}
                     >
                       {showPassword ? (
                         <Icon className="ti ti-eye-off" />
                       ) : (
                         <Icon className="ti ti-eye" />
                       )}
-                    </div>
-                    <div className="forget-password-con">
-                      <p title="Forget password" onClick={()=>setFormStatus("forget-mail")}>Forget password ?</p>
                     </div>
                   </div>
                 </div>

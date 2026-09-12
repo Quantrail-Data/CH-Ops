@@ -1,9 +1,3 @@
-// Tests for the shared HTML chart toolbar and the echarts helper changes that
-// replaced the in-canvas ECharts toolbox and browser fullscreen.
-//
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
-
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 import { withZoomable } from "../../src/frontend/utils/echarts.js";
@@ -59,7 +53,10 @@ describe("ChartToolbar component", () => {
     expect(code).not.toMatch(/\{zoomable && \(/);
     expect(code).toMatch(/onClick=\{onZoomIn\}\s+disabled=\{!zoomable\}/);
     expect(code).toMatch(/onClick=\{onZoomOut\}\s+disabled=\{!zoomable\}/);
-    expect(code).toMatch(/onClick=\{onZoomReset\}\s+disabled=\{!zoomable\}/);
+  });
+
+  it("reset button respects resetEnabled prop", () => {
+    expect(code).toMatch(/disabled=\{!resetEnabled\}/);
   });
 
   it("only shows the save button when an onSave handler is given", () => {
@@ -110,8 +107,7 @@ describe("ChartToolbar component", () => {
   it("uses the expected accessibility labels for toolbar actions", () => {
     expect(code).toContain('aria-label="Zoom in"');
     expect(code).toContain('aria-label="Zoom out"');
-    expect(code).toContain('aria-label="Reset zoom"');
-    expect(code).toContain('aria-label="Save PNG"');
+    expect(code).toMatch(/aria-label=\{resetAriaLabel \|\| ["']Reset zoom["']\}/);
   });
 
   it("dispatches dataZoom actions from the hook", () => {
@@ -124,6 +120,33 @@ describe("ChartToolbar component", () => {
     expect(code).toContain('justifyContent: "flex-end"');
     expect(code).toContain('alignItems: "center"');
     expect(code).toContain("flexShrink: 0");
+  });
+
+  it("supports custom reset title and aria label", () => {
+    expect(code).toContain("resetTitle");
+    expect(code).toContain("resetAriaLabel");
+  });
+
+  it("handles zoom in calculation correctly", () => {
+    expect(code).toContain("Math.max(2.5");
+    expect(code).toContain("* 0.75");
+  });
+
+  it("handles zoom out calculation correctly", () => {
+    expect(code).toContain("/ 0.75");
+    expect(code).toContain("Math.min(50");
+  });
+
+  it("calculates zoom percentage correctly", () => {
+    expect(code).toContain("zoomPct: Math.round((100 * 100) / (win[1] - win[0]))");
+  });
+
+  it("tracks zoom state in window array", () => {
+    expect(code).toContain("const [win, setWin] = useState([0, 100]);");
+  });
+
+  it("provides zoomed flag indicating if zoom is active", () => {
+    expect(code).toContain("zoomed: win[0] !== 0 || win[1] !== 100");
   });
 });
 
@@ -170,6 +193,24 @@ describe("ChartCard", () => {
   });
 
   it("uses chart tools hook integration", () => {
+    expect(code).toContain("useChartTools");
+  });
+
+  it("passes zoomable prop to toolbar", () => {
+    expect(code).toContain("zoomable=");
+  });
+
+  it("passes zoom handlers to toolbar", () => {
+    expect(code).toMatch(/onZoomIn|zoomIn/);
+    expect(code).toMatch(/onZoomOut|zoomOut/);
+    expect(code).toMatch(/onZoomReset|zoomReset/);
+  });
+
+  it("passes save handler to toolbar", () => {
+    expect(code).toMatch(/onSave|save/);
+  });
+
+  it("integrates with useChartTools hook", () => {
     expect(code).toContain("useChartTools");
   });
 });

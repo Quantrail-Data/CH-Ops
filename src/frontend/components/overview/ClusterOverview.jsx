@@ -282,6 +282,15 @@ export default function ClusterOverview() {
     fullscreenFun: true,
   };
 
+    const getUnavailableMessage = () => {
+  const match = connection.unavailable.find(item => item.table === "system.disks");
+  return match ? match.message : null;
+};
+
+const unavailableMessage = getUnavailableMessage();
+
+
+
   return (
     <div className="page-content">
       <LiveControlBar nodeName={selectedNodeName} live={liveState} />
@@ -347,9 +356,12 @@ export default function ClusterOverview() {
 
         {disks.data?.length > 0 && (
           <Card style={{ padding: 12 }}>
-            <h3 style={{ fontSize: '0.875rem', marginBottom: 8 }}>
+           <div style={{display:"flex",justifyContent:"start",alignItems:"center",gap:"15px"}}>
+             <h3 style={{ fontSize: '0.875rem', marginBottom: 8 ,display:"flex",justifyContent:"center",alignItems:"center" , gap:"5px"}}>
               <Icon className="ti ti-device-floppy" /> Disk Details
             </h3>
+            {unavailableMessage && <h6 style={{marginBottom: 8,color:"var(--text-muted)"}}>Note: {unavailableMessage}</h6>}
+           </div>
             <DataTable
               rows={disks.data}
               columns={['name', 'total_fmt', 'free_fmt', 'used_pct']}

@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { peerIssuer } from "../../src/backend/controllers/trustedCa.js";
 
 let caPem, caPem2, server, port;
 
@@ -79,6 +80,65 @@ describe("supplying a certificate authority", () => {
     await expect(
       fetch(`https://localhost:${port}/`, { tls: { ca: caPem2 } }),
     ).rejects.toThrow(/unable to verify/i);
+  });
+});
+
+describe("checking a cluster reached by IP address", () => {
+  let strictServer, strictPort, srvKey, srvCert, caPemIp;
+
+  beforeAll(async () => {
+    const dir = mkdtempSync(join(tmpdir(), "tls-ip-"));
+    const p = (f) => join(dir, f);
+
+    execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes",
+      "-keyout", p("ca.key"), "-out", p("ca.crt"), "-days", "365",
+      "-subj", "/CN=Test Internal CA"], { stdio: "ignore" });
+
+    execFileSync("openssl", ["req", "-newkey", "rsa:2048", "-nodes",
+      "-keyout", p("srv.key"), "-out", p("srv.csr"),
+      "-subj", "/CN=127.0.0.1"], { stdio: "ignore" });
+
+    writeFileSync(p("san.ext"), "subjectAltName=IP:127.0.0.1\nbasicConstraints=CA:FALSE\n");
+
+    execFileSync("openssl", ["x509", "-req", "-in", p("srv.csr"),
+      "-CA", p("ca.crt"), "-CAkey", p("ca.key"), "-CAcreateserial",
+      "-out", p("srv.crt"), "-days", "365", "-extfile", p("san.ext")], { stdio: "ignore" });
+
+    srvKey = readFileSync(p("srv.key"));
+    srvCert = readFileSync(p("srv.crt"));
+    caPemIp = readFileSync(p("ca.crt"), "utf8");
+
+    // A server that behaves like a real TLS terminator: RFC 6066 forbids an
+    // IP-literal SNI, so it drops the handshake rather than accept one.
+    strictServer = tls.createServer(
+      { key: srvKey, cert: srvCert, SNICallback: (name, cb) => cb(new Error(`unexpected SNI: ${name}`)) },
+      (socket) => socket.end(),
+    );
+    await new Promise((r) => strictServer.listen(0, "127.0.0.1", r));
+    strictPort = strictServer.address().port;
+  });
+
+  afterAll(() => { strictServer?.close(); });
+
+  it("was unreachable before the fix, because servername was set to the IP", async () => {
+    await expect(new Promise((resolve, reject) => {
+      const socket = tls.connect(
+        { host: "127.0.0.1", port: strictPort, servername: "127.0.0.1", ca: [caPemIp], timeout: 2000 },
+        () => { socket.end(); resolve(); },
+      );
+      socket.on("error", reject);
+      socket.on("timeout", () => { socket.destroy(); reject(new Error("Timed out.")); });
+    })).rejects.toThrow();
+  });
+
+  it("is correctly reported as reachable now that SNI is skipped for IP literals", async () => {
+    const issuer = await peerIssuer("127.0.0.1", strictPort, caPemIp);
+    expect(issuer).toBe("Test Internal CA");
+  });
+
+  it("still sets servername for a hostname, so certificate name matching keeps working", async () => {
+    const issuer = await peerIssuer("localhost", port, caPem);
+    expect(issuer).toBe("Test Internal CA");
   });
 });
 

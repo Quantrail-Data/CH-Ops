@@ -64,7 +64,6 @@ function AIKeyButton({ dbdetails, dataSelectionHandler, connectDatabaseID }) {
     return (
       <Button variant="primary"
         style={{
-          // marginTop: "5px",/
           padding: "3px",
           borderRadius: "5px",
           backgroundColor: !isSelected ? "#e0d4ffba" : undefined,
@@ -92,7 +91,6 @@ function AIKeyButton({ dbdetails, dataSelectionHandler, connectDatabaseID }) {
   return (
     <Button variant="primary"
       style={{
-        // marginTop: "5px",
         padding: "3px",
         borderRadius: "5px",
         backgroundColor: "#3a2055fd",
@@ -140,7 +138,7 @@ function AIKeyButton({ dbdetails, dataSelectionHandler, connectDatabaseID }) {
 // matching error banner.
 const PaneResults = memo(function PaneResults({ estimate, exec }) {
   return (
-    <>
+    <div style={{ width: "100%" }}>
       {estimate && !estimate.ok && (
         <div className="alert-banner danger cmp-pane-error">
           <Icon className="ti ti-alert-circle"></Icon>
@@ -175,7 +173,7 @@ const PaneResults = memo(function PaneResults({ estimate, exec }) {
           )}
         </div>
       )}
-    </>
+    </div>
   );
 });
 
@@ -354,11 +352,14 @@ const ComparePane = memo(function ComparePane({
   };
 
   return (
-    <div className={"cmp-pane cmp-pane-" + side}>
-      {/* Was a fixed 100px block. The old editor needed the room; CodeMirror
-          does not, and the leftover showed as a band of empty space above every
-          pane. It sizes to its contents now and the editor takes what it gave
-          back. */}
+    <div
+      className={"cmp-pane cmp-pane-" + side}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
       <div
         className="cmp-pane-header"
         style={{
@@ -371,7 +372,7 @@ const ComparePane = memo(function ComparePane({
         }}
       >
         <span>{title}</span>
-        {side === "right" && (
+        {side === "right" ? (
           <div>
             <div
               className="form-group"
@@ -460,40 +461,10 @@ const ComparePane = memo(function ComparePane({
                   })}
                 </div>
               )}
-
-              {/* <Select
-              className="form-input"
-              value={selectDb || "Select Database"}
-              onChange={(e) => selectHandler(e)}
-              style={{
-                width: "150px",
-                padding: "5px",
-                paddingLeft: "10px",
-                fontSize: "12px",
-              }}
-            >
-              <option value="Select Database">Select Database</option>
-              {databases?.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </Select> */}
-
-              {/* {selectDb && aiDatabase_id ? (
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <div className="conn-indicator connected"> </div>
-               
-              </div>
-            ) : (
-              <div>
-                <div className="conn-indicator disconnected"> </div>
-              </div>
-            )} */}
             </div>
           </div>
+        ) : (
+          <div style={{ width: 200, height: 45 }}></div>
         )}
       </div>
 
@@ -505,13 +476,21 @@ const ComparePane = memo(function ComparePane({
         dialectData={dialectData}
         onRun={onExecute}
         placeholder={placeholder}
-        // Grows with the window rather than sitting at a fixed 220px, which was
-        // chosen when a fixed header sat above it.
         height="clamp(260px, 42vh, 560px)"
       />
 
-      <div className="cmp-pane-buttons">
-        {side === "right" && (
+      <div
+        className="cmp-pane-buttons"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: "10px",
+          minHeight: "42px",
+          marginTop: "12px",
+        }}
+      >
+        {side === "right" ? (
           <button
             className="ai-button btn "
             style={{ color: "white" }}
@@ -523,7 +502,6 @@ const ComparePane = memo(function ComparePane({
           >
             {isAILoadingGenerating ? (
               <>
-                {" "}
                 <div className="loading-spinner"></div>
                 <span>Generating...</span>
               </>
@@ -545,6 +523,8 @@ const ComparePane = memo(function ComparePane({
               </>
             )}
           </button>
+        ) : (
+          <div style={{ width: 156, height: 32 }}></div>
         )}
 
         <Button variant="secondary" size="sm"
@@ -561,7 +541,9 @@ const ComparePane = memo(function ComparePane({
         </Button>
       </div>
 
-      <PaneResults estimate={estimate} exec={exec} />
+      <div style={{ width: "100%", marginTop: "12px" }}>
+        <PaneResults estimate={estimate} exec={exec} />
+      </div>
     </div>
   );
 });
@@ -578,7 +560,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     nodeName,
   } = useConnection();
 
-  // Per-user editor credentials (independent of the main editor)
   const [editorCreds, setEditorCreds] = useState(null);
   const editorConnected = !!editorCreds;
   const [connUser, setConnUser] = useState("");
@@ -588,7 +569,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
   const [AIdbsInfo, setAIdbsInfo] = useState([]);
   const toast = useToast();
 
-  // Live credentials in a ref so the run handlers stay stable across renders.
   const credsRef = useRef(null);
   useEffect(() => {
     credsRef.current = editorCreds;
@@ -639,7 +619,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     }
   };
 
-  // Per-side query state (state for rendering, refs for stable handlers)
   const [leftSql, setLeftSql] = useState("");
   const [rightSql, setRightSql] = useState("");
   const leftSqlRef = useRef("");
@@ -658,20 +637,16 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
   const [rightEstimate, setRightEstimate] = useState(null);
   const [leftExec, setLeftExec] = useState(null);
   const [rightExec, setRightExec] = useState(null);
-  const [leftBusy, setLeftBusy] = useState(null); // 'estimate' | 'execute' | null
+  const [leftBusy, setLeftBusy] = useState(null);
   const [rightBusy, setRightBusy] = useState(null);
 
-  // Compare (both sides) + fullscreen
-  const [compareData, setCompareData] = useState(null); // { left, right } | null
+  const [compareData, setCompareData] = useState(null);
   const [comparing, setComparing] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   const [acWords, setAcWords] = useState([]);
-  // The connected server's own keyword and function lists, so highlighting
-  // matches the version in use. Null falls back to the built-in SQL dialect.
   const [dialectData, setDialectData] = useState(null);
 
-  // default cred password view flag
   const [isViewFlag, setIsViewFlag] = useState(false);
 
   const [dbs, setDBS] = useState([]);
@@ -694,13 +669,14 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     if (!creds) return;
     const response = await fetchDatabaseDetails(creds);
     setDBS(response);
-
     initSetup(response);
   }, []);
+
   useEffect(() => {
     if (!editorConnected) return;
     loadDbs();
-  }, [editorConnected, selectedClusterId, selectedNode,mode]);
+  }, [editorConnected, selectedClusterId, selectedNode, mode]);
+
   async function selectHandler(event) {
     try {
       const localStorageData = JSON.parse(localStorage?.getItem(SELECTLSKEY));
@@ -721,8 +697,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
               method: "POST",
               body: JSON.stringify({
                 database_type: "clickhouse",
-                // Credentials are resolved server-side from the cluster
-                // configuration; the browser does not hold them.
                 clusterId: selectedClusterId,
                 node: selectedNode,
                 database: selected,
@@ -783,8 +757,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     }
   }
 
-  // After a page reload the (jti, 'editor') credential session may still be
-  // live server-side (it shares the 2h JWT lifetime).
   useEffect(() => {
     let cancelled = false;
     editorConnectionStatus()
@@ -799,7 +771,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     };
   }, []);
 
-  // Validate the entered credentials by running a trivial query as that user.
   async function handleConnect() {
     if (!connUser.trim()) {
       setConnError("Username is required.");
@@ -822,9 +793,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
   async function handleDisconnect() {
     try {
       await editorDisconnect();
-    } catch {
-      /* best effort; clear locally regardless */
-    }
+    } catch {}
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");
@@ -838,7 +807,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     setCompareData(null);
   }
 
-  // Load autocomplete words once connected (under the editor credentials).
   useEffect(() => {
     if (!active) return;
     if (!editorConnected) {
@@ -857,7 +825,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     };
   }, [editorConnected, editorCreds, active]);
 
-  // Exit fullscreen on Escape.
   useEffect(() => {
     if (!fullscreen) return;
     const onKey = (e) => {
@@ -867,7 +834,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
-  // Stable run handlers (read live SQL + creds from refs)
   const onEstimateLeft = useCallback(async () => {
     if (!credsRef.current) return;
     setLeftBusy("estimate");
@@ -917,8 +883,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     }
   }, []);
 
-  // Compare estimates BOTH queries together so the comparison is always a fresh,
-  // consistent pair (this is what keeps the per-metric badges stable on re-run).
   const runCompare = useCallback(async () => {
     if (!credsRef.current) return;
     setComparing(true);
@@ -946,7 +910,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
 
   return (
     <div className={"cmp-root" + (fullscreen ? " cmp-fullscreen" : "")}>
-      {/* Toolbar: connect on the left, Compare + Fullscreen on the right. */}
       <div className="cmp-toolbar">
         <div className="cmp-toolbar-left">
           <ModeSelect mode={mode} onChange={onModeChange} />
@@ -956,7 +919,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                 <Icon
                   className="ti ti-user"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
                 ></Icon>
                 <input
                   className="form-input"
@@ -984,7 +946,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                 <Icon
                   className="ti ti-lock"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
                 ></Icon>
                 <div
                   style={{
@@ -1095,7 +1056,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
         </p>
       )}
 
-      <div className="cmp-split" style={{ marginTop: "30px" }}>
+      <div className="cmp-split" style={{ marginTop: "30px", alignItems: "stretch" }}>
         <ComparePane
           side="left"
           title="Current query"

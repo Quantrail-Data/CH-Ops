@@ -966,7 +966,6 @@ function AvailableBackupsTab({ profiles }) {
                   <th>Scope</th>
                   <th>Created</th>
                   <th>Incremental</th>
-                  <th>Retention</th>
                 </tr>
               </thead>
               <tbody>
@@ -999,7 +998,6 @@ function AvailableBackupsTab({ profiles }) {
                         <Badge color="green">FULL</Badge>
                       )}
                     </td>
-                    <td>{b.retention_days ? `${b.retention_days}d` : "-"}</td>
                   </tr>
                 ))}
               </tbody>

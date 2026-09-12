@@ -72,8 +72,14 @@ if (failures.length > 0) {
   out += '<details open>\n<summary><strong>Failed / flaky tests</strong></summary>\n\n';
   out += '| | File | Test | Retries | Error |\n|---|---|---|---|---|\n';
   for (const f of failures) {
-    // Table cells can't contain raw newlines or unescaped pipes.
-    const msg = stripAnsi(f.error || '').split('\n')[0].replace(/\|/g, '\\|').slice(0, 200);
+    // Table cells can't contain raw newlines or unescaped pipes/backslashes.
+    // Backslashes must be escaped first, otherwise a message ending in a
+    // backslash would escape the pipe-escaping backslash we add next.
+    const msg = stripAnsi(f.error || '')
+      .split('\n')[0]
+      .replace(/\\/g, '\\\\')
+      .replace(/\|/g, '\\|')
+      .slice(0, 200);
     out += `| ${statusEmoji(f.status)} | \`${f.file}\` | ${f.title} | ${f.retries} | ${msg ? `\`${msg}\`` : '-'} |\n`;
   }
   out += '\n</details>\n\n';

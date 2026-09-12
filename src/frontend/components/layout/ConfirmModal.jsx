@@ -23,6 +23,7 @@ export default function ConfirmModal({
   confirmText = "Confirm",
   danger = false,
   confirmDisabled = false,
+  cancelHide=false
 }) {
   const confirmBtn = useRef(null);
 
@@ -37,9 +38,11 @@ export default function ConfirmModal({
       onClose={onCancel}
       footer={
         <>
-          <Button variant="secondary" onClick={onCancel}>
-            Cancel
-          </Button>
+          {!cancelHide && (
+            <Button variant="secondary" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
           <Button
             ref={confirmBtn}
             variant={danger ? "danger" : "primary"}

@@ -24,6 +24,8 @@ import ChartCard from "../layout/ChartCard.jsx";
 import Card from "../ui/Card.jsx";
 import Button from "../ui/Button.jsx";
 import Tabs from "../ui/Tabs.jsx";
+import { useConnection } from "../../App.jsx";
+import EmptyState from "../queues/EmptyState.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -37,6 +39,7 @@ const fmtNow = () => {
 
 export default function CrashLog({ sidebar }) {
   const { tab: routeTab = "overview" } = useParams();
+  const conn = useConnection();
   const navigate = useNavigate();
 
   const handleTabChange = (newTab) => {
@@ -58,8 +61,12 @@ export default function CrashLog({ sidebar }) {
         active={routeTab}
         onChange={handleTabChange}
       />
-      {routeTab === "overview" && <CrashLogOverview />}
-      {routeTab === "search" && <CrashLogSearch sidebar={sidebar} />}
+      {routeTab === "overview" && (
+        <CrashLogOverview unavailable={conn.unavailable} />
+      )}
+      {routeTab === "search" && (
+        <CrashLogSearch sidebar={sidebar} unavailable={conn.unavailable} />
+      )}
     </div>
   );
 }
@@ -259,7 +266,7 @@ function SectionError({ title, message }) {
   );
 }
 
-function CrashLogOverview() {
+function CrashLogOverview({ unavailable }) {
   const [duration, setDuration] = useState("30d");
   const [from, setFrom] = useState(fmtAgo(720));
   const [to, setTo] = useState(fmtNow());
@@ -424,6 +431,24 @@ function CrashLogOverview() {
   const incidentRenderers = {
     signal: (v) => signalLabel(v),
   };
+
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === "system.crash_log");
+    return match ? match.message : null;
+  };
+
+  const unavailableMessage = getUnavailableMessage();
+
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -619,7 +644,7 @@ async function runQueryProbe() {
   return new Set((res.rows || []).map((r) => r.name).filter(Boolean));
 }
 
-function CrashLogSearch({ sidebar }) {
+function CrashLogSearch({ sidebar, unavailable }) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());
@@ -631,14 +656,12 @@ function CrashLogSearch({ sidebar }) {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const q = useQuery();
 
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (error) toast.error(error);
   }, [error]);
-
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -738,11 +761,9 @@ function CrashLogSearch({ sidebar }) {
 
       await q.execute(sql);
     } catch (err) {
-    setLoading(false);
-    setError(err?.message || err);
-      
-    }
-    finally{
+      setLoading(false);
+      setError(err?.message || err);
+    } finally {
       setLoading(false);
     }
   }
@@ -765,6 +786,24 @@ function CrashLogSearch({ sidebar }) {
       }
     }
   };
+
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === "system.crash_log");
+    return match ? match.message : null;
+  };
+
+  const unavailableMessage = getUnavailableMessage();
+
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
+      </div>
+    );
+  }
 
   const widthStyle = {
     width: `${(window?.innerWidth - (sidebar ? 650 : 900)) / (sidebar ? 5 : 5)}px`,
@@ -913,6 +952,15 @@ function CrashLogSearch({ sidebar }) {
       {submitted && !q.loading && (
         <DataTable
           rows={q.data || []}
+          columns={[
+            "timestamp_ns",
+            "event_time",
+            "signal",
+            "quertid",
+            "query",
+            "signal_description",
+            "current_exception_trace_ful",
+          ]}
           emptyMessage="No crash entries found."
           variant="single"
           s_no={true}

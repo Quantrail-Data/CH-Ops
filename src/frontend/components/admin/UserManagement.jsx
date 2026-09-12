@@ -49,7 +49,7 @@ export default function UserManagement() {
   const [roleChange, setRoleChange] = useState(null);
   // The System Email tab. Superadmin only, because these settings hold a
   // password.
-  const [tab, setTab] = useState("smtp");
+  const [tab, setTab] = useState("users");
   const [smtp, setSmtp] = useState(null);
   const [smtpForm, setSmtpForm] = useState(null);
   const [smtpBusy, setSmtpBusy] = useState(false);
@@ -85,7 +85,7 @@ export default function UserManagement() {
   }
 
   useEffect(() => {
-    if (tab === "smtp") return;
+    if (tab === "smtp" && !myLevel === ROLE_LEVEL['superadmin']) return;
     checkSmtpconfigured();
   }, [tab]);
 
@@ -261,7 +261,10 @@ export default function UserManagement() {
     setRoleChange(null);
   }
 
-  async function resetPassword(id) {
+async function resetPassword(id,initUser) {
+    if(initUser) {
+      toast.error("Cannot reset passord for init user");
+    }
     try {
       const r = await apiFetch(`/api/users/${id}`, {
         method: "PUT",
@@ -589,7 +592,7 @@ export default function UserManagement() {
             </Card>
           )}
 
-          {!isSmtpConfigured && (
+          {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"]&&(
             <div className="alert-banner info" style={{ marginBottom: 14 }}>
               <Icon className="ti ti-info-circle"></Icon>SMTP is not configured.
               Email notifications are disabled. You can only create users and
@@ -699,7 +702,7 @@ export default function UserManagement() {
               <tbody>
                 {users.map((u) => {
                   const targetLevel = ROLE_LEVEL[u.role] || 0;
-                  const canManage = isAdmin && targetLevel < myLevel;
+                  const canManage = isAdmin && targetLevel <= myLevel;
                   const rolesForTarget = assignableRoles(u.role);
                   return (
                     <tr key={u.id}>
@@ -757,9 +760,9 @@ export default function UserManagement() {
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => resetPassword(u.id)}
+                            onClick={() => resetPassword(u.id, u.initUser)}
                             title="Reset Password"
-                            disabled={!canManage}
+                            disabled={!canManage || u.initUser}
                             style={
                               !canManage
                                 ? { opacity: 0.35, cursor: "not-allowed" }
@@ -773,9 +776,9 @@ export default function UserManagement() {
                             size="sm"
                             onClick={() => setDel(u.id)}
                             title="Delete"
-                            disabled={!canManage}
+                            disabled={!canManage || u.initUser}
                             style={
-                              !canManage
+                              !canManage || u.initUser
                                 ? { opacity: 0.35, cursor: "not-allowed" }
                                 : {}
                             }

@@ -19,12 +19,14 @@ import Select from "../common/Select.jsx";
 import Button from "../ui/Button.jsx";
 import FieldLabel from "./FieldLabel.jsx";
 import { DEFAULT_KINDS } from "../../utils/ddlCompose.js";
+import ConfirmModal from "../layout/ConfirmModal.jsx";
 
 const CODEC_SUGGESTIONS = ["ZSTD(3)", "ZSTD(1)", "LZ4", "Delta, ZSTD(3)", "DoubleDelta, ZSTD(3)", "Gorilla, ZSTD(3)", "T64, ZSTD(3)", "NONE"];
 const STAT_SUGGESTIONS = ["TDigest", "Uniq", "TDigest, Uniq", "MinMax", "CountMin"];
 
 export default function StepSchema({ columns, setColumns, stats, sampleRows, onBack, onNext }) {
   const [open, setOpen] = useState(() => new Set());
+  const [isBackModel,setIsBackModel] = useState(false);
 
   function updateCol(i, patch) {
     setColumns(columns.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
@@ -218,11 +220,19 @@ export default function StepSchema({ columns, setColumns, stats, sampleRows, onB
       </div>
 
       <div className="studio-actions">
-        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button variant="ghost" onClick={() => setIsBackModel(true)}>Back</Button>
         <Button variant="primary" onClick={onNext} disabled={!columns.length}>
           Next: engine
         </Button>
       </div>
+
+        {isBackModel && <ConfirmModal 
+        message={"If you go back to Schema Upload, the schema form, engine configuration, and generation process will reset. Any progress made in the current step may be lost. Do you want to continue?"} 
+        title={"Confirm Schema Upload Navigation"} 
+        onCancel={()=>setIsBackModel(false)} 
+        onConfirm={()=>{onBack()}} 
+   
+        />}
     </div>
   );
 }

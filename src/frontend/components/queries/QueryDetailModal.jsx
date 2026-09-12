@@ -207,6 +207,7 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
                     Finished while you were looking. Text recovered from the query log.
                   </div>
                 )}
+                
                 <pre
                   className="profiler-popup-code"
                   style={{
@@ -216,8 +217,25 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
                     wordBreak: "break-word",
                     fontSize: 12,
                     margin: 0,
+                    position:"relative"
                   }}
                 >
+                  <div style={{position:"absolute",right:"10px",top:"10px"}}>
+                  <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                try {
+                  navigator.clipboard?.writeText(text);
+                  toast.success("Query text copied");
+                } catch {
+                  /* clipboard unavailable */
+                }
+              }}
+              title="Copy query text"
+            >
+              <Icon className="ti ti-copy" />
+            </button>
+                </div>
                   {text || "(query text not available)"}
                 </pre>
               </>

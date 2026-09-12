@@ -2,60 +2,114 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Creates, modifies, and maps fine-grained permission sets to system-wide RBAC roles.
 
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import Card from "../ui/Card.jsx";
 import Button from "../ui/Button.jsx";
 import Tabs from "../ui/Tabs.jsx";
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '../../hooks/useQuery.js';
-import { runQuery } from '../../utils/api.js';
-import DataTable from '../layout/DataTable.jsx';
-import { SqlPreview } from '../layout/SharedComponents.jsx';
-import ConfirmModal from '../layout/ConfirmModal.jsx';
-import AlertBanner from '../layout/AlertBanner.jsx';
-import { useAuth } from '../../App.jsx';
-import OnClusterBanner, { useRbacContext } from './OnClusterBanner.jsx';
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "../../hooks/useQuery.js";
+import { runQuery } from "../../utils/api.js";
+import DataTable from "../layout/DataTable.jsx";
+import { SqlPreview } from "../layout/SharedComponents.jsx";
+import ConfirmModal from "../layout/ConfirmModal.jsx";
+import AlertBanner from "../layout/AlertBanner.jsx";
+import { useAuth } from "../../App.jsx";
+import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
-const ACCESS_TYPES = ['SELECT', 'INSERT', 'ALTER', 'CREATE', 'DROP', 'TRUNCATE', 'OPTIMIZE', 'SHOW', 'KILL QUERY', 'ACCESS MANAGEMENT', 'SYSTEM', 'INTROSPECTION', 'SOURCES', 'dictGet', 'ALL', 'NONE'];
+const ACCESS_TYPES = [
+  "SELECT",
+  "INSERT",
+  "ALTER",
+  "CREATE",
+  "DROP",
+  "TRUNCATE",
+  "OPTIMIZE",
+  "SHOW",
+  "KILL QUERY",
+  "ACCESS MANAGEMENT",
+  "SYSTEM",
+  "INTROSPECTION",
+  "SOURCES",
+  "dictGet",
+  "ALL",
+  "NONE",
+];
 
-function useDbList() { const q = useQuery(); useEffect(() => { q.execute('SELECT name FROM system.databases ORDER BY name'); }, []); return q; }
-function useTableList(db) { const q = useQuery(); useEffect(() => { if (db && db !== '*') q.execute(`SELECT name FROM system.tables WHERE database='${db}' ORDER BY name`); }, [db]); return q; }
+function useDbList() {
+  const q = useQuery();
+  useEffect(() => {
+    q.execute("SELECT name FROM system.databases ORDER BY name");
+  }, []);
+  return q;
+}
+function useTableList(db) {
+  const q = useQuery();
+  useEffect(() => {
+    if (db && db !== "*")
+      q.execute(
+        `SELECT name FROM system.tables WHERE database='${db}' ORDER BY name`,
+      );
+  }, [db]);
+  return q;
+}
 
 export default function RbacRoles() {
   // Whether an ON CLUSTER value is needed here, and which one.
   const rbac = useRbacContext();
-  const { tab: routeTab = 'list' } = useParams();
+  const { tab: routeTab = "list" } = useParams();
   const navigate = useNavigate();
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
 
   const handleTabChange = (newTab) => {
-    if (newTab === 'list' || isAdmin) {
+    if (newTab === "list" || isAdmin) {
       navigate(`/rbac/roles/${newTab}`, { replace: true });
     }
   };
 
-  const rolesQ = useQuery(), clustersQ = useQuery();
+  const rolesQ = useQuery(),
+    clustersQ = useQuery();
   const [result, setResult] = useState(null);
 
-  function load() { rolesQ.execute('SELECT name FROM system.roles ORDER BY name'); clustersQ.execute("SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster"); }
+  function load() {
+    rolesQ.execute("SELECT name FROM system.roles ORDER BY name");
+    clustersQ.execute(
+      "SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster",
+    );
+  }
   useEffect(load, []);
 
-  const roles = (rolesQ.data || []).map(r => r.name);
-  const clusters = (clustersQ.data || []).map(r => r.cluster);
-  const tabs = [{ id: 'list', l: 'List', i: 'ti-list' }, { id: 'create', l: 'Create', i: 'ti-plus' }, { id: 'alter', l: 'Alter', i: 'ti-edit' }, { id: 'grant', l: 'Grant/Revoke', i: 'ti-key' }, { id: 'drop', l: 'Drop', i: 'ti-trash' }];
+  const roles = (rolesQ.data || []).map((r) => r.name);
+  const clusters = (clustersQ.data || []).map((r) => r.cluster);
+  const tabs = [
+    { id: "list", l: "List", i: "ti-list" },
+    { id: "create", l: "Create", i: "ti-plus" },
+    { id: "alter", l: "Alter", i: "ti-edit" },
+    { id: "grant", l: "Grant/Revoke", i: "ti-key" },
+    { id: "drop", l: "Drop", i: "ti-trash" },
+  ];
 
-  if (rolesQ.loading && !rolesQ.data) return <div className="page-content"><div className="empty-state" style={{ padding: 40 }}><div className="loading-spinner"></div> Loading...</div></div>;
+  if (rolesQ.loading && !rolesQ.data)
+    return (
+      <div className="page-content">
+        <div className="empty-state" style={{ padding: 40 }}>
+          <div className="loading-spinner"></div> Loading...
+        </div>
+      </div>
+    );
 
   return (
     <div className="page-content">
-      <div className="section-header"><h2 className="section-title"><Icon className="ti ti-shield"></Icon> Roles</h2></div>
+      <div className="section-header">
+        <h2 className="section-title">
+          <Icon className="ti ti-shield"></Icon> Roles
+        </h2>
+      </div>
       <AlertBanner result={result} setResult={setResult} />
       <Tabs
         items={tabs.map(t => ({
@@ -78,29 +132,32 @@ export default function RbacRoles() {
 
 function CreateRole({ rbac, clusters, setResult, onSuccess }) {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
-  const [name, setName] = useState('');
-  const [onCluster, setOnCluster] = useState('');
+  const [name, setName] = useState("");
+  const [onCluster, setOnCluster] = useState("");
   // Default the dropdown where CHOps already knows the cluster name.
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) setOnCluster((prev) => prev || rbac.defaultOnCluster);
-  }, [rbac?.defaultOnCluster]);
-  const sql = name.trim() ? `CREATE ROLE IF NOT EXISTS ${name.trim()}${onCluster ? ` ON CLUSTER '${onCluster}'` : ''}` : '';
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) setOnCluster((prev) => prev || rbac.defaultOnCluster);
+  // }, [rbac?.defaultOnCluster]);
+  const sql = name.trim()
+    ? `CREATE ROLE IF NOT EXISTS ${name.trim()}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
+    : "";
 
   async function submit(e) {
-    e.preventDefault(); try {
+    e.preventDefault();
+    try {
       await runQuery(sql);
-      setResult({ ok: true, msg: 'Role created.' });
-      setName('');
+      setResult({ ok: true, msg: "Role created." });
+      setName("");
       onSuccess();
-    }
-    catch (e) { setResult({ ok: false, msg: e.message }); }
-    finally {
+    } catch (e) {
+      setResult({ ok: false, msg: e.message });
+    } finally {
       setTimeout(() => {
-        setResult(null)
-      }, 5000)
+        setResult(null);
+      }, 5000);
     }
   }
   return (<Card as="form" onSubmit={submit} style={{ padding: 20 }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}><div className="form-group"><label className="form-label">Role Name *</label><input className="form-input" required value={name} onChange={e => setName(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}} /></div><div className="form-group"><OnClusterBanner rbac={rbac} value={onCluster} /><label className="form-label">ON CLUSTER</label><Select className="form-select" value={onCluster} onChange={e => setOnCluster(e.target.value)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><option value="">--</option>{clusters.map(c => <option key={c}>{c}</option>)}</Select></div></div><SqlPreview sql={sql} /><div style={{ marginTop: 16 }}><Button variant="primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> Create</Button></div></Card>);
@@ -108,49 +165,67 @@ function CreateRole({ rbac, clusters, setResult, onSuccess }) {
 
 function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
-  const [sel, setSel] = useState('');
-  const [f, setF] = useState({ rename: '', onCluster: '', addSettings: '', dropSettings: '', addProfiles: '', dropProfiles: '', dropAllSettings: false, dropAllProfiles: false });
-  const u = (k, v) => setF(p => ({ ...p, [k]: v }));
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) {
-      setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
-    }
-  }, [rbac?.defaultOnCluster]);
+  const [sel, setSel] = useState("");
+  const [f, setF] = useState({
+    rename: "",
+    onCluster: "",
+    addSettings: "",
+    dropSettings: "",
+    addProfiles: "",
+    dropProfiles: "",
+    dropAllSettings: false,
+    dropAllProfiles: false,
+  });
+  const u = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) =>
+  //       p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster },
+  //     );
+  //   }
+  // }, [rbac?.defaultOnCluster]);
   function buildSql() {
-    if (!sel) return '';
-    const p = ['ALTER ROLE', sel];
+    if (!sel) return "";
+    const p = ["ALTER ROLE", sel];
     if (f.onCluster) p.push(`ON CLUSTER '${f.onCluster}'`);
     if (f.rename.trim()) p.push(`RENAME TO ${f.rename.trim()}`);
-    if (f.dropAllProfiles) p.push('DROP ALL PROFILES');
-    if (f.dropAllSettings) p.push('DROP ALL SETTINGS');
+    if (f.dropAllProfiles) p.push("DROP ALL PROFILES");
+    if (f.dropAllSettings) p.push("DROP ALL SETTINGS");
     if (f.dropSettings.trim()) p.push(`DROP SETTINGS ${f.dropSettings.trim()}`);
-    if (f.dropProfiles.trim()) p.push(`DROP PROFILES '${f.dropProfiles.trim()}'`);
+    if (f.dropProfiles.trim())
+      p.push(`DROP PROFILES '${f.dropProfiles.trim()}'`);
     if (f.addSettings.trim()) p.push(`ADD SETTINGS ${f.addSettings.trim()}`);
     if (f.addProfiles.trim()) p.push(`ADD PROFILES '${f.addProfiles.trim()}'`);
-    return p.join(' ');
+    return p.join(" ");
   }
-
 
   async function submit(e) {
     e.preventDefault();
     try {
       await runQuery(buildSql());
-      setResult({ ok: true, msg: 'Role altered.' });
+      setResult({ ok: true, msg: "Role altered." });
       onSuccess();
-      setSel('')
-      setF({ rename: '', onCluster: '', addSettings: '', dropSettings: '', addProfiles: '', dropProfiles: '', dropAllSettings: false, dropAllProfiles: false })
+      setSel("");
+      setF({
+        rename: "",
+        onCluster: "",
+        addSettings: "",
+        dropSettings: "",
+        addProfiles: "",
+        dropProfiles: "",
+        dropAllSettings: false,
+        dropAllProfiles: false,
+      });
     } catch (e) {
       setResult({ ok: false, msg: e.message });
-    }
-    finally {
+    } finally {
       setTimeout(() => {
-        setResult(null)
-      }, 5000)
+        setResult(null);
+      }, 5000);
     }
-
   }
 
 
@@ -177,35 +252,53 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
 
 function GrantRevoke({ rbac, roles, clusters, setResult }) {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const dbsQ = useDbList();
-  const [f, setF] = useState({ role: '', action: 'grant', accessType: 'SELECT', database: '*', table: '*', onCluster: '' });
+  const [f, setF] = useState({
+    role: "",
+    action: "grant",
+    accessType: "SELECT",
+    database: "*",
+    table: "*",
+    onCluster: "",
+  });
   const tblsQ = useTableList(f.database);
-  const u = (k, v) => setF(p => ({ ...p, [k]: v }));
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) {
-      setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
-    }
-  }, [rbac?.defaultOnCluster]);
-  function buildSql() { if (!f.role) return ''; const verb = f.action === 'grant' ? 'GRANT' : 'REVOKE'; const dir = f.action === 'grant' ? 'TO' : 'FROM'; return `${verb} ${f.accessType} ON ${f.database}.${f.table} ${dir} ${f.role}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ''}`; }
+  const u = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) =>
+  //       p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster },
+  //     );
+  //   }
+  // }, [rbac?.defaultOnCluster]);
+  function buildSql() {
+    if (!f.role) return "";
+    const verb = f.action === "grant" ? "GRANT" : "REVOKE";
+    const dir = f.action === "grant" ? "TO" : "FROM";
+    return `${verb} ${f.accessType} ON ${f.database}.${f.table} ${dir} ${f.role}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ""}`;
+  }
 
   async function submit(e) {
     e.preventDefault();
     try {
       await runQuery(buildSql());
-      setResult({ ok: true, msg: 'Executed.' });
-      setF({ role: '', action: 'grant', accessType: 'SELECT', database: '*', table: '*', onCluster: '' });
-
-    }
-    catch (e) {
+      setResult({ ok: true, msg: "Executed." });
+      setF({
+        role: "",
+        action: "grant",
+        accessType: "SELECT",
+        database: "*",
+        table: "*",
+        onCluster: "",
+      });
+    } catch (e) {
       setResult({ ok: false, msg: e.message });
-    }
-    finally {
+    } finally {
       setTimeout(() => {
-        setResult(null)
-      }, 5000)
+        setResult(null);
+      }, 5000);
     }
   }
 
@@ -226,35 +319,36 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
 
 function DropRole({ rbac, roles, clusters, setResult, onSuccess }) {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
-  const [sel, setSel] = useState('');
-  const [onCluster, setOnCluster] = useState('');
+  const [sel, setSel] = useState("");
+  const [onCluster, setOnCluster] = useState("");
   // Default the dropdown where CHOps already knows the cluster name.
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) setOnCluster((prev) => prev || rbac.defaultOnCluster);
-  }, [rbac?.defaultOnCluster]);
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster)
+  //     setOnCluster((prev) => prev || rbac.defaultOnCluster);
+  // }, [rbac?.defaultOnCluster]);
   const [confirm, setConfirm] = useState(false);
-  const [confirmName, setConfirmName] = useState('');
-  const sql = sel ? `DROP ROLE IF EXISTS ${sel}${onCluster ? ` ON CLUSTER '${onCluster}'` : ''}` : '';
+  const [confirmName, setConfirmName] = useState("");
+  const sql = sel
+    ? `DROP ROLE IF EXISTS ${sel}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
+    : "";
 
   async function drop() {
     try {
       await runQuery(sql);
-      setResult({ ok: true, msg: 'Role dropped.' });
+      setResult({ ok: true, msg: "Role dropped." });
       onSuccess();
-      setSel('')
+      setSel("");
     } catch (e) {
       setResult({ ok: false, msg: e.message });
-    }
-
-    finally {
+    } finally {
       setTimeout(() => {
-        setResult(null)
-      }, 5000)
+        setResult(null);
+      }, 5000);
       setConfirm(false);
-      setConfirmName('');
+      setConfirmName("");
     }
   }
 

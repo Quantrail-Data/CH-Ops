@@ -28,6 +28,7 @@ import { useToast } from '../layout/Toast.jsx';
 import ChartCard from '../layout/ChartCard.jsx';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import { initChart, disposeChart } from '../../utils/echarts.js';
+import { useConnection } from '../../App.jsx';
 import Card from '../ui/Card.jsx';
 import Button from '../ui/Button.jsx';
 import Tabs from '../ui/Tabs.jsx';
@@ -38,6 +39,7 @@ const fmtNow = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.
 
 export default function SessionLog() {
   const { tab: routeTab = 'overview' } = useParams();
+  const conn = useConnection();
   const navigate = useNavigate();
 
   const handleTabChange = (newTab) => {
@@ -55,8 +57,8 @@ export default function SessionLog() {
         active={routeTab}
         onChange={handleTabChange}
       />
-      {routeTab === 'overview' && <SessionLogOverview />}
-      {routeTab === 'search' && <SessionLogSearch />}
+      {routeTab === 'overview' && <SessionLogOverview unavailable={conn.unavailable} />}
+      {routeTab === 'search' && <SessionLogSearch unavailable={conn.unavailable} />}
     </div>
   );
 }
@@ -361,7 +363,7 @@ function RateChart({ rows, from, to, rounding }) {
   );
 }
 
-function SessionLogOverview() {
+function SessionLogOverview({ unavailable }) {
   const [duration, setDuration] = useState('7d');
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());
@@ -471,6 +473,24 @@ function SessionLogOverview() {
 
   const cellRenderers = { count: v => fmtInt(v) };
 
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === 'system.session_log');
+    return match ? match.message : null;
+  };
+
+  const unavailableMessage = getUnavailableMessage();
+
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <Card style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -489,7 +509,7 @@ function SessionLogOverview() {
                   setDuration(d);
                   setFrom(nextFrom);
                   setTo(nextTo);
-                  load({ duration: d, from: nextFrom, to: nextTo });
+                  // load({ duration: d, from: nextFrom, to: nextTo });
                 }}
               >{d}</Button>
             ))}
@@ -576,7 +596,7 @@ function SessionLogOverview() {
 
 const SEARCH_TYPES = ['LoginSuccess', 'LoginFailure', 'Logout'];
 
-function SessionLogSearch() {
+function SessionLogSearch({ unavailable }) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());
@@ -645,6 +665,24 @@ function SessionLogSearch() {
     }
   };
 
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === 'system.session_log');
+    return match ? match.message : null;
+  };
+
+  const unavailableMessage = getUnavailableMessage();
+
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div
@@ -664,6 +702,9 @@ function SessionLogSearch() {
           {filtersOpen ? "Collapse" : "Expand"} Filters
         </Button>
       </div>
+      {submitted && !q.loading && !tableExists && probeDone && (
+        <div className="empty-state"><Icon className="ti ti-shield-check" style={{ color: '#34d399' }}></Icon><p>system.session_log is not present. It is created only when session logging is enabled in the server config, so no session entries can be searched.</p></div>
+      )}
       {filtersOpen && <Card style={{ padding: 20, marginBottom: 20 }}>
         <form onSubmit={handleSearch}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
@@ -675,7 +716,7 @@ function SessionLogSearch() {
               <label className="form-label">Event Type (multi-select)</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {SEARCH_TYPES.map(t => (
-                  <label key={t} style={{ display: 'flex', gap: 4, fontSize: '13px', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, background: selectedTypes.includes(t) ? 'var(--accent-soft)' : 'transparent', border: '1px solid ' + (selectedTypes.includes(t) ? 'var(--accent-border)' : 'var(--border-default)') }}>
+                  <label key={t} style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: '13px', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, background: selectedTypes.includes(t) ? 'var(--accent-soft)' : 'transparent', border: '1px solid ' + (selectedTypes.includes(t) ? 'var(--accent-border)' : 'var(--border-default)') }}>
                     <input type="checkbox" checked={selectedTypes.includes(t)} onChange={() => toggleType(t)} style={{ accentColor: 'var(--accent)' }} />{t}
                   </label>
                 ))}
@@ -692,10 +733,16 @@ function SessionLogSearch() {
           </div>
         </form>
       </Card>}
-      {submitted && !q.loading && !tableExists && probeDone && (
-        <div className="empty-state"><Icon className="ti ti-shield-check" style={{ color: '#34d399' }}></Icon><p>system.session_log is not present. It is created only when session logging is enabled in the server config, so no session entries can be searched.</p></div>
+      {submitted && !q.loading && tableExists && (
+        <DataTable
+          rows={q.data || []}
+          columns={['event_time', 'type', 'user', 'auth_type', 'interface', 'client_address', 'failure_reason']}
+          emptyMessage="No session entries found."
+          variant="single"
+          s_no={true}
+          maxHeight={600}
+        />
       )}
-      {submitted && !q.loading && tableExists && <DataTable rows={q.data || []} emptyMessage="No session entries found." variant="single" s_no={true} maxHeight={600} />}
     </div>
   );
 }

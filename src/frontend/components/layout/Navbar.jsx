@@ -13,7 +13,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
-import { runQuery } from "../../utils/api.js";
+import { editorDisconnect, runQuery } from "../../utils/api.js";
 import Button from "../ui/Button.jsx";
 
 import chopsLightLogo from "../../assets/chops-light.svg";
@@ -47,6 +47,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     connected,
     error,
     clusterName,
+    nodeName,
     setConnection,
     testConnection,
     reloadConfig,
@@ -183,22 +184,23 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
   // }
 
   // storing the chops node details in localstorage => praveenkumar
-    async function handleNodeChange(host) {
-    const node = nodes.find((n) => n.host === host);
+    async function handleNodeChange(name) {
+    const node = nodes.find((n) => n.name === name);
     if (node) {
       localStorage?.setItem("chops_nodename",node?.name)
       setConnecting(true);
       setConnection((prev) => ({
         ...prev,
-        selectedNode: host,
+        selectedNode: node?.host,
         user: node.user || "default",
         port: node.port || 8123,
-        nodeName:node?.name
+        nodeName:name
       }));
-      await testConnection(node?.host, node?.user, node?.port);
+      await testConnection(node?.name, node?.user, node?.port);
       onRefresh();
       setConnecting(false);
     } else setConnection((prev) => ({ ...prev, selectedNode: host }));
+    await editorDisconnect();
   }
 
   async function handleConnect() {
@@ -222,6 +224,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
       onRefresh();
       setConnecting(false);
     }
+    await editorDisconnect();
   }
 
   return (
@@ -279,7 +282,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
           </span>
           <Select
             className="form-select conn-select"
-            value={selectedNode || ""}
+            value={nodeName || ""}
             style={{
               Width: 120,
               fontWeight: 600,
@@ -289,7 +292,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
             onChange={(e) => handleNodeChange(e.target.value)}
           >
             {nodes.map((n) => (
-              <option key={n.host} value={n.host}>
+              <option key={n.name} value={n.name}>
                 {n.name || n.host}
               </option>
             ))}
