@@ -43,20 +43,20 @@ export default defineConfig({
   timeout: 30000,
 
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://127.0.0.1:5173",
     trace: "retain-on-failure",
   },
 
   webServer: [
     {
       command: "bun run dev:backend",
-      url: "http://localhost:3000",
+      url: "http://127.0.0.1:3000",
       reuseExistingServer: !process.env.CI,
       timeout: 60000,
     },
     {
       command: "bun run dev:frontend",
-      url: "http://localhost:5173",
+      url: "http://127.0.0.1:5173",
       reuseExistingServer: !process.env.CI,
       timeout: 60000,
     },

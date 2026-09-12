@@ -11,7 +11,7 @@
 import { expect } from "@playwright/test";
 
 export class TestDataFactory {
-  constructor(page, apiBaseURL = "http://localhost:3000") {
+  constructor(page, apiBaseURL = "http://127.0.0.1:3000") {
     this.page = page;
     this.apiBaseURL = apiBaseURL;
     this.createdUsers = [];
