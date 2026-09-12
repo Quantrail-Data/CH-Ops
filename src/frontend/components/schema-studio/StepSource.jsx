@@ -20,33 +20,57 @@ export default function StepSource({ onDone }) {
   const [mode, setMode] = useState("upload"); // upload | object
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [warning, setWarning] = useState(null);
   const fileRef = useRef(null);
 
   const [obj, setObj] = useState({
     provider: "s3",
-    path: "", accessKeyId: "", secretAccessKey: "",
-    connectionString: "", container: "",
+    path: "",
+    accessKeyId: "",
+    secretAccessKey: "",
+    connectionString: "",
+    container: "",
     format: "Parquet",
   });
 
   async function handleFile(file) {
     if (!file) return;
-    setBusy(true); setError(null);
+    setBusy(true);
+    setError(null);
     try {
       const name = file.name || "";
       const isBinary = /\.(parquet|orc)$/i.test(name);
       const payload = isBinary ? file : file.slice(0, TEXT_SAMPLE_BYTES);
       const res = await inferFromFile(payload, name);
+
+      if (res?.error) {
+        if (res?.type === 'POCO') {
+          setWarning({type:res.type,message:res?.error})
+          return;
+        }else if (res?.type === "URI LONG") {
+          setWarning({type:res.type,message:res?.error})
+          return;
+        }else {
+          setError(res?.error)
+          return 
+        }
+       
+      }
+
       onDone(res);
+      return;
     } catch (e) {
+      
       setError(e.message);
+      return
     } finally {
       setBusy(false);
     }
   }
 
   async function handleObject() {
-    setBusy(true); setError(null);
+    setBusy(true);
+    setError(null);
     try {
       const res = await inferFromObject(obj);
       onDone(res);
@@ -60,15 +84,81 @@ export default function StepSource({ onDone }) {
   return (
     <div className="studio-step-pane">
       <div className="studio-segment">
-        <button className={"studio-seg-btn" + (mode === "upload" ? " active" : "")}
-          onClick={() => setMode("upload")}>Upload a file</button>
-        <button className={"studio-seg-btn" + (mode === "object" ? " active" : "")}
-          onClick={() => setMode("object")}>Object storage</button>
+        <button
+          className={"studio-seg-btn" + (mode === "upload" ? " active" : "")}
+          onClick={() => setMode("upload")}
+        >
+          Upload a file
+        </button>
+        <button
+          className={"studio-seg-btn" + (mode === "object" ? " active" : "")}
+          onClick={() => setMode("object")}
+        >
+          Object storage
+        </button>
       </div>
 
       {error && (
-        <div className="alert-banner danger" style={{ marginTop: 12 }}>
-          <Icon className="ti ti-alert-circle" /><span>{error}</span>
+        <div className="alert-banner danger" style={{ marginTop: 12 }}><Icon className="ti ti-alert-circle" /><span>{error}</span></div>
+      )}
+
+      {warning?.type === "POCO" && (
+        <div className="alert-banner danger" style={{display:"flex",margin:"10px 0px",alignItems:"start",flexDirection:"column"}}>
+          <div style={{display:"flex",gap:"10px"}}>
+            <Icon className="ti ti-alert-circle" />
+            <h5>HTTP Field Size Warning</h5>
+          </div>
+
+          <div>
+            <h5 style={{fontSize:"12px"}}>
+              <strong>Warning:</strong> HTTP request field value exceeds the
+              configured limit.
+            </h5>
+
+            <p style={{fontSize:"12px"}}>
+              The submitted field value is too large for ClickHouse to process.
+            </p>
+
+            <p style={{fontSize:"12px"}}>
+              Please increase the http_max_field_value_size setting in the
+              ClickHouse server configuration and restart ClickHouse.
+            </p>
+
+            <h5 style={{fontSize:"12px"}}>
+              <strong>Current error:</strong>
+            </h5>
+            <code style={{fontSize:"12px"}}>{warning?.message}</code>
+          </div>
+        </div>
+      )}
+
+      {warning?.type === "URI LONG" && (
+        <div className="alert-banner danger" style={{display:"flex",margin:"10px 0px",alignItems:"start",flexDirection:"column"}}>
+          <div style={{display:"flex",gap:"10px"}}>
+            <Icon className="ti ti-alert-circle" />
+            <h5>HTTP URI Size Warning</h5>
+          </div>
+
+          <div>
+            <h5 style={{fontSize:"12px"}}>
+              <strong>Warning:</strong> HTTP request URI is invalid or too long.
+            </h5>
+
+            <p style={{fontSize:"12px"}}>
+             The request URL exceeds the configured size limit for ClickHouse.
+
+
+            </p>
+
+            <p style={{fontSize:"12px"}}>
+             Please increase the http_max_uri_size setting in the ClickHouse server configuration and restart ClickHouse.
+            </p>
+
+            <h5 style={{fontSize:"12px"}}>
+              <strong>Current error:</strong>
+            </h5>
+            <code style={{fontSize:"12px"}}>{warning?.message}</code>
+          </div>
         </div>
       )}
 
@@ -77,52 +167,116 @@ export default function StepSource({ onDone }) {
           className="studio-dropzone"
           onClick={() => fileRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files?.[0]); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleFile(e.dataTransfer.files?.[0]);
+          }}
         >
-          <input ref={fileRef} type="file" hidden
+          <input
+            ref={fileRef}
+            type="file"
+            hidden
             accept=".csv,.tsv,.json,.ndjson,.jsonl,.parquet,.orc"
-            onChange={(e) => handleFile(e.target.files?.[0])} />
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
           {busy ? (
-            <><span className="loading-spinner"></span> Inferring schema...</>
+            <>
+              <span className="loading-spinner"></span> Inferring schema...
+            </>
           ) : (
             <>
-              <Icon className="ti ti-upload" style={{ fontSize: "32px", opacity: 0.6 }} />
-              <div className="studio-dropzone-title">Drop a file here, or click to choose</div>
-              <div className="studio-dropzone-sub">CSV (with header), TSV (with header), JSON, NDJSON, Parquet, ORC</div>
+              <Icon
+                className="ti ti-upload"
+                style={{ fontSize: "32px", opacity: 0.6 }}
+              />
+              <div className="studio-dropzone-title">
+                Drop a file here, or click to choose
+              </div>
+              <div className="studio-dropzone-sub">
+                CSV (with header), TSV (with header), JSON, NDJSON, Parquet, ORC
+              </div>
+              {/* <div className="studio-dropzone-sub">Maximum Supported Rows: 1000</div> */}
             </>
           )}
         </div>
       ) : (
         <div className="studio-objform">
           <div className="studio-segment">
-            <button className={"studio-seg-btn" + (obj.provider === "s3" ? " active" : "")}
-              onClick={() => setObj({ ...obj, provider: "s3" })}>S3</button>
-            <button className={"studio-seg-btn" + (obj.provider === "azure" ? " active" : "")}
-              onClick={() => setObj({ ...obj, provider: "azure" })}>Azure</button>
+            <button
+              className={
+                "studio-seg-btn" + (obj.provider === "s3" ? " active" : "")
+              }
+              onClick={() => setObj({ ...obj, provider: "s3" })}
+            >
+              S3
+            </button>
+            <button
+              className={
+                "studio-seg-btn" + (obj.provider === "azure" ? " active" : "")
+              }
+              onClick={() => setObj({ ...obj, provider: "azure" })}
+            >
+              Azure
+            </button>
           </div>
 
           {obj.provider === "s3" ? (
             <>
-              <input className="form-input" placeholder="S3 URL (https://bucket.s3.../file.parquet)"
-                value={obj.path} onChange={(e) => setObj({ ...obj, path: e.target.value })} />
-              <input className="form-input" placeholder="Access key ID"
-                value={obj.accessKeyId} onChange={(e) => setObj({ ...obj, accessKeyId: e.target.value })} />
-              <input className="form-input" type="password" placeholder="Secret access key"
-                value={obj.secretAccessKey} onChange={(e) => setObj({ ...obj, secretAccessKey: e.target.value })} />
+              <input
+                className="form-input"
+                placeholder="S3 URL (https://bucket.s3.../file.parquet)"
+                value={obj.path}
+                onChange={(e) => setObj({ ...obj, path: e.target.value })}
+              />
+              <input
+                className="form-input"
+                placeholder="Access key ID"
+                value={obj.accessKeyId}
+                onChange={(e) =>
+                  setObj({ ...obj, accessKeyId: e.target.value })
+                }
+              />
+              <input
+                className="form-input"
+                type="password"
+                placeholder="Secret access key"
+                value={obj.secretAccessKey}
+                onChange={(e) =>
+                  setObj({ ...obj, secretAccessKey: e.target.value })
+                }
+              />
             </>
           ) : (
             <>
-              <input className="form-input" type="password" placeholder="Azure connection string"
-                value={obj.connectionString} onChange={(e) => setObj({ ...obj, connectionString: e.target.value })} />
-              <input className="form-input" placeholder="Container"
-                value={obj.container} onChange={(e) => setObj({ ...obj, container: e.target.value })} />
-              <input className="form-input" placeholder="Blob path (file.parquet)"
-                value={obj.path} onChange={(e) => setObj({ ...obj, path: e.target.value })} />
+              <input
+                className="form-input"
+                type="password"
+                placeholder="Azure connection string"
+                value={obj.connectionString}
+                onChange={(e) =>
+                  setObj({ ...obj, connectionString: e.target.value })
+                }
+              />
+              <input
+                className="form-input"
+                placeholder="Container"
+                value={obj.container}
+                onChange={(e) => setObj({ ...obj, container: e.target.value })}
+              />
+              <input
+                className="form-input"
+                placeholder="Blob path (file.parquet)"
+                value={obj.path}
+                onChange={(e) => setObj({ ...obj, path: e.target.value })}
+              />
             </>
           )}
 
-          <Select className="form-select" value={obj.format}
-            onChange={(e) => setObj({ ...obj, format: e.target.value })}>
+          <Select
+            className="form-select"
+            value={obj.format}
+            onChange={(e) => setObj({ ...obj, format: e.target.value })}
+          >
             <option value="Parquet">Parquet</option>
             <option value="ORC">ORC</option>
             <option value="CSVWithNames">CSV (with header)</option>
@@ -130,15 +284,19 @@ export default function StepSource({ onDone }) {
             <option value="JSONEachRow">JSON / NDJSON</option>
           </Select>
 
-          <button className="btn btn-primary" onClick={handleObject} disabled={busy || !obj.path}>
+          <button
+            className="btn btn-primary"
+            onClick={handleObject}
+            disabled={busy || !obj.path}
+          >
             {busy ? "Inferring..." : "Infer schema"}
           </button>
         </div>
       )}
 
       <p className="studio-note">
-        ClickHouse reads a sample to infer the schema. Object-storage keys are used
-        only for this read and are not stored.
+        ClickHouse reads a sample to infer the schema. Object-storage keys are
+        used only for this read and are not stored.
       </p>
     </div>
   );

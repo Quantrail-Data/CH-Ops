@@ -53,5 +53,6 @@ export const trustedCas = schema.trustedCas;
 // The raw handle, for the cluster storage migration.
 export const rawSqlite = sqlite;
 export function assertDatabaseReadable(handle = sqlite) {
-  handle.query('SELECT 1').get();
+  const val  = handle.query('SELECT 1').get();
+  console.log(val)
 }

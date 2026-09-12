@@ -118,7 +118,7 @@ describe("runQuery", () => {
 
   test("returns 400 when node is not found in cluster", async () => {
     mockGetClusterNodes.mockReturnValue([
-      { host: "node1" },
+      { name: "node1" },
     ]);
 
     const req = {
@@ -142,6 +142,7 @@ describe("runQuery", () => {
   test("uses first cluster node when node is not provided", async () => {
     mockGetClusterNodes.mockReturnValue([
       {
+        name: "node1",
         host: "node1",
         port: 8123,
         secure: true,
@@ -189,7 +190,8 @@ describe("runQuery", () => {
   test("allows overriding connection settings from request", async () => {
     mockGetClusterNodes.mockReturnValue([
       {
-        host: "node1",
+        name: "node1",
+        host:"node1",
         port: 8123,
         user: "default",
         password: "",
@@ -228,7 +230,7 @@ describe("runQuery", () => {
 
   test("returns query errors as 400", async () => {
     mockGetClusterNodes.mockReturnValue([
-      { host: "node1" },
+      { name: "node1" },
     ]);
 
     mockExecuteQuery.mockRejectedValue(
@@ -255,7 +257,7 @@ describe("runQuery", () => {
 
   test("maps ClickHouse stats fields", async () => {
     mockGetClusterNodes.mockReturnValue([
-      { host: "node1" },
+      { name: "node1" },
     ]);
 
     mockExecuteQuery.mockResolvedValue({
@@ -295,7 +297,7 @@ describe("runQuery", () => {
 });
 
 describe("runQuery request settings", () => {
-  const node = { host: "node1", port: 8123, user: "chops", password: "pw" };
+  const node = { name: "node1", port: 8123, user: "chops", password: "pw" };
 
   function run(body) {
     mockGetClusterNodes.mockReturnValue([node]);
@@ -352,7 +354,7 @@ describe("runQuery request settings", () => {
 });
 
 describe("runQuery query parameters", () => {
-  const node = { host: "node1", port: 8123, user: "chops", password: "pw" };
+  const node = { name: "node1", port: 8123, user: "chops", password: "pw" };
 
   function run(body) {
     mockGetClusterNodes.mockReturnValue([node]);
@@ -484,6 +486,7 @@ describe("testQueryConnection", () => {
   test("returns success when connection works", async () => {
     mockGetClusterNodes.mockReturnValue([
       {
+        name: "node1",
         host: "node1",
         port: 8123,
       },
@@ -524,7 +527,8 @@ describe("testQueryConnection", () => {
     // node that actually has one.
     mockGetClusterNodes.mockReturnValue([
       {
-        host: "node1",
+        name: "node1",
+        host:"node",
         port: 8123,
         user: "chops",
         password: "stored-secret",
@@ -540,7 +544,7 @@ describe("testQueryConnection", () => {
     await testQueryConnection(req, res);
 
     expect(mockExecuteQuery).toHaveBeenCalledWith({
-      host: "node1",
+      host: "node",
       port: 8123,
       secure: true,
       user: "chops",
@@ -552,7 +556,7 @@ describe("testQueryConnection", () => {
 
   test("returns failure when connection throws", async () => {
     mockGetClusterNodes.mockReturnValue([
-      { host: "node1" },
+      { name: "node1" },
     ]);
 
     mockExecuteQuery.mockRejectedValue(
@@ -588,7 +592,7 @@ describe("runQuery readonly enforcement", () => {
   });
 
   test("passes readOnly through to executeQuery for a read query", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
     const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", readOnly: true },on:() => true };
     const res = createRes();
@@ -598,7 +602,7 @@ describe("runQuery readonly enforcement", () => {
   });
 
   test("does not block writes when readOnly is not requested (e.g. SQL editor)", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
     const req = { body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" },on:() => true };
     const res = createRes();
@@ -628,7 +632,7 @@ describe("runQuery readonly enforcement", () => {
   });
 
   test("a 'readonly' app role can still run read queries", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
     const req = { user: { role: "readonly" }, body: { sql: "SELECT 1", node: "h1", clusterId: "c1" },on:() => true };
     const res = createRes();
@@ -638,7 +642,7 @@ describe("runQuery readonly enforcement", () => {
   });
 
   test("a non-readonly app role (editor) is not forced into readOnly", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
+    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
     const req = { user: { role: "editor" }, body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" },on:() => true };
     const res = createRes();
@@ -650,7 +654,7 @@ describe("runQuery readonly enforcement", () => {
 
 describe("runQuery editor session (useSession)", () => {
   test("resolves credentials from the (jti, editor) session, no password in body", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "node_user", password: "node_pw" }]);
+    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "node_user", password: "node_pw" }]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
     const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", useSession: true, context: "editor" }, user: { jti: "ed-jti", username: "u" },on:() => true };
     const res = createRes();
@@ -660,7 +664,7 @@ describe("runQuery editor session (useSession)", () => {
   });
 
   test("returns 401 CRED_SESSION_EXPIRED when the session is gone (no fallback to default)", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "node_user", password: "node_pw" }]);
+    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "node_user", password: "node_pw" }]);
     const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", useSession: true, context: "editor" }, user: { jti: "missing-jti", username: "u" } };
     const res = createRes();
     await runQuery(req, res);

@@ -35,8 +35,12 @@ function stripFormatAndSemicolons(sql) {
 }
 
 function isSelectLike(sql) {
-  const first = sql.trim().split(/\s+/)[0]?.toUpperCase() || '';
-  return ['SELECT', 'WITH'].includes(first);
+  const cleanSql = sql
+    .replace(/\/\*[\s\S]*?\*\//g, '') 
+    .replace(/--.*$/gm, '')           
+    .trim();
+  const firstWord = cleanSql.split(/\s+/)[0]?.toUpperCase() || '';
+  return ['SELECT', 'WITH'].includes(firstWord);
 }
 
 // Formatting

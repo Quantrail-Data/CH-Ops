@@ -15,13 +15,13 @@ import {
 import { initChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import DataTable from "../layout/DataTable";
-import { useQuriozChatContext, useAuth } from "../../App.jsx";
+import {  useAuth } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
-function ChartVisualization({ editChart, data = [], chatMessage }) {
+function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -48,7 +48,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
   const previewInst = useRef(null);
   const tools = useChartTools(() => previewInst.current, { filename: "chart" });
 
-  const { replaceChat } = useQuriozChatContext();
+  // const { replaceChat } = useQuriozChatContext();
   
   const toast = useToast();
 

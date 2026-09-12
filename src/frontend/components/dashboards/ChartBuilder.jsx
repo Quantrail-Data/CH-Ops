@@ -117,6 +117,17 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }, []);
 
   useEffect(() => {
+    if (previewTools.fullscreen) {
+      document.body.classList.add("chart-builder-preview-fullscreen");
+    } else {
+      document.body.classList.remove("chart-builder-preview-fullscreen");
+    }
+    return () => {
+      document.body.classList.remove("chart-builder-preview-fullscreen");
+    };
+  }, [previewTools.fullscreen]);
+
+  useEffect(() => {
     if (editChart) {
       const cfg =
         typeof editChart.config === "string"
@@ -146,6 +157,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const hasAxisLabels = typeInfo?.hasXLabel || false;
   
   const shouldShowLegend = needsLegend(chartType, chartSubtype);
+
+  const isTablePreview = !!chartOption?._table;
+  const previewBodyHeight = previewTools.fullscreen
+    ? "calc(100vh - 96px)"
+    : isSmallScreen
+      ? (isTablePreview ? "52vh" : "42vh")
+      : (isTablePreview ? "48vh" : "430px");
 
   useEffect(() => {
     if (!editChart) {
@@ -412,10 +430,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         return 0;
       })();
 
-      const countSeriesBars = Array.isArray(baseOption.series)
-        ? baseOption.series.filter((s) => s?.type === 'bar').length
-        : 0;
-
       const isFullscreen = previewTools.fullscreen;
       const axisFontSize = isFullscreen 
         ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
@@ -424,8 +438,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
         : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
       const xRotate = isBarChart || isHeatmap ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-      const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
-      const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+      const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 108 : 96) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 56 : 46);
+      const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 10 : 14) : (tickCount > 40 ? 10 : 12);
       const seriesLabelWidth = isFullscreen
         ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
         : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
@@ -441,23 +455,22 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       const yNameGap = yAxisNameGap(baseOption);
 
       const isSunBurstChart = isSunBurst;
-      const sunburstLegendHeight = (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 40 : 0;
 
       const gridTop = previewTools.fullscreen
         ? Math.max(28, tickCount > 40 ? 40 : 28)
         : isSmallScreen
-          ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 76 : Math.max(22, tickCount > 40 ? 28 : 22))
+          ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 58 : Math.max(20, tickCount > 40 ? 24 : 20))
           : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible)
-            ? Math.max(62, tickCount > 40 ? 68 : 62)
-            : Math.max(24, tickCount > 40 ? 30 : 24));
+            ? Math.max(52, tickCount > 40 ? 58 : 52)
+            : Math.max(22, tickCount > 40 ? 28 : 22));
 
       const gridLeft = previewTools.fullscreen
         ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 240 : extraLeftForYAxisName)
         : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 20 : extraLeftForYAxisName);
 
       const gridBottomAuto = isBarChart || isHeatmap
-        ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
-        : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
+        ? (tickCount > 80 ? 180 : tickCount > 60 ? 165 : tickCount > 40 ? 150 : tickCount > 24 ? 130 : 112)
+        : (isScatterLike ? (tickCount > 40 ? 92 : 80) : (tickCount > 40 ? 94 : 80));
 
       const totalDataPoints = Array.isArray(baseOption.series)
         ? baseOption.series.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : (s?.data ? 1 : 0)), 0)
@@ -833,7 +846,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         enhancedOption.series = (enhancedOption.series || baseOption.series).map((s) => {
           if (s.type !== 'pie') return s;
           const defaultBaseRadius = chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
-          const baseRadius = s.radius || defaultBaseRadius;
           const finalRadius = previewTools.fullscreen
             ? (chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
             : isSmallScreen
@@ -1368,6 +1380,20 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
   function resetZoom() {
     if (previewInst.current) {
+      const isTreemapNow = chartType === "treemap" || chartSubtype === "treemap";
+      if (isTreemapNow) {
+        previewInst.current.clear();
+        previewInst.current.setOption(chartOption, true);
+        setTimeout(() => {
+          if (previewInst.current) {
+            try {
+              previewInst.current.resize();
+            } catch (e) {
+            }
+          }
+        }, 50);
+        return;
+      }
       previewInst.current.dispatchAction({
         type: "dataZoom",
         start: 0,
@@ -1404,6 +1430,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   const isSunBurstChartType = chartType === 'sunburst' || chartSubtype === 'sunburst';
+  const isTreemapChartType = chartType === 'treemap' || chartSubtype === 'treemap';
 
   const pieChartControlsFlags = {
     zoomFun: false,
@@ -1435,6 +1462,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     saveFun: true,
     fullscreenFun: true,
   };
+  const treemapControlsFlags = {
+    zoomFun: true,
+    resetFun: true,
+    saveFun: true,
+    fullscreenFun: true,
+  };
 
   if (!canBuild) {
     return (
@@ -1457,727 +1490,744 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   return (
-    <div className="page-content" style={shellStyle}>
-      <div className="section-header">
-        <h2 className="section-title">
-          <Icon className="ti ti-chart-dots-3"></Icon>{" "}
-          {editId ? "Edit Chart" : "Chart Builder"}
-        </h2>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setFullscreen(!fullscreen)}
-          title={fullscreen ? "Exit full screen" : "Full screen"}
-          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
-        >
-          <Icon
-            className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
-            style={{ fontSize: 14 }}
-          ></Icon>
-        </button>
-      </div>
-
-      <div className="card" 
-      style={{ marginBottom: 12, overflow: "hidden" }}>
-        <div
-          onClick={() => setTopOpen(!topOpen)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "10px 16px",
-            cursor: "pointer",
-            background: "var(--bg-elevated)",
-            fontWeight: 600,
-            fontSize: "14px",
-          }}
-        >
-          <Icon
-            className={`ti ti-chevron-${topOpen ? "down" : "right"}`}
-            style={{ fontSize: 16 }}
-          ></Icon>{" "}
-          <Icon className="ti ti-code" style={{ fontSize: 18 }}></Icon> SQL &
-          Results
+    <>
+      <style>{`
+        body.chart-builder-preview-fullscreen .global-search-fab,
+        body.chart-builder-preview-fullscreen [data-global-search-fab],
+        body.chart-builder-preview-fullscreen .floating-search,
+        body.chart-builder-preview-fullscreen .search-fab,
+        body.chart-builder-preview-fullscreen .global-search-icon {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+      `}</style>
+      <div className="page-content" style={shellStyle}>
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-chart-dots-3"></Icon>{" "}
+            {editId ? "Edit Chart" : "Chart Builder"}
+          </h2>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setFullscreen(!fullscreen)}
+            title={fullscreen ? "Exit full screen" : "Full screen"}
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+          >
+            <Icon
+              className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
+              style={{ fontSize: 14 }}
+            ></Icon>
+          </button>
         </div>
-        {topOpen && (
+
+        <div className="card" 
+        style={{ marginBottom: 12, overflow: "hidden" }}>
           <div
+            onClick={() => setTopOpen(!topOpen)}
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 0,
-              alignItems: "stretch",
-              height: "50vh",
-              minHeight: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              cursor: "pointer",
+              background: "var(--bg-elevated)",
+              fontWeight: 600,
+              fontSize: "14px",
             }}
           >
+            <Icon
+              className={`ti ti-chevron-${topOpen ? "down" : "right"}`}
+              style={{ fontSize: 16 }}
+            ></Icon>{" "}
+            <Icon className="ti ti-code" style={{ fontSize: 18 }}></Icon> SQL &
+            Results
+          </div>
+          {topOpen && (
             <div
               style={{
-                padding: 12,
-                borderRight: "1px solid var(--border-default)",
-                display: "flex",
-                flexDirection: "column",
+                display: "grid",
+                gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                gap: 0,
+                alignItems: "stretch",
+                height: isSmallScreen ? "auto" : "50vh",
                 minHeight: 0,
-                height: "100%",
               }}
             >
-              <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                <div
-                  style={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflow: "auto",
-                    background: "var(--input-bg)",
-                    border: "1px solid var(--border-default)",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  <div style={{ height: "100%", minHeight: 320 }}>
-                    <SqlEditor
-                      value={sql}
-                      onChange={setSql}
-                      variant="compact"
-                      onRun={runSql}
-                      placeholder="SELECT ..."
-                      height="100%"
-                    />
+              <div
+                style={{
+                  padding: 12,
+                  borderRight: isSmallScreen ? "none" : "1px solid var(--border-default)",
+                  borderBottom: isSmallScreen ? "1px solid var(--border-default)" : "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  minHeight: 0,
+                  height: "100%",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflow: "auto",
+                      background: "var(--input-bg)",
+                      border: "1px solid var(--border-default)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  >
+                    <div style={{ height: "100%", minHeight: isSmallScreen ? 220 : 320 }}>
+                      <SqlEditor
+                        value={sql}
+                        onChange={setSql}
+                        variant="compact"
+                        onRun={runSql}
+                        placeholder="SELECT ..."
+                        height="100%"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ overflow: "auto", maxHeight: isSmallScreen ? "28vh" : "24vh", marginTop: 8 }}>
+                    {paramError && (
+                      <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
+                        <Icon className="ti ti-alert-circle" /> {paramError}
+                      </div>
+                    )}
+
+                    {!paramError && declaredParams.length > 0 && (
+                      <div className="card" style={{ padding: 12, marginTop: 8 }}>
+                        <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
+                          <Icon className="ti ti-filter" /> This chart declares{" "}
+                          {declaredParams.length} dashboard filter
+                          {declaredParams.length > 1 ? "s" : ""}.
+                        </div>
+
+                        {unwrapped.length > 0 && (
+                          <div className="alert-banner warning" style={{ fontSize: "13px", marginBottom: 8 }}>
+                            <Icon className="ti ti-alert-triangle" />
+                            <div>
+                              {unwrapped.map((p) => p.name).join(", ")}{" "}
+                              {unwrapped.length > 1 ? "are" : "is"} outside an optional
+                              block, so {unwrapped.length > 1 ? "they" : "it"} will be
+                              required: a viewer will not be able to clear{" "}
+                              {unwrapped.length > 1 ? "them" : "it"}, and the chart will
+                              not render until a value is supplied. Give a default
+                              below, or wrap the filter so it can be left out:
+                              <div style={{ marginTop: 6 }}>
+                                <code style={{ fontSize: "12px" }}>
+                                  {"WHERE 1 /*[ AND col = {"}
+                                  {unwrapped[0].name}:{unwrapped[0].type}
+                                  {"} ]*/"}
+                                </code>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {declaredParams.map((p) => (
+                          <div
+                            key={p.name}
+                            style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}
+                          >
+                            <code style={{ fontSize: "12px", minWidth: 140 }}>
+                              {p.name}:{p.type}
+                            </code>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)", minWidth: 70 }}>
+                              {p.required ? "required" : "optional"}
+                            </span>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>default</span>
+                            <ParamInput
+                              param={p}
+                              value={paramDefaults[p.name] ?? ""}
+                              onChange={(v) => setParamDefaults((d) => ({ ...d, [p.name]: v }))}
+                              invalid={p.required && !(paramDefaults[p.name] ?? "").toString().trim()}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div style={{ overflow: "auto", maxHeight: "24vh", marginTop: 8 }}>
-                  {paramError && (
-                    <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
-                      <Icon className="ti ti-alert-circle" /> {paramError}
-                    </div>
-                  )}
-
-                  {!paramError && declaredParams.length > 0 && (
-                    <div className="card" style={{ padding: 12, marginTop: 8 }}>
-                      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
-                        <Icon className="ti ti-filter" /> This chart declares{" "}
-                        {declaredParams.length} dashboard filter
-                        {declaredParams.length > 1 ? "s" : ""}.
-                      </div>
-
-                      {unwrapped.length > 0 && (
-                        <div className="alert-banner warning" style={{ fontSize: "13px", marginBottom: 8 }}>
-                          <Icon className="ti ti-alert-triangle" />
-                          <div>
-                            {unwrapped.map((p) => p.name).join(", ")}{" "}
-                            {unwrapped.length > 1 ? "are" : "is"} outside an optional
-                            block, so {unwrapped.length > 1 ? "they" : "it"} will be
-                            required: a viewer will not be able to clear{" "}
-                            {unwrapped.length > 1 ? "them" : "it"}, and the chart will
-                            not render until a value is supplied. Give a default
-                            below, or wrap the filter so it can be left out:
-                            <div style={{ marginTop: 6 }}>
-                              <code style={{ fontSize: "12px" }}>
-                                {"WHERE 1 /*[ AND col = {"}
-                                {unwrapped[0].name}:{unwrapped[0].type}
-                                {"} ]*/"}
-                              </code>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {declaredParams.map((p) => (
-                        <div
-                          key={p.name}
-                          style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}
-                        >
-                          <code style={{ fontSize: "12px", minWidth: 140 }}>
-                            {p.name}:{p.type}
-                          </code>
-                          <span style={{ fontSize: "12px", color: "var(--text-muted)", minWidth: 70 }}>
-                            {p.required ? "required" : "optional"}
-                          </span>
-                          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>default</span>
-                          <ParamInput
-                            param={p}
-                            value={paramDefaults[p.name] ?? ""}
-                            onChange={(v) => setParamDefaults((d) => ({ ...d, [p.name]: v }))}
-                            invalid={p.required && !(paramDefaults[p.name] ?? "").toString().trim()}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                  marginTop: 8,
-                  flexShrink: 0,
-                }}
-              >
-                <MaxRowsControl
-                  value={maxRows}
-                  onChange={setMaxRows}
-                  disabled={running}
-                />
-
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={runSql}
-                  disabled={running || !sql.trim()}
-                >
-                  {running ? (
-                    <>
-                      <span className="loading-spinner"></span> Running...
-                    </>
-                  ) : (
-                    <>
-                      <Icon className="ti ti-player-play"></Icon> Run
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-            <div
-              style={{
-                padding: 12,
-                display: "flex",
-                flexDirection: "column",
-                minHeight: 0,
-                height: "100%",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "var(--text-muted)",
-                  marginBottom: 6,
-                }}
-              >
-                {data
-                  ? `${data.length} rows, ${columns.length} cols`
-                  : "Run a query"}
-              </div>
-              {error && (
                 <div
-                  className="alert-banner danger"
-                  style={{ fontSize: "13px" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: 10,
+                    marginTop: 8,
+                    flexShrink: 0,
+                  }}
                 >
-                  <Icon className="ti ti-alert-circle"></Icon> {error}
-                </div>
-              )}
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                {data && <DataTable rows={data} columns={columns} />}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+                  <MaxRowsControl
+                    value={maxRows}
+                    onChange={setMaxRows}
+                    disabled={running}
+                  />
 
-      <div
-        className="card"
-        style={
-          previewTools.fullscreen
-            ? {
-                position: "absolute",
-                zIndex: 9999,
-                background: "var(--bg-page)",
-                padding: 16,
-                top: "0px",
-                left: "0px",
-                width: "100%",
-                height: "100vh",
-              }
-            : { marginBottom: 12, overflow: "hidden" }
-        }
-      >
-        <div
-          onClick={() => setBottomOpen(!bottomOpen)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "10px 16px",
-            cursor: "pointer",
-            background: "var(--bg-elevated)",
-            fontWeight: 600,
-            fontSize: "14px",
-          }}
-        >
-          <Icon
-            className={`ti ti-chevron-${bottomOpen ? "down" : "right"}`}
-            style={{ fontSize: 16 }}
-          ></Icon>{" "}
-          <Icon className="ti ti-settings" style={{ fontSize: 18 }}></Icon>{" "}
-          Config & Preview
-        </div>
-        {bottomOpen && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            <div
-              style={{
-                padding: 12,
-                overflow: "auto",
-                maxHeight: isSmallScreen ? "35vh" : "60vh",
-                borderBottom: "1px solid var(--border-default)",
-              }}
-            >
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={runSql}
+                    disabled={running || !sql.trim()}
+                  >
+                    {running ? (
+                      <>
+                        <span className="loading-spinner"></span> Running...
+                      </>
+                    ) : (
+                      <>
+                        <Icon className="ti ti-player-play"></Icon> Run
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 10,
-                  marginBottom: 12,
+                  padding: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  minHeight: 0,
+                  height: "100%",
+                  overflow: "hidden",
                 }}
               >
-                <div className="form-group">
-                  <label className="form-label">Chart Type</label>
-                  <Select
-                    className="form-select"
-                    value={chartType}
-                    onChange={(e) => changeType(e.target.value)}
-                  >
-                    {CHART_TYPES.map((t) => (
-                      <option key={t.type} value={t.type}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </Select>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: "var(--text-muted)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {data
+                    ? `${data.length} rows, ${columns.length} cols`
+                    : "Run a query"}
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Subtype</label>
-                  <Select
-                    className="form-select"
-                    value={chartSubtype}
-                    onChange={(e) => {
-                      setChartSubtype(e.target.value);
-                      setMapping({});
-                    }}
+                {error && (
+                  <div
+                    className="alert-banner danger"
+                    style={{ fontSize: "13px" }}
                   >
-                    {typeInfo?.subtypes.map((s) => (
-                      <option key={s.subtype} value={s.subtype}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </Select>
+                    <Icon className="ti ti-alert-circle"></Icon> {error}
+                  </div>
+                )}
+                <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                  {data && <DataTable rows={data} columns={columns} />}
                 </div>
               </div>
-              <div className="form-group" style={{ marginBottom: 12 }}>
-                <label className="form-label">Chart Name</label>
-                <input
-                  className="form-input"
-                  value={chartName}
-                  onChange={(e) => setChartName(e.target.value)}
-                />
-              </div>
-              {fields.length > 0 && columns.length > 0 && (
-                <div style={{ marginBottom: 12 }}>
-                  <label className="form-label" style={{ marginBottom: 6 }}>
-                    Column Mapping
-                  </label>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="card"
+          style={
+            previewTools.fullscreen
+              ? {
+                  position: "absolute",
+                  zIndex: 9999,
+                  background: "var(--bg-page)",
+                  padding: 16,
+                  top: "0px",
+                  left: "0px",
+                  width: "100%",
+                  height: "100vh",
+                }
+              : { marginBottom: 12, overflow: "hidden" }
+          }
+        >
+          <div
+            onClick={() => setBottomOpen(!bottomOpen)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              cursor: "pointer",
+              background: "var(--bg-elevated)",
+              fontWeight: 600,
+              fontSize: "14px",
+            }}
+          >
+            <Icon
+              className={`ti ti-chevron-${bottomOpen ? "down" : "right"}`}
+              style={{ fontSize: 16 }}
+            ></Icon>{" "}
+            <Icon className="ti ti-settings" style={{ fontSize: 18 }}></Icon>{" "}
+            Config & Preview
+          </div>
+          {bottomOpen && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <div
+                style={{
+                  padding: 12,
+                  overflow: "auto",
+                  maxHeight: isSmallScreen ? "42vh" : "60vh",
+                  borderBottom: "1px solid var(--border-default)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                    gap: 10,
+                    marginBottom: 12,
+                  }}
+                >
+                  <div className="form-group">
+                    <label className="form-label">Chart Type</label>
+                    <Select
+                      className="form-select"
+                      value={chartType}
+                      onChange={(e) => changeType(e.target.value)}
+                    >
+                      {CHART_TYPES.map((t) => (
+                        <option key={t.type} value={t.type}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Subtype</label>
+                    <Select
+                      className="form-select"
+                      value={chartSubtype}
+                      onChange={(e) => {
+                        setChartSubtype(e.target.value);
+                        setMapping({});
+                      }}
+                    >
+                      {typeInfo?.subtypes.map((s) => (
+                        <option key={s.subtype} value={s.subtype}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label className="form-label">Chart Name</label>
+                  <input
+                    className="form-input"
+                    value={chartName}
+                    onChange={(e) => setChartName(e.target.value)}
+                  />
+                </div>
+                {fields.length > 0 && columns.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <label className="form-label" style={{ marginBottom: 6 }}>
+                      Column Mapping
+                    </label>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                        gap: 8,
+                      }}
+                    >
+                      {fields.map(
+                        (f) =>
+                          f?.key !== "parent" && (
+                            <div key={f.key} className="form-group">
+                              <label
+                                className="form-label"
+                                style={{ fontSize: "12px" }}
+                              >
+                                {f.label}
+                                {f.required ? " *" : ""} ({f.expect})
+                              </label>
+                              {f?.expect === "numeric" ? (
+                                <Select
+                                  className="form-select"
+                                  value={mapping[f.key] || ""}
+                                  onChange={(e) =>
+                                    setMapping((p) => ({
+                                      ...p,
+                                      [f.key]: e.target.value,
+                                    }))
+                                  }
+                                  style={{
+                                    fontSize: "13px",
+                                    borderColor: validationErrors[f.key]
+                                      ? "var(--color-danger)"
+                                      : undefined,
+                                  }}
+                                >
+                                  <option value="">--</option>
+                                  {SeperateNumericColumns(columns).map((c) => (
+                                    <option key={c} value={c}>
+                                      {c}
+                                    </option>
+                                  ))}
+                                </Select>
+                              ) : (
+                                <Select
+                                  className="form-select"
+                                  value={mapping[f.key] || ""}
+                                  onChange={(e) =>
+                                    setMapping((p) => ({
+                                      ...p,
+                                      [f.key]: e.target.value,
+                                    }))
+                                  }
+                                  style={{
+                                    fontSize: "13px",
+                                    borderColor: validationErrors[f.key]
+                                      ? "var(--color-danger)"
+                                      : undefined,
+                                  }}
+                                >
+                                  <option value="">--</option>
+                                  {columns.map((c) => (
+                                    <option key={c} value={c}>
+                                      {c}
+                                    </option>
+                                  ))}
+                                </Select>
+                              )}
+
+                              {validationErrors[f.key] && (
+                                <span
+                                  style={{
+                                    color: "var(--color-danger)",
+                                    fontSize: "12px",
+                                  }}
+                                >
+                                  {validationErrors[f.key]}
+                                </span>
+                              )}
+                            </div>
+                          ),
+                      )}
+                    </div>
+                  </div>
+                )}
+                {hasAxisLabels && (
                   <div
                     style={{
                       display: "grid",
                       gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
                       gap: 8,
+                      marginBottom: 12,
                     }}
                   >
-                    {fields.map(
-                      (f) =>
-                        f?.key !== "parent" && (
-                          <div key={f.key} className="form-group">
-                            <label
-                              className="form-label"
-                              style={{ fontSize: "12px" }}
-                            >
-                              {f.label}
-                              {f.required ? " *" : ""} ({f.expect})
-                            </label>
-                            {f?.expect === "numeric" ? (
-                              <Select
-                                className="form-select"
-                                value={mapping[f.key] || ""}
-                                onChange={(e) =>
-                                  setMapping((p) => ({
-                                    ...p,
-                                    [f.key]: e.target.value,
-                                  }))
-                                }
-                                style={{
-                                  fontSize: "13px",
-                                  borderColor: validationErrors[f.key]
-                                    ? "var(--color-danger)"
-                                    : undefined,
-                                }}
-                              >
-                                <option value="">--</option>
-                                {SeperateNumericColumns(columns).map((c) => (
-                                  <option key={c} value={c}>
-                                    {c}
-                                  </option>
-                                ))}
-                              </Select>
-                            ) : (
-                              <Select
-                                className="form-select"
-                                value={mapping[f.key] || ""}
-                                onChange={(e) =>
-                                  setMapping((p) => ({
-                                    ...p,
-                                    [f.key]: e.target.value,
-                                  }))
-                                }
-                                style={{
-                                  fontSize: "13px",
-                                  borderColor: validationErrors[f.key]
-                                    ? "var(--color-danger)"
-                                    : undefined,
-                                }}
-                              >
-                                <option value="">--</option>
-                                {columns.map((c) => (
-                                  <option key={c} value={c}>
-                                    {c}
-                                  </option>
-                                ))}
-                              </Select>
-                            )}
-
-                            {validationErrors[f.key] && (
-                              <span
-                                style={{
-                                  color: "var(--color-danger)",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                {validationErrors[f.key]}
-                              </span>
-                            )}
-                          </div>
-                        ),
-                    )}
-                  </div>
-                </div>
-              )}
-              {hasAxisLabels && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      X Label
-                    </label>
-                    <input
-                      className="form-input"
-                      value={xLabel}
-                      onChange={(e) => setXLabel(e.target.value)}
-                      style={{ fontSize: "13px" }}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      Y Label
-                    </label>
-                    <input
-                      className="form-input"
-                      value={yLabel}
-                      onChange={(e) => setYLabel(e.target.value)}
-                      style={{ fontSize: "13px" }}
-                    />
-                  </div>
-                </div>
-              )}
-              {shouldShowLegend && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    marginBottom: 12,
-                    padding: "8px 0",
-                  }}
-                >
-                  <button
-                    onClick={() => setShowLegend(!showLegend)}
-                    className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontSize: '12px',
-                      padding: '4px 8px'
-                    }}
-                    title={showLegend ? 'Hide legend' : 'Show legend'}
-                  >
-                    <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
-                    <span>Legend</span>
-                  </button>
-                </div>
-              )}
-              {chartType === "gauge" && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      Min
-                    </label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      value={mapping.min_val || 0}
-                      onChange={(e) =>
-                        setMapping((p) => ({ ...p, min_val: e.target.value }))
-                      }
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      Max
-                    </label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      value={mapping.max_val || 100}
-                      onChange={(e) =>
-                        setMapping((p) => ({ ...p, max_val: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div style={{ padding: 12, minHeight: isSmallScreen ? "65vh" : "50vh", overflow: "auto" }}>
-              <ErrorBoundary
-                resetKeys={[chartOption]}
-                fallback={(err) => (
-                  <div                    className="alert-banner danger"
-                    style={{ fontSize: "13px" }}
-                  >
-                    <Icon className="ti ti-alert-circle"></Icon> Chart preview
-                    failed: {err?.message || String(err)}
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        X Label
+                      </label>
+                      <input
+                        className="form-input"
+                        value={xLabel}
+                        onChange={(e) => setXLabel(e.target.value)}
+                        style={{ fontSize: "13px" }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        Y Label
+                      </label>
+                      <input
+                        className="form-input"
+                        value={yLabel}
+                        onChange={(e) => setYLabel(e.target.value)}
+                        style={{ fontSize: "13px" }}
+                      />
+                    </div>
                   </div>
                 )}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 8,
-                  }}
-                >
-                  <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-                    Preview
-                  </div>
-                </div>
-                {chartOption?._error && (
-                  <div
-                    className="alert-banner danger"
-                    style={{ fontSize: "13px" }}
-                  >
-                    <Icon className="ti ti-alert-circle"></Icon>{" "}
-                    {chartOption.message}
-                  </div>
-                )}
-                {chartOption?._kpi && (
-                  chartOption?.isArray ? <div
-                    className="alert-banner danger"
-                    style={{ fontSize: "13px" }}
-                  >
-                    <Icon className="ti ti-alert-circle"></Icon>{" "}
-                    {chartOption.message}
-                  </div> :
+                {shouldShowLegend && (
                   <div
                     style={{
                       display: "flex",
-                      justifyContent: "center",
                       alignItems: "center",
-                      height: "90%",
-                      padding: "24px",
+                      gap: 8,
+                      marginBottom: 12,
+                      padding: "8px 0",
                     }}
                   >
+                    <button
+                      onClick={() => setShowLegend(!showLegend)}
+                      className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: '12px',
+                        padding: '4px 8px'
+                      }}
+                      title={showLegend ? 'Hide legend' : 'Show legend'}
+                    >
+                      <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
+                      <span>Legend</span>
+                    </button>
+                  </div>
+                )}
+                {chartType === "gauge" && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        Min
+                      </label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        value={mapping.min_val || 0}
+                        onChange={(e) =>
+                          setMapping((p) => ({ ...p, min_val: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        Max
+                      </label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        value={mapping.max_val || 100}
+                        onChange={(e) =>
+                          setMapping((p) => ({ ...p, max_val: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 12, minHeight: isSmallScreen ? "42vh" : "360px", overflow: "auto" }}>
+                <ErrorBoundary
+                  resetKeys={[chartOption]}
+                  fallback={(err) => (
+                    <div                    className="alert-banner danger"
+                      style={{ fontSize: "13px" }}
+                    >
+                      <Icon className="ti ti-alert-circle"></Icon> Chart preview
+                      failed: {err?.message || String(err)}
+                    </div>
+                  )}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                      Preview
+                    </div>
+                  </div>
+                  {chartOption?._error && (
+                    <div
+                      className="alert-banner danger"
+                      style={{ fontSize: "13px" }}
+                    >
+                      <Icon className="ti ti-alert-circle"></Icon>{" "}
+                      {chartOption.message}
+                    </div>
+                  )}
+                  {chartOption?._kpi && (
+                    chartOption?.isArray ? <div
+                      className="alert-banner danger"
+                      style={{ fontSize: "13px" }}
+                    >
+                      <Icon className="ti ti-alert-circle"></Icon>{" "}
+                      {chartOption.message}
+                    </div> :
                     <div
                       style={{
-                        minWidth: "280px",
-                        padding: "28px 36px",
-                        borderRadius: "18px",
-                        background: "var(--surface)",
-                        border: "1px solid var(--border-color)",
-                        boxShadow: "var(--shadow-md)",
                         display: "flex",
-                        flexDirection: "column",
+                        justifyContent: "center",
                         alignItems: "center",
-                        gap: "12px",
+                        height: "90%",
+                        padding: "24px",
                       }}
                     >
                       <div
                         style={{
-                          width: "48px",
-                          height: "4px",
-                          borderRadius: "999px",
-                          background: "var(--accent)",
-                        }}
-                      />
-                      <div
-                        style={{
-                          fontSize: "0.85rem",
-                          color: "var(--text-muted)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.12em",
-                          fontWeight: 600,
+                          minWidth: "280px",
+                          padding: "28px 36px",
+                          borderRadius: "18px",
+                          background: "var(--surface)",
+                          border: "1px solid var(--border-color)",
+                          boxShadow: "var(--shadow-md)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "12px",
                         }}
                       >
-                        {chartOption.label}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: "3.5rem",
-                          fontWeight: 800,
-                          color: "var(--accent)",
-                          lineHeight: 1,
-                          fontFamily: "var(--font-table)",
-                        }}
-                      >
-                        {chartOption.value}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: "0.9rem",
-                          color: "var(--text-muted)",
-                        }}
-                      >
-                        Current Value
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {chartOption?._table && (
-                  <div style={{ maxHeight: 300, overflow: "auto" }}>
-                    <DataTable rows={chartOption.data} />
-                  </div>
-                )}
-                {!chartOption?._kpi &&
-                  !chartOption?._table &&
-                  !chartOption?._error && (
-                    <div
-                      style={
-                        previewTools.fullscreen
-                          ? {
-                              position: "fixed",
-                              inset: 0,
-                              zIndex: 9999,
-                              background: "var(--bg-page)",
-                              padding: 16,
-                              display: "flex",
-                              flexDirection: "column",
-                            }
-                          : undefined
-                      }
-                    >
-                      {chartOption && (
-                        <ChartToolbar
-                          zoomable={!!chartOption?.xAxis && !isSunBurstChartType}
-                          fullscreen={previewTools.fullscreen}
-                          onZoomIn={previewTools.zoomIn}
-                          onZoomOut={previewTools.zoomOut}
-                          onZoomReset={previewTools.zoomReset}
-                          onSave={previewTools.save}
-                          onToggleFullscreen={previewTools.toggleFullscreen}
-                          isWantFeature={
-                            isSunBurstChartType
-                              ? sunburstControlsFlags
-                              : chartType === "pie"
-                                ? pieChartControlsFlags
-                                : chartType === "funnel" || chartSubtype === "funnel"
-                                  ? funnelControlsFlags
-                                  : chartType === "sankey"
-                                    ? sankeyControlsFlags
-                                    : chartControlsFlags
-                          }
+                        <div
+                          style={{
+                            width: "48px",
+                            height: "4px",
+                            borderRadius: "999px",
+                            background: "var(--accent)",
+                          }}
                         />
-                      )}
-                      <div
-                        ref={previewRef}
-                        style={{
-                          height: previewTools.fullscreen
-                            ? "calc(100vh - 96px)"
-                            : isSmallScreen ? 500 : 430,
-                          width: "100%",
-                          overflow: "visible",
-                          paddingBottom: 30,
-                        }}
-                      >
-                        {!chartOption && (
-                          <div className="empty-state" style={{ padding: 16 , height:"80%" }}>
-                            <Icon className="ti ti-chart-dots"></Icon>
-                            <p style={{ fontSize: "13px" }}>
-                              Map columns to see preview.
-                            </p>
-                          </div>
-                        )}
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.12em",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {chartOption.label}
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: "3.5rem",
+                            fontWeight: 800,
+                            color: "var(--accent)",
+                            lineHeight: 1,
+                            fontFamily: "var(--font-table)",
+                          }}
+                        >
+                          {chartOption.value}
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: "0.9rem",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          Current Value
+                        </div>
                       </div>
                     </div>
-                  )} 
-              </ErrorBoundary>
+                  )}
+                  {chartOption?._table && (
+                    <div style={{ height: previewBodyHeight, minHeight: 0, overflow: "auto" }}>
+                      <DataTable rows={chartOption.data} />
+                    </div>
+                  )}
+                  {!chartOption?._kpi &&
+                    !chartOption?._table &&
+                    !chartOption?._error && (
+                      <div
+                        style={
+                          previewTools.fullscreen
+                            ? {
+                                position: "fixed",
+                                inset: 0,
+                                zIndex: 9999,
+                                background: "var(--bg-page)",
+                                padding: 16,
+                                display: "flex",
+                                flexDirection: "column",
+                              }
+                            : undefined
+                        }
+                      >
+                        {chartOption && (
+                          <ChartToolbar
+                            zoomable={!!chartOption?.xAxis || isTreemapChartType}
+                            fullscreen={previewTools.fullscreen}
+                            onZoomIn={previewTools.zoomIn}
+                            onZoomOut={previewTools.zoomOut}
+                            onZoomReset={resetZoom}
+                            onSave={previewTools.save}
+                            onToggleFullscreen={previewTools.toggleFullscreen}
+                            resetEnabled={!!previewInst.current}
+                            resetTitle={isTreemapChartType ? "Restore view" : "Reset zoom"}
+                            resetAriaLabel={isTreemapChartType ? "Restore view" : "Reset zoom"}
+                            isWantFeature={
+                              isSunBurstChartType
+                                ? sunburstControlsFlags
+                                : isTreemapChartType
+                                  ? treemapControlsFlags
+                                  : chartType === "pie"
+                                    ? pieChartControlsFlags
+                                    : chartType === "funnel" || chartSubtype === "funnel"
+                                      ? funnelControlsFlags
+                                      : chartType === "sankey"
+                                        ? sankeyControlsFlags
+                                        : chartControlsFlags
+                            }
+                          />
+                        )}
+                        <div
+                          ref={previewRef}
+                          style={{
+                            height: previewBodyHeight,
+                            width: "100%",
+                            overflow: "hidden",
+                            paddingBottom: previewTools.fullscreen ? 0 : (isSmallScreen ? 8 : 12),
+                          }}
+                        >
+                          {!chartOption && (
+                            <div className="empty-state" style={{ padding: 16 , height:"80%" }}>
+                              <Icon className="ti ti-chart-dots"></Icon>
+                              <p style={{ fontSize: "13px" }}>
+                                Map columns to see preview.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )} 
+                </ErrorBoundary>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {chartOption && !chartOption._error && (
+          <div className="card" style={{ padding: 12 }}>
+            <h3 style={{ fontSize: "14px", marginBottom: 10 }}>
+              <Icon className="ti ti-device-floppy"></Icon>{" "}
+              {editId ? "Update Chart" : "Save to Dashboard"}
+            </h3>
+            {dashboards.length === 0 && (
+              <div
+                className="alert-banner info"
+                style={{ marginBottom: 12, fontSize: "14px" }}
+              >
+                <Icon className="ti ti-info-circle"></Icon> Create a dashboard
+                first in the Dashboards section.
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Dashboard *</label>
+                <Select
+                  className="form-select"
+                  value={selDashboard}
+                  onChange={(e) => setSelDashboard(e.target.value)}
+                >
+                  <option value="">--</option>
+                  {dashboards.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={saveChart}
+                disabled={!selDashboard || !sql.trim()}
+              >
+                <Icon className="ti ti-device-floppy"></Icon>{" "}
+                {editId ? "Update" : "Save"}
+              </button>
             </div>
           </div>
         )}
       </div>
-
-      {chartOption && !chartOption._error && (
-        <div className="card" style={{ padding: 12 }}>
-          <h3 style={{ fontSize: "14px", marginBottom: 10 }}>
-            <Icon className="ti ti-device-floppy"></Icon>{" "}
-            {editId ? "Update Chart" : "Save to Dashboard"}
-          </h3>
-          {dashboards.length === 0 && (
-            <div
-              className="alert-banner info"
-              style={{ marginBottom: 12, fontSize: "14px" }}
-            >
-              <Icon className="ti ti-info-circle"></Icon> Create a dashboard
-              first in the Dashboards section.
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Dashboard *</label>
-              <Select
-                className="form-select"
-                value={selDashboard}
-                onChange={(e) => setSelDashboard(e.target.value)}
-              >
-                <option value="">--</option>
-                {dashboards.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={saveChart}
-              disabled={!selDashboard || !sql.trim()}
-            >
-              <Icon className="ti ti-device-floppy"></Icon>{" "}
-              {editId ? "Update" : "Save"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

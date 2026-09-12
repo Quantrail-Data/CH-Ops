@@ -52,7 +52,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toContain('<ChartToolbar');
     expect(code).toContain('onZoomIn={previewTools.zoomIn}');
     expect(code).toContain('onZoomOut={previewTools.zoomOut}');
-    expect(code).toContain('onZoomReset={previewTools.zoomReset}');
+    expect(code).toContain('onZoomReset={resetZoom}');
     expect(code).toContain('onSave={previewTools.save}');
     expect(code).toContain('onToggleFullscreen={previewTools.toggleFullscreen}');
   });
@@ -91,10 +91,29 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('keeps fullscreen-aware preview toolbar wiring', () => {
     expect(code).toContain('fullscreen={previewTools.fullscreen}');
-    expect(code).toContain('zoomable={!!chartOption?.xAxis && !isSunBurstChartType}');
+    expect(code).toContain('zoomable={!!chartOption?.xAxis || isTreemapChartType}');
   });
 
   it('keeps chart-change broadcast after save/update', () => {
     expect(code).toContain("window.dispatchEvent(new Event('charts:changed'))");
+  });
+
+  it('keeps KPI and table preview branches intact', () => {
+    expect(code).toContain('chartOption?._kpi');
+    expect(code).toContain('chartOption?._table');
+    expect(code).toContain('Current Value');
+    expect(code).toContain('<DataTable rows={chartOption.data} />');
+  });
+
+  it('keeps fullscreen body class lifecycle handling for preview mode', () => {
+    expect(code).toContain('chart-builder-preview-fullscreen');
+    expect(code).toContain('document.body.classList.add("chart-builder-preview-fullscreen")');
+    expect(code).toContain('document.body.classList.remove("chart-builder-preview-fullscreen")');
+  });
+
+  it('keeps chart instance lifecycle safety guards', () => {
+    expect(code).toContain('disposeChart(previewRef.current)');
+    expect(code).toContain('if (!previewRef.current || !isMountedRef.current) return;');
+    expect(code).toContain('previewInst.current = null;');
   });
 });
