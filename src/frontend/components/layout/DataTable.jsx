@@ -17,6 +17,8 @@ import Icon from "../common/Icon.jsx";
 import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
 import { useTheme } from "../../App.jsx";
+import Button from "../ui/Button.jsx";
+import Modal from "../ui/Modal.jsx";
 
 function isComplexValue(v) {
   return v !== null && typeof v === "object"; // arrays included
@@ -195,14 +197,6 @@ function ComplexBody({ value }) {
 function ComplexCellModal({ columnName, value, onClose }) {
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    function onKey(e) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   function copyJson() {
     const text = safeStringify(value, true);
     try {
@@ -215,12 +209,12 @@ function ComplexCellModal({ columnName, value, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 900, width: "95%" }}
-      >
+    <Modal
+      open
+      onClose={onClose}
+      zIndex={1000}
+      style={{ maxWidth: 900, width: "95%" }}
+    >
         <div
           style={{
             display: "flex",
@@ -266,8 +260,9 @@ function ComplexCellModal({ columnName, value, onClose }) {
           </h3>
 
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={copyJson}
               title="Copy as JSON"
             >
@@ -276,14 +271,15 @@ function ComplexCellModal({ columnName, value, onClose }) {
                 style={copied ? { color: "var(--color-success)" } : undefined}
               ></Icon>{" "}
               {copied ? "Copied" : "Copy JSON"}
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClose}
               title="Close"
             >
               <Icon className="ti ti-x"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -293,8 +289,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
         >
           <ComplexBody value={value} />
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

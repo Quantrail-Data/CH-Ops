@@ -680,17 +680,15 @@ export const PAGE_TEXT = {
     "Apply to editor",
     "Validate",
     "Create table",
-    "Create this table?",
     "Cancel"
   ],
   "logs/crash": [
-    "Overview",
-    "Search",
     "Quick",
     "Loading...",
     "Load",
     "Select a time range and click Load.",
     "Crash Incidents",
+    "Search",
     "Query (text)",
     "Signal Description",
     "Exception Trace",
@@ -703,8 +701,6 @@ export const PAGE_TEXT = {
     "partial..."
   ],
   "logs/error": [
-    "Overview",
-    "Search",
     "Error Rate Over Time",
     "All",
     "None",
@@ -716,6 +712,7 @@ export const PAGE_TEXT = {
     "Top Error Types",
     "No errors in range.",
     "Top Errors",
+    "Search",
     "Error Type (multi-select)",
     "Loading errors...",
     "Error Message (text)",
@@ -728,8 +725,6 @@ export const PAGE_TEXT = {
     "partial..."
   ],
   "logs/text": [
-    "Overview",
-    "Search",
     "All",
     "None",
     "Quick",
@@ -740,6 +735,7 @@ export const PAGE_TEXT = {
     "Noisiest Loggers (errors + warnings)",
     "No errors or warnings in range.",
     "Most Frequent Messages",
+    "Search",
     "Message (text)",
     "Row Limit",
     "Searching...",
@@ -752,8 +748,6 @@ export const PAGE_TEXT = {
     "partial..."
   ],
   "logs/session": [
-    "Overview",
-    "Search",
     "No data in range.",
     "Login Activity Over Time",
     "All",
@@ -765,6 +759,7 @@ export const PAGE_TEXT = {
     "No session events recorded in the selected range.",
     "No activity data in range.",
     "Top Failure Reasons",
+    "Search",
     "Event Type (multi-select)",
     "User (text)",
     "Failure Reason (text)",
@@ -874,9 +869,6 @@ export const PAGE_TEXT = {
     "NO CHANNELS"
   ],
   "rbac/view": [
-    "User Grants",
-    "Role Grants",
-    "Full Overview",
     "User",
     "-- select --",
     "Select a user.",
@@ -1017,9 +1009,6 @@ export const PAGE_TEXT = {
     "col1, col2"
   ],
   "indexes/create": [
-    "Create",
-    "Materialize",
-    "Drop",
     "Index management is only available for administrators.",
     "Index Type",
     "minmax",
@@ -1083,8 +1072,6 @@ export const PAGE_TEXT = {
     "Loading...",
     "Data lifecycle management is only available for administrators.",
     "No storage profiles configured. Create one in Storage Profiles first.",
-    "Manual Backup",
-    "Available Backups",
     "Manual Backup / Restore",
     "BACKUP",
     "RESTORE",
@@ -1246,6 +1233,7 @@ export const PAGE_TEXT = {
     "API key management is only available for administrators.",
     "Qurioz API Key Manager",
     "Active",
+    "Name",
     "AI Provider",
     "Select AI Provider",
     "Select a model",
@@ -1255,7 +1243,6 @@ export const PAGE_TEXT = {
     "Cancel",
     "Add API Key",
     "No API keys configured yet.",
-    "Confirm Delete",
     "No, Cancel",
     "Yes, Delete",
     "Enter the Name",

@@ -12,6 +12,7 @@
 import React, { useEffect, useState } from "react";
 import { runQuery } from "../../utils/api.js";
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
 import { BEHAVIORS, defaultZkPath, SHARDING_PRESETS } from "../../utils/engineModel.js";
 import { SKIP_INDEX_TYPES } from "../../utils/ddlCompose.js";
 import FieldLabel from "./FieldLabel.jsx";
@@ -239,9 +240,9 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
             </div>
           );
         })}
-        <button className="btn btn-secondary btn-sm" onClick={addIndex}>
+        <Button variant="secondary" size="sm" onClick={addIndex}>
           <Icon className="ti ti-plus" /> Add index
-        </button>
+        </Button>
       </div>
 
       <div className="studio-clauses">
@@ -272,9 +273,9 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
             </div>
           </div>
         ))}
-        <button className="btn btn-secondary btn-sm" onClick={addProjection}>
+        <Button variant="secondary" size="sm" onClick={addProjection}>
           <Icon className="ti ti-plus" /> Add projection
-        </button>
+        </Button>
       </div>
 
       <label className="studio-toggle">
@@ -364,10 +365,10 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
       </div>
 
       <div className="studio-actions">
-        <button className="btn btn-ghost" onClick={onBack}>Back</button>
-        <button className="btn btn-primary" onClick={onNext} disabled={!form.target.table}>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button variant="primary" onClick={onNext} disabled={!form.target.table}>
           Next: generate
-        </button>
+        </Button>
       </div>
     </div>
   );

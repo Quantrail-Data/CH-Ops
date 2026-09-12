@@ -4,10 +4,12 @@
 
 import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
-import Select from "../common/Select.jsx";
 import ConfirmDialog from "../editor/ConfirmDialog.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Select from "../common/Select.jsx";
 
 const STEPS = [
   { n: 1, label: "Connect" },
@@ -324,15 +326,12 @@ export default function KubernetesClusterTab({ onImported }) {
 
   return (
     <div>
-      <div
-        className="card"
-        style={{ padding: 12, marginBottom: 16, fontSize: 13 }}
-      >
+      <Card style={{ padding: 12, marginBottom: 16, fontSize: 13 }}>
         <Icon className="ti ti-info-circle" /> Using ClickHouse® Cloud or hosted
         Altinity.Cloud®? Add them under <strong>Direct connection</strong>{" "}
         instead. Those are managed services, so there is no Kubernetes API for
         CHOps to read.
-      </div>
+      </Card>
 
       <StepHeader current={step} />
 
@@ -342,7 +341,6 @@ export default function KubernetesClusterTab({ onImported }) {
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">Use an existing connection</label>
               <Select
-                className="form-select"
                 value={connectionId}
                 onChange={(e) => setConnectionId(e.target.value)}
               >
@@ -423,20 +421,20 @@ export default function KubernetesClusterTab({ onImported }) {
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
               onClick={testConnection}
               disabled={busy}
             >
               Test connection
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={saveAndContinue}
               disabled={busy}
             >
               Continue
-            </button>
+            </Button>
           </div>
 
           <TestResult result={testResult} />
@@ -448,7 +446,6 @@ export default function KubernetesClusterTab({ onImported }) {
           <div className="form-group">
             <label className="form-label">Operator *</label>
             <Select
-              className="form-select"
               value={operator}
               onChange={(e) => setOperator(e.target.value)}
             >
@@ -497,7 +494,6 @@ export default function KubernetesClusterTab({ onImported }) {
               />
             ) : (
               <Select
-                className="form-select"
                 value={namespace}
                 onChange={(e) => setNamespace(e.target.value)}
               >
@@ -511,13 +507,13 @@ export default function KubernetesClusterTab({ onImported }) {
             )}
           </div>
 
-          <button
-            className="btn btn-secondary"
+          <Button
+            variant="secondary"
             onClick={loadInstallations}
             disabled={busy}
           >
             Find installations
-          </button>
+          </Button>
 
           {installations.length > 0 && (
             <div style={{ marginTop: 16 }}>
@@ -561,26 +557,23 @@ export default function KubernetesClusterTab({ onImported }) {
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={() => setStep(1)}>
+            <Button variant="secondary" onClick={() => setStep(1)}>
               Back
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => setStep(3)}
               disabled={!installation}
             >
               Continue
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {step === 3 && (
         <div>
-          <div
-            className="card"
-            style={{ padding: 12, marginBottom: 16, fontSize: 13 }}
-          >
+          <Card style={{ padding: 12, marginBottom: 16, fontSize: 13 }}>
             Enter an address that reaches ClickHouse® from wherever CHOps is
             running. If CHOps runs inside this cluster, an internal service
             address works. If it runs outside, use a load balancer or private
@@ -590,12 +583,11 @@ export default function KubernetesClusterTab({ onImported }) {
             CHOps also tries to reach each pod individually, so pages showing
             per-node data can query the node you select. This address is used
             when that is not possible.
-          </div>
+          </Card>
 
           <div className="form-group">
             <label className="form-label">Pod addressing</label>
             <Select
-              className="form-select"
               value={addressingMode}
               onChange={(e) => setAddressingMode(e.target.value)}
             >
@@ -683,7 +675,6 @@ export default function KubernetesClusterTab({ onImported }) {
             <div className="form-group">
               <label className="form-label">TLS</label>
               <Select
-                className="form-select"
                 value={secure ? "yes" : "no"}
                 onChange={(e) => setSecure(e.target.value === "yes")}
               >
@@ -694,16 +685,16 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={() => setStep(2)}>
+            <Button variant="secondary" onClick={() => setStep(2)}>
               Back
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => setStep(4)}
               disabled={!endpoint.trim()}
             >
               Continue
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -755,16 +746,16 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={() => setStep(3)}>
+            <Button variant="secondary" onClick={() => setStep(3)}>
               Back
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => doImport()}
               disabled={busy}
             >
               {busy ? "Adding..." : "Add cluster"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

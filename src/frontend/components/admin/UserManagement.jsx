@@ -11,6 +11,8 @@ import DataTable from "../layout/DataTable.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 
 const ROLES = ["superadmin", "admin", "editor", "readonly"];
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -361,18 +363,20 @@ async function resetPassword(id,initUser) {
           <Icon className="ti ti-users"></Icon> User Management
         </h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setChangePw((p) => ({ ...p, show: !p.show }));
               if (!changePw.show) setShowCreate(false);
             }}
           >
             <Icon className="ti ti-key"></Icon> Change My Password
-          </button>
+          </Button>
           {isAdmin && (
-            <button
-              className="btn btn-primary btn-sm"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => {
                 setShowCreate(!showCreate);
                 if (!showCreate) setChangePw((p) => ({ ...p, show: false }));
@@ -380,29 +384,23 @@ async function resetPassword(id,initUser) {
             >
               <Icon className={`ti ${showCreate ? "ti-x" : "ti-plus"}`}></Icon>{" "}
               {showCreate ? "Cancel" : "New User"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {myRole === "superadmin" && (
         <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-          <button
-            className={
-              tab === "users"
-                ? "btn btn-primary btn-sm"
-                : "btn btn-secondary btn-sm"
-            }
+          <Button
+            variant={tab === "users" ? "primary" : "secondary"}
+            size="sm"
             onClick={() => setTab("users")}
           >
             Users
-          </button>
-          <button
-            className={
-              tab === "smtp"
-                ? "btn btn-primary btn-sm"
-                : "btn btn-secondary btn-sm"
-            }
+          </Button>
+          <Button
+            variant={tab === "smtp" ? "primary" : "secondary"}
+            size="sm"
             onClick={() => {
               setTab("smtp");
               setSmtpResult(null);
@@ -410,17 +408,14 @@ async function resetPassword(id,initUser) {
             }}
           >
             System Email
-          </button>
+          </Button>
         </div>
       )}
 
       {tab === "users" && (
         <>
           {changePw.show && (
-            <div
-              className="card"
-              style={{ padding: 20, marginBottom: 16, maxWidth: 480 }}
-            >
+            <Card style={{ padding: 20, marginBottom: 16, maxWidth: 480 }}>
               <h3
                 style={{ fontSize: "15px", fontWeight: 600, marginBottom: 16 }}
               >
@@ -590,13 +585,12 @@ async function resetPassword(id,initUser) {
                       </div>
                     )}
                 </div>
-                <button className="btn btn-primary" type="submit">
+                <Button variant="primary" type="submit">
                   <Icon className="ti ti-check"></Icon> Update Password
-                </button>
+                </Button>
               </form>
-            </div>
+            </Card>
           )}
-          {/* {isSmtpConfigured &&  <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>} */}
 
           {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"]&&(
             <div className="alert-banner info" style={{ marginBottom: 14 }}>
@@ -612,20 +606,21 @@ async function resetPassword(id,initUser) {
                 {generatedPw}
               </strong>{" "}
               - share securely with the user.
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost"
+                size="sm"
                 style={{ marginLeft: "auto" }}
                 onClick={() => setGeneratedPw(null)}
               >
                 <Icon className="ti ti-x"></Icon>
-              </button>
+              </Button>
             </div>
           )}
 
           {showCreate && isAdmin && (
-            <form
+            <Card
+              as="form"
               onSubmit={createUser}
-              className="card"
               style={{ padding: 20, marginBottom: 16 }}
             >
               <div
@@ -663,7 +658,6 @@ async function resetPassword(id,initUser) {
                 <div className="form-group">
                   <label className="form-label">Role</label>
                   <Select
-                    className="form-select"
                     value={form.role}
                     onChange={(e) =>
                       setForm((p) => ({ ...p, role: e.target.value }))
@@ -688,10 +682,10 @@ async function resetPassword(id,initUser) {
                 provided and SMTP is configured in .env, the password will be
                 emailed.
               </p>
-              <button className="btn btn-primary" type="submit">
+              <Button variant="primary" type="submit">
                 <Icon className="ti ti-plus"></Icon> Create User
-              </button>
-            </form>
+              </Button>
+            </Card>
           )}
 
           <div className="data-table-wrap dt-single" style={tableWrapStyle}>
@@ -716,7 +710,6 @@ async function resetPassword(id,initUser) {
                       <td>
                         {canManage && rolesForTarget.length > 0 ? (
                           <Select
-                            className="form-select"
                             value={u.role}
                             onChange={(e) => {
                               if (e.target.value !== u.role)
@@ -764,9 +757,10 @@ async function resetPassword(id,initUser) {
                             alignItems: "center",
                           }}
                         >
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => resetPassword(u.id,u.initUser)}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => resetPassword(u.id, u.initUser)}
                             title="Reset Password"
                             disabled={!canManage || u.initUser}
                             style={
@@ -776,9 +770,10 @@ async function resetPassword(id,initUser) {
                             }
                           >
                             <Icon className="ti ti-key"></Icon>
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={() => setDel(u.id)}
                             title="Delete"
                             disabled={!canManage || u.initUser}
@@ -789,7 +784,7 @@ async function resetPassword(id,initUser) {
                             }
                           >
                             <Icon className="ti ti-trash"></Icon>
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -816,8 +811,7 @@ async function resetPassword(id,initUser) {
       )}
 
       {tab === "smtp" && smtpForm && (
-        <div
-          className="card"
+        <Card
           style={{
             padding: 24,
             margin: "0 auto",
@@ -993,7 +987,7 @@ async function resetPassword(id,initUser) {
                   }}
                   style={{ accentColor: "var(--accent)" }}
                 />{" "}
-                <span class="slider"></span>
+                <span className="slider"></span>
               </label>
               Use TLS
               <small
@@ -1093,14 +1087,15 @@ async function resetPassword(id,initUser) {
                 />
               </div>
 
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={smtpBusy || !smtpFormReady() || !testTo.trim()}
                 onClick={() => sendTestEmail()}
               >
                 <Icon className="ti ti-send" />
                 Send test email
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -1112,34 +1107,37 @@ async function resetPassword(id,initUser) {
               marginTop: 20,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={smtpBusy || !smtpFormReady()}
               onClick={() => testConnection()}
             >
               <Icon className="ti ti-plug-connected" />
               Test connection
-            </button>
+            </Button>
 
             {smtp?.configured && (
-              <button
-                className="btn btn-danger btn-sm"
+              <Button
+                variant="danger"
+                size="sm"
                 disabled={smtpBusy}
                 onClick={() => deleteSmtp()}
               >
                 <Icon className="ti ti-trash" />
                 Delete configuration
-              </button>
+              </Button>
             )}
 
-            <button
-              className="btn btn-primary btn-sm"
+            <Button
+              variant="primary"
+              size="sm"
               disabled={smtpBusy || !smtpFormReady()}
               onClick={() => saveSmtp()}
             >
               <Icon className="ti ti-device-floppy" />
               {smtpBusy ? "Working..." : "Save"}
-            </button>
+            </Button>
           </div>
 
           <div
@@ -1179,7 +1177,7 @@ async function resetPassword(id,initUser) {
               server environment still work. See DISABLE_ENV_LOGIN.
             </p>
           </div>
-        </div>
+        </Card>
       )}
 
       {del && (

@@ -5,6 +5,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { treeSize, treeSeries } from "../../utils/treeChart.js";
@@ -138,8 +140,7 @@ export default function SecondaryIndexes() {
           <Icon className="ti ti-list-tree"></Icon> Data Skipping Indexes
         </h2>
       </div>
-      <div
-        className="card"
+      <Card
         style={{
           padding: 16,
           marginBottom: 20,
@@ -177,10 +178,9 @@ export default function SecondaryIndexes() {
             ))}
           </Select>
         </div>
-      </div>
+      </Card>
       {idxQ.data?.length > 0 ? (
-        <div
-          className="card"
+        <Card
           style={
             fullscreen
               ? {
@@ -221,43 +221,48 @@ export default function SecondaryIndexes() {
             >
               {Math.round(zoom * 100)}%
             </span>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => doZoom(1.25)}
               title="Zoom in"
             >
               <Icon className="ti ti-zoom-in"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => doZoom(0.8)}
               title="Zoom out"
             >
               <Icon className="ti ti-zoom-out"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setZoom(1)}
               title="Reset zoom"
             >
               <Icon className="ti ti-zoom-reset"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={downloadChart}
               title="Download PNG"
               aria-label="Download PNG"
             >
               <Icon className="ti ti-download"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setFullscreen(!fullscreen)}
             >
               <Icon
                 className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
               ></Icon>
-            </button>
+            </Button>
           </div>
           <div
             style={
@@ -277,7 +282,7 @@ export default function SecondaryIndexes() {
           >
             <div ref={chartRef} />
           </div>
-        </div>
+        </Card>
       ) : (
         <div className="empty-state">
           <Icon className="ti ti-list-tree"></Icon>

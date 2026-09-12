@@ -5,6 +5,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import {
   CHART_TYPES,
   buildChartOption,
@@ -271,7 +273,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
   }
 
   return (
-   <div className="card" style={tools.fullscreen ? { position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", padding: 16, display: "flex", flexDirection: "column" } : { marginBottom: 16, overflow: "hidden" }} >
+   <Card style={tools.fullscreen ? { position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", padding: 16, display: "flex", flexDirection: "column" } : { marginBottom: 16, overflow: "hidden" }} >
       {
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           <div
@@ -604,14 +606,14 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
                           ))}
                         </Select>
                       </div>
-                      <button
-                        className="btn btn-primary"
+                      <Button
+                        variant="primary"
                         onClick={saveChart}
                         disabled={!chartOption || !selDashboard}
                       >
                         <Icon className="ti ti-device-floppy"></Icon>{" "}
                        Save
-                      </button>
+                      </Button>
                     </div>
                     )}
                 </div>
@@ -619,7 +621,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
           </div>
         </div>
       }
-    </div>
+    </Card>
   );
 }
 

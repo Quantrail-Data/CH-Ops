@@ -7,6 +7,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
 import DashboardFilters from './DashboardFilters.jsx';
 import DashboardSettings from './DashboardSettings.jsx';
@@ -460,46 +462,48 @@ export default function DashboardView({sidebar}) {
         <h2 className="section-title"><Icon className="ti ti-layout-dashboard"></Icon> Dashboards</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {selDash && hasLegendCharts && (
-            <button
-              className={`btn btn-sm ${showLegends ? 'btn-primary' : 'btn-secondary'}`}
+            <Button
+              variant={showLegends ? 'primary' : 'secondary'}
+              size="sm"
               onClick={() => setShowLegends(!showLegends)}
               title={showLegends ? 'Hide legends' : 'Show legends'}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <Icon className={`ti ${showLegends ? 'ti-eye' : 'ti-eye-off'}`}></Icon>
               <span style={{ fontSize: '12px' }}>Legends</span>
-            </button>
+            </Button>
           )}
-          {selDash && <button className="btn btn-secondary btn-sm" onClick={() => loadCharts(selDash.id, applied, params)} title="Reload every chart"><Icon className="ti ti-refresh"></Icon></button>}
+          {selDash && <Button variant="secondary" size="sm" onClick={() => loadCharts(selDash.id, applied, params)} title="Reload every chart"><Icon className="ti ti-refresh"></Icon></Button>}
           {selDash && (
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setPageFs((v) => !v)}
               title={pageFs ? 'Exit full screen' : 'Full screen'}
               aria-label={pageFs ? 'Exit full screen' : 'Full screen'}
             >
               <Icon className={`ti ${pageFs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon>
-            </button>
+            </Button>
           )}
           {/* Editors may create and edit; only admins may delete. The button
               used to be gated on isAdmin while the route accepted any editor. */}
-          <button className="btn btn-primary btn-sm" onClick={() => showCreate ? (setShowCreate(false)) : setShowCreate(true)} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${showCreate ? 'ti-x' : 'ti-plus'}`}></Icon> {showCreate ? 'Cancel' : 'New'}</button>
+          <Button variant="primary" size="sm" onClick={() => showCreate ? (setShowCreate(false)) : setShowCreate(true)} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${showCreate ? 'ti-x' : 'ti-plus'}`}></Icon> {showCreate ? 'Cancel' : 'New'}</Button>
         </div>
       </div>
 
-      {showCreate && canEdit && <div className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+      {showCreate && canEdit && <Card style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
         <div className="form-group"><label className="form-label">Name *</label><input className="form-input" value={newName} onChange={e => setNewName(e.target.value)} /></div>
         <div className="form-group"><label className="form-label">Columns</label><Select className="form-select" value={newCols} onChange={e => setNewCols(parseInt(e.target.value))}>{[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}</Select></div>
-        <button className="btn btn-primary btn-sm" onClick={createDash} disabled={!newName.trim()}><Icon className="ti ti-plus"></Icon> Create</button>
-      </div>}
+        <Button variant="primary" size="sm" onClick={createDash} disabled={!newName.trim()}><Icon className="ti ti-plus"></Icon> Create</Button>
+      </Card>}
 
       {dashboards.length > 0 && <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {dashboards.map(d => <div key={d.id} className="card" style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, border: selDash?.id === d.id ? '2px solid var(--accent)' : undefined }} onClick={() => selectDash(d)}>
+        {dashboards.map(d => <Card key={d.id} style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, border: selDash?.id === d.id ? '2px solid var(--accent)' : undefined }} onClick={() => selectDash(d)}>
           <Icon className="ti ti-layout-dashboard" style={{ color: selDash?.id === d.id ? 'var(--accent)' : 'var(--icon-color)' }}></Icon>
           <span style={{ fontWeight: selDash?.id === d.id ? 700 : 500 }}>{d.name}</span>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{d.columns}col</span>
-          <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setDel(d.id); }} style={{ padding: 2, marginLeft: 'auto', opacity: !isAdmin ? 0.35 : 1, cursor: !isAdmin ? 'not-allowed' : 'pointer' }} disabled={!isAdmin}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
-        </div>)}
+          <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setDel(d.id); }} style={{ padding: 2, marginLeft: 'auto', opacity: !isAdmin ? 0.35 : 1, cursor: !isAdmin ? 'not-allowed' : 'pointer' }} disabled={!isAdmin}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></Button>
+        </Card>)}
       </div>}
 
       {dashboards.length === 0 && !showCreate && <div className="empty-state"><Icon className="ti ti-layout-dashboard"></Icon><p>No dashboards. Create one to get started.</p></div>}
@@ -554,7 +558,7 @@ export default function DashboardView({sidebar}) {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Drag charts to swap positions.</span>
-            {hasUnsaved && canEdit && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
+            {hasUnsaved && canEdit && <Button variant="primary" size="sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</Button>}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16 }}>
             {charts.map((chart, i) => (
@@ -1374,7 +1378,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           {
             label: {
               position: "outside",
-              rotate: "tangential",
               distance: fs ? 20 : 10,
               rotate: 0,
               show: !hideSunburst,
@@ -1550,8 +1553,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const tableScrollMaxHeight = fs ? 'calc(100vh - 240px)' : (isSmallScreen ? 300 : 360);
 
   return (
-    <div
-      className="card"
+    <Card
       style={{
         padding: 16,
         minWidth: 0,
@@ -1601,8 +1603,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             />
           )}
           {opt && (opt._error || opt._waiting || opt._kpi || opt._table) && (
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setFs((prev) => {
                   const next = !prev;
@@ -1613,10 +1616,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               title={fs ? 'Exit full screen' : 'Full screen'}
             >
               <Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon>
-            </button>
+            </Button>
           )}
           {isAdmin && (
-            <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete chart (admin only)" disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+            <Button variant="ghost" size="sm" onClick={onDelete} title="Delete chart (admin only)" disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></Button>
           )}
         </div>
       </div>
@@ -1653,6 +1656,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             minWidth: 0
           }}
         />}
-    </div>
+    </Card>
   );
 }

@@ -22,6 +22,9 @@ import { useToast } from '../layout/Toast.jsx';
 import ChartCard from '../layout/ChartCard.jsx';
 import { initChart, disposeChart } from '../../utils/echarts.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
+import Card from '../ui/Card.jsx';
+import Button from '../ui/Button.jsx';
+import Tabs from '../ui/Tabs.jsx';
 
 const pad = n => String(n).padStart(2, '0');
 const fmtAgo = h => { const d = new Date(Date.now()-h*3600000); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
@@ -38,10 +41,14 @@ export default function ErrorLog() {
   return (
     <div className="page-content">
       <div className="section-header"><h2 className="section-title"><Icon className="ti ti-bug"></Icon> Error Log</h2></div>
-      <div className="tab-bar">
-        <div className={`tab-item ${routeTab === 'overview' ? 'active' : ''}`} onClick={() => handleTabChange('overview')}><Icon className="ti ti-chart-dots-3"></Icon> Overview</div>
-        <div className={`tab-item ${routeTab === 'search' ? 'active' : ''}`} onClick={() => handleTabChange('search')}><Icon className="ti ti-search"></Icon> Search</div>
-      </div>
+      <Tabs
+        items={[
+          { key: 'overview', label: 'Overview', icon: 'chart-dots-3' },
+          { key: 'search', label: 'Search', icon: 'search' },
+        ]}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
       {routeTab === 'overview' && <ErrorLogOverview />}
       {routeTab === 'search' && <ErrorLogSearch />}
     </div>
@@ -193,26 +200,26 @@ function donutOption(local, remote) {
 
 function Stat({ label, value, icon, color, small }) {
   return (
-    <div className="card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, minHeight: 84 }}>
+    <Card style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, minHeight: 84 }}>
       {icon && <Icon className={`ti ${icon}`} style={{ fontSize: 28, color: color || 'var(--accent)', opacity: 0.9, flexShrink: 0 }}></Icon>}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
         <div style={{ fontSize: small ? '1.05rem' : '1.5rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
       </div>
-    </div>
+    </Card>
   );
 }
 
 // Per-section error slot so one failed query does not blank the whole page.
 function SectionError({ title, message }) {
   return (
-    <div className="card" style={{ padding: 16, minHeight: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <Card style={{ padding: 16, minHeight: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{title}</div>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: 'var(--color-danger)', fontSize: '13px', lineHeight: 1.5, wordBreak: 'break-word' }}>
         <Icon className="ti ti-alert-circle" style={{ flexShrink: 0, marginTop: 2 }}></Icon>
         <span>{message}</span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -302,7 +309,7 @@ function RateChart({ rows, from, to, rounding }) {
     <div style={fullscreen
       ? { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', padding: 16, display: 'flex', flexDirection: 'column' }
       : { position: 'relative' }}>
-      <div className="card" style={{ padding: 16, flex: fullscreen ? 1 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <Card style={{ padding: 16, flex: fullscreen ? 1 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
           <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-ui)' }}>Error Rate Over Time</span>
           <ChartToolbar
@@ -321,8 +328,8 @@ function RateChart({ rows, from, to, rounding }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexShrink: 0 }}>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Series ({names.length})</span>
               <span style={{ display: 'flex', gap: 4 }}>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', padding: '2px 7px' }} onClick={showAll}>All</button>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', padding: '2px 7px' }} onClick={hideAll}>None</button>
+                <Button variant="ghost" size="sm" style={{ fontSize: '11px', padding: '2px 7px' }} onClick={showAll}>All</Button>
+                <Button variant="ghost" size="sm" style={{ fontSize: '11px', padding: '2px 7px' }} onClick={hideAll}>None</Button>
               </span>
             </div>
             <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1, paddingRight: 4 }}>
@@ -343,7 +350,7 @@ function RateChart({ rows, from, to, rounding }) {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -443,24 +450,25 @@ function ErrorLogOverview() {
 
   return (
     <div>
-      <div className="card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <Card style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div className="form-group">
           <label className="form-label">Quick</label>
           <div style={{ display: 'flex', gap: 4 }}>
             {PRESETS.map(d => (
-              <button
+              <Button
                 key={d}
-                className={`btn btn-sm ${duration === d ? 'btn-primary' : 'btn-secondary'}`}
+                size="sm"
+                variant={duration === d ? 'primary' : 'secondary'}
                 style={{ padding: '8px 12px', minWidth: 48 }}
                 onClick={() => applyDuration(d)}
-              >{d}</button>
+              >{d}</Button>
             ))}
           </div>
         </div>
-        <button className="btn btn-primary btn-sm" style={{ padding: '8px 14px' }} onClick={load} disabled={loading}>
+        <Button variant="primary" size="sm" style={{ padding: '8px 14px' }} onClick={load} disabled={loading}>
           {loading ? <><span className="loading-spinner"></span> Loading...</> : <><Icon className="ti ti-player-play"></Icon> Load</>}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {loading ? (
         <div className="empty-state"><span className="loading-spinner"></span></div>
@@ -487,7 +495,7 @@ function ErrorLogOverview() {
               ? <SectionError title="Top Error Types" message={errs.top} />
               : data.top.length
                 ? <ChartCard key={`bar-${themeKey}`} title="Top Error Types" height={Math.max(240, data.top.length * 26 + 40)} scrollToHeight={300} option={barOption(data.top)} />
-                : <div className="card" style={{ padding: 16 }}><div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Top Error Types</div><div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No errors in range.</div></div>}
+                : <Card style={{ padding: 16 }}><div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Top Error Types</div><div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No errors in range.</div></Card>}
           </div>
 
           {/* Error rate over time */}
@@ -501,7 +509,7 @@ function ErrorLogOverview() {
           {errs.table
             ? <SectionError title="Top Errors" message={errs.table} />
             : (
-              <div className="card" style={{ padding: 16 }}>
+              <Card style={{ padding: 16 }}>
                 <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>Top Errors</div>
                 <div className="ov-log-table">
                   <DataTable
@@ -514,7 +522,7 @@ function ErrorLogOverview() {
                     emptyMessage="No error entries found."
                   />
                 </div>
-              </div>
+              </Card>
             )}
         </div>
       )}
@@ -592,20 +600,18 @@ function ErrorLogSearch() {
         >
           <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
-      {/* <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => setFiltersOpen(!filtersOpen)}><Icon className={`ti ${filtersOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`}></Icon> {filtersOpen ? 'Collapse' : 'Expand'} Filters</button>
-      </div> */}
-      {filtersOpen && <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+      {filtersOpen && <Card style={{ padding: 20, marginBottom: 20 }}>
         <form onSubmit={handleSearch}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
             <DateTimePicker label="From *" value={from} onChange={handleDateOnChange} name="From"/>
@@ -627,11 +633,11 @@ function ErrorLogSearch() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'flex-end' }}>
             <div className="form-group"><label className="form-label">Row Limit</label><input className="form-input" type="number" min={1} max={100000} value={rowLimit} onChange={e => setRowLimit(parseInt(e.target.value) || 500)} style={{ width: 100 }} /></div>
-            <button className="btn btn-primary" type="submit" disabled={q.loading}>{q.loading ? <><span className="loading-spinner"></span> Searching...</> : <><Icon className="ti ti-search"></Icon> Search</>}</button>
+            <Button variant="primary" type="submit" disabled={q.loading}>{q.loading ? <><span className="loading-spinner"></span> Searching...</> : <><Icon className="ti ti-search"></Icon> Search</>}</Button>
           </div>
         </form>
-      </div>}
-      {submitted && !q.loading && <DataTable rows={ q.data|| []} columns={cols} emptyMessage="No error entries found." variant="single" s_no={true}/>}
+      </Card>}
+      {submitted && !q.loading && <DataTable rows={q.data || []} columns={cols} emptyMessage="No error entries found." variant="single" s_no={true}/>}
     </div>
   );
 }

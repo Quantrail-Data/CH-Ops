@@ -6,6 +6,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import ChartToolbar, { savePng, useChartTools } from "../common/ChartToolbar.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { runQuery } from "../../utils/api.js";
 import {
   initChart,
@@ -354,8 +356,7 @@ function SummaryCard({
         : colors.borderDefault;
 
   return (
-    <div
-      className="card"
+    <Card
       style={
         fs
           ? {
@@ -415,7 +416,7 @@ function SummaryCard({
         )}
       </div>
       {children}
-    </div>
+    </Card>
   );
 }
 
@@ -939,14 +940,15 @@ export default function DailySummary() {
             className="form-input"
             style={{ fontSize: "13px", width: 160 }}
           />
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={fetchData}
             disabled={loading}
           >
             <Icon className="ti ti-refresh" style={{ marginRight: 4 }} />
             {loading ? "Loading..." : "Refresh"}
-          </button>
+          </Button>
         </div>
       </div>
 

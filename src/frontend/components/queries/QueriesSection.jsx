@@ -10,6 +10,10 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Modal from "../ui/Modal.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
 import { runQuery } from "../../utils/api.js";
 import DataTable from "../layout/DataTable.jsx";
@@ -310,21 +314,14 @@ function buildFullQuerySql(queryId) {
 // Modal showing the full query text for a clicked scatter point.
 function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
   const toast = useToast();
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
   if (!queryId) return null;
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1300 }}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 820, width: "92%" }}
-      >
+    <Modal
+      open
+      onClose={onClose}
+      zIndex={1300}
+      style={{ maxWidth: 820, width: "92%" }}
+    >
         <div
           style={{
             display: "flex",
@@ -345,8 +342,9 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
             {queryId}
           </code>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 try {
                   navigator.clipboard?.writeText(fullText || preview || "");
@@ -357,10 +355,10 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
               }}
             >
               <Icon className="ti ti-copy"></Icon> Copy
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={onClose}>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               <Icon className="ti ti-x"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
         {loading ? (
@@ -387,8 +385,7 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
             {fullText || preview || "(query text not available)"}
           </pre>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -455,7 +452,7 @@ function ScatterChart({ rows, title, note }) {
 
   return (
     <div style={{ marginBottom: "20px" }}>
-      <div className="card" style={tools.fullscreen ? { padding: "16px", position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: "16px" }}>
+      <Card style={tools.fullscreen ? { padding: "16px", position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: "16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)" }}>{title}</span>
           <ChartToolbar
@@ -469,7 +466,7 @@ function ScatterChart({ rows, title, note }) {
           />
         </div>
         <div ref={elRef} style={{ width: "100%", height: tools.fullscreen ? "calc(100vh - 96px)" : 420, flex: tools.fullscreen ? 1 : undefined }} />
-      </div>
+      </Card>
       {note && (
         <div
           style={{
@@ -509,21 +506,15 @@ export default function QueriesSection({ sidebar }) {
           <Icon className="ti ti-terminal-2"></Icon> Queries
         </h2>
       </div>
-      <div className="tab-bar">
-        {[
-          { id: "current", label: "Current", icon: "ti-player-play" },
-          { id: "analytics", label: "Analytics", icon: "ti-chart-bar" },
-          { id: "search", label: "Query Log", icon: "ti-search" },
-        ].map((t) => (
-          <div
-            key={t.id}
-            className={`tab-item ${routeTab === t.id ? "active" : ""}`}
-            onClick={() => handleTabChange(t.id)}
-          >
-            <Icon className={`ti ${t.icon}`}></Icon> {t.label}
-          </div>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { key: "current", label: "Current", icon: "player-play" },
+          { key: "analytics", label: "Analytics", icon: "chart-bar" },
+          { key: "search", label: "Query Log", icon: "search" },
+        ]}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
       {routeTab === "current" && <CurrentQueries />}
       {routeTab === "analytics" && <QueryAnalytics />}
       {routeTab === "search" && <QueryLogSearch sidebar={sidebar} />}
@@ -534,10 +525,7 @@ export default function QueriesSection({ sidebar }) {
 
 function MetricCard({ label, value, danger }) {
   return (
-    <div
-      className="card"
-      style={{ padding: "16px", flex: 1, minWidth: 140 }}
-    >
+    <Card style={{ padding: "16px", flex: 1, minWidth: 140 }}>
       <div
         style={{
           fontSize: "12px",
@@ -556,7 +544,7 @@ function MetricCard({ label, value, danger }) {
       >
         {value}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -656,8 +644,7 @@ function QueryAnalytics() {
 
   return (
     <div>
-      <div
-        className="card"
+      <Card
         style={{
           padding: "16px",
           marginBottom: "20px",
@@ -678,8 +665,10 @@ function QueryAnalytics() {
             }}
           >
             {["1h", "6h", "24h", "48h", "7d", "30d"].map((d) => (
-              <button
+              <Button
                 key={d}
+                size="sm"
+                variant={duration === d ? "primary" : "secondary"}
                 style={{
                   padding: "10px",
                   width: "50px",
@@ -687,11 +676,10 @@ function QueryAnalytics() {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -720,11 +708,7 @@ function QueryAnalytics() {
             ))}
           </Select>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={runAnalytics}
-          disabled={loading}
-        >
+        <Button variant="primary" onClick={runAnalytics} disabled={loading}>
           {loading ? (
             <>
               <span className="loading-spinner"></span> Analyzing...
@@ -734,8 +718,8 @@ function QueryAnalytics() {
               <Icon className="ti ti-chart-bar"></Icon> Analyze
             </>
           )}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {summary && (
         <div
@@ -989,19 +973,19 @@ function QueryLogSearch({ sidebar }) {
         >
           <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
     {filtersOpen && (
-  <div
-    className="card"
+  <Card
     style={{
       padding: "20px",
       marginBottom: "20px",
@@ -1231,8 +1215,8 @@ function QueryLogSearch({ sidebar }) {
             flex: "0 0 120px",
           }}
         >
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={searchQ.loading}
             style={{
@@ -1256,11 +1240,11 @@ function QueryLogSearch({ sidebar }) {
                 Search
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </form>
-  </div>
+  </Card>
 )}
 
       {submitted && !searchQ.loading && (

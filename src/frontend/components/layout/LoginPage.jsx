@@ -46,6 +46,7 @@ import chopsDarkLogo from "../../assets/chops-dark.svg";
 import OtpInput from "react-otp-input";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "./Toast.jsx";
+import Button from "../ui/Button.jsx";
 
 const swiperDatas = [
   {
@@ -224,8 +225,8 @@ const OTP_Component = ({ setFormStatus }) => {
         </div>
 
         <div className="form-login-btn">
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             style={{
               width: "100%",
@@ -254,7 +255,7 @@ const OTP_Component = ({ setFormStatus }) => {
                 Verify
               </span>
             )}
-          </button>
+          </Button>
         </div>
         
         <div style={{ margin: "15px 0px", fontSize: "11px",fontWeight:"bold",textAlign:"center" }} className="alert-banner info">
@@ -438,8 +439,8 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                 </div>
 
                 <div className="form-login-btn">
-                  <button
-                    className="btn btn-primary"
+                  <Button
+                    variant="primary"
                     type="submit"
                     style={{
                       width: "100%",
@@ -469,7 +470,7 @@ const ChangePasswordComponent = ({setFormStatus})=>{
                         Change Password
                       </span>
                     )}
-                  </button>
+                  </Button>
                 </div>
 
                
@@ -600,8 +601,9 @@ export default function LoginPage() {
       }}
     >
       {!lightboxSrc && (
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={toggleTheme}
           style={{
             position: "absolute",
@@ -615,7 +617,7 @@ export default function LoginPage() {
             className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}
             style={{ fontSize: "20px" }}
           ></Icon>
-        </button>
+        </Button>
       )}
 
       <div className="main-login-container">
@@ -753,8 +755,8 @@ export default function LoginPage() {
                 </div>
 
                 <div className="form-login-btn">
-                  <button
-                    className="btn btn-primary"
+                  <Button
+                    variant="primary"
                     type="submit"
                     style={{
                       width: "100%",
@@ -783,19 +785,8 @@ export default function LoginPage() {
                         <Icon className="ti ti-login" /> Login
                       </span>
                     )}
-                  </button>
+                  </Button>
                 </div>
-
-                {/* <>
-            <button
-              className="btn btn-secondary"
-              
-              style={{ width: '100%', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            >
-              <Icon className="ti ti-shield-lock"></Icon> Sign in with SSO
-            </button>
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>or sign in with username and password</div>
-          </> */}
               </form>
             </motion.div>
           )}
@@ -854,8 +845,8 @@ export default function LoginPage() {
                 </div>
 
                 <div className="form-login-btn">
-                  <button
-                    className="btn btn-primary"
+                  <Button
+                    variant="primary"
                     type="submit"
                     style={{
                       width: "100%",
@@ -884,7 +875,7 @@ export default function LoginPage() {
                         Send Verification Code
                       </span>
                     )}
-                  </button>
+                  </Button>
                 </div>
                 <div style={{textAlign:"center",margin:"10px 0px"}}>
                   <p style={{fontSize:"13px"}}>Have an account? <span style={{color:"blue",cursor:"pointer"}} onClick={()=>setFormStatus("login")}>Back to Login</span></p>

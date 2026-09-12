@@ -5,6 +5,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { runQuery } from "../../utils/api.js";
 import { buildChartOption } from "../dashboards/chartTypes.js";
 import { ChartCard, KpiStrip, HealthStrip, GaugeGroup, Section, MetricDescriptions } from "./OverviewCards.jsx";
@@ -538,8 +540,7 @@ export function LiveControlBar({ nodeName, live: s }) {
   const ageSeconds = lastAt ? Math.round((Date.now() - lastAt) / 1000) : null;
 
   return (
-      <div
-        className="card"
+      <Card
         style={{
           padding: "10px 16px",
           marginBottom: 16,
@@ -554,14 +555,15 @@ export function LiveControlBar({ nodeName, live: s }) {
           {nodeName || "Live overview"}
         </h2>
 
-        <button
+        <Button
           type="button"
-          className={`btn btn-sm ${live ? "btn-primary" : "btn-secondary"}`}
+          size="sm"
+          variant={live ? "primary" : "secondary"}
           onClick={() => setLive((v) => !v)}
         >
           <Icon className={`ti ti-player-${live ? "pause" : "play"}`} />
           {live ? "Live" : "Paused"}
-        </button>
+        </Button>
 
         <Select
           value={interval}
@@ -595,7 +597,7 @@ export function LiveControlBar({ nodeName, live: s }) {
         <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "auto" }}>
           Readings are current; rates cover the last {interval}s
         </span>
-      </div>
+      </Card>
   );
 }
 
@@ -627,9 +629,9 @@ export default function LiveOverview({ live: s }) {
     <MetricDescriptions value={descriptions}>
     <div style={{ marginBottom: 20 }}>
       {!loaded ? (
-        <div className="card" style={{ padding: 32, textAlign: "center" }}>
+        <Card style={{ padding: 32, textAlign: "center" }}>
           <span className="loading-spinner" /> Reading system tables...
-        </div>
+        </Card>
       ) : (
         <>
           <Section

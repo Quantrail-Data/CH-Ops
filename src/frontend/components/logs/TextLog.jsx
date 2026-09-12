@@ -23,6 +23,9 @@ import DataTable from "../layout/DataTable.jsx";
 import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import { useConnection } from "../../App.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -62,20 +65,14 @@ export default function TextLog() {
           <Icon className="ti ti-file-text"></Icon> Text Log
         </h2>
       </div>
-      <div className="tab-bar">
-        <div
-          className={`tab-item ${routeTab === "overview" ? "active" : ""}`}
-          onClick={() => handleTabChange("overview")}
-        >
-          <Icon className="ti ti-chart-dots-3"></Icon> Overview
-        </div>
-        <div
-          className={`tab-item ${routeTab === "search" ? "active" : ""}`}
-          onClick={() => handleTabChange("search")}
-        >
-          <Icon className="ti ti-search"></Icon> Search
-        </div>
-      </div>
+      <Tabs
+        items={[
+          { key: "overview", label: "Overview", icon: "chart-dots-3" },
+          { key: "search", label: "Search", icon: "search" },
+        ]}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
       {routeTab === "overview" && <TextLogOverview unavailable={conn.unavailable} />}
       {routeTab === "search" && <TextLogSearch unavailable={conn.unavailable} />}
     </div>
@@ -257,7 +254,7 @@ function ScrollBarChart({ title, rows, labelKey, valueKey, rowHeight = 32, viewH
   }, [rows, labelKey, valueKey, innerHeight]);
 
   return (
-    <div className="card" style={tools.fullscreen ? { padding: 16, position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: 16 }}>
+    <Card style={tools.fullscreen ? { padding: 16, position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "var(--font-ui)" }}>{title}</span>
         <ChartToolbar fullscreen={tools.fullscreen} onSave={tools.save} onToggleFullscreen={tools.toggleFullscreen} />
@@ -265,31 +262,31 @@ function ScrollBarChart({ title, rows, labelKey, valueKey, rowHeight = 32, viewH
       <div style={{ height: tools.fullscreen ? "calc(100vh - 96px)" : viewHeight, overflowY: "auto", overflowX: "hidden", flex: tools.fullscreen ? 1 : undefined }}>
         <div ref={containerRef} style={{ height: innerHeight, width: "100%" }} />
       </div>
-    </div>
+    </Card>
   );
 }
 
 function Stat({ label, value, icon, color, small }) {
   return (
-    <div className="card" style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, minHeight: 84 }}>
+    <Card style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, minHeight: 84 }}>
       {icon && <Icon className={`ti ${icon}`} style={{ fontSize: 28, color: color || "var(--accent)", opacity: 0.9, flexShrink: 0 }}></Icon>}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 4 }}>{label}</div>
         <div style={{ fontSize: small ? "1.05rem" : "1.5rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function SectionError({ title, message }) {
   return (
-    <div className="card" style={{ padding: 16, minHeight: 100, display: "flex", flexDirection: "column", gap: 8 }}>
+    <Card style={{ padding: 16, minHeight: 100, display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)" }}>{title}</div>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, color: "var(--color-danger)", fontSize: "13px", lineHeight: 1.5, wordBreak: "break-word" }}>
         <Icon className="ti ti-alert-circle" style={{ flexShrink: 0, marginTop: 2 }}></Icon>
         <span>{message}</span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -367,7 +364,7 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
     <div style={fullscreen
       ? { position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", padding: 16, display: "flex", flexDirection: "column" }
       : { position: "relative" }}>
-      <div className="card" style={{ padding: 16, flex: fullscreen ? 1 : undefined, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <Card style={{ padding: 16, flex: fullscreen ? 1 : undefined, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
           <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "var(--font-ui)" }}>{title}</span>
           <ChartToolbar
@@ -386,8 +383,8 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
               <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Series ({names.length})</span>
               <span style={{ display: "flex", gap: 4 }}>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: "11px", padding: "2px 7px" }} onClick={showAll}>All</button>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: "11px", padding: "2px 7px" }} onClick={hideAll}>None</button>
+                <Button variant="ghost" size="sm" style={{ fontSize: "11px", padding: "2px 7px" }} onClick={showAll}>All</Button>
+                <Button variant="ghost" size="sm" style={{ fontSize: "11px", padding: "2px 7px" }} onClick={hideAll}>None</Button>
               </span>
             </div>
             <div style={{ overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 1, paddingRight: 4 }}>
@@ -408,7 +405,7 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -446,13 +443,13 @@ function PlainChartCard({ title, option, height = 320 }) {
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
   }, [option]);
   return (
-    <div className="card" style={tools.fullscreen ? { padding: 16, position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: 16 }}>
+    <Card style={tools.fullscreen ? { padding: 16, position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "var(--font-ui)" }}>{title}</span>
         <ChartToolbar zoomable={!!option?.xAxis} fullscreen={tools.fullscreen} onZoomIn={tools.zoomIn} onZoomOut={tools.zoomOut} onZoomReset={tools.zoomReset} onSave={tools.save} onToggleFullscreen={tools.toggleFullscreen} isWantFeature={pieChartControlsFlags} />
       </div>
       <div ref={containerRef} style={{ height: tools.fullscreen ? "calc(100vh - 96px)" : height, width: "100%", flex: tools.fullscreen ? 1 : undefined }} />
-    </div>
+    </Card>
   );
 }
 
@@ -573,24 +570,25 @@ if (unavailableMessage) {
 
   return (
     <div>
-      <div className="card" style={{ padding: 14, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+      <Card style={{ padding: 14, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div className="form-group">
           <label className="form-label">Quick</label>
           <div style={{ display: "flex", gap: 4 }}>
             {PRESETS.map((d) => (
-              <button
+              <Button
                 key={d}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
+                size="sm"
+                variant={duration === d ? "primary" : "secondary"}
                 style={{ padding: "8px 12px", minWidth: 48 }}
                 onClick={() => applyDuration(d)}
-              >{d}</button>
+              >{d}</Button>
             ))}
           </div>
         </div>
-        <button className="btn btn-primary btn-sm" style={{ padding: "8px 14px" }} onClick={load} disabled={loading}>
+        <Button variant="primary" size="sm" style={{ padding: "8px 14px" }} onClick={load} disabled={loading}>
           {loading ? <><span className="loading-spinner"></span> Loading...</> : <><Icon className="ti ti-player-play"></Icon> Load</>}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {loading ? (
         <div className="empty-state"><span className="loading-spinner"></span></div>
@@ -624,13 +622,13 @@ if (unavailableMessage) {
               ? <SectionError title="Noisiest Loggers (errors + warnings)" message={errs.loggers} />
               : data.loggers.length
                 ? <ScrollBarChart key={`loggers-${themeKey}`} title="Noisiest Loggers (errors + warnings)" rows={data.loggers} labelKey="logger" valueKey="issues" />
-                : <div className="card" style={{ padding: 16 }}><div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>Noisiest Loggers (errors + warnings)</div><div style={{ color: "var(--text-muted)", fontSize: "14px" }}>No errors or warnings in range.</div></div>}
+                : <Card style={{ padding: 16 }}><div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>Noisiest Loggers (errors + warnings)</div><div style={{ color: "var(--text-muted)", fontSize: "14px" }}>No errors or warnings in range.</div></Card>}
           </div>
 
           {errs.messages
             ? <SectionError title="Most Frequent Messages" message={errs.messages} />
             : (
-              <div className="card" style={{ padding: 16 }}>
+              <Card style={{ padding: 16 }}>
                 <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 12 }}>Most Frequent Messages</div>
                 <div className="ov-log-table">
                   <DataTable
@@ -643,7 +641,7 @@ if (unavailableMessage) {
                     emptyMessage="No templated messages in range."
                   />
                 </div>
-              </div>
+              </Card>
             )}
         </div>
       )}
@@ -740,9 +738,6 @@ if (unavailableMessage) {
 
   return (
     <div>
-      {/* <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => setFiltersOpen(!filtersOpen)}><Icon className={`ti ${filtersOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`}></Icon> {filtersOpen ? 'Collapse' : 'Expand'} Filters</button>
-      </div> */}
       <div
         style={{
           display: "flex",
@@ -762,18 +757,19 @@ if (unavailableMessage) {
         >
           <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
       {filtersOpen && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <Card style={{ padding: 20, marginBottom: 20 }}>
           <form onSubmit={handleSearch}>
             <div
               style={{
@@ -799,22 +795,24 @@ if (unavailableMessage) {
             <div style={{ marginBottom: 14 }}>
               <label className="form-label" style={{ marginBottom: 6 }}>
                 Log Levels *{" "}
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  variant="ghost"
+                  size="sm"
                   onClick={selectAll}
                   style={{ fontSize: "12px" }}
                 >
                   All
-                </button>{" "}
-                <button
+                </Button>{" "}
+                <Button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  variant="ghost"
+                  size="sm"
                   onClick={selectNone}
                   style={{ fontSize: "12px" }}
                 >
                   None
-                </button>
+                </Button>
               </label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {LOG_LEVELS.map((lv) => (
@@ -883,8 +881,8 @@ if (unavailableMessage) {
                   style={{ width: 100 }}
                 />
               </div>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 type="submit"
                 disabled={q.loading || !levels.length}
               >
@@ -897,10 +895,10 @@ if (unavailableMessage) {
                     <Icon className="ti ti-search"></Icon> Search
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       )}
       {submitted && !q.loading && (
         <div className="data-table-wrap dt-single">

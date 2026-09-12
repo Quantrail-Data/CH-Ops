@@ -6,6 +6,8 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 
 export default function TrustedCas() {
   const toast = useToast();
@@ -76,9 +78,9 @@ export default function TrustedCas() {
         <h2 className="section-title">
           <Icon className="ti ti-certificate" /> Trusted certificate authorities
         </h2>
-        <button className="btn btn-primary btn-sm" onClick={() => setAdding(true)}>
+        <Button variant="primary" size="sm" onClick={() => setAdding(true)}>
           <Icon className="ti ti-plus" /> Add
-        </button>
+        </Button>
       </div>
 
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, maxWidth: 700 }}>
@@ -96,7 +98,7 @@ export default function TrustedCas() {
       )}
 
       {cas.map(ca => (
-        <div key={ca.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <Card key={ca.id} style={{ padding: 16, marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>{ca.name}</div>
@@ -114,15 +116,15 @@ export default function TrustedCas() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => checkUsage(ca)}>
+              <Button variant="secondary" size="sm" onClick={() => checkUsage(ca)}>
                 Which clusters use this
-              </button>
-              <button className="btn btn-danger btn-sm" onClick={() => setDeleting(ca)}>
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => setDeleting(ca)}>
                 <Icon className="ti ti-trash" />
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
+        </Card>
       ))}
 
       {adding && (
@@ -150,11 +152,11 @@ export default function TrustedCas() {
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary btn-sm" disabled={busy}
-                onClick={() => setAdding(false)}>Cancel</button>
-              <button className="btn btn-primary btn-sm"
+              <Button variant="secondary" size="sm" disabled={busy}
+                onClick={() => setAdding(false)}>Cancel</Button>
+              <Button variant="primary" size="sm"
                 disabled={busy || !name.trim() || !pem.trim()}
-                onClick={add}>{busy ? 'Checking...' : 'Add'}</button>
+                onClick={add}>{busy ? 'Checking...' : 'Add'}</Button>
             </div>
           </div>
         </div>
@@ -186,7 +188,7 @@ export default function TrustedCas() {
               </>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => setUsage(null)}>Close</button>
+              <Button variant="secondary" size="sm" onClick={() => setUsage(null)}>Close</Button>
             </div>
           </div>
         </div>

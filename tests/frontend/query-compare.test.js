@@ -221,8 +221,8 @@ describe('ModeSelect: Regular / Comparison dropdown', () => {
   it('both connect buttons read "Go", not "Connect"', () => {
     const qe = read('src/frontend/components/editor/QueryEditor.jsx');
     const cv = read('src/frontend/components/editor/ComparisonView.jsx');
-    expect(qe).toMatch(/Go\s*<\/button>/);
-    expect(cv).toMatch(/Go\s*<\/button>/);
+    expect(qe).toMatch(/Go\s*<\/Button>/);
+    expect(cv).toMatch(/Go\s*<\/Button>/);
   });
 });
 

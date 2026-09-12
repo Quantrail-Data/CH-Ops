@@ -64,6 +64,7 @@
     - [AI API Keys](guide/ai-api-keys.md)
 - Development
   - [Testing](development/testing.md)
+  - [UI Framework](development/ui-framework.md)
   - [Kubernetes Test Cluster](development/test-cluster-setup.md)
   - [Contributing](development/contributing.md)
   - [Building a Binary](development/binary-build.md)

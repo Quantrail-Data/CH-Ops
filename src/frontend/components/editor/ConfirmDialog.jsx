@@ -4,6 +4,8 @@
 
 import React, { useEffect, useRef } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 
 export default function ConfirmDialog({
   open,
@@ -109,16 +111,17 @@ export default function ConfirmDialog({
         )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-          <button className="btn btn-ghost btn-sm" onClick={onCancel}>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button
             ref={confirmRef}
-            className={`btn btn-sm ${tone === "danger" ? "btn-danger" : "btn-primary"}`}
+            variant={tone === "danger" ? "danger" : "primary"}
+            size="sm"
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

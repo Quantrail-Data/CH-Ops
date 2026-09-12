@@ -5,6 +5,9 @@
 import React, { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
 import { runEditorQuery, runQuery } from "../../utils/api.js";
@@ -1085,50 +1088,20 @@ export default function RbacProfiles() {
         </h2>
       </div>
       <AlertBanner result={result} setResult={setResult} />
-      <div className="tab-bar">
-        {tabs.map((t) => (
-          <div
-            key={t.id}
-            className={`tab-item ${routeTab === t.id ? "active" : ""}`}
-            onClick={() => handleTabChange(t.id)}
-            style={
-              t.id !== "list" && !isAdmin
-                ? { opacity: 0.35, cursor: "not-allowed" }
-                : {}
-            }
-          >
-            <Icon className={`ti ${t.i}`}></Icon> {t.l}
-          </div>
-        ))}
-      </div>
-      {routeTab === "list" && (
-        <ProfileList profilesQ={profilesQ} detailsQ={detailsQ} />
-      )}
-      {routeTab === "create" && isAdmin && (
-        <ProfileForm
-          rbac={rbac}
-          action="create"
-          setResult={setResult}
-          onSuccess={load}
-        />
-      )}
-      {routeTab === "alter" && isAdmin && (
-        <ProfileForm
-          rbac={rbac}
-          action="alter"
-          profiles={profilesQ.data || []}
-          setResult={setResult}
-          onSuccess={load}
-        />
-      )}
-      {routeTab === "drop" && isAdmin && (
-        <DropProfile
-          profiles={profilesQ.data || []}
-          setResult={setResult}
-          onSuccess={load}
-          navigate={navigate}
-        />
-      )}
+      <Tabs
+        items={tabs.map(t => ({
+          key: t.id,
+          label: t.l,
+          icon: t.i,
+          style: t.id !== 'list' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {},
+        }))}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
+      {routeTab === 'list' && <ProfileList profilesQ={profilesQ} detailsQ={detailsQ} />}
+      {routeTab === 'create' && isAdmin && <ProfileForm rbac={rbac} action="create" setResult={setResult} onSuccess={load} />}
+      {routeTab === 'alter' && isAdmin && <ProfileForm rbac={rbac} action="alter" profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} />}
+      {routeTab === 'drop' && isAdmin && <DropProfile profiles={profilesQ.data || []} setResult={setResult} onSuccess={load} navigate={navigate} />}
     </div>
   );
 }
@@ -1297,7 +1270,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
 
   return (
     <form onSubmit={submit}>
-      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+      <Card style={{ padding: 20, marginBottom: 16 }}>
         {isAlter ? (
           <div
             style={{
@@ -1532,17 +1505,8 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
         </div>
 
         <SqlPreview sql={buildSql()} />
-        <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={!profileName}
-          >
-            <Icon className="ti ti-device-floppy"></Icon>{" "}
-            {isAlter ? "Alter" : "Create"}
-          </button>
-        </div>
-      </div>
+        <div style={{ marginTop: 16 }}><Button variant="primary" type="submit" disabled={!profileName}><Icon className="ti ti-device-floppy"></Icon> {isAlter ? 'Alter' : 'Create'}</Button></div>
+      </Card>
     </form>
   );
 }
@@ -1573,62 +1537,7 @@ function DropProfile({ profiles, setResult, onSuccess, navigate }) {
     }
   }
 
-  return (
-    <div
-      className="card"
-      style={{ padding: 20, height: confirm ? "700px" : "auto" }}
-    >
-      <div className="form-group" style={{ marginBottom: 14 }}>
-        <label className="form-label">Profile</label>
-        <Select
-          className="form-select"
-          value={sel}
-          onChange={(e) => setSel(e.target.value)}
-        >
-          <option value="">--</option>
-          {profiles.map((p) => (
-            <option key={p.name}>{p.name}</option>
-          ))}
-        </Select>
-      </div>
-      <SqlPreview sql={sql} />
-      <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-danger"
-          disabled={!sel}
-          onClick={() => setConfirm(true)}
-        >
-          <Icon className="ti ti-trash"></Icon> Drop
-        </button>
-      </div>
-      {confirm && (
-        <ConfirmModal
-          title="Drop Profile"
-          message={
-            <div>
-              <p>
-                Type the profile name <strong>{sel}</strong> to confirm:
-              </p>
-              <input
-                className="form-input"
-                style={{ marginTop: 8 }}
-                value={confirmName}
-                onChange={(e) => setConfirmName(e.target.value)}
-                placeholder={sel}
-                autoFocus
-              />
-            </div>
-          }
-          confirmText="Drop Profile"
-          onConfirm={drop}
-          onCancel={() => {
-            setConfirm(false);
-            setConfirmName("");
-          }}
-          danger
-          confirmDisabled={confirmName !== sel}
-        />
-      )}
-    </div>
-  );
+  return (<Card style={{ padding: 20,height:confirm ? '700px' : 'auto' }}><div className="form-group" style={{ marginBottom: 14 }}><label className="form-label">Profile</label><Select className="form-select" value={sel} onChange={e => setSel(e.target.value)}><option value="">--</option>{profiles.map(p => <option key={p.name}>{p.name}</option>)}</Select></div><SqlPreview sql={sql} /><div style={{ marginTop: 16 }}><Button variant="danger" disabled={!sel} onClick={() => setConfirm(true)}><Icon className="ti ti-trash"></Icon> Drop</Button></div>
+    {confirm && <ConfirmModal title="Drop Profile" message={<div><p>Type the profile name <strong>{sel}</strong> to confirm:</p><input className="form-input" style={{ marginTop: 8 }} value={confirmName} onChange={e => setConfirmName(e.target.value)} placeholder={sel} autoFocus /></div>} confirmText="Drop Profile" onConfirm={drop} onCancel={() => { setConfirm(false); setConfirmName(''); }} danger confirmDisabled={confirmName !== sel} />}
+  </Card>);
 }

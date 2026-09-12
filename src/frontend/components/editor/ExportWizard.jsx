@@ -29,6 +29,8 @@ import {
   formatRows,
 } from "../../utils/exportApi.js";
 import { beginBusy, endBusy } from "../../hooks/useIdleTimeout.js";
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 
 // A running export outlives the browser:
 const ACTIVE_EXPORT_KEY = "chops_active_export";
@@ -387,11 +389,11 @@ export default function ExportWizard({ sql, username, onClose }) {
             )}
 
             <div className="xw-actions">
-              <button className="btn btn-secondary" onClick={handleClose}>
+              <Button variant="secondary" onClick={handleClose}>
                 Close
-              </button>
-              <button
-                className={isEstimated ? "btn btn-primary" : "btn btn-secondary"}
+              </Button>
+              <Button
+                variant={isEstimated ? "primary" : "secondary"}
                 onClick={runEstimate}
                 disabled={estimating || blockedByParams || isEstimated}
                 style={{ minWidth: "140px" }}
@@ -426,14 +428,14 @@ export default function ExportWizard({ sql, username, onClose }) {
                     Estimate rows
                   </>
                 )}
-              </button>
-              <button
-                className="btn btn-primary"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={goToStep2}
                 disabled={!tried || blockedByParams}
               >
                 Next →
-              </button>
+              </Button>
             </div>
             {!tried && !estimating && (
               <div className="xw-help" style={{ textAlign: "right" }}>
@@ -539,15 +541,14 @@ export default function ExportWizard({ sql, username, onClose }) {
             )}
 
             <div className="xw-adv">
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button variant="ghost" size="sm"
                 onClick={() => setAdvOpen(!advOpen)}
               >
                 <Icon
                   className={`ti ti-chevron-${advOpen ? "down" : "right"}`}
                 />{" "}
                 Advanced options
-              </button>
+              </Button>
 
               {advOpen && (
                 <div style={{ marginTop: 10 }}>
@@ -610,31 +611,29 @@ export default function ExportWizard({ sql, username, onClose }) {
                     </div>
                   ))}
                   {advanced.length > 0 && (
-                    <button
-                      className="btn btn-ghost btn-sm"
+                    <Button variant="ghost" size="sm"
                       onClick={resetOptions}
                     >
                       Reset to defaults
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
             </div>
 
             <div className="xw-actions">
-              <button className="btn btn-secondary" onClick={() => setStep(1)}>
+              <Button variant="secondary" onClick={() => setStep(1)}>
                 Back
-              </button>
-              <button className="btn btn-secondary" onClick={handleClose}>
+              </Button>
+              <Button variant="secondary" onClick={handleClose}>
                 Close
-              </button>
-              <button
-                className="btn btn-primary"
+              </Button>
+              <Button variant="primary"
                 onClick={begin}
                 disabled={!fileName.trim()}
               >
                 Start export
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -683,16 +682,15 @@ export default function ExportWizard({ sql, username, onClose }) {
 
             <div className="xw-actions">
               {progress?.state === "running" && (
-                <button className="btn btn-secondary" onClick={onClose}>
+                <Button variant="secondary" onClick={onClose}>
                   Run in background
-                </button>
+                </Button>
               )}
-              <button className="btn btn-secondary" onClick={handleClose}>
+              <Button variant="secondary" onClick={handleClose}>
                 {progress?.state === "running" ? "Cancel export" : "Close"}
-              </button>
+              </Button>
               {progress?.state === "ready" && (
-                <button
-                  className="btn btn-primary"
+                <Button variant="primary"
                   onClick={() => {
                     downloadExport(job.jobId);
                     // Collected. Nothing left to come back to.
@@ -700,7 +698,7 @@ export default function ExportWizard({ sql, username, onClose }) {
                   }}
                 >
                   <Icon className="ti ti-download" /> Download
-                </button>
+                </Button>
               )}
             </div>
           </div>

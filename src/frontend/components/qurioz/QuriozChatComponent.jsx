@@ -5,6 +5,8 @@
 import { useState, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
+import Modal from "../ui/Modal.jsx";
 import ChatInputComponent from "./ChatInputComponent";
 import IntroChatComponent from "./IntroChatComponent.jsx";
 import AILoaderComponent from "./AILoaderComponent";
@@ -382,9 +384,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
             ease: "easeInOut",
           }}
         >
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost"
+            variant="ghost"
             onClick={() => setIsOpen(true)}
             aria-label="Open chat history"
           >
@@ -408,7 +410,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
               <path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356" />
               <path d="M12 8v4l3 3" />
             </svg>
-          </button>
+          </Button>
         </motion.div>
       )}
 
@@ -440,9 +442,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
           }}
         >
           <div className="header-history">
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => {
                 setIsOpen(false);
                 setOpenMenuId(null);
@@ -451,16 +453,16 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
               aria-label="Close chat history"
             >
               <Icon className="ti ti-chevron-left" />
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={handleNewChat}
             >
               <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
               <span style={{ fontSize: "10px" }}>New Chat</span>
-            </button>
+            </Button>
           </div>
           <div className="chat-sesion-body">
             {isLoading ? (
@@ -552,9 +554,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                       flexShrink: 0,
                     }}
                   >
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
+                      variant="ghost"
                       title="More options"
                       aria-label={`More options for ${
                         chat?.title || "Untitled chat"
@@ -571,7 +573,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                       >
                         <path d="M12 10a2 2 0 1 0 2 2 2 2 0 0 0-2-2m-7 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2m14 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2" />
                       </svg>
-                    </button>
+                    </Button>
 
                     {openMenuId === chat.id &&
                       menuPosition &&
@@ -1643,8 +1645,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   </div>
                 </div>
               </span>
-              <button
-                className="btn btn-primary btn-sm"
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleConnect}
                 disabled={connecting || !connUser.trim()}
                 title={`Connect to ${selectedNode || "node"}:${port}`}
@@ -1655,7 +1658,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   <Icon className="ti ti-plug"></Icon>
                 )}{" "}
                 Go
-              </button>
+              </Button>
             </div>
           ) : (
             <div
@@ -1667,12 +1670,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 color: "var(--text-secondary)",
               }}
             >
-              <button
-                className="btn btn-ghost"
+              <Button
+                variant="ghost"
                 onClick={() => setShowDBModel(true)}
               >
                 <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
-              </button>
+              </Button>
               <Icon
                 className="ti ti-plug-connected"
                 style={{ fontSize: 15, color: "var(--color-success)" }}
@@ -1691,14 +1694,15 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 </span>
               </span>
 
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleDisconnect}
                 title="Disconnect and clear credentials"
                 style={{ padding: "2px 6px" }}
               >
                 <Icon className="ti ti-logout"></Icon>
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1862,12 +1866,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   alignItems: "center",
                 }}
               >
-                <button
-                  className="btn btn-ghost"
+                <Button
+                  variant="ghost"
                   onClick={() => setShowDBModel(false)}
                 >
                   <Icon className="ti ti-x" />
-                </button>
+                </Button>
               </div>
             </div>
             {alertMessage?.flag && (
@@ -1891,9 +1895,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "10px" }}
                 >
-                  <button
+                  <Button
                     onClick={() => selectAllHandler("new")}
-                    className={`btn btn-ghost`}
+                    variant="ghost"
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -1977,9 +1981,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                     <span style={{ fontSize: "11px" }}>
                       {isNewSelectAll ? "Deselect All" : "Select All"}
                     </span>
-                  </button>
-                  <button
-                    className="btn btn-primary"
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={() => {
                       databaseSchemaSetterHandler("add");
                     }}
@@ -1997,7 +2001,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       <Icon className="ti ti-plus" />
                       Get Tables
                     </>
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div
@@ -2112,8 +2116,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       Estimate : {estimateScore ? estimateScore : 0}
                     </span>
                   </div>
-                  <button
-                    className="btn btn-primary"
+                  <Button
+                    variant="primary"
                     // disabled={!isEnableRefreshSchema()}
                     onClick={() => GenerateDDL_EsitmateHandler()}
                     style={{
@@ -2126,7 +2130,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                       <Icon className="ti ti-refresh" />
                       Generate DDL & Estimate
                     </>
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div
@@ -2194,13 +2198,13 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                               />
                               {_v}
                             </h3>
-                            <button
-                              className="btn btn-ghost"
+                            <Button
+                              variant="ghost"
                               title={`Delete the DDL of ${_v}`}
                               onClick={() => DeleteDatabaseDDLHandler(_v)}
                             >
                               <Icon className="ti ti-trash" />
-                            </button>
+                            </Button>
                           </div>
                           <div
                             style={{

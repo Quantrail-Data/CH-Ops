@@ -3,11 +3,13 @@
 // Configures and displays the delivery channels (e.g., Email, Slack) for system alerts.
 
 import React, { useEffect, useState } from "react";
-import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useAuth } from "../../App.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Select from "../common/Select.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const TYPES = [
@@ -34,7 +36,7 @@ const LABELS = {
 
 export default function NotificationChannels() {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [channels, setChannels] = useState([]);
@@ -141,11 +143,15 @@ export default function NotificationChannels() {
         </div>
         <div className="alert-banner info" style={{ marginBottom: 14 }}>
           <Icon className="ti ti-lock"></Icon>
-          <span>Alert channels management is only available for administrators.</span>
+          <span>
+            Alert channels management is only available for administrators.
+          </span>
         </div>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
-          <p>Alert channels management is only available for administrators.</p>
+          <p>
+            Alert channels management is only available for administrators.
+          </p>
         </div>
       </div>
     );
@@ -158,11 +164,12 @@ export default function NotificationChannels() {
           <Icon className="ti ti-send"></Icon> Notification Channels
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button className="btn btn-secondary btn-sm" onClick={load}>
+          <Button variant="secondary" size="sm" onClick={load}>
             <Icon className="ti ti-refresh"></Icon>
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => {
               reset();
               setShowForm(!showForm);
@@ -170,7 +177,7 @@ export default function NotificationChannels() {
           >
             <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showForm ? "Cancel" : "New"}
-          </button>
+          </Button>
         </div>
       </div>
       {result && (
@@ -182,17 +189,18 @@ export default function NotificationChannels() {
             className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
           ></Icon>{" "}
           {result.msg}
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ marginLeft: "auto" }}
             onClick={() => setResult(null)}
           >
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
       )}
       {showForm && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <Card style={{ padding: 20, marginBottom: 20 }}>
           <div
             style={{
               display: "grid",
@@ -212,7 +220,6 @@ export default function NotificationChannels() {
             <div className="form-group">
               <label className="form-label">Type</label>
               <Select
-                className="form-select"
                 value={f.type}
                 onChange={(e) =>
                   setF({ ...f, type: e.target.value, config: {} })
@@ -309,11 +316,15 @@ export default function NotificationChannels() {
               </div>
             ))}
           </div>
-          <button className="btn btn-primary" onClick={save} disabled={!f.name}>
+          <Button
+            variant="primary"
+            onClick={save}
+            disabled={!f.name}
+          >
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update" : "Create"}
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
       {channels.length === 0 ? (
         <div className="empty-state">
@@ -332,9 +343,8 @@ export default function NotificationChannels() {
             const ti = TYPES.find((t) => t.key === ch.type);
             const cfg = typeof ch.config === "object" ? ch.config : {};
             return (
-              <div
+              <Card
                 key={ch.id}
-                className="card"
                 style={{ padding: 16, overflow: "auto" }}
               >
                 <div
@@ -386,8 +396,9 @@ export default function NotificationChannels() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                       setF({
                         name: ch.name,
@@ -400,21 +411,23 @@ export default function NotificationChannels() {
                     }}
                   >
                     <Icon className="ti ti-edit"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => test(ch.id)}
                   >
                     <Icon className="ti ti-send"></Icon> Test
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
                     onClick={() => setDel(ch.id)}
                   >
                     <Icon className="ti ti-trash"></Icon>
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

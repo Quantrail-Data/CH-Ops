@@ -13,6 +13,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import InfoTip from "../common/InfoTip.jsx";
 
 
@@ -407,7 +409,7 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
     : { padding: 16, marginBottom: 16 };
 
   return (
-    <div className="card" style={shell}>
+    <Card style={shell}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <h3 style={{ fontSize: "0.9375rem", margin: 0 }}>
           <Icon className="ti ti-topology-star-3" /> {cluster.name}
@@ -429,16 +431,17 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
             {unhealthy} of {cluster.nodes.length} reporting problems
           </span>
         )}
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost btn-sm"
+          variant="ghost"
+          size="sm"
           style={{ marginLeft: "auto" }}
           onClick={() => setFullscreen((v) => !v)}
           title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
           aria-label={fullscreen ? "Exit full screen" : "Full screen"}
         >
           <Icon className={`ti ti-${fullscreen ? "arrows-minimize" : "arrows-maximize"}`} />
-        </button>
+        </Button>
       </div>
 
       <div
@@ -489,7 +492,7 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
 
         <HealthTable nodes={cluster.nodes} />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -502,11 +505,11 @@ export default function ClusterTopology({ rows, loading, selectedHost, onSelectN
   const unhealthy = (rows || []).filter(nodeIsUnhealthy).length;
 
   const header = (
-    <button
+    <Button
       type="button"
       onClick={() => setOpen((v) => !v)}
       aria-expanded={open}
-      className="btn btn-ghost"
+      variant="ghost"
       style={{
         display: "flex",
         alignItems: "center",
@@ -541,28 +544,28 @@ export default function ClusterTopology({ rows, loading, selectedHost, onSelectN
           {unhealthy} reporting problems
         </span>
       )}
-    </button>
+    </Button>
   );
 
   return (
     <div style={{ marginBottom: 16 }}>
       <style>{FLOW_THEME_CSS}</style>
-      <div className="card" style={{ padding: 0, marginBottom: open ? 12 : 0 }}>
+      <Card style={{ padding: 0, marginBottom: open ? 12 : 0 }}>
         {header}
-      </div>
+      </Card>
 
       {open && loading && !rows?.length && (
-        <div className="card" style={{ padding: 24 }}>
+        <Card style={{ padding: 24 }}>
           <span className="loading-spinner" /> Loading topology...
-        </div>
+        </Card>
       )}
 
       {open && !loading && !clusters.length && (
-        <div className="card" style={{ padding: 24 }}>
+        <Card style={{ padding: 24 }}>
           <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
             <Icon className="ti ti-info-circle" /> No clusters are configured on this server.
           </div>
-        </div>
+        </Card>
       )}
 
       {open &&

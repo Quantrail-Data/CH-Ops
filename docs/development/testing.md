@@ -64,6 +64,29 @@ The frontend tests live in `tests/frontend/`. As with the backend suite, the dir
 
 Frontend tests come in two styles. Many read source files as strings and assert on structure (imports, function signatures, route tables, CSS classes). This is intentional: it catches breaking changes without a browser, and it is why runtime line coverage looks low for those files, because their code paths are not executed. The `.jsx` files (for example, `DataTable.test.jsx`, `Toast.test.jsx`, `components.test.jsx`, `query-metrics.test.jsx`, `api-management.test.jsx`, `app-data-backup.test.jsx`, `user-management.test.jsx`) render components in jsdom, and several `.js` files (for example, `treeChart.test.js`, `apiUtils.test.js`, `sql-classify.test.js`) import and execute source modules directly. Those contribute actual runtime coverage. The jsdom environment and shared setup are configured in `vite.config.js` and `tests/frontend/setup.js`.
 
+## End-to-end tests (Playwright)
+
+A separate, smaller suite drives the real app in a browser with Playwright, in `tests/e2e/`. Run it with:
+
+```bash
+bun run test:e2e
+```
+
+Unlike the Vitest suite, this doesn't run against the developer's own environment. `test:e2e` first runs `scripts/gen-e2e-env.mjs`, which generates a throwaway super-admin login (`SUPER_ADMIN_1`/`SUPER_ADMIN_1_PASSWORD`/`SUPER_ADMIN_1_EMAIL`) and a fresh `ENCRYPTION_SECRET`, written to `tests/e2e/.env.e2e` (gitignored). `playwright.config.js` loads that file into `process.env` before starting the dev server, so the app boots with random, run-specific credentials rather than anything from a real `.env`. This means the suite needs no secrets to run in CI, and never depends on — or risks touching — real data. `scripts/clear-e2e-env.mjs` removes the generated env file and the saved login session afterward, whether the run passed or failed.
+
+Pass `E2E_ADMIN_SEED=<anything>` to get a reproducible (not random) password across runs, useful when reproducing a specific local failure.
+
+The suite is a **targeted smoke check**, not a full crawl of every page:
+
+| File | Covers |
+|------|--------|
+| `auth.setup.js` | Logs in once via the real login form; every other spec reuses the saved session. |
+| `login.spec.js` | The login form itself: valid credentials reach the app shell, invalid credentials show an error. |
+| `navigation-smoke.spec.js` | A handful of representative pages that use raw `.btn`/`.card`/`.badge`/`.tab-bar` markup, checked for uncaught JS exceptions. Since the environment starts with no configured ClickHouse® cluster, expected empty-state 404/400 network noise is not treated as a failure — only `pageerror` (an uncaught exception) is. |
+| `confirm-modal.spec.js` | `ConfirmModal.jsx`, the one existing component refactored onto `components/ui/Modal` and `components/ui/Button` (see [UI Framework](ui-framework.md)). Creates its own disposable app user via the real "New User" form, then exercises every close path (Escape, Cancel, overlay click) before finally confirming the delete — safe because the target is the fixture the test just created, not real data. |
+
+This suite exists specifically as a regression baseline for the UI framework work: it was written and run green *before* `ConfirmModal.jsx` was touched, then re-run afterward to confirm no behavior changed.
+
 ## Security-specific tests
 
 Security hardening is exercised across several files:

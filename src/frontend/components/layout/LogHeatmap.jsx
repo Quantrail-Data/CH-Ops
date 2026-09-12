@@ -12,6 +12,8 @@ import Icon from "../common/Icon.jsx";
 import { runQuery } from '../../utils/api.js';
 import { initChart, disposeChart } from '../../utils/echarts.js';
 import {useTheme} from "../../App.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 
 const pad = n => String(n).padStart(2, '0');
 const fmtAgo = h => { const d = new Date(Date.now() - h * 3600000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
@@ -241,32 +243,33 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
 
   return (
     <div>
-      <div className="card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {/* <div className="form-group"><label className="form-label">Quick</label><div style={{ display: 'flex', gap: 4 }}>{['1h','6h','24h','48h','7d','30d'].map(d => <button key={d} className={`btn btn-sm ${duration===d?'btn-primary':'btn-secondary'}`} onClick={() => applyDuration(d)}>{d}</button>)}</div></div> */}
+      <Card style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div className="form-group">
           <label className="form-label">Quick</label>
           <div style={{ display: 'flex', gap: '4px', alignItems: "center", justifyContent: "start" }}>
             {['1h', '6h', '24h', '48h', '7d', '30d'].map(d =>
-              <button key={d} style={{ border: duration === d ? '1px soild transparent ' : '1px soild red', padding: "10px", width: "50px ", display: "flex", alignItems: "center", justifyContent: "center" }}
-                // className='btn btn-sm '
-                className={`btn btn-sm ${duration === d ? 'btn-primary' : 'btn-secondary'}`}
+              <Button
+                key={d}
+                size="sm"
+                variant={duration === d ? 'primary' : 'secondary'}
+                style={{ border: duration === d ? '1px soild transparent ' : '1px soild red', padding: "10px", width: "50px ", display: "flex", alignItems: "center", justifyContent: "center" }}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>)}
+              </Button>)}
           </div>
         </div>
         {filterDropdown}
-        <button className="btn btn-primary btn-sm" style={{padding:"10px"}} onClick={loadHeatmap} disabled={loading}>{loading ? <><span className="loading-spinner"></span> Loading...</> : <><Icon className="ti ti-player-play"></Icon> Load Heatmap</>}</button>
-      </div>
+        <Button variant="primary" size="sm" style={{padding:"10px"}} onClick={loadHeatmap} disabled={loading}>{loading ? <><span className="loading-spinner"></span> Loading...</> : <><Icon className="ti ti-player-play"></Icon> Load Heatmap</>}</Button>
+      </Card>
       {data?.length > 0 ? (
-        <div className="card" style={fullscreen ? { position: 'fixed', inset: 0, zIndex: 300, borderRadius: 0, padding: 16, display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
+        <Card style={fullscreen ? { position: 'fixed', inset: 0, zIndex: 300, borderRadius: 0, padding: 16, display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 8 }}>
-            <button className="btn btn-ghost btn-sm" onClick={downloadChart} title="Download as PNG" aria-label="Download as PNG"><Icon className="ti ti-download"></Icon></button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setFullscreen(!fullscreen)} title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}><Icon className={`ti ${fullscreen ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`}></Icon></button>
+            <Button variant="ghost" size="sm" onClick={downloadChart} title="Download as PNG" aria-label="Download as PNG"><Icon className="ti ti-download"></Icon></Button>
+            <Button variant="ghost" size="sm" onClick={() => setFullscreen(!fullscreen)} title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}><Icon className={`ti ${fullscreen ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`}></Icon></Button>
           </div>
           <div ref={chartRef} style={{ height: fullscreen ? 'calc(100% - 40px)' : 628, width: '100%' }} />
-        </div>
+        </Card>
       ) : data !== null ? (
         <div className="empty-state"><Icon className="ti ti-player-play" style={{color:"#fb923c"}}></Icon><p>No data for the selected range.</p></div>
       ) : (

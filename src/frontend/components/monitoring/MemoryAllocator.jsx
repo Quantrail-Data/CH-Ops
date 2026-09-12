@@ -5,6 +5,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { runQuery } from "../../utils/api.js";
 import {
   initChart,
@@ -126,8 +128,7 @@ function HealthCard({
         ? themeColors.warning
         : themeColors.borderDefault;
   return (
-    <div
-      className="card"
+    <Card
       title={tooltip}
       style={{
         padding: 16,
@@ -168,7 +169,7 @@ function HealthCard({
           </span>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -641,8 +642,7 @@ export default function MemoryAllocator() {
         How physical RAM is divided. The gap between "Used by Queries" and
         "Given to Allocator" is internal fragmentation. Smaller gap = healthier.
       </InfoBanner>
-      <div
-        className="card"
+      <Card
         style={{ padding: 16, marginBottom: 20, height: "300px",position:"relative" }}
       >
         <SectionTitle>Memory Breakdown</SectionTitle>
@@ -676,7 +676,7 @@ export default function MemoryAllocator() {
           <span>Reclaimable: {fmtBytes(overview.dirty)}</span>
           <span>Physical RAM: {fmtBytes(overview.resident)}</span>
         </div>
-      </div>
+      </Card>
 
       {/* ROW 3: Pool Distribution */}
       {arenas.length > 0 && (
@@ -695,7 +695,7 @@ export default function MemoryAllocator() {
             }}
           >
             {/* Thread Distribution */}
-            <div className="card" style={{ padding: 16 }}>
+            <Card style={{ padding: 16 }}>
               <SectionTitle>Thread Distribution</SectionTitle>
               <div style={{ maxHeight: 300, overflowY: "auto" }}>
                 {sortedArenasByThreads.map((a) => {
@@ -732,10 +732,10 @@ export default function MemoryAllocator() {
                 Total threads: {totalThreads}. Balanced: ~
                 {(100 / Math.max(arenas.length, 1)).toFixed(0)}% per pool.
               </div>
-            </div>
+            </Card>
 
             {/* Load Balance */}
-            <div className="card" style={{ padding: 16 }}>
+            <Card style={{ padding: 16 }}>
               <SectionTitle>Pool Load Balance (by Alloc Rate)</SectionTitle>
               <div style={{ maxHeight: 300, overflowY: "auto" }}>
                 {sortedArenasByLoad.map((a) => {
@@ -757,11 +757,11 @@ export default function MemoryAllocator() {
                   );
                 })}
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Pool Comparison Table */}
-          <div className="card" style={{ padding: 16, marginBottom: 20 }}>
+          <Card style={{ padding: 16, marginBottom: 20 }}>
             <SectionTitle>Pool Comparison</SectionTitle>
             <div style={{ maxHeight: 300, overflow: "auto" }}>
               <table className="data-table">
@@ -817,7 +817,7 @@ export default function MemoryAllocator() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </Card>
         </>
       )}
 
@@ -838,7 +838,7 @@ export default function MemoryAllocator() {
             }}
           >
             {hotBins.length > 0 && (
-              <div className="card" style={{ padding: 16 }}>
+              <Card style={{ padding: 16 }}>
                 <SectionTitle>
                   Busiest Sizes (top 15 by alloc rate)
                 </SectionTitle>
@@ -855,10 +855,10 @@ export default function MemoryAllocator() {
                     />
                   );
                 })}
-              </div>
+              </Card>
             )}
             {wastefulBins.length > 0 && (
-              <div className="card" style={{ padding: 16 }}>
+              <Card style={{ padding: 16 }}>
                 <SectionTitle>
                   Most Wasteful Sizes (top 15 by waste)
                 </SectionTitle>
@@ -877,7 +877,7 @@ export default function MemoryAllocator() {
                     />
                   );
                 })}
-              </div>
+              </Card>
             )}
           </div>
         </>
@@ -888,7 +888,7 @@ export default function MemoryAllocator() {
       </InfoBanner>
       {/* ROW 6: Lock Contention (conditional) */}
       {showContention && (
-        <div className="card" style={{ padding: 16, marginBottom: 20 }}>
+        <Card style={{ padding: 16, marginBottom: 20 }}>
           <SectionTitle>Lock Contention</SectionTitle>
           <div style={{ overflow: "auto" }}>
             <table className="data-table" style={{ fontSize: "12px" }}>
@@ -974,7 +974,7 @@ export default function MemoryAllocator() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ROW 7: Collapsed Detail Sections */}
@@ -1238,17 +1238,19 @@ export default function MemoryAllocator() {
 
         <CollapsibleSection title="Raw jemalloc Output">
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 navigator.clipboard?.writeText(rawText);
                 toast?.success("Raw jemalloc copied");
               }}
             >
               <Icon className="ti ti-copy" /> Copy
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 const blob = new Blob([rawText], { type: "text/plain" });
                 const url = URL.createObjectURL(blob);
@@ -1260,7 +1262,7 @@ export default function MemoryAllocator() {
               }}
             >
               <Icon className="ti ti-download" /> Save
-            </button>
+            </Button>
           </div>
           <pre
             style={{

@@ -5,6 +5,8 @@
 import React, { useMemo, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { buildShareUrl, LINK_WARN_CHARS } from "../../utils/shareLink.js";
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 
 export default function ShareDialog({ sql, params, onClose, onExportBookmarks }) {
   // Off by default, and deliberately so.
@@ -55,9 +57,9 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
           <h3 style={{ fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
             <Icon className="ti ti-link" style={{ color: "var(--accent)" }} /> Share this query
           </h3>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
             <Icon className="ti ti-x" />
-          </button>
+          </Button>
         </div>
 
         <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", margin: "0 0 12px" }}>
@@ -137,13 +139,13 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             Close
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={copy}>
+          </Button>
+          <Button variant="primary" size="sm" onClick={copy}>
             <Icon className={copied ? "ti ti-check" : "ti ti-copy"} />{" "}
             {copied ? "Copied" : "Copy link"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

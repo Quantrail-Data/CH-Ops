@@ -4,6 +4,8 @@
 
 import React, { useMemo, useState } from "react";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import ParamInput from "../common/ParamInput.jsx";
 import { labelFor, isHidden, orderFilters, hasValue }
   from "../../utils/dashboardParams.js";
@@ -69,7 +71,7 @@ export default function DashboardFilters({
   }
 
   return (
-    <div className="card" style={{ marginBottom: 12, overflow: "hidden" }}>
+    <Card style={{ marginBottom: 12, overflow: "hidden" }}>
       <div
         style={{
           display: "flex",
@@ -79,15 +81,16 @@ export default function DashboardFilters({
           borderBottom: open ? "1px solid var(--border-default)" : "none",
         }}
       >
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setOpen((v) => !v)}
           title={open ? "Hide filters" : "Show filters"}
           aria-expanded={open}
           style={{ padding: "2px 6px" }}
         >
           <Icon className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: 16 }} />
-        </button>
+        </Button>
 
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: "14px" }}>
           <Icon className="ti ti-filter" style={{ fontSize: 16 }} />
@@ -113,14 +116,15 @@ export default function DashboardFilters({
         )}
 
         {canEdit && (
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onOpenSettings}
             title="Filter settings: labels, order, defaults, visibility"
             style={{ marginLeft: "auto" }}
           >
             <Icon className="ti ti-adjustments" /> Filter settings
-          </button>
+          </Button>
         )}
       </div>
 
@@ -202,24 +206,26 @@ export default function DashboardFilters({
               marginTop: 12,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={onReset}
               title="Return every filter to its default"
             >
               <Icon className="ti ti-refresh" /> Reset
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               onClick={onApply}
               disabled={!dirty}
               title={dirty ? "Re-run the affected charts" : "Nothing has changed"}
             >
               <Icon className="ti ti-check" /> Apply
-            </button>
+            </Button>
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

@@ -7,6 +7,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import ChartCard from "../layout/ChartCard.jsx";
 import SortableDataTable from "../layout/SortableDataTable.jsx";
 import QueryDetailModal from "./QueryDetailModal.jsx";
@@ -99,11 +101,11 @@ function FilterField({ label, htmlFor, children, grow }) {
 
 function MetricCard({ label, value, hint }) {
   return (
-    <div className="card" style={{ padding: 14, flex: 1, minWidth: 128 }}>
+    <Card style={{ padding: 14, flex: 1, minWidth: 128 }}>
       <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: "1.4rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{value}</div>
       {hint && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{hint}</div>}
-    </div>
+    </Card>
   );
 }
 
@@ -376,8 +378,7 @@ export default function CurrentQueries() {
       )}
 
       {/* Drives the table, the charts and the metric strip, so it sits above all three. */}
-      <div
-        className="card"
+      <Card
         style={{ padding: 12, marginBottom: 12, display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap" }}
       >
         <FilterField label="User" htmlFor="cq-user">
@@ -464,23 +465,24 @@ export default function CurrentQueries() {
         </div>
 
         {filterActive && (
-          <button className="btn btn-ghost btn-sm" onClick={clearFilters} style={{ marginBottom: 4 }}>
+          <Button variant="ghost" size="sm" onClick={clearFilters} style={{ marginBottom: 4 }}>
             <Icon className="ti ti-x" /> Clear
-          </button>
+          </Button>
         )}
 
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "flex-end", gap: 6 }}>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setPaused((p) => !p)}
             title={paused ? "Resume auto refresh" : "Pause auto refresh"}
             style={{ marginBottom: 4 }}
           >
             <Icon className={`ti ${paused ? "ti-player-play" : "ti-player-pause"}`} />
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={refresh} title="Refresh now" style={{ marginBottom: 4 }}>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={refresh} title="Refresh now" style={{ marginBottom: 4 }}>
             <Icon className="ti ti-refresh" />
-          </button>
+          </Button>
           <FilterField label="Refresh" htmlFor="cq-refresh">
             <Select
               id="cq-refresh"
@@ -497,7 +499,7 @@ export default function CurrentQueries() {
             </Select>
           </FilterField>
         </div>
-      </div>
+      </Card>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <MetricCard label="Running" value={summary.running.toLocaleString()} hint={filterActive ? "filtered" : undefined} />
@@ -508,10 +510,10 @@ export default function CurrentQueries() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: chartsOpen ? 12 : 0 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => setChartsOpen((v) => !v)}>
+        <Button variant="ghost" size="sm" onClick={() => setChartsOpen((v) => !v)}>
           <Icon className={`ti ${chartsOpen ? "ti-chevron-down" : "ti-chevron-right"}`} /> Workload
           breakdown
-        </button>
+        </Button>
         {!chartsOpen && (
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
             memory and read volume per user, longest running, concurrency over time
@@ -576,15 +578,16 @@ export default function CurrentQueries() {
         </span>
 
         {selectedKeys.size > 0 && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelectedKeys(new Set())}>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedKeys(new Set())}>
             Clear selection
-          </button>
+          </Button>
         )}
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           {userFilter && (
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={!isAdmin || sorted.length === 0}
               style={!isAdmin || sorted.length === 0 ? { opacity: 0.35, cursor: "not-allowed" } : {}}
               onClick={() => openKill(sorted, `currently listed for ${userFilter}`)}
@@ -595,10 +598,11 @@ export default function CurrentQueries() {
               }
             >
               <Icon className="ti ti-player-stop" /> Kill {sorted.length.toLocaleString()} listed from {userFilter}
-            </button>
+            </Button>
           )}
-          <button
-            className="btn btn-danger btn-sm"
+          <Button
+            variant="danger"
+            size="sm"
             disabled={!isAdmin || selectedKeys.size === 0}
             style={!isAdmin || selectedKeys.size === 0 ? { opacity: 0.35, cursor: "not-allowed" } : {}}
             onClick={() => openKill(selectedRows, "you selected")}
@@ -606,7 +610,7 @@ export default function CurrentQueries() {
           >
             <Icon className="ti ti-player-stop" />{" "}
             {selectedKeys.size ? `Kill ${selectedKeys.size.toLocaleString()} selected` : "Kill selected"}
-          </button>
+          </Button>
         </div>
       </div>
 

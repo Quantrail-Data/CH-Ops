@@ -15,6 +15,9 @@ import AlertBanner from "../layout/AlertBanner.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -47,22 +50,16 @@ export default function Projections() {
           <Icon className="ti ti-transform"></Icon> Projections
         </h2>
       </div>
-      <div className="tab-bar">
-        {tabs.map((t) => (
-          <div
-            key={t.id}
-            className={`tab-item ${routeTab === t.id ? "active" : ""}`}
-            onClick={() => handleTabChange(t.id)}
-            style={
-              t.id !== "view" && !isAdmin
-                ? { opacity: 0.35, cursor: "not-allowed" }
-                : {}
-            }
-          >
-            <Icon className={`ti ${t.icon}`}></Icon> {t.label}
-          </div>
-        ))}
-      </div>
+      <Tabs
+        items={tabs.map((t) => ({
+          key: t.id,
+          label: t.label,
+          icon: t.icon,
+          style: t.id !== "view" && !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {},
+        }))}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
       {routeTab === "view" && <ViewProjections />}
       {routeTab === "add" && <AddProjection />}
       {routeTab === "drop" && <DropProjection />}
@@ -328,8 +325,7 @@ function ViewProjections() {
   }
   return (
     <div>
-      <div
-        className="card"
+      <Card
         style={{
           padding: 16,
           marginBottom: 20,
@@ -367,10 +363,9 @@ function ViewProjections() {
             ))}
           </Select>
         </div>
-      </div>
+      </Card>
       {projQ.data?.length > 0 ? (
-        <div
-          className="card"
+        <Card
           style={
             fullscreen
               ? {
@@ -407,43 +402,48 @@ function ViewProjections() {
             >
               {Math.round(zoom * 100)}%
             </span>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => doZoom(1.25)}
               title="Zoom in"
             >
               <Icon className="ti ti-zoom-in"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => doZoom(0.8)}
               title="Zoom out"
             >
               <Icon className="ti ti-zoom-out"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setZoom(1)}
               title="Reset zoom"
             >
               <Icon className="ti ti-zoom-reset"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={downloadChart}
               title="Download PNG"
               aria-label="Download PNG"
             >
               <Icon className="ti ti-download"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setFullscreen(!fullscreen)}
             >
               <Icon
                 className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
               ></Icon>
-            </button>
+            </Button>
           </div>
           <div
             style={
@@ -463,7 +463,7 @@ function ViewProjections() {
           >
             <div ref={chartRef} />
           </div>
-        </div>
+        </Card>
       ) : (
         <div className="empty-state">
           <Icon className="ti ti-transform"></Icon>
@@ -541,7 +541,7 @@ function AddProjection() {
   return (
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      <form onSubmit={submit} className="card" style={{ padding: 20 }}>
+      <Card as="form" onSubmit={submit} style={{ padding: 20 }}>
         <DbTableSelector
           db={db}
           setDb={setDb}
@@ -689,16 +689,16 @@ function AddProjection() {
 
         <SqlPreview sql={buildSql()} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={!buildSql() || !isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-plus"></Icon> Add Projection
-          </button>
+          </Button>
         </div>
-      </form>
+      </Card>
     </div>
   );
 }
@@ -743,7 +743,7 @@ function DropProjection() {
   return (
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      <div className="card" style={{ padding: 20 }}>
+      <Card style={{ padding: 20 }}>
         <DbTableSelector
           db={db}
           setDb={setDb}
@@ -809,16 +809,16 @@ function DropProjection() {
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-danger"
+          <Button
+            variant="danger"
             disabled={!sql || !isAdmin}
             onClick={() => setConfirm(true)}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-trash"></Icon> Drop Projection
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
       {confirm && (
         <ConfirmModal
           title="Drop Projection"
@@ -875,7 +875,7 @@ function MaterializeProjection() {
   return (
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      <form onSubmit={submit} className="card" style={{ padding: 20 }}>
+      <Card as="form" onSubmit={submit} style={{ padding: 20 }}>
         <DbTableSelector
           db={db}
           setDb={setDb}
@@ -952,16 +952,16 @@ function MaterializeProjection() {
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={!sql || !isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-hammer"></Icon> Materialize
-          </button>
+          </Button>
         </div>
-      </form>
+      </Card>
     </div>
   );
 }
@@ -1010,7 +1010,7 @@ function ClearProjection() {
   return (
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      <div className="card" style={{ padding: 20 }}>
+      <Card style={{ padding: 20 }}>
         <DbTableSelector
           db={db}
           setDb={setDb}
@@ -1086,16 +1086,16 @@ function ClearProjection() {
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-danger"
+          <Button
+            variant="danger"
             disabled={!sql || !isAdmin}
             onClick={() => setConfirm(true)}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-eraser"></Icon> Clear Projection
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
       {confirm && (
         <ConfirmModal
           title="Clear Projection"

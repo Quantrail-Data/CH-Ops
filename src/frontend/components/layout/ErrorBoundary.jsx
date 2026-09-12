@@ -9,6 +9,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import React from 'react';
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
@@ -39,9 +40,9 @@ export default class ErrorBoundary extends React.Component {
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center', maxWidth: '500px' }}>
             {this.state.error?.message || 'An unexpected error occurred.'}
           </p>
-          <button className="btn btn-primary" onClick={() => { this.setState({ hasError: false, error: null }); }}>
+          <Button variant="primary" onClick={() => { this.setState({ hasError: false, error: null }); }}>
             <Icon className="ti ti-refresh"></Icon> Try Again
-          </button>
+          </Button>
         </div>
       );
     }

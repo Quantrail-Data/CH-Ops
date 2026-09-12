@@ -13,6 +13,7 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useConnection } from "../../App.jsx";
 import {motion} from "motion/react";
+import Button from "../ui/Button.jsx";
 
 const OP = { gt: ">", gte: ">=", lt: "<", lte: "<=", eq: "=", neq: "!=" };
 
@@ -149,7 +150,8 @@ export default function AlertMarquee() {
           })}
         </div>
       </marquee>
-     <motion.button
+     <Button
+        variant="danger"
         onClick={() => setVisible(false)}
         style={{
           position: "absolute",
@@ -165,11 +167,9 @@ export default function AlertMarquee() {
           fontSize: 14,
           lineHeight: 1,
         }}
-        
-        className="btn btn-danger"
       >
         <Icon className="ti ti-x" style={{ fontSize: 14 }}></Icon>
-      </motion.button>
+      </Button>
     </div>
   );
 }

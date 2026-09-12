@@ -5,6 +5,9 @@
 import React, { useEffect, useState } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '../../hooks/useQuery.js';
 import { runQuery } from '../../utils/api.js';
@@ -32,11 +35,15 @@ export default function CreateIndex() {
   return (
     <div className="page-content">
       <div className="section-header"><h2 className="section-title"><Icon className="ti ti-settings-2"></Icon> Index Management</h2></div>
-      <div className="tab-bar">
-        <div className={`tab-item ${routeTab === 'create' ? 'active' : ''}`} onClick={() => handleTabChange('create')} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-plus"></Icon> Create</div>
-        <div className={`tab-item ${routeTab === 'materialize' ? 'active' : ''}`} onClick={() => handleTabChange('materialize')} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-hammer"></Icon> Materialize</div>
-        <div className={`tab-item ${routeTab === 'drop' ? 'active' : ''}`} onClick={() => handleTabChange('drop')} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash"></Icon> Drop</div>
-      </div>
+      <Tabs
+        items={[
+          { key: 'create', label: 'Create', icon: 'plus', style: !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {} },
+          { key: 'materialize', label: 'Materialize', icon: 'hammer', style: !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {} },
+          { key: 'drop', label: 'Drop', icon: 'trash', style: !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {} },
+        ]}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
       {isAdmin ? (
         <>
           {routeTab === 'create' && <CreateForm />}
@@ -133,13 +140,13 @@ function CreateForm() {
 
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      <form onSubmit={submit} className="card" style={{ padding: 20 }}>
+      <Card as="form" onSubmit={submit} style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">Database *</label>
-            <Select 
-              className="form-select" 
-              value={db} 
+            <Select
+              className="form-select"
+              value={db}
               onChange={e => { setDb(e.target.value); setTbl(''); setCol(''); }}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -271,7 +278,7 @@ function CreateForm() {
         }
 
         {idxType === 'text' && (
-          <div className="card" style={{ padding: 16, marginBottom: 14, background: 'var(--bg-elevated)' }}>
+          <Card style={{ padding: 16, marginBottom: 14, background: 'var(--bg-elevated)' }}>
             <h4 style={{ fontSize: '14px', marginBottom: 12 }}><Icon className="ti ti-text-recognition"></Icon> Text Index Parameters</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
               <div className="form-group">
@@ -410,21 +417,21 @@ function CreateForm() {
                 </Select>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         <SqlPreview sql={buildSql()} />
         <div style={{ marginTop: 16 }}>
-          <button 
-            className="btn btn-primary" 
+          <Button
+            variant="primary"
             type="submit"
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <Icon className="ti ti-plus"></Icon> Create Index
-          </button>
+          </Button>
         </div>
-      </form>
+      </Card>
     </div>
 
 
@@ -469,13 +476,13 @@ function MaterializeForm() {
   return (
     <div>
       <AlertBanner result={result} setResult={setResult} />
-      <form onSubmit={submit} className="card" style={{ padding: 20 }}>
+      <Card as="form" onSubmit={submit} style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">Database *</label>
-            <Select 
-              className="form-select" 
-              value={db} 
+            <Select
+              className="form-select"
+              value={db}
               onChange={e => { setDb(e.target.value); setTbl(''); setIdxName(''); }}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -516,16 +523,16 @@ function MaterializeForm() {
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button 
-            className="btn btn-primary" 
-            type="submit" 
+          <Button
+            variant="primary"
+            type="submit"
             disabled={!sql || !isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <Icon className="ti ti-hammer"></Icon> Materialize Index
-          </button>
+          </Button>
         </div>
-      </form>
+      </Card>
     </div>
   );
 }
@@ -573,7 +580,7 @@ function DropForm() {
   }
 
   return (
-    <div className="card" style={{ padding: 20 }}>
+    <Card style={{ padding: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 16 }}>
         <div className="form-group">
           <label className="form-label">Database *</label>
@@ -617,15 +624,15 @@ function DropForm() {
       </div>
       <SqlPreview sql={buildDropSql()} />
       <div style={{ marginTop: 16 }}>
-        <button 
-          className="btn btn-danger" 
-          onClick={executeDrop} 
+        <Button
+          variant="danger"
+          onClick={executeDrop}
           disabled={!dropDb || !dropTbl || !dropIdx || !isAdmin}
           style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop Index
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }

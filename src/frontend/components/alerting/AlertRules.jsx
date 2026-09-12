@@ -5,6 +5,9 @@
 import React, { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Badge from "../ui/Badge.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useConnection, useAuth } from "../../App.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
@@ -249,11 +252,12 @@ export default function AlertRules() {
           <Icon className="ti ti-bell-ringing"></Icon> Alert Rules
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button className="btn btn-secondary btn-sm" onClick={load}>
+          <Button variant="secondary" size="sm" onClick={load}>
             <Icon className="ti ti-refresh"></Icon>
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => {
               resetForm();
               setShowForm(!showForm);
@@ -263,7 +267,7 @@ export default function AlertRules() {
           >
             <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showForm ? "Cancel" : "New Rule"}
-          </button>
+          </Button>
         </div>
       </div>
       {!isAdmin && (
@@ -279,17 +283,18 @@ export default function AlertRules() {
         >
           <Icon className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}></Icon>{" "}
           {result.msg}
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ marginLeft: "auto" }}
             onClick={() => setResult(null)}
           >
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
       )}
       {showForm && isAdmin && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <Card style={{ padding: 20, marginBottom: 20 }}>
           <div
             style={{
               display: "grid",
@@ -509,24 +514,24 @@ export default function AlertRules() {
               </div>
             </div>
           )}
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={save}
             disabled={!f.name || !f.sql || !!cronError}
           >
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update" : "Create"}
-          </button>
-          <button
-            className="btn btn-primary"
+          </Button>
+          <Button
+            variant="primary"
             onClick={testQuery}
             disabled={!f.name || !f.sql || !!cronError}
             style={{marginLeft:"10px"}}
           >
             <Icon className="ti ti-send"></Icon>{" "}
             Test
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
       {!loaded ? (
         <div className="empty-state">
@@ -591,7 +596,7 @@ export default function AlertRules() {
                   ? `Alert firing${r.lastValue != null ? ` - Current value: ${r.lastValue}` : ""}`
                   : `Last status: ${r.lastStatus}${r.lastValue != null ? ` (${r.lastValue})` : ""}`;
             return (
-              <div key={r.id} className="card" style={{ padding: 16 }}>
+              <Card key={r.id} style={{ padding: 16 }}>
                 <div
                   style={{
                     display: "flex",
@@ -601,11 +606,9 @@ export default function AlertRules() {
                   }}
                 >
                   <strong>{r.name}</strong>
-                  <span
-                    className={`badge ${r.severity === "critical" ? "badge-red" : r.severity === "warning" ? "badge-amber" : "badge-blue"}`}
-                  >
+                  <Badge color={r.severity === "critical" ? "red" : r.severity === "warning" ? "amber" : "blue"}>
                     {r.severity}
-                  </span>
+                  </Badge>
                 </div>
                 {r.description && (
                   <p
@@ -677,21 +680,17 @@ export default function AlertRules() {
                   </span>
                   <span>
                     {r.enabled ? (
-                      <span className="badge badge-green">Enabled</span>
+                      <Badge color="green">Enabled</Badge>
                     ) : (
-                      <span className="badge badge-gray">Disabled</span>
+                      <Badge color="gray">Disabled</Badge>
                     )}
                   </span>
-                  {r.isActive && !hasZeroNodes && (
-                    <span className="badge badge-red">FIRING</span>
-                  )}
-                  {hasZeroNodes && (
-                    <span className="badge badge-amber">NO NODES</span>
-                  )}
+                  {r.isActive && !hasZeroNodes && <Badge color="red">FIRING</Badge>}
+                  {hasZeroNodes && <Badge color="amber">NO NODES</Badge>}
                   {(!r.channels || r.channels.length === 0) && (
-                    <span className="badge badge-red" title="This rule will not notify anyone">
+                    <Badge color="red" title="This rule will not notify anyone">
                       NO CHANNELS
-                    </span>
+                    </Badge>
                   )}
                   {Array.isArray(r.nodes) && r.nodes.length > 0 && (
                     <span
@@ -736,16 +735,18 @@ export default function AlertRules() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => edit(r)}
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   >
                     <Icon className="ti ti-edit"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => toggleEnabled(r)}
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
@@ -754,17 +755,18 @@ export default function AlertRules() {
                       className={`ti ${r.enabled ? "ti-player-pause" : "ti-player-play"}`}
                     ></Icon>{" "}
                     {r.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
                     onClick={() => isAdmin && setDel(r.id)}
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   >
                     <Icon className="ti ti-trash"></Icon>
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

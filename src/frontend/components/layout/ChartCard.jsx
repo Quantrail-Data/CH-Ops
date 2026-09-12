@@ -11,6 +11,7 @@
 import React, { useRef, useEffect } from 'react';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
+import Card from '../ui/Card.jsx';
 
 export default function ChartCard({ title, option, height = 280, loading = false, scrollToHeight = null ,chartType='all'}) {
   const containerRef = useRef(null);
@@ -70,7 +71,7 @@ export default function ChartCard({ title, option, height = 280, loading = false
 
   return (
     <div style={fullscreen ? { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', padding: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { position: 'relative', minWidth: 0, overflow: 'hidden' }}>
-      <div className="card" style={{ padding: '16px', flex: fullscreen ? 1 : undefined, display: 'flex', flexDirection: 'column' }}>
+      <Card style={{ padding: '16px', flex: fullscreen ? 1 : undefined, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexShrink: 0, gap: 8 }}>
           <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-ui)' }}>{title}</span>
           <ChartToolbar
@@ -88,7 +89,7 @@ export default function ChartCard({ title, option, height = 280, loading = false
           <div ref={containerRef} style={{ height: chartH, width: '100%' }} />
           {loading && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface)', opacity: 0.7 }}><span className="loading-spinner"></span></div>}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

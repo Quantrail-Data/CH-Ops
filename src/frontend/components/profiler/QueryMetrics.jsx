@@ -18,6 +18,8 @@ import React, {
 } from "react";
 import { runQuery } from "../../utils/api.js";
 import ChartCard from "../layout/ChartCard.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useSearchParams } from "react-router-dom";
@@ -558,9 +560,9 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
       <div className="profiler-popup" onClick={(e) => e.stopPropagation()}>
         <div className="profiler-popup-header">
           <span style={{ fontWeight: 600 }}>Query Details</span>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
         <div style={{ marginBottom: 12 }}>
           <label
@@ -581,8 +583,9 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             >
               {query.query_id}
             </code>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={(e) => {
                 try {
                   navigator.clipboard.writeText(query.query_id);
@@ -599,7 +602,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
               title="Copy Query ID"
             >
               <Icon className="ti ti-copy"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
         <div
@@ -658,8 +661,9 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             flexWrap: "wrap",
           }}
         >
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={(e) => {
               try {
                 navigator.clipboard.writeText(
@@ -678,9 +682,9 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             }}
           >
             <Icon className="ti ti-copy" style={{ marginRight: 4 }}></Icon> Copy Query
-          </button>
-          <button
-            className="btn btn-primary"
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => {
               onSelect(query.query_id);
               onClose();
@@ -688,7 +692,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
           >
             <Icon className="ti ti-check" style={{ marginRight: 4 }}></Icon> Use This
             Query
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1042,8 +1046,7 @@ export default function QueryMetrics() {
         </h2>
       </div>
 
-      <div
-        className="card"
+      <Card
         style={{
           padding: 14,
           marginBottom: 16,
@@ -1058,9 +1061,9 @@ export default function QueryMetrics() {
         pick a query, and click Show Query Metrics to see how memory, CPU, IO,
         cache, and other resources were consumed over the query's lifetime. Only
         metrics with non-zero values are shown, grouped by category.
-      </div>
+      </Card>
 
-      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+      <Card style={{ padding: 16, marginBottom: 16 }}>
         <div
           style={{
             display: "flex",
@@ -1089,8 +1092,8 @@ export default function QueryMetrics() {
             />
           </div>
           <div className="form-group">
-            <button
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
               onClick={fetchQueries}
               disabled={queriesLoading}
               style={{ height: 40 }}
@@ -1109,7 +1112,7 @@ export default function QueryMetrics() {
                   Load Queries
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -1254,8 +1257,9 @@ export default function QueryMetrics() {
             >
               {selectedQueryId}
             </code>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setSelectedQueryId("");
                 setMetricsError("");
@@ -1265,13 +1269,13 @@ export default function QueryMetrics() {
               style={{ marginLeft: 4, fontSize: "12px" }}
             >
               <Icon className="ti ti-x"></Icon> Clear
-            </button>
+            </Button>
           </div>
         )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={handleShowMetrics}
             disabled={metricsLoading || !selectedQueryId}
             style={{ minWidth: 200 }}
@@ -1290,9 +1294,9 @@ export default function QueryMetrics() {
                 Show Query Metrics
               </>
             )}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {popupQuery && (
         <QueryDetailPopup

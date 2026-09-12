@@ -5,6 +5,8 @@ import { useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 
 export default function ForceChangePassword() {
   const { auth, login, logout } = useAuth();
@@ -62,16 +64,17 @@ export default function ForceChangePassword() {
         background: "var(--bg-page)",
       }}
     >
-      <button
-        className="btn btn-ghost btn-sm"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={toggleTheme}
         style={{ position: "absolute", top: "16px", right: "16px", zIndex: 9999 }}
         title={theme === "dark" ? "Light mode" : "Dark mode"}
       >
         <Icon className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`} style={{ fontSize: "20px" }}></Icon>
-      </button>
+      </Button>
 
-      <div className="card" style={{ padding: 32, width: "100%", maxWidth: 420 }}>
+      <Card style={{ padding: 32, width: "100%", maxWidth: 420 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <Icon className="ti ti-shield-lock" style={{ fontSize: 32, color: "var(--accent)" }}></Icon>
           <h4 style={{ margin: "12px 0 4px" }}>Change Your Password</h4>
@@ -159,24 +162,25 @@ export default function ForceChangePassword() {
             </div>
           </div>
 
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={loading}
             style={{ width: "100%", height: 42, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             {loading ? "Changing..." : "Change Password & Continue"}
-          </button>
+          </Button>
         </form>
 
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={logout}
           style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
         >
           Log out instead
-        </button>
-      </div>
+        </Button>
+      </Card>
     </div>
   );
 }

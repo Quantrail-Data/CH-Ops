@@ -6,6 +6,8 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import Icon from "../common/Icon.jsx";
 import InfoTip from "../common/InfoTip.jsx";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { METRICS } from "./overviewMetrics.js";
 import { polish, stageGauge, useIsDark } from "./overviewChart.js";
@@ -159,7 +161,7 @@ export function ChartCard({
     : { padding: "12px 12px 8px" };
 
   return (
-    <div className="card" style={shell}>
+    <Card style={shell}>
       <div
         style={{
           display: "flex",
@@ -216,7 +218,7 @@ export function ChartCard({
           {emptyMessage}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -224,7 +226,7 @@ export function ChartCard({
 
 export function KpiStrip({ title, items, minWidth = 168 }) {
   return (
-    <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+    <Card style={{ padding: 16, marginBottom: 16 }}>
       {title && (
         <h3 style={{ fontSize: "0.9375rem", margin: "0 0 12px" }}>{title}</h3>
       )}
@@ -239,7 +241,7 @@ export function KpiStrip({ title, items, minWidth = 168 }) {
           <KpiValue key={item.key} metricKey={item.key} value={item.value} />
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -318,7 +320,7 @@ export function HealthStrip({ chips }) {
   const visible = showHealthy ? [...bad, ...good] : bad;
 
   return (
-    <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+    <Card style={{ padding: 12, marginBottom: 16 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         {bad.length === 0 && !showHealthy && (
           <span
@@ -375,16 +377,17 @@ export function HealthStrip({ chips }) {
           );
         })}
 
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost btn-sm"
+          variant="ghost"
+          size="sm"
           style={{ marginLeft: "auto" }}
           onClick={() => setShowHealthy((v) => !v)}
         >
           {showHealthy ? "Hide clear checks" : `Show all ${chips.length} checks`}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -495,7 +498,7 @@ export function GaugeGroup({ title, subtitle, items, columns = 5 }) {
   if (!shown.length) return null;
 
   return (
-    <div className="card" style={{ padding: "12px 16px 8px", marginBottom: 16 }}>
+    <Card style={{ padding: "12px 16px 8px", marginBottom: 16 }}>
       {title && (
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
           <h3 style={{ fontSize: "0.9375rem", margin: 0 }}>{title}</h3>
@@ -525,7 +528,7 @@ export function GaugeGroup({ title, subtitle, items, columns = 5 }) {
           />
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -552,11 +555,11 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
 
   return (
     <div style={{ marginBottom: open ? 16 : 8 }}>
-      <button
+      <Button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="btn btn-ghost"
+        variant="ghost"
         style={{
           display: "flex",
           alignItems: "center",
@@ -585,7 +588,7 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
             {summary}
           </span>
         )}
-      </button>
+      </Button>
       {open && children}
     </div>
   );
