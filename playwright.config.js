@@ -50,7 +50,7 @@ export default defineConfig({
   webServer: [
     {
       command: "bun run dev:backend",
-      url: "http://127.0.0.1:3000",
+      url: "http://127.0.0.1:3000/api/health",
       reuseExistingServer: !process.env.CI,
       timeout: 240000,
       // Piped (not "ignore") so startup output - including a hang mid-migration
