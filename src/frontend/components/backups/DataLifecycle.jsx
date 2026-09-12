@@ -424,6 +424,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       scope,
       database: db || null,
       tables: tbl || null,
+      is_incremental:settingsStr.includes("base_backup"),
       created_at: new Date().toISOString(),
       s3_path: `${s3.endpoint}/backups/${backupId}/`,
     };
@@ -951,10 +952,9 @@ function AvailableBackupsTab({ profiles }) {
               <thead>
                 <tr>
                   <th>Backup ID</th>
-                  <th>Type</th>
                   <th>Scope</th>
                   <th>Created</th>
-                  <th>Incremental</th>
+                  <th>Backup Type</th>
                 </tr>
               </thead>
               <tbody>
@@ -969,7 +969,6 @@ function AvailableBackupsTab({ profiles }) {
                     >
                       {b.display_name || b.backup_id}
                     </td>
-                    <td>{(b.backup_type || "legacy").toUpperCase()}</td>
                     <td>
                       {b.scope?.toUpperCase()}
                       {b.database ? ` / ${b.database}` : ""}
