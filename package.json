@@ -63,7 +63,7 @@
     "farmhash": "^5.0.1",
     "fflate": "^0.8.3",
     "fuse.js": "^7.4.2",
-    "js-yaml": "4.3.1",
+    "js-yaml": "5.4.1",
     "jsonwebtoken": "9.0.2",
     "motion": "^12.39.0",
     "nodemailer": "9.0.5",
