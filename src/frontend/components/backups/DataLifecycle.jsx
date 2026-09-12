@@ -917,17 +917,6 @@ function AvailableBackupsTab({ profiles }) {
             ))}
           </Select>
         </div>
-        <div className="form-group">
-          <label className="form-label">Filter</label>
-          <Select
-            className="form-select"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All Backups</option>
-            <option value="manual">Manual Only</option>
-          </Select>
-        </div>
         <button
           className="btn btn-primary btn-sm"
           onClick={loadBackups}
@@ -966,7 +955,6 @@ function AvailableBackupsTab({ profiles }) {
                   <th>Scope</th>
                   <th>Created</th>
                   <th>Incremental</th>
-                  <th>Retention</th>
                 </tr>
               </thead>
               <tbody>
@@ -999,7 +987,6 @@ function AvailableBackupsTab({ profiles }) {
                         <span className="badge badge-green">FULL</span>
                       )}
                     </td>
-                    <td>{b.retention_days ? `${b.retention_days}d` : "-"}</td>
                   </tr>
                 ))}
               </tbody>

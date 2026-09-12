@@ -3293,7 +3293,7 @@ export default function QueryEditor({
             (!editorConnected ? (
               <div className="empty-state">
                 <Icon className="ti ti-lock"></Icon>
-                <p>"Connect with your ClickHouse credentials to begin."</p>
+                <p>Connect with your ClickHouse credentials to begin.</p>
               </div>
             ) : (
               <div

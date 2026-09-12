@@ -75,6 +75,7 @@ function SettingGroup({ group, settings, toggleSetting }) {
                   className="form-select"
                   value={settings[s.key] || ""}
                   onChange={(e) => toggleSetting(s.key, e.target.value)}
+                  style={{margin:0}}
                 >
                   <option value="">-- default --</option>
                   {s.options.map((o) => (
