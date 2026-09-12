@@ -43,6 +43,8 @@ jobs:
       # webServer in playwright.config.js starts backend + frontend itself.
       - name: Run Playwright E2E tests
         run: bun run test:e2e
+        env:
+          DEBUG: pw:webserver
 
       # Turns playwright-report/results.json (the json reporter output, see
       # playwright.config.js) into a pass/fail table in the job summary, so a
