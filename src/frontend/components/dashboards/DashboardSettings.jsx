@@ -4,6 +4,8 @@
 
 import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
+import Modal from "../ui/Modal.jsx";
 import ParamInput from "../common/ParamInput.jsx";
 import { orderFilters } from "../../utils/dashboardParams.js";
 
@@ -21,14 +23,6 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
     }
     return seed;
   });
-
-  useEffect(() => {
-    function onKey(e) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   function patch(name, key, value) {
     setDraft((p) => ({ ...p, [name]: { ...p[name], [key]: value } }));
@@ -61,17 +55,14 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Filter settings"
-        // Wider than the default confirm dialog: this is a five-column grid,
-        // and it scrolls rather than growing past the viewport.
-        style={{ maxWidth: 880, width: "94%", maxHeight: "84vh", display: "flex", flexDirection: "column", padding: 0 }}
-      >
+    <Modal
+      open
+      onClose={onClose}
+      aria-label="Filter settings"
+      // Wider than the default confirm dialog: this is a five-column grid,
+      // and it scrolls rather than growing past the viewport.
+      style={{ maxWidth: 880, width: "94%", maxHeight: "84vh", display: "flex", flexDirection: "column", padding: 0 }}
+    >
         <div
           style={{
             display: "flex",
@@ -86,15 +77,16 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
           <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
             {ordered.length} filter{ordered.length === 1 ? "" : "s"}
           </span>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
             title="Close"
             aria-label="Close"
             style={{ marginLeft: "auto" }}
           >
             <Icon className="ti ti-x" />
-          </button>
+          </Button>
         </div>
 
         <div style={{ padding: "16px 20px", overflow: "auto", flex: 1, minHeight: 0 }}>
@@ -211,14 +203,13 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
             borderTop: "1px solid var(--border-default)",
           }}
         >
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
+          <Button variant="secondary" size="sm" onClick={onClose}>
             Cancel
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={save} disabled={!ordered.length}>
+          </Button>
+          <Button variant="primary" size="sm" onClick={save} disabled={!ordered.length}>
             <Icon className="ti ti-device-floppy" /> Save settings
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -10,6 +10,7 @@
 
 import React, { useState, useRef } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
 import Select from "../common/Select.jsx";
 import { inferFromFile, inferFromObject } from "../../utils/studioApi.js";
 
@@ -130,9 +131,9 @@ export default function StepSource({ onDone }) {
             <option value="JSONEachRow">JSON / NDJSON</option>
           </Select>
 
-          <button className="btn btn-primary" onClick={handleObject} disabled={busy || !obj.path}>
+          <Button variant="primary" onClick={handleObject} disabled={busy || !obj.path}>
             {busy ? "Inferring..." : "Infer schema"}
-          </button>
+          </Button>
         </div>
       )}
 

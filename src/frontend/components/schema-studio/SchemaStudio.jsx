@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
 import { getGlobalConnection } from "../../utils/api.js";
 import { connect, connectionStatus, disconnect } from "../../utils/studioApi.js";
 import StepSource from "./StepSource.jsx";
@@ -78,7 +79,7 @@ export default function SchemaStudio() {
           <div className="studio-conn">
             <Icon className="ti ti-plug" />
             <span>{conn.chUser}@{conn.node}{conn.port ? `:${conn.port}` : ""}</span>
-            <button className="btn btn-ghost studio-conn-btn" onClick={handleDisconnect}>Disconnect</button>
+            <Button variant="ghost" className="studio-conn-btn" onClick={handleDisconnect}>Disconnect</Button>
           </div>
         </div>
         <ol className="studio-steps">
@@ -214,9 +215,9 @@ function ConnectPanel({ onConnected }) {
       </div>
 
       <div className="studio-actions">
-        <button className="btn btn-primary" onClick={doConnect} disabled={busy || !ready || !user}>
+        <Button variant="primary" onClick={doConnect} disabled={busy || !ready || !user}>
           {busy ? "Connecting..." : "Connect"}
-        </button>
+        </Button>
       </div>
     </div>
   );

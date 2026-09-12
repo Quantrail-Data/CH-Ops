@@ -21,6 +21,9 @@ import DataTable from "../layout/DataTable.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import ChartCard from "../layout/ChartCard.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -47,20 +50,14 @@ export default function CrashLog({ sidebar }) {
           <Icon className="ti ti-alert-triangle"></Icon> Crash Log
         </h2>
       </div>
-      <div className="tab-bar">
-        <div
-          className={`tab-item ${routeTab === "overview" ? "active" : ""}`}
-          onClick={() => handleTabChange("overview")}
-        >
-          <Icon className="ti ti-chart-dots-3"></Icon> Overview
-        </div>
-        <div
-          className={`tab-item ${routeTab === "search" ? "active" : ""}`}
-          onClick={() => handleTabChange("search")}
-        >
-          <Icon className="ti ti-search"></Icon> Search
-        </div>
-      </div>
+      <Tabs
+        items={[
+          { key: "overview", label: "Overview", icon: "chart-dots-3" },
+          { key: "search", label: "Search", icon: "search" },
+        ]}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
       {routeTab === "overview" && <CrashLogOverview />}
       {routeTab === "search" && <CrashLogSearch sidebar={sidebar} />}
     </div>
@@ -173,8 +170,7 @@ function rankedBarOption(rows, labelKey, valueKey) {
 
 function Stat({ label, value, icon, color, small }) {
   return (
-    <div
-      className="card"
+    <Card
       style={{
         padding: 18,
         display: "flex",
@@ -218,14 +214,13 @@ function Stat({ label, value, icon, color, small }) {
           {value}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function SectionError({ title, message }) {
   return (
-    <div
-      className="card"
+    <Card
       style={{
         padding: 16,
         minHeight: 100,
@@ -260,7 +255,7 @@ function SectionError({ title, message }) {
         ></Icon>
         <span>{message}</span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -432,8 +427,7 @@ function CrashLogOverview() {
 
   return (
     <div>
-      <div
-        className="card"
+      <Card
         style={{
           padding: 14,
           marginBottom: 16,
@@ -447,19 +441,21 @@ function CrashLogOverview() {
           <label className="form-label">Quick</label>
           <div style={{ display: "flex", gap: 4 }}>
             {PRESETS.map((d) => (
-              <button
+              <Button
                 key={d}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
+                size="sm"
+                variant={duration === d ? "primary" : "secondary"}
                 style={{ padding: "8px 12px", minWidth: 48 }}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
-        <button
-          className="btn btn-primary btn-sm"
+        <Button
+          variant="primary"
+          size="sm"
           style={{ padding: "8px 14px" }}
           onClick={load}
           disabled={loading}
@@ -473,8 +469,8 @@ function CrashLogOverview() {
               <Icon className="ti ti-player-play"></Icon> Load
             </>
           )}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {loading ? (
         <div className="empty-state">
@@ -585,7 +581,7 @@ function CrashLogOverview() {
           {errs.incidents ? (
             <SectionError title="Crash Incidents" message={errs.incidents} />
           ) : (
-            <div className="card" style={{ padding: 16 }}>
+            <Card style={{ padding: 16 }}>
               <div
                 style={{
                   fontSize: "0.875rem",
@@ -607,7 +603,7 @@ function CrashLogOverview() {
                   emptyMessage="No crash incidents in range."
                 />
               </div>
-            </div>
+            </Card>
           )}
         </div>
       )}
@@ -796,19 +792,20 @@ function CrashLogSearch({ sidebar }) {
           <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
           Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
 
       {filtersOpen && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <Card style={{ padding: 20, marginBottom: 20 }}>
           <form onSubmit={handleSearch}>
             <div
               style={{
@@ -888,11 +885,7 @@ function CrashLogSearch({ sidebar }) {
                   marginLeft: "10px",
                 }}
               >
-                <button
-                  className="btn btn-primary"
-                  type="submit"
-                  disabled={loading}
-                >
+                <Button variant="primary" type="submit" disabled={loading}>
                   {loading ? (
                     <>
                       <span className="loading-spinner"></span> Searching...
@@ -902,7 +895,7 @@ function CrashLogSearch({ sidebar }) {
                       <Icon className="ti ti-search"></Icon> Search
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -915,7 +908,7 @@ function CrashLogSearch({ sidebar }) {
               }}
             ></div>
           </form>
-        </div>
+        </Card>
       )}
       {submitted && !q.loading && (
         <DataTable

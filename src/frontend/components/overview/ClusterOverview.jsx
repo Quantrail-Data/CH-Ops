@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
 import { useQuery } from '../../hooks/useQuery.js';
 import { useConnection } from '../../App.jsx';
 import DataTable from '../layout/DataTable.jsx';
@@ -321,7 +322,7 @@ export default function ClusterOverview() {
           headline, so it takes a third of the width and a shorter chart. */}
       <Section id="disks" icon="ti-device-floppy" title="Disks" defaultOpen={false}>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) minmax(280px, 1.4fr)', gap: 16, marginBottom: 20 }}>
-        <div className="card" style={diskTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
+        <Card style={diskTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
           <ChartToolbar fullscreen={diskTools.fullscreen} onSave={diskTools.save} onToggleFullscreen={diskTools.toggleFullscreen} isWantFeature={chartControlsFlags} />
 
           {/* Only offered when there is more than one disk to choose between,
@@ -342,10 +343,10 @@ export default function ClusterOverview() {
           )}
 
           <div ref={attachDiskEl} style={{ height: diskTools.fullscreen ? 'calc(100vh - 96px)' : 210, width: '100%', flex: diskTools.fullscreen ? 1 : undefined }} />
-        </div>
+        </Card>
 
         {disks.data?.length > 0 && (
-          <div className="card" style={{ padding: 12 }}>
+          <Card style={{ padding: 12 }}>
             <h3 style={{ fontSize: '0.875rem', marginBottom: 8 }}>
               <Icon className="ti ti-device-floppy" /> Disk Details
             </h3>
@@ -355,7 +356,7 @@ export default function ClusterOverview() {
               variant="fixed"
               overView={true}
             />
-          </div>
+          </Card>
         )}
       </div>
       </Section>
@@ -371,7 +372,7 @@ export default function ClusterOverview() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
 
         {/* Zookeeper Connection */}
-        <div className="card" style={{ padding: 16 }}>
+        <Card style={{ padding: 16 }}>
           <h3 style={{ fontSize: '15px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon className="ti ti-binary-tree" /> Zookeeper Connection
           </h3>
@@ -430,10 +431,10 @@ export default function ClusterOverview() {
                   : 'No connection data'}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Active Connections */}
-        <div className="card" style={{ padding: 16 }}>
+        <Card style={{ padding: 16 }}>
           <h3 style={{ fontSize: '15px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon className="ti ti-plug-connected" /> Active Connections
             {totalConns > 0 && (
@@ -499,20 +500,20 @@ export default function ClusterOverview() {
               {connections.loading ? 'Loading...' : 'No connection data'}
             </div>
           )}
-        </div>
+        </Card>
       </div>
       </Section>
 
       {/* Readonly replicas detail */}
       {hasReadonly && (
         <Section id="readonly" icon="ti-lock" title="Readonly replicas" summary={`${readonlyVal} affected`} defaultOpen={false}>
-        <div className="card" style={{ padding: 16 }}>
+        <Card style={{ padding: 16 }}>
           <DataTable
             rows={readonlyReplicas.data || []}
             columns={['database', 'table', 'readonly_start_time']}
             variant="fixed"
           />
-        </div>
+        </Card>
         </Section>
       )}
 

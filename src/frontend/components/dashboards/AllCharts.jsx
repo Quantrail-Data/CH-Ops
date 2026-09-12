@@ -9,6 +9,8 @@ import DataTable from '../layout/DataTable.jsx';
 import ConfirmModal from '../layout/ConfirmModal.jsx';
 import { useTheme, useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -933,15 +935,16 @@ export default function AllCharts({ onEdit }) {
         <h2 className="section-title"><Icon className="ti ti-chart-bar"></Icon> All Charts</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {selected && supportsLegend && (
-            <button
-              className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+            <Button
+              variant={showLegend ? 'primary' : 'secondary'}
+              size="sm"
               onClick={() => setShowLegend(!showLegend)}
               title={showLegend ? 'Hide legend' : 'Show legend'}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`}></Icon>
               <span style={{ fontSize: '12px' }}>Legend</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -998,8 +1001,9 @@ export default function AllCharts({ onEdit }) {
         </div>
         
         {(searchTerm || filterType !== 'all' || filterDashboard !== 'all') && (
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setSearchTerm('');
               setFilterType('all');
@@ -1008,7 +1012,7 @@ export default function AllCharts({ onEdit }) {
             style={{ whiteSpace: 'nowrap' }}
           >
             <Icon className="ti ti-x"></Icon> Clear
-          </button>
+          </Button>
         )}
         
         <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
@@ -1027,9 +1031,9 @@ export default function AllCharts({ onEdit }) {
                   <td>{c.chartType} / {c.chartSubtype}</td>
                   <td>{c.dashboardId ? dashMap[c.dashboardId] || `#${c.dashboardId}` : '-'}</td>
                   <td style={{ display: 'flex', gap: 4 }}>
-                    {onEdit && canEdit && <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onEdit(c); }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></button>}
-                    {onEdit && !canEdit && <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></button>}
-                    <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); canEdit && setDel({ id: c.id, name: c.name }); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+                    {onEdit && canEdit && <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); onEdit(c); }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></Button>}
+                    {onEdit && !canEdit && <Button variant="ghost" size="sm" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></Button>}
+                    <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); canEdit && setDel({ id: c.id, name: c.name }); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></Button>
                   </td>
                 </tr>
               ))}
@@ -1038,16 +1042,17 @@ export default function AllCharts({ onEdit }) {
           </table>
         </div>
         {selected && (
-          <div ref={previewContainerRef} className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: isSmallScreen ? '500px' : '420px', width: '100%' }}>
+          <Card ref={previewContainerRef} style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: isSmallScreen ? '500px' : '420px', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: '14px', fontWeight: 600 }}>{selected.name}</div>
-              <button 
-                className="btn btn-ghost btn-sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => { setSelected(null); setPreviewOpt(null); if (previewInst.current) { disposeChart(previewRef.current); previewInst.current = null; } }}
                 title="Close preview"
               >
                 <Icon className="ti ti-x" style={{ fontSize: 16 }}></Icon>
-              </button>
+              </Button>
             </div>
             {previewLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
             {previewOpt?._error && <div className="alert-banner danger" style={{ fontSize: '13px' }}><Icon className="ti ti-alert-circle"></Icon> {previewOpt.message}</div>}
@@ -1074,7 +1079,7 @@ export default function AllCharts({ onEdit }) {
                 <div ref={previewRef} style={{ height: previewTools.fullscreen ? 'calc(100vh - 100px)' : (isSmallScreen ? 450 : 380), width: '100%', flex: 1 }} />
               </>
             )}
-          </div>
+          </Card>
         )}
       </div>
       {del && canEdit && <ConfirmModal title="Delete Chart" message={del?.name ? `Delete \"${del.name}\"?` : "Delete this chart?"} onConfirm={() => performDeleteChartById(del.id)} onCancel={() => setDel(null)} danger />}

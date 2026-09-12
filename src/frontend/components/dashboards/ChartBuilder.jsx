@@ -5,6 +5,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { isReadOnlySql } from "../../../shared/sqlClassify.js";
 import { findParameters } from "../../../shared/sqlParams.js";
@@ -1024,7 +1026,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               {
                 label: {
                   position: "outside",
-                  rotate: "tangential",
                   distance: previewTools.fullscreen ? 20 : 10,
                   rotate: 0,
                   show: !hideSunburst,
@@ -1463,8 +1464,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           <Icon className="ti ti-chart-dots-3"></Icon>{" "}
           {editId ? "Edit Chart" : "Chart Builder"}
         </h2>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setFullscreen(!fullscreen)}
           title={fullscreen ? "Exit full screen" : "Full screen"}
           aria-label={fullscreen ? "Exit full screen" : "Full screen"}
@@ -1473,10 +1475,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
             style={{ fontSize: 14 }}
           ></Icon>
-        </button>
+        </Button>
       </div>
 
-      <div className="card" 
+      <Card
       style={{ marginBottom: 12, overflow: "hidden" }}>
         <div
           onClick={() => setTopOpen(!topOpen)}
@@ -1550,7 +1552,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   )}
 
                   {!paramError && declaredParams.length > 0 && (
-                    <div className="card" style={{ padding: 12, marginTop: 8 }}>
+                    <Card style={{ padding: 12, marginTop: 8 }}>
                       <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
                         <Icon className="ti ti-filter" /> This chart declares{" "}
                         {declaredParams.length} dashboard filter
@@ -1599,7 +1601,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           />
                         </div>
                       ))}
-                    </div>
+                    </Card>
                   )}
                 </div>
               </div>
@@ -1620,8 +1622,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   disabled={running}
                 />
 
-                <button
-                  className="btn btn-primary btn-sm"
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={runSql}
                   disabled={running || !sql.trim()}
                 >
@@ -1634,7 +1637,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       <Icon className="ti ti-player-play"></Icon> Run
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
             <div
@@ -1672,10 +1675,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div
-        className="card"
+      <Card
         style={
           previewTools.fullscreen
             ? {
@@ -1901,9 +1903,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     padding: "8px 0",
                   }}
                 >
-                  <button
+                  <Button
                     onClick={() => setShowLegend(!showLegend)}
-                    className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+                    variant={showLegend ? 'primary' : 'secondary'}
+                    size="sm"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -1915,7 +1918,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   >
                     <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
                     <span>Legend</span>
-                  </button>
+                  </Button>
                 </div>
               )}
               {chartType === "gauge" && (
@@ -2134,10 +2137,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {chartOption && !chartOption._error && (
-        <div className="card" style={{ padding: 12 }}>
+        <Card style={{ padding: 12 }}>
           <h3 style={{ fontSize: "14px", marginBottom: 10 }}>
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editId ? "Update Chart" : "Save to Dashboard"}
@@ -2167,16 +2170,16 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 ))}
               </Select>
             </div>
-            <button
-              className="btn btn-primary"
+            <Button
+              variant="primary"
               onClick={saveChart}
               disabled={!selDashboard || !sql.trim()}
             >
               <Icon className="ti ti-device-floppy"></Icon>{" "}
               {editId ? "Update" : "Save"}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

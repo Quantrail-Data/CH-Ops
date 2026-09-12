@@ -171,7 +171,7 @@ describe("role gating matches the API", () => {
   });
 
   it("restricts deleting a chart to admin, matching requireAdmin on the route", () => {
-    expect(view).toMatch(/\{isAdmin && \(\s*<button[^>]*onClick=\{onDelete\}/);
+    expect(view).toMatch(/\{isAdmin && \(\s*<Button[^>]*onClick=\{onDelete\}/);
   });
 });
 
@@ -241,17 +241,19 @@ describe("filter bar layout and chrome", () => {
 
 describe("settings panel", () => {
   it("renders as an app modal, not a browser dialog", () => {
-    // Same overlay/box pair as ConfirmModal, so it carries the app theme.
-    expect(settings).toContain('className="modal-overlay"');
-    expect(settings).toContain('className="modal-box"');
-    expect(settings).toContain('role="dialog"');
+    // Delegates the overlay/box/role=dialog markup to the shared ui/Modal
+    // primitive (which carries the same modal-overlay/modal-box app theme)
+    // rather than hand-rolling it.
+    expect(settings).toContain('import Modal from "../ui/Modal.jsx"');
+    expect(settings).toMatch(/<Modal\b/);
     expect(settings).not.toContain("window.alert");
     expect(settings).not.toContain("window.confirm");
   });
 
-  it("closes on Escape and on a backdrop click", () => {
-    expect(settings).toContain('e.key === "Escape"');
-    expect(settings).toContain("e.stopPropagation()");
+  it("closes on Escape and on a backdrop click via the shared Modal", () => {
+    // Escape/backdrop-click handling lives in ui/Modal.jsx now; confirm it's
+    // actually wired up here rather than re-implemented locally.
+    expect(settings).toMatch(/<Modal[\s\S]{0,80}onClose=\{onClose\}/);
   });
 
   it("uses a fixed grid with wrapped parameter names", () => {

@@ -13,8 +13,14 @@ src/backend/version.generated.js
 test-results.xml
 coverage/
 coverage-comment.md
+tests/e2e/.auth/
+tests/e2e/.env.e2e
+test-results/
+playwright-report/
+storybook-static/
 chops
 chops-linux-x64
 chops-darwin-arm64
 chops-darwin-x64
 chops-windows-x64.exe
+.rtk

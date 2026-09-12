@@ -11,6 +11,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import {
   ReactFlow,
   Controls,
@@ -175,13 +177,14 @@ function DetailPanel({ processorId, profile, onClose }) {
         <span style={{ fontWeight: 700, fontSize: "13px" }}>
           Processor Details
         </span>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onClose}
           style={{ fontSize: "13px" }}
         >
           <Icon className="ti ti-x" />
-        </button>
+        </Button>
       </div>
       <table
         style={{
@@ -576,8 +579,7 @@ function ProcessorsProfileInner( ) {
       }}
     >
       {/* Filter form and query picker */}
-      <div
-        className="card"
+      <Card
         style={{ padding: 16, marginBottom: 12, flexShrink: 0 }}
       >
         {!qidFromUrl && (
@@ -695,20 +697,22 @@ function ProcessorsProfileInner( ) {
               </Select>
             </label>
             <div style={{ display: "flex", gap: 6 }}>
-              <button
-                className="btn btn-primary btn-sm"
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleApply}
                 disabled={loadingQueries || !startTime || !endTime}
               >
                 {loadingQueries ? "Loading..." : "Apply"}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={handleReset}
                 disabled={loadingQueries}
               >
                 Reset
-              </button>
+              </Button>
             </div>
             {optsLoading && (
               <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
@@ -761,13 +765,13 @@ function ProcessorsProfileInner( ) {
           </div>
         )}
 
-      
-      </div>
+
+      </Card>
 
       {/* Query text (collapsible) */}
       {queryText && (
-        <details
-          className="card"
+        <Card
+          as="details"
           style={{
             padding: "10px 16px",
             marginBottom: 12,
@@ -797,7 +801,7 @@ function ProcessorsProfileInner( ) {
           >
             {queryText}
           </pre>
-        </details>
+        </Card>
       )}
 
       {/* Error display */}
@@ -820,8 +824,7 @@ function ProcessorsProfileInner( ) {
       )}
 
       {/* Pipeline graph */}
-      <div
-        className="card"
+      <Card
         style={{
           ...(fullscreen
             ? {
@@ -853,22 +856,24 @@ function ProcessorsProfileInner( ) {
         >
           <HeatmapLegend minUs={heatRange.minUs} maxUs={heatRange.maxUs} />
           <div style={{ display: "flex", gap: 4 }}>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleResetView()}
               title="Reset"
             >
               <Icon className="ti ti-zoom-reset" />
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setFullscreen(!fullscreen)}
               title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
               <Icon
                 className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
               />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -1005,7 +1010,7 @@ function ProcessorsProfileInner( ) {
             </div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

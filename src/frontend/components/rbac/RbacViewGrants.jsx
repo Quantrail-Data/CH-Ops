@@ -5,6 +5,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '../../hooks/useQuery.js';
 import { initChart, disposeChart } from '../../utils/echarts.js';
@@ -28,31 +31,15 @@ export default function RbacViewGrants() {
         </h2>
       </div>
 
-      <div className="tab-bar">
-        <div
-          className={`tab-item ${routeTab === 'users' ? 'active' : ''}`}
-          onClick={() => handleTabChange('users')}
-        >
-          <Icon className="ti ti-user"></Icon>
-          User Grants
-        </div>
-
-        <div
-          className={`tab-item ${routeTab === 'roles' ? 'active' : ''}`}
-          onClick={() => handleTabChange('roles')}
-        >
-          <Icon className="ti ti-shield"></Icon>
-          Role Grants
-        </div>
-
-        <div
-          className={`tab-item ${routeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => handleTabChange('overview')}
-        >
-          <Icon className="ti ti-list"></Icon>
-          Full Overview
-        </div>
-      </div>
+      <Tabs
+        items={[
+          { key: 'users', label: 'User Grants', icon: 'user' },
+          { key: 'roles', label: 'Role Grants', icon: 'shield' },
+          { key: 'overview', label: 'Full Overview', icon: 'list' },
+        ]}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
 
       {routeTab === 'users' && <UserTree />}
       {routeTab === 'roles' && <RoleTree />}
@@ -394,8 +381,7 @@ function UserTree() {
         </div>
       </div>
 
-      <div
-        className="card"
+      <Card
         style={
           fullscreen
             ? {
@@ -435,36 +421,41 @@ function UserTree() {
             {Math.round(zoom * 100)}%
           </span>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => doZoom(1.25)}
           >
             <Icon className="ti ti-zoom-in"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => doZoom(0.8)}
           >
             <Icon className="ti ti-zoom-out"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setZoom(1)}
           >
             <Icon className="ti ti-zoom-reset"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={downloadChart}
           >
             <Icon className="ti ti-download"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() =>
               setFullscreen(!fullscreen)
             }
@@ -476,7 +467,7 @@ function UserTree() {
                   : 'ti-arrows-maximize'
               }`}
             ></Icon>
-          </button>
+          </Button>
         </div>
 
         <div
@@ -503,7 +494,7 @@ function UserTree() {
             )}
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -729,8 +720,7 @@ function RoleTree() {
         </div>
       </div>
 
-      <div
-        className="card"
+      <Card
         style={
           fullscreen
             ? {
@@ -770,36 +760,41 @@ function RoleTree() {
             {Math.round(zoom * 100)}%
           </span>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => doZoom(1.25)}
           >
             <Icon className="ti ti-zoom-in"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => doZoom(0.8)}
           >
             <Icon className="ti ti-zoom-out"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setZoom(1)}
           >
             <Icon className="ti ti-zoom-reset"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={downloadChart}
           >
             <Icon className="ti ti-download"></Icon>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() =>
               setFullscreen(!fullscreen)
             }
@@ -811,7 +806,7 @@ function RoleTree() {
                   : 'ti-arrows-maximize'
               }`}
             ></Icon>
-          </button>
+          </Button>
         </div>
 
         <div
@@ -838,7 +833,7 @@ function RoleTree() {
             )}
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

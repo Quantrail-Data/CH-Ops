@@ -5,6 +5,7 @@
 
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import Button from "../ui/Button.jsx";
 import React, {
   useState,
   useEffect,
@@ -515,18 +516,12 @@ function SchemaFlow() {
                 <option value="executions">Executions</option>
               </Select>
             )}
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={handleRelayout}
-            >
+            <Button variant="secondary" size="sm" onClick={handleRelayout}>
               Re-layout
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => fitView({ padding: 0.15 })}
-            >
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => fitView({ padding: 0.15 })}>
               Fit
-            </button>
+            </Button>
           </>
         )}
         <span

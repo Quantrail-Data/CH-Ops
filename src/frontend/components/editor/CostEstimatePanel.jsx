@@ -5,6 +5,8 @@
 import React from 'react';
 import Icon from "../common/Icon.jsx";
 import { fmtBytes, fmtRows } from '../../utils/costEstimator.js';
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 
 export default function CostEstimatePanel({ estimate, loading }) {
   if (loading) {

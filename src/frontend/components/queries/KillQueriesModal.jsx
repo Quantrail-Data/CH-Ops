@@ -8,6 +8,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
+import Modal from "../ui/Modal.jsx";
 import { runQuery } from "../../utils/api.js";
 import {
   buildKillSql,
@@ -29,14 +31,6 @@ export default function KillQueriesModal({ targets, scopeLabel, defaultSync = fa
   useEffect(() => () => {
     cancelled.current = true;
   }, []);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape" && phase !== "running") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, phase]);
 
   // Re-checked here: query_id is client-settable in ClickHouse.
   const ids = targets.map((t) => t.query_id).filter(isSafeQueryId);
@@ -86,17 +80,22 @@ export default function KillQueriesModal({ targets, scopeLabel, defaultSync = fa
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="modal-overlay" onClick={phase === "running" ? undefined : onClose} style={{ zIndex: 1400 }}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, width: "92%" }}>
+    <Modal
+      open
+      onClose={phase === "running" ? undefined : onClose}
+      zIndex={1400}
+      size="md"
+      style={{ width: "92%" }}
+    >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           <Icon className="ti ti-alert-triangle" style={{ color: "var(--color-danger)" }} />
           <span style={{ fontWeight: 600 }}>
             {phase === "done" ? "Kill result" : `Kill queries (${sync ? "SYNC" : "ASYNC"})`}
           </span>
           {phase !== "running" && (
-            <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={onClose}>
+            <Button variant="ghost" size="sm" style={{ marginLeft: "auto" }} onClick={onClose}>
               <Icon className="ti ti-x" />
-            </button>
+            </Button>
           )}
         </div>
 
@@ -201,18 +200,19 @@ export default function KillQueriesModal({ targets, scopeLabel, defaultSync = fa
             )}
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button className="btn btn-secondary btn-sm" onClick={onClose}>
+              <Button variant="secondary" size="sm" onClick={onClose}>
                 Cancel
-              </button>
-              <button
-                className="btn btn-danger btn-sm"
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={execute}
                 disabled={!canConfirm}
                 style={!canConfirm ? { opacity: 0.4, cursor: "not-allowed" } : {}}
               >
                 <Icon className="ti ti-player-stop" /> Kill {ids.length.toLocaleString()}{" "}
                 {sync ? "(SYNC)" : "(ASYNC)"}
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -288,14 +288,13 @@ export default function KillQueriesModal({ targets, scopeLabel, defaultSync = fa
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button className="btn btn-secondary btn-sm" onClick={onClose}>
+              <Button variant="secondary" size="sm" onClick={onClose}>
                 Close
-              </button>
+              </Button>
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
 

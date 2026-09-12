@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import Button from "../ui/Button.jsx";
 import yaml from "js-yaml";
 import { apiFetch, apiFetchText } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
@@ -790,14 +791,14 @@ function LogsTab({ clusterId, hosts }) {
           previous container
         </label>
 
-        <button
-          className="btn btn-secondary"
+        <Button
+          variant="secondary"
           onClick={load}
           disabled={busy}
           style={{ marginBottom: 8 }}
         >
           {busy ? "Reading..." : "Read logs"}
-        </button>
+        </Button>
       </div>
 
       {/* Search filters what has already been fetched, so typing costs nothing
@@ -992,20 +993,19 @@ export default function KubernetesInsight({ cluster }) {
       >
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {TABS.map((t) => (
-            <button
+            <Button
               key={t.id}
-              className={
-                tab === t.id ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"
-              }
+              variant={tab === t.id ? "primary" : "secondary"}
+              size="sm"
               onClick={() => setTab(t.id)}
             >
               {t.label}
-            </button>
+            </Button>
           ))}
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={refresh} disabled={busy}>
+        <Button variant="secondary" size="sm" onClick={refresh} disabled={busy}>
           <Icon className="ti ti-refresh" /> Refresh
-        </button>
+        </Button>
       </div>
 
       {busy && <div style={{ ...muted, fontSize: 13 }}>Loading...</div>}

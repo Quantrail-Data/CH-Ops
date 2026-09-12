@@ -10,6 +10,7 @@
 import React from 'react'
 import Icon from "../common/Icon.jsx";
 import {AnimatePresence,motion} from 'motion/react';
+import Button from "../ui/Button.jsx";
 
 // Alertbanner component for alert banner pop for showing the result or response to the user
 function AlertBanner({result,setResult}) {
@@ -24,9 +25,9 @@ function AlertBanner({result,setResult}) {
         className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}>
           <Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}>
           </Icon> {result.msg}
-          <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}>
+          <Button variant="ghost" size="sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}>
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </motion.div>}
     </AnimatePresence>
   )

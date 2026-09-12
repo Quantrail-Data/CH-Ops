@@ -8,6 +8,12 @@ import {
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Modal from "../ui/Modal.jsx";
+import Spinner from "../ui/Spinner.jsx";
+import Badge from "../ui/Badge.jsx";
+import Tooltip from "../ui/Tooltip.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 4 };
 const AI_PROVIDERS = ["GEMINI", "OPEN AI", "MISTRAL", "CLAUDE", "OLLAMA"];
@@ -247,7 +253,6 @@ export default function ApiManagement() {
       return;
     }
 
-
     const isDuplicateNameCheck = isDuplicateName(
       formAPIName.trim(),
       editingKey?.id,
@@ -265,27 +270,12 @@ export default function ApiManagement() {
       return;
     }
 
-    // const isDuplicateValueCheck = await checkDuplicateValue(
-    //   formKeyValue.trim(),
-    //   editingKey?.id,
-    // );
-    // if (isDuplicateValueCheck) {
-    //   if (editingKey) {
-    //     toast.warning(
-    //       `Cannot update: This API key value already exists for another key`,
-    //     );
-    //   } else {
-    //     toast.warning(`Cannot create: This API key value already exists`);
-    //   }
-    //   return;
-    // }
-
     try {
       if (editingKey) {
         await apiFetch(`/api/qurioz/api-keys/${editingKey.id}`, {
           method: "PUT",
           body: JSON.stringify({
-            name:formAPIName.trim(),
+            name: formAPIName.trim(),
             provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
@@ -297,7 +287,7 @@ export default function ApiManagement() {
         await apiFetch("/api/qurioz/api-keys", {
           method: "POST",
           body: JSON.stringify({
-            name:formAPIName.trim(),
+            name: formAPIName.trim(),
             provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
@@ -306,7 +296,7 @@ export default function ApiManagement() {
 
         toast.success("API key added successfully");
       }
-      setFormAPIName("")
+      setFormAPIName("");
       setFormAIProvider("");
       setFormKeyValue("");
       setFormModelValue("");
@@ -367,7 +357,7 @@ export default function ApiManagement() {
 
   async function editKey(key) {
     setEditingKey(key);
-    setFormAPIName(key?.name)
+    setFormAPIName(key?.name);
     setFormAIProvider(key?.provider);
     setFormModelValue(key?.model);
     setFormKeyValue("");
@@ -446,7 +436,7 @@ export default function ApiManagement() {
     return (
       <div className="page-content">
         <div className="empty-state" style={{ padding: 40 }}>
-          <div className="loading-spinner"></div> Loading...
+          <Spinner size="md" /> Loading...
         </div>
       </div>
     );
@@ -472,69 +462,6 @@ export default function ApiManagement() {
       </div>
     );
   }
-
-  const themeStyles = {
-    light: {
-      overlay: "rgba(0, 0, 0, 0.25)",
-      modalBg: "#ffffff",
-      modalBorder: "1px solid #e5e7eb",
-      modalText: "#111827",
-      titleText: "#111827",
-      paragraphText: "#374151",
-      cancelBtnBg: undefined,
-      cancelBtnColor: undefined,
-      cancelBtnBorder: undefined,
-      modalBoxShadow:
-        "0 12px 18px -8px rgba(2,6,23,0.08), 0 8px 12px -8px rgba(2,6,23,0.06)",
-    },
-    dark: {
-      overlay: "rgba(2,6,23,0.6)",
-      modalBg: "#0b1220",
-      modalBorder: "1px solid rgba(255,255,255,0.04)",
-      modalText: "#E6EEF8",
-      titleText: "#F9FAFB",
-      paragraphText: "#D1D5DB",
-      cancelBtnBg: "rgba(255,255,255,0.03)",
-      cancelBtnColor: "#E6EEF8",
-      cancelBtnBorder: "1px solid rgba(255,255,255,0.06)",
-      modalBoxShadow:
-        "0 20px 25px -5px rgba(2,6,23,0.6), 0 10px 10px -5px rgba(2,6,23,0.5)",
-    },
-  };
-
-  const current = isDarkMode ? themeStyles.dark : themeStyles.light;
-
-  const modalInnerStyle = {
-    backgroundColor: current.modalBg,
-    borderRadius: "12px",
-    padding: "24px",
-    maxWidth: "600px",
-    width: "90%",
-    boxShadow: current.modalBoxShadow,
-    border: current.modalBorder,
-    color: current.modalText,
-  };
-
-  const modalTitleStyle = {
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    marginBottom: "12px",
-    color: current.titleText,
-  };
-
-  const modalParagraphStyle = {
-    fontSize: "15px",
-    color: current.paragraphText,
-    marginBottom: "24px",
-  };
-
-  const cancelButtonStyle = {
-    padding: "8px 16px",
-    backgroundColor: current.cancelBtnBg,
-    color: current.cancelBtnColor,
-    border: current.cancelBtnBorder,
-    borderRadius: "8px",
-  };
 
   function ModelExamplesPlaceholder(proName) {
     switch (proName) {
@@ -587,7 +514,7 @@ export default function ApiManagement() {
 
   async function verifyAPIKeyHandler(e) {
     e.preventDefault();
-    setISvalidKey(false)
+    setISvalidKey(false);
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
     if (formAIProvider.trim() && formKeyValue.trim() && formModelValue.trim()) {
@@ -615,14 +542,18 @@ export default function ApiManagement() {
           return;
         }
         setISvalidKey(true);
-        const successMessage = `API key verified successfully. You can now ${editingKey ? 'update' : 'add'} it.`;
+        const successMessage = `API key verified successfully. You can now ${
+          editingKey ? "update" : "add"
+        } it.`;
         setKeyValidationStatus("success");
         setKeyValidationMessage(successMessage);
-        toast?.success(successMessage)
+        toast?.success(successMessage);
         return;
       } catch (err) {
         setISvalidKey(false);
-        const reason = err?.message || "API key validation failed. Please verify your API key and try again.";
+        const reason =
+          err?.message ||
+          "API key validation failed. Please verify your API key and try again.";
         setKeyValidationStatus("error");
         setKeyValidationMessage(reason);
         toast?.error(reason);
@@ -644,7 +575,7 @@ export default function ApiManagement() {
         </h2>
       </div>
 
-      <div className="card" style={{ maxWidth: 720, padding: 24 }}>
+      <Card style={{ maxWidth: 720, padding: 24 }}>
         <div style={{ marginBottom: 20 }}>
           <h3
             style={{
@@ -707,17 +638,9 @@ export default function ApiManagement() {
                       }}
                     >
                       {selectedKeyId === key.id && (
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            padding: "2px 6px",
-                            backgroundColor: "var(--accent)",
-                            color: "white",
-                            borderRadius: "4px",
-                          }}
-                        >
+                        <Badge variant="primary" size="sm">
                           Active
-                        </span>
+                        </Badge>
                       )}
                       <span
                         style={{
@@ -747,28 +670,34 @@ export default function ApiManagement() {
                   </div>
                   <div style={{ display: "flex", gap: 8, marginLeft: 12 }}>
                     {selectedKeyId !== key.id && (
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => selectActiveKey(key.id)}
-                        title="Set as active"
-                      >
-                        <Icon className="ti ti-check"></Icon>
-                      </button>
+                      <Tooltip content="Set as active">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => selectActiveKey(key.id)}
+                        >
+                          <Icon className="ti ti-check"></Icon>
+                        </Button>
+                      </Tooltip>
                     )}
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => editKey(key)}
-                      title="Edit key"
-                    >
-                      <Icon className="ti ti-edit"></Icon>
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => confirmDelete(key.id, key.name)}
-                      title="Delete key"
-                    >
-                      <Icon className="ti ti-trash"></Icon>
-                    </button>
+                    <Tooltip content="Edit key">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => editKey(key)}
+                      >
+                        <Icon className="ti ti-edit"></Icon>
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content="Delete key">
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => confirmDelete(key.id, key.name)}
+                      >
+                        <Icon className="ti ti-trash"></Icon>
+                      </Button>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
@@ -780,23 +709,22 @@ export default function ApiManagement() {
           <form>
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
-                Name{" "}
-                <span style={{ color: "var(--danger)" }}>*</span>
+                Name <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={formAPIName}
-                  onChange={(e) => setFormAPIName(e.target.value)}
-                  placeholder="Enter the Name"
-                  required
-                  autoFocus
-                  style={{
-                    width: "100%",
-                    maxWidth: 520,
-                    fontSize: "14px",
-                  }}
-                />
+              <input
+                className="form-input"
+                type="text"
+                value={formAPIName}
+                onChange={(e) => setFormAPIName(e.target.value)}
+                placeholder="Enter the Name"
+                required
+                autoFocus
+                style={{
+                  width: "100%",
+                  maxWidth: 520,
+                  fontSize: "14px",
+                }}
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
@@ -812,9 +740,7 @@ export default function ApiManagement() {
                   fontSize: "14px",
                 }}
               >
-                <option value={""} selected>
-                  Select AI Provider
-                </option>
+                <option value={""}>Select AI Provider</option>
                 {AI_PROVIDERS.map((name, index) => {
                   return (
                     <option value={name} key={index}>
@@ -824,7 +750,6 @@ export default function ApiManagement() {
                 })}
               </Select>
             </div>
-
 
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
@@ -873,8 +798,8 @@ export default function ApiManagement() {
                 {isOllama
                   ? "Ollama Base URL"
                   : editingKey
-                    ? "Edit API Key Value"
-                    : "API Key Value"}{" "}
+                  ? "Edit API Key Value"
+                  : "API Key Value"}{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div
@@ -941,69 +866,56 @@ export default function ApiManagement() {
                   )}
                 </div>
                 {isOllama && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{
-                      padding: "7px 10px",
-                      borderRadius: "5px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      alignSelf: "flex-start",
-                    }}
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={fetchOllamaModels}
                     disabled={isFetchingOllamaModels}
+                    style={{ alignSelf: "flex-start" }}
                   >
                     {isFetchingOllamaModels ? (
-                      <div className="loading-spinner"></div>
+                      <Spinner size="sm" />
                     ) : (
                       <>
                         <Icon className="ti ti-refresh"></Icon>
                         <span style={{ fontSize: "13px" }}>Fetch Models</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="btn btn-primary"
-                  style={{
-                    padding: "7px 10px",
-                    borderRadius: "5px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  title={keyValidationMessage || "Test the API key"}
-                  onClick={verifyAPIKeyHandler}
-                >
-                  {isLoadingKey ? (
-
-                     <div className="loading-spinner"></div>
-
-                  ) : (
-                    <>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
-                      >
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M10.09 4.01l.496 -.495a2 2 0 0 1 2.828 0l7.071 7.07a2 2 0 0 1 0 2.83l-7.07 7.07a2 2 0 0 1 -2.83 0l-7.07 -7.07a2 2 0 0 1 0 -2.83l3.535 -3.535h-3.988" />
-                        <path d="M7.05 11.038v-3.988" />
-                      </svg>
-                      <p style={{ fontSize: "13px" }}>Verify AI API Key</p>
-                    </>
-                  )}
-                </button>
+                <Tooltip content={keyValidationMessage || "Test the API key"}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={verifyAPIKeyHandler}
+                  >
+                    {isLoadingKey ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
+                        >
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                          <path d="M10.09 4.01l.496 -.495a2 2 0 0 1 2.828 0l7.071 7.07a2 2 0 0 1 0 2.83l-7.07 7.07a2 2 0 0 1 -2.83 0l-7.07 -7.07a2 2 0 0 1 0 -2.83l3.535 -3.535h-3.988" />
+                          <path d="M7.05 11.038v-3.988" />
+                        </svg>
+                        <p style={{ fontSize: "13px", margin: 0 }}>
+                          Verify AI API Key
+                        </p>
+                      </>
+                    )}
+                  </Button>
+                </Tooltip>
               </div>
               {keyValidationMessage && (
                 <p
@@ -1027,37 +939,34 @@ export default function ApiManagement() {
                   marginTop: 6,
                 }}
               >
-                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...), Claude, and Mistral keys. Keys are encrypted before storage. {apiKeys.length}/5
-                keys used.
+                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...),
+                Claude, and Mistral keys. Keys are encrypted before storage.{" "}
+                {apiKeys.length}/5 keys used.
                 <br />
                 Verify the API key successfully before proceeding to add it
               </p>
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 onClick={saveApiKey}
                 disabled={!isValidKey}
               >
                 <Icon className="ti ti-device-floppy"></Icon>{" "}
                 {editingKey ? "Update Key" : "Save Key"}
-              </button>
-              <button
-                className="btn btn-secondary"
-                type="button"
-                onClick={cancelEdit}
-              >
+              </Button>
+              <Button variant="secondary" type="button" onClick={cancelEdit}>
                 <Icon className="ti ti-x"></Icon> Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
           apiKeys.length < 5 && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
-              <button className="btn btn-primary" onClick={startAddNew}>
+              <Button variant="primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key
-              </button>
+              </Button>
             </div>
           )
         )}
@@ -1075,60 +984,35 @@ export default function ApiManagement() {
             </p>
           </div>
         )}
-      </div>
+      </Card>
 
-      {deleteConfirm.show && (
+      <Modal
+        open={deleteConfirm.show}
+        onClose={cancelDelete}
+        title="Confirm Delete"
+      >
+        <p style={{ fontSize: "15px", marginBottom: "24px" }}>
+          Are you sure you want to delete API key{" "}
+          <strong style={{ color: "#6366f1" }}>
+            "{deleteConfirm.keyName}"
+          </strong>
+          ?
+        </p>
         <div
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: current.overlay,
-            backdropFilter: "blur(4px)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
+            gap: "12px",
+            justifyContent: "flex-end",
           }}
-          onClick={cancelDelete}
         >
-          <div style={modalInnerStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={modalTitleStyle}>Confirm Delete</h3>
-            <p style={modalParagraphStyle}>
-              Are you sure you want to delete API key{" "}
-              <strong style={{ color: "#6366f1" }}>
-                "{deleteConfirm.keyName}"
-              </strong>
-              ?
-            </p>
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                className="btn btn-secondary"
-                onClick={cancelDelete}
-                style={cancelButtonStyle}
-              >
-                No, Cancel
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={handleDeleteConfirm}
-                style={{ padding: "8px 16px", borderRadius: "8px" }}
-              >
-                Yes, Delete
-              </button>
-            </div>
-          </div>
+          <Button variant="secondary" onClick={cancelDelete}>
+            No, Cancel
+          </Button>
+          <Button variant="danger" onClick={handleDeleteConfirm}>
+            Yes, Delete
+          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
-

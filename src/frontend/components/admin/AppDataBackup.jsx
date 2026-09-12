@@ -4,6 +4,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Select from "../common/Select.jsx";
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from '../../utils/api.js';
 import { useToast } from '../layout/Toast.jsx';
@@ -109,7 +111,7 @@ export default function AppDataBackup() {
         </div>
       ) : (
         <>
-          <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+          <Card style={{ padding: 20, marginBottom: 20 }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon className="ti ti-upload" style={{ color: 'var(--accent)' }}></Icon> Manual Backup
             </h3>
@@ -123,13 +125,13 @@ export default function AppDataBackup() {
                   {profiles.map(p => <option key={p.name} value={p.name}>{p.name} ({p.type.toUpperCase()})</option>)}
                 </Select>
               </div>
-              <button className="btn btn-primary" onClick={runBackup} disabled={backing || !selectedProfile}>
+              <Button variant="primary" onClick={runBackup} disabled={backing || !selectedProfile}>
                 <Icon className={`ti ${backing ? 'ti-loader' : 'ti-cloud-upload'}`}></Icon> {backing ? 'Uploading...' : 'Backup Now'}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
 
-          <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+          <Card style={{ padding: 20, marginBottom: 20 }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon className="ti ti-clock" style={{ color: 'var(--accent)' }}></Icon> Scheduled Backup
             </h3>
@@ -198,9 +200,9 @@ export default function AppDataBackup() {
                   </span>
                 </label>
               </div>
-              <button className="btn btn-primary" onClick={saveConfig} disabled={savingConfig} style={{ alignSelf: 'flex-end', marginTop: '20px' }}>
+              <Button variant="primary" onClick={saveConfig} disabled={savingConfig} style={{ alignSelf: 'flex-end', marginTop: '20px' }}>
                 <Icon className="ti ti-device-floppy"></Icon> Save Schedule
-              </button>
+              </Button>
             </div>
             {config.lastRunAt && (
               <div style={{ marginTop: 12, fontSize: '13px', color: 'var(--text-muted)' }}>
@@ -209,16 +211,16 @@ export default function AppDataBackup() {
                 {config.lastRunError && <span style={{ color: 'var(--color-danger)' }}> - {config.lastRunError}</span>}
               </div>
             )}
-          </div>
+        </Card>
 
-          <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <Card style={{ padding: 20, marginBottom: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon className="ti ti-history" style={{ color: 'var(--accent)' }}></Icon> Backup History
               </h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => loadBackups(selectedProfile)} disabled={loadingBackups}>
+              <Button variant="secondary" size="sm" onClick={() => loadBackups(selectedProfile)} disabled={loadingBackups}>
                 <Icon className="ti ti-refresh"></Icon>
-              </button>
+              </Button>
             </div>
             {loadingBackups ? (
               <div className="empty-state" style={{ padding: 24 }}><div className="loading-spinner"></div> Loading...</div>
@@ -254,17 +256,17 @@ export default function AppDataBackup() {
                 </table>
               </div>
             )}
-          </div>
+        </Card>
 
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Icon className="ti ti-arrow-back-up" style={{ color: 'var(--accent)' }}></Icon> Restore Instructions
-              </h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowRestore(!showRestore)}>
-                <Icon className={`ti ${showRestore ? 'ti-chevron-up' : 'ti-chevron-down'}`}></Icon> {showRestore ? 'Hide' : 'Show'}
-              </button>
-            </div>
+        <Card style={{ padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon className="ti ti-arrow-back-up" style={{ color: 'var(--accent)' }}></Icon> Restore Instructions
+            </h3>
+            <Button variant="secondary" size="sm" onClick={() => setShowRestore(!showRestore)}>
+              <Icon className={`ti ${showRestore ? 'ti-chevron-up' : 'ti-chevron-down'}`}></Icon> {showRestore ? 'Hide' : 'Show'}
+            </Button>
+          </div>
             {showRestore && (
               <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                 <p style={{ marginBottom: 12, color: 'var(--color-warning)', fontWeight: 600 }}>
@@ -322,7 +324,7 @@ sudo systemctl start chops
                 </p>
               </div>
             )}
-          </div>
+          </Card>
         </>
       )}
     </div>

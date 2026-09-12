@@ -6,6 +6,9 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import ChartCard from "../layout/ChartCard.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
 import { runQuery } from "../../utils/api.js";
@@ -628,8 +631,7 @@ function timeXAxis(from, to) {
 // query does not blank the whole tab.
 function ChartErrorCard({ title, message }) {
   return (
-    <div
-      className="card"
+    <Card
       style={{
         padding: 16,
         minHeight: 120,
@@ -664,7 +666,7 @@ function ChartErrorCard({ title, message }) {
         ></Icon>
         <span>{message}</span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -716,8 +718,7 @@ function StatCard({ label, value, unit, icon, warn, danger, invert, loading }) {
   }
 
   return (
-    <div
-      className="card"
+    <Card
       style={{
         padding: 20,
         display: "flex",
@@ -753,7 +754,7 @@ function StatCard({ label, value, unit, icon, warn, danger, invert, loading }) {
           {loading ? <span className="loading-spinner"></span> : fmt(value)}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -1160,8 +1161,9 @@ export default function MonitoringDashboards() {
           <Icon className="ti ti-device-analytics"></Icon> Monitoring
         </h2>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setSectionFullscreen((v) => !v)}
             title={
               sectionFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen section"
@@ -1171,21 +1173,21 @@ export default function MonitoringDashboards() {
               className={`ti ${sectionFullscreen ? "ti-minimize" : "ti-maximize"}`}
             ></Icon>{" "}
             {sectionFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setFiltersOpen(!filtersOpen)}
           >
             <Icon
               className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
             ></Icon>{" "}
             {filtersOpen ? "Collapse" : "Expand"}
-          </button>
+          </Button>
         </div>
       </div>
       {filtersOpen && (
-        <div
-          className="card"
+        <Card
           style={{
             padding: 16,
             marginBottom: 20,
@@ -1207,7 +1209,7 @@ export default function MonitoringDashboards() {
               }}
             >
               {[1, 6, 24, 48, 168, 720].map((h) => (
-                <button
+                <Button
                   key={h}
                   style={{
                     border:
@@ -1220,11 +1222,12 @@ export default function MonitoringDashboards() {
                     alignItems: "center",
                     justifyContent: "center",
                   }}
-                  className={`btn btn-sm ${duration === h ? "btn-primary" : "btn-secondary"}`}
+                  variant={duration === h ? "primary" : "secondary"}
+                  size="sm"
                   onClick={() => applyDuration(h)}
                 >
                   {h <= 48 ? h + "h" : h === 168 ? "7d" : "30d"}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -1251,16 +1254,16 @@ export default function MonitoringDashboards() {
               style={{ width: 80 }}
             />
           </div>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={loadAllCurrentTab}
             disabled={loading}
             style={{ minWidth: 140 }}
           >
             <Icon className="ti ti-player-play"></Icon>{" "}
             {loading ? "Loading..." : "Load Charts"}
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       {loading && (
@@ -1301,17 +1304,11 @@ export default function MonitoringDashboards() {
         </div>
       )}
 
-      <div className="tab-bar">
-        {TABS.map((g) => (
-          <div
-            key={g.id}
-            className={`tab-item ${activeTab === g.id ? "active" : ""}`}
-            onClick={() => handleTabChange(g.id)}
-          >
-            <Icon className={`ti ${g.icon}`}></Icon> {g.label} ({g.charts.length})
-          </div>
-        ))}
-      </div>
+      <Tabs
+        items={TABS.map((g) => ({ key: g.id, label: `${g.label} (${g.charts.length})`, icon: g.icon }))}
+        active={activeTab}
+        onChange={handleTabChange}
+      />
 
       {!loadedTabs.has(activeTab) && !loading && (
         <div className="empty-state">

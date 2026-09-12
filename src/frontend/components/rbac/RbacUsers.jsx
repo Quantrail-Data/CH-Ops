@@ -5,6 +5,9 @@
 import React, { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
 import { runQuery } from "../../utils/api.js";
@@ -126,18 +129,16 @@ export default function RbacUsers() {
         </h2>
       </div>
       <AlertBanner result={result} setResult={setResult} />
-      <div className="tab-bar">
-        {tabs.map((t) => (
-          <div
-            key={t.id}
-            className={`tab-item ${routeTab === t.id ? "active" : ""}`}
-            onClick={() => handleTabChange(t.id)}
-            style={t.id !== 'list' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
-          >
-            <Icon className={`ti ${t.i}`}></Icon> {t.l}
-          </div>
-        ))}
-      </div>
+      <Tabs
+        items={tabs.map((t) => ({
+          key: t.id,
+          label: t.l,
+          icon: t.i,
+          style: t.id !== 'list' && !isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {},
+        }))}
+        active={routeTab}
+        onChange={handleTabChange}
+      />
       {routeTab === "list" && (
         <>
           {operatorOwned.length > 0 && (
@@ -279,7 +280,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
     }
   }
   return (
-    <form onSubmit={submit} className="card" style={{ padding: 20 }}>
+    <Card as="form" onSubmit={submit} style={{ padding: 20 }}>
       <div
         style={{
           display: "grid",
@@ -430,11 +431,11 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-plus"></Icon> Create
-        </button>
+        </Button>
       </div>
-    </form>
+    </Card>
   );
 }
 
@@ -538,7 +539,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
   }
 
   return (
-    <form onSubmit={submit} className="card" style={{ padding: 20 }}>
+    <Card as="form" onSubmit={submit} style={{ padding: 20 }}>
       <div
         style={{
           display: "grid",
@@ -829,11 +830,11 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!sel || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!sel || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-edit"></Icon> Alter
-        </button>
+        </Button>
       </div>
-    </form>
+    </Card>
   );
 }
 
@@ -892,7 +893,7 @@ function GrantRevoke({ users, roles, clusters, setResult, rbac }) {
   }
 
   return (
-    <form onSubmit={submit} className="card" style={{ padding: 20 }}>
+    <Card as="form" onSubmit={submit} style={{ padding: 20 }}>
       <div
         style={{
           display: "grid",
@@ -996,11 +997,11 @@ function GrantRevoke({ users, roles, clusters, setResult, rbac }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!f.user || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!f.user || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-key"></Icon> Execute
-        </button>
+        </Button>
       </div>
-    </form>
+    </Card>
   );
 }
 
@@ -1049,8 +1050,7 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
   }
 
   return (
-    <div
-      className="card"
+    <Card
       style={{ padding: 20, height: confirm ? "700px" : "auto" }}
     >
       <div
@@ -1095,14 +1095,14 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
       </div>
       <SqlPreview sql={sql} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-danger"
+        <Button
+          variant="danger"
           disabled={!sel || !isAdmin}
           onClick={() => setConfirm(true)}
           style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop
-        </button>
+        </Button>
       </div>
       {confirm && (
         <ConfirmModal
@@ -1132,6 +1132,6 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
           confirmDisabled={confirmName !== sel}
         />
       )}
-    </div>
+    </Card>
   );
 }

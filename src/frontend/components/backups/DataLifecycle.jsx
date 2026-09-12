@@ -6,6 +6,10 @@
 import React, { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Badge from "../ui/Badge.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import { useToast } from "../layout/Toast.jsx";
@@ -116,20 +120,14 @@ export default function DataLifecycle() {
           Create one in Storage Profiles first.
         </div>
       )}
-      <div className="tab-bar">
-        <div
-          className={`tab-item ${tab === "manual" ? "active" : ""}`}
-          onClick={() => handleTabChange("manual")}
-        >
-          <Icon className="ti ti-upload"></Icon> Manual Backup
-        </div>
-        <div
-          className={`tab-item ${tab === "browse" ? "active" : ""}`}
-          onClick={() => handleTabChange("browse")}
-        >
-          <Icon className="ti ti-cloud-download"></Icon> Available Backups
-        </div>
-      </div>
+      <Tabs
+        items={[
+          { key: "manual", label: "Manual Backup", icon: "upload" },
+          { key: "browse", label: "Available Backups", icon: "cloud-download" },
+        ]}
+        active={tab}
+        onChange={handleTabChange}
+      />
       {tab === "manual" && (
         <ManualBackupTab
           profiles={profiles}
@@ -549,16 +547,17 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
           ></Icon>{" "}
           {result.msg}
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ marginLeft: "auto" }}
             onClick={() => setResult(null)}
               >
             <Icon className="ti ti-x"></Icon>
-            </button>
+            </Button>
         </div>
         )}
-      <div className="card" style={{ padding: 20 }}>
+      <Card style={{ padding: 20 }}>
       <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
         <Icon className="ti ti-settings-filled"></Icon> Manual Backup / Restore
       </h4>
@@ -738,8 +737,9 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               marginBottom: 12,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={listBackups}
               disabled={loadingBackups || !profile}
             >
@@ -752,7 +752,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                   <Icon className="ti ti-refresh"></Icon> List Available Backups
                 </>
               )}
-            </button>
+            </Button>
           </div>
           {scanErrors.length > 0 && (
             <div
@@ -814,8 +814,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         </div>
       </div>
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           onClick={execute}
           disabled={
             !profile ||
@@ -835,9 +835,9 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               Execute {action.toUpperCase()}
             </>
           )}
-        </button>
+        </Button>
       </div>
-      </div>
+      </Card>
     </>
   );
 }
@@ -891,8 +891,7 @@ function AvailableBackupsTab({ profiles }) {
 
   return (
     <div>
-      <div
-        className="card"
+      <Card
         style={{
           padding: 16,
           marginBottom: 16,
@@ -928,8 +927,9 @@ function AvailableBackupsTab({ profiles }) {
             <option value="manual">Manual Only</option>
           </Select>
         </div>
-        <button
-          className="btn btn-primary btn-sm"
+        <Button
+          variant="primary"
+          size="sm"
           onClick={loadBackups}
           disabled={loading || !profile}
         >
@@ -942,8 +942,8 @@ function AvailableBackupsTab({ profiles }) {
               <Icon className="ti ti-refresh"></Icon> Scan S3
             </>
           )}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {scanErrors.length > 0 && (
         <div
@@ -956,7 +956,7 @@ function AvailableBackupsTab({ profiles }) {
       )}
 
       {backups.length > 0 ? (
-        <div className="card" style={{ padding: 0 }}>
+        <Card style={{ padding: 0 }}>
           <div className="data-table-wrap dt-single">
             <table className="data-table">
               <thead>
@@ -994,9 +994,9 @@ function AvailableBackupsTab({ profiles }) {
                     </td>
                     <td>
                       {b.is_incremental ? (
-                        <span className="badge badge-amber">INC</span>
+                        <Badge color="amber">INC</Badge>
                       ) : (
-                        <span className="badge badge-green">FULL</span>
+                        <Badge color="green">FULL</Badge>
                       )}
                     </td>
                     <td>{b.retention_days ? `${b.retention_days}d` : "-"}</td>
@@ -1005,7 +1005,7 @@ function AvailableBackupsTab({ profiles }) {
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       ) : (
         !loading && (
           <div className="empty-state">

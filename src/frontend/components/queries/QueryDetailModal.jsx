@@ -10,6 +10,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import Button from "../ui/Button.jsx";
+import Modal from "../ui/Modal.jsx";
 import { OPEN_IN_DESTINATIONS } from "./OpenInMenu.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { runQuery } from "../../utils/api.js";
@@ -25,9 +27,10 @@ function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ borderTop: "1px solid var(--border-default)" }}>
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost btn-sm"
+        variant="ghost"
+        size="sm"
         onClick={() => setOpen((v) => !v)}
         style={{
           width: "100%",
@@ -43,7 +46,7 @@ function Section({ title, children, defaultOpen = true }) {
       >
         <Icon className={`ti ${open ? "ti-chevron-down" : "ti-chevron-right"}`} />
         {title}
-      </button>
+      </Button>
       {open && <div style={{ paddingBottom: 12 }}>{children}</div>}
     </div>
   );
@@ -131,28 +134,19 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
     load();
   }, [load]);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   if (!row) return null;
 
   const text = detail?.query || row.query_preview || "";
   const isPreviewOnly = source === "preview" || (!detail && !loading);
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1350 }}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 760, width: "94%", maxHeight: "88vh", display: "flex", flexDirection: "column" }}
-        role="dialog"
-        aria-label="Query detail"
-      >
+    <Modal
+      open
+      onClose={onClose}
+      zIndex={1350}
+      style={{ maxWidth: 760, width: "94%", maxHeight: "88vh", display: "flex", flexDirection: "column" }}
+      aria-label="Query detail"
+    >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 14, fontWeight: 600 }}>Query detail</span>
           <code
@@ -166,8 +160,9 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
             {row.query_id}
           </code>
           <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 try {
                   navigator.clipboard?.writeText(text);
@@ -179,10 +174,10 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
               title="Copy query text"
             >
               <Icon className="ti ti-copy" />
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
               <Icon className="ti ti-x" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -346,8 +341,9 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
               </option>
             ))}
           </Select>
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={!openIn}
             style={!openIn ? { opacity: 0.4, cursor: "not-allowed" } : {}}
             onClick={() => {
@@ -357,7 +353,7 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
             }}
           >
             <Icon className="ti ti-external-link" /> Open
-          </button>
+          </Button>
 
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
             {canKill && (
@@ -365,27 +361,28 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
                 async returns at once, sync waits for the query to stop
               </span>
             )}
-            <button
-              className="btn btn-danger btn-sm"
+            <Button
+              variant="danger"
+              size="sm"
               onClick={() => onKill(row, { sync: false })}
               disabled={!canKill || !rowData}
               style={!canKill ? { opacity: 0.35, cursor: "not-allowed" } : {}}
               title={!rowData ? "Query is not available" : canKill ? "Send the kill and return immediately" : "Admin access required"}
             >
               <Icon className="ti ti-player-stop" /> Kill async
-            </button>
-            <button
-              className="btn btn-danger btn-sm"
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
               onClick={() => onKill(row, { sync: true })}
               disabled={!canKill || !rowData}
               style={!canKill ? { opacity: 0.35, cursor: "not-allowed" } : {}}
               title={!rowData ? "Query is not available" : canKill ? "Wait until the query has actually stopped" : "Admin access required"}
             >
               <Icon className="ti ti-player-stop" /> Kill sync
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

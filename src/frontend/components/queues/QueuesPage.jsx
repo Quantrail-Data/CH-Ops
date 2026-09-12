@@ -7,6 +7,7 @@
 
 import React, { useState } from "react";
 import Icon from "../common/Icon.jsx";
+import Tabs from "../ui/Tabs.jsx";
 import IngestionTab from "./IngestionTab.jsx";
 import DistReplTab from "./DistReplTab.jsx";
 import ErrorBoundary from "../layout/ErrorBoundary.jsx";
@@ -30,17 +31,11 @@ export default function QueuesPage() {
         </h2>
       </div>
 
-      <div className="tab-bar">
-        {TABS.map((t) => (
-          <div
-            key={t.id}
-            className={`tab-item ${tab === t.id ? "active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            <Icon className={`ti ${t.icon}`}></Icon> {t.label}
-          </div>
-        ))}
-      </div>
+      <Tabs
+        items={TABS.map(({ id, label, icon }) => ({ key: id, label, icon }))}
+        active={tab}
+        onChange={setTab}
+      />
 
       {/* key=tab so the boundary resets when switching tabs (a tab that errored
           earlier is retried on return). */}

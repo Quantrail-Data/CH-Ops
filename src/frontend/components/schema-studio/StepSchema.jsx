@@ -16,6 +16,7 @@
 import React, { useState } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import Button from "../ui/Button.jsx";
 import FieldLabel from "./FieldLabel.jsx";
 import { DEFAULT_KINDS } from "../../utils/ddlCompose.js";
 
@@ -136,9 +137,9 @@ export default function StepSchema({ columns, setColumns, stats, sampleRows, onB
                           onChange={(e) => updateCol(i, { comment: e.target.value })} />
                       </div>
                       <div className="studio-col-remove">
-                        <button className="btn btn-ghost btn-sm studio-danger-btn" onClick={() => removeCol(i)}>
+                        <Button variant="ghost" size="sm" className="studio-danger-btn" onClick={() => removeCol(i)}>
                           <Icon className="ti ti-trash" /> Remove column
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -208,19 +209,19 @@ export default function StepSchema({ columns, setColumns, stats, sampleRows, onB
       </div>
 
       <div className="studio-add-col">
-        <button className="btn btn-secondary btn-sm" onClick={addCustom}>
+        <Button variant="secondary" size="sm" onClick={addCustom}>
           <Icon className="ti ti-plus" /> Add derived column
-        </button>
+        </Button>
         <span className="studio-hint">
           A DEFAULT, MATERIALIZED, ALIAS, or EPHEMERAL column computed from an expression over other columns.
         </span>
       </div>
 
       <div className="studio-actions">
-        <button className="btn btn-ghost" onClick={onBack}>Back</button>
-        <button className="btn btn-primary" onClick={onNext} disabled={!columns.length}>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button variant="primary" onClick={onNext} disabled={!columns.length}>
           Next: engine
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import Icon from './Icon.jsx';
+import Button from '../ui/Button.jsx';
 
 // Save an ECharts instance as a PNG (retina). Uses the current theme's surface
 // colour as the export background so themed axis labels, legends, and in-canvas
@@ -113,50 +114,49 @@ export default function ChartToolbar({
     >
       {isWantFeature?.zoomFun && (
         <>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onZoomIn}
             disabled={!zoomable}
             title={zoomable ? "Zoom in" : "Zoom not available for this chart"}
             aria-label="Zoom in"
           >
             <Icon className="ti ti-zoom-in"></Icon>
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onZoomOut}
             disabled={!zoomable}
             title={zoomable ? "Zoom out" : "Zoom not available for this chart"}
             aria-label="Zoom out"
           >
             <Icon className="ti ti-zoom-out"></Icon>
-          </button>
+          </Button>
         </>
       )}
       {isWantFeature?.resetFun && (
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onZoomReset}
           disabled={!zoomable}
           title={zoomable ? "Reset zoom" : "Zoom not available for this chart"}
           aria-label="Reset zoom"
         >
           <Icon className="ti ti-zoom-reset"></Icon>
-        </button>
+        </Button>
       )}
       {onSave && isWantFeature?.saveFun && (
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={onSave}
-          title="Save PNG"
-          aria-label="Save PNG"
-        >
+        <Button variant="ghost" size="sm" onClick={onSave} title="Save PNG" aria-label="Save PNG">
           <Icon className="ti ti-download"></Icon>
-        </button>
+        </Button>
       )}
       {isWantFeature?.fullscreenFun && (
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onToggleFullscreen}
           title={fullscreen ? "Exit full screen" : "Full screen"}
           aria-label={fullscreen ? "Exit full screen" : "Full screen"}
@@ -164,7 +164,7 @@ export default function ChartToolbar({
           <Icon
             className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
           ></Icon>
-        </button>
+        </Button>
       )}
     </div>
   );

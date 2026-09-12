@@ -4,6 +4,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from "../ui/Button.jsx";
 import quriozImage from "../../assets/qurioz.png";
 import DataTable from "../layout/DataTable";
 import SQLQueryEditorComponent from "./SQLQueryEditorComponent";
@@ -187,16 +188,16 @@ function ChatRenderComponent({
                 >
                   {chatReformLoading ? (
                     <div>
-                      <button className="btn btn-ghost">
+                      <Button variant="ghost">
                         <div className="loading-spinner">
                           <Icon className="ti ti-loader-2"></Icon>
                         </div>
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <>
-                      <button
-                        className="btn btn-ghost"
+                      <Button
+                        variant="ghost"
                         onClick={() => {
                           if (
                             navigator?.clipboard &&
@@ -213,9 +214,9 @@ function ChatRenderComponent({
                           className="ti ti-copy"
                           style={{ fontSize: "13px" }}
                         ></Icon>
-                      </button>
-                      <button
-                        className="btn btn-ghost"
+                      </Button>
+                      <Button
+                        variant="ghost"
                         onClick={() => editHandler()}
                       >
                         {
@@ -224,7 +225,7 @@ function ChatRenderComponent({
                             style={{ fontSize: "13px" }}
                           ></Icon>
                         }
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
@@ -261,15 +262,15 @@ function ChatRenderComponent({
                   gap: "5px",
                 }}
               >
-                <button onClick={cancelEditHandler} className="btn btn-danger">
+                <Button onClick={cancelEditHandler} variant="danger">
                   <Icon className="ti ti-x"></Icon>
-                </button>
-                <button
-                  className="btn btn-primary"
+                </Button>
+                <Button
+                  variant="primary"
                   onClick={() => reformUserQuestionhandler()}
                 >
                   <Icon className="ti ti-send-2"></Icon>
-                </button>
+                </Button>
               </div>
             </motion.div>
           )}
@@ -389,8 +390,8 @@ function ChatRenderComponent({
                           <h5>Error occurs while executing the query</h5>
                         </div>
                         <div>
-                          <button
-                            className="btn btn-ghost"
+                          <Button
+                            variant="ghost"
                             title="copy"
                             onClick={() => {
                               if (
@@ -408,7 +409,7 @@ function ChatRenderComponent({
                               className="ti ti-copy"
                               style={{ fontSize: "14px" }}
                             ></Icon>
-                          </button>
+                          </Button>
                         </div>
                       </div>
 
@@ -423,8 +424,8 @@ function ChatRenderComponent({
                           margin: "10px 0px",
                         }}
                       >
-                        <button
-                          className="btn btn-danger"
+                        <Button
+                          variant="danger"
                           style={{ fontSize: "12px" }}
                           onClick={() => retryHandler()}
                         >
@@ -433,7 +434,7 @@ function ChatRenderComponent({
                             style={{ color: "white", fontSize: "12px" }}
                           ></Icon>
                           Retry
-                        </button>
+                        </Button>
                       </div>
                     </>
                   )}
@@ -490,8 +491,9 @@ function ChatRenderComponent({
                       margin: "10px 0px",
                     }}
                   >
-                    <button
-                      className="icon-action-bot btn btn-ghost"
+                    <Button
+                      className="icon-action-bot"
+                      variant="ghost"
                       title={
                         !isTablePresent(chatMessage)
                           ? "Empty data"
@@ -501,11 +503,12 @@ function ChatRenderComponent({
                       disabled={!isTablePresent(chatMessage)}
                     >
                       <Icon className="ti ti-copy" />
-                    </button>
-                    
+                    </Button>
 
-                    <button
-                      className="icon-action-bot btn btn-ghost"
+
+                    <Button
+                      className="icon-action-bot"
+                      variant="ghost"
                       title={
                         chatMessage?.tableData?.length > 0
                           ? "View the visualization"
@@ -517,7 +520,7 @@ function ChatRenderComponent({
                     >
                       <Icon className="ti ti-chart-bar" />{" "}
                       <span>Chart View</span>
-                    </button>
+                    </Button>
                   </motion.div>
 
                   <AnimatePresence>

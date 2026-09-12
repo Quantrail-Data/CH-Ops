@@ -14,6 +14,7 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
 import { runQuery } from "../../utils/api.js";
+import Button from "../ui/Button.jsx";
 
 import chopsLightLogo from "../../assets/chops-light.svg";
 import chopsDarkLogo from "../../assets/chops-dark.svg";
@@ -339,24 +340,26 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
 
       {/* Right: Actions + User dropdown */}
       <div className="navbar-actions" style={{ flex: "0 0 auto", minWidth: 0 }}>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onOpenSearch}
           title="Search pages (Ctrl/Cmd + K)"
           aria-label="Search"
         >
           <Icon className="ti ti-search"></Icon>
           <span className="navbar-btn-label">Search</span>
-        </button>
-        <button
-          className="btn btn-ghost btn-sm"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleRefresh}
           title="Refresh"
           aria-label="Refresh"
         >
           <Icon className="ti ti-refresh"></Icon>
           <span className="navbar-btn-label">Refresh</span>
-        </button>
+        </Button>
         <a
           href="/docs/"
           target="_blank"
@@ -367,8 +370,9 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
           <Icon className="ti ti-book"></Icon>
           <span className="navbar-btn-label">Docs</span>
         </a>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={toggleTheme}
           title={theme === "dark" ? "Light mode" : "Dark mode"}
           aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
@@ -377,7 +381,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
           <span className="navbar-btn-label">
             {theme === "dark" ? "Light" : "Dark"}
           </span>
-        </button>
+        </Button>
         <a
           href="https://github.com/Quantrail-Data/CH-Ops"
           target="_blank"
@@ -473,8 +477,8 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
                   Text Size
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button
-                    className="btn btn-ghost"
+                  <Button
+                    variant="ghost"
                     onClick={() => applyFontScale(fontScale - 5)}
                     disabled={fontScale <= 75}
                     style={{
@@ -484,7 +488,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
                     }}
                   >
                     -
-                  </button>
+                  </Button>
                   <input
                     ref={sliderRef}
                     type="range"
@@ -499,8 +503,8 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
                       cursor: "pointer",
                     }}
                   />
-                  <button
-                    className="btn btn-ghost"
+                  <Button
+                    variant="ghost"
                     onClick={() => applyFontScale(fontScale + 5)}
                     disabled={fontScale >= 200}
                     style={{
@@ -510,7 +514,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
                     }}
                   >
                     +
-                  </button>
+                  </Button>
                 </div>
                 <div
                   style={{
@@ -530,13 +534,14 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
                   <span>200%</span>
                 </div>
                 {fontScale !== 100 && (
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => applyFontScale(100)}
                     style={{ width: "100%", marginTop: 4, fontSize: "12px" }}
                   >
                     Reset to 100%
-                  </button>
+                  </Button>
                 )}
               </div>
 

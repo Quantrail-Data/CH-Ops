@@ -6,6 +6,8 @@ import React, { useState, useEffect } from 'react';
 import Icon from '../common/Icon.jsx';
 import { apiFetch } from '../../utils/api.js';
 import { useToast } from '../layout/Toast.jsx';
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 
 
 const GB = 1024 * 1024 * 1024;
@@ -125,7 +127,7 @@ export default function AppConfig() {
         ))}
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
         {rows.filter(r => r.key.startsWith(`${tab}.`)).map((row, i) => {
           const field = FIELDS[row.key];
           if (!field) return null;
@@ -159,18 +161,18 @@ export default function AppConfig() {
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 56 }}>
                   {field.unit}
                 </span>
-                <button className="btn btn-primary btn-sm"
+                <Button variant="primary" size="sm"
                   disabled={busy === row.key || !dirty}
-                  onClick={() => save(row)}>Save</button>
-                <button className="btn btn-secondary btn-sm"
+                  onClick={() => save(row)}>Save</Button>
+                <Button variant="secondary" size="sm"
                   disabled={busy === row.key || row.source !== 'setting'}
                   onClick={() => reset(row)}
-                  title={row.source === 'setting' ? 'Back to the default' : 'Not set here'}>Reset</button>
+                  title={row.source === 'setting' ? 'Back to the default' : 'Not set here'}>Reset</Button>
               </div>
             </div>
           );
         })}
-      </div>
+      </Card>
     </div>
   );
 }

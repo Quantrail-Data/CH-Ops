@@ -6,6 +6,9 @@
 import React, { useEffect, useState } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
+import Badge from "../ui/Badge.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
 
 
@@ -82,11 +85,11 @@ export default function StorageProfiles() {
     <div className="page-content">
       <div className="section-header">
         <h2 className="section-title"><Icon className="ti ti-cloud"></Icon> Storage Profiles</h2>
-        <button className="btn btn-primary btn-sm" onClick={() => showForm ? (setShowForm(false), setEditing(null)) : startNew()}><Icon className={`ti ${showForm ? 'ti-x' : 'ti-plus'}`}></Icon> {showForm ? 'Cancel' : 'New Profile'}</button>
+        <Button variant="primary" size="sm" onClick={() => showForm ? (setShowForm(false), setEditing(null)) : startNew()}><Icon className={`ti ${showForm ? 'ti-x' : 'ti-plus'}`}></Icon> {showForm ? 'Cancel' : 'New Profile'}</Button>
       </div>
-      {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></button></div>}
+      {result && <div className={`alert-banner ${result.ok ? 'success' : 'danger'}`} style={{ marginBottom: 14 }}><Icon className={`ti ${result.ok ? 'ti-check' : 'ti-alert-circle'}`}></Icon> {result.msg}<Button variant="ghost" size="sm" style={{ marginLeft: 'auto' }} onClick={() => setResult(null)}><Icon className="ti ti-x"></Icon></Button></div>}
       {showForm && (
-        <form onSubmit={save} className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <Card as="form" onSubmit={save} style={{ padding: 20, marginBottom: 20 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
             <div className="form-group"><label className="form-label">Name *</label><input className="form-input" required value={form.name} onChange={e => update('name', e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Type</label><Select className="form-select" value={form.type} onChange={e => update('type', e.target.value)}><option value="s3">Amazon S3</option><option value="azure">Azure Blob</option><option value="gcs">Google Cloud</option></Select></div>
@@ -114,16 +117,16 @@ export default function StorageProfiles() {
             </div>
             </div>
           </div>
-          <button className="btn btn-primary" type="submit"><Icon className="ti ti-device-floppy"></Icon> {editing ? 'Update' : 'Save'}</button>
-        </form>
+          <Button variant="primary" type="submit"><Icon className="ti ti-device-floppy"></Icon> {editing ? 'Update' : 'Save'}</Button>
+        </Card>
       )}
       {profiles.length === 0 ? <div className="empty-state"><Icon className="ti ti-cloud"></Icon><p>No storage profiles configured.</p></div> : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
           {profiles.map(p => {
             const tr = testResult[p.id];
             return (
-              <div key={p.id} className="card" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong>{p.name}</strong><span className="badge badge-blue">{p.type.toUpperCase()}</span></div>
+              <Card key={p.id} style={{ padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong>{p.name}</strong><Badge color="blue">{p.type.toUpperCase()}</Badge></div>
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-table)' }}>
                   <div><Icon className="ti ti-bucket" style={{ fontSize: 14 }}></Icon> {p.bucket}</div>
                   {p.region && <div><Icon className="ti ti-map-pin" style={{ fontSize: 14 }}></Icon> {p.region}</div>}
@@ -131,11 +134,11 @@ export default function StorageProfiles() {
                 </div>
                 {tr && <div style={{ marginTop: 8, fontSize: '12px', color: tr.loading ? 'var(--text-muted)' : tr.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{tr.loading ? 'Testing...' : tr.msg}</div>}
                 <div style={{ marginTop: 10, display: 'flex', gap: 6 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => testConnection(p)}><Icon className="ti ti-plug-connected"></Icon> Test</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => startEdit(p)}><Icon className="ti ti-edit"></Icon> Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => remove(p.id)}><Icon className="ti ti-trash"></Icon></button>
+                  <Button variant="secondary" size="sm" onClick={() => testConnection(p)}><Icon className="ti ti-plug-connected"></Icon> Test</Button>
+                  <Button variant="secondary" size="sm" onClick={() => startEdit(p)}><Icon className="ti ti-edit"></Icon> Edit</Button>
+                  <Button variant="danger" size="sm" onClick={() => remove(p.id)}><Icon className="ti ti-trash"></Icon></Button>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

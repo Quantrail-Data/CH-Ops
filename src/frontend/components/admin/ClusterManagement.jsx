@@ -4,6 +4,8 @@
 
 import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useConnection } from "../../App.jsx";
@@ -128,20 +130,18 @@ function NodeClusterComponent({
           HTTPS
         </label>
       </div>
-      <button
-        className="btn btn-secondary btn-sm"
+      <Button variant="secondary" size="sm"
         onClick={() => testNode(editing, i)}
         style={{ marginBottom: 2 }}
       >
         <Icon className="ti ti-plug-connected"></Icon>
-      </button>
-      <button
-        className="btn btn-danger btn-sm"
+      </Button>
+      <Button variant="danger" size="sm"
         onClick={() => removeNode(i)}
         style={{ marginBottom: 2 }}
       >
         <Icon className="ti ti-trash"></Icon>
-      </button>
+      </Button>
       {tr && (
         <div
           style={{
@@ -484,60 +484,59 @@ function startEditK8s(cluster) {
           <Icon className="ti ti-network"></Icon> Cluster Management
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button className="btn btn-secondary btn-sm" onClick={load}>
+          <Button variant="secondary" size="sm" onClick={load}>
             <Icon className="ti ti-refresh"></Icon>
-          </button>
+          </Button>
           {k8sEnabled && tab === "k8s"
             ? !showK8sWizard &&
               clusters.length < MAX_CLUSTERS && (
-                <button
-                  className="btn btn-primary btn-sm"
+                <Button variant="primary" size="sm"
                   onClick={() => setShowK8sWizard(true)}
                 >
                   <Icon className="ti ti-plus"></Icon> New Cluster
-                </button>
+                </Button>
               )
             : !showForm &&
               clusters.length < MAX_CLUSTERS && (
-                <button className="btn btn-primary btn-sm" onClick={startNew}>
+                <Button variant="primary" size="sm" onClick={startNew}>
                   <Icon className="ti ti-plus"></Icon> New Cluster
-                </button>
+                </Button>
               )}
           {k8sEnabled && tab === "k8s" && showK8sWizard && (
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button variant="secondary" size="sm"
               onClick={() => setShowK8sWizard(false)}
             >
               <Icon className="ti ti-x"></Icon> Cancel
-            </button>
+            </Button>
           )}
           {(!k8sEnabled || tab === "direct") && showForm && (
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button variant="secondary" size="sm"
               onClick={() => {
                 setShowForm(false);
                 setEditing(null);
               }}
             >
               <Icon className="ti ti-x"></Icon> Cancel
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {k8sEnabled && (
         <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-          <button
-            className={tab === "direct" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+          <Button
+            variant={tab === "direct" ? "primary" : "secondary"}
+            size="sm"
             onClick={() => {
               setTab("direct");
               setShowK8sWizard(false);
             }}
           >
             Direct connection
-          </button>
-          <button
-            className={tab === "k8s" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+          </Button>
+          <Button
+            variant={tab === "k8s" ? "primary" : "secondary"}
+            size="sm"
             onClick={() => {
               setTab("k8s");
               setShowForm(false);
@@ -545,7 +544,7 @@ function startEditK8s(cluster) {
             }}
           >
             Kubernetes
-          </button>
+          </Button>
         </div>
       )}
 
@@ -559,7 +558,7 @@ function startEditK8s(cluster) {
       )}
 
       {(!k8sEnabled || tab === "direct") && showForm && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <Card style={{ padding: 20, marginBottom: 20 }}>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">Cluster Name *</label>
             <input
@@ -581,9 +580,9 @@ function startEditK8s(cluster) {
             <span style={{ fontWeight: 600, fontSize: "14px" }}>
               Nodes ({form.nodes.length})
             </span>
-            <button className="btn btn-secondary btn-sm" onClick={addNode}>
+            <Button variant="secondary" size="sm" onClick={addNode}>
               <Icon className="ti ti-plus"></Icon> Add Node
-            </button>
+            </Button>
           </div>
           {form.nodes.map((n, i) => {
             const key = `${editing || "new"}-${i}`;
@@ -601,15 +600,14 @@ function startEditK8s(cluster) {
               />
             );
           })}
-          <button
-            className="btn btn-primary"
+          <Button variant="primary"
             onClick={save}
             style={{ marginTop: 8 }}
           >
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update Cluster" : "Create Cluster"}
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       {k8sEnabled && tab === "k8s" && !showK8sWizard && k8sClusters.length === 0 ? (
@@ -647,18 +645,16 @@ function startEditK8s(cluster) {
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button variant="secondary" size="sm"
                     onClick={() => (c.kind === "k8s" ? startEditK8s(c) : startEdit(c))}
                   >
                     <Icon className="ti ti-edit"></Icon> Edit
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
+                  </Button>
+                  <Button variant="danger" size="sm"
                     onClick={() => setDeleting(c)}
                   >
                     <Icon className="ti ti-trash"></Icon>
-                  </button>
+                  </Button>
                 </div>
               </div>
               {c.kind === "k8s" && (
@@ -812,23 +808,21 @@ function startEditK8s(cluster) {
             )}
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button variant="secondary" size="sm"
                 onClick={verifyK8s}
                 disabled={k8sSaving || k8sVerify?.testing}
               >
                 Test connection
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
+              </Button>
+              <Button variant="secondary" size="sm"
                 onClick={() => setEditingK8s(null)}
                 disabled={k8sSaving}
               >
                 Cancel
-              </button>
-              <button className="btn btn-primary btn-sm" onClick={saveK8s} disabled={k8sSaving}>
+              </Button>
+              <Button variant="primary" size="sm" onClick={saveK8s} disabled={k8sSaving}>
                 {k8sSaving ? "Testing and saving..." : "Save"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

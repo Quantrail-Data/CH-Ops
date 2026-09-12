@@ -5,6 +5,8 @@
 
 import React, { useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
 import {
   FORMATS,
   CHOICES,
@@ -82,26 +84,26 @@ export default function BookmarkExport({ bookmarks, onImport }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Export as</span>
         {FORMATS.map((f) => (
-          <button
+          <Button
             key={f.id}
-            className="btn btn-ghost btn-sm"
+            variant="ghost"
+            size="sm"
             onClick={() => download(f)}
             disabled={empty}
             title={f.hint}
           >
             <Icon className="ti ti-download" /> {f.label}
-          </button>
+          </Button>
         ))}
 
         <span style={{ flex: 1 }} />
 
-        <button
-          className="btn btn-secondary btn-sm"
+        <Button variant="secondary" size="sm"
           onClick={() => fileRef.current?.click()}
           title="Import a JSON export. Nothing is run; queries are only stored."
         >
           <Icon className="ti ti-upload" /> Import
-        </button>
+        </Button>
         <input
           ref={fileRef}
           type="file"
@@ -155,12 +157,10 @@ export default function BookmarkExport({ bookmarks, onImport }) {
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {CHOICE_LABELS.map(([value, label]) => (
-                        <button
+                        <Button
                           key={value}
-                          className={
-                            "btn btn-sm " +
-                            (choices[p.incoming.name] === value ? "btn-primary" : "btn-ghost")
-                          }
+                          size="sm"
+                          variant={choices[p.incoming.name] === value ? "primary" : "ghost"}
                           onClick={() =>
                             setChoices((c) => ({ ...c, [p.incoming.name]: value }))
                           }
@@ -171,7 +171,7 @@ export default function BookmarkExport({ bookmarks, onImport }) {
                           }
                         >
                           {label}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </div>
@@ -192,15 +192,15 @@ export default function BookmarkExport({ bookmarks, onImport }) {
                 alone{counts.identical ? `, ${counts.identical} already identical` : ""}
               </span>
               <span style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setPlan(null)}>
+                <Button variant="ghost" size="sm" onClick={() => setPlan(null)}>
                   Cancel
-                </button>
+                </Button>
                 {/* Not "Import": the toolbar button behind this overlay says
                     that already, and two buttons with one label a few hundred
                     pixels apart is a question the user should not have to ask. */}
-                <button className="btn btn-primary btn-sm" onClick={confirm}>
+                <Button variant="primary" size="sm" onClick={confirm}>
                   Apply import
-                </button>
+                </Button>
               </span>
             </div>
           </div>

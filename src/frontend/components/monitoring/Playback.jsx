@@ -5,6 +5,8 @@
 
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import Card from "../ui/Card.jsx";
+import Button from "../ui/Button.jsx";
 import React, {
   useState,
   useRef,
@@ -968,9 +970,9 @@ function InspectionPopup({
               at {frameTimestamp}
             </span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
 
         {loading && (
@@ -1444,8 +1446,7 @@ export default function Playback() {
         </h2>
       </div>
 
-      <div
-        className="card"
+      <Card
         style={{
           padding: 14,
           marginBottom: 16,
@@ -1460,9 +1461,9 @@ export default function Playback() {
         keyboard (Space, arrows, Home/End) to scrub. The purple line shows
         playback position. Use the inspection buttons to drill into failures at
         any frame.
-      </div>
+      </Card>
 
-      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+      <Card style={{ padding: 16, marginBottom: 16 }}>
         <div
           style={{
             display: "flex",
@@ -1488,8 +1489,8 @@ export default function Playback() {
             </Select>
           </div>
           <div className="form-group" style={{paddingBottom:"4px"}}>
-            <button
-              className="btn btn-primary"
+            <Button
+              variant="primary"
               onClick={handleFetch}
               disabled={fetchLoading}
               style={{ height: 36, minWidth: 140 }}
@@ -1508,7 +1509,7 @@ export default function Playback() {
                   Fetch Data
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
         {fetchLoading && (
@@ -1559,11 +1560,11 @@ export default function Playback() {
             {fetchError}
           </div>
         )}
-      </div>
+      </Card>
 
       {dataReady && (
-        <div
-          className="card playback-controls"
+        <Card
+          className="playback-controls"
           style={{ padding: "10px 16px", marginBottom: 16 }}
         >
           <div
@@ -1602,22 +1603,25 @@ export default function Playback() {
               flexWrap: "wrap",
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleToStart}
               title="To Start (Home)"
             >
               <Icon className="ti ti-player-skip-back"></Icon>
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleStepBack}
               title="Back (←)"
             >
               <Icon className="ti ti-player-track-prev"></Icon>
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handlePlayPause}
               style={{ minWidth: 70 }}
               title="Play/Pause (Space)"
@@ -1627,21 +1631,23 @@ export default function Playback() {
                 style={{ marginRight: 3 }}
               ></Icon>
               {playing ? "Pause" : "Play"}
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleStepForward}
               title="Forward (→)"
             >
               <Icon className="ti ti-player-track-next"></Icon>
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleToEnd}
               title="To End (End)"
             >
               <Icon className="ti ti-player-skip-forward"></Icon>
-            </button>
+            </Button>
 
             <div
               style={{
@@ -1653,9 +1659,10 @@ export default function Playback() {
             ></div>
 
             {SPEED_OPTIONS.map((s) => (
-              <button
+              <Button
                 key={s.value}
-                className={`btn btn-sm ${speed === s.value ? "btn-primary" : "btn-secondary"}`}
+                variant={speed === s.value ? "primary" : "secondary"}
+                size="sm"
                 onClick={() => setSpeed(s.value)}
                 style={{
                   minWidth: 36,
@@ -1667,7 +1674,7 @@ export default function Playback() {
                 }}
               >
                 {s.label}
-              </button>
+              </Button>
             ))}
 
             <div
@@ -1679,8 +1686,9 @@ export default function Playback() {
               }}
             ></div>
 
-            <button
-              className="btn btn-sm"
+            <Button
+              variant={null}
+              size="sm"
               style={{
                 background: "#dc2626",
                 color: "#fff",
@@ -1696,9 +1704,10 @@ export default function Playback() {
                 style={{ marginRight: 3 }}
               ></Icon>{" "}
               Failed Queries
-            </button>
-            <button
-              className="btn btn-sm"
+            </Button>
+            <Button
+              variant={null}
+              size="sm"
               style={{
                 background: "#dc2626",
                 color: "#fff",
@@ -1711,9 +1720,9 @@ export default function Playback() {
             >
               <Icon className="ti ti-bug" style={{ marginRight: 3 }}></Icon> Error
               Logs
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {popupType && (
