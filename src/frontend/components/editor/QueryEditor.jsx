@@ -87,6 +87,15 @@ const EDITOR_HEIGHT_KEY = "chops_editor_height";
 const EDITOR_HEIGHT_MIN = 90;
 const EDITOR_HEIGHT_DEFAULT = 240;
 
+// A running export outlives the browser:
+const ACTIVE_EXPORT_KEY = "chops_active_export";
+
+function forgetExport() {
+  try {
+    localStorage.removeItem(ACTIVE_EXPORT_KEY);
+  } catch {}
+}
+
 function getEditorHeight() {
   const n = Number(localStorage.getItem(EDITOR_HEIGHT_KEY));
   return Number.isFinite(n) && n >= EDITOR_HEIGHT_MIN
@@ -219,6 +228,18 @@ function clearHistory() {
     localStorage.removeItem(HISTORY_KEY);
   } catch {}
 }
+
+// To delete the single history, instead of clear all.
+function deleteHistory(id) {
+  const h = getHistory();
+  const index = h.findIndex(his => his.id === id);
+  if (index === -1) return; 
+  h.splice(index, 1);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  } catch {}
+}
+
 
 // Export helpers - trigger browser download from in-memory data function
 // downloadBlob(content,
@@ -485,6 +506,8 @@ export default function QueryEditor({
   const [runConfirm, setRunConfirm] = useState(null);
   const [analyzeConfirm, setAnalyzeConfirm] = useState(null);
   const [closeConfirm, setCloseConfirm] = useState(null);
+  const [deleteConfirmModal,setDeleteConfirmModal] = useState(null);
+  const [onRefresh,setOnRefresh] = useState(false);
 
   // How many rows to ask for.
   const [maxRows, setMaxRowsState] = useState(() => {
@@ -826,7 +849,7 @@ export default function QueryEditor({
       await editorConnect(candidate);
       setEditorCreds({ user: candidate.user });
       setConnPassword("");
-      toast.success("DB connected succesfully");
+      toast.success("DB connected successfully");
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -1012,12 +1035,14 @@ export default function QueryEditor({
   };
 
   const loadDbs = useCallback(async () => {
+    setOnRefresh(true)
     const creds = editorCredsRef.current;
     if (!creds) return;
     const response = await fetchDatabaseDetails(creds);
     setDbs(response);
 
     initSetup(response);
+    setOnRefresh(false)
   }, []);
 
   async function loadBookmarks() {
@@ -1218,6 +1243,9 @@ export default function QueryEditor({
       const runTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
       const rowCap = maxRowsRef.current;
 
+       // removing the older export details in localstorage info
+      forgetExport()
+
       const sql = runTab.sql;
       const paramValues = runTab.params;
       const explainTicked = runTab.explainTicked;
@@ -1321,25 +1349,28 @@ export default function QueryEditor({
           ? `${composeStatement(ExplainOptionSelector.type, explainTicked, serverVersion)} ${text}`
           : text;
 
+        const hasLimitClause = /LIMIT\s+(\d+|\?)/i.test(text) || /\bLIMIT\s+(\d+|\?)\s*$/i.test(text) || /\bLIMIT\s+(\d+|\?)\s*(;|$)/i.test(text);
+
         // Required settings travel as request settings, never appended to the
-        // user's SQL as a SETTINGS clause.
+        const settings = {
+          ...(isExplain
+            ? settingsFor(
+                explainTicked,
+                ExplainOptionSelector.type,
+                serverVersion,
+              )
+            : {}),
+          ...(isExplain ? settingsFor(explainTicked) : {}),
+        };
+
+        if (!hasLimitClause) {
+          settings.max_result_rows = rowCap + 1;
+          settings.result_overflow_mode = "break";
+        }
+
         const r = await runEditorQuery(validExplain, editorCreds, {
           params: paramValues,
-          settings: {
-            ...(isExplain
-              ? settingsFor(
-                  explainTicked,
-                  ExplainOptionSelector.type,
-                  serverVersion,
-                )
-              : {}),
-            ...(isExplain ? settingsFor(explainTicked) : {}),
-            // STOP THE SERVER SENDING ROWS WE ARE GOING TO THROW AWAY.
-            max_result_rows: rowCap + 1,
-            // Stop cleanly at the limit instead of raising
-            // TOO_MANY_ROWS_OR_BYTES, which is what the default does.
-            result_overflow_mode: "break",
-          },
+          settings: settings,
         });
         if (r.stats) setQueryStats(r.stats);
 
@@ -1491,6 +1522,7 @@ export default function QueryEditor({
       if (lastSqlRef.current) {
         const finished = runtimeRef.current[tabId] || {};
         addHistory({
+          id: crypto.randomUUID(),
           sql: lastSqlRef.current,
           timestamp: new Date().toISOString(),
           rows: finished.totalRows || lastRunMetaRef.current?.written || 0,
@@ -1738,7 +1770,8 @@ export default function QueryEditor({
                 title="Refresh databases"
                 style={{ marginLeft: "auto" }}
               >
-                <Icon className="ti ti-refresh"></Icon>
+                {onRefresh ? <div className="loading-spinner"/> :
+                <Icon className="ti ti-refresh"></Icon>}
               </button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", height: "93%" }}>
@@ -2395,7 +2428,7 @@ export default function QueryEditor({
                     style={{ fontSize: "11px", padding: "1px 6px" }}
                     onClick={() => {
                       navigator.clipboard?.writeText(effectiveQueryId);
-                      toast.success("Query ID Copied Succesfully");
+                      toast.success("Query ID Copied Successfully");
                     }}
                     title={"query_id: " + effectiveQueryId}
                   >
@@ -2706,6 +2739,7 @@ export default function QueryEditor({
                         title="Clear history"
                       >
                         <Icon className="ti ti-trash"></Icon>
+                        Clear History
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -2846,6 +2880,9 @@ export default function QueryEditor({
                                 }}
                               ></Icon>{" "}
                               Load
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() =>setDeleteConfirmModal({id:h?.id,query:h.sql})}>
+                            <Icon className="ti ti-trash" style={{ fontSize: 12,padding:"0" }} ></Icon>
                             </button>
                           </div>
                         </div>
@@ -3241,7 +3278,7 @@ export default function QueryEditor({
               onCellClick={(v) => {
                 if (v != null) {
                   navigator.clipboard?.writeText(String(v));
-                  toast.success("Query Text Copied Succesfully");
+                  toast.success("Query Text Copied Successfully");
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }
@@ -3256,7 +3293,7 @@ export default function QueryEditor({
             (!editorConnected ? (
               <div className="empty-state">
                 <Icon className="ti ti-lock"></Icon>
-                <p>"Connect with your ClickHouse credentials to begin."</p>
+                <p>Connect with your ClickHouse credentials to begin.</p>
               </div>
             ) : (
               <div
@@ -3359,7 +3396,7 @@ export default function QueryEditor({
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
                       navigator.clipboard?.writeText(ddlModal.ddl);
-                      toast.success("DDL Text Copied Succesfully");
+                      toast.success("DDL Text Copied Successfully");
                     }}
                   >
                     <Icon className="ti ti-copy"></Icon> Copy
@@ -3485,7 +3522,7 @@ export default function QueryEditor({
                   className="btn btn-secondary btn-sm"
                   onClick={() => {
                     navigator.clipboard?.writeText(sql);
-                    toast.success("Quer Text Copied Succesfully");
+                    toast.success("Quer Text Copied Successfully");
                   }}
                 >
                   <Icon className="ti ti-copy"></Icon> Copy
@@ -3567,6 +3604,8 @@ export default function QueryEditor({
           if (id) doRunRef.current?.(id);
         }}
       />
+
+      <ConfirmDialog open={!!deleteConfirmModal} tone="danger" title="Delete" message="Do you want to delete this query ?" sql={deleteConfirmModal?.query} onCancel={() => setDeleteConfirmModal(null)} onConfirm={() =>{deleteHistory(deleteConfirmModal?.id); setDeleteConfirmModal(null);setHistory(getHistory());}}/>
 
       {shareOpen && (
         <ShareDialog

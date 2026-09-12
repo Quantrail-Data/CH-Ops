@@ -17,7 +17,7 @@ export function listClusters(req, res) {
   res.json(getAllClusters().map(maskClusterPasswords));
 }
 
-export function createCluster(req, res) {
+export async function createCluster(req, res) {
   try {
     const role = req.user?.role;
 
@@ -61,6 +61,29 @@ export function createCluster(req, res) {
       });
     }
 
+    const failedNodes = [];
+
+    for (const node of nodeArr) {
+      try {
+        await testNodeConnection(node);
+      } catch (error) {
+        failedNodes.push({
+          name: node.name,
+          host: node.host,
+          port: node.port || 8123,
+          error: error.message || "Connection failed.",
+        });
+      }
+    }
+
+    if (failedNodes.length > 0) {
+      return res.json({
+        success: false,
+        error: "One or more nodes failed the connection test.",
+        nodes: failedNodes,
+      });
+    }
+
     const newCluster = {
       id: `cluster_${Date.now()}`,
       name: name.trim(),
@@ -71,7 +94,9 @@ export function createCluster(req, res) {
 
     saveClusters(clusters);
 
-    return res.status(201).json(maskClusterPasswords(newCluster));
+    return res
+      .status(201)
+      .json({ ...maskClusterPasswords(newCluster), success: true });
   } catch (error) {
     return res.status(500).json({
       error: error.message || "Internal server error",
@@ -79,7 +104,7 @@ export function createCluster(req, res) {
   }
 }
 
-export function updateCluster(req, res) {
+export async function updateCluster(req, res) {
   try {
     const role = req.user?.role;
     if (role !== "superadmin" && role !== "admin") {
@@ -92,7 +117,8 @@ export function updateCluster(req, res) {
       return res.status(404).json({ error: "Cluster not found." });
     }
 
-    const { name, nodes, chUser, chPassword, endpoint, port, secure } = req.body;
+    const { name, nodes, chUser, chPassword, endpoint, port, secure } =
+      req.body;
     if (name !== undefined) {
       if (!name?.trim()) {
         return res.status(400).json({ error: "Cluster name required." });
@@ -139,17 +165,41 @@ export function updateCluster(req, res) {
       });
       const err = validateNodes(nodeArr, clusters, idx, clusters[idx].kind);
       if (err) return res.status(400).json({ error: err });
+
+      const failedNodes = [];
+
+      for (const node of nodeArr) {
+        try {
+          await testNodeConnection(node);
+        } catch (error) {
+          failedNodes.push({
+            name: node.name,
+            host: node.host,
+            port: node.port || 8123,
+            error: error.message || "Connection failed.",
+          });
+        }
+      }
+      if (failedNodes.length > 0) {
+        return res.json({
+          success: false,
+          error: "One or more nodes failed the connection test.",
+          nodes: failedNodes,
+        });
+      }
+
       clusters[idx].nodes = nodeArr;
     }
 
-    if (chUser !== undefined) clusters[idx].chUser = chUser || 'default';
-
+    if (chUser !== undefined) clusters[idx].chUser = chUser || "default";
 
     if (chPassword) clusters[idx].chPassword = chPassword;
 
     if (endpoint !== undefined) {
       if (!endpoint?.trim()) {
-        return res.status(400).json({ error: 'ClickHouse address is required.' });
+        return res
+          .status(400)
+          .json({ error: "ClickHouse address is required." });
       }
       clusters[idx].endpoint = endpoint.trim();
     }
@@ -157,17 +207,41 @@ export function updateCluster(req, res) {
     if (port !== undefined) {
       const p = Number(port);
       if (!Number.isInteger(p) || p < 1 || p > 65535) {
-        return res.status(400).json({ error: 'Port must be between 1 and 65535.' });
+        return res
+          .status(400)
+          .json({ error: "Port must be between 1 and 65535." });
       }
       clusters[idx].port = p;
+      // Sync port to all nodes. For K8s clusters, this ensures newly discovered nodes
+      // get the correct port. For direct clusters, this syncs the cluster-level default.
+      if (clusters[idx].nodes?.length) {
+        clusters[idx].nodes = clusters[idx].nodes.map((n) => ({
+          ...n,
+          port: p,
+        }));
+      }
     }
 
-    if (secure !== undefined) clusters[idx].secure = !!secure;
+    if (secure !== undefined) {
+      clusters[idx].secure = !!secure;
+      // Sync secure flag to all nodes. For K8s clusters, this ensures all nodes use
+      // the same TLS setting as the cluster. For direct clusters, this syncs the default.
+      if (clusters[idx].nodes?.length) {
+        clusters[idx].nodes = clusters[idx].nodes.map((n) => ({
+          ...n,
+          secure: !!secure,
+        }));
+      }
+    }
 
-    
     saveClusters(clusters);
 
-    res.json(maskClusterPasswords(clusters[idx]));
+    const result = maskClusterPasswords(clusters[idx]);
+    const consistency = validateClusterNodeConsistency(clusters[idx]);
+    if (consistency?.warning) {
+      result._warning = consistency.details;
+    }
+    res.json({ ...result, success: true });
   } catch (error) {
     res.status(500).json({ error: error.message || "Internal server error" });
   }
@@ -268,4 +342,47 @@ function validateNodes(nodes, allClusters, excludeIdx, kind) {
     return `Maximum ${MAX_TOTAL_NODES} total nodes across all clusters.`;
 
   return null;
+}
+
+function validateClusterNodeConsistency(cluster) {
+  if (!cluster?.nodes?.length) return null;
+  const clusterPort = cluster.port ?? 8123;
+  const clusterSecure = !!cluster.secure;
+
+  const inconsistentNodes = cluster.nodes.filter(
+    (n) => (n.port ?? 8123) !== clusterPort || !!n.secure !== clusterSecure,
+  );
+
+  if (inconsistentNodes.length > 0) {
+    const details = inconsistentNodes
+      .map(
+        (n) =>
+          `${n.name} (port ${n.port ?? 8123}, ${n.secure ? "TLS" : "no TLS"})`,
+      )
+      .join(", ");
+    return {
+      warning: "Cluster-node configuration mismatch detected",
+      details: `Cluster uses port ${clusterPort} (${clusterSecure ? "TLS" : "no TLS"}), but nodes ${details} differ. This can cause connection failures.`,
+    };
+  }
+
+  return null;
+}
+
+export async function testNodeConnection(node) {
+  const result = await executeQuery({
+    host: node.host,
+    port: node.port || 8123,
+    user: node.user || "default",
+    password: node.password || "",
+    secure: !!node.secure,
+    timeoutMs: 10000,
+    sql: "SELECT version() AS version, uptime() AS uptime",
+  });
+
+  return {
+    ok: true,
+    version: result.rows?.[0]?.version,
+    uptime: result.rows?.[0]?.uptime,
+  };
 }

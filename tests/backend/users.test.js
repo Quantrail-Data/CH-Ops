@@ -207,6 +207,7 @@ describe("Users Controller", () => {
   });
 
   it("createUser blocks superadmin creation by admin", async () => {
+    console.log(fakeDB)
     await createUser(
       {
         user: { role: "admin" },
@@ -261,7 +262,7 @@ describe("Users Controller", () => {
         params: { id: "1" },
         user: { userId: 2, role: "admin" },
         body: {
-          resetPassword: true,
+          resetPassword: false,
           audit: {},
         },
       },
