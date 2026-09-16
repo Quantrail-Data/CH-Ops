@@ -50,7 +50,7 @@ export default function SelectMenu({
     // A page scroll or resize detaches a fixed menu from its anchor, so close.
     // Scrolling inside the menu's own list (elRef) must NOT close it.
     const onScroll = (e) => {
-      if (elRef.current && elRef.current.contains(e.target)) return;
+      if (elRef.current && e.target instanceof Node && elRef.current.contains(e.target)) return;
       onRequestClose?.();
     };
     window.addEventListener("scroll", onScroll, true);
