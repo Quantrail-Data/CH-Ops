@@ -37,7 +37,7 @@ function readOptions(children) {
 }
 
 export default function Select({
-  value, onChange, children, className = "", disabled = false, required = false,
+  value, onChange, children, className = "", disabled = false, required = false,isHigherZindex=4000,
   id, name, style, placeholder, "aria-label": ariaLabel, ...rest
 }) {
   const options = readOptions(children);
@@ -134,6 +134,7 @@ export default function Select({
       </button>
 
       <SelectMenu
+        isHgherZindex={isHigherZindex}
         anchorRef={rootRef}
         open={open}
         onRequestClose={close}

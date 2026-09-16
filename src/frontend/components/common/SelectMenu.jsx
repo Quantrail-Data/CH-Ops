@@ -18,14 +18,14 @@ import { createPortal } from "react-dom";
 
 // Anchor the panel to the control, flipping above it when there is little room
 // below and more above.
-function computeStyle(anchorEl) {
+function computeStyle(anchorEl,isHgherZindex) {
   const r = anchorEl.getBoundingClientRect();
   const flipUp = window.innerHeight - r.bottom < 260 && r.top > 260;
   const style = {
     position: "fixed",
     left: Math.round(r.left),
     minWidth: Math.round(r.width),
-    zIndex: 4000,
+    zIndex:isHgherZindex,
   };
   if (flipUp) style.bottom = Math.round(window.innerHeight - r.top + 4);
   else style.top = Math.round(r.bottom + 4);
@@ -33,7 +33,7 @@ function computeStyle(anchorEl) {
 }
 
 export default function SelectMenu({
-  anchorRef, open, onRequestClose, listRef, className = "", children, ...rest
+  anchorRef,isHgherZindex, open, onRequestClose, listRef, className = "", children, ...rest
 }) {
   const elRef = useRef(null);
   const [style, setStyle] = useState(null);
@@ -45,7 +45,7 @@ export default function SelectMenu({
     }
     const el = anchorRef.current;
     if (!el) return undefined;
-    setStyle(computeStyle(el));
+    setStyle(computeStyle(el,isHgherZindex));
 
     // A page scroll or resize detaches a fixed menu from its anchor, so close.
     // Scrolling inside the menu's own list (elRef) must NOT close it.

@@ -522,6 +522,7 @@ export default function QueryEditor({
   const [closeConfirm, setCloseConfirm] = useState(null);
   const [deleteConfirmModal,setDeleteConfirmModal] = useState(null);
   const [onRefresh,setOnRefresh] = useState(false);
+  const [clearHistConfirmModal,setClearHistConfirmModal] = useState(false);
 
   // How many rows to ask for.
   const [maxRows, setMaxRowsState] = useState(() => {
@@ -2746,10 +2747,7 @@ export default function QueryEditor({
                     <div style={{ display: "flex", gap: 4 }}>
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          clearHistory();
-                          setHistory([]);
-                        }}
+                        onClick={() => setClearHistConfirmModal(true)}
                         title="Clear history"
                       >
                         <Icon className="ti ti-trash"></Icon>
@@ -3620,6 +3618,8 @@ export default function QueryEditor({
       />
 
       <ConfirmDialog open={!!deleteConfirmModal} tone="danger" title="Delete" message="Do you want to delete this query ?" sql={deleteConfirmModal?.query} onCancel={() => setDeleteConfirmModal(null)} onConfirm={() =>{deleteHistory(deleteConfirmModal?.id); setDeleteConfirmModal(null);setHistory(getHistory());}}/>
+
+      <ConfirmDialog open={clearHistConfirmModal} tone="danger" title="Delete" message="Do you want to clear history" onCancel={()=> setClearHistConfirmModal(false)} onConfirm={() => {clearHistory(); setHistory([]);setClearHistConfirmModal(false)}}/>
 
       {shareOpen && (
         <ShareDialog
