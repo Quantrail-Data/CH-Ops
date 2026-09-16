@@ -123,7 +123,7 @@ describe("checking a cluster reached by IP address", () => {
   it("was unreachable before the fix, because servername was set to the IP", async () => {
     await expect(new Promise((resolve, reject) => {
       const socket = tls.connect(
-        { host: "127.0.0.1", port: strictPort, servername: "127.0.0.1", ca: [caPemIp], timeout: 2000 },
+        { host: "127.0.0.2", port: strictPort, servername: "127.0.0.1", ca: [caPemIp], timeout: 2000 },
         () => { socket.end(); resolve(); },
       );
       socket.on("error", reject);

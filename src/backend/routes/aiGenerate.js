@@ -122,7 +122,7 @@ router.post(
 
       const result = await generateSql({
         jti: req.user?.jti,
-        context: resolveContext(req),
+        context: resolveContext(),
         appUser: req.user?.username,
         chatId: isFindChatId.id,
         clusterId,

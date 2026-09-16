@@ -46,7 +46,7 @@ import { normalizeForExport } from "../../../shared/sqlExport.js";
 import { findParameters, hasValue } from "../../../shared/sqlParams.js";
 import ParamStrip from "./ParamStrip.jsx";
 import QueryTabs from "./QueryTabs.jsx";
-import { useQueryTabs } from "./useQueryTabs.js";
+import { nextTabName, useQueryTabs } from "./useQueryTabs.js";
 import SqlEditor from "./SqlEditor.jsx";
 import { buildCompletionOptions, loadFunctionRows } from "./sqlEditorSetup.js";
 import {
@@ -346,13 +346,15 @@ export default function QueryEditor({
   } = tabs_;
 
   const sql = activeTab.sql;
+
+
   const setSql = useCallback(
     (v) => {
       updateTab(activeId, {
         sql: typeof v === "function" ? v(sql) : v,
       });
     },
-    [activeId, sql, updateTab],
+    [activeId, sql, updateTab,tabs],
   );
 
   const {
@@ -437,33 +439,45 @@ export default function QueryEditor({
   // A shared link, opened into its own tab so whatever the recipient already
   // had open is untouched.
   const sharedOpened = useRef(false);
-  useEffect(() => {
-    if (sharedOpened.current) return;
-    const shared = readShareFromHash();
-    if (!shared) return;
-    sharedOpened.current = true;
 
+
+  useEffect(() => {
+
+    if (sharedOpened.current) return;
+    
+    
+    const shared = readShareFromHash();
+
+
+    if (!shared) return;
+
+    sharedOpened.current = true;
+   
     const created = tabs_.addTab({
-      name: shareTabName(shared.sql),
       sql: shared.sql,
-      // Only what the sender chose to include. Absent means the recipient
-      // starts from their own seed, not from an empty strip.
       params: shared.params || undefined,
     });
+
+
     if (!created) {
       // At the tab cap. Say so rather than dropping the link silently.
       toast.warning("Close a tab to open the shared query.");
       sharedOpened.current = false;
       return;
     }
+
+    setSql(created?.sql)
+    console.log(window.location.pathname + window.location.search)
     try {
       window.history.replaceState(
         null,
         "",
-        window.location.pathname + window.location.search,
+        "/#/editor/query",
       );
     } catch {}
-  }, [tabs_, toast]);
+  }, []);
+
+  
   const setParamValue = useCallback(
     (name, value) => setParam(activeId, name, value),
     [activeId, setParam],
@@ -566,7 +580,6 @@ export default function QueryEditor({
     const interval = setInterval(() => {
       setIndex((prevIndex) => (prevIndex + 1) % LOADING_PHRASES.length);
       if (isAILoadingGenerating) {
-        console.log(LOADING_PHRASES[index]);
         setSql(LOADING_PHRASES[index]);
       }
     }, 2000);
@@ -957,7 +970,7 @@ export default function QueryEditor({
         );
       }
     } catch (err) {
-      console.log(err?.message);
+      console.error(err?.message);
     }
   };
 
@@ -1092,6 +1105,7 @@ export default function QueryEditor({
 
   useEffect(() => {
     editorCredsRef.current = editorCreds;
+    
   }, [editorCreds]);
 
   useEffect(() => {

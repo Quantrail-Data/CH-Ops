@@ -5,9 +5,9 @@ import { CRED_CONTEXTS } from "../services/chCredStore.js";
 // The default credential context, and the only other one a caller may ask for.
 const VALID_CONTEXTS = new Set(Object.values(CRED_CONTEXTS));
 
-export function resolveContext(req) {
-  const requested = req.body?.context ?? req.query?.context;
-  return VALID_CONTEXTS.has(requested) ? requested : CRED_CONTEXTS.QURIOZ;
+export function resolveContext() {
+  
+  return CRED_CONTEXTS.EDITOR;
 }
 
 // Normalise a selection into [{ database, table }], accepting either that shape
