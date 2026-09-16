@@ -331,7 +331,7 @@ const unavailableMessage = getUnavailableMessage();
       <Section id="disks" icon="ti-device-floppy" title="Disks" defaultOpen={false}>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) minmax(280px, 1.4fr)', gap: 16, marginBottom: 20 }}>
         <div className="card" style={diskTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
-          <ChartToolbar fullscreen={diskTools.fullscreen} onSave={diskTools.save} onToggleFullscreen={diskTools.toggleFullscreen} isWantFeature={chartControlsFlags} />
+                   <div style={{padding:diskTools.fullscreen ?"2rem 0 0 2rem":"",width:"100%",display:"flex",justifyContent:disks.data?.length > 1 ? "space-between":"end"}}>
 
           {/* Only offered when there is more than one disk to choose between,
               and with no empty placeholder option: selecting it used to leave
@@ -339,17 +339,19 @@ const unavailableMessage = getUnavailableMessage();
           {disks.data?.length > 1 && (
             <Select
               className="form-select conn-select"
+              isHigherZindex={diskTools.fullscreen ?10000 :4000}
               value={diskIndex}
               onChange={(e) => setDiskIndex(Number(e.target.value))}
-              style={{ width: 160, fontWeight: 600, height: '38px', fontSize: '13px' }}
+              style={{ width: 160, fontWeight: 600, height: '38px', fontSize: '13px',justifyContent:"start",flex:"none"}}
               title="Switch disk"
             >
-              {disks.data.map((d, i) => (
+              {disks.data?.map((d, i) => (
                 <option key={d.name} value={i}>{d.name}</option>
               ))}
             </Select>
-          )}
-
+            )}  
+           <ChartToolbar  fullscreen={diskTools.fullscreen} onSave={diskTools.save} onToggleFullscreen={diskTools.toggleFullscreen} isWantFeature={chartControlsFlags} />
+          </div>
           <div ref={attachDiskEl} style={{ height: diskTools.fullscreen ? 'calc(100vh - 96px)' : 210, width: '100%', flex: diskTools.fullscreen ? 1 : undefined }} />
         </div>
 
