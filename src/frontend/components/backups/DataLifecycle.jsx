@@ -420,6 +420,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       scope,
       database: db || null,
       tables: tbl || null,
+      is_incremental:settingsStr.includes("base_backup"),
       created_at: new Date().toISOString(),
       s3_path: `${s3.endpoint}/backups/${backupId}/`,
     };
@@ -911,17 +912,6 @@ function AvailableBackupsTab({ profiles }) {
             ))}
           </Select>
         </div>
-        <div className="form-group">
-          <label className="form-label">Filter</label>
-          <Select
-            className="form-select"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All Backups</option>
-            <option value="manual">Manual Only</option>
-          </Select>
-        </div>
         <button
           className="btn btn-primary btn-sm"
           onClick={loadBackups}
@@ -956,11 +946,9 @@ function AvailableBackupsTab({ profiles }) {
               <thead>
                 <tr>
                   <th>Backup ID</th>
-                  <th>Type</th>
                   <th>Scope</th>
                   <th>Created</th>
-                  <th>Incremental</th>
-                  <th>Retention</th>
+                  <th>Backup Type</th>
                 </tr>
               </thead>
               <tbody>
@@ -975,7 +963,6 @@ function AvailableBackupsTab({ profiles }) {
                     >
                       {b.display_name || b.backup_id}
                     </td>
-                    <td>{(b.backup_type || "legacy").toUpperCase()}</td>
                     <td>
                       {b.scope?.toUpperCase()}
                       {b.database ? ` / ${b.database}` : ""}
@@ -993,7 +980,6 @@ function AvailableBackupsTab({ profiles }) {
                         <span className="badge badge-green">FULL</span>
                       )}
                     </td>
-                    <td>{b.retention_days ? `${b.retention_days}d` : "-"}</td>
                   </tr>
                 ))}
               </tbody>

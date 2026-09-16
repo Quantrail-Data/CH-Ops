@@ -66,21 +66,7 @@ export default function KubernetesInsightPage() {
         <h2 className="section-title">
           <Icon className="ti ti-topology-star-3"></Icon> Kubernetes Insights
         </h2>
-        {clusters.length > 1 && (
-          <div style={{ marginLeft: "auto", minWidth: 220 }}>
-            <Select
-              className="form-select"
-              value={chosen}
-              onChange={(e) => setChosen(e.target.value)}
-            >
-              {clusters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
+
       </div>
 
       {cluster && (

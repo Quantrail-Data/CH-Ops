@@ -81,6 +81,7 @@ export function listUsers(req, res) {
       role: appUsers.role,
       email: appUsers.email,
       mustChangePassword: appUsers.mustChangePassword,
+      initUser:appUsers.initUser,
       lastLoginAt: appUsers.lastLoginAt,
       createdAt: appUsers.createdAt,
     })
@@ -99,14 +100,25 @@ export async function createUser(req, res) {
     const { username, email, role } = req.body;
     if (!username?.trim())
       return res.status(400).json({ error: "Username required." });
-
-    const existing = db
+    const userNameExist = db
       .select()
       .from(appUsers)
       .where(eq(appUsers.username, username.trim()))
       .get();
-    if (existing)
+
+    if (userNameExist)
       return res.status(409).json({ error: "Username already exists." });
+
+    if (!email?.trim())
+      return res.status(400).json({ error: "Email required." });
+
+    const existing = db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.email, email.trim()))
+      .get();
+    if (existing)
+      return res.status(409).json({ error: "Email already exists." });
 
     // Validate and constrain the role
     let newRole = VALID_ROLES.includes(role) ? role : "readonly";
@@ -222,8 +234,18 @@ export async function updateUser(req, res) {
       updates.role = newRole;
     }
 
+    // password reset:self user cannot reset password
+    if(req.body.resetPassword && isSelf){
+      return res.status(403).json({error:"Cannot reset yourself"})
+    }
+
+    // password reset:if init user cannot self reset
+    if(req.body.resetPassword && target.initUser){
+      return res.status(403).json({error:"Default user cannot self reset"})
+    }
+
     // Password reset: only admin-level users can reset others' passwords
-    if (req.body.resetPassword && callerIsAdmin && !isSelf) {
+    if (req.body.resetPassword && callerIsAdmin && !isSelf && !target.initUser) {
       const pw = generatePassword();
       updates.passwordHash = await hashPassword(pw);
       updates.mustChangePassword = true;
@@ -284,7 +306,10 @@ export function deleteUser(req, res) {
     // Can't delete someone at or above your level
     const callerLevel = ROLE_LEVEL[req.user?.role] || 0;
     const targetLevel = ROLE_LEVEL[target.role] || 0;
-    if (targetLevel >= callerLevel) {
+
+    if( target.initUser) return res.status(403).json({error:"Cannot delete default user"})
+
+    if (targetLevel > callerLevel) {
       return res
         .status(403)
         .json({

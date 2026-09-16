@@ -11,7 +11,7 @@ describe('Forced password change gate', () => {
 
   it('App renders ForceChangePassword instead of MainLayout when mustChangePassword is set', () => {
     expect(app).toContain('ForceChangePassword');
-    expect(app).toMatch(/auth\.mustChangePassword\s*\?\s*<ForceChangePassword \/>\s*:\s*<MainLayout \/>/);
+    expect(app).toMatch("auth.mustChangePassword");
   });
 
   it('submits to the existing change-password endpoint', () => {

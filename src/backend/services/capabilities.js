@@ -60,7 +60,7 @@ export async function probeCapabilities(clusterId, node) {
       password: node.password,
       readOnly: true,
       timeoutMs: 10000,
-      sql: "SELECT name FROM system.tables WHERE database = 'system'",
+      sql: "SELECT name, engine FROM system.tables WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') AND engine LIKE 'Shared%'LIMIT 1;",
     });
   } catch (err) {
     // A failed probe must not block the connection.
@@ -89,10 +89,7 @@ export async function probeCapabilities(clusterId, node) {
   const names = new Set(rowsOf(result).map((r) => `system.${r.name}`));
 
   // SharedMergeTree keeps every ReplicatedMergeTree introspection table except the
-  const sharedMergeTree =
-    names.has(CAPABILITY.REPLICAS) &&
-    !names.has(CAPABILITY.REPLICATION_QUEUE) &&
-    !names.has(CAPABILITY.REPLICATED_FETCHES);
+ const sharedMergeTree = rowsOf(result).length > 0;
 
   const entry = {
     probed: true,
@@ -136,7 +133,7 @@ export function explain(table) {
 // Everything unavailable on this cluster, for a summary panel.
 export function unavailableFeatures(clusterId) {
   const entry = cache.get(clusterId);
-  if (!entry?.probed || !entry.tables) return [];
+  if (!entry?.probed || entry.tables.size === 0) {return []};
   return Object.values(CAPABILITY)
     .filter((t) => !entry.tables.has(t) && EXPLANATIONS[t])
     .map((t) => ({ table: t, message: EXPLANATIONS[t] }));

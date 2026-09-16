@@ -77,9 +77,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const [paramDefaults, setParamDefaults] = useState({});
   const [isSmallScreen, setIsSmallScreen] = useState(false);
 
-  // What this chart declares. Shown while it is being built so the author can
-  // see what will become a dashboard filter, rather than finding out later on
-  // someone else's dashboard.
   const declaredParams = React.useMemo(() => {
     try { return findParameters(sql || ""); } catch { return []; }
   }, [sql]);
@@ -95,6 +92,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
   const smallScreenOverlapRef = useRef(false);
   const isMountedRef = useRef(true);
+  const initTimerRef = useRef(null);
+  const resizeTimerRef = useRef(null);
+  const chartEpochRef = useRef(0);
+  const pendingOptionRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -115,6 +116,28 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (previewTools.fullscreen) {
+      document.body.classList.add("chart-builder-preview-fullscreen");
+    } else {
+      document.body.classList.remove("chart-builder-preview-fullscreen");
+    }
+    return () => {
+      document.body.classList.remove("chart-builder-preview-fullscreen");
+    };
+  }, [previewTools.fullscreen]);
+
+  useEffect(() => {
+    if (fullscreen) {
+      document.body.classList.add("chart-builder-page-fullscreen");
+    } else {
+      document.body.classList.remove("chart-builder-page-fullscreen");
+    }
+    return () => {
+      document.body.classList.remove("chart-builder-page-fullscreen");
+    };
+  }, [fullscreen]);
 
   useEffect(() => {
     if (editChart) {
@@ -147,6 +170,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
   const shouldShowLegend = needsLegend(chartType, chartSubtype);
 
+  const isTablePreview = !!chartOption?._table;
+  const previewBodyHeight = previewTools.fullscreen
+    ? "calc(100vh - 96px)"
+    : isSmallScreen
+      ? (isTablePreview ? "52vh" : "42vh")
+      : (isTablePreview ? "48vh" : "430px");
+
   useEffect(() => {
     if (!editChart) {
       const d = getAxisDefaults(chartType, chartSubtype);
@@ -164,10 +194,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       );
       return;
     }
-    // Preview with the defaults the author has entered. Without this a
-    // parameterized query cannot be previewed at all: a required placeholder
-    // reaches ClickHouse unset and comes back as "Substitution 'x' is not set",
-    // which reads as a broken query rather than a missing default.
     const missing = declaredParams
       .filter((p) => p.required && !(paramDefaults[p.name] ?? "").toString().trim())
       .map((p) => p.name);
@@ -247,6 +273,26 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     return names;
   }
 
+  const cleanupChart = () => {
+    chartEpochRef.current += 1;
+    if (initTimerRef.current) {
+      clearTimeout(initTimerRef.current);
+      initTimerRef.current = null;
+    }
+    if (resizeTimerRef.current) {
+      clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = null;
+    }
+    const el = previewRef.current;
+    previewInst.current = null;
+    if (el) {
+      try {
+        disposeChart(el);
+      } catch (e) {
+      }
+    }
+  };
+
   useEffect(() => {
     if (!data?.length || (chartType !== "table" && !fields.length)) {
       setChartOption(null);
@@ -290,336 +336,439 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   ]);
 
   useEffect(() => {
-    if (!previewRef.current || !isMountedRef.current) return;
+    if (!isMountedRef.current) return;
     if (
       !chartOption ||
       chartOption._kpi ||
       chartOption._table ||
       chartOption._error
     ) {
-      if (previewInst.current) {
+      if (initTimerRef.current) {
+        clearTimeout(initTimerRef.current);
+        initTimerRef.current = null;
+      }
+      const el = previewRef.current;
+      previewInst.current = null;
+      if (el) {
         try {
-          disposeChart(previewRef.current);
+          disposeChart(el);
         } catch (e) {
         }
-        previewInst.current = null;
       }
       return;
     }
-    try {
-      if (!previewInst.current) {
+
+    pendingOptionRef.current = chartOption;
+    const epoch = ++chartEpochRef.current;
+
+    if (initTimerRef.current) {
+      clearTimeout(initTimerRef.current);
+    }
+
+    initTimerRef.current = setTimeout(() => {
+      initTimerRef.current = null;
+
+      if (epoch !== chartEpochRef.current) return;
+      if (!isMountedRef.current) return;
+
+      const host = previewRef.current;
+      if (!host || !host.isConnected) return;
+
+      const option = pendingOptionRef.current;
+      if (!option) return;
+
+      let instance = previewInst.current;
+      const needsNewInstance =
+        !instance ||
+        (instance.isDisposed && instance.isDisposed()) ||
+        (instance.getDom && instance.getDom() !== host);
+
+      if (needsNewInstance) {
+        if (instance) {
+          try {
+            if (!(instance.isDisposed && instance.isDisposed())) {
+              instance.dispose();
+            }
+          } catch (e) {
+          }
+        }
         try {
-          previewInst.current = initChart(previewRef.current);
+          instance = initChart(host);
         } catch (e) {
           console.warn('Failed to init chart:', e.message);
           return;
         }
+        previewInst.current = instance;
       }
 
-      const isDarkColor = theme === 'dark' ? 'white' : 'black';
+      try {
+        const isDarkColor = theme === 'dark' ? 'white' : 'black';
 
-      const hasLegendCheck = chartOption.legend?.show || (Array.isArray(chartOption.series) && chartOption.series.some(s => Array.isArray(s?.data) && s?.data.length > 0));
+        const hasLegendCheck = option.legend?.show || (Array.isArray(option.series) && option.series.some(s => Array.isArray(s?.data) && s?.data.length > 0));
+        const legendVisible = shouldShowLegend && showLegend;
 
-      const legendVisible = shouldShowLegend && showLegend;
+        const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar', 'horizontal_bar'];
+        const isBarChart = barChartTypes.includes(chartSubtype);
+        const isHorizontalBar = chartSubtype === "horizontal_bar";
+        const isHeatmap = chartType === 'heatmap' || chartSubtype === 'heatmap';
+        const isScatterLike = chartSubtype === 'scatter' || chartSubtype === 'basic_scatter' || chartSubtype === 'bubble' || chartType === 'scatter' || chartType === 'bubble';
+        const lineLikeSubtypes = ['line', 'multi_line', 'area', 'stacked_area', 'step_line', 'spline'];
+        const isLineLike = chartType === 'line' || lineLikeSubtypes.includes(chartSubtype);
+        const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
+        const isPieChart = pieChartTypes.includes(chartSubtype) || (Array.isArray(option.series) && option.series.some(s => s.type === 'pie'));
+        const funnelChartTypes = ['funnel'];
+        const isFunnelChart = funnelChartTypes.includes(chartSubtype) || chartType === 'funnel';
+        const isSunBurst = Array.isArray(option.series) && option.series.some((s) => s.type === "sunburst");
 
-      const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar', 'horizontal_bar'];
-      const isBarChart = barChartTypes.includes(chartSubtype);
-      const isHeatmap = chartType === 'heatmap' || chartSubtype === 'heatmap';
-      const isScatterLike = chartSubtype === 'scatter' || chartSubtype === 'basic_scatter' || chartSubtype === 'bubble' || chartType === 'scatter' || chartType === 'bubble';
-      const pieChartTypes = ['pie', 'donut', 'rose', 'nested_pie'];
-      const isPieChart = pieChartTypes.includes(chartSubtype) || (Array.isArray(chartOption.series) && chartOption.series.some(s => s.type === 'pie'));
-      const funnelChartTypes = ['funnel'];
-      const isFunnelChart = funnelChartTypes.includes(chartSubtype) || chartType === 'funnel';
-      const isSunBurst = Array.isArray(chartOption.series) && chartOption.series.some((s) => s.type === "sunburst");
+        const isCandlestick = chartType === 'candlestick' || chartSubtype === 'candlestick' || (Array.isArray(option.series) && option.series.some(s => s.type === 'candlestick'));
 
-      let sunburstLegendData = [];
-      if (isSunBurst) {
-        const sunburstSeries = chartOption.series.filter(s => s.type === 'sunburst');
-        sunburstSeries.forEach((s) => {
-          if (!s) return;
-          if (Array.isArray(s.data)) {
-            s.data.forEach(n => collectSunburstNames(n, sunburstLegendData));
-          } else {
-            collectSunburstNames(s.data, sunburstLegendData);
-          }
-        });
-        sunburstLegendData = Array.from(new Set(sunburstLegendData)).slice(0, 200);
-      }
+        const isRadar = chartType === 'radar' || chartSubtype === 'radar';
+        const isBoxplot = chartType === 'boxplot' || chartSubtype === 'boxplot';
+        const isGraph = chartType === 'graph' || chartSubtype === 'graph';
+        const isSankeyChart = chartType === 'sankey' || chartSubtype === 'sankey';
+        const isTreemapChart = chartType === 'treemap' || chartSubtype === 'treemap';
+        const isGaugeChart = chartType === 'gauge' || chartSubtype === 'gauge';
 
-      let legendConfig = {
-        ...chartOption.legend,
-        textStyle: { ...(chartOption.legend?.textStyle || {}), color: isDarkColor },
-        type: 'scroll',
-        pageIconColor: isDarkColor,
-        pageIconInactiveColor: 'var(--text-muted)',
-        pageTextStyle: { color: isDarkColor },
-      };
+        const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunBurst && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineLike || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chartType === 'bar' || chartType === 'line' || chartType === 'scatter' || chartType === 'heatmap');
 
-      if (isSunBurst && sunburstLegendData.length > 0) {
-        legendConfig = {
-          ...legendConfig,
-          data: sunburstLegendData,
-          show: legendVisible,
-          orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
-          ...(previewTools.fullscreen ? {
-            left: 0,
-            top: 8,
-            bottom: 8,
-            width: 220,
-          } : {
-            left: 0,
-            right: 0,
-            top: 0,
-            width: '100%',
-          })
-        };
-      } else if (isSunBurst) {
-        legendConfig.show = false;
-      } else {
-        legendConfig = {
-          ...legendConfig,
-          show: hasLegendCheck && legendVisible,
-          orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
-          ...(previewTools.fullscreen ? {
-            left: 0,
-            top: 8,
-            bottom: 8,
-            width: 220,
-          } : {
-            left: 0,
-            right: 0,
-            top: 0,
-            width: '100%',
-          })
-        };
-      }
+        const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
+        const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
 
-      const baseOption = withZoomable({
-        ...chartOption,
-        toolbox: { show: false },
-        legend: legendConfig,
-      });
-
-      if (isSunBurst && sunburstLegendData.length > 0) {
-        baseOption.legend.data = sunburstLegendData;
-        baseOption.legend.show = legendVisible;
-      }
-
-      const tickCount = (() => {
-        if (!baseOption) return 0;
-        if (Array.isArray(baseOption.xAxis) && baseOption.xAxis[0]?.data?.length) return baseOption.xAxis[0].data.length;
-        if (!Array.isArray(baseOption.xAxis) && baseOption.xAxis?.data?.length) return baseOption.xAxis.data.length;
-        if (Array.isArray(baseOption.series) && baseOption.series[0]?.data?.length) return baseOption.series[0].data.length;
-        return 0;
-      })();
-
-      const countSeriesBars = Array.isArray(baseOption.series)
-        ? baseOption.series.filter((s) => s?.type === 'bar').length
-        : 0;
-
-      const isFullscreen = previewTools.fullscreen;
-      const axisFontSize = isFullscreen
-        ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
-        : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
-      const dataLabelFontSize = isFullscreen
-        ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
-        : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
-      const xRotate = isBarChart || isHeatmap ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-      const axisNameGapX = isBarChart || isHeatmap ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
-      const axisMarginX = isBarChart || isHeatmap ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
-      const seriesLabelWidth = isFullscreen
-        ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
-        : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
-
-      const yHasName = Array.isArray(baseOption.yAxis)
-        ? baseOption.yAxis.some((a) => !!a?.name)
-        : !!baseOption.yAxis?.name;
-
-      const extraLeftForYAxisName = yHasName ? 60 : 20;
-      // Sized to the widest tick label the axis will draw. A fixed gap put the
-      // rotated axis name on top of the numbers as soon as they grew wide
-      // (a count axis reaching 120,000,000 needs roughly twice the old 42px).
-      const yNameGap = yAxisNameGap(baseOption);
-
-      const isSunBurstChart = isSunBurst;
-      const sunburstLegendHeight = (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 40 : 0;
-
-      const gridTop = previewTools.fullscreen
-        ? Math.max(28, tickCount > 40 ? 40 : 28)
-        : isSmallScreen
-          ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 76 : Math.max(22, tickCount > 40 ? 28 : 22))
-          : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible)
-            ? Math.max(62, tickCount > 40 ? 68 : 62)
-            : Math.max(24, tickCount > 40 ? 30 : 24));
-
-      const gridLeft = previewTools.fullscreen
-        ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 240 : extraLeftForYAxisName)
-        : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 20 : extraLeftForYAxisName);
-
-      const gridBottomAuto = isBarChart || isHeatmap
-        ? (tickCount > 80 ? 250 : tickCount > 60 ? 230 : tickCount > 40 ? 210 : tickCount > 24 ? 185 : 165)
-        : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
-
-      const totalDataPoints = Array.isArray(baseOption.series)
-        ? baseOption.series.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : (s?.data ? 1 : 0)), 0)
-        : tickCount;
-
-      const densityThresholdFullscreen = 220;
-      const densityThresholdSmall = 30;
-      const tickThresholdNormal = 50;
-      const tickThresholdSmall = 30;
-
-      const densityThresholdNormal = 50;
-      const tickThresholdFullscreen = 80;
-
-      const densityThreshold = previewTools.fullscreen ? densityThresholdFullscreen : (isSmallScreen ? densityThresholdSmall : densityThresholdNormal);
-      const tickThreshold = previewTools.fullscreen ? tickThresholdFullscreen : (isSmallScreen ? tickThresholdSmall : tickThresholdNormal);
-
-      const hideLabelsDueToDensity = totalDataPoints > densityThreshold || tickCount > tickThreshold;
-
-      const pieSeries = Array.isArray(baseOption.series) ? baseOption.series.filter(s => s?.type === 'pie') : [];
-      const pieSliceCount = pieSeries.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0);
-      const hidePieLabels = pieSliceCount > 16;
-
-      const lineLabelHideThreshold = 25;
-      const shouldHideLineLabelsByCount = tickCount > lineLabelHideThreshold;
-
-      const sunburstSeries = Array.isArray(baseOption.series) ? baseOption.series.filter(s => s?.type === 'sunburst') : [];
-      const sunburstNodeCount = sunburstSeries.reduce((acc, s) => {
-        if (!s) return acc;
-        if (Array.isArray(s.data)) {
-          return acc + s.data.reduce((a, n) => a + countSunburstNodes(n), 0);
-        }
-        return acc + countSunburstNodes(s.data);
-      }, 0);
-      const hideSunburstLabels = sunburstNodeCount > 15;
-
-      const smallOverlapNow = isSmallScreen && (totalDataPoints > densityThresholdSmall || tickCount > tickThresholdSmall || pieSliceCount > 16 || shouldHideLineLabelsByCount || hideSunburstLabels);
-      if (smallOverlapNow) smallScreenOverlapRef.current = true;
-
-      const finalHideLabels = hideLabelsDueToDensity || smallScreenOverlapRef.current || hidePieLabels || shouldHideLineLabelsByCount || hideSunburstLabels;
-
-      const shouldShowDataLabels = (() => {
-        if (isPieChart) return !finalHideLabels;
-
-        if (isHeatmap) {
-          const totalHeatmapCells = Array.isArray(baseOption.series)
-            ? baseOption.series.reduce((acc, s) => {
-              if (s.type === 'heatmap' && Array.isArray(s.data)) {
-                return acc + s.data.length;
-              }
-              return acc;
-            }, 0)
-            : 0;
-          if (totalHeatmapCells > 15) return false;
-          return !finalHideLabels;
-        }
-
-        if (previewTools.fullscreen) return !finalHideLabels;
-
-        if (isSmallScreen) {
-          return isBarChart ? tickCount <= 15 : tickCount <= 25;
-        }
-
-        if (!isSmallScreen && !previewTools.fullscreen) {
-          if (tickCount > 50) return false;
-          if (isBarChart && tickCount > 35) return false;
-          if (!isBarChart && tickCount > 40) return false;
-        }
-
-        return !finalHideLabels;
-      })();
-
-      const shouldShowFunnelLabels = (() => {
-        if (previewTools.fullscreen) return !finalHideLabels;
-        if (!isFunnelChart) return !finalHideLabels;
-        const funnelCount = Array.isArray(baseOption.series)
-          ? baseOption.series
-            .filter((s) => s?.type === "funnel")
-            .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
-          : 0;
-        if (isSmallScreen && funnelCount > 10) return false;
-        if (!isSmallScreen && funnelCount > 16) return false;
-        if (finalHideLabels) return false;
-        return true;
-      })();
-
-      const tooltipWidth = previewTools.fullscreen ? 420 : (isSmallScreen ? 220 : 300);
-      const tooltipMaxHeight = previewTools.fullscreen ? 320 : 240;
-      const tooltipExtraCss = `max-height: ${tooltipMaxHeight}px; overflow: auto; -webkit-overflow-scrolling: touch; width: ${tooltipWidth}px; pointer-events: auto;`;
-
-      const enhancedOption = {
-        ...baseOption,
-        tooltip: {
-          ...(baseOption.tooltip || {}),
-          confine: true,
-          enterable: true,
-          extraCssText: tooltipExtraCss,
-        },
-        animationDurationUpdate: 120,
-        grid: Array.isArray(baseOption.grid)
-          ? baseOption.grid.map((g) => ({
-            ...g,
-            containLabel: true,
-            top: gridTop,
-            left: gridLeft,
-            right: 24,
-            bottom: Math.max(parseInt(g?.bottom, 10) || 18, gridBottomAuto),
-          }))
-          : {
-            ...baseOption.grid,
-            containLabel: true,
-            top: gridTop,
-            left: gridLeft,
-            right: 24,
-            bottom: Math.max(parseInt(baseOption?.grid?.bottom, 10) || 18, gridBottomAuto),
-          },
-        xAxis: Array.isArray(baseOption.xAxis)
-          ? baseOption.xAxis.map((axis) => ({
-            ...axis,
-            nameLocation: "middle",
-            nameGap: axisNameGapX,
-            axisLabel: {
-              ...axis?.axisLabel,
-              rotate: xRotate,
-              align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
-              margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
-              hideOverlap: false,
-              showMinLabel: true,
-              showMaxLabel: true,
-              interval: 0,
-              color: isDarkColor,
-              fontSize: axisFontSize,
-              formatter: (v) => {
-                try {
-                  const n = Number(v);
-                  if (Number.isFinite(n)) {
-                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                  }
-                  const s = String(v);
-                  const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
-                  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
-                } catch { return v; }
-              },
-            },
-            nameTextStyle: {
-              ...(axis?.nameTextStyle || {}),
-              color: isDarkColor,
-              fontSize: Math.max(8, axisFontSize - 1),
-              fontWeight: 'bold'
+        let sunburstLegendData = [];
+        if (isSunBurst) {
+          const sunburstSeries = option.series.filter(s => s.type === 'sunburst');
+          sunburstSeries.forEach((s) => {
+            if (!s) return;
+            if (Array.isArray(s.data)) {
+              s.data.forEach(n => collectSunburstNames(n, sunburstLegendData));
+            } else {
+              collectSunburstNames(s.data, sunburstLegendData);
             }
-          }))
-          : baseOption.xAxis
-            ? {
-              ...baseOption.xAxis,
+          });
+          sunburstLegendData = Array.from(new Set(sunburstLegendData)).slice(0, 200);
+        }
+
+        let legendConfig = {
+          ...option.legend,
+          textStyle: { ...(option.legend?.textStyle || {}), color: isDarkColor },
+          type: 'scroll',
+          pageIconColor: isDarkColor,
+          pageIconInactiveColor: 'var(--text-muted)',
+          pageTextStyle: { color: isDarkColor },
+          itemStyle: {
+            ...(option.legend?.itemStyle || {}),
+            borderColor: 'transparent',
+            borderWidth: 0,
+          },
+          inactiveColor: isDarkColor,
+        };
+
+        if (isSunBurst && sunburstLegendData.length > 0) {
+          legendConfig = {
+            ...legendConfig,
+            data: sunburstLegendData,
+            show: legendVisible,
+            orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
+            ...(previewTools.fullscreen ? {
+              left: 0,
+              top: 8,
+              bottom: 8,
+              width: 220,
+            } : {
+              left: 0,
+              right: 0,
+              top: 0,
+              width: '100%',
+            })
+          };
+        } else if (isSunBurst) {
+          legendConfig.show = false;
+        } else {
+          legendConfig = {
+            ...legendConfig,
+            show: hasLegendCheck && legendVisible,
+            orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
+            ...(previewTools.fullscreen ? {
+              left: 0,
+              top: 8,
+              bottom: 8,
+              width: 220,
+            } : {
+              left: 0,
+              right: 0,
+              top: 0,
+              width: '100%',
+            })
+          };
+        }
+
+        const baseOption = withZoomable({
+          ...option,
+          toolbox: { show: false },
+          legend: legendConfig,
+        });
+
+        if (isSunBurst && sunburstLegendData.length > 0) {
+          baseOption.legend.data = sunburstLegendData;
+          baseOption.legend.show = legendVisible;
+        }
+
+        const tickCount = (() => {
+          if (!baseOption) return 0;
+          if (Array.isArray(baseOption.xAxis) && baseOption.xAxis[0]?.data?.length) return baseOption.xAxis[0].data.length;
+          if (!Array.isArray(baseOption.xAxis) && baseOption.xAxis?.data?.length) return baseOption.xAxis.data.length;
+          if (Array.isArray(baseOption.series) && baseOption.series[0]?.data?.length) return baseOption.series[0].data.length;
+          return 0;
+        })();
+
+        const horizontalCategoryCount = (() => {
+          if (!isHorizontalBar) return 0;
+          if (Array.isArray(baseOption.yAxis) && baseOption.yAxis[0]?.data?.length) return baseOption.yAxis[0].data.length;
+          if (!Array.isArray(baseOption.yAxis) && baseOption.yAxis?.data?.length) return baseOption.yAxis.data.length;
+          return tickCount;
+        })();
+
+        const horizontalMaxCategoryLen = (() => {
+          if (!isHorizontalBar) return 0;
+          const yData = Array.isArray(baseOption.yAxis) ? baseOption.yAxis[0]?.data : baseOption.yAxis?.data;
+          if (!Array.isArray(yData) || !yData.length) return 0;
+          return yData.reduce((m, v) => {
+            const s = String(v ?? "");
+            return Math.max(m, s.length);
+          }, 0);
+        })();
+
+        const isFullscreen = previewTools.fullscreen;
+        const axisFontSize = isFullscreen
+          ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
+          : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
+        const dataLabelFontSize = isFullscreen
+          ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
+          : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
+        const xRotate = (isBarChart || isHeatmap || isLineLike) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
+        const axisNameGapX = (isBarChart || isHeatmap || isLineLike) ? (tickCount > 50 ? 108 : 96) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 56 : 46);
+        const axisMarginX = (isBarChart || isHeatmap || isLineLike) ? (tickCount > 50 ? 10 : 14) : (tickCount > 40 ? 10 : 12);
+        const seriesLabelWidth = isFullscreen
+          ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+          : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
+
+        const yHasName = Array.isArray(baseOption.yAxis)
+          ? baseOption.yAxis.some((a) => !!a?.name)
+          : !!baseOption.yAxis?.name;
+
+        const horizontalLabelReserve = isHorizontalBar
+          ? Math.min(260, Math.max(120, Math.round(horizontalMaxCategoryLen * (axisFontSize * 0.68)) + 24))
+          : 0;
+
+        const extraLeftForYAxisName = yHasName
+          ? (isHorizontalBar ? Math.max(110, horizontalLabelReserve + 70) : 60)
+          : (isHorizontalBar ? Math.max(84, horizontalLabelReserve + 40) : 20);
+
+        const yNameGap = Math.max(
+          yAxisNameGap(baseOption) + (isHorizontalBar ? 34 : 0),
+          isHorizontalBar ? Math.min(170, Math.max(96, Math.round(horizontalLabelReserve * 0.55) + 42)) : 25
+        );
+
+        const isSunBurstChart = isSunBurst;
+
+        const gridTop = previewTools.fullscreen
+          ? Math.max(28, tickCount > 40 ? 40 : 28)
+          : isSmallScreen
+            ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 58 : Math.max(20, tickCount > 40 ? 24 : 20))
+            : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible)
+              ? Math.max(52, tickCount > 40 ? 58 : 52)
+              : Math.max(22, tickCount > 40 ? 28 : 22));
+
+        const gridLeft = previewTools.fullscreen
+          ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 240 : extraLeftForYAxisName)
+          : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 20 : extraLeftForYAxisName);
+
+        const gridBottomAuto = (isBarChart || isHeatmap || isLineLike)
+          ? (tickCount > 80 ? 180 : tickCount > 60 ? 165 : tickCount > 40 ? 150 : tickCount > 24 ? 130 : 112)
+          : (isScatterLike ? (tickCount > 40 ? 92 : 80) : (tickCount > 40 ? 94 : 80));
+
+        const horizontalHeightByCount = isHorizontalBar
+          ? (horizontalCategoryCount > 30 ? 200 : horizontalCategoryCount > 24 ? 170 : horizontalCategoryCount > 18 ? 140 : 112)
+          : 0;
+
+        const gridBottomFinal = isHorizontalBar ? Math.max(gridBottomAuto, horizontalHeightByCount) : gridBottomAuto;
+
+        const totalDataPoints = Array.isArray(baseOption.series)
+          ? baseOption.series.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : (s?.data ? 1 : 0)), 0)
+          : tickCount;
+
+        const densityThresholdFullscreen = 220;
+        const densityThresholdSmall = 30;
+        const tickThresholdNormal = 50;
+        const tickThresholdSmall = 30;
+
+        const densityThresholdNormal = 50;
+        const tickThresholdFullscreen = 80;
+
+        const densityThreshold = previewTools.fullscreen ? densityThresholdFullscreen : (isSmallScreen ? densityThresholdSmall : densityThresholdNormal);
+        const tickThreshold = previewTools.fullscreen ? tickThresholdFullscreen : (isSmallScreen ? tickThresholdSmall : tickThresholdNormal);
+
+        const hideLabelsDueToDensity = totalDataPoints > densityThreshold || tickCount > tickThreshold;
+
+        const pieSeries = Array.isArray(baseOption.series) ? baseOption.series.filter(s => s?.type === 'pie') : [];
+        const pieSliceCount = pieSeries.reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0);
+        const hidePieLabels = pieSliceCount > 16;
+
+        const lineLabelHideThreshold = 25;
+        const shouldHideLineLabelsByCount = tickCount > lineLabelHideThreshold;
+
+        const sunburstSeries = Array.isArray(baseOption.series) ? baseOption.series.filter(s => s?.type === 'sunburst') : [];
+        const sunburstNodeCount = sunburstSeries.reduce((acc, s) => {
+          if (!s) return acc;
+          if (Array.isArray(s.data)) {
+            return acc + s.data.reduce((a, n) => a + countSunburstNodes(n), 0);
+          }
+          return acc + countSunburstNodes(s.data);
+        }, 0);
+        const hideSunburstLabels = sunburstNodeCount > 15;
+
+        const smallOverlapNow = isSmallScreen && (totalDataPoints > densityThresholdSmall || tickCount > tickThresholdSmall || pieSliceCount > 16 || shouldHideLineLabelsByCount || hideSunburstLabels);
+        if (smallOverlapNow) smallScreenOverlapRef.current = true;
+
+        const finalHideLabels = hideLabelsDueToDensity || smallScreenOverlapRef.current || hidePieLabels || shouldHideLineLabelsByCount || hideSunburstLabels;
+
+        const shouldShowDataLabels = (() => {
+          if (isPieChart) return !finalHideLabels;
+
+          if (isHeatmap) {
+            const totalHeatmapCells = Array.isArray(baseOption.series)
+              ? baseOption.series.reduce((acc, s) => {
+                if (s.type === 'heatmap' && Array.isArray(s.data)) {
+                  return acc + s.data.length;
+                }
+                return acc;
+              }, 0)
+              : 0;
+            if (totalHeatmapCells > 15) return false;
+            return !finalHideLabels;
+          }
+
+          if (previewTools.fullscreen) return !finalHideLabels;
+
+          if (isSmallScreen) {
+            if (tickCount > 20) return false;
+            if ((isBarChart || isLineLike) && tickCount > 15) return false;
+            if (!(isBarChart || isLineLike) && tickCount > 25) return false;
+          }
+
+          if (!isSmallScreen && !previewTools.fullscreen) {
+            if (tickCount > 50) return false;
+            if ((isBarChart || isLineLike) && tickCount > 35) return false;
+            if (!(isBarChart || isLineLike) && tickCount > 40) return false;
+          }
+
+          return !finalHideLabels;
+        })();
+
+        const shouldShowFunnelLabels = (() => {
+          if (previewTools.fullscreen) return !finalHideLabels;
+          if (!isFunnelChart) return !finalHideLabels;
+          const funnelCount = Array.isArray(baseOption.series)
+            ? baseOption.series
+              .filter((s) => s?.type === "funnel")
+              .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+            : 0;
+          if (isSmallScreen && funnelCount > 10) return false;
+          if (!isSmallScreen && funnelCount > 16) return false;
+          if (finalHideLabels) return false;
+          return true;
+        })();
+
+        const tooltipWidth = previewTools.fullscreen ? 420 : (isSmallScreen ? 220 : 300);
+        const tooltipMaxHeight = previewTools.fullscreen ? 320 : 240;
+        const tooltipExtraCss = `max-height: ${tooltipMaxHeight}px; overflow: auto; -webkit-overflow-scrolling: touch; width: ${tooltipWidth}px; pointer-events: auto;`;
+
+        const splitLineStyle = {
+          show: true,
+          lineStyle: {
+            color: gridLineColor,
+            width: 1,
+            type: 'solid',
+            opacity: 1,
+          },
+        };
+
+        const splitLineStyleSubtle = {
+          show: true,
+          lineStyle: {
+            color: gridLineColorSubtle,
+            width: 1,
+            type: 'solid',
+            opacity: 1,
+          },
+        };
+
+        const enhancedOption = {
+          ...baseOption,
+          tooltip: {
+            ...(baseOption.tooltip || {}),
+            confine: true,
+            enterable: true,
+            extraCssText: tooltipExtraCss,
+          },
+          animationDurationUpdate: 120,
+          grid: Array.isArray(baseOption.grid)
+            ? baseOption.grid.map((g) => ({
+              ...g,
+              containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
+              bottom: Math.max(parseInt(g?.bottom, 10) || 18, gridBottomFinal),
+            }))
+            : {
+              ...baseOption.grid,
+              containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
+              bottom: Math.max(parseInt(baseOption?.grid?.bottom, 10) || 18, gridBottomFinal),
+            },
+          xAxis: Array.isArray(baseOption.xAxis)
+            ? baseOption.xAxis.map((axis) => ({
+              ...axis,
               nameLocation: "middle",
               nameGap: axisNameGapX,
+              splitLine: usesCartesianGrid ? {
+                ...(axis?.splitLine || {}),
+                show: isHeatmap ? false : true,
+                lineStyle: {
+                  ...(axis?.splitLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  type: 'solid',
+                  opacity: 1,
+                },
+              } : axis?.splitLine,
+              axisLine: usesCartesianGrid ? {
+                ...(axis?.axisLine || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  opacity: 1,
+                },
+              } : axis?.axisLine,
+              axisTick: usesCartesianGrid ? {
+                ...(axis?.axisTick || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisTick?.lineStyle || {}),
+                  color: gridLineColor,
+                  opacity: 1,
+                },
+              } : axis?.axisTick,
               axisLabel: {
-                ...baseOption?.xAxis?.axisLabel,
+                ...axis?.axisLabel,
                 rotate: xRotate,
-                align: isBarChart || isHeatmap || xRotate > 0 ? 'right' : 'left',
-                margin: Math.max(baseOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
+                align: (isBarChart || isHeatmap || isLineLike || xRotate > 0) ? 'right' : 'left',
+                margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
                 hideOverlap: false,
                 showMinLabel: true,
                 showMaxLabel: true,
@@ -640,55 +789,121 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 },
               },
               nameTextStyle: {
-                ...(baseOption?.xAxis?.nameTextStyle || {}),
+                ...(axis?.nameTextStyle || {}),
                 color: isDarkColor,
                 fontSize: Math.max(8, axisFontSize - 1),
                 fontWeight: 'bold'
               }
-            }
-            : baseOption.xAxis,
-        yAxis: Array.isArray(baseOption.yAxis)
-          ? baseOption.yAxis.map((axis) => ({
-            ...axis,
-            axisLabel: {
-              ...axis?.axisLabel,
-              color: isDarkColor,
-              hideOverlap: false,
-              showMinLabel: true,
-              showMaxLabel: true,
-              interval: 0,
-              fontSize: axisFontSize,
-              formatter: (v) => {
-                try {
-                  const n = Number(v);
-                  if (Number.isFinite(n)) {
-                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                  }
-                  return v;
-                } catch { return v; }
-              },
-            },
-            nameLocation: axis?.nameLocation || 'middle',
-            nameGap: Math.max(axis?.nameGap || 25, yNameGap),
-            nameTextStyle: {
-              ...(axis?.nameTextStyle || {}),
-              color: isDarkColor,
-              fontSize: Math.max(8, axisFontSize - 1),
-              fontWeight: 'bold'
-            }
-          }))
-          : baseOption.yAxis
-            ? {
-              ...baseOption.yAxis,
+            }))
+            : baseOption.xAxis
+              ? {
+                ...baseOption.xAxis,
+                nameLocation: "middle",
+                nameGap: axisNameGapX,
+                splitLine: usesCartesianGrid ? {
+                  ...(baseOption?.xAxis?.splitLine || {}),
+                  show: isHeatmap ? false : true,
+                  lineStyle: {
+                    ...(baseOption?.xAxis?.splitLine?.lineStyle || {}),
+                    color: gridLineColor,
+                    width: 1,
+                    type: 'solid',
+                    opacity: 1,
+                  },
+                } : baseOption?.xAxis?.splitLine,
+                axisLine: usesCartesianGrid ? {
+                  ...(baseOption?.xAxis?.axisLine || {}),
+                  show: true,
+                  lineStyle: {
+                    ...(baseOption?.xAxis?.axisLine?.lineStyle || {}),
+                    color: gridLineColor,
+                    width: 1,
+                    opacity: 1,
+                  },
+                } : baseOption?.xAxis?.axisLine,
+                axisTick: usesCartesianGrid ? {
+                  ...(baseOption?.xAxis?.axisTick || {}),
+                  show: true,
+                  lineStyle: {
+                    ...(baseOption?.xAxis?.axisTick?.lineStyle || {}),
+                    color: gridLineColor,
+                    opacity: 1,
+                  },
+                } : baseOption?.xAxis?.axisTick,
+                axisLabel: {
+                  ...baseOption?.xAxis?.axisLabel,
+                  rotate: xRotate,
+                  align: (isBarChart || isHeatmap || isLineLike || xRotate > 0) ? 'right' : 'left',
+                  margin: Math.max(baseOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
+                  hideOverlap: false,
+                  showMinLabel: true,
+                  showMaxLabel: true,
+                  interval: 0,
+                  color: isDarkColor,
+                  fontSize: axisFontSize,
+                  formatter: (v) => {
+                    try {
+                      const n = Number(v);
+                      if (Number.isFinite(n)) {
+                        if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                        if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                      }
+                      const s = String(v);
+                      const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                      return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+                    } catch { return v; }
+                  },
+                },
+                nameTextStyle: {
+                  ...(baseOption?.xAxis?.nameTextStyle || {}),
+                  color: isDarkColor,
+                  fontSize: Math.max(8, axisFontSize - 1),
+                  fontWeight: 'bold'
+                }
+              }
+              : baseOption.xAxis,
+          yAxis: Array.isArray(baseOption.yAxis)
+            ? baseOption.yAxis.map((axis) => ({
+              ...axis,
+              splitLine: usesCartesianGrid ? {
+                ...(axis?.splitLine || {}),
+                show: isHeatmap ? false : true,
+                lineStyle: {
+                  ...(axis?.splitLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  type: 'solid',
+                  opacity: 1,
+                },
+              } : axis?.splitLine,
+              axisLine: usesCartesianGrid ? {
+                ...(axis?.axisLine || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  opacity: 1,
+                },
+              } : axis?.axisLine,
+              axisTick: usesCartesianGrid ? {
+                ...(axis?.axisTick || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisTick?.lineStyle || {}),
+                  color: gridLineColor,
+                  opacity: 1,
+                },
+              } : axis?.axisTick,
               axisLabel: {
-                ...baseOption?.yAxis?.axisLabel,
+                ...axis?.axisLabel,
                 color: isDarkColor,
                 hideOverlap: false,
                 showMinLabel: true,
                 showMaxLabel: true,
                 interval: 0,
                 fontSize: axisFontSize,
+                margin: Math.max(axis?.axisLabel?.margin || 8, isHorizontalBar ? 10 : 8),
                 formatter: (v) => {
                   try {
                     const n = Number(v);
@@ -696,414 +911,542 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
                       if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
                     }
+                    if (isHorizontalBar) {
+                      const s = String(v ?? "");
+                      const maxLen = isFullscreen ? 34 : (isSmallScreen ? 16 : 26);
+                      return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+                    }
                     return v;
                   } catch { return v; }
                 },
               },
-              nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
-              nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yNameGap),
+              nameLocation: axis?.nameLocation || 'middle',
+              nameGap: Math.max(axis?.nameGap || 25, yNameGap),
               nameTextStyle: {
-                ...(baseOption?.yAxis?.nameTextStyle || {}),
+                ...(axis?.nameTextStyle || {}),
                 color: isDarkColor,
                 fontSize: Math.max(8, axisFontSize - 1),
                 fontWeight: 'bold'
               }
-            }
-            : baseOption.yAxis,
-      };
-
-      if (isHeatmap) {
-        if (Array.isArray(enhancedOption.series)) {
-          enhancedOption.series = enhancedOption.series.map((s) => {
-            if (!s || s.type !== 'heatmap') return s;
-
-            const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
-            const shouldHideHeatmapLabels = totalHeatmapCells > 15;
-
-            return {
-              ...s,
-              label: {
-                ...(s.label || {}),
-                show: shouldHideHeatmapLabels ? false : (s.label?.show !== undefined ? s.label.show : true),
-                color: isDarkColor,
-                fontSize: previewTools.fullscreen ? Math.min(14, axisFontSize + 3) : Math.min(10, axisFontSize),
-                formatter: (params) => {
-                  if (params && params.value && params.value.length >= 3) {
-                    const val = params.value[2];
-                    if (typeof val === 'number') {
-                      if (Math.abs(val) >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
-                      if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(1)}K`;
-                      return val;
-                    }
-                    return val;
-                  }
-                  return '';
-                }
-              },
-              emphasis: {
-                ...(s.emphasis || {}),
-                label: {
-                  ...((s.emphasis && s.emphasis.label) || {}),
+            }))
+            : baseOption.yAxis
+              ? {
+                ...baseOption.yAxis,
+                splitLine: usesCartesianGrid ? {
+                  ...(baseOption?.yAxis?.splitLine || {}),
+                  show: isHeatmap ? false : true,
+                  lineStyle: {
+                    ...(baseOption?.yAxis?.splitLine?.lineStyle || {}),
+                    color: gridLineColor,
+                    width: 1,
+                    type: 'solid',
+                    opacity: 1,
+                  },
+                } : baseOption?.yAxis?.splitLine,
+                axisLine: usesCartesianGrid ? {
+                  ...(baseOption?.yAxis?.axisLine || {}),
                   show: true,
-                  color: isDarkColor,
-                  fontSize: previewTools.fullscreen ? 16 : 12,
-                }
-              }
-            };
-          });
-        }
-      }
-
-      if (Array.isArray(enhancedOption.series) && enhancedOption.series.length) {
-        enhancedOption.series = enhancedOption.series.map((s) => {
-          if (!s || !s.type) return s;
-
-          if (s.type === 'bar' || s.type === 'line' || s.type === 'scatter') {
-            const isLineType = s.type === 'line' || !!s.areaStyle;
-            const hideForLine = isLineType && (tickCount > lineLabelHideThreshold || finalHideLabels);
-            const showLabelForSeries = shouldShowDataLabels && !hideForLine;
-
-            const labelPosition = s.type === 'bar' ? 'top' : (isLineType ? 'top' : (s.label?.position || 'top'));
-            const labelDistance = isLineType ? (tickCount > 50 ? 4 : 6) : (tickCount > 50 ? 5 : 8);
-            const labelFont = isLineType
-              ? (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize)
-              : (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize);
-            const labelWidth = previewTools.fullscreen
-              ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
-              : seriesLabelWidth;
-
-            return {
-              ...s,
-              clip: true,
-              labelLayout: {
-                hideOverlap: true,
-                moveOverlap: 'shiftY'
-              },
-              label: {
-                ...(s.label || {}),
-                show: showLabelForSeries,
-                position: labelPosition,
-                distance: labelDistance,
-                color: isDarkColor,
-                overflow: 'truncate',
-                width: labelWidth,
-                hideOverlap: true,
-                fontSize: labelFont,
-                formatter: (p) => {
-                  try {
-                    const raw = Array.isArray(p?.value) ? p.value[p.value.length - 1] : p?.value;
-                    const n = Number(raw);
-                    if (Number.isFinite(n)) {
-                      if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                      if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                      return `${n}`;
-                    }
-                    const t = String(raw ?? "");
-                    const maxLen = tickCount > 80 ? 5 : tickCount > 60 ? 6 : tickCount > 40 ? 7 : 8;
-                    return t.length > maxLen ? t.slice(0, maxLen - 1) + "…" : t;
-                  } catch {
-                    return p?.value;
-                  }
-                },
-              },
-              emphasis: {
-                ...(s.emphasis || {}),
-                label: {
-                  ...((s.emphasis && s.emphasis.label) || {}),
+                  lineStyle: {
+                    ...(baseOption?.yAxis?.axisLine?.lineStyle || {}),
+                    color: gridLineColor,
+                    width: 1,
+                    opacity: 1,
+                  },
+                } : baseOption?.yAxis?.axisLine,
+                axisTick: usesCartesianGrid ? {
+                  ...(baseOption?.yAxis?.axisTick || {}),
                   show: true,
-                  position: 'top',
-                  distance: previewTools.fullscreen ? 16 : 10,
+                  lineStyle: {
+                    ...(baseOption?.yAxis?.axisTick?.lineStyle || {}),
+                    color: gridLineColor,
+                    opacity: 1,
+                  },
+                } : baseOption?.yAxis?.axisTick,
+                axisLabel: {
+                  ...baseOption?.yAxis?.axisLabel,
                   color: isDarkColor,
                   hideOverlap: false,
-                  fontSize: previewTools.fullscreen ? 16 : 12,
+                  showMinLabel: true,
+                  showMaxLabel: true,
+                  interval: 0,
+                  fontSize: axisFontSize,
+                  margin: Math.max(baseOption?.yAxis?.axisLabel?.margin || 8, isHorizontalBar ? 10 : 8),
+                  formatter: (v) => {
+                    try {
+                      const n = Number(v);
+                      if (Number.isFinite(n)) {
+                        if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                        if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                      }
+                      if (isHorizontalBar) {
+                        const s = String(v ?? "");
+                        const maxLen = isFullscreen ? 34 : (isSmallScreen ? 16 : 26);
+                        return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+                      }
+                      return v;
+                    } catch { return v; }
+                  },
                 },
-              },
-            };
-          }
-
-          return s;
-        });
-      }
-
-      const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
-      if (Array.isArray(baseOption.series) && (baseOption.series.some(s => s.type === 'pie') || pieSubtypes.includes(chartSubtype))) {
-        enhancedOption.series = (enhancedOption.series || baseOption.series).map((s) => {
-          if (s.type !== 'pie') return s;
-          const defaultBaseRadius = chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
-          const baseRadius = s.radius || defaultBaseRadius;
-          const finalRadius = previewTools.fullscreen
-            ? (chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
-            : isSmallScreen
-              ? (chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
-              : (chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
-          const finalCenter = previewTools.fullscreen
-            ? (s.center || ['50%', '50%'])
-            : isSmallScreen
-              ? (s.center || ['50%', '55%'])
-              : (s.center || ['50%', '57%']);
-
-          return {
-            ...s,
-            avoidLabelOverlap: true,
-            label: {
-              ...(s.label || {}),
-              show: !finalHideLabels,
-              formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
-              color: isDarkColor,
-              fontSize: previewTools.fullscreen ? 15 : 11,
-              overflow: 'truncate',
-              width: previewTools.fullscreen ? 340 : (isSmallScreen ? 160 : 220),
-              lineHeight: previewTools.fullscreen ? 26 : 18,
-            },
-            labelLine: {
-              ...(s.labelLine || {}),
-              length: previewTools.fullscreen ? 16 : 8,
-              length2: previewTools.fullscreen ? 16 : 8,
-              smooth: false,
-            },
-            radius: finalRadius,
-            center: finalCenter,
-          };
-        });
-
-        enhancedOption.legend = {
-          ...(enhancedOption.legend || {}),
-          textStyle: { ...(enhancedOption.legend?.textStyle || {}), fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 12), color: isDarkColor },
-          itemGap: previewTools.fullscreen ? 18 : 12,
-          pageIconColor: isDarkColor,
+                nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
+                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yNameGap),
+                nameTextStyle: {
+                  ...(baseOption?.yAxis?.nameTextStyle || {}),
+                  color: isDarkColor,
+                  fontSize: Math.max(8, axisFontSize - 1),
+                  fontWeight: 'bold'
+                }
+              }
+              : baseOption.yAxis,
         };
 
-        enhancedOption.grid = Array.isArray(enhancedOption.grid)
-          ? enhancedOption.grid.map((g) => ({ ...g, top: previewTools.fullscreen ? g.top : (isSmallScreen ? 72 : 80) }))
-          : { ...(enhancedOption.grid || {}), top: previewTools.fullscreen ? (enhancedOption.grid?.top || gridTop) : (isSmallScreen ? 72 : 80) };
-      }
+        if (usesCartesianGrid) {
+          if (enhancedOption.grid && !Array.isArray(enhancedOption.grid)) {
+            enhancedOption.grid = {
+              ...enhancedOption.grid,
+              borderColor: gridLineColor,
+              borderWidth: 1,
+              show: true,
+            };
+          } else if (Array.isArray(enhancedOption.grid)) {
+            enhancedOption.grid = enhancedOption.grid.map((g) => ({
+              ...g,
+              borderColor: gridLineColor,
+              borderWidth: 1,
+              show: true,
+            }));
+          }
+        }
 
-      if (theme === 'dark') {
-        const shadowlessSeriesTypes = ['sankey', 'sunburst', 'graph', 'tree'];
-        if (Array.isArray(enhancedOption.series)) {
-          const borderColor = 'rgba(0,0,0,0.65)';
+        if (isHeatmap) {
+          if (Array.isArray(enhancedOption.series)) {
+            enhancedOption.series = enhancedOption.series.map((s) => {
+              if (!s || s.type !== 'heatmap') return s;
+
+              const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
+              const shouldHideHeatmapLabels = totalHeatmapCells > 15;
+
+              return {
+                ...s,
+                label: {
+                  ...(s.label || {}),
+                  show: shouldHideHeatmapLabels ? false : (s.label?.show !== undefined ? s.label.show : true),
+                  color: isDarkColor,
+                  fontSize: previewTools.fullscreen ? Math.min(14, axisFontSize + 3) : Math.min(10, axisFontSize),
+                  formatter: (params) => {
+                    if (params && params.value && params.value.length >= 3) {
+                      const val = params.value[2];
+                      if (typeof val === 'number') {
+                        if (Math.abs(val) >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+                        if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(1)}K`;
+                        return val;
+                      }
+                      return val;
+                    }
+                    return '';
+                  }
+                },
+                emphasis: {
+                  ...(s.emphasis || {}),
+                  label: {
+                    ...((s.emphasis && s.emphasis.label) || {}),
+                    show: true,
+                    color: isDarkColor,
+                    fontSize: previewTools.fullscreen ? 16 : 12,
+                  }
+                }
+              };
+            });
+          }
+        }
+
+        if (Array.isArray(enhancedOption.series) && enhancedOption.series.length) {
           enhancedOption.series = enhancedOption.series.map((s) => {
             if (!s || !s.type) return s;
-            if (!shadowlessSeriesTypes.includes(s.type)) return s;
-            const enhanceLabelStyling = (lbl) => {
-              const baseTextStyle = {
-                ...(lbl?.textStyle || {}),
-                color: isDarkColor,
-                textBorderColor: borderColor,
-                textBorderWidth: 2,
-                textShadowColor: 'transparent',
-                textShadowBlur: 0,
-                fontSize: previewTools.fullscreen ? (lbl?.fontSize ? lbl.fontSize + 4 : 16) : (lbl?.fontSize || 12),
+
+            if (s.type === 'bar' || s.type === 'line' || s.type === 'scatter') {
+              const isLineType = s.type === 'line' || !!s.areaStyle;
+              const hideForLine = isLineType && (tickCount > lineLabelHideThreshold || finalHideLabels);
+              const showLabelForSeries = shouldShowDataLabels && !hideForLine;
+
+              const labelPosition = s.type === 'bar'
+                ? (isHorizontalBar ? 'right' : 'top')
+                : (isLineType ? 'top' : (s.label?.position || 'top'));
+              const labelDistance = s.type === 'bar'
+                ? (isHorizontalBar ? (previewTools.fullscreen ? 10 : 8) : (tickCount > 50 ? 5 : 8))
+                : (isLineType ? (tickCount > 50 ? 4 : 6) : (tickCount > 50 ? 5 : 8));
+              const labelFont = isLineType
+                ? (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize)
+                : (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize);
+              const labelWidth = s.type === 'bar' && isHorizontalBar
+                ? (previewTools.fullscreen ? 140 : (isSmallScreen ? 88 : 110))
+                : (previewTools.fullscreen
+                  ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+                  : seriesLabelWidth);
+
+              return {
+                ...s,
+                clip: false,
+                labelLayout: {
+                  hideOverlap: true,
+                  moveOverlap: 'shiftY'
+                },
+                label: {
+                  ...(s.label || {}),
+                  show: showLabelForSeries,
+                  position: labelPosition,
+                  distance: labelDistance,
+                  color: isDarkColor,
+                  overflow: 'truncate',
+                  width: labelWidth,
+                  hideOverlap: true,
+                  fontSize: labelFont,
+                  formatter: (p) => {
+                    try {
+                      const raw = Array.isArray(p?.value) ? p.value[p.value.length - 1] : p?.value;
+                      const n = Number(raw);
+                      if (Number.isFinite(n)) {
+                        if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                        if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                        return `${n}`;
+                      }
+                      const t = String(raw ?? "");
+                      const maxLen = tickCount > 80 ? 5 : tickCount > 60 ? 6 : tickCount > 40 ? 7 : 8;
+                      return t.length > maxLen ? t.slice(0, maxLen - 1) + "…" : t;
+                    } catch {
+                      return p?.value;
+                    }
+                  },
+                },
+                emphasis: {
+                  ...(s.emphasis || {}),
+                  label: {
+                    ...((s.emphasis && s.emphasis.label) || {}),
+                    show: true,
+                    position: s.type === 'bar' && isHorizontalBar ? 'right' : 'top',
+                    distance: s.type === 'bar' && isHorizontalBar ? (previewTools.fullscreen ? 14 : 10) : (previewTools.fullscreen ? 16 : 10),
+                    color: isDarkColor,
+                    hideOverlap: false,
+                    fontSize: previewTools.fullscreen ? 16 : 12,
+                  },
+                },
               };
-              if (!lbl) return { textStyle: baseTextStyle };
-              return { ...lbl, textStyle: baseTextStyle };
-            };
+            }
+
+            return s;
+          });
+        }
+
+        const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
+        if (Array.isArray(baseOption.series) && (baseOption.series.some(s => s.type === 'pie') || pieSubtypes.includes(chartSubtype))) {
+          enhancedOption.series = (enhancedOption.series || baseOption.series).map((s) => {
+            if (s.type !== 'pie') return s;
+            const finalRadius = previewTools.fullscreen
+              ? (chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
+              : isSmallScreen
+                ? (chartSubtype === 'pie' ? ['0%', '56%'] : ['30%', '56%'])
+                : (chartSubtype === 'pie' ? ['0%', '54%'] : ['28%', '54%']);
+            const finalCenter = previewTools.fullscreen
+              ? (s.center || ['50%', '50%'])
+              : isSmallScreen
+                ? (s.center || ['50%', '55%'])
+                : (s.center || ['50%', '57%']);
+
             return {
               ...s,
-              label: enhanceLabelStyling(s.label),
-              emphasis: s.emphasis ? { ...s.emphasis, label: enhanceLabelStyling(s.emphasis.label) } : s.emphasis,
-              lineStyle: s.lineStyle ? { ...(s.lineStyle || {}), textStyle: { ...(s.lineStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.lineStyle,
-              itemStyle: s.itemStyle ? { ...(s.itemStyle || {}), textStyle: { ...(s.itemStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.itemStyle,
-            };
-          });
-          enhancedOption.legend = {
-            ...(enhancedOption.legend || {}),
-            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0, fontSize: previewTools.fullscreen ? 16 : 12 }
-          };
-        }
-      }
-
-      if (Array.isArray(enhancedOption.series)) {
-        enhancedOption.series = enhancedOption.series.map((s) => {
-          if (!s || s.type !== "funnel") return s;
-          return {
-            ...s,
-            minSize: s.minSize ?? '0%',
-            maxSize: s.maxSize ?? '100%',
-            gap: Math.max(0, s.gap ?? 1),
-            labelLayout: {
-              hideOverlap: true,
-              moveOverlap: 'shiftY',
-            },
-            label: {
-              ...(s.label || {}),
-              show: shouldShowFunnelLabels,
-              color: isDarkColor,
-              overflow: 'truncate',
-              width: previewTools.fullscreen ? 320 : (isSmallScreen ? 110 : 160),
-              fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 11),
-            },
-            labelLine: {
-              ...(s.labelLine || {}),
-              show: shouldShowFunnelLabels,
-              lineStyle: {
-                ...(s.labelLine?.lineStyle || {}),
-                color: isDarkColor,
-                opacity: 1,
-              },
-            },
-            itemStyle: {
-              ...(s.itemStyle || {}),
-              borderColor: isDarkColor,
-            },
-            emphasis: {
-              ...(s.emphasis || {}),
+              avoidLabelOverlap: true,
               label: {
-                ...((s.emphasis && s.emphasis.label) || {}),
-                show: true,
+                ...(s.label || {}),
+                show: !finalHideLabels,
+                formatter: s.label?.formatter || function (params) { return params.name ? `${params.name}\n${params.percent}%` : `${params.percent}%`; },
                 color: isDarkColor,
-                fontSize: previewTools.fullscreen ? 18 : 12,
+                fontSize: previewTools.fullscreen ? 15 : 11,
+                overflow: 'truncate',
+                width: previewTools.fullscreen ? 340 : (isSmallScreen ? 160 : 220),
+                lineHeight: previewTools.fullscreen ? 26 : 18,
+                distanceToLabelLine: previewTools.fullscreen ? 24 : 14,
+                bleedMargin: previewTools.fullscreen ? 20 : 12,
               },
               labelLine: {
-                ...((s.emphasis && s.emphasis.labelLine) || {}),
-                show: true,
+                ...(s.labelLine || {}),
+                length: previewTools.fullscreen ? 24 : 14,
+                length2: previewTools.fullscreen ? 20 : 12,
+                smooth: false,
+                distance: previewTools.fullscreen ? 8 : 4,
+              },
+              radius: finalRadius,
+              center: finalCenter,
+            };
+          });
+
+          enhancedOption.legend = {
+            ...(enhancedOption.legend || {}),
+            textStyle: { ...(enhancedOption.legend?.textStyle || {}), fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 12), color: isDarkColor },
+            itemGap: previewTools.fullscreen ? 18 : 12,
+            pageIconColor: isDarkColor,
+            itemStyle: {
+              ...(enhancedOption.legend?.itemStyle || {}),
+              borderColor: 'transparent',
+              borderWidth: 0,
+            },
+          };
+
+          enhancedOption.grid = Array.isArray(enhancedOption.grid)
+            ? enhancedOption.grid.map((g) => ({ ...g, top: previewTools.fullscreen ? g.top : (isSmallScreen ? 72 : 80) }))
+            : { ...(enhancedOption.grid || {}), top: previewTools.fullscreen ? (enhancedOption.grid?.top || gridTop) : (isSmallScreen ? 72 : 80) };
+        }
+
+        if (theme === 'dark') {
+          const shadowlessSeriesTypes = ['sankey', 'sunburst', 'graph', 'tree'];
+          if (Array.isArray(enhancedOption.series)) {
+            const borderColor = 'rgba(0,0,0,0.65)';
+            enhancedOption.series = enhancedOption.series.map((s) => {
+              if (!s || !s.type) return s;
+              if (!shadowlessSeriesTypes.includes(s.type)) return s;
+              const enhanceLabelStyling = (lbl) => {
+                const baseTextStyle = {
+                  ...(lbl?.textStyle || {}),
+                  color: isDarkColor,
+                  textBorderColor: borderColor,
+                  textBorderWidth: 2,
+                  textShadowColor: 'transparent',
+                  textShadowBlur: 0,
+                  fontSize: previewTools.fullscreen ? (lbl?.fontSize ? lbl.fontSize + 4 : 16) : (lbl?.fontSize || 12),
+                };
+                if (!lbl) return { textStyle: baseTextStyle };
+                return { ...lbl, textStyle: baseTextStyle };
+              };
+              return {
+                ...s,
+                label: enhanceLabelStyling(s.label),
+                emphasis: s.emphasis ? { ...s.emphasis, label: enhanceLabelStyling(s.emphasis.label) } : s.emphasis,
+                lineStyle: s.lineStyle ? { ...(s.lineStyle || {}), textStyle: { ...(s.lineStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.lineStyle,
+                itemStyle: s.itemStyle ? { ...(s.itemStyle || {}), textStyle: { ...(s.itemStyle?.textStyle || {}), color: isDarkColor, textBorderColor: borderColor, textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0 } } : s.itemStyle,
+              };
+            });
+            enhancedOption.legend = {
+              ...(enhancedOption.legend || {}),
+              textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, textBorderColor: 'rgba(0,0,0,0.65)', textBorderWidth: 2, textShadowColor: 'transparent', textShadowBlur: 0, fontSize: previewTools.fullscreen ? 16 : 12 }
+            };
+          }
+        }
+
+        if (Array.isArray(enhancedOption.series)) {
+          enhancedOption.series = enhancedOption.series.map((s) => {
+            if (!s || s.type !== "funnel") return s;
+            return {
+              ...s,
+              minSize: s.minSize ?? '0%',
+              maxSize: s.maxSize ?? '100%',
+              gap: Math.max(0, s.gap ?? 1),
+              labelLayout: {
+                hideOverlap: true,
+                moveOverlap: 'shiftY',
+              },
+              label: {
+                ...(s.label || {}),
+                show: shouldShowFunnelLabels,
+                color: isDarkColor,
+                overflow: 'truncate',
+                width: previewTools.fullscreen ? 320 : (isSmallScreen ? 110 : 160),
+                fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 11),
+              },
+              labelLine: {
+                ...(s.labelLine || {}),
+                show: shouldShowFunnelLabels,
                 lineStyle: {
-                  ...((s.emphasis && s.emphasis.labelLine && s.emphasis.labelLine.lineStyle) || {}),
+                  ...(s.labelLine?.lineStyle || {}),
                   color: isDarkColor,
                   opacity: 1,
                 },
               },
               itemStyle: {
-                ...((s.emphasis && s.emphasis.itemStyle) || {}),
+                ...(s.itemStyle || {}),
                 borderColor: isDarkColor,
+                borderWidth: 0.5,
               },
-            },
-          };
-        });
-      }
-
-      const isSankey =
-        Array.isArray(enhancedOption.series) &&
-        enhancedOption.series.some((s) => s.type === "sankey");
-
-      if (isSankey) {
-        enhancedOption.series = enhancedOption.series.map((s) => {
-          if (s.type !== "sankey") return s;
-
-          return {
-            ...s,
-            lineStyle: {
-              ...(s.lineStyle || {}),
-              color: theme === "dark" ? "rgba(255, 255, 255, 0.27)" : "rgba(147, 147, 147, 0.55)",
-              opacity: 1,
-              curveness: s.lineStyle?.curveness ?? 0.2,
-            },
-          };
-        });
-      }
-
-      if (isSunBurst) {
-        const isSunBurstVisualmap = Object.keys(enhancedOption?.visualMap || {})?.length > 0;
-
-        let allSunburstNames = [];
-        sunburstSeries.forEach((s) => {
-          if (!s) return;
-          if (Array.isArray(s.data)) {
-            s.data.forEach(n => collectSunburstNames(n, allSunburstNames));
-          } else {
-            collectSunburstNames(s.data, allSunburstNames);
-          }
-        });
-
-        const uniqueLegendData = Array.from(new Set(allSunburstNames)).slice(0, 200);
-
-        enhancedOption.series = enhancedOption.series.map((s) => {
-          if (s.type !== "sunburst") return s;
-
-          const nodeCount = Array.isArray(s.data) ? s.data.reduce((a, n) => a + countSunburstNodes(n), 0) : countSunburstNodes(s.data);
-          const hideSunburst = nodeCount > 15;
-
-          return {
-            ...s,
-            radius: isSunBurstVisualmap ? ["3%", "65%"] : ["5%", "90%"],
-            levels: [
-              {},
-              {
+              emphasis: {
+                ...(s.emphasis || {}),
                 label: {
-                  position: "outside",
-                  rotate: "tangential",
-                  distance: previewTools.fullscreen ? 20 : 10,
-                  rotate: 0,
-                  show: !hideSunburst,
-                  fontSize: previewTools.fullscreen ? 16 : 11,
+                  ...((s.emphasis && s.emphasis.label) || {}),
+                  show: true,
+                  color: isDarkColor,
+                  fontSize: previewTools.fullscreen ? 18 : 12,
                 },
                 labelLine: {
+                  ...((s.emphasis && s.emphasis.labelLine) || {}),
                   show: true,
-                  length: previewTools.fullscreen ? 30 : 20,
-                  length2: previewTools.fullscreen ? 20 : 10,
-                  smooth: false,
+                  lineStyle: {
+                    ...((s.emphasis && s.emphasis.labelLine && s.emphasis.labelLine.lineStyle) || {}),
+                    color: isDarkColor,
+                    opacity: 1,
+                  },
+                },
+                itemStyle: {
+                  ...((s.emphasis && s.emphasis.itemStyle) || {}),
+                  borderColor: isDarkColor,
+                  borderWidth: 0.5,
                 },
               },
-              {
-                label: {
-                  position: "outside",
-                  distance: previewTools.fullscreen ? 20 : 10,
-                  rotate: 0,
-                  silent: true,
-                  show: !hideSunburst,
-                  fontSize: previewTools.fullscreen ? 14 : 10,
-                },
-                labelLine: {
-                  show: true,
-                  length: previewTools.fullscreen ? 30 : 20,
-                  length2: previewTools.fullscreen ? 20 : 10,
-                  smooth: false,
-                },
-              },
-            ],
-          };
-        });
-
-        if (uniqueLegendData.length > 0) {
-          enhancedOption.legend = {
-            ...(enhancedOption.legend || {}),
-            data: uniqueLegendData,
-            show: legendVisible,
-            orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
-            textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, fontSize: previewTools.fullscreen ? 16 : 12 },
-            type: 'scroll',
-            pageIconColor: isDarkColor,
-            pageIconInactiveColor: 'var(--text-muted)',
-            pageTextStyle: { color: isDarkColor, fontSize: previewTools.fullscreen ? 14 : 11 },
-            ...(previewTools.fullscreen ? {
-              left: 0,
-              top: 8,
-              bottom: 8,
-              width: 220,
-            } : {
-              left: 0,
-              right: 0,
-              top: 0,
-              width: '100%',
-            })
-          };
-        } else {
-          enhancedOption.legend = {
-            ...(enhancedOption.legend || {}),
-            show: false
-          };
+            };
+          });
         }
-      }
 
-      if (previewInst.current) {
+        const isSankey =
+          Array.isArray(enhancedOption.series) &&
+          enhancedOption.series.some((s) => s.type === "sankey");
+
+        if (isSankey) {
+          enhancedOption.series = enhancedOption.series.map((s) => {
+            if (s.type !== "sankey") return s;
+
+            return {
+              ...s,
+              lineStyle: {
+                ...(s.lineStyle || {}),
+                color: theme === "dark" ? "rgba(255, 255, 255, 0.27)" : "rgba(147, 147, 147, 0.55)",
+                opacity: 1,
+                curveness: s.lineStyle?.curveness ?? 0.2,
+              },
+            };
+          });
+        }
+
+        if (isSunBurst) {
+          const isSunBurstVisualmap = Object.keys(enhancedOption?.visualMap || {})?.length > 0;
+
+          let allSunburstNames = [];
+          sunburstSeries.forEach((s) => {
+            if (!s) return;
+            if (Array.isArray(s.data)) {
+              s.data.forEach(n => collectSunburstNames(n, allSunburstNames));
+            } else {
+              collectSunburstNames(s.data, allSunburstNames);
+            }
+          });
+
+          const uniqueLegendData = Array.from(new Set(allSunburstNames)).slice(0, 200);
+
+          enhancedOption.series = enhancedOption.series.map((s) => {
+            if (s.type !== "sunburst") return s;
+
+            const nodeCount = Array.isArray(s.data) ? s.data.reduce((a, n) => a + countSunburstNodes(n), 0) : countSunburstNodes(s.data);
+            const hideSunburst = nodeCount > 15;
+
+            return {
+              ...s,
+              radius: isSunBurstVisualmap ? ["3%", "65%"] : ["5%", "90%"],
+              levels: [
+                {},
+                {
+                  label: {
+                    position: "outside",
+                    rotate: "tangential",
+                    distance: previewTools.fullscreen ? 20 : 10,
+                    rotate: 0,
+                    show: !hideSunburst,
+                    fontSize: previewTools.fullscreen ? 16 : 11,
+                  },
+                  labelLine: {
+                    show: true,
+                    length: previewTools.fullscreen ? 30 : 20,
+                    length2: previewTools.fullscreen ? 20 : 10,
+                    smooth: false,
+                  },
+                },
+                {
+                  label: {
+                    position: "outside",
+                    distance: previewTools.fullscreen ? 20 : 10,
+                    rotate: 0,
+                    silent: true,
+                    show: !hideSunburst,
+                    fontSize: previewTools.fullscreen ? 14 : 10,
+                  },
+                  labelLine: {
+                    show: true,
+                    length: previewTools.fullscreen ? 30 : 20,
+                    length2: previewTools.fullscreen ? 20 : 10,
+                    smooth: false,
+                  },
+                },
+              ],
+            };
+          });
+
+          if (uniqueLegendData.length > 0) {
+            enhancedOption.legend = {
+              ...(enhancedOption.legend || {}),
+              data: uniqueLegendData,
+              show: legendVisible,
+              orient: previewTools.fullscreen ? 'vertical' : 'horizontal',
+              textStyle: { ...(enhancedOption.legend?.textStyle || {}), color: isDarkColor, fontSize: previewTools.fullscreen ? 16 : 12 },
+              type: 'scroll',
+              pageIconColor: isDarkColor,
+              pageIconInactiveColor: 'var(--text-muted)',
+              pageTextStyle: { color: isDarkColor, fontSize: previewTools.fullscreen ? 14 : 11 },
+              itemStyle: {
+                ...(enhancedOption.legend?.itemStyle || {}),
+                borderColor: 'transparent',
+                borderWidth: 0,
+              },
+              ...(previewTools.fullscreen ? {
+                left: 0,
+                top: 8,
+                bottom: 8,
+                width: 220,
+              } : {
+                left: 0,
+                right: 0,
+                top: 0,
+                width: '100%',
+              })
+            };
+          } else {
+            enhancedOption.legend = {
+              ...(enhancedOption.legend || {}),
+              show: false
+            };
+          }
+        }
+
+        if (!previewInst.current || previewInst.current.isDisposed?.()) {
+          return;
+        }
+
         previewInst.current.setOption(enhancedOption, true);
-        setTimeout(() => {
-          if (previewInst.current) {
+        resizeTimerRef.current = setTimeout(() => {
+          resizeTimerRef.current = null;
+          if (epoch !== chartEpochRef.current) return;
+          if (previewInst.current && !previewInst.current.isDisposed?.()) {
             try {
               previewInst.current.resize();
             } catch (e) {
             }
           }
         }, 50);
+      } catch (err) {
+        setChartOption({ _error: true, message: err.message });
       }
-    } catch (err) {
-      setChartOption({ _error: true, message: err.message });
-    }
+    }, 10);
+
+    return () => {
+      if (initTimerRef.current) {
+        clearTimeout(initTimerRef.current);
+        initTimerRef.current = null;
+      }
+    };
   }, [chartOption, previewTools.fullscreen, isSmallScreen, showLegend, theme, shouldShowLegend]);
 
   useEffect(() => {
-    setTimeout(() => {
-      if (previewInst.current) {
+    if (resizeTimerRef.current) {
+      clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = null;
+    }
+    const epoch = chartEpochRef.current;
+    resizeTimerRef.current = setTimeout(() => {
+      resizeTimerRef.current = null;
+      if (epoch !== chartEpochRef.current) return;
+      if (previewInst.current && !previewInst.current.isDisposed?.()) {
         try {
           previewInst.current.resize();
         } catch (e) {
@@ -1114,14 +1457,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
   useEffect(
     () => () => {
-      if (previewInst.current) {
-        try {
-          disposeChart(previewRef.current);
-        } catch (e) {
-          // Ignore dispose errors
-        }
-        previewInst.current = null;
-      }
+      cleanupChart();
     },
     [],
   );
@@ -1135,8 +1471,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     }
     const dashId = parseInt(selDashboard, 10);
     const requestedName = (chartName || "").trim();
-    // Only keep defaults for parameters the SQL still declares, so renaming or
-    // removing a placeholder does not leave an orphan behind in config.
     const keptDefaults = {};
     for (const p of declaredParams) {
       if (paramDefaults[p.name] !== undefined && paramDefaults[p.name] !== "") {
@@ -1275,13 +1609,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
 
   function changeType(t) {
-    if (previewInst.current) {
-      try {
-        disposeChart(previewRef.current);
-      } catch (e) {
-      }
-      previewInst.current = null;
-    }
     setChartType(t);
     const f = CHART_TYPES.find((x) => x.type === t)?.subtypes[0];
     setChartSubtype(f?.subtype || "");
@@ -1289,13 +1616,103 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     setEditId(null);
   }
 
+  function zoomIn() {
+    if (previewInst.current && !previewInst.current.isDisposed?.()) {
+      previewInst.current.dispatchAction({
+        type: "dataZoom",
+        zoom: {
+          xAxisIndex: 0,
+          start: undefined,
+          end: undefined,
+          startValue: undefined,
+          endValue: undefined,
+        },
+      });
+      const option = previewInst.current.getOption();
+      const dataZoom = option.dataZoom;
+      if (dataZoom && dataZoom[0]) {
+        let start = dataZoom[0].start !== undefined ? dataZoom[0].start : 0;
+        let end = dataZoom[0].end !== undefined ? dataZoom[0].end : 100;
+        const range = end - start;
+        const newStart = Math.max(0, start + range * 0.1);
+        const newEnd = Math.min(100, end - range * 0.1);
+        previewInst.current.dispatchAction({
+          type: "dataZoom",
+          start: newStart,
+          end: newEnd,
+          dataZoomIndex: 0,
+        });
+      } else {
+        previewInst.current.dispatchAction({
+          type: "dataZoom",
+          start: 0,
+          end: 50,
+          dataZoomIndex: 0,
+        });
+      }
+    }
+  }
+
+  function zoomOut() {
+    if (previewInst.current && !previewInst.current.isDisposed?.()) {
+      const option = previewInst.current.getOption();
+      const dataZoom = option.dataZoom;
+      if (dataZoom && dataZoom[0]) {
+        let start = dataZoom[0].start !== undefined ? dataZoom[0].start : 0;
+        let end = dataZoom[0].end !== undefined ? dataZoom[0].end : 100;
+        const range = end - start;
+        const newStart = Math.max(0, start - range * 0.1);
+        const newEnd = Math.min(100, end + range * 0.1);
+        previewInst.current.dispatchAction({
+          type: "dataZoom",
+          start: newStart,
+          end: newEnd,
+          dataZoomIndex: 0,
+        });
+      } else {
+        previewInst.current.dispatchAction({
+          type: "dataZoom",
+          start: 50,
+          end: 100,
+          dataZoomIndex: 0,
+        });
+      }
+    }
+  }
+
+  function resetZoom() {
+    if (previewInst.current && !previewInst.current.isDisposed?.()) {
+      const isTreemapNow = chartType === "treemap" || chartSubtype === "treemap";
+      if (isTreemapNow) {
+        previewInst.current.clear();
+        previewInst.current.setOption(chartOption, true);
+        setTimeout(() => {
+          if (previewInst.current && !previewInst.current.isDisposed?.()) {
+            try {
+              previewInst.current.resize();
+            } catch (e) {
+            }
+          }
+        }, 50);
+        return;
+      }
+      previewInst.current.dispatchAction({
+        type: "dataZoom",
+        start: 0,
+        end: 100,
+        dataZoomIndex: 0,
+      });
+    }
+  }
+
   const shellStyle = fullscreen
     ? {
       position: "fixed",
       inset: 0,
-      zIndex: 9999,
+      zIndex: 2000,
       background: "var(--bg-page)",
-      overflow: "auto",
+      overflowY: "auto",
+      overflowX: "visible",
       padding: 14,
     }
     : {};
@@ -1316,6 +1733,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   const isSunBurstChartType = chartType === 'sunburst' || chartSubtype === 'sunburst';
+  const isTreemapChartType = chartType === 'treemap' || chartSubtype === 'treemap';
 
   const pieChartControlsFlags = {
     zoomFun: false,
@@ -1347,6 +1765,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     saveFun: true,
     fullscreenFun: true,
   };
+  const treemapControlsFlags = {
+    zoomFun: true,
+    resetFun: true,
+    saveFun: true,
+    fullscreenFun: true,
+  };
 
   if (!canBuild) {
     return (
@@ -1369,727 +1793,757 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   return (
-    <div className="page-content" style={shellStyle}>
-      <div className="section-header">
-        <h2 className="section-title">
-          <Icon className="ti ti-chart-dots-3"></Icon>{" "}
-          {editId ? "Edit Chart" : "Chart Builder"}
-        </h2>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setFullscreen(!fullscreen)}
-          title={fullscreen ? "Exit full screen" : "Full screen"}
-          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
-        >
-          <Icon
-            className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
-            style={{ fontSize: 14 }}
-          ></Icon>
-        </button>
-      </div>
-
-      <div className="card"
-        style={{ marginBottom: 12, overflow: "hidden" }}>
-        <div
-          onClick={() => setTopOpen(!topOpen)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "10px 16px",
-            cursor: "pointer",
-            background: "var(--bg-elevated)",
-            fontWeight: 600,
-            fontSize: "14px",
-          }}
-        >
-          <Icon
-            className={`ti ti-chevron-${topOpen ? "down" : "right"}`}
-            style={{ fontSize: 16 }}
-          ></Icon>{" "}
-          <Icon className="ti ti-code" style={{ fontSize: 18 }}></Icon> SQL &
-          Results
+    <>
+      <style>{`
+        body.chart-builder-preview-fullscreen .global-search-fab,
+        body.chart-builder-preview-fullscreen [data-global-search-fab],
+        body.chart-builder-preview-fullscreen .floating-search,
+        body.chart-builder-preview-fullscreen .search-fab,
+        body.chart-builder-preview-fullscreen .global-search-icon {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+      `}</style>
+      <div className="page-content" style={shellStyle}>
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-chart-dots-3"></Icon>{" "}
+            {editId ? "Edit Chart" : "Chart Builder"}
+          </h2>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setFullscreen(!fullscreen)}
+            title={fullscreen ? "Exit full screen" : "Full screen"}
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+          >
+            <Icon
+              className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
+              style={{ fontSize: 14 }}
+            ></Icon>
+          </button>
         </div>
-        {topOpen && (
+
+        <div className="card"
+          style={{ marginBottom: 12, overflow: "hidden" }}>
           <div
+            onClick={() => setTopOpen(!topOpen)}
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 0,
-              alignItems: "stretch",
-              height: "50vh",
-              minHeight: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              cursor: "pointer",
+              background: "var(--bg-elevated)",
+              fontWeight: 600,
+              fontSize: "14px",
             }}
           >
+            <Icon
+              className={`ti ti-chevron-${topOpen ? "down" : "right"}`}
+              style={{ fontSize: 16 }}
+            ></Icon>{" "}
+            <Icon className="ti ti-code" style={{ fontSize: 18 }}></Icon> SQL &
+            Results
+          </div>
+          {topOpen && (
             <div
               style={{
-                padding: 12,
-                borderRight: "1px solid var(--border-default)",
-                display: "flex",
-                flexDirection: "column",
+                display: "grid",
+                gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                gap: 0,
+                alignItems: "stretch",
+                height: isSmallScreen ? "auto" : "50vh",
                 minHeight: 0,
-                height: "100%",
               }}
             >
-              <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                <div
-                  style={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflow: "auto",
-                    background: "var(--input-bg)",
-                    border: "1px solid var(--border-default)",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  <div style={{ height: "100%", minHeight: 320 }}>
-                    <SqlEditor
-                      value={sql}
-                      onChange={setSql}
-                      variant="compact"
-                      onRun={runSql}
-                      placeholder="SELECT ..."
-                      height="100%"
-                    />
+              <div
+                style={{
+                  padding: 12,
+                  borderRight: isSmallScreen ? "none" : "1px solid var(--border-default)",
+                  borderBottom: isSmallScreen ? "1px solid var(--border-default)" : "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  minHeight: 0,
+                  height: "100%",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflow: "auto",
+                      background: "var(--input-bg)",
+                      border: "1px solid var(--border-default)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  >
+                    <div style={{ height: "100%", minHeight: isSmallScreen ? 220 : 320 }}>
+                      <SqlEditor
+                        value={sql}
+                        onChange={setSql}
+                        variant="compact"
+                        onRun={runSql}
+                        placeholder="SELECT ..."
+                        height="100%"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ overflow: "auto", maxHeight: isSmallScreen ? "28vh" : "24vh", marginTop: 8 }}>
+                    {paramError && (
+                      <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
+                        <Icon className="ti ti-alert-circle" /> {paramError}
+                      </div>
+                    )}
+
+                    {!paramError && declaredParams.length > 0 && (
+                      <div className="card" style={{ padding: 12, marginTop: 8 }}>
+                        <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
+                          <Icon className="ti ti-filter" /> This chart declares{" "}
+                          {declaredParams.length} dashboard filter
+                          {declaredParams.length > 1 ? "s" : ""}.
+                        </div>
+
+                        {unwrapped.length > 0 && (
+                          <div className="alert-banner warning" style={{ fontSize: "13px", marginBottom: 8 }}>
+                            <Icon className="ti ti-alert-triangle" />
+                            <div>
+                              {unwrapped.map((p) => p.name).join(", ")}{" "}
+                              {unwrapped.length > 1 ? "are" : "is"} outside an optional
+                              block, so {unwrapped.length > 1 ? "they" : "it"} will be
+                              required: a viewer will not be able to clear{" "}
+                              {unwrapped.length > 1 ? "them" : "it"}, and the chart will
+                              not render until a value is supplied. Give a default
+                              below, or wrap the filter so it can be left out:
+                              <div style={{ marginTop: 6 }}>
+                                <code style={{ fontSize: "12px" }}>
+                                  {"WHERE 1 /*[ AND col = {"}
+                                  {unwrapped[0].name}:{unwrapped[0].type}
+                                  {"} ]*/"}
+                                </code>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {declaredParams.map((p) => (
+                          <div
+                            key={p.name}
+                            style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}
+                          >
+                            <code style={{ fontSize: "12px", minWidth: 140 }}>
+                              {p.name}:{p.type}
+                            </code>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)", minWidth: 70 }}>
+                              {p.required ? "required" : "optional"}
+                            </span>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>default</span>
+                            <ParamInput
+                              param={p}
+                              value={paramDefaults[p.name] ?? ""}
+                              onChange={(v) => setParamDefaults((d) => ({ ...d, [p.name]: v }))}
+                              invalid={p.required && !(paramDefaults[p.name] ?? "").toString().trim()}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div style={{ overflow: "auto", maxHeight: "24vh", marginTop: 8 }}>
-                  {paramError && (
-                    <div className="alert-banner danger" style={{ marginTop: 8, fontSize: "13px" }}>
-                      <Icon className="ti ti-alert-circle" /> {paramError}
-                    </div>
-                  )}
-
-                  {!paramError && declaredParams.length > 0 && (
-                    <div className="card" style={{ padding: 12, marginTop: 8 }}>
-                      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8 }}>
-                        <Icon className="ti ti-filter" /> This chart declares{" "}
-                        {declaredParams.length} dashboard filter
-                        {declaredParams.length > 1 ? "s" : ""}.
-                      </div>
-
-                      {unwrapped.length > 0 && (
-                        <div className="alert-banner warning" style={{ fontSize: "13px", marginBottom: 8 }}>
-                          <Icon className="ti ti-alert-triangle" />
-                          <div>
-                            {unwrapped.map((p) => p.name).join(", ")}{" "}
-                            {unwrapped.length > 1 ? "are" : "is"} outside an optional
-                            block, so {unwrapped.length > 1 ? "they" : "it"} will be
-                            required: a viewer will not be able to clear{" "}
-                            {unwrapped.length > 1 ? "them" : "it"}, and the chart will
-                            not render until a value is supplied. Give a default
-                            below, or wrap the filter so it can be left out:
-                            <div style={{ marginTop: 6 }}>
-                              <code style={{ fontSize: "12px" }}>
-                                {"WHERE 1 /*[ AND col = {"}
-                                {unwrapped[0].name}:{unwrapped[0].type}
-                                {"} ]*/"}
-                              </code>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {declaredParams.map((p) => (
-                        <div
-                          key={p.name}
-                          style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}
-                        >
-                          <code style={{ fontSize: "12px", minWidth: 140 }}>
-                            {p.name}:{p.type}
-                          </code>
-                          <span style={{ fontSize: "12px", color: "var(--text-muted)", minWidth: 70 }}>
-                            {p.required ? "required" : "optional"}
-                          </span>
-                          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>default</span>
-                          <ParamInput
-                            param={p}
-                            value={paramDefaults[p.name] ?? ""}
-                            onChange={(v) => setParamDefaults((d) => ({ ...d, [p.name]: v }))}
-                            invalid={p.required && !(paramDefaults[p.name] ?? "").toString().trim()}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                  marginTop: 8,
-                  flexShrink: 0,
-                }}
-              >
-                <MaxRowsControl
-                  value={maxRows}
-                  onChange={setMaxRows}
-                  disabled={running}
-                />
-
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={runSql}
-                  disabled={running || !sql.trim()}
-                >
-                  {running ? (
-                    <>
-                      <span className="loading-spinner"></span> Running...
-                    </>
-                  ) : (
-                    <>
-                      <Icon className="ti ti-player-play"></Icon> Run
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-            <div
-              style={{
-                padding: 12,
-                display: "flex",
-                flexDirection: "column",
-                minHeight: 0,
-                height: "100%",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "var(--text-muted)",
-                  marginBottom: 6,
-                }}
-              >
-                {data
-                  ? `${data.length} rows, ${columns.length} cols`
-                  : "Run a query"}
-              </div>
-              {error && (
                 <div
-                  className="alert-banner danger"
-                  style={{ fontSize: "13px" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: 10,
+                    marginTop: 8,
+                    flexShrink: 0,
+                  }}
                 >
-                  <Icon className="ti ti-alert-circle"></Icon> {error}
-                </div>
-              )}
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                {data && <DataTable rows={data} columns={columns} />}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+                  <MaxRowsControl
+                    value={maxRows}
+                    onChange={setMaxRows}
+                    disabled={running}
+                  />
 
-      <div
-        className="card"
-        style={
-          previewTools.fullscreen
-            ? {
-              position: "absolute",
-              zIndex: 9999,
-              background: "var(--bg-page)",
-              padding: 16,
-              top: "0px",
-              left: "0px",
-              width: "100%",
-              height: "100vh",
-            }
-            : { marginBottom: 12, overflow: "hidden" }
-        }
-      >
-        <div
-          onClick={() => setBottomOpen(!bottomOpen)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "10px 16px",
-            cursor: "pointer",
-            background: "var(--bg-elevated)",
-            fontWeight: 600,
-            fontSize: "14px",
-          }}
-        >
-          <Icon
-            className={`ti ti-chevron-${bottomOpen ? "down" : "right"}`}
-            style={{ fontSize: 16 }}
-          ></Icon>{" "}
-          <Icon className="ti ti-settings" style={{ fontSize: 18 }}></Icon>{" "}
-          Config & Preview
-        </div>
-        {bottomOpen && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            <div
-              style={{
-                padding: 12,
-                overflow: "auto",
-                maxHeight: isSmallScreen ? "35vh" : "60vh",
-                borderBottom: "1px solid var(--border-default)",
-              }}
-            >
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={runSql}
+                    disabled={running || !sql.trim()}
+                  >
+                    {running ? (
+                      <>
+                        <span className="loading-spinner"></span> Running...
+                      </>
+                    ) : (
+                      <>
+                        <Icon className="ti ti-player-play"></Icon> Run
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 10,
-                  marginBottom: 12,
+                  padding: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  minHeight: 0,
+                  height: "100%",
+                  overflow: "hidden",
                 }}
               >
-                <div className="form-group">
-                  <label className="form-label">Chart Type</label>
-                  <Select
-                    className="form-select"
-                    value={chartType}
-                    onChange={(e) => changeType(e.target.value)}
-                  >
-                    {CHART_TYPES.map((t) => (
-                      <option key={t.type} value={t.type}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </Select>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: "var(--text-muted)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {data
+                    ? `${data.length} rows, ${columns.length} cols`
+                    : "Run a query"}
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Subtype</label>
-                  <Select
-                    className="form-select"
-                    value={chartSubtype}
-                    onChange={(e) => {
-                      setChartSubtype(e.target.value);
-                      setMapping({});
-                    }}
+                {error && (
+                  <div
+                    className="alert-banner danger"
+                    style={{ fontSize: "13px" }}
                   >
-                    {typeInfo?.subtypes.map((s) => (
-                      <option key={s.subtype} value={s.subtype}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </Select>
+                    <Icon className="ti ti-alert-circle"></Icon> {error}
+                  </div>
+                )}
+                <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                  {data && <DataTable rows={data} columns={columns} />}
                 </div>
               </div>
-              <div className="form-group" style={{ marginBottom: 12 }}>
-                <label className="form-label">Chart Name</label>
-                <input
-                  className="form-input"
-                  value={chartName}
-                  onChange={(e) => setChartName(e.target.value)}
-                />
-              </div>
-              {fields.length > 0 && columns.length > 0 && (
-                <div style={{ marginBottom: 12 }}>
-                  <label className="form-label" style={{ marginBottom: 6 }}>
-                    Column Mapping
-                  </label>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="card"
+          style={
+            previewTools.fullscreen
+              ? {
+                position: "absolute",
+                zIndex: 9999,
+                background: "var(--bg-page)",
+                padding: 16,
+                top: "0px",
+                left: "0px",
+                width: "100%",
+                height: "100vh",
+                overflow: "visible",
+                isolation: "isolate",
+              }
+              : { marginBottom: 12, overflow: fullscreen ? "visible" : "hidden" }
+          }
+        >
+          <div
+            onClick={() => setBottomOpen(!bottomOpen)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              cursor: "pointer",
+              background: "var(--bg-elevated)",
+              fontWeight: 600,
+              fontSize: "14px",
+            }}
+          >
+            <Icon
+              className={`ti ti-chevron-${bottomOpen ? "down" : "right"}`}
+              style={{ fontSize: 16 }}
+            ></Icon>{" "}
+            <Icon className="ti ti-settings" style={{ fontSize: 18 }}></Icon>{" "}
+            Config & Preview
+          </div>
+          {bottomOpen && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0, overflow: "visible", position: "relative", zIndex: 1 }}>
+              <div
+                style={{
+                  padding: 12,
+                  overflowX: "visible",
+                  overflowY: fullscreen ? "visible" : "auto",
+                  maxHeight: fullscreen ? "none" : (isSmallScreen ? "42vh" : "60vh"),
+                  borderBottom: "1px solid var(--border-default)",
+                  position: "relative",
+                  zIndex: 2,
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                    gap: 10,
+                    marginBottom: 12,
+                  }}
+                >
+                  <div className="form-group">
+                    <label className="form-label">Chart Type</label>
+                    <Select
+                      className="form-select"
+                      value={chartType}
+                      onChange={(e) => changeType(e.target.value)}
+                    >
+                      {CHART_TYPES.map((t) => (
+                        <option key={t.type} value={t.type}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Subtype</label>
+                    <Select
+                      className="form-select"
+                      value={chartSubtype}
+                      onChange={(e) => {
+                        setChartSubtype(e.target.value);
+                        setMapping({});
+                      }}
+                    >
+                      {typeInfo?.subtypes.map((s) => (
+                        <option key={s.subtype} value={s.subtype}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label className="form-label">Chart Name</label>
+                  <input
+                    className="form-input"
+                    value={chartName}
+                    onChange={(e) => setChartName(e.target.value)}
+                  />
+                </div>
+                {fields.length > 0 && columns.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <label className="form-label" style={{ marginBottom: 6 }}>
+                      Column Mapping
+                    </label>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                        gap: 8,
+                      }}
+                    >
+                      {fields.map(
+                        (f) =>
+                          f?.key !== "parent" && (
+                            <div key={f.key} className="form-group">
+                              <label
+                                className="form-label"
+                                style={{ fontSize: "12px" }}
+                              >
+                                {f.label}
+                                {f.required ? " *" : ""} ({f.expect})
+                              </label>
+                              {f?.expect === "numeric" ? (
+                                <Select
+                                  className="form-select"
+                                  value={mapping[f.key] || ""}
+                                  onChange={(e) => {
+                                    setMapping((p) => ({
+                                      ...p,
+                                      [f.key]: e.target.value,
+                                    }));
+                                  }}
+                                  style={{
+                                    fontSize: "13px",
+                                    borderColor: validationErrors[f.key]
+                                      ? "var(--color-danger)"
+                                      : undefined,
+                                  }}
+                                >
+                                  <option value="">--</option>
+                                  {SeperateNumericColumns(columns).map((c) => (
+                                    <option key={c} value={c}>
+                                      {c}
+                                    </option>
+                                  ))}
+                                </Select>
+                              ) : (
+                                <Select
+                                  className="form-select"
+                                  value={mapping[f.key] || ""}
+                                  onChange={(e) => {
+                                    setMapping((p) => ({
+                                      ...p,
+                                      [f.key]: e.target.value,
+                                    }));
+                                  }}
+                                  style={{
+                                    fontSize: "13px",
+                                    borderColor: validationErrors[f.key]
+                                      ? "var(--color-danger)"
+                                      : undefined,
+                                  }}
+                                >
+                                  <option value="">--</option>
+                                  {columns.map((c) => (
+                                    <option key={c} value={c}>
+                                      {c}
+                                    </option>
+                                  ))}
+                                </Select>
+                              )}
+
+                              {validationErrors[f.key] && (
+                                <span
+                                  style={{
+                                    color: "var(--color-danger)",
+                                    fontSize: "12px",
+                                  }}
+                                >
+                                  {validationErrors[f.key]}
+                                </span>
+                              )}
+                            </div>
+                          ),
+                      )}
+                    </div>
+                  </div>
+                )}
+                {hasAxisLabels && (
                   <div
                     style={{
                       display: "grid",
                       gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
                       gap: 8,
+                      marginBottom: 12,
                     }}
                   >
-                    {fields.map(
-                      (f) =>
-                        f?.key !== "parent" && (
-                          <div key={f.key} className="form-group">
-                            <label
-                              className="form-label"
-                              style={{ fontSize: "12px" }}
-                            >
-                              {f.label}
-                              {f.required ? " *" : ""} ({f.expect})
-                            </label>
-                            {f?.expect === "numeric" ? (
-                              <Select
-                                className="form-select"
-                                value={mapping[f.key] || ""}
-                                onChange={(e) =>
-                                  setMapping((p) => ({
-                                    ...p,
-                                    [f.key]: e.target.value,
-                                  }))
-                                }
-                                style={{
-                                  fontSize: "13px",
-                                  borderColor: validationErrors[f.key]
-                                    ? "var(--color-danger)"
-                                    : undefined,
-                                }}
-                              >
-                                <option value="">--</option>
-                                {SeperateNumericColumns(columns).map((c) => (
-                                  <option key={c} value={c}>
-                                    {c}
-                                  </option>
-                                ))}
-                              </Select>
-                            ) : (
-                              <Select
-                                className="form-select"
-                                value={mapping[f.key] || ""}
-                                onChange={(e) =>
-                                  setMapping((p) => ({
-                                    ...p,
-                                    [f.key]: e.target.value,
-                                  }))
-                                }
-                                style={{
-                                  fontSize: "13px",
-                                  borderColor: validationErrors[f.key]
-                                    ? "var(--color-danger)"
-                                    : undefined,
-                                }}
-                              >
-                                <option value="">--</option>
-                                {columns.map((c) => (
-                                  <option key={c} value={c}>
-                                    {c}
-                                  </option>
-                                ))}
-                              </Select>
-                            )}
-
-                            {validationErrors[f.key] && (
-                              <span
-                                style={{
-                                  color: "var(--color-danger)",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                {validationErrors[f.key]}
-                              </span>
-                            )}
-                          </div>
-                        ),
-                    )}
-                  </div>
-                </div>
-              )}
-              {hasAxisLabels && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      X Label
-                    </label>
-                    <input
-                      className="form-input"
-                      value={xLabel}
-                      onChange={(e) => setXLabel(e.target.value)}
-                      style={{ fontSize: "13px" }}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      Y Label
-                    </label>
-                    <input
-                      className="form-input"
-                      value={yLabel}
-                      onChange={(e) => setYLabel(e.target.value)}
-                      style={{ fontSize: "13px" }}
-                    />
-                  </div>
-                </div>
-              )}
-              {shouldShowLegend && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    marginBottom: 12,
-                    padding: "8px 0",
-                  }}
-                >
-                  <button
-                    onClick={() => setShowLegend(!showLegend)}
-                    className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontSize: '12px',
-                      padding: '4px 8px'
-                    }}
-                    title={showLegend ? 'Hide legend' : 'Show legend'}
-                  >
-                    <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
-                    <span>Legend</span>
-                  </button>
-                </div>
-              )}
-              {chartType === "gauge" && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      Min
-                    </label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      value={mapping.min_val || 0}
-                      onChange={(e) =>
-                        setMapping((p) => ({ ...p, min_val: e.target.value }))
-                      }
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: "12px" }}>
-                      Max
-                    </label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      value={mapping.max_val || 100}
-                      onChange={(e) =>
-                        setMapping((p) => ({ ...p, max_val: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div style={{ padding: 12, minHeight: isSmallScreen ? "65vh" : "50vh", overflow: "auto" }}>
-              <ErrorBoundary
-                resetKeys={[chartOption]}
-                fallback={(err) => (
-                  <div className="alert-banner danger"
-                    style={{ fontSize: "13px" }}
-                  >
-                    <Icon className="ti ti-alert-circle"></Icon> Chart preview
-                    failed: {err?.message || String(err)}
-                  </div>
-                )}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 8,
-                  }}
-                >
-                  <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-                    Preview
-                  </div>
-                </div>
-                {chartOption?._error && (
-                  <div
-                    className="alert-banner danger"
-                    style={{ fontSize: "13px" }}
-                  >
-                    <Icon className="ti ti-alert-circle"></Icon>{" "}
-                    {chartOption.message}
-                  </div>
-                )}
-                {chartOption?._kpi && (
-                  chartOption?.isArray ? <div
-                    className="alert-banner danger"
-                    style={{ fontSize: "13px" }}
-                  >
-                    <Icon className="ti ti-alert-circle"></Icon>{" "}
-                    {chartOption.message}
-                  </div> :
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        height: "90%",
-                        padding: "24px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          minWidth: "280px",
-                          padding: "28px 36px",
-                          borderRadius: "18px",
-                          background: "var(--surface)",
-                          border: "1px solid var(--border-color)",
-                          boxShadow: "var(--shadow-md)",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: "12px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "48px",
-                            height: "4px",
-                            borderRadius: "999px",
-                            background: "var(--accent)",
-                          }}
-                        />
-                        <div
-                          style={{
-                            fontSize: "0.85rem",
-                            color: "var(--text-muted)",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.12em",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {chartOption.label}
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: "3.5rem",
-                            fontWeight: 800,
-                            color: "var(--accent)",
-                            lineHeight: 1,
-                            fontFamily: "var(--font-table)",
-                          }}
-                        >
-                          {chartOption.value}
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: "0.9rem",
-                            color: "var(--text-muted)",
-                          }}
-                        >
-                          Current Value
-                        </div>
-                      </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        X Label
+                      </label>
+                      <input
+                        className="form-input"
+                        value={xLabel}
+                        onChange={(e) => setXLabel(e.target.value)}
+                        style={{ fontSize: "13px" }}
+                      />
                     </div>
-                )}
-                {chartOption?._table && (
-                  <div style={{ maxHeight: 300, overflow: "auto" }}>
-                    <DataTable rows={chartOption.data} />
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        Y Label
+                      </label>
+                      <input
+                        className="form-input"
+                        value={yLabel}
+                        onChange={(e) => setYLabel(e.target.value)}
+                        style={{ fontSize: "13px" }}
+                      />
+                    </div>
                   </div>
                 )}
-                {!chartOption?._kpi &&
-                  !chartOption?._table &&
-                  !chartOption?._error && (
-                    <div
-                      style={
-                        previewTools.fullscreen
-                          ? {
-                            position: "fixed",
-                            inset: 0,
-                            zIndex: 9999,
-                            background: "var(--bg-page)",
-                            padding: 16,
-                            display: "flex",
-                            flexDirection: "column",
-                          }
-                          : undefined
-                      }
+                {shouldShowLegend && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 12,
+                      padding: "8px 0",
+                    }}
+                  >
+                    <button
+                      onClick={() => setShowLegend(!showLegend)}
+                      className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: '12px',
+                        padding: '4px 8px'
+                      }}
+                      title={showLegend ? 'Hide legend' : 'Show legend'}
                     >
-                      {chartOption && (
-                        <ChartToolbar
-                          zoomable={!!chartOption?.xAxis && !isSunBurstChartType}
-                          fullscreen={previewTools.fullscreen}
-                          onZoomIn={previewTools.zoomIn}
-                          onZoomOut={previewTools.zoomOut}
-                          onZoomReset={previewTools.zoomReset}
-                          onSave={previewTools.save}
-                          onToggleFullscreen={previewTools.toggleFullscreen}
-                          isWantFeature={
-                            isSunBurstChartType
-                              ? sunburstControlsFlags
-                              : chartType === "pie"
-                                ? pieChartControlsFlags
-                                : chartType === "funnel" || chartSubtype === "funnel"
-                                  ? funnelControlsFlags
-                                  : chartType === "sankey"
-                                    ? sankeyControlsFlags
-                                    : chartControlsFlags
-                          }
-                        />
-                      )}
-                      <div
-                        ref={previewRef}
-                        style={{
-                          height: previewTools.fullscreen
-                            ? "calc(100vh - 96px)"
-                            : isSmallScreen ? 500 : 430,
-                          width: "100%",
-                          overflow: "visible",
-                          paddingBottom: 30,
-                        }}
-                      >
-                        {!chartOption && (
-                          <div className="empty-state" style={{ padding: 16, height: "80%" }}>
-                            <Icon className="ti ti-chart-dots"></Icon>
-                            <p style={{ fontSize: "13px" }}>
-                              Map columns to see preview.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
+                      <span>Legend</span>
+                    </button>
+                  </div>
+                )}
+                {chartType === "gauge" && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        Min
+                      </label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        value={mapping.min_val || 0}
+                        onChange={(e) =>
+                          setMapping((p) => ({ ...p, min_val: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: "12px" }}>
+                        Max
+                      </label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        value={mapping.max_val || 100}
+                        onChange={(e) =>
+                          setMapping((p) => ({ ...p, max_val: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 12, minHeight: isSmallScreen ? "42vh" : "360px", overflow: "auto", position: "relative", zIndex: 1 }}>
+                <ErrorBoundary
+                  resetKeys={[chartOption]}
+                  fallback={(err) => (
+                    <div className="alert-banner danger"
+                      style={{ fontSize: "13px" }}
+                    >
+                      <Icon className="ti ti-alert-circle"></Icon> Chart preview
+                      failed: {err?.message || String(err)}
                     </div>
                   )}
-              </ErrorBoundary>
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                      Preview
+                    </div>
+                  </div>
+                  {chartOption?._error && (
+                    <div
+                      className="alert-banner danger"
+                      style={{ fontSize: "13px" }}
+                    >
+                      <Icon className="ti ti-alert-circle"></Icon>{" "}
+                      {chartOption.message}
+                    </div>
+                  )}
+                  {chartOption?._kpi && (
+                    chartOption?.isArray ? <div
+                      className="alert-banner danger"
+                      style={{ fontSize: "13px" }}
+                    >
+                      <Icon className="ti ti-alert-circle"></Icon>{" "}
+                      {chartOption.message}
+                    </div> :
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          height: "90%",
+                          padding: "24px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            minWidth: "280px",
+                            padding: "28px 36px",
+                            borderRadius: "18px",
+                            background: "var(--surface)",
+                            border: "1px solid var(--border-color)",
+                            boxShadow: "var(--shadow-md)",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "12px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: "48px",
+                              height: "4px",
+                              borderRadius: "999px",
+                              background: "var(--accent)",
+                            }}
+                          />
+                          <div
+                            style={{
+                              fontSize: "0.85rem",
+                              color: "var(--text-muted)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.12em",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {chartOption.label}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: "3.5rem",
+                              fontWeight: 800,
+                              color: "var(--accent)",
+                              lineHeight: 1,
+                              fontFamily: "var(--font-table)",
+                            }}
+                          >
+                            {chartOption.value}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: "0.9rem",
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            Current Value
+                          </div>
+                        </div>
+                      </div>
+                  )}
+                  {chartOption?._table && (
+                    <div style={{ height: previewBodyHeight, minHeight: 0, overflow: "auto" }}>
+                      <DataTable rows={chartOption.data} />
+                    </div>
+                  )}
+                  {!chartOption?._kpi &&
+                    !chartOption?._table &&
+                    !chartOption?._error && (
+                      <div
+                        style={
+                          previewTools.fullscreen
+                            ? {
+                              position: "fixed",
+                              inset: 0,
+                              zIndex: 9999,
+                              background: "var(--bg-page)",
+                              padding: 16,
+                              display: "flex",
+                              flexDirection: "column",
+                            }
+                            : undefined
+                        }
+                      >
+                        {chartOption && (
+                          <ChartToolbar
+                            zoomable={!!chartOption?.xAxis || isTreemapChartType}
+                            fullscreen={previewTools.fullscreen}
+                            onZoomIn={previewTools.zoomIn}
+                            onZoomOut={previewTools.zoomOut}
+                            onZoomReset={resetZoom}
+                            onSave={previewTools.save}
+                            onToggleFullscreen={previewTools.toggleFullscreen}
+                            resetEnabled={!!previewInst.current}
+                            resetTitle={isTreemapChartType ? "Restore view" : "Reset zoom"}
+                            resetAriaLabel={isTreemapChartType ? "Restore view" : "Reset zoom"}
+                            isWantFeature={
+                              isSunBurstChartType
+                                ? sunburstControlsFlags
+                                : isTreemapChartType
+                                  ? treemapControlsFlags
+                                  : chartType === "pie"
+                                    ? pieChartControlsFlags
+                                    : chartType === "funnel" || chartSubtype === "funnel"
+                                      ? funnelControlsFlags
+                                      : chartType === "sankey"
+                                        ? sankeyControlsFlags
+                                        : chartControlsFlags
+                            }
+                          />
+                        )}
+                        <div
+                          style={{
+                            height: previewBodyHeight,
+                            width: "100%",
+                            overflow: "hidden",
+                            paddingBottom: previewTools.fullscreen ? 0 : (isSmallScreen ? 8 : 12),
+                            position: "relative",
+                          }}
+                        >
+                          {!chartOption && (
+                            <div className="empty-state" style={{ padding: 16, height: "80%" }}>
+                              <Icon className="ti ti-chart-dots"></Icon>
+                              <p style={{ fontSize: "13px" }}>
+                                Map columns to see preview.
+                              </p>
+                            </div>
+                          )}
+                          <div
+                            ref={previewRef}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              display: chartOption ? "block" : "none",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                </ErrorBoundary>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {chartOption && !chartOption._error && (
+          <div className="card" style={{ padding: 12 }}>
+            <h3 style={{ fontSize: "14px", marginBottom: 10 }}>
+              <Icon className="ti ti-device-floppy"></Icon>{" "}
+              {editId ? "Update Chart" : "Save to Dashboard"}
+            </h3>
+            {dashboards.length === 0 && (
+              <div
+                className="alert-banner info"
+                style={{ marginBottom: 12, fontSize: "14px" }}
+              >
+                <Icon className="ti ti-info-circle"></Icon> Create a dashboard
+                first in the Dashboards section.
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Dashboard *</label>
+                <Select
+                  className="form-select"
+                  value={selDashboard}
+                  onChange={(e) => setSelDashboard(e.target.value)}
+                >
+                  <option value="">--</option>
+                  {dashboards.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={saveChart}
+                disabled={!selDashboard || !sql.trim()}
+              >
+                <Icon className="ti ti-device-floppy"></Icon>{" "}
+                {editId ? "Update" : "Save"}
+              </button>
             </div>
           </div>
         )}
       </div>
-
-      {chartOption && !chartOption._error && (
-        <div className="card" style={{ padding: 12 }}>
-          <h3 style={{ fontSize: "14px", marginBottom: 10 }}>
-            <Icon className="ti ti-device-floppy"></Icon>{" "}
-            {editId ? "Update Chart" : "Save to Dashboard"}
-          </h3>
-          {dashboards.length === 0 && (
-            <div
-              className="alert-banner info"
-              style={{ marginBottom: 12, fontSize: "14px" }}
-            >
-              <Icon className="ti ti-info-circle"></Icon> Create a dashboard
-              first in the Dashboards section.
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Dashboard *</label>
-              <Select
-                className="form-select"
-                value={selDashboard}
-                onChange={(e) => setSelDashboard(e.target.value)}
-              >
-                <option value="">--</option>
-                {dashboards.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={saveChart}
-              disabled={!selDashboard || !sql.trim()}
-            >
-              <Icon className="ti ti-device-floppy"></Icon>{" "}
-              {editId ? "Update" : "Save"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

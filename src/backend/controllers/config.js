@@ -45,7 +45,6 @@ export async function getCapabilities(req, res) {
 
   try {
     const probe = await ensureCapabilities(clusterId);
-    // console.log(probe)
     res.json({
       probed: probe.probed,
       deployment: probe.deployment,

@@ -233,11 +233,11 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
   // Fill the dropdown in on a Kubernetes cluster, where CHOps already knows the
   // cluster name. Making the correct path the default does more than any banner
   // will. Only applied while the field is untouched.
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) {
-      setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
-    }
-  }, [rbac?.defaultOnCluster]);
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+  //   }
+  // }, [rbac?.defaultOnCluster]);
   const [showPassword, setShowpassword] = useState(false);
 
   function buildSql() {
@@ -350,7 +350,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
         }}
       >
         <div className="form-group">
-          <OnClusterBanner rbac={rbac} value={f.onCluster} />
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -364,6 +364,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={f.onCluster} />
         </div>
         <div className="form-group">
           <label className="form-label">Default Database</label>
@@ -467,11 +468,11 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
   // Fill the dropdown in on a Kubernetes cluster, where CHOps already knows the
   // cluster name. Making the correct path the default does more than any banner
   // will. Only applied while the field is untouched.
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) {
-      setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
-    }
-  }, [rbac?.defaultOnCluster]);
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+  //   }
+  // }, [rbac?.defaultOnCluster]);
   const [showPassword, setShowpassword] = useState(false);
   const [openInfo, setOpenInfo] = useState(false);
 
@@ -573,7 +574,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
           />
         </div>
         <div className="form-group">
-          <OnClusterBanner rbac={rbac} value={f.onCluster} />
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -587,6 +588,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={f.onCluster} />
         </div>
       </div>
       <div
@@ -856,11 +858,11 @@ function GrantRevoke({ users, roles, clusters, setResult, rbac }) {
   // Fill the dropdown in on a Kubernetes cluster, where CHOps already knows the
   // cluster name. Making the correct path the default does more than any banner
   // will. Only applied while the field is untouched.
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) {
-      setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
-    }
-  }, [rbac?.defaultOnCluster]);
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+  //   }
+  // }, [rbac?.defaultOnCluster]);
   function buildSql() {
     if (!f.user) return "";
     const verb = f.action === "grant" ? "GRANT" : "REVOKE";
@@ -976,8 +978,8 @@ function GrantRevoke({ users, roles, clusters, setResult, rbac }) {
             ))}
           </Select>
         </div>
-        <div className="form-group">
-          <OnClusterBanner rbac={rbac} value={f.onCluster} />
+        <div className="form-group" >
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -991,6 +993,7 @@ function GrantRevoke({ users, roles, clusters, setResult, rbac }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={f.onCluster} />
         </div>
       </div>
       <SqlPreview sql={buildSql()} />
@@ -1016,11 +1019,11 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
 
   // Same defaulting as the other forms. Dropping a user on one replica leaves
   // it alive on the others, which is the more surprising half of this problem.
-  useEffect(() => {
-    if (rbac?.defaultOnCluster) {
-      setOnCluster((prev) => prev || rbac.defaultOnCluster);
-    }
-  }, [rbac?.defaultOnCluster]);
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setOnCluster((prev) => prev || rbac.defaultOnCluster);
+  //   }
+  // }, [rbac?.defaultOnCluster]);
 
   useEffect(() => {
     setSql(
@@ -1076,7 +1079,7 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
           </Select>
         </div>
         <div className="form-group">
-          <OnClusterBanner rbac={rbac} value={onCluster} />
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -1090,6 +1093,7 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={onCluster} />
         </div>
       </div>
       <SqlPreview sql={sql} />
