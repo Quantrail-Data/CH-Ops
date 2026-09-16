@@ -81,7 +81,7 @@ export function decodeShare(text) {
 /* The full link to hand to someone. */
 export function buildShareUrl(sql, params = null, base) {
   const origin = base || `${window.location.origin}${window.location.pathname}`;
-  return `${origin}#${SHARE_PARAM}=${encodeShare(sql, params)}`;
+  return `${origin}#/editor/query?${SHARE_PARAM}=${encodeShare(sql, params)}`;
 }
 
 /* Read a shared query out of the current fragment, if there is one. */
@@ -89,7 +89,8 @@ export function readShareFromHash(hash) {
   const h = (hash ?? window.location.hash ?? "").replace(/^#/, "");
   if (!h) return null;
   const params = new URLSearchParams(h);
-  const value = params.get(SHARE_PARAM);
+
+  const value = params.get("/editor/query?q");
   return value ? decodeShare(value) : null;
 }
 

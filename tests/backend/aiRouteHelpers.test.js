@@ -11,17 +11,17 @@ import { CRED_CONTEXTS } from "../../src/backend/services/chCredStore.js";
 
 describe("resolveContext", () => {
   it("reads context from the body", () => {
-    expect(resolveContext({ body: { context: "editor" }, query: {} })).toBe("editor");
+    expect(resolveContext({ body: { context: "editor-qurioz" }, query: {} })).toBe("editor-qurioz");
   });
 
   it("reads context from the query when body has none", () => {
-    expect(resolveContext({ body: {}, query: { context: "editor" } })).toBe("editor");
+    expect(resolveContext({ body: {}, query: { context: "editor-qurioz" } })).toBe("editor-qurioz");
   });
 
   it("prefers the body over the query when both are present", () => {
     expect(
-      resolveContext({ body: { context: "editor" }, query: { context: "schema-studio" } }),
-    ).toBe("editor");
+      resolveContext({ body: { context: "editor-qurioz" }, query: { context: "schema-studio" } }),
+    ).toBe("editor-qurioz");
   });
 
   it("falls back to QURIOZ for an invalid context, without throwing", () => {
@@ -29,12 +29,12 @@ describe("resolveContext", () => {
       resolveContext({ body: { context: "bogus" }, query: {} }),
     ).not.toThrow();
     expect(resolveContext({ body: { context: "bogus" }, query: {} })).toBe(
-      CRED_CONTEXTS.QURIOZ,
+      CRED_CONTEXTS.EDITOR,
     );
   });
 
   it("falls back to QURIOZ when neither body nor query has a context", () => {
-    expect(resolveContext({ body: {}, query: {} })).toBe(CRED_CONTEXTS.QURIOZ);
+    expect(resolveContext({ body: {}, query: {} })).toBe(CRED_CONTEXTS.EDITOR);
   });
 });
 
