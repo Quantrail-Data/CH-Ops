@@ -37,6 +37,8 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
   }, []);
 
   const set = (patch) => setForm({ ...form, ...patch });
+
+  console.log(form)
   const setParam = (key, val) =>
     setForm({ ...form, behaviorParams: { ...form.behaviorParams, [key]: val } });
   const setPref = (key, val) =>
@@ -137,7 +139,10 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
             tip="How rows are ordered within each part. It is also the primary key unless you set a separate one. Add columns in the order you want them; ordinal position matters. Put low-cardinality, frequently filtered columns first. Leave empty for no sorting (tuple())." />
           <KeyInput id="studio-orderby" value={form.orderBy} columns={colNames}
             placeholder="add columns in order, or type an expression"
-            onChange={(v) => set({ orderBy: v })} />
+            onChange={(v) => {
+              set({ orderBy: v })
+              console.log(v)
+              }} />
         </div>
 
         <div className="studio-field">

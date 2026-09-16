@@ -21,7 +21,7 @@ let db;
 beforeAll(() => {
   const sqlite = new Database(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
-  sqlite.exec(`CREATE TABLE app_user (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'readonly', email TEXT, must_change_password INTEGER NOT NULL DEFAULT 1, last_login_at TEXT, created_at TEXT, updated_at TEXT);`);
+  sqlite.exec(`CREATE TABLE app_user (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'readonly', email TEXT, must_change_password INTEGER NOT NULL DEFAULT 1, init_user INTEGER NOT NULL DEFAULT 0, last_login_at TEXT, created_at TEXT, updated_at TEXT);`);
   db = drizzle(sqlite, { schema });
 });
 
@@ -77,6 +77,7 @@ describe('AppUser CRUD', () => {
   it('counts by role', () => {
     const all = db.select().from(schema.appUsers).all();
     const roles = all.map(u => u.role);
+    console.log(roles)
     expect(roles).toContain('superadmin');
     expect(roles).toContain('admin');
     expect(roles).toContain('editor');

@@ -10,7 +10,8 @@ import SQLQueryEditorComponent from "./SQLQueryEditorComponent";
 import { AnimatePresence, motion } from "motion/react";
 import ChartVisualization from "./ChartVisualization";
 import { useToast } from "../layout/Toast";
-import { useQuriozChatContext } from "../../App";
+import { apiFetch } from "../../utils/api";
+import { useAuth } from "../../App";
 import AILoaderComponent from "./AILoaderComponent";
 
 
@@ -20,7 +21,14 @@ function ChatRenderComponent({
   RunSqlQueryhandler,
   index,
   ReFormQuestionSQLGenerating,
+  replaceChat
 }) {
+  const { auth } = useAuth();
+  const myRole = auth?.role || "readonly";
+  const myLevel = ROLE_LEVEL[myRole] || 0;
+  const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
+
+  const [showDownloadOption, setShowDownloadingOption] = useState(false);
   const [showQuestionOption, setShowQuestionOption] = useState(false);
   const [isEditable, setIsEditable] = useState(false);
   const [editMessage, setEditMessage] = useState(null);
@@ -29,7 +37,7 @@ function ChatRenderComponent({
 
   const [retryLoading, setRetryLoading] = useState(false);
 
-  const { replaceChat } = useQuriozChatContext();
+  // const {  } = useQuriozChatContext();
 
   const toast = useToast();
   const textareaRef = useRef(null);
@@ -39,7 +47,7 @@ function ChatRenderComponent({
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [editMessage]); 
+  }, [editMessage]);
 
 
 
@@ -59,8 +67,9 @@ function ChatRenderComponent({
       ...chatMessage,
       id: chatMessage?.id,
       userQuestion: editMessage,
+
     };
-    ReFormQuestionSQLGenerating(editMessage, index);
+    ReFormQuestionSQLGenerating(editMessage, index, chatMessage?.messageId);
     replaceChat(updatedUserQuestion);
     setIsEditable(false);
     setEditMessage(null);
@@ -76,6 +85,43 @@ function ChatRenderComponent({
 
   const isTablePresent = (message) => message?.tableData?.length > 0;
 
+  const downloadDatatable = async (format) => {
+    try {
+      const response = await apiFetch(
+        "/api/table/download/multiple/file",
+        {
+          method: "POST",
+          body: {
+            data: chatMessage?.tableData,
+            tablename: "datatable",
+            type: format?.toLowerCase(),
+          },
+          Accept: format === "JSON" ? "application/json" : "text/csv",
+        },
+        true,
+      );
+
+      let url = null;
+
+      if (format?.toLowerCase() === "csv") {
+        url = window.URL.createObjectURL(new Blob([response]));
+      } else if (format?.toLowerCase() === "json") {
+        const blob = new Blob([response], { type: "application/json" });
+        url = window.URL.createObjectURL(blob);
+      }
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Datatable.${format?.toLowerCase()}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setShowDownloadingOption(false);
+      toast.success(`Successfully ${format?.toUpperCase()} file downloaded `);
+    } catch {
+      toast.error(`Failed to ${format?.toUpperCase()} download `);
+    }
+  };
 
   const retryHandler = async () => {
     setRetryLoading(true);
@@ -182,49 +228,54 @@ function ChatRenderComponent({
             </motion.div>
           )}
 
-{isEditable && (
-  <motion.div style={{ position: "relative" }} className="editor-container">
-    <textarea
-      ref={textareaRef}
-      value={editMessage}
-      onChange={(e) => {
-        setEditMessage(e.target.value);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          reformUserQuestionhandler();
-        }
-      }}
-      style={{ resize: "none", maxWidth: "700px" }} 
-    />
-    <div
-      style={{
-        position: "absolute",
-        display: "flex",
-        alignItems: "center",
-        bottom: "-2.9rem",
-        paddingTop: "10px",
-        right: "0rem",
-        gap: "5px",
-      }}
-    >
-      <button onClick={cancelEditHandler} className="btn btn-danger">
-        <Icon className="ti ti-x"></Icon>
-      </button>
-      <button className="btn btn-primary" onClick={() => reformUserQuestionhandler()}>
-        <Icon className="ti ti-send-2"></Icon>
-      </button>
-    </div>
-  </motion.div>
-)}
-
+          {isEditable && (
+            <motion.div
+              style={{ position: "relative" }}
+              className="editor-container"
+            >
+              <textarea
+                ref={textareaRef}
+                value={editMessage}
+                onChange={(e) => {
+                  setEditMessage(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    reformUserQuestionhandler();
+                  }
+                }}
+                style={{ resize: "none", maxWidth: "700px" }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  display: "flex",
+                  alignItems: "center",
+                  bottom: "-2.9rem",
+                  paddingTop: "10px",
+                  right: "0rem",
+                  gap: "5px",
+                }}
+              >
+                <button onClick={cancelEditHandler} className="btn btn-danger">
+                  <Icon className="ti ti-x"></Icon>
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => reformUserQuestionhandler()}
+                >
+                  <Icon className="ti ti-send-2"></Icon>
+                </button>
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
     );
   else if (chatMessage?.type === "bot")
     return chatMessage?.isLoading ? (
       <AILoaderComponent />
-    ) : chatMessage?.aiError?.status ? (
+    ) : (chatMessage?.aiError?.status && chatMessage?.sql === null) ? (
       <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
         <div
           style={{
@@ -283,6 +334,7 @@ function ChatRenderComponent({
                 <SQLQueryEditorComponent
                   chat={chatMessage}
                   RunSqlQueryhandler={RunSqlQueryhandler}
+                  replaceChat={replaceChat}
                 />
               </motion.div>
 
@@ -404,11 +456,22 @@ function ChatRenderComponent({
                     ) : (
                       <div
                         className="empty-state"
-                        style={{ padding: "32px 16px", height: "auto", margin: "20px 0px", border: "1px solid var(--border-default)" }}
-
+                        style={{
+                          padding: "32px 16px",
+                          height: "auto",
+                          margin: "20px 0px",
+                          border: "1px solid var(--border-default)",
+                        }}
                       >
-                        <Icon className="ti ti-inbox" style={{ fontSize: "23px" }}></Icon>
-                        <p>{"No data found. Please check the SQL query and try again."}</p>
+                        <Icon
+                          className="ti ti-inbox"
+                          style={{ fontSize: "23px" }}
+                        ></Icon>
+                        <p>
+                          {
+                            "No data found. Please check the SQL query and try again."
+                          }
+                        </p>
                       </div>
                     )}
                   </motion.div>
@@ -425,58 +488,17 @@ function ChatRenderComponent({
                   >
                     <button
                       className="icon-action-bot btn btn-ghost"
-                      title={!isTablePresent(chatMessage) ? "Empty data" : "Copy Table Data"}
+                      title={
+                        !isTablePresent(chatMessage)
+                          ? "Empty data"
+                          : "Copy Table Data"
+                      }
                       onClick={() => copyTable()}
                       disabled={!isTablePresent(chatMessage)}
                     >
                       <Icon className="ti ti-copy" />
                     </button>
-                    {/* <button
-                      className="icon-action-bot btn btn-ghost"
-                      title={!isTablePresent(chatMessage) ? "Empty data" : "Download Table Data"}
-                      onClick={() =>
-                        setShowDownloadingOption(!showDownloadOption)
-                      }
-                      disabled={!isTablePresent(chatMessage)}
-                    >
-                      {showDownloadOption ? (
-                        <Icon className="ti ti-x"></Icon>
-                      ) : (
-                        <Icon
-                          className="ti ti-download"
-                          style={{ fontSize: 20 }}
-                        />
-                      )}
-                    </button>
 
-                    <AnimatePresence>
-                      {showDownloadOption && (
-                        <motion.div
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          className="download-container"
-                        >
-                          {downloadingFilesDataOptionSetting?.map(
-                            (downloadOpt, indx) => (
-                              <div
-                                className="downloading-btn-table"
-                                key={indx}
-                                onClick={() =>
-                                  downloadDatatable(downloadOpt?.title)
-                                }
-                                title={`Download ${downloadOpt?.title}`}
-                              >
-                                <Icon
-                                  className={`ti ${downloadOpt?.icon}`}
-                                  style={{ color: "white", fontSize: "18px" }}
-                                ></Icon>
-                              </div>
-                            ),
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence> */}
 
                     <button
                       className="icon-action-bot btn btn-ghost"
@@ -512,6 +534,7 @@ function ChatRenderComponent({
                           ChartData={chatMessage?.tableData}
                           data={chatMessage?.tableData}
                           chatMessage={chatMessage}
+                          replaceChat={replaceChat}
                         />
                       </motion.div>
                     )}

@@ -306,8 +306,6 @@ function ProcessorsProfileInner() {
 
   const toast = useToast();
 
-
-
   useEffect(() => {
     if (qidFromUrl) {
       setSelectedQid(qidFromUrl);
@@ -522,7 +520,12 @@ function ProcessorsProfileInner() {
   function handleApply() {
     if (!startTime || !endTime) return;
     loadQueries(
-      composeProcessorsWhere({ start: startTime, end: endTime, queryKind, type }),
+      composeProcessorsWhere({
+        start: startTime,
+        end: endTime,
+        queryKind,
+        type,
+      }),
     );
   }
 
@@ -556,11 +559,58 @@ function ProcessorsProfileInner() {
     });
   }, []);
 
-
   const handleResetView = () => {
     setNodes(initialNodes);
     setEdges(initialEdges);
     reactFlowInstance?.fitView({ padding: 0.15 });
+  };
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const fmtAgo = (h) => {
+    const d = new Date(Date.now() - h * 3600000);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleDateOnChange = (dateValue, label) => {
+    if (label === "From") {
+      setStartTime(dateValue);
+
+      if (endTime && new Date(dateValue) > new Date(endTime)) {
+        const fallbackFrom = fmtAgo(168);
+        setStartTime(fallbackFrom);
+
+        const fallbackTo = new Date(
+          new Date(fallbackFrom).getTime() + 24 * 60 * 60 * 1000,
+        );
+        setEndTime(
+          new Date(
+            fallbackTo.getTime() - fallbackTo.getTimezoneOffset() * 60000,
+          )
+            .toISOString()
+            .slice(0, 16),
+        );
+
+        toast.warning("From Date must be earlier than To Date!");
+      } else {
+        const baseDate = new Date(dateValue);
+        const adjustedDate = new Date(baseDate.getTime() + 24 * 60 * 60 * 1000);
+        const formattedAdjusted = new Date(
+          adjustedDate.getTime() - adjustedDate.getTimezoneOffset() * 60000,
+        )
+          .toISOString()
+          .slice(0, 16);
+        setEndTime(formattedAdjusted);
+      }
+    }
+
+    if (label === "To") {
+      setEndTime(dateValue);
+      if (startTime && new Date(startTime) > new Date(dateValue)) {
+        const fallbackTo = fmtAgo(0);
+        setEndTime(fallbackTo);
+        toast.warning("To date cannot be less than From date!");
+      }
+    }
   };
 
   // Render
@@ -601,7 +651,7 @@ function ProcessorsProfileInner() {
               <input
                 type="datetime-local"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => handleDateOnChange(e.target.value, "From")}
                 style={{
                   padding: "7px 8px",
                   fontFamily: "var(--font-code)",
@@ -626,7 +676,7 @@ function ProcessorsProfileInner() {
               <input
                 type="datetime-local"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(e) => handleDateOnChange(e.target.value, "To")}
                 style={{
                   padding: "7px 8px",
                   fontFamily: "var(--font-code)",
@@ -744,22 +794,28 @@ function ProcessorsProfileInner() {
               </option>
             ))}
           </Select>
-        ) :
-
-
-          (
-            <div className="alert-banner info" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h5>Query ID : {qidFromUrl}</h5>
-              <div onClick={() => {
-                window?.navigator?.clipboard?.writeText(qidFromUrl ? qidFromUrl : '');
-                toast.success('Query ID copied!')
-              }}>
-                <Icon className="ti ti-copy"></Icon>
-              </div>
+        ) : (
+          <div
+            className="alert-banner info"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <h5>Query ID : {qidFromUrl}</h5>
+            <div
+              onClick={() => {
+                window?.navigator?.clipboard?.writeText(
+                  qidFromUrl && qidFromUrl,
+                );
+                toast.success("Query ID copied!");
+              }}
+            >
+              <Icon className="ti ti-copy"></Icon>
             </div>
-          )}
-
-
+          </div>
+        )}
       </div>
 
       {/* Query text (collapsible) */}

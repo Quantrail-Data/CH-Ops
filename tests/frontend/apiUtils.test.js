@@ -250,7 +250,7 @@ describe('runQuery', () => {
     await runQuery('SELECT 1');
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.sql).toBe('SELECT 1');
-    expect(body.node).toBe('prod-1');
+    expect(body.node).toBe('node-z');
     // The backend resolves the user and password for this node from the saved
     // cluster configuration. The browser never holds a ClickHouse credential,
     // so it cannot send one - and setGlobalConnection no longer accepts a

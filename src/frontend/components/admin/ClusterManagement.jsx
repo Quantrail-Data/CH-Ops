@@ -14,6 +14,28 @@ import ConfirmDialog from "../editor/ConfirmDialog.jsx";
 const MAX_CLUSTERS = 3;
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
+function detectConfigurationMismatch(cluster) {
+  if (!cluster?.nodes?.length) return null;
+  const clusterPort = cluster.port ?? 8123;
+  const clusterSecure = !!cluster.secure;
+
+  const inconsistentNodes = cluster.nodes.filter(
+    (n) => (n.port ?? 8123) !== clusterPort || !!n.secure !== clusterSecure
+  );
+
+  if (inconsistentNodes.length > 0) {
+    return {
+      hasWarning: true,
+      count: inconsistentNodes.length,
+      details: inconsistentNodes
+        .map((n) => `${n.name} (port ${n.port ?? 8123}, ${n.secure ? 'TLS' : 'no TLS'})`)
+        .join(", "),
+    };
+  }
+
+  return null;
+}
+
 function NodeClusterComponent({
   n,
   testNode,
@@ -191,6 +213,7 @@ export default function ClusterManagement() {
   const [k8sForm, setK8sForm] = useState(null);
   const [k8sVerify, setK8sVerify] = useState(null);
   const [k8sSaving, setK8sSaving] = useState(false);
+  const [onRefresh, setOnRefresh] = useState(false);
 
 
   const [deleting, setDeleting] = useState(null);
@@ -203,6 +226,7 @@ export default function ClusterManagement() {
   const visibleClusters = k8sEnabled && tab === "k8s" ? k8sClusters : directClusters;
 
   async function load() {
+    setOnRefresh(true);
     try {
       const r = await apiFetch("/api/cluster");
       setClusters(Array.isArray(r) ? r : []);
@@ -210,6 +234,7 @@ export default function ClusterManagement() {
       toast.error("Failed to load clusters: " + e.message);
     }
     setLoaded(true);
+    setOnRefresh(false);
   }
   useEffect(() => {
     load();
@@ -313,17 +338,47 @@ export default function ClusterManagement() {
     }
 
     try {
+      setTestResults({});
       if (editing) {
-        await apiFetch(`/api/cluster/${editing}`, {
+        const response = await apiFetch(`/api/cluster/${editing}`, {
           method: "PUT",
           body: JSON.stringify({ name: form.name, nodes: valid }),
         });
+
+        if (!response.success) {
+          const failedNodes = response.nodes || [];
+
+          const arrayIndexes = failedNodes.map((node) =>
+            valid.findIndex((formNode) => formNode.name === node.name),
+          );
+
+          arrayIndexes.map((idx) => {
+            const key = `${editing || "new"}-${idx}`;
+            setTestResults((p) => ({ ...p, [key]: { ok: false, msg: "node test is failed check the host and password" } }));
+          })
+
+          return;
+        }
         toast.success(`Cluster "${form.name}" updated.`);
       } else {
-        await apiFetch("/api/cluster", {
+        const response = await apiFetch("/api/cluster", {
           method: "POST",
           body: JSON.stringify({ name: form.name, nodes: valid }),
         });
+        if (!response.success) {
+          const failedNodes = response.nodes || [];
+
+          const arrayIndexes = failedNodes.map((node) =>
+            valid.findIndex((formNode) => formNode.name === node.name),
+          );
+
+          arrayIndexes.map((idx) => {
+            const key = `${"new"}-${idx}`;
+            setTestResults((p) => ({ ...p, [key]: { ok: false, msg: "node test is failed check the host and password" } }));
+          })
+
+          return;
+        }
         toast.success(`Cluster "${form.name}" created.`);
       }
       setShowForm(false);
@@ -331,11 +386,12 @@ export default function ClusterManagement() {
       load();
       if (reloadConfig) reloadConfig();
     } catch (err) {
+      console.log(err.error);
       toast.error(err.message);
     }
   }
-  
-useEffect(() => {
+
+  useEffect(() => {
     if (!editingK8s) return undefined;
     const onKey = (e) => {
       if (e.key === "Escape" && !k8sSaving) setEditingK8s(null);
@@ -345,7 +401,7 @@ useEffect(() => {
   }, [editingK8s, k8sSaving]);
 
 
-function startEditK8s(cluster) {
+  function startEditK8s(cluster) {
     setEditingK8s(cluster);
     setK8sForm({
       name: cluster.name,
@@ -485,7 +541,8 @@ function startEditK8s(cluster) {
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <button className="btn btn-secondary btn-sm" onClick={load}>
-            <Icon className="ti ti-refresh"></Icon>
+            {onRefresh ? <div className="loading-spinner" /> :
+              <Icon className="ti ti-refresh"></Icon>}
           </button>
           {k8sEnabled && tab === "k8s"
             ? !showK8sWizard &&
@@ -625,7 +682,7 @@ function startEditK8s(cluster) {
       ) : (!k8sEnabled || tab === "direct") || !showK8sWizard ? (
         <div style={{ display: "grid", gap: 14 }}>
           {visibleClusters.map((c) => (
-            <div key={c.id} className="card" style={{ padding: 16 }}>
+            editing !== c.id && <div key={c.id} className="card" style={{ padding: 16 }}>
               <div
                 style={{
                   display: "flex",
@@ -797,6 +854,26 @@ function startEditK8s(cluster) {
               Nodes come from the installation and are re-read on refresh.
             </p>
 
+            {editingK8s && (() => {
+              const mismatch = detectConfigurationMismatch(editingK8s);
+              return mismatch ? (
+                <div
+                  className="alert-banner danger"
+                  style={{ marginBottom: 12, fontSize: 12, display: "flex", gap: 8, alignItems: "flex-start" }}
+                >
+                  <Icon className="ti ti-alert-triangle" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <strong>Configuration mismatch detected:</strong>
+                    <div style={{ marginTop: 4, opacity: 0.9 }}>
+                      Cluster uses port {k8sForm.port} ({k8sForm.secure ? 'TLS' : 'no TLS'}),
+                      but {mismatch.count} node{mismatch.count !== 1 ? 's' : ''} differ: {mismatch.details}.
+                      After you save, all nodes will be updated to match the cluster configuration.
+                    </div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+
             {k8sVerify && !k8sVerify.testing && (
               <div
                 className={k8sVerify.ok ? "alert-banner info" : "alert-banner danger"}
@@ -834,16 +911,15 @@ function startEditK8s(cluster) {
         </div>
       )}
 
-      
+
       <ConfirmDialog
         open={!!deleting}
         tone="danger"
         title="Delete this cluster?"
         message={
           deleting
-            ? `"${deleting.name}" will be removed from CHOps, along with its ${deleting.nodes?.length ?? 0} node${
-                deleting.nodes?.length === 1 ? "" : "s"
-              }.`
+            ? `"${deleting.name}" will be removed from CHOps, along with its ${deleting.nodes?.length ?? 0} node${deleting.nodes?.length === 1 ? "" : "s"
+            }.`
             : ""
         }
         detail={

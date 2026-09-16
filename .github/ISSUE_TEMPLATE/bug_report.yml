@@ -77,12 +77,18 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Relevant logs or screenshots
+      label: Relevant logs
       description: >
         Redact anything sensitive first: hostnames, usernames, tokens.
-        Output is rendered as code, so no backticks needed.
+        Output will be automatically formatted as shell code.
       render: shell
 
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or Visual Evidence
+      description: Drag and drop or paste images directly into this area.
+    
   - type: checkboxes
     id: checks
     attributes:

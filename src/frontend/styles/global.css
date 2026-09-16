@@ -1354,7 +1354,13 @@
    position: sticky;
    top: 0;
    z-index: 2;
+
  }
+
+ /* [data-theme="light"] .data-table thead {
+  background-color:black;
+  border-style:none;
+} */
 
  .data-table th {
    font-family: var(--font-ui);
@@ -1379,7 +1385,14 @@
    background so rows do not bleed through while scrolling. Scoped to
    .ov-log-table so the Search tables are left untouched. */
  .ov-log-table .data-table thead th {
-   background: rgb(6, 10, 20);
+   background: var(--glass-dropdown);
+   -webkit-backdrop-filter: blur(24px) saturate(1.4);
+   backdrop-filter: blur(24px) saturate(1.4);
+
+ }
+
+ [data-theme="light"] .ov-log-table .data-table thead th {
+   background-color: var(--th-bg);
  }
 
  .data-table td {
@@ -1390,7 +1403,6 @@
    text-overflow: ellipsis;
    white-space: nowrap;
    cursor: pointer;
-
  }
 
  .data-table td.expanded {
@@ -1648,6 +1660,13 @@
    border: 1px solid rgba(96, 165, 250, 0.15);
    color: var(--color-info);
  }
+
+ /* 
+.alert-banner.warning {
+  background: rgba(255, 219, 205, 0.173);
+  border: 1px solid rgba(250, 165, 96, 0.15);
+  color: #f59e0b;
+} */
 
  /* STAT CARDS - Jakarta Sans */
  .stat-grid {
@@ -3134,7 +3153,7 @@
    display: flex;
    align-items: center;
    justify-content: end;
-   margin: 10px 0px;
+   margin: 0px;
  }
 
  .forget-password-con p {
@@ -4698,6 +4717,54 @@
  }
 
 
+ /* chat qurioz */
+ .chat-session-tab {
+   width: 100%;
+   margin: 5px auto;
+   /* border-bottom:1px solid var(--border-default); */
+   padding: 5px;
+   padding-left: 10px;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   border-radius: 10px;
+   cursor: pointer;
+   color: var(--text-muted);
+ }
+
+ .chat-session-tab:hover {
+   background-color: rgba(171, 171, 171, 0.074);
+   color: var(--text-primary);
+ }
+
+ .chat-session-tab div:nth-child(1) span {
+   font-size: 13px;
+   font-weight: 600;
+   width: 90%;
+   text-wrap: inherit;
+ }
+
+ .header-history {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   margin-bottom: 20px;
+   background-color: var(--bg-page);
+   width: 100%;
+ }
+
+ .header-history button:nth-child(2) {
+   font-size: 12px;
+ }
+
+ .chat-sesion-body {
+   height: 60vh;
+   overflow-y: auto;
+
+ }
+
+
+
  /* App Config rows.
    A grid, so the input and buttons sit in the same place on every row however
    long the description is. The first column takes the remaining width, so the
@@ -4850,13 +4917,40 @@
  }
 
 
-
- /* The spaces and the line breaks must be kept, because the tree is drawn with
-   them. */
  .analyze-bar-text {
    white-space: pre;
  }
 
  .analyze-line.slow {
    background: var(--danger-subtle, rgba(220, 80, 80, 0.14));
+ }
+
+ .react-flow__handle,
+ .react-flow__handle-top {
+   opacity: 0 !important;
+ }
+
+ .unavailable-container {
+   display: flex;
+   flex-direction: column;
+   justify-content: center;
+   align-items: center;
+   width: 100%;
+   height: 50vh;
+   gap: 16px;
+   color: var(--text-muted);
+   text-align: center;
+ }
+
+ .unavailable-icon-wrapper {
+   font-size: 2.5rem;
+   opacity: 0.8;
+   margin-bottom: 4px;
+ }
+
+ .unavailable-text {
+   font-size: 1.1rem;
+   font-weight: 500;
+   line-height: 1.5;
+   max-width: 400px;
  }

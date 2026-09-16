@@ -190,7 +190,7 @@ export async function runQuery(sql, overrides = {}) {
     method: "POST",
     body: JSON.stringify({
       sql,
-      node: overrides.node || conn.node,
+      node: overrides.node || conn.nodeName,
       port: overrides.port || conn.port,
       clusterId: overrides.clusterId || conn.clusterId,
       readOnly: !!overrides.readOnly,
@@ -212,7 +212,7 @@ export async function runEditorQuery(sql, creds, options = {}) {
   const conn = getGlobalConnection();
   const base = {
     sql,
-    node: conn.node, // from navbar
+    node: conn.nodeName, // from navbar
     port: conn.port, // from navbar
     clusterId: conn.clusterId, // from navbar
     readOnly: !!options.readOnly,
@@ -252,7 +252,7 @@ export async function editorConnect({ user, password }) {
     body: JSON.stringify({
       user,
       password: password ?? "",
-      node: conn.node,
+      node: conn.nodeName,
       port: conn.port,
       clusterId: conn.clusterId,
     }),

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import tls from 'node:tls';
+import net from 'node:net';
 import {
   listTrustedCas,
   addTrustedCa,
@@ -95,13 +96,15 @@ export async function getCaUsage(req, res) {
 }
 
 // Opens a TLS connection and reads the issuer from the certificate presented.
-function peerIssuer(host, port, ca) {
+// SNI (the servername option) is only valid for hostnames, not IP literals,
+// so it is omitted when the cluster host is an IP address.
+export function peerIssuer(host, port, ca) {
   return new Promise((resolve, reject) => {
     const socket = tls.connect(
       {
         host,
         port: port || 8443,
-        servername: host,
+        ...(net.isIP(host) ? {} : { servername: host }),
         ...(ca ? { ca } : {}),
         timeout: 5000,
       },

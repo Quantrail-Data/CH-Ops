@@ -32,13 +32,13 @@ const fuse = new Fuse(SEARCH_ENTRIES, {
   useTokenSearch: true,
   includeScore: true,
   ignoreLocation: true,
-  threshold: 0.4,
+  threshold: 0.3,
   keys: [
     { name: "title", weight: 3 },
     { name: "keywords", weight: 2 },
     { name: "section", weight: 1 },
     { name: "description", weight: 1 },
-    { name: "text", weight: 0.5 },
+    { name: "text", weight: 0.2 },
   ],
 });
 

@@ -35,7 +35,7 @@ router.post("/email/verify", async (req, res) => {
         .json({ success: false, message: "Email is required." });
 
     const user = findSoleUserByEmail(email);
-    if (!user) return res.status(200).json(GENERIC);
+    if (!user) return res.status(400).json({success:false,message:"User Not Found"});
 
     const otp = issueOTP(user.id);
     try {
