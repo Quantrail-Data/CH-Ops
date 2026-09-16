@@ -40,7 +40,7 @@ const router = express.Router();
 function connectionFor(req) {
   return {
     jti: req.user?.jti,
-    context: resolveContext(req),
+    context: resolveContext(),
     clusterId: req.body?.clusterId ?? req.query?.clusterId ?? null,
     node: req.body?.node ?? req.query?.node ?? null,
   };
@@ -168,7 +168,7 @@ router.post("/ddl-estimate", async (req, res) => {
         previousSql: req.body?.previousSql ?? null,
       }),
     );
-    const status = getAiStatus();
+    // const status = getAiStatus();
     const tokensEstimated = estimateTokens(prompt.length);
     res.json({
       results,

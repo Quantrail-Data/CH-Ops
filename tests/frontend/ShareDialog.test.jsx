@@ -8,7 +8,7 @@ import { decodeShare, SHARE_PARAM } from "../../src/frontend/utils/shareLink.js"
 
 const linkValue = () => {
   const url = screen.getByLabelText("Share link").value;
-  return decodeShare(new URLSearchParams(url.split("#")[1]).get(SHARE_PARAM));
+  return decodeShare(new URLSearchParams(url.split("#")[1]).get("/editor/query?q"));
 };
 
 beforeEach(() => {
@@ -80,7 +80,7 @@ describe("ShareDialog", () => {
     render(<ShareDialog sql="SELECT 1" params={{}} onClose={() => {}} />);
     fireEvent.click(screen.getByText(/Copy link/));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringContaining("#" + SHARE_PARAM + "="),
+      expect.stringContaining("#" + "/editor/query?q" + "="),
     );
   });
 

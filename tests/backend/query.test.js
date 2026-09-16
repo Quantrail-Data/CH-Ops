@@ -57,7 +57,7 @@ _credSqlite.exec(`
 `);
 credStore.__setDb(drizzle(_credSqlite, { schema }));
 credStore.setCredSession({
-  jti: "ed-jti", context: "editor", appUser: "u",
+  jti: "ed-jti", context: "editor-qurioz",appUser: "u",
   clusterId: "c1", node: "h1", port: 8123, chUser: "ed_user", password: "ed_pw",
 });
 
@@ -656,7 +656,7 @@ describe("runQuery editor session (useSession)", () => {
   test("resolves credentials from the (jti, editor) session, no password in body", async () => {
     mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "node_user", password: "node_pw" }]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", useSession: true, context: "editor" }, user: { jti: "ed-jti", username: "u" },on:() => true };
+    const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", useSession: true, context: "editor-qurioz" }, user: { jti: "ed-jti", username: "u" },on:() => true };
     const res = createRes();
     await runQuery(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
