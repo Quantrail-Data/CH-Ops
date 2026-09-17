@@ -38,7 +38,7 @@ function readOptions(children) {
 
 export default function Select({
   value, onChange, children, className = "", disabled = false, required = false,isHigherZindex=4000,
-  id, name, style, placeholder, "aria-label": ariaLabel, ...rest
+  id, name, style, placeholder,Title,type="default", "aria-label": ariaLabel, ...rest
 }) {
   const options = readOptions(children);
   const current = options.find((o) => o.value === String(value ?? ""));
@@ -126,9 +126,10 @@ export default function Select({
         disabled={disabled}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onMenuKeyDown}
+        title={type === "chat" && Title()}
       >
         <span className={`cui-select-value ${isEmpty && placeholder ? "is-placeholder" : ""}`}>
-          {current ? current.label : (placeholder || (current?.label ?? ""))}
+          {type === "chat" ? value : current ? current.label : (placeholder || (current?.label ?? ""))}
         </span>
         <Icon className="ti ti-chevron-down cui-select-caret" />
       </button>
