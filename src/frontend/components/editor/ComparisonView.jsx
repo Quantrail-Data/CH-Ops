@@ -672,7 +672,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     const response = await fetchDatabaseDetails(creds);
     setDBS(response);
     initSetup(response);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     if (!editorConnected) return;
@@ -771,7 +771,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mode]);
 
   async function handleConnect() {
     if (!connUser.trim()) {
@@ -825,7 +825,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     return () => {
       cancelled = true;
     };
-  }, [editorConnected, editorCreds, active]);
+  }, [editorConnected, editorCreds, active,mode]);
 
   useEffect(() => {
     if (!fullscreen) return;

@@ -49,6 +49,11 @@ function ChartVisualization({ editChart, data = [], chatMessage, replaceChat }) 
 
   // const { replaceChat } = useQuriozChatContext();
 
+  // console.log(chartOption,previewInst,previewRef)
+  function ChatVisiablePreview() {
+    return (Object.keys(chartOption ?? {}).length > 0 && previewInst && previewRef) || chartType === 'table'
+  }
+
   const toast = useToast();
 
   useEffect(() => {
@@ -184,6 +189,8 @@ function ChartVisualization({ editChart, data = [], chatMessage, replaceChat }) 
     const f = CHART_TYPES.find((x) => x.type === t)?.subtypes[0];
     setChartSubtype(f?.subtype || "");
     setMapping({});
+    previewRef.current = null
+    previewInst.current = null
   }
 
   async function saveChart() {
@@ -507,7 +514,7 @@ function ChartVisualization({ editChart, data = [], chatMessage, replaceChat }) 
               </div>
             )}
           </div>
-          <div style={{ padding: 16, minHeight: 340 }}>
+          {ChatVisiablePreview() && <div style={{ padding: 16, minHeight: 340 }}>
             <div
               style={{
                 fontSize: "13px",
@@ -617,7 +624,7 @@ function ChartVisualization({ editChart, data = [], chatMessage, replaceChat }) 
                   )}
                 </div>
               )}
-          </div>
+          </div>}
         </div>
       }
     </div>

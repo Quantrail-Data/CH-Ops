@@ -16,7 +16,7 @@ describe('api.js: editor credential session', () => {
 
   it('runEditorQuery uses the server-side session for the editor (no password)', () => {
     expect(code).toContain('useSession: true');
-    expect(code).toContain('context: "editor"');
+    expect(code).toContain('context: "editor-qurioz"');
   });
 
   it('runEditorQuery keeps a strict per-request path for the comparison tool', () => {

@@ -133,17 +133,6 @@ export const PAGE_TEXT = {
     "Merges",
     "Mutations",
     "Readonly Tables",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
     "Node",
     "Cluster topology",
     "Loading topology...",
@@ -177,17 +166,7 @@ export const PAGE_TEXT = {
     "Total Written",
     "Query errors + critical/fatal system log entries",
     "Query Errors",
-    "Critical / Fatal",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions"
+    "Critical / Fatal"
   ],
   "overview/queries": [
     "Click to view query",
@@ -220,17 +199,6 @@ export const PAGE_TEXT = {
     "From (required)",
     "To (required)",
     "Search exception...",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
     "Open in...",
     "All users",
     "All kinds",
@@ -310,18 +278,7 @@ export const PAGE_TEXT = {
     "Active Parts",
     "Inactive Parts",
     "Detached Parts",
-    "Broken Parts",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "Generated SQL"
+    "Broken Parts"
   ],
   "overview/operations": [
     "Loading...",
@@ -329,18 +286,7 @@ export const PAGE_TEXT = {
     "Mutations",
     "Active Merges",
     "Active Mutations",
-    "Replication Queue",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Generated SQL",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "Replication Queue"
   ],
   "overview/ddl": [
     "Loading...",
@@ -361,15 +307,6 @@ export const PAGE_TEXT = {
     "Search files",
     "File name contains",
     "Exception contains",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
     "Loading queue state...",
     "Executing",
     "With errors",
@@ -579,13 +516,7 @@ export const PAGE_TEXT = {
     "Generate Flame Graph",
     "to visualize execution.",
     "View Generated SQL",
-    "Reset zoom",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "Cancel"
+    "Reset zoom"
   ],
   "tools/pipeline": [
     "Processor Details",
@@ -617,11 +548,7 @@ export const PAGE_TEXT = {
     "Clear",
     "Select a query and click",
     "Show Query Metrics",
-    "to visualize its resource usage over time.",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "to visualize its resource usage over time."
   ],
   "tools/qurioz": [
     "New Chat",
@@ -640,8 +567,6 @@ export const PAGE_TEXT = {
     "ClickHouse username",
     "password",
     "ClickHouse password",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -670,10 +595,7 @@ export const PAGE_TEXT = {
     "Min",
     "Max",
     "Preview",
-    "Map columns to see preview.",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "Map columns to see preview."
   ],
   "tools/schema-studio": [
     "Checking connection...",
@@ -723,7 +645,6 @@ export const PAGE_TEXT = {
     "ZSTD(3)",
     "TDigest, Uniq",
     "d + INTERVAL 30 DAY",
-    "Cancel",
     "Choose the engine and table clauses",
     "(none)",
     "Keys and clauses",
@@ -758,7 +679,8 @@ export const PAGE_TEXT = {
     "Apply to editor",
     "Validate",
     "Create table",
-    "Create this table?"
+    "Create this table?",
+    "Cancel"
   ],
   "logs/crash": [
     "Overview",
@@ -777,18 +699,7 @@ export const PAGE_TEXT = {
     "Distinct Signals",
     "Crashed Versions",
     "Last Crash",
-    "partial...",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "No options",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "partial..."
   ],
   "logs/error": [
     "Overview",
@@ -813,18 +724,7 @@ export const PAGE_TEXT = {
     "Error Types",
     "Remote Share",
     "Last Error",
-    "partial...",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "No options",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "partial..."
   ],
   "logs/text": [
     "Overview",
@@ -848,18 +748,7 @@ export const PAGE_TEXT = {
     "Warnings",
     "Loggers",
     "Last Error",
-    "partial...",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "No options",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "partial..."
   ],
   "logs/session": [
     "Overview",
@@ -886,28 +775,12 @@ export const PAGE_TEXT = {
     "Logouts",
     "Distinct Users",
     "Last Event",
-    "partial...",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "No options",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "partial..."
   ],
   "monitoring/dashboards": [
     "Quick",
     "Rounding (s)",
-    "From",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "No options"
+    "From"
   ],
   "monitoring/playback": [
     "User",
@@ -921,18 +794,7 @@ export const PAGE_TEXT = {
     "Select a time range and click",
     "Fetch Data",
     "to start.",
-    "From",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "No options",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions"
+    "From"
   ],
   "monitoring/allocator": [
     "Loading memory allocator stats...",
@@ -988,12 +850,7 @@ export const PAGE_TEXT = {
     "Memory Efficiency",
     "Virtual Memory",
     "Reclaimable",
-    "Bookkeeping",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "Bookkeeping"
   ],
   "alerting/rules": [
     "Alert rules management is only available for administrators.",
@@ -1219,16 +1076,7 @@ export const PAGE_TEXT = {
     "Cancel",
     "Save settings",
     "Close",
-    "Value:",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions"
+    "Value:"
   ],
   "backups/lifecycle": [
     "Loading...",
@@ -1451,8 +1299,6 @@ export const PAGE_TEXT = {
     "ClickHouse username",
     "password",
     "ClickHouse password",
-    "No options",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -1481,10 +1327,7 @@ export const PAGE_TEXT = {
     "Min",
     "Max",
     "Preview",
-    "Map columns to see preview.",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG"
+    "Map columns to see preview."
   ],
   "custom/builder": [
     "Chart building is only available for administrators.",
@@ -1508,17 +1351,6 @@ export const PAGE_TEXT = {
     "SELECT ...",
     "(none)",
     "Value:",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Actions",
-    "Something went wrong",
-    "Try Again",
     "Max rows",
     "Fewer rows",
     "Maximum rows to return",
@@ -1535,17 +1367,6 @@ export const PAGE_TEXT = {
     "Actions",
     "No charts found matching your criteria.",
     "Search charts by name...",
-    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
-    "Value:",
-    "Zoom in",
-    "Zoom out",
-    "Save PNG",
-    "value",
-    "key",
-    "(empty array)",
-    "index/value list. return",
-    "(empty object)",
-    "Cancel",
-    "No options"
+    "Value:"
   ]
 };

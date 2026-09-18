@@ -494,7 +494,7 @@ export default function DataTable({
               (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
             ...(maxHeight || virtualize ? { overflow: "auto" } : null),
             position: "relative",
-            minHeight: minHeight ?? "200px",
+            minHeight: minHeight ?? "70px",
           }
       }
     >

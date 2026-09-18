@@ -46,6 +46,7 @@ router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.userna
     if (!user) return res.status(400).json({ error: 'ClickHouse username is required.' });
 
     const target = resolveTargetNode(clusterId, node);
+
     // Validate the credentials by running a trivial query as that user.
     await executeQuery({
       host: target.host,
@@ -62,7 +63,7 @@ router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.userna
       context: CRED_CONTEXTS.EDITOR,
       appUser: req.user.username,
       clusterId,
-      node: target.host,
+      node: target.node,
       port: target.port || 8123,
       chUser: user,
       password: password ?? '',

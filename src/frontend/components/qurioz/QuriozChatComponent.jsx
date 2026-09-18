@@ -648,6 +648,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     status: false,
     id: null,
     serviceName: null,
+    model:null
   });
   const [apikeys, setApikeys] = useState([]);
   const [showdbs, setShowdbs] = useState(false);
@@ -748,6 +749,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           status: apiKey?.id ? true : false,
           id: apiKey?.id || null,
           serviceName: apiKey?.name || null,
+          model:apiKey?.model || null
         });
       } catch (err) {
         setApiKey({
@@ -1215,10 +1217,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         method: "POST",
         body: JSON.stringify({ keyId: id }),
       });
+      // console.log(res)
       setApiKey({
         status: true,
         id: res?.id,
         serviceName: res?.name,
+        model:res?.model
       });
       toast?.success(`${res?.name} selected successfully.`);
     } catch (err) {
@@ -1705,7 +1709,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             <div>
               <Select
                 className="form-input"
-                value={apikey?.serviceName}
+                value={
+                  <h3 style={{fontSize:"10px"}}>{apikey?.serviceName}  <span style={{fontSize:"10px",color:"ligthgray",marginLeft:"3px"}}>{apikey?.model}</span></h3>
+                 }
                 onChange={SelectAIProvider}
                 style={{
                   width: "150px",
@@ -1713,6 +1719,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                   paddingLeft: "10px",
                   fontSize: "10px",
                 }}
+                type="chat"
+                Title={()=>`${apikey?.serviceName} | ${apikey?.model}`}
               >
                 {apikeys?.map((u) => (
                   <option
