@@ -19,7 +19,7 @@ router.post(
   async (req, res) => {
     try {
       const { clusterId, node, user, password } = req.body || {};
-      console
+
       if (!user)
         return res
           .status(400)
@@ -40,7 +40,7 @@ router.post(
 
       setCredSession({
         jti: req.user.jti,
-        context: CRED_CONTEXTS.QURIOZ,
+        context: CRED_CONTEXTS.EDITOR,
         appUser: req.user.username,
         clusterId,
         node: target.name,
@@ -48,7 +48,7 @@ router.post(
         chUser: user,
         password: password ?? "",
       });
-      res.json(getCredSessionStatus(req.user.jti, CRED_CONTEXTS.QURIOZ));
+      res.json(getCredSessionStatus(req.user.jti, CRED_CONTEXTS.EDITOR));
     } catch (e) {
       res.status(e.status || 400).json({ error: e.message });
     }
@@ -56,11 +56,11 @@ router.post(
 );
 
 router.get("/connect", (req, res) => {
-  res.json(getCredSessionStatus(req.user?.jti, CRED_CONTEXTS.QURIOZ));
+  res.json(getCredSessionStatus(req.user?.jti, CRED_CONTEXTS.EDITOR));
 });
 
 router.delete("/connect", (req, res) => {
-  clearCredSession(req.user?.jti, CRED_CONTEXTS.QURIOZ);
+  clearCredSession(req.user?.jti, CRED_CONTEXTS.EDITOR);
   res.json({ connected: false });
 });
 

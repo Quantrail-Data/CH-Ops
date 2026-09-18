@@ -85,7 +85,7 @@ describe('chCredStore', () => {
     expect(s.node).toBe('n2');
     expect(s.chUser).toBe('u2');
     expect(s.password).toBe('p2');
-    const count = sqlite.query("SELECT count(*) AS c FROM ch_cred_session WHERE jti = 'j-dave' AND context = 'editor'").get();
+    const count = sqlite.query("SELECT count(*) AS c FROM ch_cred_session WHERE jti = 'j-dave' AND context = 'editor-qurioz'").get();
     expect(count.c).toBe(1);
   });
 

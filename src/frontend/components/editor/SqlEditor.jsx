@@ -10,6 +10,7 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState
 } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { basicSetup } from "@uiw/codemirror-extensions-basic-setup";
@@ -51,6 +52,8 @@ const SqlEditor = forwardRef(function SqlEditor(
 
   const viewRef = useRef(null);
 
+
+
   // One EditorState per document key.
   const statesRef = useRef(new Map());
   const keyRef = useRef(docKey);
@@ -61,11 +64,18 @@ const SqlEditor = forwardRef(function SqlEditor(
 
   // In tab mode the wrapper must never see the value change.
   const frozenValue = useRef(value);
-  const cmValue = docKey ? frozenValue.current : value;
+  const [cmValue,setCMValue] = useState(docKey ? frozenValue.current : value);
 
   // The last text handed upward, so an echo from a controlled parent is not
   // reported a second time.
   const lastEmitted = useRef(value);
+
+
+  useEffect(()=>{
+    seedRef.current = value
+    frozenValue.current = value
+   setCMValue(frozenValue.current || value)
+  },[value])
 
   // In a ref so the update listener above can stay part of a stable extension
   // array.
