@@ -4,6 +4,7 @@
 
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
@@ -40,6 +41,37 @@ function readFilterParams(searchParams) {
     if (k.startsWith(FILTER_PREFIX)) out[k.slice(FILTER_PREFIX.length)] = v;
   }
   return out;
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="chart-skeleton-card">
+      <div className="chart-skeleton-title">
+        <div className="animate-shimmer" />
+      </div>
+      <div className="chart-skeleton-chart">
+        <div className="animate-shimmer" />
+      </div>
+      <div className="chart-skeleton-footer">
+        <div className="animate-shimmer" />
+      </div>
+    </div>
+  );
+}
+
+function DashboardSkeletonGrid({ cols, count }) {
+  const colCount = Math.max(1, Math.min(cols || 2, 4));
+  const cardCount = Math.max(count || 4, colCount);
+  return (
+    <div
+      className="dashboard-skeleton-grid"
+      style={{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }}
+    >
+      {Array.from({ length: cardCount }).map((_, i) => (
+        <ChartSkeleton key={i} />
+      ))}
+    </div>
+  );
 }
 
 export default function DashboardView({sidebar}) {
@@ -464,6 +496,8 @@ export default function DashboardView({sidebar}) {
     !transitioning && charts.length > 0 ? 'dashboard-grid-staggered' : '',
   ].filter(Boolean).join(' ');
 
+  const skeletonCount = charts.length > 0 ? charts.length : Math.max(4, cols * 2);
+
   return (
     <div
       className="page-content"
@@ -576,19 +610,8 @@ export default function DashboardView({sidebar}) {
         </div>
       )}
 
-      {(loading || transitioning) && (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          padding: 24,
-          transition: 'opacity 0.3s ease-in-out',
-          opacity: loading || transitioning ? 1 : 0,
-        }}>
-          <span className="loading-spinner"></span>
-          <span style={{ marginLeft: 12, color: 'var(--text-muted)', fontSize: '13px' }}>
-            {transitionPhase === 'exiting' ? 'Loading dashboard...' : 'Updating charts...'}
-          </span>
-        </div>
+      {(loading || transitioning) && selDash && (
+        <DashboardSkeletonGrid cols={cols} count={skeletonCount} />
       )}
       
       {selDash && !loading && charts.length === 0 && !transitioning && <div className="empty-state"><Icon className="ti ti-chart-dots"></Icon><p>No charts. Use Chart Builder to add some.</p></div>}
@@ -610,8 +633,8 @@ export default function DashboardView({sidebar}) {
                 key={chart.id} 
                 className="chart-tile-wrapper"
                 style={{ 
-                  opacity: transitioning ? 0 : 1,
-                  animationDelay: transitioning ? '0ms' : `${i * 40}ms`,
+                  opacity: 1,
+                  animationDelay: `${i * 40}ms`,
                   minWidth: 0,
                   display: 'flex',
                   flexDirection: 'column',
@@ -657,6 +680,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const { theme } = useTheme();
   const isDarkColor = theme === 'dark' ? 'white' : 'black';
+  const [hasChartInstance, setHasChartInstance] = useState(false);
+  const appliedOptionRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
@@ -677,6 +702,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     return () => document.removeEventListener('keydown', onKey);
   }, [fs, setFss]);
 
+  useEffect(() => {
+    if (!fs) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [fs]);
+
   const hasLegend = useMemo(() => {
     const legend = chart?.chartOption?.legend;
     const series = chart?.chartOption?.series;
@@ -696,7 +730,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   function getChartHeight() {
-    if (fs) return "calc(100vh - 100px)";
+    if (fs) return "calc(100vh - 120px)";
     if (chart?.chartOption?._table) return isSmallScreen ? "320px" : "300px";
     const isBar = ['simple_bar', 'grouped_bar', 'stacked_bar'].includes(chart.chartSubtype) || chart.chartType === 'bar';
     if (isSmallScreen) return isBar ? "380px" : "420px";
@@ -1692,15 +1726,21 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   useEffect(() => {
-    if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) return;
+    if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) {
+      setHasChartInstance(false);
+      return;
+    }
     try {
       inst.current = initChart(ref.current);
       inst.current.clear();
-      inst.current.setOption(withZoomable(opt), true);
+      const finalOpt = withZoomable(opt);
+      appliedOptionRef.current = finalOpt;
+      inst.current.setOption(finalOpt, true);
+      setHasChartInstance(true);
       setTimeout(() => inst.current?.resize(), 50);
     } catch { }
     return () => { if (ref.current) disposeChart(ref.current); };
-  }, [opt, theme]);
+  }, [opt, theme, fs]);
 
   useEffect(() => { setTimeout(() => inst.current?.resize(), 150); }, [fs, isSmallScreen, cols, showLegends]);
 
@@ -1739,21 +1779,49 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   function resetZoom() {
-    if (!inst.current) return;
-    if (isTreemapChart) {
+    if (!inst.current || inst.current.isDisposed?.()) return;
+    if (isTreemapChart || isSunburstChart) {
+      const stored = appliedOptionRef.current;
+      if (!stored) return;
       try {
-        inst.current.clear();
-        inst.current.setOption(withZoomable(opt), true);
-        setTimeout(() => inst.current?.resize(), 50);
+        inst.current.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
+      } catch {}
+      try {
+        inst.current.dispatchAction({ type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode" });
+      } catch {}
+      try {
+        inst.current.resize();
       } catch {}
       return;
     }
-    if (isSunburstChart) return;
     inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 100, dataZoomIndex: 0 });
   }
 
-  const wrap = fs ? { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', padding: 16, overflow: 'auto', cursor: "default" } :
-    { width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 };
+  const wrap = fs
+    ? {
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 2147483647,
+        background: 'var(--bg-page)',
+        padding: 16,
+        overflow: 'hidden',
+        cursor: 'default',
+        display: 'flex',
+        flexDirection: 'column',
+        margin: 0,
+        borderRadius: 0,
+        boxSizing: 'border-box',
+      }
+    : {
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+      };
 
   const pieChartControlsFlags = {
     zoomFun: false,
@@ -1784,7 +1852,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     legendFun: isSmallScreen && supportsLegend && hasLegend,
   };
   const treemapControlsFlags = {
-    zoomFun: true,
+    zoomFun: false,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
@@ -1792,7 +1860,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   };
   const sunburstControlsFlags = {
     zoomFun: false,
-    resetFun: false,
+    resetFun: true,
     saveFun: true,
     fullscreenFun: true,
     legendFun: isSmallScreen && supportsLegend && hasLegend,
@@ -1800,7 +1868,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const tableScrollMaxHeight = fs ? 'calc(100vh - 240px)' : (isSmallScreen ? 300 : 360);
 
-  return (
+  const tileContent = (
     <div
       className="card"
       style={{
@@ -1811,7 +1879,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ...(chart._rerunning ? { opacity: 0.6 } : {}),
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8, flexShrink: 0 }}>
         <span
           style={{ fontSize: '14px', fontWeight: 600, minWidth: 0, flex: 1, paddingRight: 8 }}
           title={filterNames.length ? `Filters: ${filterNames.join(', ')}` : 'No filters affect this chart'}
@@ -1838,6 +1906,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               onToggleLegend={() => { if (setShowLegends) setShowLegends(prev => !prev); }}
               legendVisible={showLegends}
               style={{ flexWrap: 'nowrap' }}
+              resetEnabled={hasChartInstance}
+              resetTitle={isTreemapChart || isSunburstChart ? "Restore view" : "Reset zoom"}
+              resetAriaLabel={isTreemapChart || isSunburstChart ? "Restore view" : "Reset zoom"}
+              resetIcon={isSunburstChart ? "ti-arrow-back-up" : undefined}
               isWantFeature={
                 isSunburstChart
                   ? sunburstControlsFlags
@@ -1906,4 +1978,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         />}
     </div>
   );
+
+  if (fs) return createPortal(tileContent, document.body);
+  return tileContent;
 }

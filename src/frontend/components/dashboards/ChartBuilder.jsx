@@ -76,6 +76,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   // from the SQL, and the defaults ride along in the existing config JSON.
   const [paramDefaults, setParamDefaults] = useState({});
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [hasChartInstance, setHasChartInstance] = useState(false);
 
   const declaredParams = React.useMemo(() => {
     try { return findParameters(sql || ""); } catch { return []; }
@@ -96,6 +97,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const resizeTimerRef = useRef(null);
   const chartEpochRef = useRef(0);
   const pendingOptionRef = useRef(null);
+  const enhancedOptionRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -167,6 +169,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   );
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || false;
+  const hasMultipleSubtypes = (typeInfo?.subtypes?.length || 0) > 1;
   
   const shouldShowLegend = needsLegend(chartType, chartSubtype);
 
@@ -285,6 +288,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     }
     const el = previewRef.current;
     previewInst.current = null;
+    setHasChartInstance(false);
     if (el) {
       try {
         disposeChart(el);
@@ -349,6 +353,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       }
       const el = previewRef.current;
       previewInst.current = null;
+      setHasChartInstance(false);
       if (el) {
         try {
           disposeChart(el);
@@ -399,6 +404,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           return;
         }
         previewInst.current = instance;
+        setHasChartInstance(true);
       }
 
       try {
@@ -1233,8 +1239,19 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         if (Array.isArray(enhancedOption.series)) {
           enhancedOption.series = enhancedOption.series.map((s) => {
             if (!s || s.type !== "funnel") return s;
+
+            const fullscreenFunnelLayout = previewTools.fullscreen
+              ? {
+                  left: legendVisible ? 248 : 24,
+                  right: 24,
+                  top: legendVisible ? 64 : 24,
+                  bottom: 28,
+                }
+              : {};
+
             return {
               ...s,
+              ...fullscreenFunnelLayout,
               minSize: s.minSize ?? '0%',
               maxSize: s.maxSize ?? '100%',
               gap: Math.max(0, s.gap ?? 1),
@@ -1249,6 +1266,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 overflow: 'truncate',
                 width: previewTools.fullscreen ? 320 : (isSmallScreen ? 110 : 160),
                 fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 11),
+                lineHeight: previewTools.fullscreen ? 24 : 16,
               },
               labelLine: {
                 ...(s.labelLine || {}),
@@ -1271,6 +1289,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   show: true,
                   color: isDarkColor,
                   fontSize: previewTools.fullscreen ? 18 : 12,
+                  lineHeight: previewTools.fullscreen ? 26 : 16,
                 },
                 labelLine: {
                   ...((s.emphasis && s.emphasis.labelLine) || {}),
@@ -1413,7 +1432,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           return;
         }
 
+        enhancedOptionRef.current = enhancedOption;
         previewInst.current.setOption(enhancedOption, true);
+        setHasChartInstance(true);
         resizeTimerRef.current = setTimeout(() => {
           resizeTimerRef.current = null;
           if (epoch !== chartEpochRef.current) return;
@@ -1603,6 +1624,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       setChartOption(null);
       previewRef.current = null;
       previewInst.current = null;
+      setHasChartInstance(false);
       if (onEditDone) onEditDone();
     }
   }
@@ -1691,28 +1713,33 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   }
 
   function resetZoom() {
-    if (previewInst.current && !previewInst.current.isDisposed?.()) {
-      const isTreemapNow = chartType === "treemap" || chartSubtype === "treemap";
-      if (isTreemapNow) {
-        previewInst.current.clear();
-        previewInst.current.setOption(chartOption, true);
-        setTimeout(() => {
-          if (previewInst.current && !previewInst.current.isDisposed?.()) {
-            try {
-              previewInst.current.resize();
-            } catch (e) {
-            }
-          }
-        }, 50);
-        return;
+    if (!previewInst.current || previewInst.current.isDisposed?.()) return;
+    const inst = previewInst.current;
+    const isTreemapNow = chartType === "treemap" || chartSubtype === "treemap";
+    const isSunburstNow = chartType === "sunburst" || chartSubtype === "sunburst";
+    if (isTreemapNow || isSunburstNow) {
+      const stored = enhancedOptionRef.current;
+      if (!stored) return;
+      try {
+        inst.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
+      } catch (e) {
       }
-      previewInst.current.dispatchAction({
-        type: "dataZoom",
-        start: 0,
-        end: 100,
-        dataZoomIndex: 0,
-      });
+      try {
+        inst.dispatchAction({ type: isSunburstNow ? "sunburstRootToNode" : "treemapRootToNode" });
+      } catch (e) {
+      }
+      try {
+        inst.resize();
+      } catch (e) {
+      }
+      return;
     }
+    inst.dispatchAction({
+      type: "dataZoom",
+      start: 0,
+      end: 100,
+      dataZoomIndex: 0,
+    });
   }
 
   const shellStyle = fullscreen
@@ -1771,12 +1798,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   };
   const sunburstControlsFlags = {
     zoomFun: false,
-    resetFun: false,
+    resetFun: true,
     saveFun: true,
     fullscreenFun: true,
   };
   const treemapControlsFlags = {
-    zoomFun: true,
+    zoomFun: false,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
@@ -2038,289 +2065,298 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           style={
             previewTools.fullscreen
               ? {
-                  position: "absolute",
+                  position: "fixed",
                   zIndex: 9999,
                   background: "var(--bg-page)",
-                  padding: 16,
-                  top: "0px",
-                  left: "0px",
-                  width: "100%",
+                  top: 0,
+                  left: 0,
+                  width: "100vw",
                   height: "100vh",
-                  overflow: "visible",
+                  overflow: "hidden",
                   isolation: "isolate",
+                  margin: 0,
+                  padding: 16,
+                  display: "flex",
+                  flexDirection: "column",
                 }
               : { marginBottom: 12, overflow: fullscreen ? "visible" : "hidden" }
           }
         >
-          <div
-            onClick={() => setBottomOpen(!bottomOpen)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "10px 16px",
-              cursor: "pointer",
-              background: "var(--bg-elevated)",
-              fontWeight: 600,
-              fontSize: "14px",
-            }}
-          >
-            <Icon
-              className={`ti ti-chevron-${bottomOpen ? "down" : "right"}`}
-              style={{ fontSize: 16 }}
-            ></Icon>{" "}
-            <Icon className="ti ti-settings" style={{ fontSize: 18 }}></Icon>{" "}
-            Config & Preview
-          </div>
-          {bottomOpen && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 0, overflow: "visible", position: "relative", zIndex: 1 }}>
-              <div
-                style={{
-                  padding: 12,
-                  overflowX: "visible",
-                  overflowY: fullscreen ? "visible" : "auto",
-                  maxHeight: fullscreen ? "none" : (isSmallScreen ? "42vh" : "60vh"),
-                  borderBottom: "1px solid var(--border-default)",
-                  position: "relative",
-                  zIndex: 2,
-                }}
-              >
+          {!previewTools.fullscreen && (
+            <div
+              onClick={() => setBottomOpen(!bottomOpen)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 16px",
+                cursor: "pointer",
+                background: "var(--bg-elevated)",
+                fontWeight: 600,
+                fontSize: "14px",
+              }}
+            >
+              <Icon
+                className={`ti ti-chevron-${bottomOpen ? "down" : "right"}`}
+                style={{ fontSize: 16 }}
+              ></Icon>{" "}
+              <Icon className="ti ti-settings" style={{ fontSize: 18 }}></Icon>{" "}
+              Config & Preview
+            </div>
+          )}
+          {(bottomOpen || previewTools.fullscreen) && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0, overflow: "visible", position: "relative", zIndex: 1, flex: 1, minHeight: 0 }}>
+              {!previewTools.fullscreen && (
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
-                    gap: 10,
-                    marginBottom: 12,
+                    padding: 12,
+                    overflowX: "visible",
+                    overflowY: fullscreen ? "visible" : "auto",
+                    maxHeight: fullscreen ? "none" : (isSmallScreen ? "42vh" : "60vh"),
+                    borderBottom: "1px solid var(--border-default)",
+                    position: "relative",
+                    zIndex: 2,
                   }}
                 >
-                  <div className="form-group">
-                    <label className="form-label">Chart Type</label>
-                    <Select
-                      className="form-select"
-                      value={chartType}
-                      onChange={(e) => changeType(e.target.value)}
-                    >
-                      {CHART_TYPES.map((t) => (
-                        <option key={t.type} value={t.type}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </Select>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                      gap: 10,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div className="form-group">
+                      <label className="form-label">Chart Type</label>
+                      <Select
+                        className="form-select"
+                        value={chartType}
+                        onChange={(e) => changeType(e.target.value)}
+                      >
+                        {CHART_TYPES.map((t) => (
+                          <option key={t.type} value={t.type}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    {hasMultipleSubtypes && (
+                      <div className="form-group">
+                        <label className="form-label">Subtype</label>
+                        <Select
+                          className="form-select"
+                          value={chartSubtype}
+                          onChange={(e) => {
+                            setChartSubtype(e.target.value);
+                            setMapping({});
+                          }}
+                        >
+                          {typeInfo?.subtypes.map((s) => (
+                            <option key={s.subtype} value={s.subtype}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    )}
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Subtype</label>
-                    <Select
-                      className="form-select"
-                      value={chartSubtype}
-                      onChange={(e) => {
-                        setChartSubtype(e.target.value);
-                        setMapping({});
-                      }}
-                    >
-                      {typeInfo?.subtypes.map((s) => (
-                        <option key={s.subtype} value={s.subtype}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </Select>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label className="form-label">Chart Name</label>
+                    <input
+                      className="form-input"
+                      value={chartName}
+                      onChange={(e) => setChartName(e.target.value)}
+                    />
                   </div>
-                </div>
-                <div className="form-group" style={{ marginBottom: 12 }}>
-                  <label className="form-label">Chart Name</label>
-                  <input
-                    className="form-input"
-                    value={chartName}
-                    onChange={(e) => setChartName(e.target.value)}
-                  />
-                </div>
-                {fields.length > 0 && columns.length > 0 && (
-                  <div style={{ marginBottom: 12 }}>
-                    <label className="form-label" style={{ marginBottom: 6 }}>
-                      Column Mapping
-                    </label>
+                  {fields.length > 0 && columns.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <label className="form-label" style={{ marginBottom: 6 }}>
+                        Column Mapping
+                      </label>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+                          gap: 8,
+                        }}
+                      >
+                        {fields.map(
+                          (f) =>
+                            f?.key !== "parent" && (
+                              <div key={f.key} className="form-group">
+                                <label
+                                  className="form-label"
+                                  style={{ fontSize: "12px" }}
+                                >
+                                  {f.label}
+                                  {f.required ? " *" : ""} ({f.expect})
+                                </label>
+                                {f?.expect === "numeric" ? (
+                                  <Select
+                                    className="form-select"
+                                    value={mapping[f.key] || ""}
+                                    onChange={(e) => {
+                                      setMapping((p) => ({
+                                        ...p,
+                                        [f.key]: e.target.value,
+                                      }));
+                                    }}
+                                    style={{
+                                      fontSize: "13px",
+                                      borderColor: validationErrors[f.key]
+                                        ? "var(--color-danger)"
+                                        : undefined,
+                                    }}
+                                  >
+                                    <option value="">--</option>
+                                    {SeperateNumericColumns(columns).map((c) => (
+                                      <option key={c} value={c}>
+                                        {c}
+                                      </option>
+                                    ))}
+                                  </Select>
+                                ) : (
+                                  <Select
+                                    className="form-select"
+                                    value={mapping[f.key] || ""}
+                                    onChange={(e) => {
+                                      setMapping((p) => ({
+                                        ...p,
+                                        [f.key]: e.target.value,
+                                      }));
+                                    }}
+                                    style={{
+                                      fontSize: "13px",
+                                      borderColor: validationErrors[f.key]
+                                        ? "var(--color-danger)"
+                                        : undefined,
+                                    }}
+                                  >
+                                    <option value="">--</option>
+                                    {columns.map((c) => (
+                                      <option key={c} value={c}>
+                                        {c}
+                                      </option>
+                                    ))}
+                                  </Select>
+                                )}
+
+                                {validationErrors[f.key] && (
+                                  <span
+                                    style={{
+                                      color: "var(--color-danger)",
+                                      fontSize: "12px",
+                                    }}
+                                  >
+                                    {validationErrors[f.key]}
+                                  </span>
+                                )}
+                              </div>
+                            ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {hasAxisLabels && (
                     <div
                       style={{
                         display: "grid",
                         gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
                         gap: 8,
+                        marginBottom: 12,
                       }}
                     >
-                      {fields.map(
-                        (f) =>
-                          f?.key !== "parent" && (
-                            <div key={f.key} className="form-group">
-                              <label
-                                className="form-label"
-                                style={{ fontSize: "12px" }}
-                              >
-                                {f.label}
-                                {f.required ? " *" : ""} ({f.expect})
-                              </label>
-                              {f?.expect === "numeric" ? (
-                                <Select
-                                  className="form-select"
-                                  value={mapping[f.key] || ""}
-                                  onChange={(e) => {
-                                    setMapping((p) => ({
-                                      ...p,
-                                      [f.key]: e.target.value,
-                                    }));
-                                  }}
-                                  style={{
-                                    fontSize: "13px",
-                                    borderColor: validationErrors[f.key]
-                                      ? "var(--color-danger)"
-                                      : undefined,
-                                  }}
-                                >
-                                  <option value="">--</option>
-                                  {SeperateNumericColumns(columns).map((c) => (
-                                    <option key={c} value={c}>
-                                      {c}
-                                    </option>
-                                  ))}
-                                </Select>
-                              ) : (
-                                <Select
-                                  className="form-select"
-                                  value={mapping[f.key] || ""}
-                                  onChange={(e) => {
-                                    setMapping((p) => ({
-                                      ...p,
-                                      [f.key]: e.target.value,
-                                    }));
-                                  }}
-                                  style={{
-                                    fontSize: "13px",
-                                    borderColor: validationErrors[f.key]
-                                      ? "var(--color-danger)"
-                                      : undefined,
-                                  }}
-                                >
-                                  <option value="">--</option>
-                                  {columns.map((c) => (
-                                    <option key={c} value={c}>
-                                      {c}
-                                    </option>
-                                  ))}
-                                </Select>
-                              )}
-
-                              {validationErrors[f.key] && (
-                                <span
-                                  style={{
-                                    color: "var(--color-danger)",
-                                    fontSize: "12px",
-                                  }}
-                                >
-                                  {validationErrors[f.key]}
-                                </span>
-                              )}
-                            </div>
-                          ),
-                      )}
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontSize: "12px" }}>
+                          X Label
+                        </label>
+                        <input
+                          className="form-input"
+                          value={xLabel}
+                          onChange={(e) => setXLabel(e.target.value)}
+                          style={{ fontSize: "13px" }}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontSize: "12px" }}>
+                          Y Label
+                        </label>
+                        <input
+                          className="form-input"
+                          value={yLabel}
+                          onChange={(e) => setYLabel(e.target.value)}
+                          style={{ fontSize: "13px" }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
-                {hasAxisLabels && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
-                      gap: 8,
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div className="form-group">
-                      <label className="form-label" style={{ fontSize: "12px" }}>
-                        X Label
-                      </label>
-                      <input
-                        className="form-input"
-                        value={xLabel}
-                        onChange={(e) => setXLabel(e.target.value)}
-                        style={{ fontSize: "13px" }}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label" style={{ fontSize: "12px" }}>
-                        Y Label
-                      </label>
-                      <input
-                        className="form-input"
-                        value={yLabel}
-                        onChange={(e) => setYLabel(e.target.value)}
-                        style={{ fontSize: "13px" }}
-                      />
-                    </div>
-                  </div>
-                )}
-                {shouldShowLegend && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginBottom: 12,
-                      padding: "8px 0",
-                    }}
-                  >
-                    <button
-                      onClick={() => setShowLegend(!showLegend)}
-                      className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+                  )}
+                  {shouldShowLegend && (
+                    <div
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: '12px',
-                        padding: '4px 8px'
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 12,
+                        padding: "8px 0",
                       }}
-                      title={showLegend ? 'Hide legend' : 'Show legend'}
                     >
-                      <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
-                      <span>Legend</span>
-                    </button>
-                  </div>
-                )}
-                {chartType === "gauge" && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 8,
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div className="form-group">
-                      <label className="form-label" style={{ fontSize: "12px" }}>
-                        Min
-                      </label>
-                      <input
-                        className="form-input"
-                        type="number"
-                        value={mapping.min_val || 0}
-                        onChange={(e) =>
-                          setMapping((p) => ({ ...p, min_val: e.target.value }))
-                        }
-                      />
+                      <button
+                        onClick={() => setShowLegend(!showLegend)}
+                        className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: '12px',
+                          padding: '4px 8px'
+                        }}
+                        title={showLegend ? 'Hide legend' : 'Show legend'}
+                      >
+                        <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`} style={{ fontSize: '14px' }}></Icon>
+                        <span>Legend</span>
+                      </button>
                     </div>
-                    <div className="form-group">
-                      <label className="form-label" style={{ fontSize: "12px" }}>
-                        Max
-                      </label>
-                      <input
-                        className="form-input"
-                        type="number"
-                        value={mapping.max_val || 100}
-                        onChange={(e) =>
-                          setMapping((p) => ({ ...p, max_val: e.target.value }))
-                        }
-                      />
+                  )}
+                  {chartType === "gauge" && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontSize: "12px" }}>
+                          Min
+                        </label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          value={mapping.min_val || 0}
+                          onChange={(e) =>
+                            setMapping((p) => ({ ...p, min_val: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontSize: "12px" }}>
+                          Max
+                        </label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          value={mapping.max_val || 100}
+                          onChange={(e) =>
+                            setMapping((p) => ({ ...p, max_val: e.target.value }))
+                          }
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-              <div style={{ padding: 12, minHeight: isSmallScreen ? "42vh" : "360px", overflow: "auto", position: "relative", zIndex: 1 }}>
+                  )}
+                </div>
+              )}
+              <div style={{ padding: 12, minHeight: previewTools.fullscreen ? 0 : (isSmallScreen ? "42vh" : "360px"), overflow: previewTools.fullscreen ? "hidden" : "auto", position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
                 <ErrorBoundary
                   resetKeys={[chartOption]}
                   fallback={(err) => (
@@ -2439,13 +2475,16 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         style={
                           previewTools.fullscreen
                             ? {
-                                position: "fixed",
-                                inset: 0,
-                                zIndex: 9999,
-                                background: "var(--bg-page)",
-                                padding: 16,
+                                position: "relative",
+                                inset: "auto",
+                                zIndex: 1,
+                                background: "transparent",
+                                padding: 0,
                                 display: "flex",
                                 flexDirection: "column",
+                                flex: 1,
+                                minHeight: 0,
+                                overflow: "hidden",
                               }
                             : undefined
                         }
@@ -2459,9 +2498,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                             onZoomReset={resetZoom}
                             onSave={previewTools.save}
                             onToggleFullscreen={previewTools.toggleFullscreen}
-                            resetEnabled={!!previewInst.current}
-                            resetTitle={isTreemapChartType ? "Restore view" : "Reset zoom"}
-                            resetAriaLabel={isTreemapChartType ? "Restore view" : "Reset zoom"}
+                            resetEnabled={hasChartInstance}
+                            resetTitle={isTreemapChartType || isSunBurstChartType ? "Restore view" : "Reset zoom"}
+                            resetAriaLabel={isTreemapChartType || isSunBurstChartType ? "Restore view" : "Reset zoom"}
+                            resetIcon={isSunBurstChartType ? "ti-arrow-back-up" : undefined}
                             isWantFeature={
                               isSunBurstChartType
                                 ? sunburstControlsFlags
@@ -2479,11 +2519,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         )}
                         <div
                           style={{
-                            height: previewBodyHeight,
+                            height: previewTools.fullscreen ? "100%" : previewBodyHeight,
                             width: "100%",
                             overflow: "hidden",
                             paddingBottom: previewTools.fullscreen ? 0 : (isSmallScreen ? 8 : 12),
                             position: "relative",
+                            flex: previewTools.fullscreen ? 1 : "none",
+                            minHeight: 0,
                           }}
                         >
                           {!chartOption && (
