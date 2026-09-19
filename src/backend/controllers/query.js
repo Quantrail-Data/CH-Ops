@@ -46,6 +46,7 @@ function onlyKnownSettings(input) {
 
 export async function runQuery(req, res) {
   const { sql, node, user, password, clusterId, strictAuth, useSession, context, params, settings } = req.body;
+ 
   let { readOnly } = req.body;
   if (!sql) return res.status(400).json({ error: 'Missing SQL' });
 
@@ -81,7 +82,9 @@ export async function runQuery(req, res) {
   // Resolve credentials.
   let resolvedUser, resolvedPassword;
   if (useSession) {
+
     const sess = getCredSession(req.user?.jti, context || CRED_CONTEXTS.EDITOR);
+
     if (!sess) {
       return res.status(401).json({
         error: 'Your session expired. Please reconnect with your ClickHouse credentials.',

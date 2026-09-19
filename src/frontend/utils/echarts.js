@@ -165,10 +165,12 @@ export function getThemeName() {
 }
 
 export function initChart(el) {
+  if (!el || !el.isConnected) {
+    throw new Error("Chart container is not attached to DOM");
+  }
   const existing = echarts.getInstanceByDom(el);
   if (existing) {
     try {
-      existing.clear();
       existing.dispose();
     } catch (e) {
     }
@@ -185,7 +187,14 @@ export function initChart(el) {
     } catch (e) {
     }
   }
-  const ro = new ResizeObserver(() => chart.resize());
+  const ro = new ResizeObserver(() => {
+    try {
+      if (!el || !el.isConnected || !el.parentNode) return;
+      if (!chart || chart.isDisposed?.()) return;
+      chart.resize();
+    } catch (e) {
+    }
+  });
   ro.observe(el);
   el._ro = ro;
   return chart;
@@ -203,7 +212,8 @@ export function disposeChart(el) {
   const inst = echarts.getInstanceByDom(el);
   if (!inst) return;
   try {
-    inst.clear();
+    if (inst.getDom && inst.getDom() !== el) return;
+    if (inst.isDisposed && inst.isDisposed()) return;
     inst.dispose();
   } catch (e) {
   }

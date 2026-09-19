@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// author -> (Ravivarman, Dhivyadharshini)
+// ddl service
 
 import { eq, and } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
@@ -95,6 +98,25 @@ function extractDdl(result) {
     null
   );
 }
+
+//normalize the ddl
+async function normalizeDdl(target, rawDdl) {
+  const escapedDdl = rawDdl
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "''");
+
+  const result = await executeQuery({
+    host: target.host,
+    port: target.port,
+    secure: target.secure,
+    user: target.user,
+    password: target.password,
+    sql: `SELECT normalizeQuery('${escapedDdl}') AS normalized_ddl`,
+    readOnly: true,
+  });
+  return result?.rows?.[0]?.normalized_ddl || rawDdl;
+}
+
 
 function readCache({ clusterId, node, database, table }) {
   return activeDb
@@ -205,11 +227,21 @@ export async function fetchDdl({
         readOnly: true,
       });
 
-      const ddl = extractDdl(result);
-      if (!ddl) throw new Error("No DDL returned.");
-
-      writeCache({ ...key, ddl });
-      results.push({ database, table, ddl, charCount: ddl.length, cached: false });
+      const rawDdl = extractDdl(result);
+      if (!rawDdl) {
+        throw new Error("No DDL returned.");
+      }
+      const normalizedDdl=await normalizeDdl(target,rawDdl);
+      writeCache({ 
+        ...key, 
+        ddl:normalizedDdl,
+      });
+      results.push({ 
+        database, 
+        table, 
+        ddl:normalizedDdl, // 
+        charCount: normalizedDdl.length, 
+        cached: false });
     } catch (err) {
       failures.push({ table: label, error: err?.message || String(err) });
     }

@@ -588,16 +588,16 @@ function legendTextStyle() {
 // out in one theme; these mid-tone hues stay legible on both light and dark
 // backgrounds (verified for contrast against near-white and near-black).
 const SERIES_PALETTE = [
-  "#3b82f6", // blue
-  "#ef4444", // red
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#a855f7", // purple
-  "#06b6d4", // cyan
-  "#ec4899", // pink
-  "#84cc16", // lime
-  "#f97316", // orange
-  "#14b8a6", // teal
+  "#3b82f6",
+  "#ef4444",
+  "#22c55e",
+  "#f59e0b",
+  "#a855f7",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
 ];
 
 // Shared x-axis for all time-series panels: true time spacing, ~3 labels
@@ -1032,7 +1032,7 @@ export default function MonitoringDashboards() {
         lineStyle: { width: 1.0 },
         data: realRows
           .filter((r) => r.hostname === h)
-          .map((r) => [r.t * 1000, parseFloat(r[valCol]) || 0]),
+          .map((r) => [parseInt(r.t) * 1000, parseFloat(r[valCol]) || 0]),
         emphasis: { focus: "series" },
       }));
       return {
@@ -1065,7 +1065,7 @@ export default function MonitoringDashboards() {
           symbol: "none",
           name: c,
           lineStyle: { width: 1.0 },
-          data: d.map((r) => [r.t * 1000, parseFloat(r[c]) || 0]),
+          data: d.map((r) => [parseInt(r.t) * 1000, parseFloat(r[c]) || 0]),
           emphasis: { focus: "series" },
         }));
       return {
@@ -1111,7 +1111,7 @@ export default function MonitoringDashboards() {
           symbol: "none",
           name: label,
           lineStyle: { width: 1.0 },
-          data: d.map((r) => [r.t * 1000, parseFloat(r[valCol]) || 0]),
+          data: d.map((r) => [parseInt(r.t) * 1000, parseFloat(r[valCol]) || 0]),
           areaStyle: { opacity: 0.1 },
         },
       ],
