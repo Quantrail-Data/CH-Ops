@@ -65,8 +65,6 @@ function isThereExport() {
 
 
 
-console.log(isThereExport())
-
 function defaultFileName(username) {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");

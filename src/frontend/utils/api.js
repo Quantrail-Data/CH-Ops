@@ -238,7 +238,7 @@ export async function runEditorQuery(sql, creds, options = {}) {
 
   return apiFetch("/api/query", {
     method: "POST",
-    body: JSON.stringify({ ...base, useSession: true, context: "editor" }),
+    body: JSON.stringify({ ...base, useSession: true, context: "editor-qurioz" }),
   });
 }
 

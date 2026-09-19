@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
+import { useTheme } from "../../App.jsx";
 
 const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
   const [editingSql, setEditingSql] = useState({
@@ -19,6 +20,17 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCopy, setIsCopy] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+
+  const {theme} = useTheme()
+
+
+  const backGroundColorTheme =() => {
+    return theme === "dark" ? "#1f2937" : (!editingSql?.isEditing ? "#1f2937" : "#F3F6F8")
+  }
+
+  const colorThemeSetter = () => {
+    return theme === "dark" ? "#f3f4f6" : (!editingSql?.isEditing ? "#f3f4f6" : "black")
+  }
 
   const copyHandler = () => {
     setIsCopy(true);
@@ -148,8 +160,10 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
           flexWrap: "wrap",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: "#1f2937",
-          color: "#f3f4f6",
+          // backgroundColor: "",
+          backgroundColor:backGroundColorTheme(),
+          // color: "#f3f4f6",
+          color:colorThemeSetter(),
           padding: "8px 12px",
           borderTopLeftRadius: "6px",
           borderTopRightRadius: "6px",
@@ -290,6 +304,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
             variant="compact"
             onRun={handleUpdateSql}
             height="160px"
+            isQurioz={true}
           />
 
           <div
@@ -299,23 +314,26 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
               gap: "8px",
               marginTop: "8px",
               padding: "12px",
-              backgroundColor: "#1f2937",
+              // backgroundColor: "#1f2937",
+              backgroundColor:backGroundColorTheme(),
               flexWrap: "wrap",
             }}
           >
             <button
               onClick={handleCancelEditSql}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                fontSize: "12px",
-                color: "#d1d5db",
-                padding: "6px 12px",
-                borderRadius: "4px",
-                border: "1px solid #4b5563",
-                background: "transparent",
-                cursor: "pointer",
-              }}
+              // style={{
+              //   display: "flex",
+              //   alignItems: "center",
+              //   fontSize: "12px",
+              //   color: "#d1d5db",
+              //   padding: "6px 12px",
+              //   borderRadius: "4px",
+              //   border: "1px solid #4b5563",
+              //   background: "transparent",
+              //   cursor: "pointer",
+              // }}
+     
+              className="btn btn-danger"
             >
               <Icon
                 className="ti ti-x"
@@ -325,17 +343,18 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
             </button>
 
             <button
+              className="btn btn-primary"
               onClick={handleUpdateSql}
               disabled={chat.sqlUpdating}
               style={{
-                display: "flex",
-                alignItems: "center",
-                fontSize: "12px",
-                backgroundColor: "#5D3FD3",
-                color: "#ffffff",
-                padding: "6px 12px",
-                borderRadius: "4px",
-                border: "none",
+                // display: "flex",
+                // alignItems: "center",
+                // fontSize: "12px",
+                // backgroundColor: "#5D3FD3",
+                // color: "#ffffff",
+                // padding: "6px 12px",
+                // borderRadius: "4px",
+                // border: "none",
                 cursor: chat.sqlUpdating ? "not-allowed" : "pointer",
                 opacity: chat.sqlUpdating ? 0.5 : 1,
               }}
@@ -363,9 +382,11 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
           <div
             style={{
               fontSize: "11px",
-              color: "#9ca3af",
+              // color: "#9ca3af",
+              color:colorThemeSetter(),
               padding: "0 12px 8px",
-              backgroundColor: "#1f2937",
+              // backgroundColor: "#1f2937",
+              backgroundColor:backGroundColorTheme()
             }}
           >
             Tip: Press Ctrl+Enter to quickly update

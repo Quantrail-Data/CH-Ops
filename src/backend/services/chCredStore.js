@@ -18,7 +18,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, lt ,inArray} from 'drizzle-orm';
 import { db as defaultDb } from '../db/index.js';
 import { chCredSession } from '../db/schema.js';
 import { encrypt, decrypt } from './crypto.js';
@@ -32,7 +32,7 @@ export function __setDb(d) {
 }
 
 // Valid credential contexts. A row must belong to exactly one feature.
-export const CRED_CONTEXTS = Object.freeze({ EDITOR: 'editor', SCHEMA_STUDIO: 'schema-studio', QURIOZ: 'qurioz' });
+export const CRED_CONTEXTS = Object.freeze({ EDITOR: 'editor-qurioz', SCHEMA_STUDIO: 'schema-studio', QURIOZ: 'qurioz' });
 const VALID_CONTEXTS = new Set(Object.values(CRED_CONTEXTS));
 
 // Credential session lifetime. Matches the 2-hour JWT expiry so an encrypted
@@ -106,8 +106,9 @@ export function setCredSession({ jti, context, appUser, clusterId, node, port, c
 // (jti, context), or null if none exists or it has expired. Expired rows are
 // cleared.
 export function getCredSession(jti, context) {
+
   if (!jti || !VALID_CONTEXTS.has(context)) return null;
-  const where = and(eq(chCredSession.jti, jti), eq(chCredSession.context, context));
+  const where = and(eq(chCredSession.jti, jti), eq(chCredSession.context,context));
   const row = activeDb.select().from(chCredSession).where(where).get();
   if (!row) return null;
 
@@ -128,7 +129,9 @@ export function getCredSession(jti, context) {
 // Non-secret status for the client (never includes the password), used to
 // restore the connected state after a page reload.
 export function getCredSessionStatus(jti, context) {
+  
   const s = getCredSession(jti, context);
+
   if (!s) return { connected: false };
   return {
     connected: true,

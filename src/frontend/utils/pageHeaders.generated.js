@@ -1107,9 +1107,8 @@ export const PAGE_TEXT = {
     "Executing...",
     "Scan S3",
     "Backup ID",
-    "Type",
     "Created",
-    "Incremental",
+    "Backup Type",
     "INC",
     "FULL",
     "Select a profile and click Scan S3 to discover backups."

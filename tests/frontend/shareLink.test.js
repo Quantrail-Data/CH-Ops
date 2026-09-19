@@ -116,7 +116,7 @@ describe("the URL", () => {
     const [before, after] = url.split("#");
     expect(before).not.toContain("SELECT");
     expect(before).not.toContain("secret_table");
-    expect(after.startsWith(`${SHARE_PARAM}=`)).toBe(true);
+    expect(after.startsWith(`/editor/query?q=`)).toBe(true);
   });
 
   it("reads back out of a hash", () => {
