@@ -29,6 +29,8 @@ export default function AllCharts({ onEdit }) {
   const previewTools = useChartTools(() => previewInst.current, { filename: 'chart' });
   const [del, setDel] = useState(null);
   const previewContainerRef = useRef(null);
+  const [hasPreviewInstance, setHasPreviewInstance] = useState(false);
+  const appliedOptionRef = useRef(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -89,6 +91,7 @@ export default function AllCharts({ onEdit }) {
       if (previewInst.current) {
         disposeChart(previewRef.current);
         previewInst.current = null;
+        setHasPreviewInstance(false);
       }
       return;
     }
@@ -152,12 +155,14 @@ export default function AllCharts({ onEdit }) {
       if (previewInst.current) { 
         disposeChart(previewRef.current); 
         previewInst.current = null; 
+        setHasPreviewInstance(false);
       }
       return;
     }
     if (previewInst.current) {
       disposeChart(previewRef.current);
       previewInst.current = null;
+      setHasPreviewInstance(false);
     }
     buildChart();
   }, [theme, showLegend]);
@@ -167,6 +172,7 @@ export default function AllCharts({ onEdit }) {
       if (previewInst.current) { 
         disposeChart(previewRef.current); 
         previewInst.current = null; 
+        setHasPreviewInstance(false);
       }
       return;
     }
@@ -1111,7 +1117,9 @@ export default function AllCharts({ onEdit }) {
         });
       }
 
+      appliedOptionRef.current = chartOption;
       previewInst.current.setOption(chartOption, true);
+      setHasPreviewInstance(true);
       setTimeout(() => previewInst.current?.resize(), 50);
     } catch { }
   }
@@ -1121,6 +1129,7 @@ export default function AllCharts({ onEdit }) {
       if (previewInst.current) { 
         disposeChart(previewRef.current); 
         previewInst.current = null; 
+        setHasPreviewInstance(false);
       }
       return;
     }
@@ -1143,10 +1152,19 @@ export default function AllCharts({ onEdit }) {
   function resetPreviewView() {
     if (!previewInst.current || !selected) return;
     const isTreemapNow = selected.chartType === 'treemap' || selected.chartSubtype === 'treemap';
-    if (isTreemapNow) {
-      previewInst.current.clear();
-      buildChart();
-      setTimeout(() => previewInst.current?.resize(), 50);
+    const isSunburstNow = selected.chartType === 'sunburst' || selected.chartSubtype === 'sunburst';
+    if (isTreemapNow || isSunburstNow) {
+      const stored = appliedOptionRef.current;
+      if (!stored) return;
+      try {
+        previewInst.current.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
+      } catch {}
+      try {
+        previewInst.current.dispatchAction({ type: isSunburstNow ? 'sunburstRootToNode' : 'treemapRootToNode' });
+      } catch {}
+      try {
+        previewInst.current.resize();
+      } catch {}
       return;
     }
     previewTools.zoomReset();
@@ -1179,14 +1197,14 @@ export default function AllCharts({ onEdit }) {
     fullscreenFun: true,
   };
   const treemapControlsFlags = {
-    zoomFun: true,
+    zoomFun: false,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
   };
   const sunburstControlsFlags = {
     zoomFun: false,
-    resetFun: false,
+    resetFun: true,
     saveFun: true,
     fullscreenFun: true,
   };
@@ -1315,7 +1333,7 @@ export default function AllCharts({ onEdit }) {
               <div style={{ fontSize: '14px', fontWeight: 600 }}>{selected.name}</div>
               <button 
                 className="btn btn-ghost btn-sm" 
-                onClick={() => { setSelected(null); setPreviewOpt(null); if (previewInst.current) { disposeChart(previewRef.current); previewInst.current = null; } }}
+                onClick={() => { setSelected(null); setPreviewOpt(null); if (previewInst.current) { disposeChart(previewRef.current); previewInst.current = null; setHasPreviewInstance(false); } }}
                 title="Close preview"
               >
                 <Icon className="ti ti-x" style={{ fontSize: 16 }}></Icon>
@@ -1335,6 +1353,10 @@ export default function AllCharts({ onEdit }) {
                   onZoomReset={resetPreviewView}
                   onSave={previewTools.save}
                   onToggleFullscreen={previewTools.toggleFullscreen}
+                  resetEnabled={hasPreviewInstance}
+                  resetTitle={(selected.chartType === 'treemap' || selected.chartSubtype === 'treemap' || selected.chartType === 'sunburst' || selected.chartSubtype === 'sunburst') ? "Restore view" : "Reset zoom"}
+                  resetAriaLabel={(selected.chartType === 'treemap' || selected.chartSubtype === 'treemap' || selected.chartType === 'sunburst' || selected.chartSubtype === 'sunburst') ? "Restore view" : "Reset zoom"}
+                  resetIcon={(selected.chartType === 'sunburst' || selected.chartSubtype === 'sunburst') ? "ti-arrow-back-up" : undefined}
                   isWantFeature={
                     selected.chartType === 'sunburst' || selected.chartSubtype === 'sunburst'
                       ? sunburstControlsFlags
