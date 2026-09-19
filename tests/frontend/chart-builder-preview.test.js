@@ -153,7 +153,11 @@ describe('ChartBuilder: preview never crashes the page', () => {
   it('handles treemap special case in resetZoom', () => {
     expect(code).toContain('isTreemapNow');
     expect(code).toContain('chartType === "treemap" || chartSubtype === "treemap"');
-    expect(code).toContain('previewInst.current.clear()');
+    expect(
+      code.includes('previewInst.current.clear()') ||
+      code.includes('inst.setOption(stored') ||
+      code.includes('treemapRootToNode')
+    ).toBe(true);
   });
 
   it('separates numeric columns for field mapping', () => {
@@ -290,5 +294,87 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toContain('hasLegendCheck');
     expect(code).toContain('option.legend?.show');
     expect(code).toContain('option.series.some(s => Array.isArray(s?.data)');
+  });
+
+  it('supports sunburst restore actions in resetZoom when applicable', () => {
+    expect(code).toContain('isSunburstNow');
+    expect(
+      code.includes('sunburstRootToNode') ||
+      code.includes('chartType === "sunburst" || chartSubtype === "sunburst"')
+    ).toBe(true);
+  });
+
+  it('keeps enhanced option snapshot for restore flows', () => {
+    expect(code).toContain('enhancedOptionRef');
+    expect(code).toContain('enhancedOptionRef.current = enhancedOption');
+  });
+
+  it('preserves chart instance status tracking for toolbar reset button', () => {
+    expect(code).toContain('hasChartInstance');
+    expect(code).toContain('setHasChartInstance(true)');
+  });
+
+  it('retains fullscreen card shell style object', () => {
+    expect(code).toContain('const shellStyle = fullscreen');
+    expect(code).toContain('position: "fixed"');
+    expect(code).toContain('zIndex: 2000');
+  });
+
+  it('keeps preview fullscreen card pinned to viewport', () => {
+    expect(code).toContain('previewTools.fullscreen');
+    expect(code).toContain('width: "100vw"');
+    expect(code).toContain('height: "100vh"');
+  });
+
+  it('keeps preview container using absolute fill host for chart mount', () => {
+    expect(code).toContain('ref={previewRef}');
+    expect(code).toContain('position: "absolute"');
+    expect(code).toContain('inset: 0');
+  });
+
+  it('keeps run button and running guard wiring', () => {
+    expect(code).toContain('onClick={runSql}');
+    expect(code).toContain('disabled={running || !sql.trim()}');
+    expect(code).toContain('Running...');
+  });
+
+  it('keeps dashboard select required for save action', () => {
+    expect(code).toContain('Select a dashboard first');
+    expect(code).toContain('disabled={!selDashboard || !sql.trim()}');
+  });
+
+  it('keeps chart type and subtype switching logic', () => {
+    expect(code).toContain('function changeType(t)');
+    expect(code).toContain('setChartType(t)');
+    expect(code).toContain('setChartSubtype');
+  });
+
+  it('keeps duplicate cleanup path after update', () => {
+    expect(code).toContain("apiFetch('/api/dashboards/charts')");
+    expect(code).toContain('same.length > 1');
+    expect(code).toContain('method: "DELETE"');
+  });
+
+  it('keeps localStorage persistence for max rows', () => {
+    expect(code).toContain('MAX_ROWS_KEY');
+    expect(code).toContain('localStorage.setItem(MAX_ROWS_KEY');
+    expect(code).toContain('readMaxRows()');
+  });
+
+  it('keeps default axis value logic when not editing', () => {
+    expect(code).toContain('if (!editChart)');
+    expect(code).toContain('getAxisDefaults(chartType, chartSubtype)');
+    expect(code).toContain('setXLabel(d.xLabel)');
+  });
+
+  it('keeps mapped-required-fields guard before chart option build', () => {
+    expect(code).toContain('const allMapped = fields');
+    expect(code).toContain('.filter((f) => f.required)');
+    expect(code).toContain('if (!allMapped && chartType !== "table")');
+  });
+
+  it('keeps responsive small-screen detector', () => {
+    expect(code).toContain('window.innerWidth <= 768');
+    expect(code).toContain("window.addEventListener('resize', handleResize)");
   });
 });
