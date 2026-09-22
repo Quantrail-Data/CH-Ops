@@ -99,6 +99,7 @@ export default function ChartToolbar({
   resetEnabled = zoomable,
   resetTitle,
   resetAriaLabel,
+  resetIcon,
 }) {
   return (
     <div
@@ -144,7 +145,7 @@ export default function ChartToolbar({
           title={resetTitle || (resetEnabled ? "Reset zoom" : "Reset not available for this chart")}
           aria-label={resetAriaLabel || "Reset zoom"}
         >
-          <Icon className="ti ti-zoom-reset"></Icon>
+          <Icon className={`ti ${resetIcon || "ti-zoom-reset"}`}></Icon>
         </button>
       )}
       {onSave && isWantFeature?.saveFun && (

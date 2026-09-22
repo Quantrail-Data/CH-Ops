@@ -242,6 +242,136 @@ body {
     );
 }
 
+body.chart-builder-page-fullscreen .cui-select-menu {
+  z-index: 100000 !important;
+}
+
+@keyframes cardLoading {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+.animate-shimmer {
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+
+  animation: cardLoading 1.8s ease-in-out infinite;
+}
+
+.chart-skeleton-card {
+  background: var(--bg-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.chart-skeleton-title {
+  position: relative;
+  height: 20px;
+  width: 60%;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  margin-bottom: 12px;
+}
+
+.chart-skeleton-chart {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.chart-skeleton-footer {
+  position: relative;
+  height: 16px;
+  width: 40%;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  margin-top: 12px;
+}
+
+[data-theme="light"] .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+}
+
+[data-theme="light"] .chart-skeleton-title,
+[data-theme="light"] .chart-skeleton-chart,
+[data-theme="light"] .chart-skeleton-footer {
+  background: #e2e4e9;
+}
+
+[data-theme="dark"] .chart-skeleton-title,
+[data-theme="dark"] .chart-skeleton-chart,
+[data-theme="dark"] .chart-skeleton-footer {
+  background: #1e2a42;
+}
+
+.dashboard-skeleton-grid {
+  display: grid;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dashboard-loading-skeleton {
+  display: grid;
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.dashboard-grid-staggered .chart-tile-wrapper {
+  animation: chartTileEnter 0.45s var(--ease) both;
+}
+
+@keyframes chartTileEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 h1,
 h2,
 h3,
