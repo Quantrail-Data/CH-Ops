@@ -1,6 +1,6 @@
 <div align="center">
 
-# CHOps (Beta)
+# CHOps
 
 ### A ClickHouse&reg; GUI and admin tool. Self-hosting the ClickHouse&reg; database made easy.
 
