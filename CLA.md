@@ -1,6 +1,6 @@
 # CHOps Contributor License Agreement
 
-**Version 1.0**
+**Version 1.1**
 
 Thank you for your interest in contributing to CHOps. Contributions from the
 people who actually run these systems are what make the project better, and we
@@ -16,12 +16,10 @@ work you have put effort into does not have to be removed later over a licensing
 problem. The terms are standard for a project of this kind, and we have tried to
 keep them readable.
 
-CHOps is distributed in three forms. The public core is offered under the GNU
-Affero General Public License v3.0. The same core is offered under a separate
-commercial licence to organisations that cannot accommodate its copyleft terms.
-CHOps Pro is a proprietary product built on that core. To continue offering all
-three, we need sufficient rights in every part of the codebase to license it
-under any of them, and this Agreement is how we obtain them.
+CHOps is distributed in two forms. The public core is offered under the Apache
+License 2.0. CHOps Pro is a proprietary product built on that core. To continue
+offering both, we need sufficient rights in every part of the codebase to
+license it under either of them, and this Agreement is how we obtain them.
 
 ---
 
@@ -40,7 +38,7 @@ This summary is for convenience only. The numbered sections below are the
 operative terms, and they govern if the two ever appear to differ. Section 13
 contains the standard contract provisions.
 
-If anything here is unclear, please write to **chops@quantrail-data.com** before
+If anything here is unclear, please write to **ch-ops@quantrail-data.com** before
 accepting. We would rather answer a question than have you agree to something you
 are unsure of.
 
@@ -106,9 +104,9 @@ reproduce, prepare derivative works of, publicly display, publicly perform,
 sublicense, and distribute your Contributions and those derivative works.
 
 **This includes the right to distribute your Contributions, and derivative works
-of them, under any licence terms we choose. Those terms include our commercial
-licence for the CHOps core and the proprietary licence covering CHOps Pro.
-Neither of those requires us to publish source code.**
+of them, under any licence terms we choose. Those terms include the Apache
+License 2.0 for the CHOps core and the proprietary licence covering CHOps Pro.
+The proprietary licence does not require us to publish source code.**
 
 We state this plainly because you should know it before you accept, rather than
 discover it afterwards. The paid editions fund continued work on the open core,
@@ -171,7 +169,7 @@ a Corporate CLA with us.
 
 **(b) You are eighteen or over.** If you are younger, you are still welcome to
 contribute, but a parent or guardian has to sign for you first. Write to
-**chops@quantrail-data.com** and we will sort it out.
+**ch-ops@quantrail-data.com** and we will sort it out.
 
 **(c) The work is your own.** Each Contribution is your original creation.
 
@@ -221,7 +219,7 @@ channel described in [SECURITY.md](SECURITY.md).
 ## 11. Names and logos
 
 This Agreement gives you no right to use our names, logos, or trademarks,
-including CHOps® and Quantrail™, beyond ordinary attribution when describing
+including CHOps™ and Quantrail™, beyond ordinary attribution when describing
 where the Work came from.
 
 ## 12. If this agreement ends
@@ -276,7 +274,7 @@ change, in which case you will be asked to accept the revised version.
 **Companies.** If your employees contribute as part of their job, sign a
 [Corporate CLA](CLA-CORPORATE.md) once to cover all of them instead of asking
 each person individually. Fill in the schedule at the end of it and send it to
-**chops@quantrail-data.com**, and we will countersign and return a copy.
+**ch-ops@quantrail-data.com**, and we will countersign and return a copy.
 
 ---
 
