@@ -7,7 +7,7 @@
 CHOps works with clusters on bare metal, VMs, Docker, Kubernetes under an operator, cloud instances, and managed services.
 
 [![Homepage](https://img.shields.io/badge/homepage-ch--ops.io-6366f1)](https://ch-ops.io)
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPLv3-blue)](#license)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](#license)
 
 **[Homepage](https://ch-ops.io)** · **[Documentation](https://ch-ops.io/docs)** · **[Report a Bug](https://github.com/Quantrail-Data/CH-Ops/issues)**
 
@@ -48,7 +48,7 @@ The [Feature Overview](#feature-overview) covers all of it in more detail.
 - It answers in seconds. You do not need to know where ClickHouse&reg; keeps the data.
 - It gives one place for the whole cluster, not one session per node.
 - It runs as a single binary or a container that you host. Your credentials and query history stay with you.
-- It is free and open source under AGPLv3.
+- It is free and open source under the Apache License 2.0.
 - It does not replace `clickhouse-client`. The SQL editor is there when you want to write queries yourself.
 
 **Your ClickHouse&reg; deployment does not matter.** If CHOps can reach the HTTP endpoint, it works:
@@ -126,12 +126,12 @@ docker run -d --name chops -p 3000:3000 \
   -e SUPER_ADMIN_1_PASSWORD=change-this-password \
   -e SUPER_ADMIN_1_EMAIL=you@example.com \
   -v chops-data:/app/data \
-  quantrailadmin1/ch-ops:0.2.0
+  quantrailadmin1/ch-ops:latest
 ```
 
 Then open `http://localhost:3000`. Log in with the super-admin user name and password that you set.
 
-The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:0.2.0`.
+The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:latest`.
 
 ### Run with Docker Compose
 
@@ -140,7 +140,7 @@ Make a file named `docker-compose.yml`. Put this content in it. Change the sessi
 ```yaml
 services:
   chops:
-    image: quantrailadmin1/ch-ops:0.2.0
+    image: quantrailadmin1/ch-ops:latest
     container_name: chops
     restart: unless-stopped
     ports:
@@ -196,7 +196,7 @@ Everything else is optional. The `SMTP_*` values drive alert emails and the pass
 With Docker:
 
 ```bash
-docker pull quantrailadmin1/ch-ops:0.2.0
+docker pull quantrailadmin1/ch-ops:latest
 docker rm -f chops
 # Then run the "docker run" command again.
 ```
@@ -222,10 +222,10 @@ Build from source only if you want to change the code, or make your own image or
 
 You need two things.
 
-**1. Bun 1.3.13**, the JavaScript runtime CHOps is built on. Install it:
+**1. Bun 1.4.2**, the JavaScript runtime CHOps is built on. We test CHOps with this version. Install it:
 
 ```bash
-curl -fsSL https://bun.com/install | bash -s "bun-v1.3.13"
+curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
 ```
 
 Close and reopen your terminal. Then check the version:
@@ -575,7 +575,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 Pull requests are open. Bug reports and feature requests are always welcome.
 
-- **Code.** Fork the repository, make your change, and open a pull request. Your first pull request asks you to sign our [Contributor License Agreement](CLA.md). This is a one-time step that takes a single comment. CHOps is dual licensed, so the CLA lets us ship your work under both the AGPLv3 and our commercial license while you keep the copyright.
+- **Code.** Fork the repository, make your change, and open a pull request. Your first pull request asks you to sign our [Contributor License Agreement](CLA.md). This is a one-time step that takes a single comment. You keep the copyright. The CLA lets us ship your work in the open core and in the commercial Pro edition.
 - **Bug reports.** Open an issue with your CHOps version (from `version.json`), your ClickHouse&reg; database version, and clear steps to reproduce.
 - **Feature requests.** Open an issue that describes the problem you want solved. Tell us the use case, not just the proposed solution, so we can find the best fit.
 
@@ -601,28 +601,26 @@ ClickHouse® is a registered trademark of ClickHouse, Inc. Altinity® is a regis
 
 ## License
 
-CHOps follows an **open-core model**. The core (Community) edition is **dual licensed**. Pro is commercial only.
+CHOps follows an **open-core model**. The core (Community) edition is open source. Pro is commercial only.
 
 | Edition | License | What it includes |
 | --------------- | --------------------------- | ---------------- |
-| **Community (core)** | **AGPLv3 or Commercial** | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, and more. |
+| **Community (core)** | **Apache License 2.0** | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, and more. |
 | **Pro** | **Commercial only** | Advanced operational features on top of the core: scheduled archival to S3-compatible storage, extended alerting, audit logging, scheduled email reports, multi-cluster fleet management via sidecar agents, and priority support. |
 
-**Community (core) is dual licensed.** By default it is offered under the GNU Affero General Public License, version 3.0 (AGPLv3). The copy in this repository is AGPLv3. You may use, study, modify, and redistribute it under those terms (see [`LICENSE`](LICENSE)). If the AGPLv3 obligations do not fit your deployment, the same core is also available under a separate **commercial license** with no copyleft obligations.
+**Community (core) uses the Apache License 2.0.** You can use, study, change, and redistribute it, also in commercial and closed-source products. Keep the license and the copyright notices. The full terms are in [`LICENSE`](LICENSE).
 
-**Pro is commercial only.** The Pro features are not part of this repository and are not offered under the AGPLv3. They are distributed separately under a commercial license that permits proprietary, non-source-disclosed use.
+**Pro is commercial only.** The Pro features are not part of this repository and do not use the Apache License 2.0. They are distributed separately under a commercial license.
 
-For a commercial license of the core, or for Pro, visit [ch-ops.io](https://ch-ops.io) or contact Quantrail&trade; Data.
+For Pro, visit [ch-ops.io](https://ch-ops.io) or contact Quantrail&trade; Data.
 
 ### Copyright
 
-Copyright &copy; 2026 Quantrail&trade; Data Private Limited. All rights reserved.
+Copyright &copy; 2026 Quantrail&trade; Data Private Limited.
 
-CHOps is free software. You can redistribute it and modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at [https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
-CHOps is distributed in the hope that it is useful, but WITHOUT ANY WARRANTY, without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License with CHOps. If not, see [https://www.gnu.org/licenses/agpl-3.0.html](https://www.gnu.org/licenses/agpl-3.0.html).
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
 ---
 
