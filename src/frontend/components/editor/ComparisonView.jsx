@@ -25,6 +25,8 @@ import {
 import { runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { apiFetch } from "../../utils/api.js";
+import AIDDLButton from "../common/AIDDLButton.jsx";
+import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
 
 // Keep at most this many result rows in the DOM,
 const RESULT_MAX_ROWS = 100;
@@ -32,6 +34,8 @@ const RESULT_MAX_HEIGHT = "390px";
 
 // VITE_SELECTEDAID_DBS=aiselectedid
 const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS ?? "aiselectedid";
+
+const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
 const LOADING_PHRASES = [
   "Generating ClickHouse query...",
@@ -46,92 +50,26 @@ const LOADING_PHRASES = [
   "Synthesizing blazing-fast SQL...",
 ];
 
-function AIKeyButton({ dbdetails, dataSelectionHandler, connectDatabaseID }) {
-  const [isLoading, setIsLoading] = useState(false);
 
-  if (!dbdetails) return null;
-  const { dbName, id, isSelected } = dbdetails;
 
-  const connecthandler = async (db) => {
-    setIsLoading(true);
-    await connectDatabaseID(db);
-    setIsLoading(false);
-  };
+function responseBodyStructTableDatabase(genTables) {
+  if (!genTables) return [];
 
-  if (dbName && id) {
-    return (
-      <button
-        className={`btn btn-primary`}
-        style={{
-          padding: "3px",
-          borderRadius: "5px",
-          backgroundColor: !isSelected ? "#e0d4ffba" : undefined,
-          color: !isSelected ? "#4e4e4eba" : undefined,
-        }}
-        title={!isSelected ? "Select" : "Deselect"}
-        onClick={() => {
-          dataSelectionHandler && dataSelectionHandler(dbName);
-        }}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className="icon icon-tabler icons-tabler-filled icon-tabler-bolt"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path d="M13 2l.018 .001l.016 .001l.083 .005l.011 .002h.011l.038 .009l.052 .008l.016 .006l.011 .001l.029 .011l.052 .014l.019 .009l.015 .004l.028 .014l.04 .017l.021 .012l.022 .01l.023 .015l.031 .017l.034 .024l.018 .011l.013 .012l.024 .017l.038 .034l.022 .017l.008 .01l.014 .012l.036 .041l.026 .027l.006 .009c.12 .147 .196 .322 .218 .513l.001 .012l.002 .041l.004 .064v6h5a1 1 0 0 1 .868 1.497l-.06 .091l-8 11c-.568 .783 -1.808 .38 -1.808 -.588v-6h-5a1 1 0 0 1 -.868 -1.497l.06 -.091l8 -11l.01 -.013l.018 -.024l.033 -.038l.018 -.022l.009 -.008l.013 -.014l.04 -.036l.028 -.026l.008 -.006a1 1 0 0 1 .402 -.199l.011 -.001l.027 -.005l.074 -.013l.011 -.001l.041 -.002z" />
-        </svg>
-      </button>
-    );
-  }
-  return (
-    <button
-      className="btn btn-primary"
-      style={{
-        padding: "3px",
-        borderRadius: "5px",
-        backgroundColor: "#3a2055fd",
-      }}
-      title="Generate database ID"
-      onClick={() => connecthandler(dbName)}
-    >
-      {isLoading ? (
-        <div
-          className="loading-spinner"
-          style={{
-            width: "12px",
-            height: "12px",
-            borderColor: "gray",
-            borderTopColor: "white",
-          }}
-        ></div>
-      ) : (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          className="icon icon-tabler icons-tabler-outline icon-tabler-plug-connected"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path d="M7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1 -5 -5l1.5 -1.5" />
-          <path d="M17 12l-5 -5l1.5 -1.5a3.536 3.536 0 1 1 5 5l-1.5 1.5" />
-          <path d="M3 21l2.5 -2.5" />
-          <path d="M18.5 5.5l2.5 -2.5" />
-          <path d="M10 11l-2 2" />
-          <path d="M13 14l-2 2" />
-        </svg>
-      )}
-    </button>
-  );
+  let result = [];
+  Object.keys(genTables)?.forEach((_v) => {
+    const tables = genTables[_v];
+    if (tables) {
+      tables?.forEach((_t) => {
+        if (_t?.isSelected) {
+          result.push({
+            database: _v,
+            table: _t?.table,
+          });
+        }
+      });
+    }
+  });
+  return result ? result : [];
 }
 
 // Memoized result area for one side: estimate panel or execute table, or the
@@ -192,17 +130,12 @@ const ComparePane = memo(function ComparePane({
   estimate,
   exec,
   connected,
-  databases,
   selectDb,
-  selectHandler,
-  aiDatabase_id,
   selectedClusterId,
   nodeName,
-  user,
-  port,
-  selectedNode,
   AIdbsInfo,
-  setAIdbsInfo,
+  setShowDBModel,
+  genTables
 }) {
   const placeholder =
     side === "left"
@@ -212,8 +145,39 @@ const ComparePane = memo(function ComparePane({
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
 
   const [index, setIndex] = useState(0);
-  const [isShowDbs, setIsShowDbs] = useState(false);
   const toast = useToast();
+
+  const [apikey, setApiKey] = useState({
+    status: false,
+    id: null,
+    serviceName: null,
+    model: null,
+  });
+  const [apikeys, setApikeys] = useState([]);
+
+  useEffect(() => {
+    const fetchAPIKEY_Details = async () => {
+      try {
+        const { apiKey } = await apiFetch(`/api/qurioz/api-keys/active`);
+        const apiData = await apiFetch(`/api/qurioz/api-keys`);
+        setApikeys(apiData?.apiKeys);
+        setApiKey({
+          status: apiKey?.id ? true : false,
+          id: apiKey?.id || null,
+          serviceName: apiKey?.name || null,
+          model: apiKey?.model || null,
+        });
+      } catch (err) {
+        setApiKey({
+          status: false,
+          id: null,
+          serviceName: null,
+        });
+      }
+    };
+
+    fetchAPIKEY_Details();
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -233,37 +197,45 @@ const ComparePane = memo(function ComparePane({
       setIsAILoadingGenerating(false);
       return;
     }
+    // split the database value and selected tables data
+    const result = responseBodyStructTableDatabase(genTables);
 
     setIsAILoadingGenerating(true);
     onChange(LOADING_PHRASES[index]);
 
     try {
-      const dbsSelected = AIdbsInfo?.filter((_v) => _v?.isSelected)?.map(
-        (_v) => _v?.id,
+      // generate the object or json for request body based the new chat or old chat
+      const requestBody = {
+        method: "POST",
+        body: JSON.stringify({
+          instruction: message,
+          tables: result,
+          clusterId: selectedClusterId,
+          node: nodeName,
+          previousInstruction: null,
+          previousSql: null,
+          forceRefreshDdl: false,
+          messageId: null,
+          isApiConfigured: apikey?.id ? true : false,
+        }),
+      };
+
+      const responseAIQuery = await await apiFetch(
+        "/api/ai/editor/generate",
+        requestBody,
       );
 
-      const responseAIQuery = await apiFetch(`/api/ai/sql/generate-sql`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          database_ids: dbsSelected,
-          user_question: message,
-        }),
-      });
-
-      if (responseAIQuery?.success) {
+      if (!responseAIQuery?.error) {
         onChange(
-          `/*\n\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectDb}\n\n*/\n\n${format(
-            responseAIQuery?.generated_sql,
+          `/*\n\n--QUESTION : ${message}? \n\n*/\n\n${format(
+            responseAIQuery?.sql,
             { language: "clickhouse" },
           )}`,
         );
       }
     } catch (error) {
       onChange(
-        `/*\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectDb}\n*/\n\n-- Error : ${
+        `/*\n--QUESTION : ${message}? \n*/\n\n-- Error : ${
           error?.message || "SQL generation failed"
         }`,
       );
@@ -272,83 +244,9 @@ const ComparePane = memo(function ComparePane({
     }
   }
 
-  const isFindDatabase = (dbname) => {
-    if (!dbname) return null;
-    const find = AIdbsInfo?.filter((_v) => {
-      return _v?.dbName === dbname;
-    });
-    return find?.length > 0 ? find[0] : null;
-  };
-
-  const connectDatabaseID = async (dbName) => {
-    try {
-      const requestBody = JSON.stringify({
-        database_type: "clickhouse",
-        credentials: { port, username: user, host: selectedNode },
-        databases: [dbName] || [],
-        cluster_id: selectedClusterId,
-        node_id: nodeName,
-      });
-
-      const responseInsert = await apiFetch("/api/ai/database/connect", {
-        method: "POST",
-        body: requestBody,
-      });
-
-      if (responseInsert?.success) {
-        const dbObject = Object.fromEntries(
-          responseInsert?.database_id?.map((db) => [
-            db.database,
-            db.databaseId,
-          ]),
-        );
-        setAIdbsInfo((prev) =>
-          prev?.map((_v) => {
-            const find = Object?.keys(dbObject).includes(_v?.dbName);
-            if (!find) {
-              if (_v?.isSelected || _v?.id !== null) {
-                return _v;
-              }
-              return {
-                dbName: _v?.dbName,
-                id: null,
-                isSelected: false,
-              };
-            }
-
-            return {
-              dbName: _v?.dbName,
-              id: dbObject[_v?.dbName],
-              isSelected: true,
-            };
-          }),
-        );
-
-        toast?.success(`Database ID is created successfully!`);
-      } else {
-        toast?.error(
-          `Failed to connect to the database : ${dbName}. Please try again.`,
-        );
-      }
-    } catch (err) {
-      toast?.error(
-        `Failed to connect to the database : ${dbName}. Please try again.`,
-      );
-    }
-  };
-
-  const dataSelectionHandler = (dbname) => {
-    setAIdbsInfo((prev) =>
-      prev?.map((_v) =>
-        _v?.dbName === dbname ? { ..._v, isSelected: !_v?.isSelected } : _v,
-      ),
-    );
-  };
-
   const ListTheSelectedDatabase = () => {
-    const find = AIdbsInfo?.filter((_v) => _v?.isSelected);
-    if (find?.length === 0) return "Select the database";
-    return find?.map((_v) => _v?.dbName)?.join(", ");
+    const result  = responseBodyStructTableDatabase(genTables)
+  return result?.length > 0
   };
 
   return (
@@ -374,95 +272,10 @@ const ComparePane = memo(function ComparePane({
         <span>{title}</span>
         {side === "right" ? (
           <div>
-            <div
-              className="form-group"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "20px",
-                position: "relative",
-                height: "45px",
-              }}
-              onMouseEnter={() => setIsShowDbs(true)}
-              onMouseLeave={() => setIsShowDbs(false)}
-            >
-              <button
-                className="btn btn-secondary"
-                style={{
-                  display: "flex",
-                  width: "200px",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  justifyContent: "start",
-                  textAlign: "start",
-                }}
-                title={`${AIdbsInfo?.filter((_v) => _v?.isSelected)?.length > 0 ? `Selected ${ListTheSelectedDatabase()}` : "Select the Database"}`}
-                onMouseEnter={() => setIsShowDbs(true)}
-                onMouseLeave={() => setIsShowDbs(true)}
-              >
-                <Icon className="ti ti-database"></Icon>
-                <p
-                  style={{
-                    width: "250px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {ListTheSelectedDatabase()}
-                </p>
-              </button>
-              {isShowDbs && (
-                <div
-                  style={{
-                    position: "absolute",
-                    marginTop: "40px",
-                    padding: "5px",
-                    backgroundColor: "var(--bg-page)",
-                    display: "flex",
-                    flexDirection: "column",
-                    boxShadow: "var(--shadow-md)",
-                    opacity: 1,
-                    zIndex: "10000",
-                    borderRadius: "10px",
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                  }}
-                >
-                  {AIdbsInfo?.map((_val) => {
-                    return (
-                      <div
-                        key={_val?.dbName}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <div
-                          style={{
-                            marginLeft: "5px",
-                            paddingTop: "6px",
-                            display: "flex",
-                            alignItems: "start",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <AIKeyButton
-                            dbdetails={isFindDatabase(_val?.dbName)}
-                            dataSelectionHandler={dataSelectionHandler}
-                            connectDatabaseID={connectDatabaseID}
-                          />
-                        </div>
-                        <div>{_val?.dbName}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <AIDDLButton
+              isDisabled={!connected}
+              onClickEventMethod={() => setShowDBModel(true)}
+            />
           </div>
         ) : (
           <div style={{ width: 200, height: 45 }}></div>
@@ -496,10 +309,7 @@ const ComparePane = memo(function ComparePane({
             className="ai-button btn "
             style={{ color: "white" }}
             onClick={() => GeneratingSQLHandler()}
-            disabled={
-              isAILoadingGenerating ||
-              ListTheSelectedDatabase() === "Select the database"
-            }
+            disabled={isAILoadingGenerating || !ListTheSelectedDatabase()}
           >
             {isAILoadingGenerating ? (
               <>
@@ -570,6 +380,18 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
   const [connecting, setConnecting] = useState(false);
   const [connError, setConnError] = useState(null);
   const [AIdbsInfo, setAIdbsInfo] = useState([]);
+  const [showDBModel, setShowDBModel] = useState(false);
+  const [genTables, setGenTables] = useState({});
+  const [estimateScore, setEstimateScore] = useState(null);
+  const [newSelection, setNewSelection] = useState([]);
+  const [isNewSelectAll, setIsNewSelectAll] = useState(false);
+  const [updateSelection, setUpdateSelection] = useState([]);
+  const [isUpdateSelectAll, setIsUpdateSelectAll] = useState(false);
+  const [dbLoading, setDBLoading] = useState({ flag: false, message: null });
+  const [alertMessage, setAlertMessage] = useState({
+    flag: false,
+    message: null,
+  });
   const toast = useToast();
 
   const credsRef = useRef(null);
@@ -577,51 +399,334 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     credsRef.current = editorCreds;
   }, [editorCreds]);
 
-  const initSetup = async (dbs) => {
-    try {
-      const response = await apiFetch("/api/ai/database/generated/databaseid", {
-        method: "POST",
-        body: JSON.stringify({
-          cluster_id: selectedClusterId,
-          node_id: nodeName,
-        }),
-      });
-      if (response?.success) {
-        const dbObject = Object.fromEntries(
-          response?.databaseIDs
-            ?.map((_v) => {
-              const cred = JSON.parse(_v?.credentials);
-              return {
-                db: cred?.database,
-                id: _v?.database_id,
-              };
-            })
-            .map((db) => [db.db, db.id]),
-        );
-        setAIdbsInfo(
-          dbs?.map((_v) => {
-            const find = Object?.keys(dbObject).includes(_v);
-            if (!find) {
-              return {
-                dbName: _v,
-                id: null,
-                isSelected: false,
-              };
-            }
+  useEffect(() => {
+    function setupDDLLS() {
+      const isThere = localStorage.getItem(DDLTABLE_DATABASE_KEY);
+      if (isThere) {
+        const { selectdbDDL, estimate } = JSON.parse(isThere);
+        setGenTables(selectdbDDL);
+        setEstimateScore(estimate);
+        return;
+      }
 
-            return {
-              dbName: _v,
-              id: dbObject[_v],
-              isSelected: true,
-            };
-          }),
+      localStorage.setItem(
+        DDLTABLE_DATABASE_KEY,
+        JSON.stringify({ selectdbDDL: {}, estimate: null }),
+      );
+      setGenTables({});
+      setEstimateScore(null);
+      return;
+    }
+
+    setupDDLLS();
+  }, []);
+
+  function SelectTablehandler(db, table) {
+    const setter = { ...genTables };
+    setter[db] = setter[db]?.map((_v) => {
+      if (_v?.table === table) {
+        return { ..._v, isSelected: !_v?.isSelected };
+      }
+      return _v;
+    });
+    // SetterLSDDL(setter);
+    setGenTables(setter);
+  }
+
+  function selectAllHandler(type) {
+    if (type === "new") {
+      if (!isNewSelectAll) {
+        setNewSelection((prev) =>
+          prev?.map((_v) => ({ ..._v, isSelected: true })),
         );
+        setIsNewSelectAll(true);
+        return;
+      }
+
+      setNewSelection((prev) =>
+        prev?.map((_v) => ({ ..._v, isSelected: false })),
+      );
+      setIsNewSelectAll(false);
+      return;
+    }
+    if (!isUpdateSelectAll) {
+      setUpdateSelection((prev) =>
+        prev?.map((_v) => ({ ..._v, isSelected: true })),
+      );
+      setIsUpdateSelectAll(true);
+      return;
+    }
+    setUpdateSelection((prev) =>
+      prev?.map((_v) => ({ ..._v, isSelected: false })),
+    );
+    setIsUpdateSelectAll(false);
+    return;
+  }
+
+  async function databaseSchemaSetterHandler(type) {
+    if (type === "refresh") {
+      setDBLoading({
+        flag: true,
+        message: "Refreshing the database schema ID. Please wait...",
+      });
+      try {
+        const req = updateSelection
+          ?.filter((_v) => _v?.isSelected)
+          ?.map((_v) => _v?.id);
+
+        const requestBody = JSON.stringify({
+          database_ids: req || [],
+        });
+
+        const responseRefresh = await apiFetch(
+          "/api/ai/database/refresh-schema",
+          {
+            method: "POST",
+            body: requestBody,
+          },
+        );
+        if (responseRefresh?.success) {
+          setUpdateSelection((prev) =>
+            prev?.map((_v) => ({
+              ..._v,
+              isSelected: false,
+            })),
+          );
+        }
+        setAlertMessage({
+          flag: true,
+          message: `Refreshing the database schema is completed successfully!`,
+        });
+        return;
+      } catch (err) {
+        setAlertMessage({
+          flag: true,
+          message: err?.message,
+        });
+      } finally {
+        setDBLoading({ flag: false, message: null });
+        isUpdateSelectAll && setIsUpdateSelectAll(false);
+        setTimeout(() => {
+          setAlertMessage({ flag: false, message: null });
+        }, 2000);
+      }
+    }
+    setDBLoading({
+      flag: true,
+      message: "Getting table information. Please wait…",
+    });
+    try {
+      const req = newSelection
+        ?.filter((_v) => _v?.isSelected)
+        ?.map((_v) => _v?.name);
+
+      const findDB =
+        Object.keys(genTables)?.length > 0
+          ? req?.filter((v) => {
+              const find = Object.keys(genTables)?.find((b) => b === v);
+
+              return find === undefined;
+            })
+          : req;
+
+      if (findDB?.length === 0) return;
+
+      const responseInsert = await apiFetch(
+        `/api/ai/tables?databases=${findDB?.join(",")}`,
+        {
+          method: "GET",
+        },
+      );
+
+      if (responseInsert?.tables) {
+        const { tables } = responseInsert;
+
+        const splitDatabaseTables = { ...genTables };
+        tables.forEach((_v) => {
+          const isFind = Object.keys(splitDatabaseTables).find(
+            (_key) => _key === _v?.database,
+          );
+          if (isFind) {
+            splitDatabaseTables[_v?.database] = [
+              ...splitDatabaseTables[_v?.database],
+              { isSelected: false, table: _v?.table },
+            ];
+          } else {
+            splitDatabaseTables[_v?.database] = [
+              { isSelected: false, table: _v?.table },
+            ];
+          }
+        });
+        setGenTables(splitDatabaseTables);
+        SetterLSDDL(splitDatabaseTables, estimateScore);
       }
     } catch (err) {
-      console.log(err?.message);
+      setAlertMessage({
+        flag: true,
+        message: err?.message,
+      });
+    } finally {
+      setDBLoading({ flag: false, message: null });
+      setTimeout(() => {
+        setAlertMessage({ flag: false, message: null });
+      }, 2000);
+      isNewSelectAll && setIsNewSelectAll(false);
     }
-  };
+  }
 
+  async function GenerateDDL_EsitmateHandler() {
+    setDBLoading({
+      flag: true,
+      message: "Getting table information. Please wait…",
+    });
+    try {
+      const result = responseBodyStructTableDatabase(genTables);
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(genTables, tokensEstimated);
+    } catch (err) {
+      setAlertMessage({
+        flag: true,
+        message: err?.message,
+      });
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
+    }
+  }
+
+  function isEmptyTableAndDatabase() {
+    return Object.keys(genTables)?.length === 0;
+  }
+
+  async function DeleteDatabaseDDLHandler(db) {
+    setDBLoading({
+      flag: true,
+      message: "Deleting table and refreshing estimate information…",
+    });
+
+    const setter = { ...genTables };
+    delete setter[db];
+
+    try {
+      let result = [];
+      Object.keys(setter)?.forEach((_v) => {
+        const tables = genTables[_v];
+        if (tables) {
+          tables?.forEach((_t) => {
+            if (_t?.isSelected) {
+              result.push({
+                database: _v,
+                table: _t?.table,
+              });
+            }
+          });
+        }
+      });
+
+      setNewSelection((prev) =>
+        prev.map((_v) => {
+          const db = Object.keys(setter).find((_b) => _b === _v?.name);
+          if (!db) {
+            return { ..._v, isSelected: false };
+          }
+          return _v;
+        }),
+      );
+
+      if (!result) {
+        return;
+      }
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(setter, tokensEstimated);
+      setGenTables(setter);
+    } catch (err) {
+      if (err?.message === "empty") {
+        SetterLSDDL(setter, 0);
+        setGenTables(setter);
+        setEstimateScore(0);
+      } else {
+        setAlertMessage({
+          flag: true,
+          message: err?.message,
+        });
+      }
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
+    }
+  }
+
+  function isSelectDb(database, type) {
+    return type === "new"
+      ? newSelection?.some((_v) => _v?.name === database && _v?.isSelected)
+      : updateSelection?.some((_v) => _v?.name === database && _v?.isSelected);
+  }
+
+  function isDisableSelectDb(database) {
+    const dbSelected = Object.keys(genTables)?.find((_v) => _v === database);
+    return dbSelected ? true : false;
+  }
+
+  function isSelectTable(database, table) {
+    const value = genTables[database];
+    if (!value) return false;
+    return value?.find((_v) => _v?.table === table)?.isSelected ?? false;
+  }
+
+  function SetterLSDDL(data, estimate) {
+    localStorage.setItem(
+      DDLTABLE_DATABASE_KEY,
+      JSON.stringify({ selectdbDDL: data, estimate: estimate }),
+    );
+  }
+
+  function isEnableAddButton() {
+    return newSelection?.length > 0
+      ? newSelection?.some((_v) => _v?.isSelected)
+      : false;
+  }
+
+  async function selectDBGenerateID(database, type) {
+    if (type === "new") {
+      isNewSelectAll && setIsNewSelectAll(false);
+      // const tablesGen = await apiFetch(`/api/ai/tables`,{method:'GET'})
+      setNewSelection((prev) =>
+        prev?.map((_v) => {
+          if (_v?.name === database) {
+            return {
+              ..._v,
+              isSelected: !_v?.isSelected,
+            };
+          }
+          return _v;
+        }),
+      );
+    }
+  }
+
+ 
   const [leftSql, setLeftSql] = useState("");
   const [rightSql, setRightSql] = useState("");
   const leftSqlRef = useRef("");
@@ -672,7 +777,14 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     if (!creds) return;
     const response = await fetchDatabaseDetails(creds);
     setDBS(response);
-    initSetup(response);
+    setNewSelection(
+      response?.map((_v) => ({
+        name: _v,
+        id: null,
+        isSelected: false,
+        isAllowForRequest: true,
+      })) || [],
+    );
   }, [mode]);
 
   useEffect(() => {
@@ -826,7 +938,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     return () => {
       cancelled = true;
     };
-  }, [editorConnected, editorCreds, active,mode]);
+  }, [editorConnected, editorCreds, active, mode]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -1063,7 +1175,10 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
         </p>
       )}
 
-      <div className="cmp-split" style={{ marginTop: "30px", alignItems: "stretch" }}>
+      <div
+        className="cmp-split"
+        style={{ marginTop: "30px", alignItems: "stretch" }}
+      >
         <ComparePane
           side="left"
           title="Current query"
@@ -1102,6 +1217,8 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
           selectedNode={selectedNode}
           AIdbsInfo={AIdbsInfo}
           setAIdbsInfo={setAIdbsInfo}
+          setShowDBModel={setShowDBModel}
+          genTables={genTables}
         />
       </div>
 
@@ -1114,6 +1231,29 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
             mode="estimate"
           />
         </div>
+      )}
+
+      {showDBModel && (
+        <AIDDLModelComponent
+          SelectTablehandler={SelectTablehandler}
+          dbLoading={dbLoading}
+          newSelection={newSelection}
+          genTables={genTables}
+          setShowDBModel={setShowDBModel}
+          selectAllHandler={selectAllHandler}
+          databaseSchemaSetterHandler={databaseSchemaSetterHandler}
+          isNewSelectAll={isNewSelectAll}
+          isEnableAddButton={isEnableAddButton}
+          estimateScore={estimateScore}
+          GenerateDDL_EsitmateHandler={GenerateDDL_EsitmateHandler}
+          isEmptyTableAndDatabase={isEmptyTableAndDatabase}
+          DeleteDatabaseDDLHandler={DeleteDatabaseDDLHandler}
+          alertMessage={alertMessage}
+          isSelectDb={isSelectDb}
+          isDisableSelectDb={isDisableSelectDb}
+          isSelectTable={isSelectTable}
+          selectDBGenerateID={selectDBGenerateID}
+        />
       )}
     </div>
   );
