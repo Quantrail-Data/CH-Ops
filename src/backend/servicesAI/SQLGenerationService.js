@@ -197,6 +197,7 @@ export async function generateSql({
   previousSql = null,
   forceRefreshDdl = false,
   messageId = null,
+  type="chat"
 }) {
   const { results: ddlBlocks, failures: ddlFailures } = await fetchDdl({
     jti,
@@ -244,6 +245,10 @@ export async function generateSql({
 
   const tokensEstimated = estimateTokens(joinPrompt(promptParts).length);
 
+  if (type === 'editor') {
+    return {sql}
+  }
+
   if (chatId && messageId) {
     const updated = await updateChatMessage(appUser, chatId, messageId, {
       instruction,
@@ -288,3 +293,5 @@ export async function generateSql({
     messageId: newMessage?.id,
   };
 }
+
+
