@@ -53,7 +53,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toContain('onZoomIn={previewTools.zoomIn}');
     expect(code).toContain('onZoomOut={previewTools.zoomOut}');
     expect(code).toContain('onZoomReset={resetZoom}');
-    expect(code).toContain('onSave={previewTools.save}');
+    expect(code).toContain('onSave={saveFullChart}');
     expect(code).toContain('onToggleFullscreen={previewTools.toggleFullscreen}');
   });
 
@@ -376,5 +376,21 @@ describe('ChartBuilder: preview never crashes the page', () => {
   it('keeps responsive small-screen detector', () => {
     expect(code).toContain('window.innerWidth <= 768');
     expect(code).toContain("window.addEventListener('resize', handleResize)");
+  });
+
+  it('uses saveFullChart as toolbar save handler', () => {
+    expect(code).toContain('function saveFullChart()');
+    expect(code).toContain('onSave={saveFullChart}');
+  });
+
+  it('keeps saveFullChart fallback to previewTools.save', () => {
+    expect(code).toContain('previewTools.save();');
+    expect(code).toContain('const storedOption = enhancedOptionRef.current;');
+  });
+
+  it('uses offscreen chart export flow for full chart download', () => {
+    expect(code).toContain('offscreenInst = initChart(container)');
+    expect(code).toContain('offscreenInst.getDataURL({');
+    expect(code).toContain('requestAnimationFrame(() => {');
   });
 });
