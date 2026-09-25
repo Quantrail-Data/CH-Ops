@@ -1170,6 +1170,138 @@ export default function AllCharts({ onEdit }) {
     previewTools.zoomReset();
   }
 
+  function sanitizeFilename(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "chart";
+    const sanitized = trimmed
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return sanitized || "chart";
+  }
+
+  function saveFullChart() {
+    const sourceInst = previewInst.current;
+    const storedOption = appliedOptionRef.current;
+    const chartName = selected?.name || "chart";
+
+    if (!sourceInst || sourceInst.isDisposed?.() || !storedOption) {
+      previewTools.save();
+      return;
+    }
+
+    const isTreemapNow = selected?.chartType === 'treemap' || selected?.chartSubtype === 'treemap';
+    const isSunburstNow = selected?.chartType === 'sunburst' || selected?.chartSubtype === 'sunburst';
+
+    const downloadName = `${sanitizeFilename(chartName)}.png`;
+
+    let container = null;
+    let offscreenInst = null;
+
+    try {
+      container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-10000px";
+      container.style.top = "0";
+      container.style.width = `${sourceInst.getWidth()}px`;
+      container.style.height = `${sourceInst.getHeight()}px`;
+      container.style.visibility = "hidden";
+      container.style.pointerEvents = "none";
+      document.body.appendChild(container);
+
+      offscreenInst = initChart(container);
+
+      const fullOption = JSON.parse(JSON.stringify(storedOption));
+
+      if (Array.isArray(fullOption.dataZoom)) {
+        fullOption.dataZoom = fullOption.dataZoom.map((dz) => ({
+          ...dz,
+          start: 0,
+          end: 100,
+          startValue: undefined,
+          endValue: undefined,
+        }));
+      }
+
+      if (fullOption.animation === undefined) fullOption.animation = false;
+      fullOption.animationDuration = 0;
+      fullOption.animationDurationUpdate = 0;
+
+      offscreenInst.setOption(fullOption, true);
+
+      if (isTreemapNow || isSunburstNow) {
+        try {
+          offscreenInst.dispatchAction({
+            type: isSunburstNow ? "sunburstRootToNode" : "treemapRootToNode",
+          });
+        } catch (e) {
+        }
+      }
+
+      offscreenInst.resize();
+
+      const finish = () => {
+        let dataURL = null;
+        try {
+          dataURL = offscreenInst.getDataURL({
+            type: "png",
+            pixelRatio: 2,
+            backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
+            excludeComponents: ["toolbox"],
+          });
+        } catch (e) {
+          dataURL = null;
+        }
+
+        if (dataURL) {
+          try {
+            const link = document.createElement("a");
+            link.download = downloadName;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (e) {
+          }
+        }
+
+        try {
+          if (offscreenInst && !offscreenInst.isDisposed?.()) {
+            offscreenInst.dispose();
+          }
+        } catch (e) {
+        }
+        try {
+          if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+        } catch (e) {
+        }
+      };
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(finish, 150);
+        });
+      });
+    } catch (e) {
+      try {
+        if (offscreenInst && !offscreenInst.isDisposed?.()) {
+          offscreenInst.dispose();
+        }
+      } catch (err) {
+      }
+      try {
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      } catch (err) {
+      }
+      previewTools.save();
+    }
+  }
+
   const dashMap = Object.fromEntries(dashboards.map(d => [d.id, d.name]));
 
   const pieChartControlsFlags = {
@@ -1351,7 +1483,7 @@ export default function AllCharts({ onEdit }) {
                   onZoomIn={previewTools.zoomIn}
                   onZoomOut={previewTools.zoomOut}
                   onZoomReset={resetPreviewView}
-                  onSave={previewTools.save}
+                  onSave={saveFullChart}
                   onToggleFullscreen={previewTools.toggleFullscreen}
                   resetEnabled={hasPreviewInstance}
                   resetTitle={(selected.chartType === 'treemap' || selected.chartSubtype === 'treemap' || selected.chartType === 'sunburst' || selected.chartSubtype === 'sunburst') ? "Restore view" : "Reset zoom"}
