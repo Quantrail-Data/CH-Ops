@@ -81,7 +81,7 @@
     "@codemirror/commands": "^6.10.4",
     "@eslint/js": "^9.0.0",
     "@testing-library/jest-dom": "6.6.3",
-    "@testing-library/react": "16.3.0",
+    "@testing-library/react": "16.3.3",
     "@types/bun": "latest",
     "@types/pdfkit": "^0.17.6",
     "@types/react": "19.1.4",
