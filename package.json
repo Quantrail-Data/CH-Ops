@@ -66,7 +66,7 @@
     "js-yaml": "4.3.1",
     "jsonwebtoken": "9.0.2",
     "motion": "^12.39.0",
-    "nodemailer": "9.0.5",
+    "nodemailer": "10.0.10",
     "onnxruntime-web": "1.14.0",
     "openai": "^6.47.0",
     "pdfkit": "^0.19.1",
