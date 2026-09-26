@@ -45,7 +45,7 @@
         "react-otp-input": "^3.1.1",
         "react-router-dom": "7.18.2",
         "sql-formatter": "^15.8.2",
-        "swiper": "^12.2.0",
+        "swiper": "^14.2.0",
       },
       "devDependencies": {
         "@codemirror/commands": "^6.10.4",
@@ -1500,7 +1500,7 @@
 
     "svgtofont": ["svgtofont@6.5.3", "", { "dependencies": { "auto-config-loader": "^2.0.0", "cheerio": "~1.0.0", "colors-cli": "~1.0.28", "fs-extra": "~11.2.0", "image2uri": "^2.1.2", "nunjucks": "^3.2.4", "svg2ttf": "~6.1.0", "svgicons2svgfont": "~15.0.0", "svgo": "~3.3.0", "ttf2eot": "~3.1.0", "ttf2woff": "~3.0.0", "ttf2woff2": "~8.0.0", "yargs": "^17.7.2" }, "peerDependencies": { "@types/svg2ttf": "~5.0.1" }, "optionalPeers": ["@types/svg2ttf"], "bin": { "svgtofont": "lib/cli.js" } }, "sha512-koKMwoA+olMx7qY2LzdVF1+5/y0c1Tu1iZinTCClF4c5UVrSpExayMoyHqLB/58aTe5EUuE6htg5S2Y/MN4Azw=="],
 
-    "swiper": ["swiper@12.2.0", "", {}, "sha512-K8uXsBZU6ME97Ia3xbBge8IRCnR1lOmIILzvY/jGVic7dSTQ530s3uO8RvXbPUtkkXLWIwmZLRPbtDxRWVAFdg=="],
+    "swiper": ["swiper@14.2.0", "", {}, "sha512-GsL4M9Fq7Sg22OyL3SjdNj/0bxTfIxPJJHHW394Li0u5vYtExi0a09iBUc8CuLafJi5pAlH2AHUe1PocxHl45g=="],
 
     "symbol-tree": ["symbol-tree@3.2.4", "", {}, "sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw=="],
 
