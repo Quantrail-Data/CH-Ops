@@ -19,7 +19,7 @@ Bug reports and feature requests need no agreement. Code contributions require a
 
 Before your first pull request can be merged, you sign the [Contributor License Agreement](CLA.md). A bot prompts you on the pull request, and to sign takes one comment. You do it once.
 
-CHOps is dual licensed: the public core under the AGPLv3, and a commercial licence for organisations that cannot take copyleft. The CLA lets us keep an offer of both. You retain copyright in your work, and you grant us the right to ship it under either licence. If your employer owns what you write, they sign the [Corporate CLA](CLA-CORPORATE.md) instead of you as an individual.
+The CHOps core is licensed under the [Apache License 2.0](LICENSE). A separate commercial Pro edition adds the features listed under [What is in scope](#what-is-in-scope). You retain copyright in your work. The CLA grants us the right to ship your contribution in the open core and in the Pro edition, and it includes a patent licence for your contribution. If your employer owns what you write, they sign the [Corporate CLA](CLA-CORPORATE.md) instead of you as an individual.
 
 ## What is in scope
 
@@ -54,7 +54,7 @@ A reviewer will expect:
 - **Read paths stay read-only.** They must keep a pass of ClickHouse&reg;'s own `readonly=1` setting rather than a reliance on a regex over the SQL.
 - **Parameterised queries.** Anything that reaches ClickHouse&reg; goes through the existing parameter path, never string concatenation.
 - **Trademark-safe naming.** See [TRADEMARKS.md](TRADEMARKS.md) before you name anything that touches ClickHouse&reg;, Altinity&reg;, or Kubernetes&reg;.
-- **A licence header** on new files: `SPDX-License-Identifier: AGPL-3.0-or-later`.
+- **A licence header** on new files: `SPDX-License-Identifier: Apache-2.0`.
 
 Keep each pull request to one concern. A fix bundled with a refactor is hard to review and hard to revert.
 

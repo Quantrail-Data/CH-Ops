@@ -1,6 +1,6 @@
 # CHOps Corporate Contributor License Agreement
 
-**Version 1.0**
+**Version 1.1**
 
 Thank you for your organisation's interest in contributing to CHOps.
 
@@ -18,7 +18,7 @@ The terms mirror the individual agreement in [CLA.md](CLA.md). Nothing here is
 broader.
 
 To put this in place, fill in the schedule at the end, have it signed by someone
-authorised to bind the company, and send it to **chops@quantrail-data.com**. We
+authorised to bind the company, and send it to **ch-ops@quantrail-data.com**. We
 will countersign and return a copy.
 
 In consideration of the mutual promises below, and of Us reviewing Your
@@ -56,7 +56,7 @@ know-how, and comments provided to Us about the Work, other than Contributions.
 ## 2. Who this covers
 
 This Agreement covers Contributions from the people listed in the schedule, and
-from anyone You add later by writing to **chops@quantrail-data.com**.
+from anyone You add later by writing to **ch-ops@quantrail-data.com**.
 
 Keeping that list current is Your responsibility. A Contribution from someone
 You have not designated is not covered here, and We will ask that person to
@@ -94,9 +94,9 @@ reproduce, prepare derivative works of, publicly display, publicly perform,
 sublicense, and distribute Your Contributions and those derivative works.
 
 **This includes the right to distribute Your Contributions, and derivative works
-of them, under any licence terms We choose. Those terms include Our commercial
-licence for the CHOps core and the proprietary licence covering CHOps Pro.
-Neither of those requires Us to publish source code.**
+of them, under any licence terms We choose. Those terms include the Apache
+License 2.0 for the CHOps core and the proprietary licence covering CHOps Pro.
+The proprietary licence does not require Us to publish source code.**
 
 Nothing obliges Us to use Your Contribution in any product.
 
@@ -183,7 +183,7 @@ their own private channel described in [SECURITY.md](SECURITY.md).
 ## 12. No trademark licence
 
 This Agreement gives You no right to use Our names, logos, or trademarks,
-including CHOps® and Quantrail™, beyond ordinary attribution when describing
+including CHOps™ and Quantrail™, beyond ordinary attribution when describing
 where the Work came from.
 
 ## 13. Term and survival
@@ -238,7 +238,7 @@ enough to work, and the rest stands.
 | | | |
 
 Add rows as needed. To change this list later, write to
-**chops@quantrail-data.com**. No amendment to the Agreement itself is required.
+**ch-ops@quantrail-data.com**. No amendment to the Agreement itself is required.
 
 **Signed for and on behalf of the Company**
 
