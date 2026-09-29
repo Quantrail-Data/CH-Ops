@@ -706,9 +706,6 @@ export default function LoginPage() {
                     }}
                   >
                     <label className="form-label">Password</label>
-                    <div className="forget-password-con">
-                      <p title="Forget password" onClick={() => setFormStatus("forget-mail")}>Forget password ?</p>
-                    </div>
                   </div>
                   <div
                     className=""
@@ -747,6 +744,9 @@ export default function LoginPage() {
                         <Icon className="ti ti-eye" />
                       )}
                     </div>
+                  </div>
+                  <div className="forget-password-con">
+                    <p title="Forget password" onClick={() => setFormStatus("forget-mail")}>Forget password ?</p>
                   </div>
                 </div>
 

@@ -478,6 +478,12 @@ export const PAGE_TEXT = {
     "Running",
     "Rename tab",
     "New query tab",
+    "DB Schema/Estimate",
+    "Database Schema & Estimate Generator",
+    "Databases",
+    "Get Tables",
+    "Database & Tables",
+    "Generate DDL & Estimate",
     "Comparison (Estimated)",
     "better",
     "Metric",
@@ -558,9 +564,9 @@ export const PAGE_TEXT = {
     "Delete",
     "Database Schema & Estimate Generator",
     "Databases",
-    "Get Tables",
+    "// Get Tables //",
     "Database & Tables",
-    "Generate DDL & Estimate",
+    "// Generate DDL & Estimate //",
     "Open chat history",
     "Close chat history",
     "user",
@@ -595,7 +601,9 @@ export const PAGE_TEXT = {
     "Min",
     "Max",
     "Preview",
-    "Map columns to see preview."
+    "Map columns to see preview.",
+    "Get Tables",
+    "Generate DDL & Estimate"
   ],
   "tools/schema-studio": [
     "Checking connection...",
@@ -1290,9 +1298,9 @@ export const PAGE_TEXT = {
     "Delete",
     "Database Schema & Estimate Generator",
     "Databases",
-    "Get Tables",
+    "// Get Tables //",
     "Database & Tables",
-    "Generate DDL & Estimate",
+    "// Generate DDL & Estimate //",
     "Open chat history",
     "Close chat history",
     "user",
@@ -1327,7 +1335,9 @@ export const PAGE_TEXT = {
     "Min",
     "Max",
     "Preview",
-    "Map columns to see preview."
+    "Map columns to see preview.",
+    "Get Tables",
+    "Generate DDL & Estimate"
   ],
   "custom/builder": [
     "Chart building is only available for administrators.",
