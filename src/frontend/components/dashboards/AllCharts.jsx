@@ -12,6 +12,22 @@ import Select from "../common/Select.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
+function cloneChartOption(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneChartOption);
+  }
+
+  if (value && typeof value === 'object') {
+    const result = {};
+    Object.keys(value).forEach((key) => {
+      result[key] = cloneChartOption(value[key]);
+    });
+    return result;
+  }
+
+  return value;
+}
+
 export default function AllCharts({ onEdit }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
@@ -145,7 +161,7 @@ export default function AllCharts({ onEdit }) {
     const series = previewOpt?.series;
     if (legend?.show === false) return false;
     if (!Array.isArray(series) || series.length === 0) return false;
-    return series.some(s => Array.isArray(s?.data) && s?.data.length > 0);
+    return series.some(s => Array.isArray(s?.data) && s?.data?.length > 0);
   }, [previewOpt]);
 
   const supportsLegend = selected && needsLegend(selected.chartType, selected.chartSubtype);
@@ -204,7 +220,7 @@ export default function AllCharts({ onEdit }) {
       const isSankeyChart = selected?.chartType === 'sankey' || selected?.chartSubtype === 'sankey';
       const isGaugeChart = selected?.chartType === 'gauge' || selected?.chartSubtype === 'gauge';
 
-      const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || selected?.chartType === 'bar' || selected?.chartType === 'line' || selected?.chartType === 'scatter' || selected?.chartType === 'heatmap');
+      const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || selected?.chartType === 'bar' || selected?.chartType === 'line' || selected?.chartType === 'scatter' || selected?.chartType === 'heatmap' || selected?.chartType === 'candlestick' || selected?.chartType === 'boxplot');
 
       const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
       const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
@@ -321,9 +337,9 @@ export default function AllCharts({ onEdit }) {
       const dataLabelFontSize = isFullscreen
         ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
         : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
-      const xRotate = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-      const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 64 : 52);
-      const axisMarginX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+      const xRotate = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0);
+      const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 132 : 120) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, isScatterLike ? 58 : (tickCount > 40 ? 64 : 52));
+      const axisMarginX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
       const seriesLabelWidth = isFullscreen
         ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
         : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
@@ -342,7 +358,7 @@ export default function AllCharts({ onEdit }) {
           ? (isSmallScreen ? 84 : 92)
           : (supportsLegend && hasLegend && showLegend ? 20 : extraLeftForYAxisName);
 
-      const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart)
+      const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot)
         ? (tickCount > 80 ? 180 : tickCount > 60 ? 160 : tickCount > 40 ? 140 : tickCount > 24 ? 120 : 110)
         : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
@@ -482,7 +498,7 @@ export default function AllCharts({ onEdit }) {
               axisLabel: {
                 ...axis?.axisLabel,
                 rotate: xRotate,
-                align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
+                align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
                 margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
                 hideOverlap: false,
                 showMinLabel: true,
@@ -548,7 +564,7 @@ export default function AllCharts({ onEdit }) {
                 axisLabel: {
                   ...baseOption?.xAxis?.axisLabel,
                   rotate: xRotate,
-                  align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
+                  align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
                   margin: Math.max(
                     baseOption?.xAxis?.axisLabel?.margin || 8,
                     axisMarginX,
@@ -769,7 +785,7 @@ export default function AllCharts({ onEdit }) {
       if (Array.isArray(chartOption.series) && chartOption.series.length) {
         chartOption.series = chartOption.series.map((s) => {
           if (!s || !s.type) return s;
-          if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
+          if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter' && s.type !== 'candlestick' && s.type !== 'boxplot') return s;
           const labelFont = previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize;
           const labelWidth = previewTools.fullscreen 
             ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
@@ -1212,7 +1228,7 @@ export default function AllCharts({ onEdit }) {
 
       offscreenInst = initChart(container);
 
-      const fullOption = JSON.parse(JSON.stringify(storedOption));
+      const fullOption = cloneChartOption(storedOption);
 
       if (Array.isArray(fullOption.dataZoom)) {
         fullOption.dataZoom = fullOption.dataZoom.map((dz) => ({
