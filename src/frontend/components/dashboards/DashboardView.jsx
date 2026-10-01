@@ -774,7 +774,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isSankeyChart = chart.chartType === 'sankey' || chart.chartSubtype === 'sankey';
   const isGaugeChart = chart.chartType === 'gauge' || chart.chartSubtype === 'gauge';
 
-  const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chart.chartType === 'bar' || chart.chartType === 'line' || chart.chartType === 'scatter' || chart.chartType === 'heatmap');
+  const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chart.chartType === 'bar' || chart.chartType === 'line' || chart.chartType === 'scatter' || chart.chartType === 'heatmap' || chart.chartType === 'candlestick' || chart.chartType === 'boxplot');
 
   const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
   const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
@@ -877,9 +877,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const dataLabelFontSize = isFullscreen
     ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
     : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
-  const xRotate = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-  const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
-  const axisMarginX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+  const xRotate = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0);
+  const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
+  const axisMarginX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
   const seriesLabelWidth = isFullscreen
     ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
     : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
@@ -902,7 +902,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ? 145
         : 20;
 
-  const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart)
+  const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot)
     ? (tickCount > 80 ? 180 : tickCount > 60 ? 160 : tickCount > 40 ? 140 : tickCount > 24 ? 120 : 110)
     : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
@@ -1035,7 +1035,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           axisLabel: {
             ...axis?.axisLabel,
             rotate: xRotate,
-            align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
+            align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
             color: isDarkColor,
             margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
             hideOverlap: false,
@@ -1103,7 +1103,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         axisLabel: {
           ...chart?.chartOption?.xAxis?.axisLabel,
           rotate: xRotate,
-          align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
+          align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
           color: isDarkColor,
           margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
           hideOverlap: false,
@@ -1332,7 +1332,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   if (Array.isArray(opt.series) && opt.series.length) {
     opt.series = opt.series.map((s) => {
       if (!s || !s.type) return s;
-      if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
+      if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter' && s.type !== 'candlestick' && s.type !== 'boxplot') return s;
 
       const labelFont = fs ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize;
       const labelWidth = fs
