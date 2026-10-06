@@ -2342,6 +2342,8 @@ export default function QueryEditor({
                 <div
                   style={{
                     position: "relative",
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
                   <input
@@ -2370,7 +2372,8 @@ export default function QueryEditor({
                       style={{
                         position: "absolute",
                         right: "10px",
-                        top: "17%",
+                        top: "50%",
+                        transform: "translateY(-50%)",
                         fontSize: "17px",
                       }}
                     />
