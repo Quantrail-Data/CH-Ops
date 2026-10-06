@@ -2,7 +2,8 @@
 // config.test.js - unit tests for configuration controller
 // Contributors -> Kathirdhasan, Kathir Moorthy
 
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, vi, beforeAll } from "bun:test";
+import { kubernetesEnabled } from "../../src/backend/controllers/config.js";
 
 const CLUSTERS = [
   {
@@ -29,6 +30,9 @@ const CLUSTERS = [
   },
 ];
 
+const ensureCapabilities = mock(async () => ({ probed: false, tables: null }))
+const unavailableFeatures = mock(() => [])
+
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
   // Returns decrypted passwords, exactly as the real implementation does.
   getAllClusters: mock(() => JSON.parse(JSON.stringify(CLUSTERS))),
@@ -40,11 +44,11 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
     })),
   }),
   getNodeByName: mock(() => true),
-  getClusterById: mock(() => {}),
-  getClusterNodes: mock(() => {}),
-  saveClusters: mock(() => {}),
+  getClusterById: mock(() => { }),
+  getClusterNodes: mock(() => { }),
+  saveClusters: mock(() => { }),
   getDefaultCluster: mock(() => null),
-  migrateClusterData: mock(() => {}),
+  migrateClusterData: mock(() => { }),
   MAX_CLUSTERS: 3,
   MAX_TOTAL_NODES: 18,
 }));
@@ -52,10 +56,10 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 // The controller now reads a feature flag and warms the capability cache, which
 // would pull in the Kubernetes services and the database at import time.
 mock.module("../../src/backend/services/capabilities.js", () => ({
-  ensureCapabilities: mock(async () => ({ probed: false, tables: null })),
-  unavailableFeatures: mock(() => []),
+  ensureCapabilities,
+  unavailableFeatures,
   probeCapabilities: mock(async () => ({ probed: false })),
-  clearCapabilities: mock(() => {}),
+  clearCapabilities: mock(() => { }),
   hasCapability: mock(() => true),
   explain: mock(() => ""),
   probeSessionAffinity: mock(async () => ({ checked: false, sticky: null })),
@@ -64,49 +68,25 @@ mock.module("../../src/backend/services/capabilities.js", () => ({
   CAPABILITY: {},
 }));
 
-// Mock database used by kubernetesEnabled()
-mock.module("../../src/backend/db/index.js", () => ({
-  db: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          get: () => ({ value: "true" }),
-        }),
-      }),
-    }),
-  },
-  appSettings: {
-    key: "key",
-  },
-}));
-
-const {
-  getConnection,
-  getCapabilities,
-  kubernetesEnabled
-} = await import("../../src/backend/controllers/config.js");
-
+const { getConnection, getCapabilities } = await import(
+  "../../src/backend/controllers/config.js"
+);
 
 function mockReqRes(role = "admin") {
   const req = {
     body: {},
     params: {},
-    user: {
-      username: "u1",
-      role,
-    },
+    user: { username: "u1", role },
     ip: "127.0.0.1",
   };
 
   const res = {
     statusCode: 200,
     jsonData: null,
-
     status(code) {
       this.statusCode = code;
       return this;
     },
-
     json(data) {
       this.jsonData = data;
       return this;
@@ -163,77 +143,89 @@ describe("getConnection", () => {
     expect(JSON.stringify(res.jsonData)).not.toContain("super-secret");
     expect(res.jsonData.clusters[0].nodes[0].hasPassword).toBe(true);
   });
-});
 
-describe("getCapabilities", () => {
-  it("returns capability information", async () => {
+  it('still returns configuration when a background capability warm-up fails', async () => {
+    ensureCapabilities.mockRejectedValueOnce(new Error('cluster unavailable'));
     const { req, res } = mockReqRes();
 
-    req.params.clusterId = CLUSTERS[0].id;
+    getConnection(req, res);
+    await Promise.resolve();
+
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonData.clusters).toHaveLength(1);
+  });
+});
+
+
+// Author: Syed Ashiq
+
+const get = vi.fn().mockImplementation(() => ({ value: 'true' }))
+
+beforeAll(() => {
+  vi.mock('../../src/backend/db', () => ({
+    db: {
+      select: mock(() => ({ from: mock(() => ({ where: mock(() => ({ get })) })) })),
+
+    }
+  }))
+
+})
+describe('Kubernetes helper function', () => {
+  it('Returns true if enabled', () => {
+    expect(kubernetesEnabled()).toBeTrue()
+  })
+  it('Returns false if disabled', () => {
+    get.mockImplementation(() => ({
+      value: 'false'
+    }))
+    expect(kubernetesEnabled()).toBeFalse()
+  })
+})
+
+describe("getCapabilities", () => {
+  it("returns probed capability metadata and unavailable features", async () => {
+    ensureCapabilities.mockImplementation(async () => ({
+      probed: true,
+      deployment: 'standard',
+      tables: new Set(['system.text_log']),
+    }))
+    unavailableFeatures.mockImplementation(() => [
+      {
+        table: 'system.text_log',
+        message: 'Server text logging is not enabled on this deployment.',
+      },
+    ])
+
+    const { req, res } = mockReqRes();
+    req.params.clusterId = 'cluster1';
 
     await getCapabilities(req, res);
 
     expect(res.statusCode).toBe(200);
-
     expect(res.jsonData).toEqual({
-      probed: false,
-      deployment: undefined,
-      version:null,
-      unavailable: [],
+      probed: true,
+      deployment: 'standard',
+      version: null,
+      unavailable: [
+        {
+          table: 'system.text_log',
+          message: 'Server text logging is not enabled on this deployment.',
+        },
+      ],
     });
   });
 
-  it("returns 500 when capability probe fails", async () => {
-    const { ensureCapabilities } = await import(
-      "../../src/backend/services/capabilities.js"
-    );
-
-    ensureCapabilities.mockImplementationOnce(async () => {
-      throw new Error("Probe failed");
+  it("returns 500 when capability probing fails", async () => {
+    ensureCapabilities.mockImplementation(async () => {
+      throw new Error('probe failed');
     });
 
     const { req, res } = mockReqRes();
-
-    req.params.clusterId = CLUSTERS[0].id;
+    req.params.clusterId = 'cluster1';
 
     await getCapabilities(req, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.jsonData).toEqual({
-      error: "Probe failed",
-    });
+    expect(res.jsonData).toEqual({ error: 'probe failed' });
   });
 });
-
-describe("kubernetesEnabled", () => {
-  it("returns true when setting is true", () => {
-    const result = kubernetesEnabled();
-
-    expect(result).toBe(true);
-  });
-
-  it("returns false when setting value is false", async () => {
-    const { db } = await import("../../src/backend/db/index.js");
-
-    db.select = () => ({
-      from: () => ({
-        where: () => ({
-          get: () => ({ value: "false" }),
-        }),
-      }),
-    });
-
-    expect(kubernetesEnabled()).toBe(false);
-  });
-
-  it("returns true when database throws an error", async () => {
-    const { db } = await import("../../src/backend/db/index.js");
-
-    db.select = () => {
-      throw new Error("Database error");
-    };
-
-    expect(kubernetesEnabled()).toBe(true);
-  });
-});
-

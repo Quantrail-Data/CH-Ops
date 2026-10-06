@@ -544,14 +544,14 @@ function RateChart({ rows, from, to, rounding }) {
       style={
         fullscreen
           ? {
-              position: "fixed",
-              inset: 0,
-              zIndex: 1000,
-              background: "var(--bg-page)",
-              padding: 16,
-              display: "flex",
-              flexDirection: "column",
-            }
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "var(--bg-page)",
+            padding: 16,
+            display: "flex",
+            flexDirection: "column",
+          }
           : { position: "relative" }
       }
     >
@@ -753,11 +753,6 @@ function SessionLogOverview({ unavailable }) {
     return () => obs.disconnect();
   }, []);
 
-  function applyDuration(d) {
-    setDuration(d);
-    setFrom(fmtAgo(RANGE_HOURS[d] || 168));
-    setTo(fmtNow());
-  }
 
   const load = useCallback(
     async (override = {}) => {
@@ -1376,7 +1371,7 @@ function SessionLogSearch({ unavailable }) {
                       style={{
                         display: "flex",
                         gap: 4,
-                        alignItems:"center",
+                        alignItems: "center",
                         fontSize: "13px",
                         cursor: "pointer",
                         padding: "2px 6px",

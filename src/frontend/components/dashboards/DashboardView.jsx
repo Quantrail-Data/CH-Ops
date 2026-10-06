@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main container component that layout and renders all dashboard widgets and analytics charts.
 
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -74,7 +73,23 @@ function DashboardSkeletonGrid({ cols, count }) {
   );
 }
 
-export default function DashboardView({sidebar}) {
+function cloneChartOption(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneChartOption);
+  }
+
+  if (value && typeof value === 'object') {
+    const result = {};
+    Object.keys(value).forEach((key) => {
+      result[key] = cloneChartOption(value[key]);
+    });
+    return result;
+  }
+
+  return value;
+}
+
+export default function DashboardView({ sidebar }) {
   const toast = useToast();
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
@@ -92,7 +107,7 @@ export default function DashboardView({sidebar}) {
   const [delChart, setDelChart] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
-  const [fs,setFs] = useState(false)
+  const [fs, setFs] = useState(false);
   const [showLegends, setShowLegends] = useState(true);
   const [renameId, setRenameId] = useState(null);
   const [renameName, setRenameName] = useState('');
@@ -201,12 +216,12 @@ export default function DashboardView({sidebar}) {
     setLoading(true);
     setTransitioning(true);
     setTransitionPhase('exiting');
-    
+
     if (transitionTimerRef.current) {
       clearTimeout(transitionTimerRef.current);
       transitionTimerRef.current = null;
     }
-    
+
     try {
       const c = prefetched || await apiFetch(`/api/dashboards/${dashId}/charts`);
       const discovered = params || discoverFilters(c);
@@ -224,24 +239,24 @@ export default function DashboardView({sidebar}) {
         setTransitionPhase('entering');
         setCharts(deduped);
         setParams(discovered);
-        
+
         setTimeout(() => {
           if (!mountedRef.current) return;
           setTransitioning(false);
           setTransitionPhase('idle');
           setLoading(false);
         }, 400);
-        
+
         transitionTimerRef.current = null;
       }, 200);
-      
+
       return discovered;
-    } catch { 
+    } catch {
       if (!mountedRef.current) return;
       setTransitioning(false);
       setTransitionPhase('idle');
       setLoading(false);
-      return params || { filters: [], byChart: new Map(), conflicts: [], errors: [] }; 
+      return params || { filters: [], byChart: new Map(), conflicts: [], errors: [] };
     }
   }
 
@@ -295,7 +310,7 @@ export default function DashboardView({sidebar}) {
         clearTimeout(transitionTimerRef.current);
         transitionTimerRef.current = null;
       }
-      
+
       const fetched = await apiFetch(`/api/dashboards/${d.id}/charts`).catch(() => []);
       if (cancelled || !mountedRef.current) return;
       const discovered = discoverFilters(fetched);
@@ -317,7 +332,7 @@ export default function DashboardView({sidebar}) {
       await loadCharts(d.id, values, discovered, fetched);
     })();
     return () => { cancelled = true; };
-  }, [urlDashId, dashboards]); 
+  }, [urlDashId, dashboards]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -427,7 +442,7 @@ export default function DashboardView({sidebar}) {
 
   async function deleteChart(id) {
     try {
-      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body:{} });
+      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} });
       if (selDash) await loadCharts(selDash.id, applied);
       toast.success('Chart removed.');
     } catch (e) { toast.error(e.message); }
@@ -463,9 +478,9 @@ export default function DashboardView({sidebar}) {
   }
 
   const cols = selDash?.columns || 2;
-  
+
   const legendSupportedTypes = [
-    'grouped_bar', 'stacked_bar', 
+    'grouped_bar', 'stacked_bar',
     'multi_line', 'stacked_line',
     'pie', 'donut', 'rose', 'nested_pie',
     'bubble',
@@ -613,11 +628,11 @@ export default function DashboardView({sidebar}) {
       {(loading || transitioning) && selDash && (
         <DashboardSkeletonGrid cols={cols} count={skeletonCount} />
       )}
-      
+
       {selDash && !loading && charts.length === 0 && !transitioning && <div className="empty-state"><Icon className="ti ti-chart-dots"></Icon><p>No charts. Use Chart Builder to add some.</p></div>}
 
       {selDash && charts.length > 0 && !loading && !transitioning && (
-        <div 
+        <div
           className={gridClassName}
           style={{
             transition: 'opacity 0.35s ease-in-out, transform 0.35s ease-in-out',
@@ -627,37 +642,39 @@ export default function DashboardView({sidebar}) {
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Drag charts to swap positions.</span>
             {hasUnsaved && canEdit && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16, alignItems: 'stretch', gridAutoRows: 'minmax(460px, auto)' }}>
             {charts.map((chart, i) => (
-              <div 
-                key={chart.id} 
+              <div
+                key={chart.id}
                 className="chart-tile-wrapper"
-                style={{ 
+                style={{
                   opacity: 1,
                   animationDelay: `${i * 40}ms`,
                   minWidth: 0,
                   display: 'flex',
                   flexDirection: 'column',
+                  alignSelf: 'stretch',
+                  minHeight: 0,
                   height: '100%',
                 }}
-                draggable={!fs && canEdit} 
-                onDragStart={e => !fs && canEdit && onDragStart(e, i)} 
-                onDragOver={onDragOver} 
+                draggable={!fs && canEdit}
+                onDragStart={e => !fs && canEdit && onDragStart(e, i)}
+                onDragOver={onDragOver}
                 onDrop={e => canEdit && onDrop(e, i)}
               >
-                <ChartTile 
-                  setFss={setFs} 
-                  sidebar={sidebar} 
-                  chart={chart} 
-                  onDelete={() => setDelChart({ id: chart.id, name: chart.name })} 
-                  cols={cols} 
-                  isAdmin={isAdmin} 
-                  canEdit={canEdit} 
-                  showLegends={showLegends} 
+                <ChartTile
+                  setFss={setFs}
+                  sidebar={sidebar}
+                  chart={chart}
+                  onDelete={() => setDelChart({ id: chart.id, name: chart.name })}
+                  cols={cols}
+                  isAdmin={isAdmin}
+                  canEdit={canEdit}
+                  showLegends={showLegends}
                   setShowLegends={setShowLegends}
                   legendSupportedTypes={legendSupportedTypes}
                   highlighted={!!hoveredFilter && (params.byChart.get(chart.id) || []).some((p) => p.name === hoveredFilter)}
-                  filterNames={(params.byChart.get(chart.id) || []).map((p) => p.name)} 
+                  filterNames={(params.byChart.get(chart.id) || []).map((p) => p.name)}
                 />
               </div>
             ))}
@@ -682,6 +699,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isDarkColor = theme === 'dark' ? 'white' : 'black';
   const [hasChartInstance, setHasChartInstance] = useState(false);
   const appliedOptionRef = useRef(null);
+  const restoreTimerRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
@@ -716,7 +734,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     const series = chart?.chartOption?.series;
     if (legend?.show === false) return false;
     if (!Array.isArray(series) || series.length === 0) return false;
-    return series.some(s => Array.isArray(s?.data) && s?.data.length > 0);
+    return series.some(s => Array.isArray(s?.data) && s?.data?.length > 0);
   }, [chart]);
 
   const supportsLegend = legendSupportedTypes.includes(chart.chartSubtype) || needsLegend(chart.chartType, chart.chartSubtype);
@@ -732,9 +750,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   function getChartHeight() {
     if (fs) return "calc(100vh - 120px)";
     if (chart?.chartOption?._table) return isSmallScreen ? "320px" : "300px";
-    const isBar = ['simple_bar', 'grouped_bar', 'stacked_bar'].includes(chart.chartSubtype) || chart.chartType === 'bar';
-    if (isSmallScreen) return isBar ? "380px" : "420px";
-    return isBar ? "440px" : 500;
+    return "100%";
   }
 
   const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
@@ -758,7 +774,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isSankeyChart = chart.chartType === 'sankey' || chart.chartSubtype === 'sankey';
   const isGaugeChart = chart.chartType === 'gauge' || chart.chartSubtype === 'gauge';
 
-  const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chart.chartType === 'bar' || chart.chartType === 'line' || chart.chartType === 'scatter' || chart.chartType === 'heatmap');
+  const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chart.chartType === 'bar' || chart.chartType === 'line' || chart.chartType === 'scatter' || chart.chartType === 'heatmap' || chart.chartType === 'candlestick' || chart.chartType === 'boxplot');
 
   const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
   const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
@@ -769,31 +785,51 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const resolvedLegend = fs
     ? {
+      ...chart?.chartOption?.legend,
+      show: supportsLegend && hasLegend && showLegends,
+      type: 'scroll',
+      orient: 'vertical',
+      left: 0,
+      top: 8,
+      bottom: 8,
+      width: 260,
+      textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor, fontSize: 16 },
+      itemStyle: {
+        ...(chart?.chartOption?.legend?.itemStyle || {}),
+        borderColor: 'transparent',
+        borderWidth: 0,
+      },
+    }
+    : isSmallScreen
+      ? {
         ...chart?.chartOption?.legend,
         show: supportsLegend && hasLegend && showLegends,
         type: 'scroll',
-        orient: 'vertical',
+        orient: 'horizontal',
         left: 0,
-        top: 8,
-        bottom: 8,
-        width: 260,
-        textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor, fontSize: 16 },
+        right: 0,
+        top: 0,
+        width: '100%',
+        pageIconColor: isDarkColor,
+        pageIconInactiveColor: 'var(--text-muted)',
+        pageTextStyle: { color: isDarkColor },
+        textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor },
         itemStyle: {
           ...(chart?.chartOption?.legend?.itemStyle || {}),
           borderColor: 'transparent',
           borderWidth: 0,
         },
       }
-    : isSmallScreen
-      ? {
+      : cols === 4
+        ? {
           ...chart?.chartOption?.legend,
           show: supportsLegend && hasLegend && showLegends,
           type: 'scroll',
-          orient: 'horizontal',
           left: 0,
-          right: 0,
           top: 0,
-          width: '100%',
+          bottom: 0,
+          orient: "vertical",
+          width: 135,
           pageIconColor: isDarkColor,
           pageIconInactiveColor: 'var(--text-muted)',
           pageTextStyle: { color: isDarkColor },
@@ -804,44 +840,24 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             borderWidth: 0,
           },
         }
-      : cols === 4
-        ? {
-            ...chart?.chartOption?.legend,
-            show: supportsLegend && hasLegend && showLegends,
-            type: 'scroll',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            orient: "vertical",
-            width: 135,
-            pageIconColor: isDarkColor,
-            pageIconInactiveColor: 'var(--text-muted)',
-            pageTextStyle: { color: isDarkColor },
-            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor },
-            itemStyle: {
-              ...(chart?.chartOption?.legend?.itemStyle || {}),
-              borderColor: 'transparent',
-              borderWidth: 0,
-            },
-          }
         : {
-            ...chart?.chartOption?.legend,
-            show: supportsLegend && hasLegend && showLegends,
-            type: 'scroll',
-            left: 0,
-            right: 0,
-            top: 0,
-            orient: "horizontal",
-            pageIconColor: isDarkColor,
-            pageIconInactiveColor: 'var(--text-muted)',
-            pageTextStyle: { color: isDarkColor },
-            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor },
-            itemStyle: {
-              ...(chart?.chartOption?.legend?.itemStyle || {}),
-              borderColor: 'transparent',
-              borderWidth: 0,
-            },
-          };
+          ...chart?.chartOption?.legend,
+          show: supportsLegend && hasLegend && showLegends,
+          type: 'scroll',
+          left: 0,
+          right: 0,
+          top: 0,
+          orient: "horizontal",
+          pageIconColor: isDarkColor,
+          pageIconInactiveColor: 'var(--text-muted)',
+          pageTextStyle: { color: isDarkColor },
+          textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor },
+          itemStyle: {
+            ...(chart?.chartOption?.legend?.itemStyle || {}),
+            borderColor: 'transparent',
+            borderWidth: 0,
+          },
+        };
 
   const tickCount = useMemo(() => {
     const opt = chart?.chartOption;
@@ -855,15 +871,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }, [chart]);
 
   const isFullscreen = fs;
-  const axisFontSize = isFullscreen 
+  const axisFontSize = isFullscreen
     ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
     : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
   const dataLabelFontSize = isFullscreen
     ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
     : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
-  const xRotate = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-  const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
-  const axisMarginX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+  const xRotate = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0);
+  const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
+  const axisMarginX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
   const seriesLabelWidth = isFullscreen
     ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
     : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
@@ -886,7 +902,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ? 145
         : 20;
 
-  const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart)
+  const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot)
     ? (tickCount > 80 ? 180 : tickCount > 60 ? 160 : tickCount > 40 ? 140 : tickCount > 24 ? 120 : 110)
     : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
@@ -899,11 +915,11 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     if (isHeatmap) {
       const totalHeatmapCells = Array.isArray(chart?.chartOption?.series)
         ? chart.chartOption.series.reduce((acc, s) => {
-            if (s.type === 'heatmap' && Array.isArray(s.data)) {
-              return acc + s.data.length;
-            }
-            return acc;
-          }, 0)
+          if (s.type === 'heatmap' && Array.isArray(s.data)) {
+            return acc + s.data.length;
+          }
+          return acc;
+        }, 0)
         : 0;
       if (totalHeatmapCells > 15) return false;
       return true;
@@ -940,8 +956,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     if (!isFunnelChart) return true;
     const funnelCount = Array.isArray(chart?.chartOption?.series)
       ? chart.chartOption.series
-          .filter((s) => s?.type === "funnel")
-          .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+        .filter((s) => s?.type === "funnel")
+        .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
       : 0;
     if (isSmallScreen && funnelCount > 10) return false;
     if (!isSmallScreen && funnelCount > 16) return false;
@@ -978,149 +994,14 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     legend: resolvedLegend,
     xAxis: Array.isArray(chart?.chartOption?.xAxis)
       ? chart.chartOption.xAxis.map((axis) => {
-          const isXCat = axis?.type === 'category' || (!axis?.type && isVerticalBar);
-          const isXVal = axis?.type === 'value' && isHorizontalBar;
-          return {
-            ...axis,
-            type: isVerticalBar || isHeatmap ? 'category' : axis?.type,
-            nameGap: axisNameGapX,
-            nameLocation: "middle",
-            position: 'bottom',
-            splitLine: usesCartesianGrid ? {
-              ...(axis?.splitLine || {}),
-              show: isHeatmap ? false : true,
-              lineStyle: {
-                ...(axis?.splitLine?.lineStyle || {}),
-                color: gridLineColor,
-                width: 1,
-                type: 'solid',
-                opacity: 1,
-              },
-            } : axis?.splitLine,
-            axisLine: usesCartesianGrid ? {
-              ...(axis?.axisLine || {}),
-              show: true,
-              lineStyle: {
-                ...(axis?.axisLine?.lineStyle || {}),
-                color: gridLineColor,
-                width: 1,
-                opacity: 1,
-              },
-            } : { show: false },
-            axisTick: usesCartesianGrid ? {
-              ...(axis?.axisTick || {}),
-              show: true,
-              lineStyle: {
-                ...(axis?.axisTick?.lineStyle || {}),
-                color: gridLineColor,
-                opacity: 1,
-              },
-            } : axis?.axisTick,
-            axisLabel: {
-              ...axis?.axisLabel,
-              rotate: xRotate,
-              align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
-              color: isDarkColor,
-              margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
-              hideOverlap: false,
-              showMinLabel: true,
-              showMaxLabel: true,
-              interval: 0,
-              fontSize: axisFontSize,
-              formatter: (v) => {
-                try {
-                  const n = Number(v);
-                  if (Number.isFinite(n)) {
-                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                  }
-                  const s = String(v);
-                  const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
-                  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
-                } catch { return v; }
-              },
-            },
-            nameTextStyle: {
-              ...(axis?.nameTextStyle || {}),
-              color: isDarkColor,
-              fontSize: Math.max(8, axisFontSize - 1),
-              fontWeight: 'bold'
-            }
-          };
-        })
-      : {
-          ...chart?.chartOption?.xAxis,
-          type: isVerticalBar || isHeatmap ? 'category' : chart?.chartOption?.xAxis?.type,
+        const isXCat = axis?.type === 'category' || (!axis?.type && isVerticalBar);
+        const isXVal = axis?.type === 'value' && isHorizontalBar;
+        return {
+          ...axis,
+          type: isVerticalBar || isHeatmap ? 'category' : axis?.type,
           nameGap: axisNameGapX,
           nameLocation: "middle",
           position: 'bottom',
-          splitLine: usesCartesianGrid ? {
-            ...(chart?.chartOption?.xAxis?.splitLine || {}),
-            show: isHeatmap ? false : true,
-            lineStyle: {
-              ...(chart?.chartOption?.xAxis?.splitLine?.lineStyle || {}),
-              color: gridLineColor,
-              width: 1,
-              type: 'solid',
-              opacity: 1,
-            },
-          } : chart?.chartOption?.xAxis?.splitLine,
-          axisLine: usesCartesianGrid ? {
-            ...(chart?.chartOption?.xAxis?.axisLine || {}),
-            show: true,
-            lineStyle: {
-              ...(chart?.chartOption?.xAxis?.axisLine?.lineStyle || {}),
-              color: gridLineColor,
-              width: 1,
-              opacity: 1,
-            },
-          } : { show: false },
-          axisTick: usesCartesianGrid ? {
-            ...(chart?.chartOption?.xAxis?.axisTick || {}),
-            show: true,
-            lineStyle: {
-              ...(chart?.chartOption?.xAxis?.axisTick?.lineStyle || {}),
-              color: gridLineColor,
-              opacity: 1,
-            },
-          } : chart?.chartOption?.xAxis?.axisTick,
-          axisLabel: {
-            ...chart?.chartOption?.xAxis?.axisLabel,
-            rotate: xRotate,
-            align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
-            color: isDarkColor,
-            margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
-            hideOverlap: false,
-            showMinLabel: true,
-            showMaxLabel: true,
-            interval: 0,
-            fontSize: axisFontSize,
-            formatter: (v) => {
-              try {
-                const n = Number(v);
-                if (Number.isFinite(n)) {
-                  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                }
-                const s = String(v);
-                const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
-                return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
-              } catch { return v; }
-            },
-          },
-          nameTextStyle: {
-            ...(chart?.chartOption?.xAxis?.nameTextStyle || {}),
-            color: isDarkColor,
-            fontSize: Math.max(8, axisFontSize - 1),
-            fontWeight: 'bold'
-          }
-        },
-    yAxis: Array.isArray(chart?.chartOption?.yAxis)
-      ? chart.chartOption.yAxis.map((axis) => ({
-          ...axis,
-          position: isHorizontalBar ? 'left' : 'left',
-          nameLocation: axis?.nameLocation || 'middle',
-          nameGap: isHorizontalBar ? Math.max(axis?.nameGap || 25, 50) : Math.max(axis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
           splitLine: usesCartesianGrid ? {
             ...(axis?.splitLine || {}),
             show: isHeatmap ? false : true,
@@ -1153,15 +1034,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           } : axis?.axisTick,
           axisLabel: {
             ...axis?.axisLabel,
-            rotate: 0,
-            align: isHorizontalBar ? 'right' : 'right',
+            rotate: xRotate,
+            align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
             color: isDarkColor,
-            hideOverlap: isHorizontalBar ? false : (axis?.axisLabel?.hideOverlap ?? false),
+            margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
+            hideOverlap: false,
             showMinLabel: true,
             showMaxLabel: true,
-            interval: isHorizontalBar ? 0 : (axis?.axisLabel?.interval ?? 0),
+            interval: 0,
             fontSize: axisFontSize,
-            margin: isHorizontalBar ? 8 : (axis?.axisLabel?.margin ?? 0),
             formatter: (v) => {
               try {
                 const n = Number(v);
@@ -1169,7 +1050,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
                   if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
                   if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
                 }
-                return v;
+                const s = String(v);
+                const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
               } catch { return v; }
             },
           },
@@ -1179,71 +1062,204 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             fontSize: Math.max(8, axisFontSize - 1),
             fontWeight: 'bold'
           }
-        }))
+        };
+      })
       : {
-          ...chart?.chartOption?.yAxis,
-          position: isHorizontalBar ? 'left' : 'left',
-          nameLocation: chart?.chartOption?.yAxis?.nameLocation || 'middle',
-          nameGap: isHorizontalBar ? Math.max(chart?.chartOption?.yAxis?.nameGap || 25, 50) : Math.max(chart?.chartOption?.yAxis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
-          splitLine: usesCartesianGrid ? {
-            ...(chart?.chartOption?.yAxis?.splitLine || {}),
-            show: isHeatmap ? false : true,
-            lineStyle: {
-              ...(chart?.chartOption?.yAxis?.splitLine?.lineStyle || {}),
-              color: gridLineColor,
-              width: 1,
-              type: 'solid',
-              opacity: 1,
-            },
-          } : chart?.chartOption?.yAxis?.splitLine,
-          axisLine: usesCartesianGrid ? {
-            ...(chart?.chartOption?.yAxis?.axisLine || {}),
-            show: true,
-            lineStyle: {
-              ...(chart?.chartOption?.yAxis?.axisLine?.lineStyle || {}),
-              color: gridLineColor,
-              width: 1,
-              opacity: 1,
-            },
-          } : { show: false },
-          axisTick: usesCartesianGrid ? {
-            ...(chart?.chartOption?.yAxis?.axisTick || {}),
-            show: true,
-            lineStyle: {
-              ...(chart?.chartOption?.yAxis?.axisTick?.lineStyle || {}),
-              color: gridLineColor,
-              opacity: 1,
-            },
-          } : chart?.chartOption?.yAxis?.axisTick,
-          axisLabel: {
-            ...chart?.chartOption?.yAxis?.axisLabel,
-            rotate: 0,
-            align: isHorizontalBar ? 'right' : 'right',
-            color: isDarkColor,
-            hideOverlap: isHorizontalBar ? false : (chart?.chartOption?.yAxis?.axisLabel?.hideOverlap ?? false),
-            showMinLabel: true,
-            showMaxLabel: true,
-            interval: isHorizontalBar ? 0 : (chart?.chartOption?.yAxis?.axisLabel?.interval ?? 0),
-            fontSize: axisFontSize,
-            margin: isHorizontalBar ? 8 : (chart?.chartOption?.yAxis?.axisLabel?.margin ?? 0),
-            formatter: (v) => {
-              try {
-                const n = Number(v);
-                if (Number.isFinite(n)) {
-                  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                }
-                return v;
-              } catch { return v; }
-            },
+        ...chart?.chartOption?.xAxis,
+        type: isVerticalBar || isHeatmap ? 'category' : chart?.chartOption?.xAxis?.type,
+        nameGap: axisNameGapX,
+        nameLocation: "middle",
+        position: 'bottom',
+        splitLine: usesCartesianGrid ? {
+          ...(chart?.chartOption?.xAxis?.splitLine || {}),
+          show: isHeatmap ? false : true,
+          lineStyle: {
+            ...(chart?.chartOption?.xAxis?.splitLine?.lineStyle || {}),
+            color: gridLineColor,
+            width: 1,
+            type: 'solid',
+            opacity: 1,
           },
-          nameTextStyle: {
-            ...(chart?.chartOption?.yAxis?.nameTextStyle || {}),
-            color: isDarkColor,
-            fontSize: Math.max(8, axisFontSize - 1),
-            fontWeight: 'bold'
-          }
+        } : chart?.chartOption?.xAxis?.splitLine,
+        axisLine: usesCartesianGrid ? {
+          ...(chart?.chartOption?.xAxis?.axisLine || {}),
+          show: true,
+          lineStyle: {
+            ...(chart?.chartOption?.xAxis?.axisLine?.lineStyle || {}),
+            color: gridLineColor,
+            width: 1,
+            opacity: 1,
+          },
+        } : { show: false },
+        axisTick: usesCartesianGrid ? {
+          ...(chart?.chartOption?.xAxis?.axisTick || {}),
+          show: true,
+          lineStyle: {
+            ...(chart?.chartOption?.xAxis?.axisTick?.lineStyle || {}),
+            color: gridLineColor,
+            opacity: 1,
+          },
+        } : chart?.chartOption?.xAxis?.axisTick,
+        axisLabel: {
+          ...chart?.chartOption?.xAxis?.axisLabel,
+          rotate: xRotate,
+          align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
+          color: isDarkColor,
+          margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
+          hideOverlap: false,
+          showMinLabel: true,
+          showMaxLabel: true,
+          interval: 0,
+          fontSize: axisFontSize,
+          formatter: (v) => {
+            try {
+              const n = Number(v);
+              if (Number.isFinite(n)) {
+                if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+              }
+              const s = String(v);
+              const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+              return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+            } catch { return v; }
+          },
+        },
+        nameTextStyle: {
+          ...(chart?.chartOption?.xAxis?.nameTextStyle || {}),
+          color: isDarkColor,
+          fontSize: Math.max(8, axisFontSize - 1),
+          fontWeight: 'bold'
         }
+      },
+    yAxis: Array.isArray(chart?.chartOption?.yAxis)
+      ? chart.chartOption.yAxis.map((axis) => ({
+        ...axis,
+        position: isHorizontalBar ? 'left' : 'left',
+        nameLocation: axis?.nameLocation || 'middle',
+        nameGap: isHorizontalBar ? Math.max(axis?.nameGap || 25, 50) : Math.max(axis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
+        splitLine: usesCartesianGrid ? {
+          ...(axis?.splitLine || {}),
+          show: isHeatmap ? false : true,
+          lineStyle: {
+            ...(axis?.splitLine?.lineStyle || {}),
+            color: gridLineColor,
+            width: 1,
+            type: 'solid',
+            opacity: 1,
+          },
+        } : axis?.splitLine,
+        axisLine: usesCartesianGrid ? {
+          ...(axis?.axisLine || {}),
+          show: true,
+          lineStyle: {
+            ...(axis?.axisLine?.lineStyle || {}),
+            color: gridLineColor,
+            width: 1,
+            opacity: 1,
+          },
+        } : { show: false },
+        axisTick: usesCartesianGrid ? {
+          ...(axis?.axisTick || {}),
+          show: true,
+          lineStyle: {
+            ...(axis?.axisTick?.lineStyle || {}),
+            color: gridLineColor,
+            opacity: 1,
+          },
+        } : axis?.axisTick,
+        axisLabel: {
+          ...axis?.axisLabel,
+          rotate: 0,
+          align: isHorizontalBar ? 'right' : 'right',
+          color: isDarkColor,
+          hideOverlap: isHorizontalBar ? false : (axis?.axisLabel?.hideOverlap ?? false),
+          showMinLabel: true,
+          showMaxLabel: true,
+          interval: isHorizontalBar ? 0 : (axis?.axisLabel?.interval ?? 0),
+          fontSize: axisFontSize,
+          margin: isHorizontalBar ? 8 : (axis?.axisLabel?.margin ?? 0),
+          formatter: (v) => {
+            try {
+              const n = Number(v);
+              if (Number.isFinite(n)) {
+                if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+              }
+              return v;
+            } catch { return v; }
+          },
+        },
+        nameTextStyle: {
+          ...(axis?.nameTextStyle || {}),
+          color: isDarkColor,
+          fontSize: Math.max(8, axisFontSize - 1),
+          fontWeight: 'bold'
+        }
+      }))
+      : {
+        ...chart?.chartOption?.yAxis,
+        position: isHorizontalBar ? 'left' : 'left',
+        nameLocation: chart?.chartOption?.yAxis?.nameLocation || 'middle',
+        nameGap: isHorizontalBar ? Math.max(chart?.chartOption?.yAxis?.nameGap || 25, 50) : Math.max(chart?.chartOption?.yAxis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
+        splitLine: usesCartesianGrid ? {
+          ...(chart?.chartOption?.yAxis?.splitLine || {}),
+          show: isHeatmap ? false : true,
+          lineStyle: {
+            ...(chart?.chartOption?.yAxis?.splitLine?.lineStyle || {}),
+            color: gridLineColor,
+            width: 1,
+            type: 'solid',
+            opacity: 1,
+          },
+        } : chart?.chartOption?.yAxis?.splitLine,
+        axisLine: usesCartesianGrid ? {
+          ...(chart?.chartOption?.yAxis?.axisLine || {}),
+          show: true,
+          lineStyle: {
+            ...(chart?.chartOption?.yAxis?.axisLine?.lineStyle || {}),
+            color: gridLineColor,
+            width: 1,
+            opacity: 1,
+          },
+        } : { show: false },
+        axisTick: usesCartesianGrid ? {
+          ...(chart?.chartOption?.yAxis?.axisTick || {}),
+          show: true,
+          lineStyle: {
+            ...(chart?.chartOption?.yAxis?.axisTick?.lineStyle || {}),
+            color: gridLineColor,
+            opacity: 1,
+          },
+        } : chart?.chartOption?.yAxis?.axisTick,
+        axisLabel: {
+          ...chart?.chartOption?.yAxis?.axisLabel,
+          rotate: 0,
+          align: isHorizontalBar ? 'right' : 'right',
+          color: isDarkColor,
+          hideOverlap: isHorizontalBar ? false : (chart?.chartOption?.yAxis?.axisLabel?.hideOverlap ?? false),
+          showMinLabel: true,
+          showMaxLabel: true,
+          interval: isHorizontalBar ? 0 : (chart?.chartOption?.yAxis?.axisLabel?.interval ?? 0),
+          fontSize: axisFontSize,
+          margin: isHorizontalBar ? 8 : (chart?.chartOption?.yAxis?.axisLabel?.margin ?? 0),
+          formatter: (v) => {
+            try {
+              const n = Number(v);
+              if (Number.isFinite(n)) {
+                if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+              }
+              return v;
+            } catch { return v; }
+          },
+        },
+        nameTextStyle: {
+          ...(chart?.chartOption?.yAxis?.nameTextStyle || {}),
+          color: isDarkColor,
+          fontSize: Math.max(8, axisFontSize - 1),
+          fontWeight: 'bold'
+        }
+      }
   };
 
   if (usesCartesianGrid) {
@@ -1275,10 +1291,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     if (Array.isArray(opt.series)) {
       opt.series = opt.series.map((s) => {
         if (!s || s.type !== 'heatmap') return s;
-        
+
         const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
         const shouldHideHeatmapLabels = totalHeatmapCells > 15;
-        
+
         return {
           ...s,
           label: {
@@ -1316,13 +1332,13 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   if (Array.isArray(opt.series) && opt.series.length) {
     opt.series = opt.series.map((s) => {
       if (!s || !s.type) return s;
-      if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
-      
+      if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter' && s.type !== 'candlestick' && s.type !== 'boxplot') return s;
+
       const labelFont = fs ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize;
-      const labelWidth = fs 
+      const labelWidth = fs
         ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
         : seriesLabelWidth;
-      
+
       return {
         ...s,
         clip: true,
@@ -1449,7 +1465,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       confine: true,
       enterable: true,
       extraCssText: tooltipExtraCss,
-      formatter: function(params) {
+      formatter: function (params) {
         try {
           if (!Array.isArray(params)) return params?.name || '';
           const axisLabel = params[0]?.axisValue ?? params[0]?.name ?? '';
@@ -1474,7 +1490,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       confine: true,
       enterable: true,
       extraCssText: tooltipExtraCss,
-      formatter: function(params) {
+      formatter: function (params) {
         try {
           if (!Array.isArray(params)) return params?.name || '';
           const lines = [];
@@ -1648,7 +1664,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       const hideSunburst = nodeCount > 15;
       return {
         ...s,
-        radius: isSunBurstVisualmap ? ["3%","70%"] : ["5%", "90%"],
+        radius: isSunBurstVisualmap ? ["3%", "70%"] : ["5%", "90%"],
         levels: [
           {},
           {
@@ -1727,19 +1743,81 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   useEffect(() => {
     if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) {
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
+      if (inst.current) {
+        try {
+          disposeChart(ref.current);
+        } catch { }
+
+        inst.current = null;
+      }
+
+      appliedOptionRef.current = null;
       setHasChartInstance(false);
-      return;
+      return undefined;
     }
+
+    const host = ref.current;
+
     try {
-      inst.current = initChart(ref.current);
-      inst.current.clear();
+      if (inst.current) {
+        try {
+          disposeChart(host);
+        } catch { }
+
+        inst.current = null;
+      }
+
+      const nextInstance = initChart(host);
       const finalOpt = withZoomable(opt);
-      appliedOptionRef.current = finalOpt;
-      inst.current.setOption(finalOpt, true);
+
+      appliedOptionRef.current = cloneChartOption(finalOpt);
+      inst.current = nextInstance;
+
+      nextInstance.setOption(finalOpt, {
+        notMerge: true,
+        lazyUpdate: false,
+        silent: false,
+      });
+
       setHasChartInstance(true);
-      setTimeout(() => inst.current?.resize(), 50);
-    } catch { }
-    return () => { if (ref.current) disposeChart(ref.current); };
+
+      setTimeout(() => {
+        if (
+          inst.current &&
+          !inst.current.isDisposed?.() &&
+          host.isConnected
+        ) {
+          try {
+            inst.current.resize();
+          } catch { }
+        }
+      }, 50);
+    } catch {
+      inst.current = null;
+      appliedOptionRef.current = null;
+      setHasChartInstance(false);
+    }
+
+    return () => {
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
+      if (host) {
+        try {
+          disposeChart(host);
+        } catch { }
+      }
+
+      inst.current = null;
+      setHasChartInstance(false);
+    };
   }, [opt, theme, fs]);
 
   useEffect(() => { setTimeout(() => inst.current?.resize(), 150); }, [fs, isSmallScreen, cols, showLegends]);
@@ -1779,49 +1857,264 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   function resetZoom() {
-    if (!inst.current || inst.current.isDisposed?.()) return;
+    const currentInstance = inst.current;
+    const host = ref.current;
+    const storedOption = appliedOptionRef.current;
+
+    if (!host || !storedOption) return;
+
+    if (currentInstance && currentInstance.isDisposed?.()) {
+      inst.current = null;
+    }
+
     if (isTreemapChart || isSunburstChart) {
-      const stored = appliedOptionRef.current;
-      if (!stored) return;
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
       try {
-        inst.current.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
-      } catch {}
-      try {
-        inst.current.dispatchAction({ type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode" });
-      } catch {}
-      try {
-        inst.current.resize();
-      } catch {}
+        if (inst.current && !inst.current.isDisposed?.()) {
+          inst.current.clear();
+        }
+      } catch { }
+
+      restoreTimerRef.current = requestAnimationFrame(() => {
+        restoreTimerRef.current = null;
+
+        if (!host.isConnected) return;
+
+        let restoredInstance = inst.current;
+
+        try {
+          if (!restoredInstance || restoredInstance.isDisposed?.()) {
+            restoredInstance = initChart(host);
+            inst.current = restoredInstance;
+          }
+
+          const restoreOption = cloneChartOption(appliedOptionRef.current);
+
+          restoredInstance.clear();
+
+          restoredInstance.setOption(restoreOption, {
+            notMerge: true,
+            lazyUpdate: false,
+            silent: false,
+          });
+
+          try {
+            restoredInstance.dispatchAction({
+              type: isSunburstChart
+                ? 'sunburstRootToNode'
+                : 'treemapRootToNode',
+              targetNode: null,
+            });
+          } catch { }
+
+          try {
+            restoredInstance.resize();
+          } catch { }
+
+          setHasChartInstance(true);
+        } catch {
+          try {
+            if (host.isConnected) {
+              if (restoredInstance && !restoredInstance.isDisposed?.()) {
+                restoredInstance.dispose();
+              }
+
+              const recreatedInstance = initChart(host);
+              const restoreOption = cloneChartOption(appliedOptionRef.current);
+
+              recreatedInstance.setOption(restoreOption, {
+                notMerge: true,
+                lazyUpdate: false,
+                silent: false,
+              });
+
+              recreatedInstance.resize();
+              inst.current = recreatedInstance;
+              setHasChartInstance(true);
+            }
+          } catch {
+            inst.current = null;
+            setHasChartInstance(false);
+          }
+        }
+      });
+
       return;
     }
-    inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 100, dataZoomIndex: 0 });
+
+    if (!inst.current || inst.current.isDisposed?.()) return;
+
+    try {
+      inst.current.dispatchAction({
+        type: 'dataZoom',
+        start: 0,
+        end: 100,
+        dataZoomIndex: 0,
+      });
+
+      inst.current.resize();
+    } catch { }
+  }
+
+  function sanitizeFilename(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "chart";
+    const sanitized = trimmed
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return sanitized || "chart";
+  }
+
+  function saveFullChart() {
+    const sourceInst = inst.current;
+    const storedOption = appliedOptionRef.current;
+
+    if (!sourceInst || sourceInst.isDisposed?.() || !storedOption) {
+      savePng(inst.current, chart.name);
+      return;
+    }
+
+    const downloadName = `${sanitizeFilename(chart.name)}.png`;
+
+    let container = null;
+    let offscreenInst = null;
+
+    try {
+      container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-10000px";
+      container.style.top = "0";
+      container.style.width = `${sourceInst.getWidth()}px`;
+      container.style.height = `${sourceInst.getHeight()}px`;
+      container.style.visibility = "hidden";
+      container.style.pointerEvents = "none";
+      document.body.appendChild(container);
+
+      offscreenInst = initChart(container);
+
+      const fullOption = cloneChartOption(storedOption);
+
+      if (Array.isArray(fullOption.dataZoom)) {
+        fullOption.dataZoom = fullOption.dataZoom.map((dz) => ({
+          ...dz,
+          start: 0,
+          end: 100,
+          startValue: undefined,
+          endValue: undefined,
+        }));
+      }
+
+      if (fullOption.animation === undefined) fullOption.animation = false;
+      fullOption.animationDuration = 0;
+      fullOption.animationDurationUpdate = 0;
+
+      offscreenInst.setOption(fullOption, true);
+
+      if (isTreemapChart || isSunburstChart) {
+        try {
+          offscreenInst.dispatchAction({
+            type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode",
+          });
+        } catch (e) {
+        }
+      }
+
+      offscreenInst.resize();
+
+      const finish = () => {
+        let dataURL = null;
+        try {
+          dataURL = offscreenInst.getDataURL({
+            type: "png",
+            pixelRatio: 2,
+            backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
+            excludeComponents: ["toolbox"],
+          });
+        } catch (e) {
+          dataURL = null;
+        }
+
+        if (dataURL) {
+          try {
+            const link = document.createElement("a");
+            link.download = downloadName;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (e) {
+          }
+        }
+
+        try {
+          if (offscreenInst && !offscreenInst.isDisposed?.()) {
+            offscreenInst.dispose();
+          }
+        } catch (e) {
+        }
+        try {
+          if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+        } catch (e) {
+        }
+      };
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(finish, 150);
+        });
+      });
+    } catch (e) {
+      try {
+        if (offscreenInst && !offscreenInst.isDisposed?.()) {
+          offscreenInst.dispose();
+        }
+      } catch (err) {
+      }
+      try {
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      } catch (err) {
+      }
+      savePng(inst.current, chart.name);
+    }
   }
 
   const wrap = fs
     ? {
-        position: 'fixed',
-        inset: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 2147483647,
-        background: 'var(--bg-page)',
-        padding: 16,
-        overflow: 'hidden',
-        cursor: 'default',
-        display: 'flex',
-        flexDirection: 'column',
-        margin: 0,
-        borderRadius: 0,
-        boxSizing: 'border-box',
-      }
+      position: 'fixed',
+      inset: 0,
+      width: '100vw',
+      height: '100vh',
+      zIndex: 2147483647,
+      background: 'var(--bg-page)',
+      padding: 16,
+      overflow: 'hidden',
+      cursor: 'default',
+      display: 'flex',
+      flexDirection: 'column',
+      margin: 0,
+      borderRadius: 0,
+      boxSizing: 'border-box',
+    }
     : {
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-      };
+      width: '100%',
+      height: '100%',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      minWidth: 0,
+      minHeight: 0,
+      boxSizing: 'border-box',
+    };
 
   const pieChartControlsFlags = {
     zoomFun: false,
@@ -1868,6 +2161,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const tableScrollMaxHeight = fs ? 'calc(100vh - 240px)' : (isSmallScreen ? 300 : 360);
 
+  const isKpi = !!opt?._kpi;
+  const kpiMinHeight = isSmallScreen ? 180 : 240;
+  const errorMinHeight = isSmallScreen ? 160 : 220;
+
   const tileContent = (
     <div
       className="card"
@@ -1877,6 +2174,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ...wrap,
         ...(highlighted ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : {}),
         ...(chart._rerunning ? { opacity: 0.6 } : {}),
+        ...(opt?._error || opt?._waiting ? { minHeight: errorMinHeight } : {}),
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8, flexShrink: 0 }}>
@@ -1888,14 +2186,14 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           {chart._rerunning && <span className="loading-spinner" style={{ marginLeft: 8 }} />}
         </span>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
-          {opt && !opt._error && !opt._waiting && !opt._kpi && !opt._table && (
+          {!opt._error && !opt._waiting && !opt._kpi && !opt._table && (
             <ChartToolbar
               zoomable={!!opt?.xAxis || isTreemapChart}
               fullscreen={fs}
               onZoomIn={zoomIn}
               onZoomOut={zoomOut}
               onZoomReset={resetZoom}
-              onSave={() => savePng(inst.current, chart.name)}
+              onSave={saveFullChart}
               onToggleFullscreen={() => {
                 setFs((prev) => {
                   const next = !prev;
@@ -1923,21 +2221,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               }
             />
           )}
-          {opt && (opt._error || opt._waiting || opt._kpi || opt._table) && (
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                setFs((prev) => {
-                  const next = !prev;
-                  setFss(next);
-                  return next;
-                });
-              }}
-              title={fs ? 'Exit full screen' : 'Full screen'}
-            >
-              <Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon>
-            </button>
-          )}
           {isAdmin && (
             <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete chart (admin only)" disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
           )}
@@ -1949,11 +2232,28 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           <Icon className="ti ti-clock"></Icon> {opt.message}
         </div>
       )}
-      {opt?._kpi && <div style={{ textAlign: 'center', padding: 24 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{opt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-table)' }}>{opt.value}</div></div>}
+      {opt?._kpi && (
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ textAlign: 'center', padding: 24, height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{opt.label}</div>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-table)' }}>{opt.value}</div>
+          </div>
+        </div>
+      )}
 
       {opt?._table && (
         <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          <div style={{ overflowX: 'auto', width: '100%', minWidth:0 }}>
+          <div style={{ overflowX: 'auto', width: '100%', minWidth: 0 }}>
             <div style={{ maxHeight: tableScrollMaxHeight, overflowY: 'auto', overflowX: 'auto', minWidth: 0 }}>
               <div style={{ display: 'block', minWidth: 0 }}>
                 <DataTable rows={opt.data} maxRows={opt?.data?.length || (fs ? 10 : 5)} />

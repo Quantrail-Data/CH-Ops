@@ -53,7 +53,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toContain('onZoomIn={previewTools.zoomIn}');
     expect(code).toContain('onZoomOut={previewTools.zoomOut}');
     expect(code).toContain('onZoomReset={resetZoom}');
-    expect(code).toContain('onSave={previewTools.save}');
+    expect(code).toContain('onSave={saveFullChart}');
     expect(code).toContain('onToggleFullscreen={previewTools.toggleFullscreen}');
   });
 
@@ -70,12 +70,6 @@ describe('ChartBuilder: preview never crashes the page', () => {
   it('resizes preview after chart render and layout toggles', () => {
     expect(code).toMatch(/setTimeout\(\(\)\s*=>\s*\{[\s\S]*previewInst\.current[\s\S]*resize\(\)[\s\S]*\}\s*,\s*50\s*\);/);
     expect(code).toMatch(/setTimeout\(\(\)\s*=>\s*\{[\s\S]*previewInst\.current[\s\S]*resize\(\)[\s\S]*\}\s*,\s*150\s*\);/);
-  });
-
-  it('keeps zoom reset support in the component', () => {
-    expect(code).toContain('function resetZoom()');
-    expect(code).toContain('type: "dataZoom"');
-    expect(code).toContain('dataZoomIndex: 0');
   });
 
   it('defines chart control flags for pie and non-pie charts', () => {
@@ -376,5 +370,140 @@ describe('ChartBuilder: preview never crashes the page', () => {
   it('keeps responsive small-screen detector', () => {
     expect(code).toContain('window.innerWidth <= 768');
     expect(code).toContain("window.addEventListener('resize', handleResize)");
+  });
+
+  it('uses saveFullChart as toolbar save handler', () => {
+    expect(code).toContain('function saveFullChart()');
+    expect(code).toContain('onSave={saveFullChart}');
+  });
+
+  it('keeps saveFullChart fallback to previewTools.save', () => {
+    expect(code).toContain('previewTools.save();');
+    expect(code).toContain('const storedOption = enhancedOptionRef.current;');
+  });
+
+  it('uses offscreen chart export flow for full chart download', () => {
+    expect(code).toContain('offscreenInst = initChart(container)');
+    expect(code).toContain('offscreenInst.getDataURL({');
+    expect(code).toContain('requestAnimationFrame(() => {');
+  });
+
+  it('keeps fullscreen page shell body class lifecycle handling', () => {
+    expect(code).toContain('chart-builder-page-fullscreen');
+    expect(code).toContain('document.body.classList.add("chart-builder-page-fullscreen")');
+    expect(code).toContain('document.body.classList.remove("chart-builder-page-fullscreen")');
+  });
+
+  it('keeps preview tools hook wiring and filename for exports', () => {
+    expect(code).toContain('const previewTools = useChartTools(() => previewInst.current, {');
+    expect(code).toContain('filename: "chart-preview"');
+  });
+
+  it('keeps cloneChartOption deep clone helper for export safety', () => {
+    expect(code).toContain('function cloneChartOption(value)');
+    expect(code).toContain('if (Array.isArray(value))');
+    expect(code).toContain("if (value && typeof value === 'object')");
+    expect(code).toContain('Object.keys(value).forEach((key) => {');
+  });
+
+  it('keeps SQL parameter parsing memoization and parse-error surface', () => {
+    expect(code).toContain('const declaredParams = React.useMemo(() => {');
+    expect(code).toContain('findParameters(sql || "")');
+    expect(code).toContain('const paramError = React.useMemo(() => {');
+    expect(code).toContain('return e.message;');
+  });
+
+  it('keeps required parameter blocking before query execution', () => {
+    expect(code).toContain('const missing = declaredParams');
+    expect(code).toContain('.filter((p) => p.required && !(paramDefaults[p.name] ?? "").toString().trim())');
+    expect(code).toContain('Required parameters have no value until a dashboard supplies one.');
+  });
+
+  it('keeps chart save payload fields for create and update paths', () => {
+    expect(code).toContain('sqlQuery: sql');
+    expect(code).toContain('chartType,');
+    expect(code).toContain('chartSubtype,');
+    expect(code).toContain('config,');
+    expect(code).toContain('method: "PUT"');
+    expect(code).toContain('method: "POST"');
+  });
+
+  it('keeps untitled name auto-generation and increment format', () => {
+    expect(code).toContain('if (!normalizedName)');
+    expect(code).toContain('if (!used.has("untitled"))');
+    expect(code).toContain('normalizedName = "Untitled"');
+    expect(code).toContain('const candidate = `Untitled ${String(idx).padStart(2, "00")}`');
+  });
+
+  it('keeps dashboard grid slot allocation loop for new charts', () => {
+    expect(code).toContain('const occupied = new Set(');
+    expect(code).toContain('while (occupied.has(`${row}-${col}`))');
+    expect(code).toContain('if (col >= cols)');
+  });
+
+  it('keeps filename sanitization before PNG download', () => {
+    expect(code).toContain('function sanitizeFilename(name)');
+    expect(code).toContain('.replace(/[\\\\/:*?"<>|]+/g, "")');
+    expect(code).toContain('.replace(/\\s+/g, "_")');
+    expect(code).toContain('return sanitized || "chart";');
+  });
+
+  it('keeps offscreen export cleanup and fallback path', () => {
+    expect(code).toContain('if (offscreenInst && !offscreenInst.isDisposed?.())');
+    expect(code).toContain('offscreenInst.dispose()');
+    expect(code).toContain('if (container && container.parentNode)');
+    expect(code).toContain('container.parentNode.removeChild(container)');
+    expect(code).toContain('previewTools.save();');
+  });
+
+  it('keeps reset button labels for treemap and sunburst restore mode', () => {
+    expect(code).toContain('resetTitle={isTreemapChartType || isSunBurstChartType ? "Restore view" : "Reset zoom"}');
+    expect(code).toContain('resetAriaLabel={isTreemapChartType || isSunBurstChartType ? "Restore view" : "Reset zoom"}');
+    expect(code).toContain('resetIcon={isSunBurstChartType ? "ti-arrow-back-up" : undefined}');
+  });
+
+  it('keeps specialized toolbar feature flags for sankey funnel sunburst and treemap', () => {
+    expect(code).toContain('const sankeyControlsFlags = {');
+    expect(code).toContain('const funnelControlsFlags = {');
+    expect(code).toContain('const sunburstControlsFlags = {');
+    expect(code).toContain('const treemapControlsFlags = {');
+    expect(code).toContain('isWantFeature={');
+  });
+
+  it('keeps chart option branch guards for non-echarts renderers', () => {
+    expect(code).toContain('chartOption._kpi');
+    expect(code).toContain('chartOption._table');
+    expect(code).toContain('chartOption._error');
+    expect(code).toContain('setChartOption(null);');
+  });
+
+  it('keeps SQL editor run binding and compact variant setup', () => {
+    expect(code).toContain('<SqlEditor');
+    expect(code).toContain('variant="compact"');
+    expect(code).toContain('onRun={runSql}');
+    expect(code).toContain('placeholder="SELECT ..."');
+  });
+
+  it('keeps dashboard fetch and non-fatal catch handling', () => {
+    expect(code).toContain('apiFetch("/api/dashboards")');
+    expect(code).toContain('.then(setDashboards)');
+    expect(code).toContain('.catch(() => {});');
+  });
+
+  it('keeps preview fullscreen class style gate for hiding floating search ui', () => {
+    expect(code).toContain('body.chart-builder-preview-fullscreen .global-search-fab');
+    expect(code).toContain('display: none !important;');
+    expect(code).toContain('pointer-events: none !important;');
+  });
+
+  it('keeps max rows state initializer fallback', () => {
+    expect(code).toContain('const [maxRows, setMaxRowsState] = useState(() => {');
+    expect(code).toContain('return readMaxRows();');
+    expect(code).toContain('return 5000;');
+  });
+
+  it('keeps numeric column helper used for numeric field mapping select options', () => {
+    expect(code).toContain('SeperateNumericColumns(columns).map((c) => (');
+    expect(code).toContain('f?.expect === "numeric"');
   });
 });

@@ -14,7 +14,6 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { apiKeys } from '../db/schema.js';
 import { decrypt } from './crypto.js';
-import AIServices from '../servicesAI/AIService.js';
 
 // Read the active AI key. The api_key table's "name" column doubles as the
 // provider, mirroring how the rest of the app constructs its AI client.
@@ -22,7 +21,7 @@ export function getActiveAiConfig() {
   const active = db.select().from(apiKeys).where(eq(apiKeys.isActive, 1)).get();
   if (!active) return null;
   return {
-    provider: String(active.provider || '').toUpperCase(),
+    provider: String(active.name || '').toUpperCase(),
     model: active.model,
     apiKey: decrypt(active.encryptedKey),
   };
@@ -37,7 +36,7 @@ export function aiStatusFromConfig(cfg) {
     configured: true,
     provider: cfg.provider,
     model: cfg.model,
-    executable: ["GEMINI","MISTRAL","CLAUDE","OPEN AI","OLLAMA"]?.includes(cfg?.provider),
+    executable: cfg.provider === 'GEMINI',
   };
 }
 
@@ -60,23 +59,19 @@ export async function completeDdl(prompt) {
     e.status = 400;
     throw e;
   }
-  // if (cfg.provider !== 'GEMINI') {
-  //   const e = new Error(`AI provider "${cfg.provider}" is not supported yet. Select Gemini.`);
-  //   e.status = 400;
-  //   throw e;
-  // }
+  if (cfg.provider !== 'GEMINI') {
+    const e = new Error(`AI provider "${cfg.provider}" is not supported yet. Select Gemini.`);
+    e.status = 400;
+    throw e;
+  }
 
   try {
-
-    // const client = new GoogleGenAI({ apiKey: cfg.apiKey });
-    // const response = await client.models.generateContent({
-    //   model: cfg.model || 'gemini-1.5-pro',
-    //   contents: prompt,
-    // });
-    // return response.text || '';
-    const AIService = new AIServices(cfg?.provider,cfg?.model,cfg?.apiKey);
-    const response = await AIService?.ask(prompt);
-    return response || ""
+    const client = new GoogleGenAI({ apiKey: cfg.apiKey });
+    const response = await client.models.generateContent({
+      model: cfg.model || 'gemini-1.5-pro',
+      contents: prompt,
+    });
+    return response.text || '';
   } catch (err) {
     const status = err?.status || err?.code || err?.statusCode;
     const message = err?.message || '';

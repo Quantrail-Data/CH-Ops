@@ -221,9 +221,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
         currentChats.map((chat) =>
           chat.id === chatId
             ? {
-                ...chat,
-                title: nextTitle,
-              }
+              ...chat,
+              title: nextTitle,
+            }
             : chat,
         ),
       );
@@ -557,9 +557,8 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                       type="button"
                       className="btn btn-ghost"
                       title="More options"
-                      aria-label={`More options for ${
-                        chat?.title || "Untitled chat"
-                      }`}
+                      aria-label={`More options for ${chat?.title || "Untitled chat"
+                        }`}
                       aria-expanded={openMenuId === chat.id}
                       onClick={(event) => handleMenuToggle(event, chat.id)}
                     >
@@ -714,7 +713,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           );
           setQuriozMessage(messageHis);
         }
-      } catch (error) {}
+      } catch (error) { }
     };
     loadMessage();
   }, [session_id]);
@@ -806,7 +805,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           setEditorCreds({ user: s.chUser });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -845,7 +844,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   async function handleDisconnect() {
     try {
       await apiFetch("/api/ai/connect", { method: "DELETE" });
-    } catch {}
+    } catch { }
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");
@@ -896,35 +895,35 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   ) => {
     return isNewChat()
       ? {
-          method: "POST",
-          body: JSON.stringify({
-            chatId: session_id ?? null,
-            instruction: userQuestion,
-            tables: result,
-            clusterId: selectedClusterId,
-            node: nodeName,
-            previousInstruction: null,
-            previousSql: null,
-            forceRefreshDdl: false,
-            messageId: messageId,
-            isApiConfigured: isApiConfigured,
-          }),
-        }
+        method: "POST",
+        body: JSON.stringify({
+          chatId: session_id ?? null,
+          instruction: userQuestion,
+          tables: result,
+          clusterId: selectedClusterId,
+          node: nodeName,
+          previousInstruction: null,
+          previousSql: null,
+          forceRefreshDdl: false,
+          messageId: messageId,
+          isApiConfigured: isApiConfigured,
+        }),
+      }
       : {
-          method: "POST",
-          body: JSON.stringify({
-            chatId: session_id ?? null,
-            instruction: userQuestion,
-            tables: result,
-            clusterId: selectedClusterId,
-            node: nodeName,
-            previousInstruction: null,
-            previousSql: null,
-            forceRefreshDdl: false,
-            messageId: messageId,
-            isApiConfigured: isApiConfigured,
-          }),
-        };
+        method: "POST",
+        body: JSON.stringify({
+          chatId: session_id ?? null,
+          instruction: userQuestion,
+          tables: result,
+          clusterId: selectedClusterId,
+          node: nodeName,
+          previousInstruction: null,
+          previousSql: null,
+          forceRefreshDdl: false,
+          messageId: messageId,
+          isApiConfigured: isApiConfigured,
+        }),
+      };
   };
 
   const currentSubmitMessageHandler = async (userQuestion) => {
@@ -1036,37 +1035,37 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       const QueryResult = await RunSqlQueryhandler(SQL);
       QueryResult?.success
         ? insertMessage({
-            id: Date.now(),
-            type: "bot",
-            isLoading: false,
-            sql: SQL,
-            showResponse: true,
-            tableData: QueryResult?.rows || [],
-            chart: {
-              isOpen: false,
-              chartOption: {},
-              error: { status: false, message: "" },
-              editorOption: {},
-            },
-            error: { status: false, message: null },
-            aiError: { status: false, message: null },
-          })
+          id: Date.now(),
+          type: "bot",
+          isLoading: false,
+          sql: SQL,
+          showResponse: true,
+          tableData: QueryResult?.rows || [],
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: { status: false, message: null },
+          aiError: { status: false, message: null },
+        })
         : insertMessage({
-            id: Date.now(),
-            type: "bot",
-            isLoading: false,
-            sql: SQL,
-            showResponse: true,
-            tableData: [],
-            chart: {
-              isOpen: false,
-              chartOption: {},
-              error: { status: false, message: "" },
-              editorOption: {},
-            },
-            error: { status: false, message: null },
-            aiError: { status: false, message: null },
-          });
+          id: Date.now(),
+          type: "bot",
+          isLoading: false,
+          sql: SQL,
+          showResponse: true,
+          tableData: [],
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: { status: false, message: null },
+          aiError: { status: false, message: null },
+        });
       setIsLoading(false);
     } catch (servererror) {
       insertMessage({
@@ -1089,7 +1088,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             servererror?.message === "Failed to fetch"
               ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
               : servererror?.message ||
-                "Request failed to load. Please check your internet connection and try again.",
+              "Request failed to load. Please check your internet connection and try again.",
         },
       });
       setIsLoading(false);
@@ -1203,7 +1202,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             err?.message === "Failed to fetch"
               ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
               : err?.message ||
-                "Request failed to load. Please check your internet connection and try again.",
+              "Request failed to load. Please check your internet connection and try again.",
         },
       };
       replaceChat(error);
@@ -1335,10 +1334,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
       const findDB =
         Object.keys(genTables)?.length > 0
           ? req?.filter((v) => {
-              const find = Object.keys(genTables)?.find((b) => b === v);
+            const find = Object.keys(genTables)?.find((b) => b === v);
 
-              return find === undefined;
-            })
+            return find === undefined;
+          })
           : req;
 
       if (findDB?.length === 0) return;
@@ -1577,7 +1576,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 <Icon
                   className="ti ti-user"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
+                // aria-hidden="true"
                 ></Icon>
                 <input
                   className="form-input"
@@ -1608,7 +1607,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 <Icon
                   className="ti ti-lock"
                   style={{ fontSize: 15, opacity: 0.55 }}
-                  // aria-hidden="true"
+                // aria-hidden="true"
                 ></Icon>
                 <div
                   style={{

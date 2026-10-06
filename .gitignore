@@ -1,10 +1,13 @@
 node_modules/
 dist/
 .env
+codeql-*
+*.sarif
 data/
 *.db
 *.sqlite
 *.log
+.*/
 .DS_Store
 bun.lockb
 prisma/migrations/

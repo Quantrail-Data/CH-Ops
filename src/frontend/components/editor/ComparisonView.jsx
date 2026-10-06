@@ -235,8 +235,7 @@ const ComparePane = memo(function ComparePane({
       }
     } catch (error) {
       onChange(
-        `/*\n--QUESTION : ${message}? \n*/\n\n-- Error : ${
-          error?.message || "SQL generation failed"
+        `/*\n--QUESTION : ${message}? \n*/\n\n-- Error : ${error?.message || "SQL generation failed"
         }`,
       );
     } finally {
@@ -245,8 +244,8 @@ const ComparePane = memo(function ComparePane({
   }
 
   const ListTheSelectedDatabase = () => {
-    const result  = responseBodyStructTableDatabase(genTables)
-  return result?.length > 0
+    const result = responseBodyStructTableDatabase(genTables)
+    return result?.length > 0
   };
 
   return (
@@ -523,10 +522,10 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
       const findDB =
         Object.keys(genTables)?.length > 0
           ? req?.filter((v) => {
-              const find = Object.keys(genTables)?.find((b) => b === v);
+            const find = Object.keys(genTables)?.find((b) => b === v);
 
-              return find === undefined;
-            })
+            return find === undefined;
+          })
           : req;
 
       if (findDB?.length === 0) return;
@@ -726,7 +725,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     }
   }
 
- 
+
   const [leftSql, setLeftSql] = useState("");
   const [rightSql, setRightSql] = useState("");
   const leftSqlRef = useRef("");
@@ -880,7 +879,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
           setEditorCreds({ user: s.chUser });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -908,7 +907,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
   async function handleDisconnect() {
     try {
       await editorDisconnect();
-    } catch {}
+    } catch { }
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");
@@ -1065,6 +1064,8 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                 <div
                   style={{
                     position: "relative",
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
                   <input
@@ -1092,7 +1093,8 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                       style={{
                         position: "absolute",
                         right: "10px",
-                        top: "17%",
+                        top: "50%",
+                        transform: "translateY(-50%)",
                         fontSize: "17px",
                       }}
                     />

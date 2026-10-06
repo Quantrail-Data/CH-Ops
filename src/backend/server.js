@@ -7,12 +7,13 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+import { rateLimit } from 'express-rate-limit';
+createRequire(import.meta.url);
 let embeddedAssets = null;
 try {
   const mod = await import('./embeddedAssets.js');
   embeddedAssets = mod.default;
-} catch {}
+} catch { }
 
 // let RD_SERVICE = null;
 // try {
@@ -27,7 +28,6 @@ import { log } from './services/logger.js';
 import { loadEnv } from './utils/env.js';
 import { initCrypto } from './services/crypto.js';
 import { authMiddleware } from './middleware/auth.js';
-import { rateLimiter } from './middleware/rateLimiter.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { startScheduler } from './services/alertScheduler.js';
@@ -75,7 +75,7 @@ try { env = loadEnv(); } catch (err) { console.error(`  Config error: ${err.mess
 initCrypto(env.encryptionSecret);
 
 onRevoke(clearCredSessionByJti);
-onRevoke((jti) => { try { cancelJobsForJti(jti); } catch {} });
+onRevoke((jti) => { try { cancelJobsForJti(jti); } catch { } });
 
 pruneExpired();
 setInterval(pruneExpired, 10 * 60 * 1000).unref?.();
@@ -87,7 +87,7 @@ try {
   const generated = await import('./version.generated.js');
   if (generated.APP_VERSION) appVersion.version = generated.APP_VERSION;
   if (generated.VERSION_INFO) appVersion = { ...generated.VERSION_INFO, ...appVersion };
-} catch {}
+} catch { }
 
 try {
   await import('./db/migrate.js');
@@ -100,6 +100,7 @@ log.info('Database ready (Drizzle ORM + bun:sqlite)');
 
 import { assertDatabaseReadable } from './db/index.js';
 import { migrateClusterData } from './services/clusterUtils.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 migrateClusterData();
 
 const app = express();
@@ -124,7 +125,29 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use((req, res, next) => { req.env = env; next(); });
 
-app.use('/api/auth', rateLimiter(100, 60), authRoute);
+const authenticatedRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10000,
+  standardHeaders: true,
+  legacyHeaders: true,
+});
+
+// Apply a global rate limiter for all /api routes (excluding the public auth/health/version/forget-password endpoints).
+// This ensures any route that performs authorization is always rate-limited.
+app.use('/api', (req, res, next) => {
+  // Keep these endpoints public / separately rate-limited
+  if (req.path.startsWith('/auth') || req.path.startsWith('/health') || req.path.startsWith('/version') || req.path.startsWith('/forget-password')) {
+    return next();
+  }
+  return authenticatedRateLimiter(req, res, next);
+});
+
+app.use('/api/auth', rateLimit({
+  windowMs: 60 * 1000,
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: true,
+}), authRoute);
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString(), version: appVersion.version }));
 app.get('/api/ready', (req, res) => {
   try {
@@ -138,32 +161,32 @@ app.get('/api/ready', (req, res) => {
 app.get('/api/version', (req, res) => res.json(appVersion));
 app.use('/api/forget-password', rateLimiter(100, 60), ForgetRouter);
 app.use('/api/query', authMiddleware, rateLimiter(10000, 60), queryRoute);
-app.use('/api/editor', authMiddleware,rateLimiter(10000, 60), editorRoute);
-app.use('/api/config', authMiddleware,rateLimiter(10000, 60), configRoute);
-app.use('/api/settings', authMiddleware,rateLimiter(10000, 60), settingsRoute);
+app.use('/api/editor', authMiddleware, rateLimiter(10000, 60), editorRoute);
+app.use('/api/config', authMiddleware, rateLimiter(10000, 60), configRoute);
+app.use('/api/settings', authMiddleware, rateLimiter(10000, 60), settingsRoute);
 app.use('/api/app-config', authMiddleware, rateLimiter(120, 60), appConfigRoute);
 app.use('/api/trusted-cas', authMiddleware, rateLimiter(60, 60), trustedCaRoute);
 app.use('/api/system-smtp', authMiddleware, rateLimiter(30, 60), systemSmtpRoute);
-app.use('/api/alerts', authMiddleware,rateLimiter(10000, 60), alertsRoute);
-app.use('/api/dashboards', authMiddleware,rateLimiter(10000, 60), dashboardsRoute);
-app.use('/api/users', authMiddleware,rateLimiter(10000, 60), usersRoute);
-app.use('/api/cluster', authMiddleware,rateLimiter(10000, 60), clusterRoute);
-app.use('/api/k8s', authMiddleware,rateLimiter(10000, 60), k8sRoute);
-app.use('/api/app-backup', authMiddleware,rateLimiter(10000, 60), appBackupRoute);
-app.use('/api/qurioz/api-keys', authMiddleware,rateLimiter(10000, 60), apiKeysRoute);
+app.use('/api/alerts', authMiddleware, rateLimiter(10000, 60), alertsRoute);
+app.use('/api/dashboards', authMiddleware, rateLimiter(10000, 60), dashboardsRoute);
+app.use('/api/users', authMiddleware, rateLimiter(10000, 60), usersRoute);
+app.use('/api/cluster', authMiddleware, rateLimiter(10000, 60), clusterRoute);
+app.use('/api/k8s', authMiddleware, rateLimiter(10000, 60), k8sRoute);
+app.use('/api/app-backup', authMiddleware, rateLimiter(10000, 60), appBackupRoute);
+app.use('/api/qurioz/api-keys', authMiddleware, rateLimiter(10000, 60), apiKeysRoute);
 app.use('/api/export/download', rateLimiter(10000, 60), downloadRouter);
-app.use('/api/export', rateLimiter(10000, 60), authMiddleware, exportRoute);
+app.use('/api/export', authenticatedRateLimiter, authMiddleware, exportRoute);
 
 // app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
 // app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
-app.use("/api/schema-studio", authMiddleware,rateLimiter(10000, 60), schemaStudioRoute);
+app.use("/api/schema-studio", authMiddleware, rateLimiter(10000, 60), schemaStudioRoute);
 
 
 // version3 Qurioz 
 app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiConnectRoute);
 app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiSchemaRoute);
 app.use("/api/ai", authMiddleware, aiGenerateRoute);
-app.use("/api/ai", authMiddleware, rateLimiter(10000,60), aiChatRoute)
+app.use("/api/ai", authMiddleware, rateLimiter(10000, 60), aiChatRoute)
 
 
 function serveEmbedded(prefix) {

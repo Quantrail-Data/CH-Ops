@@ -8,12 +8,28 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { login, changePassword, logout } from '../controllers/auth.js';
 
-const router = Router();
 
-router.post('/', login);
-router.post('/logout', logout);
-router.post('/change-password', changePassword);
+const router = Router();
+router.post('/', rateLimit({
+    windowMs: 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: true,
+}), login);
+router.post('/logout', rateLimit({
+    windowMs: 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: true,
+}), logout);
+router.post('/change-password', rateLimit({
+    windowMs: 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: true,
+}), changePassword);
 
 export default router;

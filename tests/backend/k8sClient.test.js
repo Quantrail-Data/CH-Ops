@@ -113,6 +113,13 @@ describe("createK8sClient: request construction", () => {
 
     expect(calls[0].options.headers.Accept).toBe(TABLE_ACCEPT);
   });
+
+  it('rejects absolute request paths to prevent SSRF', async () => {
+    const client = createK8sClient(CONN);
+    await expect(client.get('https://attacker.example/pods')).rejects.toThrow('Invalid request path');
+    await expect(client.post('https://attacker.example/review', {})).rejects.toThrow('Invalid request path');
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe("createK8sClient: listAll pagination", () => {
@@ -255,6 +262,42 @@ describe("createK8sClient: retry behaviour", () => {
     await expect(createK8sClient(CONN).get(paths.pods("prod"))).rejects.toMatchObject({
       code: K8S_ERROR.SERVER_ERROR,
     });
+  });
+});
+
+describe('createK8sClient: POST and streaming reads', () => {
+  it('posts JSON self-subject reviews with authentication and the cluster CA', async () => {
+    stubFetch(() => jsonResponse({ status: { resourceRules: [] } }));
+    const payload = { apiVersion: 'authorization.k8s.io/v1', kind: 'SelfSubjectRulesReview' };
+
+    const result = await createK8sClient(CONN).post(paths.selfSubjectRulesReviews(), payload);
+
+    expect(result).toEqual({ status: { resourceRules: [] } });
+    expect(calls[0].options).toMatchObject({
+      method: 'POST', body: JSON.stringify(payload),
+      headers: { Authorization: `Bearer ${CONN.token}`, 'Content-Type': 'application/json' },
+      tls: { ca: CONN.caCertificate },
+    });
+  });
+
+  it('classifies failed POST responses and transport failures with route context', async () => {
+    stubFetch(() => jsonResponse({ message: 'no permission' }, { status: 403 }));
+    await expect(createK8sClient(CONN).post('/apis/review', {}, {
+      context: { namespace: 'prod', resource: 'pods', verb: 'list' },
+    })).rejects.toMatchObject({ code: K8S_ERROR.FORBIDDEN, details: { namespace: 'prod' } });
+
+    globalThis.fetch = async () => { throw new Error('self signed certificate'); };
+    await expect(createK8sClient(CONN).post('/apis/review', {})).rejects.toMatchObject({
+      code: K8S_ERROR.CERT_UNTRUSTED,
+    });
+  });
+
+  it('returns raw response bodies for log streams and asks for any media type', async () => {
+    const body = new ReadableStream();
+    stubFetch(() => ({ ...jsonResponse({}), body }));
+
+    expect(await createK8sClient(CONN).stream(paths.podLog('prod', 'ch-0'))).toBe(body);
+    expect(calls[0].options.headers.Accept).toBe('*/*');
   });
 });
 

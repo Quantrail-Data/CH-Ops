@@ -20,7 +20,6 @@ export function getAllApiKeys() {
     return keys.map(key => ({
       id: key.id,
       name: key.name,
-      provider:key.provider,
       isActive: !!key.isActive,
       createdAt: key.createdAt,
       updatedAt: key.updatedAt,

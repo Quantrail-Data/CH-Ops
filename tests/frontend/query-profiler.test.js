@@ -29,11 +29,6 @@ const MEMORY_CONTEXTS = [
 
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-function toLocalDatetime(date) {
-  const d = date instanceof Date ? date : new Date(date);
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
 
 function toChDatetime(val) {
   const s = val.replace('T', ' ');
@@ -70,6 +65,7 @@ LIMIT 500`;
 
 function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
   const safeId = queryId.replace(/'/g, "\\'");
+
   const conditions = [
     `query_id = '${safeId}'`,
     `event_time >= '${toChDatetime(from)}'`,
@@ -265,8 +261,8 @@ describe('buildFlameGraphSql', () => {
 
   it('escapes single quotes in queryId', () => {
     const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: "abc'def", from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00' });
-    expect(sql).toContain("abc\\'def");
-    expect(sql).not.toContain("abc'def'");
+    expect(sql).include("abc\\'def");
+    expect(sql).not.include("abc'def'");
   });
 });
 
@@ -331,11 +327,15 @@ describe('heightOfJson', () => {
   });
 
   it('returns correct depth for nested tree', () => {
-    const tree = { name: 'root', children: [
-      { name: 'a', children: [
-        { name: 'b', children: [] }
-      ]}
-    ]};
+    const tree = {
+      name: 'root', children: [
+        {
+          name: 'a', children: [
+            { name: 'b', children: [] }
+          ]
+        }
+      ]
+    };
     expect(heightOfJson(tree)).toBe(3);
   });
 });

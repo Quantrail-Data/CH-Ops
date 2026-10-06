@@ -58,9 +58,9 @@ export function requireAdmin(req, res, next) {
 // Allows only super admins to perform actions and access the features
 
 export function requireSuperAdminOnly(req, res, next) {
-if (req.user?.role !== 'superadmin')
-return res.status(403).json({ error: "Superadmin access required." });
-next();
+  if (req.user?.role !== 'superadmin')
+    return res.status(403).json({ error: "Superadmin access required." });
+  next();
 }
 
 // Blocks readonly users. Used on routes where editors can write.
@@ -186,9 +186,9 @@ export async function createUser(req, res) {
             threshold: 0,
             lastValue: 0,
             lastRunAt: new Date().toISOString(),
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch {}
+      } catch { }
     }
 
     res
@@ -230,18 +230,7 @@ export async function updateUser(req, res) {
             error: "You do not have permission to change this user's role.",
           });
       }
-      // Max 3 superadmins
-      if (newRole === "superadmin") {
-        const count = db
-          .select()
-          .from(appUsers)
-          .all()
-          .filter((u) => u.role === "superadmin").length;
-        if (count >= 3)
-          return res
-            .status(400)
-            .json({ error: "Maximum 3 super admins allowed." });
-      }
+
       updates.role = newRole;
     }
 
@@ -261,7 +250,7 @@ export async function updateUser(req, res) {
       updates.passwordHash = await hashPassword(pw);
       updates.mustChangePassword = true;
       db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
-      
+
       const smtp = resolveSystemSmtp();
       if (smtp?.host && target.email) {
         try {
@@ -291,7 +280,7 @@ export async function updateUser(req, res) {
       } else if (!target.email) {
         console.log(`User ${target.username} has no email configured, password not sent via email`);
       }
-      
+
       return res.json({ ok: true, generatedPassword: pw });
     }
 

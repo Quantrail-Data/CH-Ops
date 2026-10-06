@@ -11,7 +11,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from "../common/Icon.jsx";
 import { runQuery } from '../../utils/api.js';
 import { initChart, disposeChart } from '../../utils/echarts.js';
-import {useTheme} from "../../App.jsx";
+import { useTheme } from "../../App.jsx";
 
 const pad = n => String(n).padStart(2, '0');
 const fmtAgo = h => { const d = new Date(Date.now() - h * 3600000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
@@ -45,8 +45,6 @@ function interpolateScale(anchors, steps) {
 const HEATMAP_SCALE = interpolateScale(ANCHORS, 1000);
 
 // Legacy exports for backward compat
-const DARK_COLORS = HEATMAP_SCALE;
-const LIGHT_COLORS = HEATMAP_SCALE;
 const PLASMA_COLORS = HEATMAP_SCALE;
 const VIRIDIS_COLORS = HEATMAP_SCALE;
 const HEATMAP_COLORS = HEATMAP_SCALE;
@@ -97,7 +95,7 @@ function buildHeatmapEchartsOption(data, countCol) {
   const colors = fullColors.slice(0, Math.max(usedCount, 50)); // at least 50 steps
 
   return {
-    tooltip: { position: 'top', formatter: p => `${dates[p.value[0]]} ${String(p.value[1]).padStart(2,'0')}:00 - ${p.value[2].toLocaleString()} events` },
+    tooltip: { position: 'top', formatter: p => `${dates[p.value[0]]} ${String(p.value[1]).padStart(2, '0')}:00 - ${p.value[2].toLocaleString()} events` },
     grid: { top: 10, bottom: 60, left: 70, right: 20 },
     xAxis: {
       type: 'category', data: dates, splitArea: { show: true },
@@ -106,15 +104,17 @@ function buildHeatmapEchartsOption(data, countCol) {
     },
     yAxis: {
       type: 'category',
-      data: hours.map(h => `${String(h).padStart(2,'0')}:00`),
+      data: hours.map(h => `${String(h).padStart(2, '0')}:00`),
       splitArea: { show: true },
       axisLabel: { fontSize: 10, interval: 2 },
       name: 'Hour', nameLocation: 'center', nameGap: 50, nameTextStyle: { fontSize: 11 },
     },
     visualMap: { show: false, min: 0, max: maxVal, inRange: { color: colors } },
-    series: [{ type: 'heatmap', data: hmData, label: { show: false },
+    series: [{
+      type: 'heatmap', data: hmData, label: { show: false },
       itemStyle: { borderColor: 'rgba(100,100,140,0.25)', borderWidth: 1 },
-      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)', borderColor: 'var(--accent)', borderWidth: 2 } } }],
+      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)', borderColor: 'var(--accent)', borderWidth: 2 } }
+    }],
   };
 }
 
@@ -132,12 +132,12 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
   const chartRef = useRef(null);
   const chartInst = useRef(null);
   const { theme } = useTheme();
-    const isDarkColor = theme === 'dark' ? 'white' : 'black';
-  
+  const isDarkColor = theme === 'dark' ? 'white' : 'black';
+
 
   function applyDuration(d) {
     setDuration(d);
-    const h = {['1h']:1,['6h']:6,['24h']:24,['48h']:48,['7d']:168,['30d']:720}[d]||168;
+    const h = { ['1h']: 1, ['6h']: 6, ['24h']: 24, ['48h']: 48, ['7d']: 168, ['30d']: 720 }[d] || 168;
     setFrom(fmtAgo(h)); setTo(fmtNow());
   }
 
@@ -163,57 +163,59 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
     if (!option) return;
     if (chartInst.current) { disposeChart(chartRef.current); chartInst.current = null; }
     chartInst.current = initChart(chartRef.current);
-    chartInst.current.setOption({...option,
-      visualMap : {
+    chartInst.current.setOption({
+      ...option,
+      visualMap: {
         ...option.visualMap,
-        inRange: { color: ['white',"blue","darkblue"] },
+        inRange: { color: ['white', "blue", "darkblue"] },
       },
-  //     onHover: (event, activeElements, chart) => {
+      //     onHover: (event, activeElements, chart) => {
 
-  //   if (activeElements.length > 0) {
-  //     chart.canvas.style.cursor = 'pointer';
-  //   } else {
-  //     chart.canvas.style.cursor = 'default';
-  //     chart.canvas.style.color = 'red'
-  //   }
-  // },
+      //   if (activeElements.length > 0) {
+      //     chart.canvas.style.cursor = 'pointer';
+      //   } else {
+      //     chart.canvas.style.cursor = 'default';
+      //     chart.canvas.style.color = 'red'
+      //   }
+      // },
       xAxis: {
-      ...option.xAxis,
-      nameGap: 40,
-      position: 'bottom',
-      axisLabel: {
-        ...option.xAxis?.axisLabel,
-        rotate: 0,
-        align: 'left',
-        color: isDarkColor,
-        fontSize:13
+        ...option.xAxis,
+        nameGap: 40,
+        position: 'bottom',
+        axisLabel: {
+          ...option.xAxis?.axisLabel,
+          rotate: 0,
+          align: 'left',
+          color: isDarkColor,
+          fontSize: 13
+
+        },
+        axisLine: { show: false },
+        nameTextStyle: {
+          color: isDarkColor,
+          fontSize: 15,
+          fontWeight: 'bold'
+        }
 
       },
-      axisLine: { show: false },
-      nameTextStyle: {
-        color: isDarkColor,
-        fontSize: 15,
-        fontWeight: 'bold'
+      yAxis: {
+        ...option.yAxis,
+        position: 'bottom',
+        axisLabel: {
+          ...option.yAxis?.axisLabel,
+          rotate: 0,
+          align: 'right',
+          color: isDarkColor,
+          fontSize: 13
+        },
+        nameTextStyle: {
+          color: isDarkColor,
+          fontSize: 15,
+          fontWeight: 'bold'
+        },
+        axisLine: { show: false }
       }
-
-    },
-    yAxis: {
-      ...option.yAxis,
-      position: 'bottom',
-      axisLabel: {
-        ...option.yAxis?.axisLabel,
-        rotate: 0,
-        align: 'right',
-        color: isDarkColor,
-        fontSize:13
-      },
-      nameTextStyle: {
-        color: isDarkColor,
-        fontSize: 15,
-        fontWeight: 'bold'
-      },
-      axisLine: { show: false }
-    }}, true);
+    }, true);
     chartInst.current.resize();
   }, [data, countCol, themeKey]);
 
@@ -257,7 +259,7 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
           </div>
         </div>
         {filterDropdown}
-        <button className="btn btn-primary btn-sm" style={{padding:"10px"}} onClick={loadHeatmap} disabled={loading}>{loading ? <><span className="loading-spinner"></span> Loading...</> : <><Icon className="ti ti-player-play"></Icon> Load Heatmap</>}</button>
+        <button className="btn btn-primary btn-sm" style={{ padding: "10px" }} onClick={loadHeatmap} disabled={loading}>{loading ? <><span className="loading-spinner"></span> Loading...</> : <><Icon className="ti ti-player-play"></Icon> Load Heatmap</>}</button>
       </div>
       {data?.length > 0 ? (
         <div className="card" style={fullscreen ? { position: 'fixed', inset: 0, zIndex: 300, borderRadius: 0, padding: 16, display: 'flex', flexDirection: 'column' } : { padding: 16 }}>
@@ -268,9 +270,9 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
           <div ref={chartRef} style={{ height: fullscreen ? 'calc(100% - 40px)' : 628, width: '100%' }} />
         </div>
       ) : data !== null ? (
-        <div className="empty-state"><Icon className="ti ti-player-play" style={{color:"#fb923c"}}></Icon><p>No data for the selected range.</p></div>
+        <div className="empty-state"><Icon className="ti ti-player-play" style={{ color: "#fb923c" }}></Icon><p>No data for the selected range.</p></div>
       ) : (
-        <div className="empty-state"><Icon className="ti ti-player-play" style={{color:"#fb923c"}}></Icon><p>Select a time range and click Load Heatmap.</p></div>
+        <div className="empty-state"><Icon className="ti ti-player-play" style={{ color: "#fb923c" }}></Icon><p>Select a time range and click Load Heatmap.</p></div>
       )}
     </div>
   );

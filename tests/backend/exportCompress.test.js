@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
+import { strFromU8, unzipSync } from "fflate";
 import { writeExportFile, zstdAvailable } from "../../src/backend/services/exportCompress.js";
 
 let dir;
@@ -66,6 +67,20 @@ describe("gzip", () => {
       webStream: fakeStream(DATA), destPath: p, compression: "gzip", innerName: "small.csv", bom: false,
     });
     expect(written).toBeLessThan(BYTES);
+  });
+});
+
+describe('zip', () => {
+  test('writes a compressed archive containing the requested inner file', async () => {
+    const p = dest('out.zip');
+    const written = await writeExportFile({
+      webStream: fakeStream(DATA, 31), destPath: p, compression: 'zip', innerName: 'export.csv', bom: false,
+    });
+
+    const archive = unzipSync(new Uint8Array(fs.readFileSync(p)));
+    expect(Object.keys(archive)).toEqual(['export.csv']);
+    expect(strFromU8(archive['export.csv'])).toBe(DATA);
+    expect(written).toBe(fs.statSync(p).size);
   });
 });
 

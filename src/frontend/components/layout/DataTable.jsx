@@ -389,7 +389,6 @@ export default function DataTable({
     return () => document.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
-  const renderRow = useCallback((row, ri) => row, []);
 
   // Primitive cell click: preserve existing behavior (toggle wrap + copy/toast).
   function handlePrimitiveClick(cellKey, value) {
@@ -409,9 +408,8 @@ export default function DataTable({
     setModalCell({ columnName, value });
   }
 
-  const wrapClass = `data-table-wrap${
-    variant === "single" ? " dt-single" : variant === "fixed" ? " dt-fixed" : ""
-  }`;
+  const wrapClass = `data-table-wrap${variant === "single" ? " dt-single" : variant === "fixed" ? " dt-fixed" : ""
+    }`;
 
   if (!rows.length) {
     return (
@@ -426,12 +424,12 @@ export default function DataTable({
 
               {overView
                 ? cols?.map((c) => {
-                    return (
-                      <th key={c}>
-                        {c?.includes("fmt") ? c?.split("_")[0] : c}
-                      </th>
-                    );
-                  })
+                  return (
+                    <th key={c}>
+                      {c?.includes("fmt") ? c?.split("_")[0] : c}
+                    </th>
+                  );
+                })
                 : cols.map((c) => <th key={c}>{c.replace(/_/g, " ")}</th>)}
 
               {actions && <th>Actions</th>}
@@ -479,25 +477,25 @@ export default function DataTable({
       style={
         fullscreen
           ? {
-              // Sized by the portal host below, not by the viewport directly.
-              height: "100%",
-              maxHeight: "none",
-              overflow: "auto",
-              background: "var(--bg-page)",
-              // padding: "38px 0 0",
-              border: 0,
-              borderRadius: 0,
-            }
+            // Sized by the portal host below, not by the viewport directly.
+            height: "100%",
+            maxHeight: "none",
+            overflow: "auto",
+            background: "var(--bg-page)",
+            // padding: "38px 0 0",
+            border: 0,
+            borderRadius: 0,
+          }
           : {
-              // A virtualised table cannot be sized by its content: it has to
-              // scroll for there to be anything to virtualise.
-              maxHeight:
-                maxHeight ??
-                (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
-              ...(maxHeight || virtualize ? { overflow: "auto" } : null),
-              position: "relative",
-              minHeight: minHeight ?? "70px",
-            }
+            // A virtualised table cannot be sized by its content: it has to
+            // scroll for there to be anything to virtualise.
+            maxHeight:
+              maxHeight ??
+              (virtualize ? "60vh" : QuriozFlag ? "15rem" : undefined),
+            ...(maxHeight || virtualize ? { overflow: "auto" } : null),
+            position: "relative",
+            minHeight: minHeight ?? "70px",
+          }
       }
     >
       <table className="data-table">
@@ -507,10 +505,10 @@ export default function DataTable({
 
             {overView
               ? cols?.map((c) => {
-                  return (
-                    <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
-                  );
-                })
+                return (
+                  <th key={c}>{c?.includes("fmt") ? c?.split("_")[0] : c}</th>
+                );
+              })
               : cols.map((c) => <th key={c}>{c.replace(/_/g, " ")}</th>)}
 
             {actions && <th>Actions</th>}
@@ -558,8 +556,8 @@ export default function DataTable({
           {(virtualize && !unmeasured
             ? virtualRows.map((v) => [visibleRows[v.index], v.index])
             : (unmeasured ? rows.slice(0, FALLBACK_ROWS) : visibleRows).map(
-                (r, i) => [r, i],
-              )
+              (r, i) => [r, i],
+            )
           ).map(([row, ri]) => (
             <tr
               key={ri}
@@ -588,9 +586,8 @@ export default function DataTable({
                   return (
                     <td
                       key={c}
-                      className={`dt-complex${
-                        selectedCell === key ? " cell-selected" : ""
-                      }`}
+                      className={`dt-complex${selectedCell === key ? " cell-selected" : ""
+                        }`}
                       onClick={() => handleComplexClick(key, c, raw)}
                       title="Click to expand"
                       style={{ whiteSpace: "nowrap", cursor: "pointer" }}
@@ -608,9 +605,8 @@ export default function DataTable({
                 return (
                   <td
                     key={c}
-                    className={`${expandedCells.has(key) ? "expanded" : ""} ${
-                      selectedCell === key ? "cell-selected" : ""
-                    }`}
+                    className={`${expandedCells.has(key) ? "expanded" : ""} ${selectedCell === key ? "cell-selected" : ""
+                      }`}
                     onClick={() => handlePrimitiveClick(key, val)}
                     onDoubleClick={() => {
                       typeof onCellClick === "function" && onCellClick(val);
@@ -622,19 +618,19 @@ export default function DataTable({
                           ? "normal"
                           : "nowrap",
                       wordWrap: "break-word",
-                      width:"calc(100% / 5)",
-                      maxWidth:0
-                      
+                      width: "calc(100% / 5)",
+                      maxWidth: 0
+
                     } :
-                     {
-                      whiteSpace: whiteSpaceFlag
-                        ? "pre"
-                        : expandedCells.has(key)
-                          ? "normal"
-                          : "nowrap",
-                      wordWrap: "break-word",
+                      {
+                        whiteSpace: whiteSpaceFlag
+                          ? "pre"
+                          : expandedCells.has(key)
+                            ? "normal"
+                            : "nowrap",
+                        wordWrap: "break-word",
+                      }
                     }
-                  }
                   >
                     {formatPrimitive(raw)}
                   </td>

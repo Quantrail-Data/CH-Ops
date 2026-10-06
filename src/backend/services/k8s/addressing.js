@@ -110,9 +110,7 @@ function externalAddressFor(service) {
     return { host, port: httpPort.port };
   }
 
-  if (service.spec?.type === 'NodePort') {
-
-    if (!httpPort.nodePort) return null;
+  if (service.spec?.type === 'NodePort' && httpPort.nodePort) {
     return { host: null, port: httpPort.nodePort, needsNodeAddress: true };
   }
 

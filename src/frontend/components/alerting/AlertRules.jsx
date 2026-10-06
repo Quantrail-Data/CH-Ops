@@ -90,11 +90,11 @@ export default function AlertRules() {
     try {
       const r = await apiFetch("/api/alerts/rules");
       setRules(Array.isArray(r) ? r : []);
-    } catch {}
+    } catch { }
     try {
       const c = await apiFetch("/api/alerts/channels");
       setChannels(Array.isArray(c) ? c : []);
-    } catch {}
+    } catch { }
     setLoaded(true);
   }
 
@@ -165,7 +165,7 @@ export default function AlertRules() {
       }
 
       // noRowLimit: an alert threshold query returns ONE value by definition.
-      const checkQuery = await runQuery(f.sql, { noRowLimit: true });
+      await runQuery(f.sql, { noRowLimit: true });
       const payload = {
         ...f,
         schedule: normalizedSchedule,
@@ -195,7 +195,7 @@ export default function AlertRules() {
 
   async function testQuery() {
     try {
-      const check = await runQuery(f.sql)
+      await runQuery(f.sql)
       setResult({ ok: true, msg: "Query executed successfully" });
     } catch (error) {
       setResult({ ok: false, msg: error.message });
@@ -521,7 +521,7 @@ export default function AlertRules() {
             className="btn btn-primary"
             onClick={testQuery}
             disabled={!f.name || !f.sql || !!cronError}
-            style={{marginLeft:"10px"}}
+            style={{ marginLeft: "10px" }}
           >
             <Icon className="ti ti-send"></Icon>{" "}
             Test
@@ -710,7 +710,7 @@ export default function AlertRules() {
                     ></Icon>{" "}
                     {r.cluster_id
                       ? (clusters || []).find((c) => c.id === r.cluster_id)
-                          ?.name || r.cluster_id
+                        ?.name || r.cluster_id
                       : "All clusters"}
                   </span>
                 </div>

@@ -259,8 +259,8 @@ export default function UserManagement() {
     setRoleChange(null);
   }
 
-async function resetPassword(id,initUser) {
-    if(initUser) {
+  async function resetPassword(id, initUser) {
+    if (initUser) {
       toast.error("Cannot reset passord for init user");
     }
     try {
@@ -598,7 +598,7 @@ async function resetPassword(id,initUser) {
           )}
           {/* {isSmtpConfigured &&  <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>} */}
 
-          {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"]&&(
+          {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"] && (
             <div className="alert-banner info" style={{ marginBottom: 14 }}>
               <Icon className="ti ti-info-circle"></Icon>SMTP is not configured.
               Email notifications are disabled. You can only create users and
@@ -766,7 +766,7 @@ async function resetPassword(id,initUser) {
                         >
                           <button
                             className="btn btn-secondary btn-sm"
-                            onClick={() => resetPassword(u.id,u.initUser)}
+                            onClick={() => resetPassword(u.id, u.initUser)}
                             title="Reset Password"
                             disabled={!canManage || u.initUser}
                             style={
@@ -1004,7 +1004,7 @@ async function resetPassword(id,initUser) {
                   marginTop: 2,
                 }}
               >
-               ( Recommended for secure SMTP connections)
+                ( Recommended for secure SMTP connections)
               </small>
             </div>
           </div>
@@ -1025,8 +1025,8 @@ async function resetPassword(id,initUser) {
                 : !smtpForm.from?.trim()
                   ? "Enter a from address to continue."
                   : smtpForm.user?.trim() &&
-                      !smtpForm.password &&
-                      !smtp?.hasPassword
+                    !smtpForm.password &&
+                    !smtp?.hasPassword
                     ? "Enter the password for this username, or clear the username if the server needs no authentication."
                     : "Enter a port between 1 and 65535."}
             </div>

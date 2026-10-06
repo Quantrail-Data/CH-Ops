@@ -65,7 +65,7 @@ router.post("/otp/verify", (req, res) => {
 
     const user = findSoleUserByEmail(email);
     if (!user) return res.status(400).json(fail);
-    
+
     const result = verifyOTP(user.id, String(otp));
     if (!result.ok) return res.status(400).json(fail);
 

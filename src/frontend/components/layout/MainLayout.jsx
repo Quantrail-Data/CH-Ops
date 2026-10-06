@@ -176,7 +176,6 @@ function MainLayoutInner() {
   const mainRef = useRef();
 
 
-  const isEditorRoute = route.includes("qurioz");
 
   const allRoutes = useMemo(() => [...CORE_ROUTES], []);
 
@@ -191,7 +190,7 @@ function MainLayoutInner() {
 
   function ScrollBottomAuto() {
     mainRef?.current?.scrollTo({
-      top: mainRef?.current?.scrollHeight ,
+      top: mainRef?.current?.scrollHeight,
       behavior: "smooth",
     });
 
@@ -216,7 +215,7 @@ function MainLayoutInner() {
             forceCollapsed={false}
             onToggle={() => setSidebarCollapsed((v) => !v)}
           />
-          <main className="app-main" ref={mainRef} style={route === "editor/query" ? {padding:"0px"} : {}}>
+          <main className="app-main" ref={mainRef} style={route === "editor/query" ? { padding: "0px" } : {}}>
             <Breadcrumb route={route} />
             <ErrorBoundary>
               <Suspense fallback={fallback}>

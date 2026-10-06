@@ -87,7 +87,12 @@ export function saveConnection({ id, name, apiAddress, caCertificate, token, nam
 
   const values = {
     name,
-    apiAddress: apiAddress.replace(/\/+$/, ''),
+    // Trim trailing slashes without using a regex on user input
+    apiAddress: (() => {
+      let a = String(apiAddress || '');
+      while (a.endsWith('/')) a = a.slice(0, -1);
+      return a;
+    })(),
     namespacesJson: namespaces?.length ? JSON.stringify(namespaces) : null,
     updatedAt: now,
   };
@@ -251,11 +256,11 @@ export async function testConnection({ apiAddress, caCertificate, token, namespa
     result.operator = result.operators.includes('akoc')
       ? { reachable: true }
       : {
-          reachable: false,
-          message: result.operators.includes('ocko')
-            ? 'AKOC was not found. This namespace runs the Official ClickHouse® Kubernetes Operator (OCKO).'
-            : 'No supported ClickHouse® operator was found in this namespace.',
-        };
+        reachable: false,
+        message: result.operators.includes('ocko')
+          ? 'AKOC was not found. This namespace runs the Official ClickHouse® Kubernetes Operator (OCKO).'
+          : 'No supported ClickHouse® operator was found in this namespace.',
+      };
   }
 
   return result;

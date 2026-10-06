@@ -248,12 +248,14 @@ LIMIT 500`.trim();
 }
 
 function buildDiscoverySql(queryId) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
+
   return `SELECT * FROM system.query_metric_log WHERE query_id = '${safeId}' ORDER BY event_time_microseconds`;
 }
 
 function buildMetricsSql(queryId, columns) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
+
   const MAX_ACTIVE_COLUMNS = 100;
   const safeCols = columns
     .slice(0, MAX_ACTIVE_COLUMNS)
@@ -269,7 +271,8 @@ ORDER BY event_time_microseconds`.trim();
 }
 
 function buildFullQuerySql(queryId) {
-  const safeId = queryId.replace(/'/g, "\\'");
+  const safeId = queryId.replace(/'/g, "\\\\'");
+
   return `SELECT query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 
@@ -348,8 +351,8 @@ describe('QueryMetrics Component', () => {
     vi.clearAllMocks();
     useSearchParamsMock.mockReturnValue([new URLSearchParams('')]);
     global.MutationObserver = class {
-      observe() {}
-      disconnect() {}
+      observe() { }
+      disconnect() { }
     };
     global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
     global.cancelAnimationFrame = (id) => clearTimeout(id);

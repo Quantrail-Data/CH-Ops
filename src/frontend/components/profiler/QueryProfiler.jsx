@@ -163,23 +163,14 @@ LIMIT 500`.trim();
 
 function buildFullQuerySql(queryId) {
   const safeId = queryId.replace(/'/g, "\\'");
+
   return `SELECT formatQuery(query) as query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 
 function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const chFrom = toChDatetime(from);
-  const chTo = toChDatetime(to);
   const safeId = queryId.replace(/'/g, "\\'");
 
-  let traceFilter = "";
-  if (traceType) {
-    traceFilter = `\n  AND trace_type = '${traceType}'`;
-  }
 
-  let contextFilter = "";
-  if (memoryContext && supportsMemoryContext(traceType)) {
-    contextFilter = `\n  AND memory_context = '${memoryContext}'`;
-  }
   return `
 SELECT
   arrayStringConcat(
@@ -679,7 +670,7 @@ export default function QueryProfiler() {
     try {
       const result = await runQuery(buildFullQuerySql(query.query_id));
       if (result.rows?.[0]?.query) setPopupQueryText(result.rows[0].query);
-    } catch {}
+    } catch { }
     setPopupTextLoading(false);
   }, []);
 
@@ -789,25 +780,25 @@ export default function QueryProfiler() {
     fullscreenFun: true,
   };
 
-    const getUnavailableMessage = () => {
-  const match = conn.unavailable.find(item => item.table === "system.trace_log");
-  return match ? match.message : null;
-};
+  const getUnavailableMessage = () => {
+    const match = conn.unavailable.find(item => item.table === "system.trace_log");
+    return match ? match.message : null;
+  };
 
-const unavailableMessage = getUnavailableMessage();
+  const unavailableMessage = getUnavailableMessage();
 
-if (unavailableMessage) {
-  return (
-    <div className="unavailable-container">
-      <div className="unavailable-icon-wrapper">
-        <Icon className="ti-git-branch" />
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">
+          {unavailableMessage}
+        </div>
       </div>
-      <div className="unavailable-text">
-        {unavailableMessage}
-      </div>
-    </div>
-  );
-}
+    );
+  }
 
 
   return (
@@ -1006,7 +997,7 @@ if (unavailableMessage) {
                 const isSelected = selectedQueryId === q.query_id;
                 const preview = q.query_preview
                   ? q.query_preview.substring(0, 100) +
-                    (q.query_preview.length > 100 ? "..." : "")
+                  (q.query_preview.length > 100 ? "..." : "")
                   : "(no query text)";
                 const dur =
                   q.query_duration_ms != null ? `${q.query_duration_ms}ms` : "";
@@ -1174,16 +1165,16 @@ if (unavailableMessage) {
         style={
           flameTools.fullscreen
             ? {
-                position: "fixed",
-                zIndex: 9999,
-                background: "var(--bg-page)",
-                padding: 16,
-                overflow: "auto",
-                top: "0px",
-                left: "0px",
-                width: "100%",
-                height: "100vh",
-              }
+              position: "fixed",
+              zIndex: 9999,
+              background: "var(--bg-page)",
+              padding: 16,
+              overflow: "auto",
+              top: "0px",
+              left: "0px",
+              width: "100%",
+              height: "100vh",
+            }
             : { padding: 20, marginBottom: 16, minHeight: 200 }
         }
       >

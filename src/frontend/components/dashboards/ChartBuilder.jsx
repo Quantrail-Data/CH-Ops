@@ -28,6 +28,22 @@ import MaxRowsControl, { clampMaxRows, readMaxRows, MAX_ROWS_KEY } from "../edit
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
+function cloneChartOption(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneChartOption);
+  }
+
+  if (value && typeof value === 'object') {
+    const result = {};
+    Object.keys(value).forEach((key) => {
+      result[key] = cloneChartOption(value[key]);
+    });
+    return result;
+  }
+
+  return value;
+}
+
 export default function ChartBuilder({ editChart, onEditDone }) {
   const toast = useToast();
   const { theme } = useTheme();
@@ -53,7 +69,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     setMaxRowsState(v);
     try {
       localStorage.setItem(MAX_ROWS_KEY, String(v));
-    } catch {}
+    } catch { }
   }
 
   const [chartType, setChartType] = useState("bar");
@@ -109,7 +125,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   useEffect(() => {
     apiFetch("/api/dashboards")
       .then(setDashboards)
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -170,7 +186,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || false;
   const hasMultipleSubtypes = (typeInfo?.subtypes?.length || 0) > 1;
-  
+
   const shouldShowLegend = needsLegend(chartType, chartSubtype);
 
   const isTablePreview = !!chartOption?._table;
@@ -316,7 +332,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         effectiveXLabel = yLabel;
         effectiveYLabel = xLabel;
       }
-      
+
       setChartOption(
         buildChartOption(chartType, chartSubtype, data, mapping, chartName, {
           xLabel: effectiveXLabel,
@@ -435,7 +451,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         const isTreemapChart = chartType === 'treemap' || chartSubtype === 'treemap';
         const isGaugeChart = chartType === 'gauge' || chartSubtype === 'gauge';
 
-        const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunBurst && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineLike || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chartType === 'bar' || chartType === 'line' || chartType === 'scatter' || chartType === 'heatmap');
+        const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunBurst && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineLike || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chartType === 'bar' || chartType === 'line' || chartType === 'scatter' || chartType === 'heatmap' || chartType === 'candlestick' || chartType === 'boxplot');
 
         const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
         const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
@@ -454,13 +470,21 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           sunburstLegendData = Array.from(new Set(sunburstLegendData)).slice(0, 200);
         }
 
+        const legendHorizontalPadding = isSmallScreen ? 8 : 0;
+        const legendRightOffset = isSmallScreen ? 12 : 0;
+        const legendLeftOffset = isSmallScreen ? 12 : 0;
+
         let legendConfig = {
           ...option.legend,
           textStyle: { ...(option.legend?.textStyle || {}), color: isDarkColor },
           type: 'scroll',
           pageIconColor: isDarkColor,
           pageIconInactiveColor: 'var(--text-muted)',
+          pageIconSize: isSmallScreen ? 10 : 12,
           pageTextStyle: { color: isDarkColor },
+          pageButtonItemGap: isSmallScreen ? 3 : 5,
+          pageButtonGap: isSmallScreen ? 4 : 6,
+          pageButtonPosition: 'end',
           itemStyle: {
             ...(option.legend?.itemStyle || {}),
             borderColor: 'transparent',
@@ -481,10 +505,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               bottom: 8,
               width: 220,
             } : {
-              left: 0,
-              right: 0,
+              left: legendLeftOffset,
+              right: legendRightOffset,
               top: 0,
-              width: '100%',
+              width: 'auto',
+              padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
             })
           };
         } else if (isSunBurst) {
@@ -500,10 +525,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               bottom: 8,
               width: 220,
             } : {
-              left: 0,
-              right: 0,
+              left: legendLeftOffset,
+              right: legendRightOffset,
               top: 0,
-              width: '100%',
+              width: 'auto',
+              padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
             })
           };
         }
@@ -545,15 +571,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         })();
 
         const isFullscreen = previewTools.fullscreen;
-        const axisFontSize = isFullscreen 
+        const axisFontSize = isFullscreen
           ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
           : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
         const dataLabelFontSize = isFullscreen
           ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
           : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
-        const xRotate = (isBarChart || isHeatmap || isLineLike) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-        const axisNameGapX = (isBarChart || isHeatmap || isLineLike) ? (tickCount > 50 ? 108 : 96) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, tickCount > 40 ? 56 : 46);
-        const axisMarginX = (isBarChart || isHeatmap || isLineLike) ? (tickCount > 50 ? 10 : 14) : (tickCount > 40 ? 10 : 12);
+        const xRotate = (isBarChart || isHeatmap || isLineLike || isCandlestick || isBoxplot || isScatterLike) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0);
+        const axisNameGapX = (isBarChart || isHeatmap || isLineLike || isCandlestick || isBoxplot) ? (tickCount > 50 ? 108 : 96) : Math.max((Array.isArray(baseOption.xAxis) ? baseOption.xAxis[0]?.nameGap : baseOption.xAxis?.nameGap) || 25, isScatterLike ? 56 : (tickCount > 40 ? 56 : 46));
+        const axisMarginX = (isBarChart || isHeatmap || isLineLike || isCandlestick || isBoxplot) ? (tickCount > 50 ? 10 : 14) : (tickCount > 40 ? 10 : 12);
         const seriesLabelWidth = isFullscreen
           ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
           : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
@@ -589,9 +615,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           ? ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 240 : extraLeftForYAxisName)
           : ((hasLegendCheck && legendVisible) || (isSunBurstChart && sunburstLegendData.length > 0 && legendVisible) ? 20 : extraLeftForYAxisName);
 
-        const gridBottomAuto = (isBarChart || isHeatmap || isLineLike)
+        const gridBottomAuto = (isBarChart || isHeatmap || isLineLike || isCandlestick || isBoxplot)
           ? (tickCount > 80 ? 180 : tickCount > 60 ? 165 : tickCount > 40 ? 150 : tickCount > 24 ? 130 : 112)
-          : (isScatterLike ? (tickCount > 40 ? 92 : 80) : (tickCount > 40 ? 94 : 80));
+          : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 94 : 80));
 
         const horizontalHeightByCount = isHorizontalBar
           ? (horizontalCategoryCount > 30 ? 200 : horizontalCategoryCount > 24 ? 170 : horizontalCategoryCount > 18 ? 140 : 112)
@@ -640,34 +666,34 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
         const shouldShowDataLabels = (() => {
           if (isPieChart) return !finalHideLabels;
-          
+
           if (isHeatmap) {
             const totalHeatmapCells = Array.isArray(baseOption.series)
               ? baseOption.series.reduce((acc, s) => {
-                  if (s.type === 'heatmap' && Array.isArray(s.data)) {
-                    return acc + s.data.length;
-                  }
-                  return acc;
-                }, 0)
+                if (s.type === 'heatmap' && Array.isArray(s.data)) {
+                  return acc + s.data.length;
+                }
+                return acc;
+              }, 0)
               : 0;
             if (totalHeatmapCells > 15) return false;
             return !finalHideLabels;
           }
-          
+
           if (previewTools.fullscreen) return !finalHideLabels;
-          
+
           if (isSmallScreen) {
             if (tickCount > 20) return false;
             if ((isBarChart || isLineLike) && tickCount > 15) return false;
             if (!(isBarChart || isLineLike) && tickCount > 25) return false;
           }
-          
+
           if (!isSmallScreen && !previewTools.fullscreen) {
             if (tickCount > 50) return false;
             if ((isBarChart || isLineLike) && tickCount > 35) return false;
             if (!(isBarChart || isLineLike) && tickCount > 40) return false;
           }
-          
+
           return !finalHideLabels;
         })();
 
@@ -676,8 +702,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           if (!isFunnelChart) return !finalHideLabels;
           const funnelCount = Array.isArray(baseOption.series)
             ? baseOption.series
-                .filter((s) => s?.type === "funnel")
-                .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+              .filter((s) => s?.type === "funnel")
+              .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
             : 0;
           if (isSmallScreen && funnelCount > 10) return false;
           if (!isSmallScreen && funnelCount > 16) return false;
@@ -720,61 +746,127 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           animationDurationUpdate: 120,
           grid: Array.isArray(baseOption.grid)
             ? baseOption.grid.map((g) => ({
-                ...g,
-                containLabel: true,
-                top: gridTop,
-                left: gridLeft,
-                right: 24,
-                bottom: Math.max(parseInt(g?.bottom, 10) || 18, gridBottomFinal),
-              }))
+              ...g,
+              containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
+              bottom: Math.max(parseInt(g?.bottom, 10) || 18, gridBottomFinal),
+            }))
             : {
-                ...baseOption.grid,
-                containLabel: true,
-                top: gridTop,
-                left: gridLeft,
-                right: 24,
-                bottom: Math.max(parseInt(baseOption?.grid?.bottom, 10) || 18, gridBottomFinal),
-              },
+              ...baseOption.grid,
+              containLabel: true,
+              top: gridTop,
+              left: gridLeft,
+              right: 24,
+              bottom: Math.max(parseInt(baseOption?.grid?.bottom, 10) || 18, gridBottomFinal),
+            },
           xAxis: Array.isArray(baseOption.xAxis)
             ? baseOption.xAxis.map((axis) => ({
-                ...axis,
+              ...axis,
+              nameLocation: "middle",
+              nameGap: axisNameGapX,
+              splitLine: usesCartesianGrid ? {
+                ...(axis?.splitLine || {}),
+                show: isHeatmap ? false : true,
+                lineStyle: {
+                  ...(axis?.splitLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  type: 'solid',
+                  opacity: 1,
+                },
+              } : axis?.splitLine,
+              axisLine: usesCartesianGrid ? {
+                ...(axis?.axisLine || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  opacity: 1,
+                },
+              } : axis?.axisLine,
+              axisTick: usesCartesianGrid ? {
+                ...(axis?.axisTick || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisTick?.lineStyle || {}),
+                  color: gridLineColor,
+                  opacity: 1,
+                },
+              } : axis?.axisTick,
+              axisLabel: {
+                ...axis?.axisLabel,
+                rotate: xRotate,
+                align: (isBarChart || isHeatmap || isLineLike || isCandlestick || isBoxplot || isScatterLike || xRotate > 0) ? 'right' : 'left',
+                margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
+                hideOverlap: false,
+                showMinLabel: true,
+                showMaxLabel: true,
+                interval: 0,
+                color: isDarkColor,
+                fontSize: axisFontSize,
+                formatter: (v) => {
+                  try {
+                    const n = Number(v);
+                    if (Number.isFinite(n)) {
+                      if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                      if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                    }
+                    const s = String(v);
+                    const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                    return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+                  } catch { return v; }
+                },
+              },
+              nameTextStyle: {
+                ...(axis?.nameTextStyle || {}),
+                color: isDarkColor,
+                fontSize: Math.max(8, axisFontSize - 1),
+                fontWeight: 'bold'
+              }
+            }))
+            : baseOption.xAxis
+              ? {
+                ...baseOption.xAxis,
                 nameLocation: "middle",
                 nameGap: axisNameGapX,
                 splitLine: usesCartesianGrid ? {
-                  ...(axis?.splitLine || {}),
+                  ...(baseOption?.xAxis?.splitLine || {}),
                   show: isHeatmap ? false : true,
                   lineStyle: {
-                    ...(axis?.splitLine?.lineStyle || {}),
+                    ...(baseOption?.xAxis?.splitLine?.lineStyle || {}),
                     color: gridLineColor,
                     width: 1,
                     type: 'solid',
                     opacity: 1,
                   },
-                } : axis?.splitLine,
+                } : baseOption?.xAxis?.splitLine,
                 axisLine: usesCartesianGrid ? {
-                  ...(axis?.axisLine || {}),
+                  ...(baseOption?.xAxis?.axisLine || {}),
                   show: true,
                   lineStyle: {
-                    ...(axis?.axisLine?.lineStyle || {}),
+                    ...(baseOption?.xAxis?.axisLine?.lineStyle || {}),
                     color: gridLineColor,
                     width: 1,
                     opacity: 1,
                   },
-                } : axis?.axisLine,
+                } : baseOption?.xAxis?.axisLine,
                 axisTick: usesCartesianGrid ? {
-                  ...(axis?.axisTick || {}),
+                  ...(baseOption?.xAxis?.axisTick || {}),
                   show: true,
                   lineStyle: {
-                    ...(axis?.axisTick?.lineStyle || {}),
+                    ...(baseOption?.xAxis?.axisTick?.lineStyle || {}),
                     color: gridLineColor,
                     opacity: 1,
                   },
-                } : axis?.axisTick,
+                } : baseOption?.xAxis?.axisTick,
                 axisLabel: {
-                  ...axis?.axisLabel,
+                  ...baseOption?.xAxis?.axisLabel,
                   rotate: xRotate,
-                  align: (isBarChart || isHeatmap || isLineLike || xRotate > 0) ? 'right' : 'left',
-                  margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
+                  align: (isBarChart || isHeatmap || isLineLike || isCandlestick || isBoxplot || isScatterLike || xRotate > 0) ? 'right' : 'left',
+                  margin: Math.max(baseOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
                   hideOverlap: false,
                   showMinLabel: true,
                   showMaxLabel: true,
@@ -795,121 +887,122 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   },
                 },
                 nameTextStyle: {
-                  ...(axis?.nameTextStyle || {}),
+                  ...(baseOption?.xAxis?.nameTextStyle || {}),
                   color: isDarkColor,
                   fontSize: Math.max(8, axisFontSize - 1),
                   fontWeight: 'bold'
                 }
-              }))
-            : baseOption.xAxis
-              ? {
-                  ...baseOption.xAxis,
-                  nameLocation: "middle",
-                  nameGap: axisNameGapX,
-                  splitLine: usesCartesianGrid ? {
-                    ...(baseOption?.xAxis?.splitLine || {}),
-                    show: isHeatmap ? false : true,
-                    lineStyle: {
-                      ...(baseOption?.xAxis?.splitLine?.lineStyle || {}),
-                      color: gridLineColor,
-                      width: 1,
-                      type: 'solid',
-                      opacity: 1,
-                    },
-                  } : baseOption?.xAxis?.splitLine,
-                  axisLine: usesCartesianGrid ? {
-                    ...(baseOption?.xAxis?.axisLine || {}),
-                    show: true,
-                    lineStyle: {
-                      ...(baseOption?.xAxis?.axisLine?.lineStyle || {}),
-                      color: gridLineColor,
-                      width: 1,
-                      opacity: 1,
-                    },
-                  } : baseOption?.xAxis?.axisLine,
-                  axisTick: usesCartesianGrid ? {
-                    ...(baseOption?.xAxis?.axisTick || {}),
-                    show: true,
-                    lineStyle: {
-                      ...(baseOption?.xAxis?.axisTick?.lineStyle || {}),
-                      color: gridLineColor,
-                      opacity: 1,
-                    },
-                  } : baseOption?.xAxis?.axisTick,
-                  axisLabel: {
-                    ...baseOption?.xAxis?.axisLabel,
-                    rotate: xRotate,
-                    align: (isBarChart || isHeatmap || isLineLike || xRotate > 0) ? 'right' : 'left',
-                    margin: Math.max(baseOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
-                    hideOverlap: false,
-                    showMinLabel: true,
-                    showMaxLabel: true,
-                    interval: 0,
-                    color: isDarkColor,
-                    fontSize: axisFontSize,
-                    formatter: (v) => {
-                      try {
-                        const n = Number(v);
-                        if (Number.isFinite(n)) {
-                          if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                          if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                        }
-                        const s = String(v);
-                        const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
-                        return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
-                      } catch { return v; }
-                    },
-                  },
-                  nameTextStyle: {
-                    ...(baseOption?.xAxis?.nameTextStyle || {}),
-                    color: isDarkColor,
-                    fontSize: Math.max(8, axisFontSize - 1),
-                    fontWeight: 'bold'
-                  }
-                }
+              }
               : baseOption.xAxis,
           yAxis: Array.isArray(baseOption.yAxis)
             ? baseOption.yAxis.map((axis) => ({
-                ...axis,
+              ...axis,
+              splitLine: usesCartesianGrid ? {
+                ...(axis?.splitLine || {}),
+                show: isHeatmap ? false : true,
+                lineStyle: {
+                  ...(axis?.splitLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  type: 'solid',
+                  opacity: 1,
+                },
+              } : axis?.splitLine,
+              axisLine: usesCartesianGrid ? {
+                ...(axis?.axisLine || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  opacity: 1,
+                },
+              } : axis?.axisLine,
+              axisTick: usesCartesianGrid ? {
+                ...(axis?.axisTick || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisTick?.lineStyle || {}),
+                  color: gridLineColor,
+                  opacity: 1,
+                },
+              } : axis?.axisTick,
+              axisLabel: {
+                ...axis?.axisLabel,
+                color: isDarkColor,
+                hideOverlap: false,
+                showMinLabel: true,
+                showMaxLabel: true,
+                interval: 0,
+                fontSize: axisFontSize,
+                margin: Math.max(axis?.axisLabel?.margin || 8, isHorizontalBar ? 10 : 8),
+                formatter: (v) => {
+                  try {
+                    const n = Number(v);
+                    if (Number.isFinite(n)) {
+                      if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                      if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                    }
+                    if (isHorizontalBar) {
+                      const s = String(v ?? "");
+                      const maxLen = isFullscreen ? 34 : (isSmallScreen ? 16 : 26);
+                      return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+                    }
+                    return v;
+                  } catch { return v; }
+                },
+              },
+              nameLocation: axis?.nameLocation || 'middle',
+              nameGap: Math.max(axis?.nameGap || 25, yNameGap),
+              nameTextStyle: {
+                ...(axis?.nameTextStyle || {}),
+                color: isDarkColor,
+                fontSize: Math.max(8, axisFontSize - 1),
+                fontWeight: 'bold'
+              }
+            }))
+            : baseOption.yAxis
+              ? {
+                ...baseOption.yAxis,
                 splitLine: usesCartesianGrid ? {
-                  ...(axis?.splitLine || {}),
+                  ...(baseOption?.yAxis?.splitLine || {}),
                   show: isHeatmap ? false : true,
                   lineStyle: {
-                    ...(axis?.splitLine?.lineStyle || {}),
+                    ...(baseOption?.yAxis?.splitLine?.lineStyle || {}),
                     color: gridLineColor,
                     width: 1,
                     type: 'solid',
                     opacity: 1,
                   },
-                } : axis?.splitLine,
+                } : baseOption?.yAxis?.splitLine,
                 axisLine: usesCartesianGrid ? {
-                  ...(axis?.axisLine || {}),
+                  ...(baseOption?.yAxis?.axisLine || {}),
                   show: true,
                   lineStyle: {
-                    ...(axis?.axisLine?.lineStyle || {}),
+                    ...(baseOption?.yAxis?.axisLine?.lineStyle || {}),
                     color: gridLineColor,
                     width: 1,
                     opacity: 1,
                   },
-                } : axis?.axisLine,
+                } : baseOption?.yAxis?.axisLine,
                 axisTick: usesCartesianGrid ? {
-                  ...(axis?.axisTick || {}),
+                  ...(baseOption?.yAxis?.axisTick || {}),
                   show: true,
                   lineStyle: {
-                    ...(axis?.axisTick?.lineStyle || {}),
+                    ...(baseOption?.yAxis?.axisTick?.lineStyle || {}),
                     color: gridLineColor,
                     opacity: 1,
                   },
-                } : axis?.axisTick,
+                } : baseOption?.yAxis?.axisTick,
                 axisLabel: {
-                  ...axis?.axisLabel,
+                  ...baseOption?.yAxis?.axisLabel,
                   color: isDarkColor,
                   hideOverlap: false,
                   showMinLabel: true,
                   showMaxLabel: true,
                   interval: 0,
                   fontSize: axisFontSize,
-                  margin: Math.max(axis?.axisLabel?.margin || 8, isHorizontalBar ? 10 : 8),
+                  margin: Math.max(baseOption?.yAxis?.axisLabel?.margin || 8, isHorizontalBar ? 10 : 8),
                   formatter: (v) => {
                     try {
                       const n = Number(v);
@@ -926,82 +1019,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     } catch { return v; }
                   },
                 },
-                nameLocation: axis?.nameLocation || 'middle',
-                nameGap: Math.max(axis?.nameGap || 25, yNameGap),
+                nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
+                nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yNameGap),
                 nameTextStyle: {
-                  ...(axis?.nameTextStyle || {}),
+                  ...(baseOption?.yAxis?.nameTextStyle || {}),
                   color: isDarkColor,
                   fontSize: Math.max(8, axisFontSize - 1),
                   fontWeight: 'bold'
                 }
-              }))
-            : baseOption.yAxis
-              ? {
-                  ...baseOption.yAxis,
-                  splitLine: usesCartesianGrid ? {
-                    ...(baseOption?.yAxis?.splitLine || {}),
-                    show: isHeatmap ? false : true,
-                    lineStyle: {
-                      ...(baseOption?.yAxis?.splitLine?.lineStyle || {}),
-                      color: gridLineColor,
-                      width: 1,
-                      type: 'solid',
-                      opacity: 1,
-                    },
-                  } : baseOption?.yAxis?.splitLine,
-                  axisLine: usesCartesianGrid ? {
-                    ...(baseOption?.yAxis?.axisLine || {}),
-                    show: true,
-                    lineStyle: {
-                      ...(baseOption?.yAxis?.axisLine?.lineStyle || {}),
-                      color: gridLineColor,
-                      width: 1,
-                      opacity: 1,
-                    },
-                  } : baseOption?.yAxis?.axisLine,
-                  axisTick: usesCartesianGrid ? {
-                    ...(baseOption?.yAxis?.axisTick || {}),
-                    show: true,
-                    lineStyle: {
-                      ...(baseOption?.yAxis?.axisTick?.lineStyle || {}),
-                      color: gridLineColor,
-                      opacity: 1,
-                    },
-                  } : baseOption?.yAxis?.axisTick,
-                  axisLabel: {
-                    ...baseOption?.yAxis?.axisLabel,
-                    color: isDarkColor,
-                    hideOverlap: false,
-                    showMinLabel: true,
-                    showMaxLabel: true,
-                    interval: 0,
-                    fontSize: axisFontSize,
-                    margin: Math.max(baseOption?.yAxis?.axisLabel?.margin || 8, isHorizontalBar ? 10 : 8),
-                    formatter: (v) => {
-                      try {
-                        const n = Number(v);
-                        if (Number.isFinite(n)) {
-                          if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                          if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                        }
-                        if (isHorizontalBar) {
-                          const s = String(v ?? "");
-                          const maxLen = isFullscreen ? 34 : (isSmallScreen ? 16 : 26);
-                          return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
-                        }
-                        return v;
-                      } catch { return v; }
-                    },
-                  },
-                  nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
-                  nameGap: Math.max(baseOption?.yAxis?.nameGap || 25, yNameGap),
-                  nameTextStyle: {
-                    ...(baseOption?.yAxis?.nameTextStyle || {}),
-                    color: isDarkColor,
-                    fontSize: Math.max(8, axisFontSize - 1),
-                    fontWeight: 'bold'
-                  }
-                }
+              }
               : baseOption.yAxis,
         };
 
@@ -1027,10 +1053,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           if (Array.isArray(enhancedOption.series)) {
             enhancedOption.series = enhancedOption.series.map((s) => {
               if (!s || s.type !== 'heatmap') return s;
-              
+
               const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
               const shouldHideHeatmapLabels = totalHeatmapCells > 15;
-              
+
               return {
                 ...s,
                 label: {
@@ -1069,7 +1095,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           enhancedOption.series = enhancedOption.series.map((s) => {
             if (!s || !s.type) return s;
 
-            if (s.type === 'bar' || s.type === 'line' || s.type === 'scatter') {
+            if (s.type === 'bar' || s.type === 'line' || s.type === 'scatter' || s.type === 'candlestick' || s.type === 'boxplot') {
               const isLineType = s.type === 'line' || !!s.areaStyle;
               const hideForLine = isLineType && (tickCount > lineLabelHideThreshold || finalHideLabels);
               const showLabelForSeries = shouldShowDataLabels && !hideForLine;
@@ -1080,14 +1106,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               const labelDistance = s.type === 'bar'
                 ? (isHorizontalBar ? (previewTools.fullscreen ? 10 : 8) : (tickCount > 50 ? 5 : 8))
                 : (isLineType ? (tickCount > 50 ? 4 : 6) : (tickCount > 50 ? 5 : 8));
-              const labelFont = isLineType 
-                ? (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize) 
+              const labelFont = isLineType
+                ? (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize)
                 : (previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize);
               const labelWidth = s.type === 'bar' && isHorizontalBar
                 ? (previewTools.fullscreen ? 140 : (isSmallScreen ? 88 : 110))
-                : (previewTools.fullscreen 
-                    ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
-                    : seriesLabelWidth);
+                : (previewTools.fullscreen
+                  ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
+                  : seriesLabelWidth);
 
               return {
                 ...s,
@@ -1156,7 +1182,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               : isSmallScreen
                 ? (s.center || ['50%', '55%'])
                 : (s.center || ['50%', '57%']);
-            
+
             return {
               ...s,
               avoidLabelOverlap: true,
@@ -1187,13 +1213,26 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           enhancedOption.legend = {
             ...(enhancedOption.legend || {}),
             textStyle: { ...(enhancedOption.legend?.textStyle || {}), fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 12), color: isDarkColor },
-            itemGap: previewTools.fullscreen ? 18 : 12,
+            itemGap: previewTools.fullscreen ? 18 : (isSmallScreen ? 8 : 12),
             pageIconColor: isDarkColor,
+            pageIconSize: isSmallScreen ? 10 : 12,
+            pageButtonItemGap: isSmallScreen ? 3 : 5,
+            pageButtonGap: isSmallScreen ? 4 : 6,
+            pageButtonPosition: 'end',
             itemStyle: {
               ...(enhancedOption.legend?.itemStyle || {}),
               borderColor: 'transparent',
               borderWidth: 0,
             },
+            ...(previewTools.fullscreen
+              ? {}
+              : {
+                  left: legendLeftOffset,
+                  right: legendRightOffset,
+                  top: 0,
+                  width: 'auto',
+                  padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
+                }),
           };
 
           enhancedOption.grid = Array.isArray(enhancedOption.grid)
@@ -1242,11 +1281,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
             const fullscreenFunnelLayout = previewTools.fullscreen
               ? {
-                  left: legendVisible ? 248 : 24,
-                  right: 24,
-                  top: legendVisible ? 64 : 24,
-                  bottom: 28,
-                }
+                left: legendVisible ? 248 : 24,
+                right: 24,
+                top: legendVisible ? 64 : 24,
+                bottom: 28,
+              }
               : {};
 
             return {
@@ -1322,7 +1361,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               ...s,
               lineStyle: {
                 ...(s.lineStyle || {}),
-                color: theme === "dark" ?"rgba(255, 255, 255, 0.27)" : "rgba(147, 147, 147, 0.55)",
+                color: theme === "dark" ? "rgba(255, 255, 255, 0.27)" : "rgba(147, 147, 147, 0.55)",
                 opacity: 1,
                 curveness: s.lineStyle?.curveness ?? 0.2,
               },
@@ -1342,7 +1381,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               collectSunburstNames(s.data, allSunburstNames);
             }
           });
-          
+
           const uniqueLegendData = Array.from(new Set(allSunburstNames)).slice(0, 200);
 
           enhancedOption.series = enhancedOption.series.map((s) => {
@@ -1353,7 +1392,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
             return {
               ...s,
-              radius: isSunBurstVisualmap ? ["3%","65%"] : ["5%", "90%"],
+              radius: isSunBurstVisualmap ? ["3%", "65%"] : ["5%", "90%"],
               levels: [
                 {},
                 {
@@ -1402,6 +1441,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               type: 'scroll',
               pageIconColor: isDarkColor,
               pageIconInactiveColor: 'var(--text-muted)',
+              pageIconSize: isSmallScreen ? 10 : 12,
+              pageButtonItemGap: isSmallScreen ? 3 : 5,
+              pageButtonGap: isSmallScreen ? 4 : 6,
+              pageButtonPosition: 'end',
               pageTextStyle: { color: isDarkColor, fontSize: previewTools.fullscreen ? 14 : 11 },
               itemStyle: {
                 ...(enhancedOption.legend?.itemStyle || {}),
@@ -1414,10 +1457,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 bottom: 8,
                 width: 220,
               } : {
-                left: 0,
-                right: 0,
+                left: legendLeftOffset,
+                right: legendRightOffset,
                 top: 0,
-                width: '100%',
+                width: 'auto',
+                padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
               })
             };
           } else {
@@ -1570,14 +1614,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   apiFetch(`/api/dashboards/charts/${c.id}`, {
                     method: "DELETE",
                     body: JSON.stringify({}),
-                  }).catch(() => {})
+                  }).catch(() => { })
                 )
             );
           }
-        } catch {}
+        } catch { }
 
         toast.success("Chart updated.");
-        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
+        try { window.dispatchEvent(new Event('charts:changed')); } catch { }
       } else {
         const dash = dashboards.find((d) => d.id === dashId);
         const cols = dash?.columns || 2;
@@ -1608,37 +1652,28 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           }),
         });
         toast.success("Chart saved to dashboard.");
-        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
+        try { window.dispatchEvent(new Event('charts:changed')); } catch { }
       }
     } catch (e) {
       toast.error(e.message);
-    } finally {
-      setChartType("bar");
-      setChartSubtype("simple_bar");
-      setChartName("");
-      setMapping({});
-      setParamDefaults({});
-      setXLabel("");
-      setYLabel("");
-      setShowLegend(true);
-      setChartOption(null);
-      previewRef.current = null;
-      previewInst.current = null;
-      setHasChartInstance(false);
-      if (onEditDone) onEditDone();
+      return;
     }
+
+    setChartType("bar");
+    setChartSubtype("simple_bar");
+    setChartName("");
+    setMapping({});
+    setParamDefaults({});
+    setXLabel("");
+    setYLabel("");
+    setShowLegend(true);
+    setChartOption(null);
+    previewRef.current = null;
+    previewInst.current = null;
+    setHasChartInstance(false);
+    if (onEditDone) onEditDone();
   }
 
-  function isNumericColumn(columnName) {
-    if (!data || data.length === 0) return true;
-    return data.every(
-      (row) =>
-        !isNaN(row[columnName]) &&
-        row[columnName] !== null &&
-        row[columnName] !== "" &&
-        typeof row[columnName] !== "boolean",
-    );
-  }
 
   function changeType(t) {
     setChartType(t);
@@ -1742,16 +1777,151 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     });
   }
 
+  function sanitizeFilename(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "chart";
+    const sanitized = trimmed
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return sanitized || "chart";
+  }
+
+  function saveFullChart() {
+    const sourceInst = previewInst.current;
+    if (!sourceInst || sourceInst.isDisposed?.()) {
+      previewTools.save();
+      return;
+    }
+
+    const isTreemapNow = chartType === "treemap" || chartSubtype === "treemap";
+    const isSunburstNow = chartType === "sunburst" || chartSubtype === "sunburst";
+
+    const storedOption = enhancedOptionRef.current;
+    if (!storedOption) {
+      previewTools.save();
+      return;
+    }
+
+    const downloadName = `${sanitizeFilename(chartName)}.png`;
+
+    let container = null;
+    let offscreenInst = null;
+
+    try {
+      container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-10000px";
+      container.style.top = "0";
+      container.style.width = `${sourceInst.getWidth()}px`;
+      container.style.height = `${sourceInst.getHeight()}px`;
+      container.style.visibility = "hidden";
+      container.style.pointerEvents = "none";
+      document.body.appendChild(container);
+
+      offscreenInst = initChart(container);
+
+      const fullOption = cloneChartOption(storedOption);
+
+      if (Array.isArray(fullOption.dataZoom)) {
+        fullOption.dataZoom = fullOption.dataZoom.map((dz) => ({
+          ...dz,
+          start: 0,
+          end: 100,
+          startValue: undefined,
+          endValue: undefined,
+        }));
+      }
+
+      if (fullOption.animation === undefined) fullOption.animation = false;
+      fullOption.animationDuration = 0;
+      fullOption.animationDurationUpdate = 0;
+
+      offscreenInst.setOption(fullOption, true);
+
+      if (isTreemapNow || isSunburstNow) {
+        try {
+          offscreenInst.dispatchAction({
+            type: isSunburstNow ? "sunburstRootToNode" : "treemapRootToNode",
+          });
+        } catch (e) {
+        }
+      }
+
+      offscreenInst.resize();
+
+      const finish = () => {
+        let dataURL = null;
+        try {
+          dataURL = offscreenInst.getDataURL({
+            type: "png",
+            pixelRatio: 2,
+            backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
+            excludeComponents: ["toolbox"],
+          });
+        } catch (e) {
+          dataURL = null;
+        }
+
+        if (dataURL) {
+          try {
+            const link = document.createElement("a");
+            link.download = downloadName;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (e) {
+          }
+        }
+
+        try {
+          if (offscreenInst && !offscreenInst.isDisposed?.()) {
+            offscreenInst.dispose();
+          }
+        } catch (e) {
+        }
+        try {
+          if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+        } catch (e) {
+        }
+      };
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(finish, 150);
+        });
+      });
+    } catch (e) {
+      try {
+        if (offscreenInst && !offscreenInst.isDisposed?.()) {
+          offscreenInst.dispose();
+        }
+      } catch (err) {
+      }
+      try {
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      } catch (err) {
+      }
+      previewTools.save();
+    }
+  }
+
   const shellStyle = fullscreen
     ? {
-        position: "fixed",
-        inset: 0,
-        zIndex: 2000,
-        background: "var(--bg-page)",
-        overflowY: "auto",
-        overflowX: "visible",
-        padding: 14,
-      }
+      position: "fixed",
+      inset: 0,
+      zIndex: 2000,
+      background: "var(--bg-page)",
+      overflowY: "auto",
+      overflowX: "visible",
+      padding: 14,
+    }
     : {};
 
   function SeperateNumericColumns(column) {
@@ -1861,8 +2031,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           </button>
         </div>
 
-        <div className="card" 
-        style={{ marginBottom: 12, overflow: "hidden" }}>
+        <div className="card"
+          style={{ marginBottom: 12, overflow: "hidden" }}>
           <div
             onClick={() => setTopOpen(!topOpen)}
             style={{
@@ -2065,20 +2235,20 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           style={
             previewTools.fullscreen
               ? {
-                  position: "fixed",
-                  zIndex: 9999,
-                  background: "var(--bg-page)",
-                  top: 0,
-                  left: 0,
-                  width: "100vw",
-                  height: "100vh",
-                  overflow: "hidden",
-                  isolation: "isolate",
-                  margin: 0,
-                  padding: 16,
-                  display: "flex",
-                  flexDirection: "column",
-                }
+                position: "fixed",
+                zIndex: 9999,
+                background: "var(--bg-page)",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                overflow: "hidden",
+                isolation: "isolate",
+                margin: 0,
+                padding: 16,
+                display: "flex",
+                flexDirection: "column",
+              }
               : { marginBottom: 12, overflow: fullscreen ? "visible" : "hidden" }
           }
         >
@@ -2360,7 +2530,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 <ErrorBoundary
                   resetKeys={[chartOption]}
                   fallback={(err) => (
-                    <div                    className="alert-banner danger"
+                    <div className="alert-banner danger"
                       style={{ fontSize: "13px" }}
                     >
                       <Icon className="ti ti-alert-circle"></Icon> Chart preview
@@ -2397,71 +2567,71 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       <Icon className="ti ti-alert-circle"></Icon>{" "}
                       {chartOption.message}
                     </div> :
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        height: "90%",
-                        padding: "24px",
-                      }}
-                    >
                       <div
                         style={{
-                          minWidth: "280px",
-                          padding: "28px 36px",
-                          borderRadius: "18px",
-                          background: "var(--surface)",
-                          border: "1px solid var(--border-color)",
-                          boxShadow: "var(--shadow-md)",
                           display: "flex",
-                          flexDirection: "column",
+                          justifyContent: "center",
                           alignItems: "center",
-                          gap: "12px",
+                          height: "90%",
+                          padding: "24px",
                         }}
                       >
                         <div
                           style={{
-                            width: "48px",
-                            height: "4px",
-                            borderRadius: "999px",
-                            background: "var(--accent)",
-                          }}
-                        />
-                        <div
-                          style={{
-                            fontSize: "0.85rem",
-                            color: "var(--text-muted)",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.12em",
-                            fontWeight: 600,
+                            minWidth: "280px",
+                            padding: "28px 36px",
+                            borderRadius: "18px",
+                            background: "var(--surface)",
+                            border: "1px solid var(--border-color)",
+                            boxShadow: "var(--shadow-md)",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "12px",
                           }}
                         >
-                          {chartOption.label}
-                        </div>
+                          <div
+                            style={{
+                              width: "48px",
+                              height: "4px",
+                              borderRadius: "999px",
+                              background: "var(--accent)",
+                            }}
+                          />
+                          <div
+                            style={{
+                              fontSize: "0.85rem",
+                              color: "var(--text-muted)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.12em",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {chartOption.label}
+                          </div>
 
-                        <div
-                          style={{
-                            fontSize: "3.5rem",
-                            fontWeight: 800,
-                            color: "var(--accent)",
-                            lineHeight: 1,
-                            fontFamily: "var(--font-table)",
-                          }}
-                        >
-                          {chartOption.value}
-                        </div>
+                          <div
+                            style={{
+                              fontSize: "3.5rem",
+                              fontWeight: 800,
+                              color: "var(--accent)",
+                              lineHeight: 1,
+                              fontFamily: "var(--font-table)",
+                            }}
+                          >
+                            {chartOption.value}
+                          </div>
 
-                        <div
-                          style={{
-                            fontSize: "0.9rem",
-                            color: "var(--text-muted)",
-                          }}
-                        >
-                          Current Value
+                          <div
+                            style={{
+                              fontSize: "0.9rem",
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            Current Value
+                          </div>
                         </div>
                       </div>
-                    </div>
                   )}
                   {chartOption?._table && (
                     <div style={{ height: previewBodyHeight, minHeight: 0, overflow: "auto" }}>
@@ -2475,17 +2645,17 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         style={
                           previewTools.fullscreen
                             ? {
-                                position: "relative",
-                                inset: "auto",
-                                zIndex: 1,
-                                background: "transparent",
-                                padding: 0,
-                                display: "flex",
-                                flexDirection: "column",
-                                flex: 1,
-                                minHeight: 0,
-                                overflow: "hidden",
-                              }
+                              position: "relative",
+                              inset: "auto",
+                              zIndex: 1,
+                              background: "transparent",
+                              padding: 0,
+                              display: "flex",
+                              flexDirection: "column",
+                              flex: 1,
+                              minHeight: 0,
+                              overflow: "hidden",
+                            }
                             : undefined
                         }
                       >
@@ -2496,7 +2666,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                             onZoomIn={previewTools.zoomIn}
                             onZoomOut={previewTools.zoomOut}
                             onZoomReset={resetZoom}
-                            onSave={previewTools.save}
+                            onSave={saveFullChart}
                             onToggleFullscreen={previewTools.toggleFullscreen}
                             resetEnabled={hasChartInstance}
                             resetTitle={isTreemapChartType || isSunBurstChartType ? "Restore view" : "Reset zoom"}
@@ -2529,7 +2699,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           }}
                         >
                           {!chartOption && (
-                            <div className="empty-state" style={{ padding: 16 , height:"80%" }}>
+                            <div className="empty-state" style={{ padding: 16, height: "80%" }}>
                               <Icon className="ti ti-chart-dots"></Icon>
                               <p style={{ fontSize: "13px" }}>
                                 Map columns to see preview.
@@ -2546,7 +2716,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           />
                         </div>
                       </div>
-                    )} 
+                    )}
                 </ErrorBoundary>
               </div>
             </div>

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // env.test.js - unit tests for environment variable loader
 
-import { describe, it, expect, beforeAll, afterEach } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { loadEnv } from '../../src/backend/utils/env.js';
 
 beforeAll(() => {
@@ -11,7 +11,7 @@ beforeAll(() => {
   process.env.SUPER_ADMIN_1_EMAIL = 'admin@gmail.com'
   process.env.SUPER_ADMIN_2 = 'admin2';
   process.env.SUPER_ADMIN_2_PASSWORD = 'pass2';
-    process.env.SUPER_ADMIN_2_EMAIL = 'admin@gmail.com'
+  process.env.SUPER_ADMIN_2_EMAIL = 'admin@gmail.com'
   process.env.ENCRYPTION_SECRET = 'long_random_secret_32_chars_min!';
   process.env.SMTP_HOST = 'smtp.example.com';
   process.env.SMTP_PORT = '465';
@@ -45,12 +45,14 @@ describe('Env Loader - super admins', () => {
     delete process.env.SUPER_ADMIN_2_PASSWORD;
     process.env.SUPER_ADMIN = 'legacy_admin';
     process.env.SUPER_ADMIN_PASSWORD = 'legacy_pass';
-    process.env.SUPER_ADMIN_EMAIL = "legacy@gamil.com"
+    process.env.SUPER_ADMIN_EMAIL = 'legacy@example.com';
     const env = loadEnv();
     expect(env.superAdmins.length).toBe(1);
     expect(env.superAdmins[0].username).toBe('legacy_admin');
+    expect(env.superAdmins[0].email).toBe('legacy@example.com');
     delete process.env.SUPER_ADMIN;
     delete process.env.SUPER_ADMIN_PASSWORD;
+    delete process.env.SUPER_ADMIN_EMAIL;
     process.env.SUPER_ADMIN_1 = saved1;
     process.env.SUPER_ADMIN_1_PASSWORD = saved1p;
     process.env.SUPER_ADMIN_2 = saved2;
@@ -116,20 +118,20 @@ describe('Env Loader - validation', () => {
   });
 
   it('throws on missing ENCRYPTION_SECRET', () => {
-      const saved = process.env.ENCRYPTION_SECRET;
-      delete process.env.ENCRYPTION_SECRET;
-      expect(() => loadEnv()).toThrow(/ENCRYPTION_SECRET/);
-      process.env.ENCRYPTION_SECRET = saved;
-    });
+    const saved = process.env.ENCRYPTION_SECRET;
+    delete process.env.ENCRYPTION_SECRET;
+    expect(() => loadEnv()).toThrow(/ENCRYPTION_SECRET/);
+    process.env.ENCRYPTION_SECRET = saved;
+  });
 
-    it('tells a person who is upgrading to rename the value', () => {
-      const saved = process.env.ENCRYPTION_SECRET;
-      delete process.env.ENCRYPTION_SECRET;
-      process.env.SESSION_SECRET = 'the-old-value-at-least-32-characters-long';
+  it('tells a person who is upgrading to rename the value', () => {
+    const saved = process.env.ENCRYPTION_SECRET;
+    delete process.env.ENCRYPTION_SECRET;
+    process.env.SESSION_SECRET = 'the-old-value-at-least-32-characters-long';
 
-      expect(() => loadEnv()).toThrow(/keep the same value/);
+    expect(() => loadEnv()).toThrow(/keep the same value/);
 
-      delete process.env.SESSION_SECRET;
-      process.env.ENCRYPTION_SECRET = saved;
-    });
+    delete process.env.SESSION_SECRET;
+    process.env.ENCRYPTION_SECRET = saved;
+  });
 });

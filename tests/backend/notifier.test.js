@@ -10,7 +10,8 @@
  * Author: Kathir Moorthy
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, vi, mock, beforeAll } from 'bun:test';
+import { getClusterInfo, sendNotification, sendOTPEmail, testChannel, escapeHtml, extractAccountDetails, validateWebhookUrl } from '../../src/backend/services/notifier';
 
 // Extracted formatDetails logic from notifier.js
 function formatDetails(alert) {
@@ -80,3 +81,159 @@ describe('Channel config validation', () => {
   it('rejects email without smtp_host', () => { expect(validateChannel({ type: 'email' })).toContain('SMTP'); });
 });
 
+describe('Webhook URL validation', () => {
+  it('accepts public HTTPS URLs', () => {
+    const url = validateWebhookUrl('https://hooks.example.com/alerts');
+    expect(url.href).toBe('https://hooks.example.com/alerts');
+  });
+
+  it('requires HTTPS', () => {
+    expect(() => validateWebhookUrl('http://hooks.example.com/alerts'))
+      .toThrow('Webhook URLs must use HTTPS.');
+  });
+
+  it('rejects localhost, private, and link-local targets', () => {
+    for (const target of [
+      'https://localhost/hook',
+      'https://127.0.0.1/hook',
+      'https://10.0.0.7/hook',
+      'https://172.16.0.7/hook',
+      'https://192.168.0.7/hook',
+      'https://169.254.169.254/latest/meta-data',
+      'https://[::1]/hook',
+      'https://[fc00::1]/hook',
+    ]) {
+      expect(() => validateWebhookUrl(target)).toThrow('private networks');
+    }
+  });
+
+  it('rejects malformed URLs', () => {
+    expect(() => validateWebhookUrl('not a URL')).toThrow('valid HTTPS URL');
+  });
+});
+
+
+
+
+
+// Author: Syed Ashiq
+
+const sendMail = vi.fn().mockResolvedValue({ messageId: 'sent-test' })
+
+beforeAll(() => {
+
+  mock.module("nodemailer", () => {
+    return {
+      default: {
+        createTransport: () => {
+          return {
+            sendMail
+          }
+        }
+      }
+    }
+  })
+})
+describe("Sending Email", () => {
+  const config = { type: 'email', smtp_host: 'localhost', to: 'test@example.com' }
+  it("Sends OTP to Email", async () => {
+    vi.clearAllMocks()
+    const isSent = await sendOTPEmail('test@example.com', 'test', {})
+    expect(isSent).toBeTrue()
+    const isNotSent = await sendOTPEmail('test@example.com', 'test', '')
+    expect(isNotSent).toBeFalse()
+
+
+  })
+
+  it("Sends Alert Mail", async () => {
+    vi.clearAllMocks()
+    const alert = {
+      name: "Testing Alert",
+      severity: "info",
+      description: `This is a test email`,
+      sql: "",
+      schedule: "",
+      operator: "eq",
+      threshold: 0,
+      lastValue: 0,
+      lastRunAt: new Date().toISOString(),
+    }
+
+    alert.name = 'account created'
+    await sendNotification(config, alert)
+    expect(sendMail).toHaveBeenCalled()
+    const args1 = sendMail.mock.calls.at(0).at(0)
+    expect(args1.subject).toInclude('Welcome')
+    expect(args1.attachments.length).toBe(1)
+
+
+    sendMail.mockClear()
+    alert.name = 'password reset'
+    await sendNotification(config, alert)
+    expect(sendMail).toHaveBeenCalled()
+    const args2 = sendMail.mock.calls.at(0).at(0)
+    expect(args2.subject).toInclude('Reset')
+    expect(args2.attachments.length).toBe(1)
+  })
+
+  it("Tests Channel", async () => {
+    vi.clearAllMocks()
+    await testChannel(config)
+    expect(sendMail).toHaveBeenCalled()
+  })
+
+
+})
+
+beforeAll(() => {
+  vi.mock('../../src/backend/services/clusterUtils', () => {
+    return {
+      getAllClusters: () => ([{ id: 1, nodes: [{ host: 'localhost' }] }])
+    }
+  })
+})
+
+describe("Helper Functions for Notifier", () => {
+
+  const alert = { clusterId: 1, nodes: [], lastRunAt: new Date().toLocaleString(), name: 'test' }
+
+  it('Gets cluster Information', () => {
+    const info = getClusterInfo(alert)
+    expect(info).toHaveProperty('clusterName')
+    expect(info.clusterName).toBe('Default')
+    expect(info).toHaveProperty('nodes')
+    expect(info.nodes).toBe('localhost')
+  })
+
+  it("Formats Alert Details", () => {
+    expect(formatDetails(alert)).toBeDefined()
+  })
+
+  it('Escapes HTML', () => {
+    expect(escapeHtml('&')).toBe('&amp;')
+    expect(escapeHtml('<')).toBe('&lt;')
+    expect(escapeHtml('>')).toBe('&gt;')
+    expect(escapeHtml('"')).toBe('&quot;')
+    expect(escapeHtml("'")).toBe('&#39;')
+  })
+
+  it("Extracts account details", () => {
+    const description = `
+      Password reset Username: test Password: test123 Role: Admin Please change your password on first login
+    `
+    const info = extractAccountDetails(description)
+
+    expect(info).toHaveProperty('intro')
+    expect(info.intro).toBe('Password reset')
+    expect(info).toHaveProperty('username')
+    expect(info.username).toBe('test')
+    expect(info).toHaveProperty('password')
+    expect(info.password).toBe('test123')
+    expect(info).toHaveProperty('role')
+    expect(info.role).toBe('Admin')
+    expect(info).toHaveProperty('note')
+    expect(info.note).toBe('Please change your password on first login')
+  })
+
+})
