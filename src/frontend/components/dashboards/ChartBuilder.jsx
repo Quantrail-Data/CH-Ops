@@ -470,13 +470,21 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           sunburstLegendData = Array.from(new Set(sunburstLegendData)).slice(0, 200);
         }
 
+        const legendHorizontalPadding = isSmallScreen ? 8 : 0;
+        const legendRightOffset = isSmallScreen ? 12 : 0;
+        const legendLeftOffset = isSmallScreen ? 12 : 0;
+
         let legendConfig = {
           ...option.legend,
           textStyle: { ...(option.legend?.textStyle || {}), color: isDarkColor },
           type: 'scroll',
           pageIconColor: isDarkColor,
           pageIconInactiveColor: 'var(--text-muted)',
+          pageIconSize: isSmallScreen ? 10 : 12,
           pageTextStyle: { color: isDarkColor },
+          pageButtonItemGap: isSmallScreen ? 3 : 5,
+          pageButtonGap: isSmallScreen ? 4 : 6,
+          pageButtonPosition: 'end',
           itemStyle: {
             ...(option.legend?.itemStyle || {}),
             borderColor: 'transparent',
@@ -497,10 +505,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               bottom: 8,
               width: 220,
             } : {
-              left: 0,
-              right: 0,
+              left: legendLeftOffset,
+              right: legendRightOffset,
               top: 0,
-              width: '100%',
+              width: 'auto',
+              padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
             })
           };
         } else if (isSunBurst) {
@@ -516,10 +525,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               bottom: 8,
               width: 220,
             } : {
-              left: 0,
-              right: 0,
+              left: legendLeftOffset,
+              right: legendRightOffset,
               top: 0,
-              width: '100%',
+              width: 'auto',
+              padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
             })
           };
         }
@@ -1203,13 +1213,26 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           enhancedOption.legend = {
             ...(enhancedOption.legend || {}),
             textStyle: { ...(enhancedOption.legend?.textStyle || {}), fontSize: previewTools.fullscreen ? 16 : (isSmallScreen ? 10 : 12), color: isDarkColor },
-            itemGap: previewTools.fullscreen ? 18 : 12,
+            itemGap: previewTools.fullscreen ? 18 : (isSmallScreen ? 8 : 12),
             pageIconColor: isDarkColor,
+            pageIconSize: isSmallScreen ? 10 : 12,
+            pageButtonItemGap: isSmallScreen ? 3 : 5,
+            pageButtonGap: isSmallScreen ? 4 : 6,
+            pageButtonPosition: 'end',
             itemStyle: {
               ...(enhancedOption.legend?.itemStyle || {}),
               borderColor: 'transparent',
               borderWidth: 0,
             },
+            ...(previewTools.fullscreen
+              ? {}
+              : {
+                  left: legendLeftOffset,
+                  right: legendRightOffset,
+                  top: 0,
+                  width: 'auto',
+                  padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
+                }),
           };
 
           enhancedOption.grid = Array.isArray(enhancedOption.grid)
@@ -1418,6 +1441,10 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               type: 'scroll',
               pageIconColor: isDarkColor,
               pageIconInactiveColor: 'var(--text-muted)',
+              pageIconSize: isSmallScreen ? 10 : 12,
+              pageButtonItemGap: isSmallScreen ? 3 : 5,
+              pageButtonGap: isSmallScreen ? 4 : 6,
+              pageButtonPosition: 'end',
               pageTextStyle: { color: isDarkColor, fontSize: previewTools.fullscreen ? 14 : 11 },
               itemStyle: {
                 ...(enhancedOption.legend?.itemStyle || {}),
@@ -1430,10 +1457,11 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 bottom: 8,
                 width: 220,
               } : {
-                left: 0,
-                right: 0,
+                left: legendLeftOffset,
+                right: legendRightOffset,
                 top: 0,
-                width: '100%',
+                width: 'auto',
+                padding: [0, legendHorizontalPadding, 0, legendHorizontalPadding],
               })
             };
           } else {
