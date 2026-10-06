@@ -7,24 +7,45 @@ import { eq } from "drizzle-orm";
 import { db, appSettings } from "../db/index.js";
 
 
-// Keys that require admin-level access for write/delete
-const PROTECTED_KEYS = new Set([
-  "cluster.nodes",
-  "clusters",
-  "backup_profiles",
+const USER_WRITABLE = new Set([
+  "query_bookmarks",
 ]);
 
+const ADMIN_WRITABLE = new Set([
+  "backup_profiles",
+  "clusters",
+  "cluster.nodes",
+  "clusters.storage",
+  "app_backup_config",
+  "k8s.enabled",
+  "backup.exclude_k8s_credentials",
+]);
+
+function isAdminRole(req) {
+  const role = req.user?.role;
+  return role === "superadmin" || role === "admin";
+}
+
+function requireWriteAccess(req, res, key) {
+  const admin = isAdminRole(req);
+  if (USER_WRITABLE.has(key)) return false;
+  if (admin && ADMIN_WRITABLE.has(key)) return false;
+  res
+    .status(403)
+    .json({ error: "Not allowed to write this setting." });
+  return true;
+}
+
 function requireAdminForKey(req, res, key) {
-  if (PROTECTED_KEYS.has(key)) {
-    const role = req.user?.role;
-    if (role !== "superadmin" && role !== "admin") {
+  if (ADMIN_WRITABLE.has(key)) {
+    if (!isAdminRole(req)) {
       res
         .status(403)
         .json({ error: "Admin access required for this setting." });
-      return true; // blocked
+      return true;
     }
   }
-  return false; // allowed
+  return false;
 }
 
 export function listSettings(req, res) {
@@ -37,9 +58,10 @@ export function listSettings(req, res) {
 
   // Protected keys (cluster nodes, backup profiles) hold credentials - never
   // list their values for non-admin callers, same restriction as writes.
-  const role = req.user?.role;
-  const isAdmin = role === "superadmin" || role === "admin";
-  const visible = isAdmin ? rows : rows.filter((r) => !PROTECTED_KEYS.has(r.key));
+  const isAdmin = isAdminRole(req);
+  const visible = isAdmin
+    ? rows
+    : rows.filter((r) => !ADMIN_WRITABLE.has(r.key));
   res.json(visible);
 }
 
@@ -57,7 +79,7 @@ export function getSetting(req, res) {
 
 export function upsertSetting(req, res) {
   try {
-    if (requireAdminForKey(req, res, req.params.key)) return;
+    if (requireWriteAccess(req, res, req.params.key)) return;
 
     const existing = db
       .select()
@@ -96,7 +118,7 @@ export function upsertSetting(req, res) {
 
 export function deleteSetting(req, res) {
   try {
-    if (requireAdminForKey(req, res, req.params.key)) return;
+    if (requireWriteAccess(req, res, req.params.key)) return;
     const count = db
       .delete(appSettings)
       .where(eq(appSettings.key, req.params.key))
