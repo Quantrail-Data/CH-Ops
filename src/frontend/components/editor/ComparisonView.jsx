@@ -1064,6 +1064,8 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                 <div
                   style={{
                     position: "relative",
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
                   <input
@@ -1091,7 +1093,8 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                       style={{
                         position: "absolute",
                         right: "10px",
-                        top: "17%",
+                        top: "50%",
+                        transform: "translateY(-50%)",
                         fontSize: "17px",
                       }}
                     />
