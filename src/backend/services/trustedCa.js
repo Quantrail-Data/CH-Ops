@@ -3,6 +3,8 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import crypto from 'node:crypto';
+import { rootCertificates } from 'node:tls';
+import { readFileSync } from 'node:fs';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { trustedCas } from '../db/schema.js';
@@ -63,6 +65,17 @@ export function deleteTrustedCa(id) {
   cachedBundle = null;
 }
 
+export function withSystemAuthorities(pem) {
+  const parts = [pem, rootCertificates.join('\n')];
+  try {
+    if (process.env.NODE_EXTRA_CA_CERTS) {
+      parts.push(readFileSync(process.env.NODE_EXTRA_CA_CERTS, 'utf8'));
+    }
+  } catch {
+  }
+  return parts.join('\n');
+}
+
 // Every stored certificate, joined into one block.
 
 export function getCaBundle() {
@@ -82,7 +95,7 @@ export function getCaBundle() {
     return null;
   }
 
-  cachedBundle = rows.map(r => r.pem.trim()).join('\n');
+  cachedBundle = withSystemAuthorities(rows.map(r => r.pem.trim()).join('\n'));
   return cachedBundle;
 }
 
