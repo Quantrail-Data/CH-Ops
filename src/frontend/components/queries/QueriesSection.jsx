@@ -21,6 +21,23 @@ import { useToast } from "../layout/Toast.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import OpenInMenu from "./OpenInMenu.jsx";
 import CurrentQueries from "./CurrentQueries.jsx";
+import AdvancedFilters from "../logs/AdvancedFilters.jsx";
+import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
+
+// Result names of the fixed SELECT in QueryLogSearch. The SQL dedupe uses this.
+const QUERY_LOG_SELECT_NAMES = [
+ "event_time", "type", "query_kind", "query_duration_ms",
+ "read_rows", "read_bytes", "written_rows", "written_bytes",
+ "result_rows", "result_bytes", "memory", "exception_code",
+ "initial_user", "query_preview",
+];
+
+// Columns the result table shows. Picked extras append after these.
+const QUERY_LOG_DISPLAY_COLS = [
+ "event_time", "type", "query_kind", "query_duration_ms",
+ "read_rows", "read_bytes", "memory", "exception_code",
+ "initial_user", "query_preview",
+];
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtNow = () => {
@@ -883,6 +900,8 @@ function QueryLogSearch({ sidebar }) {
   const [initialUser, setInitialUser] = useState("");
   const [sortField, setSortField] = useState("event_time");
   const [sortDir, setSortDir] = useState("DESC");
+  const [adv, setAdv] = useState(() => loadAdvState("query_log"));
+  const extras = extraColumns(QUERY_LOG_DISPLAY_COLS, adv.columns);
   const [submitted, setSubmitted] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const searchQ = useQuery(),
@@ -926,8 +945,16 @@ function QueryLogSearch({ sidebar }) {
     if (initialUser) conds.push(`initial_user='${initialUser}'`);
     setSubmitted(true);
     setFiltersOpen(false);
+    const where = buildWhere(conds, adv.filters);
     searchQ.execute(
-      `SELECT toString(event_time) AS event_time, type, query_kind, query_duration_ms, read_rows, read_bytes, written_rows, written_bytes, result_rows, result_bytes, formatReadableSize(memory_usage) AS memory, exception_code, initial_user, substring(query,1,200) AS query_preview FROM system.query_log WHERE ${conds.join(" AND ")} ORDER BY ${sortField} ${sortDir} LIMIT 500`,
+    `SELECT toString(event_time) AS event_time, type, query_kind,
+    query_duration_ms, read_rows, read_bytes, written_rows, written_bytes,
+    result_rows, result_bytes, formatReadableSize(memory_usage) AS memory,
+    exception_code, initial_user, substring(query,1,200) AS
+    query_preview${extraSelectSql(QUERY_LOG_SELECT_NAMES, adv.columns)} FROM
+    system.query_log WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT
+    500`,
+    { readOnly: true },
     );
   }
 
@@ -1247,37 +1274,27 @@ function QueryLogSearch({ sidebar }) {
           >
             {searchQ.loading ? (
               <>
-                <span className="loading-spinner"></span>
-                Searching...
+              <span className="loading-spinner"></span>
+              Searching...
               </>
             ) : (
-              <>
+                <>
                 <Icon className="ti ti-search"></Icon>
-                Search
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </form>
+                  Search
+                </>
+              )}
+               </button>
+              </div>
+            </div>
+          <AdvancedFilters table="query_log" value={adv} onChange={setAdv} />
+      </form>
   </div>
 )}
 
       {submitted && !searchQ.loading && (
         <DataTable
           rows={searchQ.data || []}
-          columns={[
-            "event_time",
-            "type",
-            "query_kind",
-            "query_duration_ms",
-            "read_rows",
-            "read_bytes",
-            "memory",
-            "exception_code",
-            "initial_user",
-            "query_preview",
-          ]}
+          columns={[...QUERY_LOG_DISPLAY_COLS, ...extras]}
           emptyMessage="No entries found."
           variant="single"
         />
