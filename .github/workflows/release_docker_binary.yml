@@ -1,0 +1,255 @@
+name: Release binaries and contaners
+
+# Manual trigger only. A person starts it from the Actions tab.
+# One run builds and publishes everything for a release:
+#   1. version: read and validate version.json, refuse an existing tag.
+#   2. build-binaries: the three standalone binaries, with a smoke test.
+#   3. build-docker: the multi-arch image, pushed to GHCR and Docker Hub.
+#   4. release: checksums, provenance, git tag, GitHub release with the
+#      binaries attached. The tag and the release exist only when every
+#      build before them succeeded.
+on:
+  workflow_dispatch:
+    inputs:
+      changelog:
+        description: "Changelog for this release (shown in the GitHub release notes)"
+        required: true
+        type: string
+
+# Per-job below. Workflow-level write would hand a write token to the build
+# jobs, and the binary job is the one job that must carry nothing sensitive.
+permissions: {}
+
+# Only one release runs at a time. A half-published release is worse than a slow one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE_GHCR: ghcr.io/quantrail-data/ch-ops
+  # Your personal Docker Hub account. Change here only if you publish elsewhere.
+  IMAGE_DOCKERHUB: quantrailadmin1/ch-ops
+
+jobs:
+  # Read the single source of truth and pin the exact commit every later
+  # job builds, so a push to main during the run cannot split the release.
+  version:
+    name: Read and check version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      major: ${{ steps.ver.outputs.major }}
+      major_minor: ${{ steps.ver.outputs.major_minor }}
+      sha: ${{ steps.ver.outputs.sha }}
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+          fetch-depth: 0   # so the tag check below can see all tags
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION=$(jq -r .version version.json)
+          echo "Read version: $VERSION"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: version.json version '$VERSION' is not X.Y.Z" >&2
+            exit 1
+          fi
+          echo "version=$VERSION"          >> "$GITHUB_OUTPUT"
+          echo "major=${VERSION%%.*}"      >> "$GITHUB_OUTPUT"
+          echo "major_minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Check the tag does not exist
+        run: |
+          if git rev-parse "v${{ steps.ver.outputs.version }}" >/dev/null 2>&1; then
+            echo "ERROR: tag v${{ steps.ver.outputs.version }} already exists. Bump version.json first." >&2
+            exit 1
+          fi
+
+  build-binaries:
+    name: Build ${{ matrix.name }}
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: linux-x64
+            script: build:standalone:linux
+            outfile: chops-linux-x64
+          - name: darwin-arm64
+            script: build:standalone:mac
+            outfile: chops-darwin-arm64
+          - name: windows-x64
+            script: build:standalone:windows
+            outfile: chops-windows-x64.exe
+
+    steps:
+      - name: Checkout the pinned release commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.2"
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      # Publicly-visible version string, picked up by
+      # scripts/generate-version.mjs below - not a secret.
+      - name: Set VERSION from version.json
+        run: echo "VERSION=${{ needs.version.outputs.version }}" >> "$GITHUB_ENV"
+
+      # build:standalone:* compiles with `--env=inline`, which bakes whatever
+      # env vars are present in *this* job into the published binary. VERSION
+      # (set above) is fine to inline; never add a real secret to this job's
+      # environment, since the binary it produces is a public, downloadable
+      # GitHub release artifact.
+      - name: Build ${{ matrix.name }} binary
+        run: bun run ${{ matrix.script }}
+
+      # Only linux can run on this runner; the other two are cross-compiled.
+      - name: Smoke test the binary
+        if: matrix.name == 'linux-x64'
+        env:
+          SUPER_ADMIN_1: smoke-admin
+          SUPER_ADMIN_1_PASSWORD: smoke-password-123
+          SUPER_ADMIN_1_EMAIL: smoke@example.com
+          ENCRYPTION_SECRET: smoke-only-not-a-real-secret-0123456789
+          PORT: 3999
+        run: |
+          ./${{ matrix.outfile }} > smoke.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:3999/api/version" -o version.json; then
+              echo "up after ${i}s:"; cat version.json; echo
+              kill "$pid" 2>/dev/null || true
+              exit 0
+            fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "exited before serving:"; cat smoke.log; exit 1
+            fi
+            sleep 1
+          done
+          echo "timed out waiting for /api/version:"; cat smoke.log
+          kill "$pid" 2>/dev/null || true
+          exit 1
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.outfile }}
+          path: ${{ matrix.outfile }}
+          if-no-files-found: error
+
+  build-docker:
+    name: Build and push Docker image
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # to push the image to GHCR
+
+    steps:
+      - name: Checkout the pinned release commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+
+      # Enable multi-architecture builds (amd64 and arm64).
+      # TODO: pin these four docker/* actions to commit SHAs like the rest.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Build once, push to both registries, with four tag levels each.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
+          tags: |
+            ${{ env.IMAGE_GHCR }}:latest
+            ${{ env.IMAGE_GHCR }}:${{ needs.version.outputs.version }}
+            ${{ env.IMAGE_GHCR }}:${{ needs.version.outputs.major_minor }}
+            ${{ env.IMAGE_GHCR }}:${{ needs.version.outputs.major }}
+            ${{ env.IMAGE_DOCKERHUB }}:latest
+            ${{ env.IMAGE_DOCKERHUB }}:${{ needs.version.outputs.version }}
+            ${{ env.IMAGE_DOCKERHUB }}:${{ needs.version.outputs.major_minor }}
+            ${{ env.IMAGE_DOCKERHUB }}:${{ needs.version.outputs.major }}
+
+  release:
+    name: Publish Release
+    needs: [version, build-binaries, build-docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to create the git tag and the GitHub release
+      # for attest-build-provenance
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts into release directory
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release
+
+      # We ship a downloadable binary that holds ClickHouse credentials.
+      # Without these nobody can tell if what they got is what we built.
+      - name: Generate SHA256SUMS
+        working-directory: release
+        run: |
+          sha256sum chops-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'release/chops-*'
+
+      - name: Create tag and GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          target_commitish: ${{ needs.version.outputs.sha }}
+          name: v${{ needs.version.outputs.version }}
+          body: ${{ github.event.inputs.changelog }}
+          files: release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
