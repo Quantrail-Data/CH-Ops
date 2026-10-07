@@ -54,7 +54,6 @@
     "@tabler/icons-webfont": "^3.44.0",
     "@tanstack/react-virtual": "^3.14.8",
     "@uiw/react-codemirror": "^4.25.11",
-    "@xenova/transformers": "^2.17.2",
     "@xyflow/react": "^12.11.0",
     "axios": "^1.18.0",
     "drizzle-orm": "^0.45.2",
@@ -67,7 +66,6 @@
     "jsonwebtoken": "9.0.2",
     "motion": "^12.39.0",
     "nodemailer": "9.0.5",
-    "onnxruntime-web": "1.14.0",
     "openai": "^6.47.0",
     "pdfkit": "^0.19.1",
     "react": "19.1.0",
@@ -99,7 +97,6 @@
     "vitest": "3.2.7"
   },
   "overrides": {
-    "sharp": "^0.35.0",
     "esbuild": "^0.25.0",
     "postcss": "^8.5.23",
     "nanoid": "^3.3.16",
@@ -111,8 +108,5 @@
   },
   "peerDependencies": {
     "typescript": "^5"
-  },
-  "patchedDependencies": {
-    "@xenova/transformers@2.17.2": "patches/@xenova%2Ftransformers@2.17.2.patch"
   }
 }
