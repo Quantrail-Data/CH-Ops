@@ -211,7 +211,13 @@ export async function updateUser(req, res) {
     if (!target) return res.status(404).json({ error: "User not found." });
 
     const updates = {};
-    if (req.body.email !== undefined) updates.email = req.body.email;
+    if (req.body.email !== undefined) {
+      const callerLevel = ROLE_LEVEL[req.user?.role] || 0;
+      const targetLevel = ROLE_LEVEL[target.role] || 0;
+      if (!isSelf && targetLevel >= callerLevel)
+        return res.status(403).json({ error: "Cannot change this user's email." });
+      updates.email = req.body.email;
+    }
 
     // Role change: enforce hierarchy rules
     if (req.body.role !== undefined && req.body.role !== target.role) {
@@ -320,7 +326,7 @@ export function deleteUser(req, res) {
 
     if( target.initUser) return res.status(403).json({error:"Cannot delete default user"})
 
-    if (targetLevel > callerLevel) {
+    if (targetLevel >= callerLevel) {
       return res
         .status(403)
         .json({
