@@ -153,14 +153,17 @@ describe("the bundle sent on every connection", () => {
     addTrustedCa("Authority A", caA);
     const bundle = getCaBundle();
     expect(bundle).toContain("BEGIN CERTIFICATE");
-    expect(bundle.match(/BEGIN CERTIFICATE/g).length).toBe(1);
+    expect(bundle).toContain(caA.trim());
+    expect(bundle.match(/BEGIN CERTIFICATE/g).length).toBeGreaterThan(50);
   });
 
   it("joins several certificates", () => {
     addTrustedCa("Authority A", caA);
     addTrustedCa("Authority B", caB);
     const bundle = getCaBundle();
-    expect(bundle.match(/BEGIN CERTIFICATE/g).length).toBe(2);
+    expect(bundle).toContain(caA.trim());
+    expect(bundle).toContain(caB.trim());
+    expect(bundle.match(/BEGIN CERTIFICATE/g).length).toBeGreaterThan(50);
   });
 
   it("changes as soon as one is added", () => {
@@ -188,7 +191,8 @@ describe("the bundle sent on every connection", () => {
     deleteTrustedCa(a.id);
 
     const bundle = getCaBundle();
-    expect(bundle.match(/BEGIN CERTIFICATE/g).length).toBe(1);
+    expect(bundle).not.toContain(caA.trim());
+    expect(bundle).toContain(caB.trim());
     expect(listTrustedCas()[0].name).toBe("Authority B");
   });
 });

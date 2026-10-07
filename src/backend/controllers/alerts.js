@@ -12,7 +12,7 @@ import {
 } from "../db/index.js";
 import { testChannel as testChannelService } from "../services/notifier.js";
 
-function rulesWithChannels(where) {
+function rulesWithChannels(where, req) {
   const rules = where
     ? db
         .select()
@@ -21,6 +21,9 @@ function rulesWithChannels(where) {
         .orderBy(desc(alertRules.createdAt))
         .all()
     : db.select().from(alertRules).orderBy(desc(alertRules.createdAt)).all();
+
+  const role = req?.user?.role;
+  const isAdmin = role === "superadmin" || role === "admin";
 
   return rules.map((rule) => {
     const links = db
@@ -35,6 +38,9 @@ function rulesWithChannels(where) {
           .from(alertChannels)
           .where(eq(alertChannels.id, l.alertChannelId))
           .get();
+        if (ch && !isAdmin) {
+          return { id: ch.id, name: ch.name, type: ch.type };
+        }
         if (ch) {
           try {
             ch.config = JSON.parse(ch.config);
@@ -57,11 +63,11 @@ function rulesWithChannels(where) {
 // Rules
 
 export function listRules(req, res) {
-  res.json(rulesWithChannels());
+  res.json(rulesWithChannels(undefined, req));
 }
 
 export function listActiveRules(req, res) {
-  const all = rulesWithChannels(eq(alertRules.enabled, true));
+  const all = rulesWithChannels(eq(alertRules.enabled, true), req);
   const active = all.filter((r) => r.isActive === true || r.isActive === 1);
   res.json(active);
 }

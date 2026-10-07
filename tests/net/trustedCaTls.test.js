@@ -10,6 +10,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { peerIssuer } from "../../src/backend/controllers/trustedCa.js";
+import { withSystemAuthorities } from "../../src/backend/services/trustedCa.js";
 
 let caPem, caPem2, server, port;
 
@@ -143,22 +144,28 @@ describe("checking a cluster reached by IP address", () => {
 });
 
 describe("the assumption the whole design rests on", () => {
-  it("adds to the system authorities rather than replacing them", async () => {
-
+  it("a merged bundle still reaches a publicly signed server", async () => {
     let res;
     try {
       res = await fetch("https://api.github.com/", {
-        tls: { ca: caPem },
+        tls: { ca: withSystemAuthorities(caPem) },
         headers: { "User-Agent": "chops-test" },
       });
     } catch (err) {
       // No network is not a failure of the thing being tested, but a TLS error is
-      if (/unable to verify|certificate|self.signed/i.test(err.message)) throw err;
+      if (/unable to verify|certificate|self.signed/i.test(err.message))
+        throw err;
       console.warn("  skipped: no network");
       return;
     }
-    // Any response at all means the handshake succeeded. GitHub answers 200 or 403 depending on rate limits, and either proves the point.
     expect(res.status).toBeGreaterThan(0);
+  });
+  it("the merged bundle holds the custom authority and the system roots", () => {
+    const merged = withSystemAuthorities(caPem);
+    expect(merged).toContain("BEGIN CERTIFICATE");
+    expect(merged).toContain(caPem.trim());
+    const count = merged.split("BEGIN CERTIFICATE").length - 1;
+    expect(count).toBeGreaterThan(50);
   });
 });
 

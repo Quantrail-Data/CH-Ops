@@ -12,6 +12,7 @@ const RESET_TOKENS = new Map();
 const OTP_TTL_MS = 10 * 60 * 1000; // code is valid for 10 minutes
 const RESET_TOKEN_TTL_MS = 5 * 60 * 1000; // token is valid for 5 minutes
 const MAX_ATTEMPTS = 5; // wrong guesses before lockout
+const OTP_REISSUE_COOLDOWN_MS = 60 * 1000;
 
 const sha256 = (v) => createHash("sha256").update(String(v)).digest("hex");
 
@@ -24,10 +25,20 @@ function generateOTP() {
 // Returns the plaintext code once, so the caller can email it. Only the hash is
 // kept, so the live codes are never sitting in memory in readable form.
 export function issueOTP(userId) {
+  const existing = OTP_STORE.get(userId);
+  if (
+    existing &&
+    existing.issuedAt &&
+    Date.now() - existing.issuedAt < OTP_REISSUE_COOLDOWN_MS
+  ) {
+    return null;
+  }
+
   const otp = generateOTP();
   OTP_STORE.set(userId, {
     otpHash: sha256(otp),
     expiresAt: Date.now() + OTP_TTL_MS,
+    issuedAt: Date.now(),
     attempts: 0,
   });
   return otp;

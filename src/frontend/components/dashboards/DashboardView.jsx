@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main container component that layout and renders all dashboard widgets and analytics charts.
 
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -72,6 +71,22 @@ function DashboardSkeletonGrid({ cols, count }) {
       ))}
     </div>
   );
+}
+
+function cloneChartOption(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneChartOption);
+  }
+
+  if (value && typeof value === 'object') {
+    const result = {};
+    Object.keys(value).forEach((key) => {
+      result[key] = cloneChartOption(value[key]);
+    });
+    return result;
+  }
+
+  return value;
 }
 
 export default function DashboardView({sidebar}) {
@@ -627,7 +642,7 @@ export default function DashboardView({sidebar}) {
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Drag charts to swap positions.</span>
             {hasUnsaved && canEdit && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16, alignItems: 'stretch', gridAutoRows: 'minmax(460px, auto)' }}>
             {charts.map((chart, i) => (
               <div 
                 key={chart.id} 
@@ -638,6 +653,8 @@ export default function DashboardView({sidebar}) {
                   minWidth: 0,
                   display: 'flex',
                   flexDirection: 'column',
+                  alignSelf: 'stretch',
+                  minHeight: 0,
                   height: '100%',
                 }}
                 draggable={!fs && canEdit} 
@@ -682,6 +699,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isDarkColor = theme === 'dark' ? 'white' : 'black';
   const [hasChartInstance, setHasChartInstance] = useState(false);
   const appliedOptionRef = useRef(null);
+  const restoreTimerRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
@@ -716,7 +734,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     const series = chart?.chartOption?.series;
     if (legend?.show === false) return false;
     if (!Array.isArray(series) || series.length === 0) return false;
-    return series.some(s => Array.isArray(s?.data) && s?.data.length > 0);
+    return series.some(s => Array.isArray(s?.data) && s?.data?.length > 0);
   }, [chart]);
 
   const supportsLegend = legendSupportedTypes.includes(chart.chartSubtype) || needsLegend(chart.chartType, chart.chartSubtype);
@@ -732,9 +750,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   function getChartHeight() {
     if (fs) return "calc(100vh - 120px)";
     if (chart?.chartOption?._table) return isSmallScreen ? "320px" : "300px";
-    const isBar = ['simple_bar', 'grouped_bar', 'stacked_bar'].includes(chart.chartSubtype) || chart.chartType === 'bar';
-    if (isSmallScreen) return isBar ? "380px" : "420px";
-    return isBar ? "440px" : 500;
+    return "100%";
   }
 
   const barChartTypes = ['simple_bar', 'grouped_bar', 'stacked_bar'];
@@ -758,7 +774,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isSankeyChart = chart.chartType === 'sankey' || chart.chartSubtype === 'sankey';
   const isGaugeChart = chart.chartType === 'gauge' || chart.chartSubtype === 'gauge';
 
-  const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chart.chartType === 'bar' || chart.chartType === 'line' || chart.chartType === 'scatter' || chart.chartType === 'heatmap');
+  const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chart.chartType === 'bar' || chart.chartType === 'line' || chart.chartType === 'scatter' || chart.chartType === 'heatmap' || chart.chartType === 'candlestick' || chart.chartType === 'boxplot');
 
   const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
   const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
@@ -861,9 +877,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const dataLabelFontSize = isFullscreen
     ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 12 : tickCount > 24 ? 13 : 14)
     : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 8 : tickCount > 24 ? 9 : 10);
-  const xRotate = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (isScatterLike ? (isSmallScreen ? 22 : 15) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0));
-  const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
-  const axisMarginX = (isVerticalBar || isHeatmap || isLineChart) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
+  const xRotate = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike) ? (tickCount > 80 ? 65 : tickCount > 40 ? 55 : tickCount > 20 ? 45 : 35) : (tickCount > 40 ? 30 : tickCount > 24 ? 20 : 0);
+  const axisNameGapX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 132 : 120) : (isScatterLike ? 58 : 48);
+  const axisMarginX = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot) ? (tickCount > 50 ? 16 : 20) : (tickCount > 40 ? 10 : 12);
   const seriesLabelWidth = isFullscreen
     ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
     : (tickCount > 80 ? 36 : tickCount > 60 ? 42 : tickCount > 40 ? 48 : tickCount > 24 ? 56 : 64);
@@ -886,7 +902,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ? 145
         : 20;
 
-  const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart)
+  const gridBottomAuto = (isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot)
     ? (tickCount > 80 ? 180 : tickCount > 60 ? 160 : tickCount > 40 ? 140 : tickCount > 24 ? 120 : 110)
     : (isScatterLike ? (tickCount > 40 ? 108 : 94) : (tickCount > 40 ? 116 : 98));
 
@@ -1019,7 +1035,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             axisLabel: {
               ...axis?.axisLabel,
               rotate: xRotate,
-              align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
+              align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
               color: isDarkColor,
               margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
               hideOverlap: false,
@@ -1087,7 +1103,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           axisLabel: {
             ...chart?.chartOption?.xAxis?.axisLabel,
             rotate: xRotate,
-            align: isVerticalBar || isHeatmap || isLineChart || xRotate > 0 ? 'right' : 'left',
+            align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
             color: isDarkColor,
             margin: Math.max(chart?.chartOption?.xAxis?.axisLabel?.margin || 8, axisMarginX),
             hideOverlap: false,
@@ -1316,7 +1332,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   if (Array.isArray(opt.series) && opt.series.length) {
     opt.series = opt.series.map((s) => {
       if (!s || !s.type) return s;
-      if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter') return s;
+      if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter' && s.type !== 'candlestick' && s.type !== 'boxplot') return s;
       
       const labelFont = fs ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize;
       const labelWidth = fs 
@@ -1727,19 +1743,81 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   useEffect(() => {
     if (!ref.current || !opt || opt._kpi || opt._error || opt._table || opt._waiting) {
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
+      if (inst.current) {
+        try {
+          disposeChart(ref.current);
+        } catch {}
+
+        inst.current = null;
+      }
+
+      appliedOptionRef.current = null;
       setHasChartInstance(false);
-      return;
+      return undefined;
     }
+
+    const host = ref.current;
+
     try {
-      inst.current = initChart(ref.current);
-      inst.current.clear();
+      if (inst.current) {
+        try {
+          disposeChart(host);
+        } catch {}
+
+        inst.current = null;
+      }
+
+      const nextInstance = initChart(host);
       const finalOpt = withZoomable(opt);
-      appliedOptionRef.current = finalOpt;
-      inst.current.setOption(finalOpt, true);
+
+      appliedOptionRef.current = cloneChartOption(finalOpt);
+      inst.current = nextInstance;
+
+      nextInstance.setOption(finalOpt, {
+        notMerge: true,
+        lazyUpdate: false,
+        silent: false,
+      });
+
       setHasChartInstance(true);
-      setTimeout(() => inst.current?.resize(), 50);
-    } catch { }
-    return () => { if (ref.current) disposeChart(ref.current); };
+
+      setTimeout(() => {
+        if (
+          inst.current &&
+          !inst.current.isDisposed?.() &&
+          host.isConnected
+        ) {
+          try {
+            inst.current.resize();
+          } catch {}
+        }
+      }, 50);
+    } catch {
+      inst.current = null;
+      appliedOptionRef.current = null;
+      setHasChartInstance(false);
+    }
+
+    return () => {
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
+      if (host) {
+        try {
+          disposeChart(host);
+        } catch {}
+      }
+
+      inst.current = null;
+      setHasChartInstance(false);
+    };
   }, [opt, theme, fs]);
 
   useEffect(() => { setTimeout(() => inst.current?.resize(), 150); }, [fs, isSmallScreen, cols, showLegends]);
@@ -1779,22 +1857,235 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   function resetZoom() {
-    if (!inst.current || inst.current.isDisposed?.()) return;
+    const currentInstance = inst.current;
+    const host = ref.current;
+    const storedOption = appliedOptionRef.current;
+
+    if (!host || !storedOption) return;
+
+    if (currentInstance && currentInstance.isDisposed?.()) {
+      inst.current = null;
+    }
+
     if (isTreemapChart || isSunburstChart) {
-      const stored = appliedOptionRef.current;
-      if (!stored) return;
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
       try {
-        inst.current.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
+        if (inst.current && !inst.current.isDisposed?.()) {
+          inst.current.clear();
+        }
       } catch {}
-      try {
-        inst.current.dispatchAction({ type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode" });
-      } catch {}
-      try {
-        inst.current.resize();
-      } catch {}
+
+      restoreTimerRef.current = requestAnimationFrame(() => {
+        restoreTimerRef.current = null;
+
+        if (!host.isConnected) return;
+
+        let restoredInstance = inst.current;
+
+        try {
+          if (!restoredInstance || restoredInstance.isDisposed?.()) {
+            restoredInstance = initChart(host);
+            inst.current = restoredInstance;
+          }
+
+          const restoreOption = cloneChartOption(appliedOptionRef.current);
+
+          restoredInstance.clear();
+
+          restoredInstance.setOption(restoreOption, {
+            notMerge: true,
+            lazyUpdate: false,
+            silent: false,
+          });
+
+          try {
+            restoredInstance.dispatchAction({
+              type: isSunburstChart
+                ? 'sunburstRootToNode'
+                : 'treemapRootToNode',
+              targetNode: null,
+            });
+          } catch {}
+
+          try {
+            restoredInstance.resize();
+          } catch {}
+
+          setHasChartInstance(true);
+        } catch {
+          try {
+            if (host.isConnected) {
+              if (restoredInstance && !restoredInstance.isDisposed?.()) {
+                restoredInstance.dispose();
+              }
+
+              const recreatedInstance = initChart(host);
+              const restoreOption = cloneChartOption(appliedOptionRef.current);
+
+              recreatedInstance.setOption(restoreOption, {
+                notMerge: true,
+                lazyUpdate: false,
+                silent: false,
+              });
+
+              recreatedInstance.resize();
+              inst.current = recreatedInstance;
+              setHasChartInstance(true);
+            }
+          } catch {
+            inst.current = null;
+            setHasChartInstance(false);
+          }
+        }
+      });
+
       return;
     }
-    inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 100, dataZoomIndex: 0 });
+
+    if (!inst.current || inst.current.isDisposed?.()) return;
+
+    try {
+      inst.current.dispatchAction({
+        type: 'dataZoom',
+        start: 0,
+        end: 100,
+        dataZoomIndex: 0,
+      });
+
+      inst.current.resize();
+    } catch {}
+  }
+
+  function sanitizeFilename(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "chart";
+    const sanitized = trimmed
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return sanitized || "chart";
+  }
+
+  function saveFullChart() {
+    const sourceInst = inst.current;
+    const storedOption = appliedOptionRef.current;
+
+    if (!sourceInst || sourceInst.isDisposed?.() || !storedOption) {
+      savePng(inst.current, chart.name);
+      return;
+    }
+
+    const downloadName = `${sanitizeFilename(chart.name)}.png`;
+
+    let container = null;
+    let offscreenInst = null;
+
+    try {
+      container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-10000px";
+      container.style.top = "0";
+      container.style.width = `${sourceInst.getWidth()}px`;
+      container.style.height = `${sourceInst.getHeight()}px`;
+      container.style.visibility = "hidden";
+      container.style.pointerEvents = "none";
+      document.body.appendChild(container);
+
+      offscreenInst = initChart(container);
+
+      const fullOption = cloneChartOption(storedOption);
+
+      if (Array.isArray(fullOption.dataZoom)) {
+        fullOption.dataZoom = fullOption.dataZoom.map((dz) => ({
+          ...dz,
+          start: 0,
+          end: 100,
+          startValue: undefined,
+          endValue: undefined,
+        }));
+      }
+
+      if (fullOption.animation === undefined) fullOption.animation = false;
+      fullOption.animationDuration = 0;
+      fullOption.animationDurationUpdate = 0;
+
+      offscreenInst.setOption(fullOption, true);
+
+      if (isTreemapChart || isSunburstChart) {
+        try {
+          offscreenInst.dispatchAction({
+            type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode",
+          });
+        } catch (e) {
+        }
+      }
+
+      offscreenInst.resize();
+
+      const finish = () => {
+        let dataURL = null;
+        try {
+          dataURL = offscreenInst.getDataURL({
+            type: "png",
+            pixelRatio: 2,
+            backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
+            excludeComponents: ["toolbox"],
+          });
+        } catch (e) {
+          dataURL = null;
+        }
+
+        if (dataURL) {
+          try {
+            const link = document.createElement("a");
+            link.download = downloadName;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (e) {
+          }
+        }
+
+        try {
+          if (offscreenInst && !offscreenInst.isDisposed?.()) {
+            offscreenInst.dispose();
+          }
+        } catch (e) {
+        }
+        try {
+          if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+        } catch (e) {
+        }
+      };
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(finish, 150);
+        });
+      });
+    } catch (e) {
+      try {
+        if (offscreenInst && !offscreenInst.isDisposed?.()) {
+          offscreenInst.dispose();
+        }
+      } catch (err) {
+      }
+      try {
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      } catch (err) {
+      }
+      savePng(inst.current, chart.name);
+    }
   }
 
   const wrap = fs
@@ -1821,6 +2112,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         display: 'flex',
         flexDirection: 'column',
         minWidth: 0,
+        minHeight: 0,
+        boxSizing: 'border-box',
       };
 
   const pieChartControlsFlags = {
@@ -1868,6 +2161,10 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const tableScrollMaxHeight = fs ? 'calc(100vh - 240px)' : (isSmallScreen ? 300 : 360);
 
+  const isKpi = !!opt?._kpi;
+  const kpiMinHeight = isSmallScreen ? 180 : 240;
+  const errorMinHeight = isSmallScreen ? 160 : 220;
+
   const tileContent = (
     <div
       className="card"
@@ -1877,6 +2174,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ...wrap,
         ...(highlighted ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : {}),
         ...(chart._rerunning ? { opacity: 0.6 } : {}),
+        ...(opt?._error || opt?._waiting ? { minHeight: errorMinHeight } : {}),
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8, flexShrink: 0 }}>
@@ -1895,7 +2193,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               onZoomIn={zoomIn}
               onZoomOut={zoomOut}
               onZoomReset={resetZoom}
-              onSave={() => savePng(inst.current, chart.name)}
+              onSave={saveFullChart}
               onToggleFullscreen={() => {
                 setFs((prev) => {
                   const next = !prev;
@@ -1923,21 +2221,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
               }
             />
           )}
-          {opt && (opt._error || opt._waiting || opt._kpi || opt._table) && (
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                setFs((prev) => {
-                  const next = !prev;
-                  setFss(next);
-                  return next;
-                });
-              }}
-              title={fs ? 'Exit full screen' : 'Full screen'}
-            >
-              <Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon>
-            </button>
-          )}
           {isAdmin && (
             <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete chart (admin only)" disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
           )}
@@ -1949,7 +2232,24 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           <Icon className="ti ti-clock"></Icon> {opt.message}
         </div>
       )}
-      {opt?._kpi && <div style={{ textAlign: 'center', padding: 24 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{opt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-table)' }}>{opt.value}</div></div>}
+      {opt?._kpi && (
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ textAlign: 'center', padding: 24, height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{opt.label}</div>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-table)' }}>{opt.value}</div>
+          </div>
+        </div>
+      )}
 
       {opt?._table && (
         <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
