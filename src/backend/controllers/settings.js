@@ -21,6 +21,8 @@ const ADMIN_WRITABLE = new Set([
   "backup.exclude_k8s_credentials",
 ]);
 
+const PROTECTED_KEYS = ADMIN_WRITABLE;
+
 function isAdminRole(req) {
   const role = req.user?.role;
   return role === "superadmin" || role === "admin";
