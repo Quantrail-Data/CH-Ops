@@ -23,6 +23,8 @@ import DataTable from "../layout/DataTable.jsx";
 import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import { useConnection } from "../../App.jsx";
+import AdvancedFilters from "./AdvancedFilters.jsx";
+import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -43,8 +45,25 @@ const LOG_LEVELS = [
   "Information",
   "Debug",
   "Trace",
-  "Test",
+   "Test",
 ];
+// Fixed result columns of the Search tab. The SQL and the render share this.
+const TEXT_LOG_COLS = [
+ "event_time_microseconds",
+ "level",
+ "query_id",
+ "logger_name",
+ "message",
+ "source_file",
+ "source_line",
+];
+// Map and Array cells arrive as objects. Show them as JSON text.
+function cellText(cellValue) {
+ if (cellValue !== null && typeof cellValue === "object") {
+ return JSON.stringify(cellValue);
+ }
+ return String(cellValue ?? "");
+}
 
 export default function TextLog() {
   const { tab: routeTab = "overview" } = useParams();
@@ -665,6 +684,7 @@ function TextLogSearch({unavailable}) {
   const [rowLimit, setRowLimit] = useState(500);
   const [submitted, setSubmitted] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [adv, setAdv] = useState(() => loadAdvState("text_log"));
   const [filtersOpen, setFiltersOpen] = useState(true);
   const q = useQuery();
 
@@ -684,20 +704,25 @@ function TextLogSearch({unavailable}) {
     setLevels([]);
   }
 
-  async function handleSearch(e) {
-    e.preventDefault();
-    if (!levels.length) return;
-    const conds = [
-      `event_time BETWEEN '${from}' AND '${to}'`,
-      `level IN (${levels.map((l) => `'${l}'`).join(",")})`,
-    ];
-    if (message.trim()) conds.push(`message LIKE '%${message.trim()}%'`);
-    setSubmitted(true);
-    setFiltersOpen(false);
-    await q.execute(
-      `SELECT event_time_microseconds, level, query_id, logger_name, message, source_file, source_line FROM system.text_log WHERE ${conds.join(" AND ")} ORDER BY event_time DESC LIMIT ${rowLimit}`,
-    );
-  }
+ async function handleSearch(e) {
+ e.preventDefault();
+ if (!levels.length) return;
+ const conds = [
+ `event_time BETWEEN '${from}' AND '${to}'`,
+ `level IN (${levels.map((l) => `'${l}'`).join(",")})`,
+ ];
+ if (message.trim()) conds.push(`message LIKE '%${message.trim()}%'`);
+ setSubmitted(true);
+ setFiltersOpen(false);
+ const where = buildWhere(conds, adv.filters);
+ await q.execute(
+ `SELECT ${TEXT_LOG_COLS.join(", ")}${extraSelectSql(TEXT_LOG_COLS,
+adv.columns)} FROM system.text_log WHERE ${where} ORDER BY event_time DESC
+LIMIT ${rowLimit}`,
+ { readOnly: true },
+ );
+ }
+ const extras = extraColumns(TEXT_LOG_COLS, adv.columns);
   // handle the Date change infinity like FROM > TO -->( Kathirdhasan )
   const handleDateOnChange = (date, label) => {
     if (label === "From") {
@@ -863,6 +888,7 @@ if (unavailableMessage) {
                 />
               </div>
             </div>
+            <AdvancedFilters table="text_log" value={adv} onChange={setAdv}/>
             <div
               style={{
                 display: "flex",
@@ -908,18 +934,9 @@ if (unavailableMessage) {
             <thead>
               <tr>
                 <th>S.No</th>
-
-                {[
-                  "event_time_microseconds",
-                  "level",
-                  "query_id",
-                  "logger_name",
-                  "message",
-                  "source_file",
-                  "source_line",
-                ].map((c) => (
-                  <th key={c}>{c}</th>
-                ))}
+              {[...TEXT_LOG_COLS, ...extras].map((c) => (
+              <th key={c}>{c}</th>
+              ))}
               </tr>
             </thead>
 
@@ -948,15 +965,7 @@ if (unavailableMessage) {
                   >
                     <td>{i + 1}</td>
 
-                    {[
-                      "event_time_microseconds",
-                      "level",
-                      "query_id",
-                      "logger_name",
-                      "message",
-                      "source_file",
-                      "source_line",
-                    ].map((c) => (
+                     {[...TEXT_LOG_COLS, ...extras].map((c) => (
                       <td
                         key={c}
                         style={
@@ -968,7 +977,7 @@ if (unavailableMessage) {
                             : clipStyle
                         }
                       >
-                        {String(row[c] ?? "")}
+                        {cellText(row[c])}
                       </td>
                     ))}
                   </tr>
@@ -978,7 +987,7 @@ if (unavailableMessage) {
               {(!q.data || q.data.length === 0) && (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={TEXT_LOG_COLS.length + extras.length + 1}
                     style={{
                       textAlign: "center",
                       color: "var(--text-muted)",
