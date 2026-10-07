@@ -33,6 +33,10 @@ import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import ChartCard from "../layout/ChartCard.jsx";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
+import AdvancedFilters from "./AdvancedFilters.jsx";
+import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
+// Result names of the fixed SELECT. client_address is an alias.
+const SESSION_LOG_COLS = ["event_time", "type", "user", "auth_type","interface", "client_address", "failure_reason"];
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { useConnection } from "../../App.jsx";
 
@@ -1201,6 +1205,8 @@ function SessionLogSearch({ unavailable }) {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [tableExists, setTableExists] = useState(true);
   const [probeDone, setProbeDone] = useState(false);
+  const [adv, setAdv] = useState(() => loadAdvState("session_log"));
+  const extras = extraColumns(SESSION_LOG_COLS, adv.columns);
   const q = useQuery();
 
   useEffect(() => {
@@ -1247,10 +1253,16 @@ function SessionLogSearch({ unavailable }) {
     if (selectedTypes.length > 0)
       conds.push(`type IN (${selectedTypes.map((t) => `'${t}'`).join(",")})`);
     setSubmitted(true);
+    const where = buildWhere(conds, adv.filters);
     await q.execute(
-      `SELECT event_time, type, user, auth_type, interface, toString(client_address) AS client_address, failure_reason FROM system.session_log WHERE ${conds.join(" AND ")} ORDER BY event_time DESC LIMIT ${rowLimit}`,
-    );
-  }
+    `SELECT event_time, type, user, auth_type, interface,
+    toString(client_address) AS client_address,
+    failure_reason${extraSelectSql(SESSION_LOG_COLS, adv.columns)} FROM
+    system.session_log WHERE ${where} ORDER BY event_time DESC LIMIT
+    ${rowLimit}`,
+     { readOnly: true },
+ );
+ }
 
   // handle the Date change so From never exceeds To (mirrors the other logs).
   const handleDateOnChange = (date, label) => {
@@ -1421,15 +1433,16 @@ function SessionLogSearch({ unavailable }) {
               }}
             >
               <div className="form-group">
-                <label className="form-label">Failure Reason (text)</label>
-                <input
-                  className="form-input"
-                  value={reasonText}
-                  onChange={(e) => setReasonText(e.target.value)}
-                  placeholder="partial..."
-                />
+              <label className="form-label">Failure Reason (text)</label>
+              <input
+                className="form-input"
+                value={reasonText}
+                onChange={(e) => setReasonText(e.target.value)}
+                placeholder="partial..."
+              />
               </div>
             </div>
+            <AdvancedFilters table="session_log" value={adv} onChange={setAdv} />
             <div
               style={{
                 display: "flex",
@@ -1472,7 +1485,7 @@ function SessionLogSearch({ unavailable }) {
       {submitted && !q.loading && tableExists && (
         <DataTable
           rows={q.data || []}
-          columns={["event_time", "type", "user", "auth_type", "interface", "client_address", "failure_reason"]}
+          columns={[...SESSION_LOG_COLS, ...extras]}
           emptyMessage="No session entries found."
           variant="single"
           s_no={true}
