@@ -1,4 +1,4 @@
-name: Release binaries and contaners
+name: Release
 
 # Manual trigger only. A person starts it from the Actions tab.
 # One run builds and publishes everything for a release:
@@ -191,6 +191,8 @@ jobs:
       # Build once, push to both registries, with four tag levels each.
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -218,16 +220,17 @@ jobs:
       attestations: write
 
     steps:
-      - name: Download all artifacts
+      # Only the binaries. The Docker job also uploads a .dockerbuild record
+      # artifact, which the release does not need.
+      - name: Download binary artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          path: artifacts
+          pattern: chops-*
+          merge-multiple: true
+          path: release
 
-      - name: Flatten artifacts into release directory
-        run: |
-          mkdir -p release
-          find artifacts -type f -exec cp {} release/ \;
-          ls -la release
+      - name: List release files
+        run: ls -la release
 
       # We ship a downloadable binary that holds ClickHouse credentials.
       # Without these nobody can tell if what they got is what we built.
