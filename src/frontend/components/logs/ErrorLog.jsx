@@ -22,6 +22,9 @@ import { useToast } from '../layout/Toast.jsx';
 import ChartCard from '../layout/ChartCard.jsx';
 import { initChart, disposeChart } from '../../utils/echarts.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
+import AdvancedFilters from './AdvancedFilters.jsx';
+import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from '../../utils/advancedFilters.js';
+const ERROR_LOG_COLS = ["event_time", "error", "last_error_message","last_error_query_id"];
 
 const pad = n => String(n).padStart(2, '0');
 const fmtAgo = h => { const d = new Date(Date.now()-h*3600000); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
@@ -531,7 +534,8 @@ function ErrorLogSearch() {
   const [rowLimit, setRowLimit] = useState(500);
   const [submitted, setSubmitted] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
-  const [cols,setCols] = useState([	"event_time",	"error",	"last_error_message",	"last_error_query_id"])
+  const [adv, setAdv] = useState(() => loadAdvState("error_log"));
+  const cols = [...ERROR_LOG_COLS, ...extraColumns(ERROR_LOG_COLS,adv.columns)];
   const q = useQuery();
   const errorsQ = useQuery();
 
@@ -548,8 +552,7 @@ function ErrorLogSearch() {
     if (selectedErrors.length > 0) conds.push(`error IN (${selectedErrors.map(e => `'${e}'`).join(',')})`);
     setSubmitted(true);
     setFiltersOpen(false);
-    await q.execute(`SELECT event_time, error, last_error_message, last_error_query_id FROM system.error_log WHERE ${conds.join(' AND ')} ORDER BY event_time DESC LIMIT ${rowLimit}`);
-  }
+    await q.execute(`SELECT ${ERROR_LOG_COLS.join(", ")}${extraSelectSql(ERROR_LOG_COLS,adv.columns)} FROM system.error_log WHERE ${where} ORDER BY event_time DESC LIMIT ${rowLimit}`, { readOnly: true },);  }
 
       // handle the Date change infinity like FROM > TO -->( Kathirdhasan )
       const handleDateOnChange = (date, label) => {
@@ -625,7 +628,8 @@ function ErrorLogSearch() {
             </div>
             <div className="form-group"><label className="form-label">Error Message (text)</label><input className="form-input" value={errorMessage} onChange={e => setErrorMessage(e.target.value)} placeholder="partial..." /></div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'flex-end' }}>
+          <AdvancedFilters table="error_log" value={adv} onChange={setAdv}/>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap:12, alignItems: 'flex-end' }}>
             <div className="form-group"><label className="form-label">Row Limit</label><input className="form-input" type="number" min={1} max={100000} value={rowLimit} onChange={e => setRowLimit(parseInt(e.target.value) || 500)} style={{ width: 100 }} /></div>
             <button className="btn btn-primary" type="submit" disabled={q.loading}>{q.loading ? <><span className="loading-spinner"></span> Searching...</> : <><Icon className="ti ti-search"></Icon> Search</>}</button>
           </div>
