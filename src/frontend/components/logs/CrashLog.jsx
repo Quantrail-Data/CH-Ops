@@ -23,6 +23,8 @@ import { useToast } from "../layout/Toast.jsx";
 import ChartCard from "../layout/ChartCard.jsx";
 import { useConnection } from "../../App.jsx";
 import EmptyState from "../queues/EmptyState.jsx";
+import AdvancedFilters from "./AdvancedFilters.jsx";
+import { buildWhere, extraColumns, loadAdvState } from "../../utils/advancedFilters.js";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -655,6 +657,7 @@ function CrashLogSearch({ sidebar, unavailable }) {
   const [queryText, setQueryText] = useState("");
   const [signalDesc, setSignalDesc] = useState("");
   const [exceptionTrace, setExceptionTrace] = useState("");
+  const [adv, setAdv] = useState(() => loadAdvState("crash_log"));
   const [rowLimit, setRowLimit] = useState(500);
   const [submitted, setSubmitted] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
@@ -704,6 +707,9 @@ function CrashLogSearch({ sidebar, unavailable }) {
         selectCols.push("current_exception_trace_full");
       if (available("current_exception_trace"))
         selectCols.push("current_exception_trace");
+      for (const pickedColumn of extraColumns(selectCols, adv.columns)) {
+        if (available(pickedColumn)) selectCols.push(pickedColumn);
+      }
 
       if (selectCols.length === 0) {
         toast.error(
@@ -755,7 +761,8 @@ function CrashLogSearch({ sidebar, unavailable }) {
         }
       }
 
-      const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+      const combined = buildWhere(conds, adv.filters);
+      const where = combined ? `WHERE ${combined}` : "";
       const select = selectCols.join(", ");
 
       setSubmitted(true);
@@ -763,7 +770,7 @@ function CrashLogSearch({ sidebar, unavailable }) {
 
       const sql = `SELECT ${select} FROM system.crash_log ${where} ORDER BY ${available("event_time") ? "event_time" : available("timestamp_ns") ? "timestamp_ns" : selectCols[0]} DESC LIMIT ${rowLimit}`;
 
-      await q.execute(sql);
+      await q.execute(sql, { readOnly: true });
     } catch (err) {
       setLoading(false);
       setError(err?.message || err);
@@ -945,29 +952,14 @@ function CrashLogSearch({ sidebar, unavailable }) {
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 12,
-                alignItems: "flex-end",
-              }}
-            ></div>
-          </form>
+            <AdvancedFilters table="crash_log" value={adv} onChange={setAdv} />
+            </form>
         </div>
       )}
       {submitted && !q.loading && (
-        <DataTable
-          rows={q.data || []}
-          columns={[
-            "timestamp_ns",
-            "event_time",
-            "signal",
-            "quertid",
-            "query",
-            "signal_description",
-            "current_exception_trace_ful",
-          ]}
+         <DataTable
+            rows={q.data || []}
+            columns={q.columns || []}
           emptyMessage="No crash entries found."
           variant="single"
           s_no={true}
