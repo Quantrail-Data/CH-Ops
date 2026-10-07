@@ -35,13 +35,15 @@ router.post("/email/verify", async (req, res) => {
         .json({ success: false, message: "Email is required." });
 
     const user = findSoleUserByEmail(email);
-    if (!user) return res.status(400).json({success:false,message:"User Not Found"});
+    if (!user) return res.status(200).json(GENERIC);
 
     const otp = issueOTP(user.id);
-    try {
-      await sendOTPEmail(email, otp, resolveSystemSmtp() || {});
-    } catch (err) {
-      log.error("Password reset email failed:", err?.message || err);
+    if (otp) {
+      try {
+        await sendOTPEmail(email, otp, resolveSystemSmtp() || {});
+      } catch (err) {
+        log.error("Password reset email failed:", err?.message || err);
+      }
     }
     return res.status(200).json(GENERIC);
   } catch (err) {
