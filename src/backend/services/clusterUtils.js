@@ -3,7 +3,7 @@
 // Contributors -> kathir Moorthy
 
 import { eq, and } from 'drizzle-orm';
-import { db, appSettings, clusters as clusterTable, clusterNodes } from '../db/index.js';
+import { db, appSettings, clusters as clusterTable, clusterNodes, rawSqlite } from '../db/index.js';
 import { encrypt, decrypt } from './crypto.js';
 import { getStorageMode, STORAGE_TABLES } from '../db/migrateClusters.js';
 
@@ -101,7 +101,7 @@ function saveClustersToTables(clusters) {
   const existingIds = new Set(existing.map(c => c.id));
   const incomingIds = new Set(clusters.map(c => c.id));
 
-  db.exec('BEGIN TRANSACTION');
+  rawSqlite.exec('BEGIN TRANSACTION');
   try {
     for (const id of existingIds) {
       if (!incomingIds.has(id)) {
@@ -157,9 +157,9 @@ function saveClustersToTables(clusters) {
         }).run();
       }
     }
-    db.exec('COMMIT');
+    rawSqlite.exec('COMMIT');
   } catch (error) {
-    db.exec('ROLLBACK');
+    rawSqlite.exec('ROLLBACK');
     throw error;
   }
 }
@@ -261,7 +261,7 @@ export function updateClusterNodes(clusterId, nodes, expectedVersion) {
   const changed = (result?.changes ?? result?.rowsAffected ?? 0) > 0;
   if (!changed) return false;
 
-  db.exec('BEGIN TRANSACTION');
+  rawSqlite.exec('BEGIN TRANSACTION');
   try {
     const existing = db
       .select()
@@ -309,9 +309,9 @@ export function updateClusterNodes(clusterId, nodes, expectedVersion) {
     }
 
     // Anything absent from this round keeps its old lastSeenAt and stays in place.
-    db.exec('COMMIT');
+    rawSqlite.exec('COMMIT');
   } catch (error) {
-    db.exec('ROLLBACK');
+    rawSqlite.exec('ROLLBACK');
     throw error;
   }
 
@@ -331,14 +331,14 @@ export function findStaleNodes(clusterId, olderThanIso) {
 
 export function removeNodes(clusterId, nodeIds) {
   if (!nodeIds.length) return;
-  db.exec('BEGIN TRANSACTION');
+  rawSqlite.exec('BEGIN TRANSACTION');
   try {
     for (const id of nodeIds) {
       db.delete(clusterNodes).where(eq(clusterNodes.id, id)).run();
     }
-    db.exec('COMMIT');
+    rawSqlite.exec('COMMIT');
   } catch (error) {
-    db.exec('ROLLBACK');
+    rawSqlite.exec('ROLLBACK');
     throw error;
   }
 }
