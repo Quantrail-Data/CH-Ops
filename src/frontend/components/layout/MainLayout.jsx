@@ -22,6 +22,7 @@ import {
 import Navbar from "./Navbar.jsx";
 import Sidebar from "./Sidebar.jsx";
 import GlobalSearch from "./GlobalSearch.jsx";
+import BugReportButton from "./BugReportButton.jsx";
 import { ToastProvider } from "./Toast.jsx";
 import AlertMarquee from "./AlertMarquee.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -293,6 +294,7 @@ function MainLayoutInner() {
           onClose={() => setSearchOpen(false)}
           onNavigate={handleNavigate}
         />
+        <BugReportButton/>
       </div>
     </ToastProvider>
   );
