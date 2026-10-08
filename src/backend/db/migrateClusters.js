@@ -100,6 +100,7 @@ export function createClusterTables(sqlite) {
       k8s_namespace TEXT,
       k8s_installation TEXT,
       k8s_operator TEXT NOT NULL DEFAULT 'akoc',
+      k8s_addressing TEXT,
       last_refreshed_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))

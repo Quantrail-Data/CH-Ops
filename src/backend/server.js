@@ -50,7 +50,7 @@ import k8sRoute from './routes/k8s.js';
 import appBackupRoute from './routes/appBackup.js';
 import apiKeysRoute from './routes/apiKeys.js';
 import exportRoute, { downloadRouter } from "./routes/export.js";
-import { initExportStorage, startExportSweeper, cancelJobsForUser } from "./services/exportJobs.js";
+import { initExportStorage, startExportSweeper, cancelJobsForUser, cancelJobsForJti } from "./services/exportJobs.js";
 import ForgetRouter from "./routes/forgetPassword.js";
 
 // import databaseAIConnection from "./routes/databaseAIConnection.js";
@@ -221,7 +221,7 @@ if (embeddedAssets && embeddedAssets.has('dist/index.html')) {
 // Global error handler
 app.use((err, req, res, next) => {
   log.error('Unhandled request error', { error: err.message, path: req.path, method: req.method });
-  res.status(err?.statusCode || 500).json({  error: err?.statusCode === 500 ?  'Internal server error' : err?.message || 'Internal server error' });
+  res.status(err?.statusCode || 500).json({ error: err?.message || 'Internal server error' });
 });
 
 // Start services
