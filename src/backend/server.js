@@ -221,7 +221,7 @@ if (embeddedAssets && embeddedAssets.has('dist/index.html')) {
 // Global error handler
 app.use((err, req, res, next) => {
   log.error('Unhandled request error', { error: err.message, path: req.path, method: req.method });
-  res.status(err?.statusCode || 500).json({ error: err?.message || 'Internal server error' });
+  res.status(err?.statusCode || 500).json({  error: err?.statusCode === 500 ?  'Internal server error' : err?.message || 'Internal server error' });
 });
 
 // Start services

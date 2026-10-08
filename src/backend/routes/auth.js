@@ -9,11 +9,13 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
 import { login, changePassword, logout } from '../controllers/auth.js';
+import { setPassword } from '../controllers/users.js';
 
 const router = Router();
 
 router.post('/', login);
 router.post('/logout', logout);
 router.post('/change-password', changePassword);
+router.post('/set-password', setPassword);
 
 export default router;

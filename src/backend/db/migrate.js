@@ -211,12 +211,16 @@ const migrations = [
   // row written by an older binary against a migrated database can still
   // arrive without it.
   "ALTER TABLE dashboard ADD COLUMN filters TEXT DEFAULT '{}'",
+  "CREATE TABLE app_user_new (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, role TEXT NOT NULL DEFAULT 'readonly', email TEXT UNIQUE, must_change_password INTEGER NOT NULL DEFAULT 1, last_login_at TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')), init_user INTEGER NOT NULL DEFAULT 0, password_setup_token_hash TEXT DEFAULT NULL, password_setup_token_expires_at TEXT  DEFAULT NULL);",
+  "INSERT INTO app_user_new (id, username, password_hash, role, email, must_change_password, last_login_at, created_at, updated_at, init_user) SELECT id, username, password_hash, role, email, must_change_password, last_login_at, created_at, updated_at, init_user FROM app_user;",
+  "DROP TABLE app_user;",
+  "ALTER TABLE app_user_new RENAME TO app_user;",
 ];
 
 for (const sql of migrations) {
   try {
     sqlite.exec(sql);
-  } catch {}
+  } catch (err) {}
 }
 
 // Move cluster configuration out of the JSON blob and into the cluster and cluster_node

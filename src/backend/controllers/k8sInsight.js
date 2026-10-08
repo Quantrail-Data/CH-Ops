@@ -2,9 +2,9 @@
 // Read-only Kubernetes views: topology, reconcile, storage, network, events, logs and health.
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import { providerFor } from '../services/k8sConnections.js';
-import { getClusterById } from '../services/clusterUtils.js';
-import { executeQuery } from '../services/clickhouse.js';
+import { providerFor } from "../services/k8sConnections.js";
+import { getClusterById } from "../services/clusterUtils.js";
+import { executeQuery } from "../services/clickhouse.js";
 import {
   hasCapability,
   ensureCapabilities,
@@ -12,13 +12,13 @@ import {
   CAPABILITY,
   unavailableFeatures,
   rbacContext,
-} from '../services/capabilities.js';
-import { getLastResult, refreshOne } from '../services/k8sSync.js';
+} from "../services/capabilities.js";
+import { getLastResult, refreshOne } from "../services/k8sSync.js";
 
 function fail(res, err) {
-  const isK8s = typeof err?.code === 'string' && err.code.startsWith('K8S_');
-  return res.status(err?.code === 'K8S_FORBIDDEN' ? 403 : 502).json({
-    error: isK8s ? err.message : 'The request could not be completed.',
+  const isK8s = typeof err?.code === "string" && err.code.startsWith("K8S_");
+  return res.status(err?.code === "K8S_FORBIDDEN" ? 403 : 502).json({
+    error: isK8s ? err.message : "The request could not be completed.",
     code: err?.code ?? null,
   });
 }
@@ -26,14 +26,26 @@ function fail(res, err) {
 // Resolve a CHOps cluster to its provider and installation coordinates.
 function resolve(clusterId) {
   const cluster = getClusterById(clusterId);
-  if (!cluster) throw Object.assign(new Error('Cluster not found.'), { status: 404 });
-  if (cluster.kind !== 'k8s') {
-    throw Object.assign(new Error('That cluster was not added through Kubernetes.'), {
-      status: 400,
-    });
+  if (!cluster)
+    throw Object.assign(new Error("Cluster not found."), { status: 404 });
+  if (cluster.kind !== "k8s") {
+    throw Object.assign(
+      new Error("That cluster was not added through Kubernetes."),
+      {
+        status: 400,
+      },
+    );
   }
-  const { provider } = providerFor(cluster.k8s.connectionId, cluster.k8s.operator);
-  return { cluster, provider, ns: cluster.k8s.namespace, name: cluster.k8s.installation };
+  const { provider } = providerFor(
+    cluster.k8s.connectionId,
+    cluster.k8s.operator,
+  );
+  return {
+    cluster,
+    provider,
+    ns: cluster.k8s.namespace,
+    name: cluster.k8s.installation,
+  };
 }
 
 // Run one statement against the cluster's endpoint.
@@ -122,10 +134,12 @@ export async function getTopology(req, res) {
       disruptionBudgets: network.disruptionBudgets,
       drainProtection:
         network.disruptionBudgets.length === 0
-          ? { protected: false, reason: 'no-pod-disruption-budget' }
+          ? { protected: false, reason: "no-pod-disruption-budget" }
           : {
               protected: true,
-              blocked: network.disruptionBudgets.some((b) => b.disruptionsAllowed === 0),
+              blocked: network.disruptionBudgets.some(
+                (b) => b.disruptionsAllowed === 0,
+              ),
             },
       lastRefresh: getLastResult(cluster.id),
     });
@@ -149,7 +163,7 @@ export async function getReconcile(req, res) {
     return res.json({
       status: s.status,
       // A deliberate pause reports as Aborted, which must not be painted as a failure.
-      aborted: s.status === 'Aborted' && !installation.lifecycle.suspended,
+      aborted: s.status === "Aborted" && !installation.lifecycle.suspended,
       suspended: installation.lifecycle.suspended,
       stopped: installation.lifecycle.stopped,
       progress: total ? Math.round((done / total) * 100) : null,
@@ -179,11 +193,11 @@ export async function getReconcile(req, res) {
 const SECRET_KEY = /password|secret|token|key$|_key/i;
 
 function redact(value) {
-  if (value === null || typeof value !== 'object') return value;
+  if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(redact);
   const out = {};
   for (const [k, v] of Object.entries(value)) {
-    out[k] = SECRET_KEY.test(k) ? '[redacted]' : redact(v);
+    out[k] = SECRET_KEY.test(k) ? "[redacted]" : redact(v);
   }
   return out;
 }
@@ -199,7 +213,9 @@ export async function getConfig(req, res) {
       written: redact(installation.spec),
       running: redact(installation.normalized),
       templates: installation.usedTemplates,
-      drift: JSON.stringify(installation.spec) !== JSON.stringify(installation.normalized),
+      drift:
+        JSON.stringify(installation.spec) !==
+        JSON.stringify(installation.normalized),
     });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
@@ -234,7 +250,7 @@ export async function getStorage(req, res) {
         try {
           disks = await query(
             cluster,
-            'SELECT hostName() AS host, name, free_space, total_space FROM system.disks',
+            "SELECT hostName() AS host, name, free_space, total_space FROM system.disks",
           );
         } catch {
           disks = [];
@@ -244,34 +260,37 @@ export async function getStorage(req, res) {
 
     const warnings = [];
     for (const v of volumes) {
-      if (v.resizeState === 'NodeResizePending') {
+      if (v.resizeState === "NodeResizePending") {
         warnings.push({
           volume: v.name,
-          severity: 'high',
+          severity: "high",
           message:
-            'An expansion has finished in the control plane but not on the node. Many storage drivers need the pod restarted to complete it. Until then the volume is still its old size.',
+            "An expansion has finished in the control plane but not on the node. Many storage drivers need the pod restarted to complete it. Until then the volume is still its old size.",
         });
       }
-      if (v.resizeState === 'ControllerResizeFailed' || v.resizeState === 'NodeResizeFailed') {
+      if (
+        v.resizeState === "ControllerResizeFailed" ||
+        v.resizeState === "NodeResizeFailed"
+      ) {
         warnings.push({
           volume: v.name,
-          severity: 'high',
-          message: 'A volume expansion failed and will not retry on its own.',
+          severity: "high",
+          message: "A volume expansion failed and will not retry on its own.",
         });
       }
       if (v.expandable === false) {
         warnings.push({
           volume: v.name,
-          severity: 'info',
+          severity: "info",
           message: `Storage class ${v.storageClass} does not allow expansion, so this volume cannot be grown in place.`,
         });
       }
-      if (v.reclaimPolicy && v.reclaimPolicy !== 'Retain') {
+      if (v.reclaimPolicy && v.reclaimPolicy !== "Retain") {
         warnings.push({
           volume: v.name,
-          severity: 'info',
+          severity: "info",
           message:
-            'This volume is deleted when its host is removed. Scaling the cluster down destroys the data on it.',
+            "This volume is deleted when its host is removed. Scaling the cluster down destroys the data on it.",
         });
       }
     }
@@ -322,7 +341,9 @@ export async function getNetwork(req, res) {
       systemClusters.map((r) => `${r.shard_num - 1}/${r.replica_num - 1}`),
     );
     const routable = new Set(
-      hosts.filter((h) => h.inRotation?.ready).map((h) => `${h.shard}/${h.replica}`),
+      hosts
+        .filter((h) => h.inRotation?.ready)
+        .map((h) => `${h.shard}/${h.replica}`),
     );
 
     return res.json({
@@ -332,11 +353,13 @@ export async function getNetwork(req, res) {
         ? {
             checked: true,
             // Configured in the installation but absent from remote_servers means a reconcile has not propagated.
-            missingFromClickHouse: [...inKubernetes].filter((k) => !inClickHouse.has(k)),
+            missingFromClickHouse: [...inKubernetes].filter(
+              (k) => !inClickHouse.has(k),
+            ),
             // Present in remote_servers but not routable means a host is configured and unreachable.
             notRoutable: [...inClickHouse].filter((k) => !routable.has(k)),
           }
-        : { checked: false, reason: 'could-not-read-system-clusters' },
+        : { checked: false, reason: "could-not-read-system-clusters" },
     });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
@@ -357,18 +380,20 @@ export async function getEvents(req, res) {
 
 // GET /api/k8s/insight/:clusterId/logs/:pod previous=true reads the container that died
 export async function getLogs(req, res) {
-  const { pod } = req.params;
+  const { pod: rawPod } = req.params;
   const { previous, tailLines, sinceSeconds } = req.query;
+
+  const pod = encodeURIComponent(rawPod);
 
   try {
     const { provider, ns } = resolve(req.params.clusterId);
     const stream = await provider.streamLogs(ns, pod, {
-      previous: previous === 'true',
+      previous: previous === "true",
       tailLines: Math.min(Number(tailLines) || 1000, 10000),
       sinceSeconds: sinceSeconds ? Number(sinceSeconds) : undefined,
     });
 
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
     if (!stream) return res.end();
 
     const reader = stream.getReader();
@@ -390,13 +415,15 @@ export async function getHealth(req, res) {
   try {
     const { cluster, provider, ns, name } = resolve(req.params.clusterId);
     await ensureCapabilities(cluster.id);
-    const [hosts, installation, network, storage, operator] = await Promise.all([
-      provider.getHosts(ns, name),
-      provider.getInstallation(ns, name),
-      provider.getNetwork(ns, name),
-      provider.getStorage(ns, name),
-      provider.getOperatorHealth(ns),
-    ]);
+    const [hosts, installation, network, storage, operator] = await Promise.all(
+      [
+        provider.getHosts(ns, name),
+        provider.getInstallation(ns, name),
+        provider.getNetwork(ns, name),
+        provider.getStorage(ns, name),
+        provider.getOperatorHealth(ns),
+      ],
+    );
 
     // A check can pass, fail, or be unable to run.
     const checks = [];
@@ -405,68 +432,72 @@ export async function getHealth(req, res) {
       checks.push({ name: label, ok: null, detail });
 
     add(
-      'Operator reachable',
+      "Operator reachable",
       operator.reachable,
-      'If the operator is down the cluster looks healthy and nothing you change will apply.',
+      "If the operator is down the cluster looks healthy and nothing you change will apply.",
     );
 
     // AKOC publishes its own readiness verdict
-    const readyOf = (h) => (h.operatorReady === null ? h.podReady : h.operatorReady);
+    const readyOf = (h) =>
+      h.operatorReady === null ? h.podReady : h.operatorReady;
     add(
-      'All hosts ready',
+      "All hosts ready",
       hosts.every(readyOf),
       `${hosts.filter(readyOf).length} of ${hosts.length} ready`,
     );
 
     add(
-      'All hosts in rotation',
+      "All hosts in rotation",
       hosts.every((h) => h.inRotation?.ready !== false),
-      'A pod can be Running and still be removed from the service.',
+      "A pod can be Running and still be removed from the service.",
     );
 
     const images = [...new Set(hosts.map((h) => h.image).filter(Boolean))];
     add(
-      'No version skew',
+      "No version skew",
       images.length <= 1,
-      images.length > 1 ? `Running ${images.length} different images` : 'Consistent',
+      images.length > 1
+        ? `Running ${images.length} different images`
+        : "Consistent",
     );
 
     add(
-      'Health signals trustworthy',
+      "Health signals trustworthy",
       !installation.lifecycle.troubleshoot,
       installation.lifecycle.troubleshoot
-        ? 'Troubleshoot mode is on, which disables liveness and readiness probes. Pod readiness means nothing right now.'
-        : 'Probes are active.',
+        ? "Troubleshoot mode is on, which disables liveness and readiness probes. Pod readiness means nothing right now."
+        : "Probes are active.",
     );
 
     add(
-      'Protected against node drains',
+      "Protected against node drains",
       network.disruptionBudgets.length > 0,
       network.disruptionBudgets.length === 0
-        ? 'No pod disruption budget exists, so a node drain can evict several replicas at once.'
-        : 'A budget is in place.',
+        ? "No pod disruption budget exists, so a node drain can evict several replicas at once."
+        : "A budget is in place.",
     );
 
     add(
-      'No stalled volume expansion',
+      "No stalled volume expansion",
       !storage.some(
         (v) =>
-          String(v.resizeState).includes('Pending') || String(v.resizeState).includes('Failed'),
+          String(v.resizeState).includes("Pending") ||
+          String(v.resizeState).includes("Failed"),
       ),
-      'NodeResizePending looks finished and is not.',
+      "NodeResizePending looks finished and is not.",
     );
 
     const knownPolicy = storage.filter((v) => v.reclaimPolicy);
     if (!storage.length || knownPolicy.length !== storage.length) {
       unknown(
-        'Data survives a scale-down',
-        'The reclaim policy could not be read for every volume, so this cannot be answered either way.',
+        "Data survives a scale-down",
+        "The reclaim policy could not be read for every volume, so this cannot be answered either way.",
       );
     } else {
       add(
-        'Data survives a scale-down',
-        knownPolicy.every((v) => v.reclaimPolicy === 'Retain'),
-        'Volumes without a Retain policy are deleted when their host is removed.',
+        "Data survives a scale-down",
+        knownPolicy.every((v) => v.reclaimPolicy === "Retain"),
+        "Volumes without a Retain policy are deleted when their host is removed.",
       );
     }
 
@@ -488,10 +519,12 @@ export async function getHealth(req, res) {
 export async function getRbacContext(req, res) {
   try {
     const context = await rbacContext(req.params.clusterId);
-    if (!context) return res.status(404).json({ error: 'Cluster not found.' });
+    if (!context) return res.status(404).json({ error: "Cluster not found." });
     return res.json(context);
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error" });
   }
 }
 
@@ -499,7 +532,7 @@ export async function getRbacContext(req, res) {
 export async function refreshNow(req, res) {
   try {
     const cluster = getClusterById(req.params.clusterId);
-    if (!cluster) return res.status(404).json({ error: 'Cluster not found.' });
+    if (!cluster) return res.status(404).json({ error: "Cluster not found." });
     return res.json(await refreshOne(cluster));
   } catch (err) {
     return fail(res, err);
