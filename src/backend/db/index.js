@@ -54,5 +54,4 @@ export const trustedCas = schema.trustedCas;
 export const rawSqlite = sqlite;
 export function assertDatabaseReadable(handle = sqlite) {
   const val  = handle.query('SELECT 1').get();
-  console.log(val)
 }
