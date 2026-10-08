@@ -268,6 +268,7 @@ export const clusters = sqliteTable("cluster", {
   k8sInstallation: text("k8s_installation"),
   // Which operator manages this installation: 'akoc' or 'ocko'.
   k8sOperator: text("k8s_operator").notNull().default("akoc"),
+  k8sAddressing: text("k8s_addressing"),
   lastRefreshedAt: text("last_refreshed_at"),
 
   createdAt: text("created_at").default(sql`(datetime('now'))`),

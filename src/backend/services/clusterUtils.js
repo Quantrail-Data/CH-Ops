@@ -65,6 +65,7 @@ function rowsToCluster(clusterRow, nodeRows) {
           lastRefreshedAt: clusterRow.lastRefreshedAt,
         }
       : null,
+    k8sAddressing: clusterRow.k8sAddressing ? JSON.parse(clusterRow.k8sAddressing) : null,
     nodes: nodeRows.map(n => ({
       name: n.name,
       host: n.host,
@@ -122,6 +123,7 @@ function saveClustersToTables(clusters) {
         k8sNamespace: cluster.k8s?.namespace ?? null,
         k8sInstallation: cluster.k8s?.installation ?? null,
         k8sOperator: cluster.k8s?.operator || 'akoc',
+        k8sAddressing: cluster.k8sAddressing ? JSON.stringify(cluster.k8sAddressing) : null,
         updatedAt: new Date().toISOString(),
       };
       // Only overwrite the stored cluster password when one was supplied
