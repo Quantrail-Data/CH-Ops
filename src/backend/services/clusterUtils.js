@@ -365,7 +365,7 @@ export function migrateClusterData() {
 }
 
 // SSRF protection: only hosts in the configured cluster are reachable.
-export function resolveTargetNode(clusterId, node){
+export function resolveTargetNode(clusterId, node) {
   const nodes = getClusterNodes(clusterId);
   if (!nodes.length) {
     const e = new Error('No cluster nodes configured');
@@ -373,14 +373,12 @@ export function resolveTargetNode(clusterId, node){
     throw e;
   }
   const target = node ? nodes.find((n) => n.name === node) : nodes[0];
-  if(!target) {
+  if (!target) {
     const e = new Error('Node not found in cluster configuration.');
     e.status = 400;
     throw e;
-
   }
   return target;
-
 }
 
 export { MAX_CLUSTERS, MAX_TOTAL_NODES };
