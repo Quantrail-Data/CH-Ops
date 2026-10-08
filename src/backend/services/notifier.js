@@ -93,8 +93,9 @@ function formatDetails(alert) {
     nodes: info.nodes,
     firedNode: alert.firedNode || "-",
     timestamp: ts,
-    kind: alert.kind || "breach",   
+    kind: alert.kind || "breach",
     error: alert.error || null,
+    setPasswordUrl: alert.setPasswordUrl || null,
   };
 }
 
@@ -112,11 +113,15 @@ function extractAccountDetails(description) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 2000);
-  
-  const usernameMatch = text.match(/Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i);
+
+  const usernameMatch = text.match(
+    /Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i,
+  );
   const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
   const roleMatch = text.match(/Role:\s*([a-z]+)/i);
-  const noteMatch = text.match(/(Please change your password on first login\.?)/i);
+  const noteMatch = text.match(
+    /(Please change your password on first login\.?)/i,
+  );
 
   return {
     intro: text.split(/Username:/i)[0].trim(),
@@ -140,8 +145,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
         : channelConfig;
 
     if (!config) {
-      return false
-      
+      return false;
     }
     const webAppName = "CHOPS";
 
@@ -185,13 +189,11 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
       host: config.host,
       port: parseInt(config.port) || 587,
       secure: config.secure === "true",
-      auth: config.user
-        ? { user: config.user, pass: config.pass }
-        : undefined,
+      auth: config.user ? { user: config.user, pass: config.pass } : undefined,
     });
 
     const info = await transport.sendMail(mailOptions);
-     console.log("Password reset OTP sent to %s: %s", email, info.messageId);
+    console.log("Password reset OTP sent to %s: %s", email, info.messageId);
     return true;
   } catch (error) {
     console.error("Error sending OTP email:", error.message);
@@ -245,12 +247,15 @@ export async function sendNotification(channelConfig, alert) {
       ? extractAccountDetails(d.description)
       : null;
 
-    const descriptionHtml = d.description !== "-"
+    const descriptionHtml =
+      d.description !== "-"
         ? `<p style="color:#334155;margin:0 0 16px;font-size:15px;line-height:1.7">${escapeHtml(d.description)}</p>`
         : "";
 
-    const html = isAccountEmail ? `
+    const html = isAccountEmail
+      ? `
  <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -262,91 +267,78 @@ export async function sendNotification(channelConfig, alert) {
 <body
     style="margin:0;padding:0;background-color:#e6e6e620;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#e6e6e620;padding:40px 0;">
-        <tr>
-            <td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="background:#e6e6e620;padding:40px 0;">
+    <tr>
+        <td align="center">
 
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
+                style="width:600px;max-width:600px;background:#e6e6e620;border-radius:5px;box-shadow:0 0 40px #d6d6d6;font-family:system-ui,-apple-system,sans-serif;">
 
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
-                    style="width:600px;max-width:600px;background:#e6e6e620;border-radius:5px;box-shadow:0 0 40px #d6d6d6;font-family:system-ui,-apple-system,sans-serif;">
+                <tr>
+                    <td align="center" style="padding:25px 20px;">
+                        <img src="cid:logo-image-123" alt="Company Logo" width="250"
+                            style="display:block;border:0;max-width:250px;width:100%;pointer-events:none;">
+                    </td>
+                </tr>
 
+                <tr>
+                    <td align="center">
 
-                    <tr>
-                        <td align="center" style="padding:25px 20px;">
-                            <img src="cid:logo-image-123" alt="Company Logo" width="250"
-                                style="display:block;border:0;max-width:250px;width:100%; pointer-events:none;">
-                        </td>
-                    </tr>
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="85%"
+                            style="background:#ffffff;border-radius:5px;">
 
+                            <tr>
+                                <td style="padding:30px;">
 
-                    <tr>
-                        <td align="center">
+                                    <h1
+                                        style="margin:0 0 20px;font-size:24px;font-family:'Gill Sans','Gill Sans MT',Calibri,sans-serif;color:#440088;font-weight:700;">
+                                        Welcome! Your Account Is Ready
+                                    </h1>
 
-                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="85%"
-                                style="background:#ffffff;border-radius:5px;">
+                                    <p
+                                        style="margin:0 0 25px;font-size:13px;line-height:30px;color:#3a3a3a;font-family:Arial,sans-serif;">
+                                        <strong>Hi, ${escapeHtml(accountDetails?.username || "-")}</strong><br>
+                                        Welcome to CH-OPS!<br>
+                                        Your account has been created successfully. Please use the button below
+                                        to set your password and activate your account.
+                                    </p>
 
-                                <tr>
-                                    <td style="padding:30px;">
+                                    <!-- Account Details -->
+                                    <table width="100%" cellpadding="0" cellspacing="0"
+                                        style="border-collapse:collapse;font-size:14px;color:#000;margin:20px 0;">
 
-                                        <h1
-                                            style="margin:0 0 20px;font-size:24px;font-family:'Gill Sans','Gill Sans MT',Calibri,sans-serif;color:#440088;font-weight:700;">
-                                            Welcome! Your Account Is Ready
-                                        </h1>
+                                        <tr>
+                                            <td width="140"
+                                                style="padding:12px 16px;font-weight:600;color:#000;">
+                                                Username
+                                            </td>
 
-                                        <p
-                                            style="margin:0 0 25px;font-size:13px;line-height:30px;color:#3a3a3a;font-family:Arial,sans-serif;">
-                                            <strong>Hi, ${escapeHtml(accountDetails?.username || "-")}</strong><br>
-                                            Welcome to CH-OPS!<br>
-                                            Please click the button below to log in to CH-OPS.
-                                        </p>
+                                            <td
+                                                style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
+                                                ${escapeHtml(accountDetails?.username || "-")}
+                                            </td>
+                                        </tr>
 
-                                        <!-- Details -->
-                                        <table width="100%" cellpadding="0" cellspacing="0"
-                                            style="border-collapse:collapse;font-size:14px;color:#000;margin:20px 0;">
+                                        <tr>
+                                            <td
+                                                style="padding:12px 16px;font-weight:600;color:#000;">
+                                                Role
+                                            </td>
 
-                                            <tr>
-                                                <td width="140"
-                                                    style="padding:12px 16px;font-weight:600;color:#000;">
-                                                    Username
-                                                </td>
+                                            <td style="padding:12px 16px;color:#000;">
+                                                ${escapeHtml(accountDetails?.role || "-")}
+                                            </td>
+                                        </tr>
 
-                                                <td id="username"
-                                                    style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
-                                                    ${escapeHtml(accountDetails?.username || "-")}
-                                                </td>
-                                            </tr>
+                                    </table>
 
-                                            <tr>
-                                                <td
-                                                    style="padding:12px 16px;font-weight:600;color:#000;">
-                                                    Password
-                                                </td>
-
-                                                <td id="password"
-                                                    style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
-                                                    ${escapeHtml(accountDetails?.password || "-")}
-                                                </td>
-                                            </tr>
-
-                                            <tr>
-                                                <td
-                                                    style="padding:12px 16px;font-weight:600;color:#000;">
-                                                    Role
-                                                </td>
-
-                                                <td style="padding:12px 16px;color:#000;">
-                                                    ${escapeHtml(accountDetails?.role || "-")}
-                                                </td>
-                                            </tr>
-
-                                        </table>
-
+                                    <!-- One-Time Setup Button -->
                                     <table role="presentation" cellpadding="0" cellspacing="0" border="0"
                                         align="center" style="margin:18px auto;">
                                         <tr>
                                             <td bgcolor="#8a2be2" align="center" style="border-radius:6px;">
-                                                <a href="${env.frontendLink}" target="_blank"
+                                                <a href="${d.setPasswordUrl}" target="_blank"
                                                     style="
                                                         display:inline-block;
                                                         padding:10px 19px;
@@ -359,46 +351,55 @@ export async function sendNotification(channelConfig, alert) {
                                                         border-radius:6px;
                                                         line-height:1;
                                                     ">
-                                                    Login
+                                                    Set Up Your Password
                                                 </a>
                                             </td>
                                         </tr>
                                     </table>
 
-                                    </td>
-                                </tr>
+                                    <p
+                                        style="margin:20px 0 0;font-size:12px;line-height:20px;color:#777;font-family:Arial,sans-serif;text-align:center;">
+                                        This is a one-time setup link. Please use it to create your password
+                                        before logging in to CH-OPS.
+                                    </p>
 
-                            </table>
+                                </td>
+                            </tr>
 
-                        </td>
-                    </tr>
+                        </table>
 
-                    <tr>
-                        <td align="center"
-                            style="padding:30px 20px;font-size:12px;font-family:Arial,sans-serif;color:#808080;">
+                    </td>
+                </tr>
 
-                            <p style="margin:0 0 10px;">
-                                Visit our official website to explore our services, products, and latest updates.
-                            </p>
+                <tr>
+                    <td align="center"
+                        style="padding:30px 20px;font-size:12px;font-family:Arial,sans-serif;color:#808080;">
 
-                            <a href="https://www.ch-ops.io/" 
-                                style="color:#8a2be2;text-decoration:none;font-weight:600;">
-                                Learn more
-                            </a>
+                        <p style="margin:0 0 10px;">
+                            Visit our official website to explore our services, products, and latest updates.
+                        </p>
 
-                        </td>
-                    </tr>
+                        <a href="https://www.ch-ops.io/"
+                            style="color:#8a2be2;text-decoration:none;font-weight:600;">
+                            Learn more
+                        </a>
 
-                </table>
+                    </td>
+                </tr>
 
-            </td>
-        </tr>
-    </table>
+            </table>
+
+        </td>
+    </tr>
+</table>
 
 </body>
 
 </html>
-    ` : isPasswordResetEmail ? `
+
+    `
+      : isPasswordResetEmail
+        ? `
 <!DOCTYPE html>
 <html lang="en">
 
@@ -553,20 +554,22 @@ export async function sendNotification(channelConfig, alert) {
 </body>
 
 </html>
-    ` :
-    `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
+    `
+        : `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
       <div style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:white;padding:18px 24px"><h2 style="margin:0;font-size:20px">${escapeHtml(d.severity)}: ${escapeHtml(d.name)}</h2><p style="margin:4px 0 0;opacity:0.85;font-size:13px">${escapeHtml(d.timestamp)}</p></div>
       <div style="padding:24px;color:${bodyColor}">
         ${descriptionHtml}
         <div style="border:1px solid ${rowBorder};border-radius:10px;overflow:hidden;background:#ffffff">
           <div style="padding:12px 16px;background:#f8fafc;color:#0f172a;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Alert Summary</div>
           <table style="width:100%;font-size:14px;border-collapse:collapse;color:${tableTextColor}">
-            ${d.kind === 'failure'
-              ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || 'Evaluation failed')}</td></tr>`
-              : d.kind === 'recovery'
-              ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
-              : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
-                 <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Threshold</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.operator)} ${escapeHtml(d.threshold)}</td></tr>`}
+            ${
+              d.kind === "failure"
+                ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || "Evaluation failed")}</td></tr>`
+                : d.kind === "recovery"
+                  ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
+                  : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
+                 <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Threshold</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.operator)} ${escapeHtml(d.threshold)}</td></tr>`
+            }
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Severity</td><td style="padding:10px 16px;border-bottom:1px solid ${rowBorder}"><span style="background:${sevColor};color:${severityTextColor};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${escapeHtml(d.severity)}</span></td></tr>
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Schedule</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder};font-family:monospace">${escapeHtml(d.schedule)}</td></tr>
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Cluster</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.clusterName)}</td></tr>
@@ -581,15 +584,22 @@ export async function sendNotification(channelConfig, alert) {
     await transport.sendMail({
       from: config.from || "CHOps <noreply@chops>",
       to: config.to,
-      subject: isPasswordResetEmail ? `[CHOps] Password Reset for ${passwordResetDetails?.username || 'User'}` : (isAccountEmail ? `[CHOps] Welcome! Your Account Is Ready` : `[CHOps] ${d.severity}: ${d.name}`),
+      subject: isPasswordResetEmail
+        ? `[CHOps] Password Reset for ${passwordResetDetails?.username || "User"}`
+        : isAccountEmail
+          ? `[CHOps] Welcome! Your Account Is Ready`
+          : `[CHOps] ${d.severity}: ${d.name}`,
       html,
-      attachments: (isAccountEmail || isPasswordResetEmail) ? [
-        {
-          filename: "logo.png",
-          path: "src/frontend/assets/chops-dark.png",
-          cid: "logo-image-123",
-        },
-      ]: [],
+      attachments:
+        isAccountEmail || isPasswordResetEmail
+          ? [
+              {
+                filename: "logo.png",
+                path: "src/frontend/assets/chops-dark.png",
+                cid: "logo-image-123",
+              },
+            ]
+          : [],
     });
   }
 }
