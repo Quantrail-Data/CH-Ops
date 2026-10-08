@@ -3,12 +3,15 @@
 // Implements 4-tier RBAC user management, restricting hierarchical role modifications and credential updates by access level.
 
 import { randomBytes } from "crypto";
+import crypto from "crypto";
 import { eq, desc } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { sendNotification } from "../services/notifier.js";
 import { revokeToken } from "../services/jwt.js";
 import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
-import { resolveSystemSmtp } from '../services/systemSmtp.js';
+import { resolveSystemSmtp } from "../services/systemSmtp.js";
+import { loadEnv } from "../utils/env.js";
+import { create } from "../services/jwt.js";
 
 const VALID_ROLES = ["superadmin", "admin", "editor", "readonly"];
 
@@ -58,9 +61,9 @@ export function requireAdmin(req, res, next) {
 // Allows only super admins to perform actions and access the features
 
 export function requireSuperAdminOnly(req, res, next) {
-if (req.user?.role !== 'superadmin')
-return res.status(403).json({ error: "Superadmin access required." });
-next();
+  if (req.user?.role !== "superadmin")
+    return res.status(403).json({ error: "Superadmin access required." });
+  next();
 }
 
 // Blocks readonly users. Used on routes where editors can write.
@@ -81,7 +84,7 @@ export function listUsers(req, res) {
       role: appUsers.role,
       email: appUsers.email,
       mustChangePassword: appUsers.mustChangePassword,
-      initUser:appUsers.initUser,
+      initUser: appUsers.initUser,
       lastLoginAt: appUsers.lastLoginAt,
       createdAt: appUsers.createdAt,
     })
@@ -148,52 +151,77 @@ export async function createUser(req, res) {
           .json({ error: "Maximum 3 super admins allowed." });
     }
 
-    const password = generatePassword();
-    const hash = await hashPassword(password);
+    // const password = generatePassword();
+    // const hash = await hashPassword(password);
+
+    const setupToken = crypto.randomBytes(32).toString("hex");
+
+    const setupTokenHash = crypto
+      .createHash("sha256")
+      .update(setupToken)
+      .digest("hex");
+
+    const setupTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
     const user = db
       .insert(appUsers)
       .values({
-        username: username.trim(),
-        passwordHash: hash,
+        username: username,
+        passwordHash: null,
         role: newRole,
-        email: email || null,
+        email: email,
         mustChangePassword: true,
+
+        // One-time password setup information
+        passwordSetupTokenHash: setupTokenHash,
+        passwordSetupTokenExpiresAt: setupTokenExpiresAt.toISOString(),
       })
       .returning()
       .get();
 
-    // Email the generated password if SMTP is configured
-    if (email) {
-      try {
-        const smtp = resolveSystemSmtp();
-        if (smtp.host) {
-          const emailConfig = {
-            type: "email",
-            smtp_host: smtp.host,
-            smtp_port: smtp.port,
-            smtp_user: smtp.user,
-            smtp_pass: smtp.pass,
-            from: smtp.from,
-            to: email,
-          };
-          sendNotification(emailConfig, {
-            name: "CHOps Account Created",
-            severity: "info",
-            description: `Your CHOps account has been created.\n\nUsername: ${username.trim()}\nPassword: ${password}\nRole: ${newRole}\n\nPlease change your password on first login.`,
-            sql: "",
-            schedule: "",
-            operator: "eq",
-            threshold: 0,
-            lastValue: 0,
-            lastRunAt: new Date().toISOString(),
-          }).catch(() => {});
-        }
-      } catch {}
-    }
+    const env = loadEnv();
 
-    res
-      .status(201)
-      .json({ ...user, generatedPassword: password, passwordHash: undefined });
+    const appUrl = env.frontendLink;
+
+    const setPasswordUrl = `${appUrl}/#/set-password?token=${encodeURIComponent(setupToken)}`;
+
+    try {
+      const smtp = resolveSystemSmtp();
+
+      if (smtp?.host) {
+        const emailConfig = {
+          type: "email",
+          smtp_host: smtp.host,
+          smtp_port: smtp.port,
+          smtp_user: smtp.user,
+          smtp_pass: smtp.pass,
+          from: smtp.from,
+          to: email,
+        };
+
+        sendNotification(emailConfig, {
+          name: "CHOps Account Created",
+          severity: "info",
+          description:
+            `Your CHOps account has been created.\n\n` +
+            `Username: ${username}\n` +
+            `Role: ${newRole}\n\n` +
+            `Set your password using the link below:\n` +
+            `${setPasswordUrl}\n\n` +
+            `This link will expire in 30 minutes and can only be used once.`,
+          sql: "",
+          schedule: "",
+          operator: "eq",
+          threshold: 0,
+          lastValue: 0,
+          lastRunAt: new Date().toISOString(),
+          setPasswordUrl: setPasswordUrl,
+        }).catch(() => {});
+      }
+    } catch {}
+
+    const { passwordHash, passwordSetupTokenHash, ...safeUser } = user;
+
+    return res.status(201).json(safeUser);
   } catch (error) {
     res.status(500).json(error.message);
   }
@@ -215,7 +243,9 @@ export async function updateUser(req, res) {
       const callerLevel = ROLE_LEVEL[req.user?.role] || 0;
       const targetLevel = ROLE_LEVEL[target.role] || 0;
       if (!isSelf && targetLevel >= callerLevel)
-        return res.status(403).json({ error: "Cannot change this user's email." });
+        return res
+          .status(403)
+          .json({ error: "Cannot change this user's email." });
       updates.email = req.body.email;
     }
 
@@ -223,18 +253,14 @@ export async function updateUser(req, res) {
     if (req.body.role !== undefined && req.body.role !== target.role) {
       const newRole = req.body.role;
       if (!VALID_ROLES.includes(newRole)) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`,
+        });
       }
       if (!canChangeRole(req.user?.role, target.role, newRole)) {
-        return res
-          .status(403)
-          .json({
-            error: "You do not have permission to change this user's role.",
-          });
+        return res.status(403).json({
+          error: "You do not have permission to change this user's role.",
+        });
       }
       // Max 3 superadmins
       if (newRole === "superadmin") {
@@ -252,22 +278,27 @@ export async function updateUser(req, res) {
     }
 
     // password reset:self user cannot reset password
-    if(req.body.resetPassword && isSelf){
-      return res.status(403).json({error:"Cannot reset yourself"})
+    if (req.body.resetPassword && isSelf) {
+      return res.status(403).json({ error: "Cannot reset yourself" });
     }
 
     // password reset:if init user cannot self reset
-    if(req.body.resetPassword && target.initUser){
-      return res.status(403).json({error:"Default user cannot self reset"})
+    if (req.body.resetPassword && target.initUser) {
+      return res.status(403).json({ error: "Default user cannot self reset" });
     }
 
     // Password reset: only admin-level users can reset others' passwords
-    if (req.body.resetPassword && callerIsAdmin && !isSelf && !target.initUser) {
+    if (
+      req.body.resetPassword &&
+      callerIsAdmin &&
+      !isSelf &&
+      !target.initUser
+    ) {
       const pw = generatePassword();
       updates.passwordHash = await hashPassword(pw);
       updates.mustChangePassword = true;
       db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
-      
+
       const smtp = resolveSystemSmtp();
       if (smtp?.host && target.email) {
         try {
@@ -292,12 +323,17 @@ export async function updateUser(req, res) {
             lastRunAt: new Date().toISOString(),
           });
         } catch (emailErr) {
-          console.error("Failed to send password reset email:", emailErr.message);
+          console.error(
+            "Failed to send password reset email:",
+            emailErr.message,
+          );
         }
       } else if (!target.email) {
-        console.log(`User ${target.username} has no email configured, password not sent via email`);
+        console.log(
+          `User ${target.username} has no email configured, password not sent via email`,
+        );
       }
-      
+
       return res.json({ ok: true, generatedPassword: pw });
     }
 
@@ -324,19 +360,101 @@ export function deleteUser(req, res) {
     const callerLevel = ROLE_LEVEL[req.user?.role] || 0;
     const targetLevel = ROLE_LEVEL[target.role] || 0;
 
-    if( target.initUser) return res.status(403).json({error:"Cannot delete default user"})
+    if (target.initUser)
+      return res.status(403).json({ error: "Cannot delete default user" });
 
     if (targetLevel >= callerLevel) {
-      return res
-        .status(403)
-        .json({
-          error: "Cannot delete a user with equal or higher privileges.",
-        });
+      return res.status(403).json({
+        error: "Cannot delete a user with equal or higher privileges.",
+      });
     }
 
     db.delete(appUsers).where(eq(appUsers.id, id)).run();
     res.json({ deleted: true });
   } catch (error) {
     res.status(500).json(error.message);
+  }
+}
+
+export async function setPassword(req, res) {
+  try {
+    const { token, password, newPassword } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        error: "Password setup token is required.",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        error: "Password is required.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: "Password must be at least 8 characters.",
+      });
+    }
+
+    if (password !== newPassword) {
+      return res.status(400).json({
+        error: "Passwords do not match.",
+      });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.passwordSetupTokenHash, tokenHash))
+      .get();
+
+    if (!user) {
+      return res.status(400).json({
+        error: "Invalid or expired password setup link.",
+      });
+    }
+
+    if (
+      !user.passwordSetupTokenExpiresAt ||
+      new Date(user.passwordSetupTokenExpiresAt).getTime() < Date.now()
+    ) {
+      return res.status(400).json({
+        error: "Password setup link has expired.",
+      });
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    db.update(appUsers)
+      .set({
+        passwordHash,
+        mustChangePassword: false,
+        passwordSetupTokenHash: null,
+        passwordSetupTokenExpiresAt: null,
+      })
+      .where(eq(appUsers.id, user.id))
+      .run();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password set successfully. You can now log in.",
+      user: {
+        username: user.username,
+        role: user.role,
+        token: create({
+          username: user.username,
+          role: user.role,
+          userId: user.id,
+        }),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 }
