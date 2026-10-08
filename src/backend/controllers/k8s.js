@@ -14,16 +14,20 @@ import {
   OPERATORS,
   ADDRESSING,
   RESOLUTION,
-} from '../services/k8sConnections.js';
-import { getAllClusters, saveClusters, MAX_CLUSTERS } from '../services/clusterUtils.js';
-import { clearCapabilities } from '../services/capabilities.js';
-import { executeQuery } from '../services/clickhouse.js';
+} from "../services/k8sConnections.js";
+import {
+  getAllClusters,
+  saveClusters,
+  MAX_CLUSTERS,
+} from "../services/clusterUtils.js";
+import { clearCapabilities } from "../services/capabilities.js";
+import { executeQuery } from "../services/clickhouse.js";
 
 // A K8sError carries a message written for a person.
 function fail(res, err) {
-  const isK8s = typeof err?.code === 'string' && err.code.startsWith('K8S_');
-  const message = isK8s ? err.message : 'The request could not be completed.';
-  const status = err?.code === 'K8S_FORBIDDEN' ? 403 : 502;
+  const isK8s = typeof err?.code === "string" && err.code.startsWith("K8S_");
+  const message = isK8s ? err.message : "The request could not be completed.";
+  const status = err?.code === "K8S_FORBIDDEN" ? 403 : 502;
   return res.status(status).json({ error: message, code: err?.code ?? null });
 }
 
@@ -37,7 +41,9 @@ export function listK8sConnections(req, res) {
   try {
     return res.json(listConnections());
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error" });
   }
 }
 
@@ -45,14 +51,19 @@ export function listK8sConnections(req, res) {
 export function createK8sConnection(req, res) {
   const { name, apiAddress, caCertificate, token, namespaces } = req.body || {};
 
-  if (!name?.trim()) return res.status(400).json({ error: 'A name is required.' });
-  if (!apiAddress?.trim()) return res.status(400).json({ error: 'An API address is required.' });
+  if (!name?.trim())
+    return res.status(400).json({ error: "A name is required." });
+  if (!apiAddress?.trim())
+    return res.status(400).json({ error: "An API address is required." });
   if (!caCertificate?.trim()) {
-    return res.status(400).json({ error: 'A CA certificate is required.' });
+    return res.status(400).json({ error: "A CA certificate is required." });
   }
-  if (!token?.trim()) return res.status(400).json({ error: 'A token is required.' });
+  if (!token?.trim())
+    return res.status(400).json({ error: "A token is required." });
   if (!/^https:\/\//i.test(apiAddress.trim())) {
-    return res.status(400).json({ error: 'The API address must start with https://' });
+    return res
+      .status(400)
+      .json({ error: "The API address must start with https://" });
   }
 
   try {
@@ -65,7 +76,9 @@ export function createK8sConnection(req, res) {
     });
     return res.status(201).json({ id });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error" });
   }
 }
 
@@ -73,7 +86,8 @@ export function createK8sConnection(req, res) {
 export function updateK8sConnection(req, res) {
   const { id } = req.params;
   const existing = getConnection(id);
-  if (!existing) return res.status(404).json({ error: 'Connection not found.' });
+  if (!existing)
+    return res.status(404).json({ error: "Connection not found." });
 
   const { name, apiAddress, caCertificate, token, namespaces } = req.body || {};
 
@@ -89,7 +103,9 @@ export function updateK8sConnection(req, res) {
     });
     return res.json({ ok: true });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error" });
   }
 }
 
@@ -110,19 +126,23 @@ export function deleteK8sConnection(req, res) {
     deleteConnection(id);
     return res.json({ deleted: true });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error" });
   }
 }
 
 // POST /api/k8s/test
 export async function testK8sConnection(req, res) {
-  const { apiAddress, caCertificate, token, namespace, connectionId } = req.body || {};
+  const { apiAddress, caCertificate, token, namespace, connectionId } =
+    req.body || {};
 
   try {
     // Testing a stored connection re-uses its token rather than asking the caller to send it again.
     if (connectionId) {
       const stored = getConnection(connectionId, { includeToken: true });
-      if (!stored) return res.status(404).json({ error: 'Connection not found.' });
+      if (!stored)
+        return res.status(404).json({ error: "Connection not found." });
       return res.json(
         await runConnectionTest({
           apiAddress: stored.apiAddress,
@@ -134,10 +154,14 @@ export async function testK8sConnection(req, res) {
     }
 
     if (!apiAddress || !caCertificate || !token) {
-      return res.status(400).json({ error: 'Address, certificate and token are required.' });
+      return res
+        .status(400)
+        .json({ error: "Address, certificate and token are required." });
     }
 
-    return res.json(await runConnectionTest({ apiAddress, caCertificate, token, namespace }));
+    return res.json(
+      await runConnectionTest({ apiAddress, caCertificate, token, namespace }),
+    );
   } catch (err) {
     return fail(res, err);
   }
@@ -150,14 +174,20 @@ export async function listNamespaces(req, res) {
 
     // An explicit allowlist avoids asking the cluster, and works without list permission.
     if (connection.namespaces?.length) {
-      return res.json({ namespaces: connection.namespaces, source: 'allowlist' });
+      return res.json({
+        namespaces: connection.namespaces,
+        source: "allowlist",
+      });
     }
 
-    return res.json({ namespaces: await provider.listNamespaces(), source: 'cluster' });
+    return res.json({
+      namespaces: await provider.listNamespaces(),
+      source: "cluster",
+    });
   } catch (err) {
-    if (err?.code === 'K8S_FORBIDDEN') {
+    if (err?.code === "K8S_FORBIDDEN") {
       // Expected with a namespace-scoped token.
-      return res.json({ namespaces: [], source: 'restricted' });
+      return res.json({ namespaces: [], source: "restricted" });
     }
     return fail(res, err);
   }
@@ -165,12 +195,16 @@ export async function listNamespaces(req, res) {
 
 // GET /api/k8s/connections/:id/installations?namespace=
 export async function listInstallations(req, res) {
-  const { namespace } = req.query;
-  if (!namespace) return res.status(400).json({ error: 'A namespace is required.' });
+  const { namespace: rawNamespace } = req.query;
+  const namespace = encodeURIComponent(rawNamespace);
+  if (!namespace)
+    return res.status(400).json({ error: "A namespace is required." });
 
   try {
     const { provider } = providerFor(req.params.id, req.query.operator);
-    return res.json({ installations: await provider.listInstallations(namespace) });
+    return res.json({
+      installations: await provider.listInstallations(namespace),
+    });
   } catch (err) {
     return fail(res, err);
   }
@@ -178,8 +212,10 @@ export async function listInstallations(req, res) {
 
 // GET /api/k8s/connections/:id/installations/:name?namespace=
 export async function getInstallation(req, res) {
-  const { namespace } = req.query;
-  if (!namespace) return res.status(400).json({ error: 'A namespace is required.' });
+  const { namespace: rawNamespace } = req.query;
+  const namespace = encodeURIComponent(rawNamespace);
+  if (!namespace)
+    return res.status(400).json({ error: "A namespace is required." });
 
   try {
     const { provider } = providerFor(req.params.id, req.query.operator);
@@ -191,7 +227,13 @@ export async function getInstallation(req, res) {
 }
 
 // Try the ClickHouse® credentials against the endpoint the user gave.
-async function checkClickHouseCredentials({ host, port, secure, user, password }) {
+async function checkClickHouseCredentials({
+  host,
+  port,
+  secure,
+  user,
+  password,
+}) {
   try {
     const result = await executeQuery({
       host,
@@ -201,53 +243,53 @@ async function checkClickHouseCredentials({ host, port, secure, user, password }
       password,
       readOnly: true,
       timeoutMs: 10000,
-      sql: 'SELECT version() AS version',
+      sql: "SELECT version() AS version",
     });
     return { ok: true, version: result?.rows?.[0]?.version ?? null };
   } catch (err) {
-    const raw = String(err?.message ?? '');
+    const raw = String(err?.message ?? "");
     const lower = raw.toLowerCase();
 
     // Authentication rejected.
     if (
-      lower.includes('authentication failed') ||
-      lower.includes('password is incorrect') ||
-      lower.includes('unknown user') ||
-      lower.includes('access denied') ||
-      lower.includes('code: 516') ||
-      lower.includes('code: 192')
+      lower.includes("authentication failed") ||
+      lower.includes("password is incorrect") ||
+      lower.includes("unknown user") ||
+      lower.includes("access denied") ||
+      lower.includes("code: 516") ||
+      lower.includes("code: 192")
     ) {
       return {
         ok: false,
-        reason: 'auth',
+        reason: "auth",
         message:
-          user === 'default'
-            ? 'ClickHouse® rejected these credentials. The default user is often restricted to the cluster\'s own pods, so it cannot connect from outside even with the right password. Create a dedicated user instead.'
-            : 'ClickHouse® rejected these credentials.',
+          user === "default"
+            ? "ClickHouse® rejected these credentials. The default user is often restricted to the cluster's own pods, so it cannot connect from outside even with the right password. Create a dedicated user instead."
+            : "ClickHouse® rejected these credentials.",
         detail: raw,
       };
     }
 
     if (
-      lower.includes('econnrefused') ||
-      lower.includes('etimedout') ||
-      lower.includes('enotfound') ||
-      lower.includes('ehostunreach') ||
-      lower.includes('network')
+      lower.includes("econnrefused") ||
+      lower.includes("etimedout") ||
+      lower.includes("enotfound") ||
+      lower.includes("ehostunreach") ||
+      lower.includes("network")
     ) {
       return {
         ok: false,
-        reason: 'unreachable',
+        reason: "unreachable",
         message:
-          'The address could not be reached. Addresses Kubernetes uses internally do not resolve from outside the cluster, so this needs a load balancer, an ingress or a port forward.',
+          "The address could not be reached. Addresses Kubernetes uses internally do not resolve from outside the cluster, so this needs a load balancer, an ingress or a port forward.",
         detail: raw,
       };
     }
 
     return {
       ok: false,
-      reason: 'unknown',
-      message: 'ClickHouse® did not answer.',
+      reason: "unknown",
+      message: "ClickHouse® did not answer.",
       detail: raw,
     };
   }
@@ -257,9 +299,9 @@ async function checkClickHouseCredentials({ host, port, secure, user, password }
 export async function importInstallation(req, res) {
   const {
     connectionId,
-    namespace,
+    namespace: rawNamespace,
     installation,
-    operator = 'akoc',
+    operator = "akoc",
     displayName,
     endpoint,
     port,
@@ -271,19 +313,21 @@ export async function importInstallation(req, res) {
     acknowledgeSharedEndpoint = false,
   } = req.body || {};
 
+  const namespace = encodeURIComponent(rawNamespace);
+
   if (!OPERATORS[operator]) {
-    return res.status(400).json({ error: 'Unknown operator.' });
+    return res.status(400).json({ error: "Unknown operator." });
   }
 
   if (!connectionId || !namespace || !installation) {
     return res.status(400).json({
-      error: 'A connection, namespace and installation are required.',
+      error: "A connection, namespace and installation are required.",
     });
   }
   if (!endpoint?.trim()) {
     return res.status(400).json({
       error:
-        'A reachable ClickHouse address is required. Internal cluster addresses do not resolve from outside the cluster.',
+        "A reachable ClickHouse address is required. Internal cluster addresses do not resolve from outside the cluster.",
     });
   }
 
@@ -295,7 +339,8 @@ export async function importInstallation(req, res) {
   }
 
   const duplicate = existing.find(
-    (c) => c.k8s?.namespace === namespace && c.k8s?.installation === installation,
+    (c) =>
+      c.k8s?.namespace === namespace && c.k8s?.installation === installation,
   );
   if (duplicate) {
     return res.status(409).json({
@@ -305,7 +350,9 @@ export async function importInstallation(req, res) {
 
   // The display name defaults to the installation name, so two namespaces can collide.
   const proposedName = (displayName?.trim() || installation).toLowerCase();
-  const nameClash = existing.find((c) => c.name.trim().toLowerCase() === proposedName);
+  const nameClash = existing.find(
+    (c) => c.name.trim().toLowerCase() === proposedName,
+  );
   if (nameClash) {
     return res.status(409).json({
       error: `A cluster named "${nameClash.name}" already exists. Give this one a different display name.`,
@@ -323,15 +370,16 @@ export async function importInstallation(req, res) {
       endpoint: endpoint.trim(),
       port: resolvedPort,
       secure: resolvedSecure,
-      user: chUser || 'default',
-      password: chPassword || '',
+      user: chUser || "default",
+      password: chPassword || "",
       mode: addressingMode,
     });
 
     const nodes = addressing.nodes;
     if (!nodes.length) {
       return res.status(400).json({
-        error: 'That installation reported no hosts. It may not have finished starting.',
+        error:
+          "That installation reported no hosts. It may not have finished starting.",
       });
     }
 
@@ -340,8 +388,8 @@ export async function importInstallation(req, res) {
       host: endpoint.trim(),
       port: resolvedPort,
       secure: resolvedSecure,
-      user: chUser || 'default',
-      password: chPassword || '',
+      user: chUser || "default",
+      password: chPassword || "",
     });
 
     if (!credentials.ok && !acknowledgeCredentialFailure) {
@@ -363,11 +411,11 @@ export async function importInstallation(req, res) {
     }
 
     const cluster = {
-      id: `k8s_${namespace}_${installation}`.replace(/[^a-zA-Z0-9_]/g, '_'),
+      id: `k8s_${namespace}_${installation}`.replace(/[^a-zA-Z0-9_]/g, "_"),
       name: displayName?.trim() || installation,
-      kind: 'k8s',
-      chUser: chUser || 'default',
-      chPassword: chPassword || '',
+      kind: "k8s",
+      chUser: chUser || "default",
+      chPassword: chPassword || "",
       port: resolvedPort,
       secure: resolvedSecure,
       k8s: { connectionId, namespace, installation, operator },
@@ -399,12 +447,12 @@ export async function importInstallation(req, res) {
   }
 }
 
-
 export async function verifyClusterConnection(req, res) {
-  const { endpoint, port, secure, chUser, chPassword, clusterId } = req.body || {};
+  const { endpoint, port, secure, chUser, chPassword, clusterId } =
+    req.body || {};
 
   if (!endpoint?.trim()) {
-    return res.status(400).json({ error: 'ClickHouse address is required.' });
+    return res.status(400).json({ error: "ClickHouse address is required." });
   }
 
   let password = chPassword;
@@ -412,15 +460,15 @@ export async function verifyClusterConnection(req, res) {
   // string, which would fail for a reason the user did not cause.
   if (!password && clusterId) {
     const existing = getAllClusters().find((c) => c.id === clusterId);
-    password = existing?.chPassword ?? '';
+    password = existing?.chPassword ?? "";
   }
 
   const result = await checkClickHouseCredentials({
     host: endpoint.trim(),
     port: Number(port) || 8443,
     secure: secure !== false,
-    user: chUser || 'default',
-    password: password || '',
+    user: chUser || "default",
+    password: password || "",
   });
 
   return res.json(result);
@@ -429,30 +477,32 @@ export async function verifyClusterConnection(req, res) {
 // POST /api/k8s/clusters/:id/refresh
 export async function refreshCluster(req, res) {
   const cluster = getAllClusters().find((c) => c.id === req.params.id);
-  if (!cluster) return res.status(404).json({ error: 'Cluster not found.' });
-  if (cluster.kind !== 'k8s') {
-    return res.status(400).json({ error: 'That cluster was not added through Kubernetes.' });
+  if (!cluster) return res.status(404).json({ error: "Cluster not found." });
+  if (cluster.kind !== "k8s") {
+    return res
+      .status(400)
+      .json({ error: "That cluster was not added through Kubernetes." });
   }
 
   if (!cluster.endpoint) {
     return res.json({
       ok: false,
       message:
-        'This cluster has no stored ClickHouse address. Edit it, set the address, and save.',
+        "This cluster has no stored ClickHouse address. Edit it, set the address, and save.",
     });
   }
 
   try {
     const addressing = await readInstallationAddresses({
       connectionId: cluster.k8s.connectionId,
-      namespace: cluster.k8s.namespace,
+      namespace: encodeURIComponent(cluster.k8s.namespace),
       installation: cluster.k8s.installation,
       operator: cluster.k8s.operator,
       endpoint: cluster.k8sAddressing?.endpoint || cluster.nodes[0]?.host,
       port: cluster.port ?? 8443,
       secure: cluster.secure !== false,
-      user: cluster.chUser || 'default',
-      password: cluster.chPassword || '',
+      user: cluster.chUser || "default",
+      password: cluster.chPassword || "",
       mode: cluster.k8sAddressing?.mode || ADDRESSING.AUTO,
     });
 
@@ -477,29 +527,32 @@ export async function refreshCluster(req, res) {
       });
     }
 
-    return res.json({ ok: true, hosts: nodes.length, refreshedAt: new Date().toISOString() });
+    return res.json({
+      ok: true,
+      hosts: nodes.length,
+      refreshedAt: new Date().toISOString(),
+    });
   } catch (err) {
     return fail(res, err);
   }
 }
 
-
 export async function reresolveCluster(req, res) {
   const cluster = getAllClusters().find((c) => c.id === req.params.id);
-  if (!cluster) return res.status(404).json({ error: 'Cluster not found.' });
-  if (cluster.kind !== 'k8s') return res.json({ ok: true, skipped: true });
+  if (!cluster) return res.status(404).json({ error: "Cluster not found." });
+  if (cluster.kind !== "k8s") return res.json({ ok: true, skipped: true });
 
   try {
     const addressing = await readInstallationAddresses({
       connectionId: cluster.k8s.connectionId,
-      namespace: cluster.k8s.namespace,
+      namespace: encodeURIComponent(cluster.k8s.namespace),
       installation: cluster.k8s.installation,
       operator: cluster.k8s.operator,
       endpoint: cluster.endpoint,
       port: cluster.port ?? 8443,
       secure: cluster.secure !== false,
-      user: cluster.chUser || 'default',
-      password: cluster.chPassword || '',
+      user: cluster.chUser || "default",
+      password: cluster.chPassword || "",
       mode: cluster.k8sAddressing?.mode || ADDRESSING.AUTO,
     });
 

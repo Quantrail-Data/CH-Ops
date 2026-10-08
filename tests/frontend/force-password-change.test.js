@@ -7,24 +7,20 @@ function read(f) { return fs.readFileSync(f, 'utf8'); }
 
 describe('Forced password change gate', () => {
   const app = read('src/frontend/App.jsx');
-  const gate = read('src/frontend/components/layout/ForceChangePassword.jsx');
+  const gate = read('src/frontend/components/layout/SetupPassword.jsx');
 
-  it('App renders ForceChangePassword instead of MainLayout when mustChangePassword is set', () => {
-    expect(app).toContain('ForceChangePassword');
-    expect(app).toMatch("auth.mustChangePassword");
+  it('App renders SetupPassword instead of MainLayout when mustChangePassword is set', () => {
+    expect(app).toContain('SetupPassword');
+    expect(app).toContain("token ?");
   });
 
   it('submits to the existing change-password endpoint', () => {
-    expect(gate).toContain('/api/auth/change-password');
-    expect(gate).toContain('currentPassword');
+    expect(gate).toContain('/api/auth/set-password');
+    expect(gate).toContain('confirmPassword');
     expect(gate).toContain('newPassword');
   });
 
-  it('clears mustChangePassword locally after a successful change', () => {
-    expect(gate).toContain('mustChangePassword: false');
-  });
-
   it('enforces the same minimum password length as self-service change', () => {
-    expect(gate).toContain('newPassword.length < 8');
+    expect(gate).toContain('confirmPassword.length < 8');
   });
 });

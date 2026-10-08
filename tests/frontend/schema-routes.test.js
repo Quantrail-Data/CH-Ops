@@ -86,7 +86,7 @@ describe("Routes: Auth", () => {
   it("has brute-force lockout", () => {
     expect(code).toContain("checkLockout");
     expect(code).toContain("recordFailure");
-    expect(code).toContain("getConfig('security.maxFailures')");
+    expect(code).toContain("getConfig(\"security.maxFailures\")");
   });
   it("supports DISABLE_ENV_LOGIN", () => {
     expect(code).toContain("disableEnvLogin");
