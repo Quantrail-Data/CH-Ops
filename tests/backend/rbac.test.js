@@ -80,7 +80,7 @@ describe('RBAC: Middleware exports', () => {
 
   it('exports requireSuperAdminOnly, which checks the role it names', () => {
     expect(code).toContain('export function requireSuperAdminOnly');
-    expect(code).toContain("req.user?.role !== 'superadmin'");
+    expect(code).toContain("req.user?.role !== \"superadmin\"");
   });
 
   it('exports requireEditor middleware', () => { expect(code).toContain('export function requireEditor'); });

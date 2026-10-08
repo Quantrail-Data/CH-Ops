@@ -8,8 +8,8 @@ import {
   classifyTransportError,
   classifyResponseError,
   isRetryable,
-} from './errors.js';
-import { getConfig } from '../appConfig.js';
+} from "./errors.js";
+import { getConfig } from "../appConfig.js";
 
 const DEFAULT_PAGE_SIZE = 500;
 const MAX_RETRIES = 3;
@@ -17,11 +17,11 @@ const MAX_PAGES = 100; // guard against a server that never stops paginating
 
 // Media type that asks the API server to render the same columns kubectl prints
 export const TABLE_ACCEPT =
-  'application/json;as=Table;g=meta.k8s.io;v=v1,application/json';
+  "application/json;as=Table;g=meta.k8s.io;v=v1,application/json";
 
 // Media type that returns names, labels and annotations only.
 export const METADATA_ACCEPT =
-  'application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1,application/json';
+  "application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1,application/json";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -29,9 +29,10 @@ function sleep(ms) {
 
 // Retry-After is either seconds or an HTTP date.
 function retryDelayMs(response, attempt) {
-  const header = response?.headers?.get?.('retry-after');
+  const header = response?.headers?.get?.("retry-after");
   const seconds = Number(header);
-  if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds * 1000, 30000);
+  if (Number.isFinite(seconds) && seconds > 0)
+    return Math.min(seconds * 1000, 30000);
   return Math.min(500 * 2 ** attempt, 8000);
 }
 
@@ -40,26 +41,30 @@ export function createK8sClient({
   apiAddress,
   caCertificate,
   token,
-  timeoutMs = getConfig('k8s.timeoutMs'),
+  timeoutMs = getConfig("k8s.timeoutMs"),
 }) {
-  if (!apiAddress) throw new Error('apiAddress is required');
-  if (!caCertificate) throw new Error('caCertificate is required');
-  if (!token) throw new Error('token is required');
+  if (!apiAddress) throw new Error("apiAddress is required");
+  if (!caCertificate) throw new Error("caCertificate is required");
+  if (!token) throw new Error("token is required");
 
-  const base = apiAddress.replace(/\/+$/, '');
+  const base = apiAddress.replace(/\/+$/, "");
 
-  async function request(path, { method = 'GET', accept, query, signal, context = {} } = {}) {
+  async function request(
+    path,
+    { method = "GET", accept, query, signal, context = {} } = {},
+  ) {
     const url = new URL(base + path);
     if (query) {
       for (const [k, v] of Object.entries(query)) {
-        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+        if (v !== undefined && v !== null && v !== "")
+          url.searchParams.set(k, String(v));
       }
     }
 
     const headers = {
       Authorization: `Bearer ${token}`,
-      Accept: accept || 'application/json',
-      'Accept-Encoding': 'gzip',
+      Accept: accept || "application/json",
+      "Accept-Encoding": "gzip",
     };
 
     let attempt = 0;
@@ -115,7 +120,10 @@ export function createK8sClient({
   }
 
   // One page of a collection.
-  async function listPage(path, { limit = DEFAULT_PAGE_SIZE, cont, ...options } = {}) {
+  async function listPage(
+    path,
+    { limit = DEFAULT_PAGE_SIZE, cont, ...options } = {},
+  ) {
     const response = await request(path, {
       ...options,
       query: { ...(options.query || {}), limit, continue: cont },
@@ -153,24 +161,29 @@ export function createK8sClient({
     let response;
     try {
       response = await fetch(url.toString(), {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify(payload),
         tls: { ca: caCertificate },
       });
     } catch (err) {
-      throw classifyTransportError(err, { url: url.pathname, ...(options.context || {}) });
+      throw classifyTransportError(err, {
+        url: url.pathname,
+        ...(options.context || {}),
+      });
     }
 
     if (!response.ok) {
       let body = null;
       try {
         body = await response.json();
-      } catch { /* non-JSON error body */ }
+      } catch {
+        /* non-JSON error body */
+      }
       throw classifyResponseError(response.status, body, {
         url: url.pathname,
         ...(options.context || {}),
@@ -181,7 +194,7 @@ export function createK8sClient({
 
   // Streaming read, used for pod logs.
   async function stream(path, options = {}) {
-    const response = await request(path, { ...options, accept: '*/*' });
+    const response = await request(path, { ...options, accept: "*/*" });
     return response.body;
   }
 
@@ -191,40 +204,51 @@ export function createK8sClient({
 // Path builders Core
 
 export const paths = {
-  namespaces: () => '/api/v1/namespaces',
+  namespaces: () => "/api/v1/namespaces",
 
-  pods: (ns) => `/api/v1/namespaces/${ns}/pods`,
-  podLog: (ns, pod) => `/api/v1/namespaces/${ns}/pods/${pod}/log`,
-  pvcs: (ns) => `/api/v1/namespaces/${ns}/persistentvolumeclaims`,
-  services: (ns) => `/api/v1/namespaces/${ns}/services`,
-  configMaps: (ns) => `/api/v1/namespaces/${ns}/configmaps`,
-  events: (ns) => `/api/v1/namespaces/${ns}/events`,
-  resourceQuotas: (ns) => `/api/v1/namespaces/${ns}/resourcequotas`,
+  pods: (ns) => `/api/v1/namespaces/${encodeURIComponent(ns)}/pods`,
+  podLog: (ns, pod) =>
+    `/api/v1/namespaces/${encodeURIComponent(ns)}/pods/${encodeURIComponent(pod)}/log`,
+  pvcs: (ns) =>
+    `/api/v1/namespaces/${encodeURIComponent(ns)}/persistentvolumeclaims`,
+  services: (ns) => `/api/v1/namespaces/${encodeURIComponent(ns)}/services`,
+  configMaps: (ns) => `/api/v1/namespaces/${encodeURIComponent(ns)}/configmaps`,
+  events: (ns) => `/api/v1/namespaces/${encodeURIComponent(ns)}/events`,
+  resourceQuotas: (ns) =>
+    `/api/v1/namespaces/${encodeURIComponent(encodeURIComponent(ns))}/resourcequotas`,
 
   // EndpointSlice replaces the core Endpoints API, which is deprecated from Kubernetes 1.33.
-  endpointSlices: (ns) => `/apis/discovery.k8s.io/v1/namespaces/${ns}/endpointslices`,
+  endpointSlices: (ns) =>
+    `/apis/discovery.k8s.io/v1/namespaces/${encodeURIComponent(ns)}/endpointslices`,
 
-  statefulSets: (ns) => `/apis/apps/v1/namespaces/${ns}/statefulsets`,
-  networkPolicies: (ns) => `/apis/networking.k8s.io/v1/namespaces/${ns}/networkpolicies`,
-  ingresses: (ns) => `/apis/networking.k8s.io/v1/namespaces/${ns}/ingresses`,
-  podDisruptionBudgets: (ns) => `/apis/policy/v1/namespaces/${ns}/poddisruptionbudgets`,
+  statefulSets: (ns) =>
+    `/apis/apps/v1/namespaces/${encodeURIComponent(ns)}/statefulsets`,
+  networkPolicies: (ns) =>
+    `/apis/networking.k8s.io/v1/namespaces/${encodeURIComponent(ns)}/networkpolicies`,
+  ingresses: (ns) =>
+    `/apis/networking.k8s.io/v1/namespaces/${encodeURIComponent(ns)}/ingresses`,
+  podDisruptionBudgets: (ns) =>
+    `/apis/policy/v1/namespaces/${encodeURIComponent(ns)}/poddisruptionbudgets`,
 
-  storageClasses: () => '/apis/storage.k8s.io/v1/storageclasses',
+  storageClasses: () => "/apis/storage.k8s.io/v1/storageclasses",
 
   selfSubjectRulesReviews: () =>
-    '/apis/authorization.k8s.io/v1/selfsubjectrulesreviews',
+    "/apis/authorization.k8s.io/v1/selfsubjectrulesreviews",
 
   installations: (ns) =>
-    `/apis/clickhouse.altinity.com/v1/namespaces/${ns}/clickhouseinstallations`,
+    `/apis/clickhouse.altinity.com/v1/namespaces/${encodeURIComponent(ns)}/clickhouseinstallations`,
   installation: (ns, name) =>
-    `/apis/clickhouse.altinity.com/v1/namespaces/${ns}/clickhouseinstallations/${name}`,
+    `/apis/clickhouse.altinity.com/v1/namespaces/${encodeURIComponent(ns)}/clickhouseinstallations/${encodeURIComponent(name)}`,
   keeperInstallations: (ns) =>
-    `/apis/clickhouse-keeper.altinity.com/v1/namespaces/${ns}/clickhousekeeperinstallations`,
+    `/apis/clickhouse-keeper.altinity.com/v1/namespaces/${encodeURIComponent(ns)}/clickhousekeeperinstallations`,
 };
 
 // Label selector helpers.
 export const selectors = {
-  ownedByInstallation: (name) => `clickhouse.altinity.com/chi=${name}`,
-  keeperOwnedBy: (name) => `clickhouse-keeper.altinity.com/chk=${name}`,
-  slicesForService: (serviceName) => `kubernetes.io/service-name=${serviceName}`,
+  ownedByInstallation: (name) =>
+    `clickhouse.altinity.com/chi=${encodeURIComponent(name)}`,
+  keeperOwnedBy: (name) =>
+    `clickhouse-keeper.altinity.com/chk=${encodeURIComponent(name)}`,
+  slicesForService: (serviceName) =>
+    `kubernetes.io/service-name=${encodeURIComponent(serviceName)}`,
 };
