@@ -101,7 +101,8 @@ function saveClustersToTables(clusters) {
   const existingIds = new Set(existing.map(c => c.id));
   const incomingIds = new Set(clusters.map(c => c.id));
 
-  db.transaction(() => {
+  db.exec('BEGIN TRANSACTION');
+  try {
     for (const id of existingIds) {
       if (!incomingIds.has(id)) {
         db.delete(clusterNodes).where(eq(clusterNodes.clusterId, id)).run();
@@ -156,7 +157,11 @@ function saveClustersToTables(clusters) {
         }).run();
       }
     }
-  });
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 // Public API.
@@ -256,7 +261,8 @@ export function updateClusterNodes(clusterId, nodes, expectedVersion) {
   const changed = (result?.changes ?? result?.rowsAffected ?? 0) > 0;
   if (!changed) return false;
 
-  db.transaction(() => {
+  db.exec('BEGIN TRANSACTION');
+  try {
     const existing = db
       .select()
       .from(clusterNodes)
@@ -303,7 +309,11 @@ export function updateClusterNodes(clusterId, nodes, expectedVersion) {
     }
 
     // Anything absent from this round keeps its old lastSeenAt and stays in place.
-  });
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 
   return true;
 }
@@ -321,11 +331,16 @@ export function findStaleNodes(clusterId, olderThanIso) {
 
 export function removeNodes(clusterId, nodeIds) {
   if (!nodeIds.length) return;
-  db.transaction(() => {
+  db.exec('BEGIN TRANSACTION');
+  try {
     for (const id of nodeIds) {
       db.delete(clusterNodes).where(eq(clusterNodes.id, id)).run();
     }
-  });
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 // Migrate old single-cluster format to new multi-cluster format.
