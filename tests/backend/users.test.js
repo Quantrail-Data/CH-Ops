@@ -106,6 +106,7 @@ let requireEditor;
 beforeAll(async () => {
   mock.module("../../src/backend/db/index.js", () => ({
     db,
+    rawSqlite: {},
     appUsers: {},
     alertRules: {},
     alertChannels: {},
