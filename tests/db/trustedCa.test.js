@@ -9,10 +9,7 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { generateKeyPairSync, randomBytes, sign as signData } from "node:crypto";
 import * as schema from "../../src/backend/db/schema.js";
 
 const sqlite = new Database(":memory:");
@@ -58,27 +55,159 @@ const {
   parsePem,
 } = await import("../../src/backend/services/trustedCa.js");
 
-// Real certificates, generated once. Using openssl rather than a fixture so
-// nothing expires and breaks this suite in a year.
+function encodeLength(length) {
+  if (length < 128) return Buffer.from([length]);
+
+  const bytes = [];
+  while (length > 0) {
+    bytes.unshift(length & 0xff);
+    length >>>= 8;
+  }
+
+  return Buffer.from([0x80 | bytes.length, ...bytes]);
+}
+
+function der(tag, ...values) {
+  const body = Buffer.concat(values);
+  return Buffer.concat([
+    Buffer.from([tag]),
+    encodeLength(body.length),
+    body,
+  ]);
+}
+
+function encodeOidValue(value) {
+  const bytes = [value & 0x7f];
+  value = Math.floor(value / 128);
+
+  while (value > 0) {
+    bytes.unshift(0x80 | (value & 0x7f));
+    value = Math.floor(value / 128);
+  }
+
+  return bytes;
+}
+
+function derOid(value) {
+  const parts = value.split(".").map(Number);
+  const bytes = encodeOidValue(parts[0] * 40 + parts[1]);
+
+  for (const part of parts.slice(2)) {
+    bytes.push(...encodeOidValue(part));
+  }
+
+  return der(0x06, Buffer.from(bytes));
+}
+
+function derCertificateTime(date) {
+  const pad = value => String(value).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = pad(date.getUTCMonth() + 1);
+  const day = pad(date.getUTCDate());
+  const hours = pad(date.getUTCHours());
+  const minutes = pad(date.getUTCMinutes());
+  const seconds = pad(date.getUTCSeconds());
+
+  if (year >= 1950 && year <= 2049) {
+    const twoDigitYear = pad(year % 100);
+    return der(
+      0x17,
+      Buffer.from(`${twoDigitYear}${month}${day}${hours}${minutes}${seconds}Z`),
+    );
+  }
+
+  return der(
+    0x18,
+    Buffer.from(`${year}${month}${day}${hours}${minutes}${seconds}Z`),
+  );
+}
+
+function makeCertificate(cn, isCa) {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicExponent: 65537,
+  });
+
+  let serial = randomBytes(16);
+  while (serial[0] === 0) {
+    serial = randomBytes(16);
+  }
+  if (serial[0] & 0x80) {
+    serial = Buffer.concat([Buffer.from([0]), serial]);
+  }
+
+  const algorithm = der(
+    0x30,
+    derOid("1.2.840.113549.1.1.11"),
+    der(0x05),
+  );
+
+  const name = der(
+    0x30,
+    der(
+      0x31,
+      der(
+        0x30,
+        derOid("2.5.4.3"),
+        der(0x0c, Buffer.from(cn, "utf8")),
+      ),
+    ),
+  );
+
+  const notBefore = new Date(Date.now() - 60_000);
+  const notAfter = new Date();
+  notAfter.setUTCFullYear(notAfter.getUTCFullYear() + 100);
+
+  const validity = der(
+    0x30,
+    derCertificateTime(notBefore),
+    derCertificateTime(notAfter),
+  );
+
+  const basicConstraints = der(
+    0x30,
+    derOid("2.5.29.19"),
+    der(0x01, Buffer.from([0xff])),
+    der(
+      0x04,
+      isCa
+        ? der(0x30, der(0x01, Buffer.from([0xff])))
+        : der(0x30),
+    ),
+  );
+
+  const extensions = der(0xa3, der(0x30, basicConstraints));
+
+  const tbsCertificate = der(
+    0x30,
+    der(0xa0, der(0x02, Buffer.from([2]))),
+    der(0x02, serial),
+    algorithm,
+    name,
+    validity,
+    name,
+    publicKey.export({ type: "spki", format: "der" }),
+    extensions,
+  );
+
+  const signature = signData("sha256", tbsCertificate, privateKey);
+  const certificate = der(
+    0x30,
+    tbsCertificate,
+    algorithm,
+    der(0x03, Buffer.concat([Buffer.from([0]), signature])),
+  );
+  const encoded = certificate.toString("base64").match(/.{1,64}/g).join("\n");
+
+  return `-----BEGIN CERTIFICATE-----\n${encoded}\n-----END CERTIFICATE-----\n`;
+}
+
 function makeCa(cn) {
-  const dir = mkdtempSync(join(tmpdir(), "ca-"));
-  execFileSync("openssl", [
-    "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-    "-keyout", join(dir, "ca.key"), "-out", join(dir, "ca.crt"),
-    "-days", "365", "-subj", `/CN=${cn}`,
-  ], { stdio: "ignore" });
-  return readFileSync(join(dir, "ca.crt"), "utf8");
+  return makeCertificate(cn, true);
 }
 
 function makeServerCert() {
-  const dir = mkdtempSync(join(tmpdir(), "srv-"));
-  execFileSync("openssl", [
-    "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-    "-keyout", join(dir, "s.key"), "-out", join(dir, "s.crt"),
-    "-days", "365", "-subj", "/CN=localhost",
-    "-addext", "basicConstraints=CA:FALSE",
-  ], { stdio: "ignore" });
-  return readFileSync(join(dir, "s.crt"), "utf8");
+  return makeCertificate("localhost", false);
 }
 
 const caA = makeCa("Test CA A");
