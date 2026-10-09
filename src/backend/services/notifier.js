@@ -1,12 +1,5 @@
 // notifier.js - Multi-channel alert notification dispatcher
-//
 // Sends rich notifications to configured channels (email only for now).
-// Includes alert details: name, severity, description, SQL, schedule,
-// threshold, operator, current value, cluster name, fired node, and
-// timestamp. Email uses a styled HTML template with severity colors.
-// Webhook URLs are validated to prevent SSRF attacks (no localhost
-// or private IPs allowed).
-//
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import nodemailer from "nodemailer";
@@ -95,7 +88,6 @@ function formatDetails(alert) {
     timestamp: ts,
     kind: alert.kind || "breach",
     error: alert.error || null,
-    setPasswordUrl: alert.setPasswordUrl || null,
   };
 }
 
@@ -601,6 +593,226 @@ export async function sendNotification(channelConfig, alert) {
             ]
           : [],
     });
+  } else if (config.type === "slack") {
+    if (!config.bot_token) throw new Error("Slack bot_token is not configured");
+    if (!config.channel_id)
+      throw new Error("Slack channel_id is not configured");
+    await fetch("https://slack.com/api/chat.postMessage", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.bot_token}`,
+      },
+      body: JSON.stringify({
+        channel: config.channel_id,
+        attachments: [
+          {
+            color:
+              d.kind === "recovery"
+                ? "#16a34a"
+                : d.kind === "failure"
+                  ? "#dc2626"
+                  : "#2563eb",
+
+            blocks: [
+              {
+                type: "header",
+                text: {
+                  type: "plain_text",
+                  text: `${d.severity.toUpperCase()}: ${d.name.toUpperCase()}`,
+                },
+              },
+              {
+                type: "section",
+                fields: [
+                  ...(d.kind === "failure"
+                    ? [{ type: "mrkdwn", text: `*Error:* ${d.error}` }]
+                    : d.kind === "recovery"
+                      ? [
+                          {
+                            type: "mrkdwn",
+                            text: `*Status:* Recovered - evaluation succeeded again`,
+                          },
+                        ]
+                      : [{ type: "mrkdwn", text: `*Value:* ${d.value}` }]),
+                  { type: "mrkdwn", text: `*Severity:* ${d.severity}` },
+                  { type: "mrkdwn", text: `*Cluster:* ${d.clusterName}` },
+                  { type: "mrkdwn", text: `*Node:* \`${d.firedNode}\`` },
+                  { type: "mrkdwn", text: `*Time:* ${d.timestamp}` },
+                ],
+              },
+              ...(d.description !== "-"
+                ? [
+                    {
+                      type: "section",
+                      text: {
+                        type: "mrkdwn",
+                        text: `*Description:* ${d.description}`,
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ],
+      }),
+    });
+  } else if (config.type === "google_chat") {
+    if (!config.webhook_url)
+      throw new Error("Google Chat webhook_url is not configured");
+    validateWebhookUrl(config.webhook_url);
+    let statusText = "";
+    let statusIcon = "DESCRIPTION";
+
+    if (d.kind === "failure") {
+      statusText = `<font color="#FF0000"><b>Error:</b> ${d.error || "Evaluation failed"}</font>`;
+      statusIcon = "CONFIRMATION_NUMBER_MONOCHROME";
+    } else if (d.kind === "recovery") {
+      statusText =
+        '<font color="#16a34a"><b>Status:</b>Recovered - evaluation succeeded again</font>';
+      statusIcon = "STAR";
+    } else {
+      statusText = `<b>Value:</b> ${String(d.value)}`;
+    }
+
+    await fetch(config.webhook_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cardsV2: [
+          {
+            cardId: "alertCard",
+            card: {
+              header: {
+                title: `${d.severity.toUpperCase()}: ${d.name.toUpperCase()}`,
+                subtitle: d.timestamp,
+              },
+              sections: [
+                {
+                  widgets: [
+                    {
+                      decoratedText: {
+                        topLabel: "Alert Details",
+                        text: statusText,
+                      },
+                    },
+                    {
+                      decoratedText: {
+                        text: `<b>Severity:</b> ${d.severity}`,
+                      },
+                    },
+                    {
+                      decoratedText: {
+                        text: `<b>Cluster:</b> ${d.clusterName}`,
+                      },
+                    },
+                    {
+                      decoratedText: {
+                        text: `<b>Node:</b> ${d.firedNode}`,
+                      },
+                    },
+                    ...(d.description !== "-"
+                      ? [
+                          {
+                            decoratedText: {
+                              topLabel: "Description",
+                              text: d.description,
+                            },
+                          },
+                        ]
+                      : []),
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+  } else if (config.type === "teams") {
+    if (!config.webhook_url)
+      throw new Error("Microsoft Teams webhook_url is not configured");
+    validateWebhookUrl(config.webhook_url);
+    await fetch(config.webhook_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        "@type": "MessageCard",
+        summary: `${d.severity}: ${d.name}`,
+        themeColor:
+          d.severity === "CRITICAL"
+            ? "dc2626"
+            : d.severity === "WARNING"
+              ? "d97706"
+              : "2563eb",
+        sections: [
+          {
+            activityTitle: `${d.severity}: ${d.name}`,
+            activitySubtitle: d.timestamp,
+            facts: [
+              ...(d.kind === "failure"
+                ? [
+                    {
+                      name: "Status",
+                      value: `<span style="color:#dc2626"><b>Error:</b> ${d.error || "Evaluation failed"}</span>`,
+                    },
+                  ]
+                : d.kind === "recovery"
+                  ? [
+                      {
+                        name: "Status",
+                        value: `<span style="color:#16a34a"><b>Recovered:</b> Evaluation succeeded again</span>`,
+                      },
+                    ]
+                  : [{ name: "Value", value: String(d.value) }]),
+
+              { name: "Severity", value: d.severity },
+              { name: "Cluster", value: d.clusterName },
+              { name: "Node", value: d.firedNode },
+              ...(d.description !== "-"
+                ? [{ name: "Description", value: d.description }]
+                : []),
+            ],
+          },
+        ],
+      }),
+    });
+  } else if (config.type === "pagerduty") {
+    if (!config.routing_key)
+      throw new Error("PagerDuty routing_key is not configured");
+
+    await fetch("https://events.pagerduty.com/v2/enqueue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        routing_key: config.routing_key,
+        event_action: d.kind === "recovery" ? "resolve" : "trigger",
+        dedup_key: `chops-${alert.id || d.name}`,
+        payload: {
+          summary: `[CHOps] ${d.severity}: ${d.name} - value ${d.value}`,
+          source: `${d.clusterName} / ${d.firedNode}`,
+          severity:
+            d.kind === "failure"
+              ? "critical"
+              : d.kind === "recovery"
+                ? "info"
+                : "warning",
+          custom_details: {
+            ...(d.kind === "failure" ? { error: d.error } : {}),
+            ...(d.kind === "recovery"
+              ? { status: "Evaluation succeeded again" }
+              : {}),
+            ...(d.kind !== "failure" && d.kind !== "recovery"
+              ? { value: d.value }
+              : {}),
+            description: d.description,
+            cluster: d.clusterName,
+            node: d.firedNode,
+            timestamp: d.timestamp,
+          },
+        },
+      }),
+    });
   }
 }
 
@@ -609,10 +821,6 @@ export async function testChannel(config) {
     name: "Test Alert",
     severity: "info",
     description: "This is a test notification from CHOps.",
-    sql: "SELECT 1",
-    schedule: "*/5 * * * *",
-    operator: "gt",
-    threshold: 0,
     lastValue: 1,
     lastRunAt: new Date().toISOString(),
   };

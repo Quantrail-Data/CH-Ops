@@ -15,6 +15,7 @@ import {
   normalizeFilters,
   saveAdvState,
 } from "../../utils/advancedFilters.js";
+import Select from "../common/Select.jsx";
 // Autocomplete words. Loaded once per session, shared by all five screens.
 let keywordsAndFunctionsPromise = null;
 function loadKeywordsAndFunctions() {
@@ -169,7 +170,7 @@ export function AdvancedFiltersView({ columns, dialect, value, onChange }) {
               <span
                 className="form-label"
                 style={{
-                  width: 70,
+                  width: "6rem",
                   textAlign: "center",
                   paddingTop: 8,
                   marginBottom: 0,
@@ -178,16 +179,16 @@ export function AdvancedFiltersView({ columns, dialect, value, onChange }) {
                 AND
               </span>
             ) : (
-              <select
+              <Select
                 className="form-input"
-                style={{ width: 70, flexShrink: 0 }}
+                style={{ width: "6rem", flexShrink: 0 }}
                 value={filterRow.op}
                 onChange={(e) => changeFilterOp(rowIndex, e.target.value)}
                 aria-label={`Connector for filter ${rowIndex + 1}`}
               >
                 <option value="AND">AND</option>
                 <option value="OR">OR</option>
-              </select>
+              </Select>
             )}
             <div
               style={{
