@@ -1083,6 +1083,7 @@ export const PAGE_TEXT = {
     "Channels",
     "Cluster",
     "All clusters (default)",
+    "Test",
     "Loading...",
     "No rules yet. Click New Rule.",
     "Enabled",
