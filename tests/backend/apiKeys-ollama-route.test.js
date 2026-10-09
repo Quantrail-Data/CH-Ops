@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 mock.module("../../src/backend/db/index.js", () => ({
   db: {},
+  rawSqlite: {},
   appUsers: {},
   alertRules: {},
   alertChannels: {},
