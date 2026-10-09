@@ -119,9 +119,11 @@ ${v}`}
         onRequestClose={close}
         role="listbox"
         aria-multiselectable="true"
+        overwriteStyle="true"
       >
         {searchable && (
-          <li
+          <div style={{position: "sticky", top: 0,zIndex: 1,backgroundColor:"var(--menu-bg, #161e34)"}}>
+            <li
             style={{
               position: "sticky",
               top: 0,
@@ -143,6 +145,7 @@ ${v}`}
               }}
             />
           </li>
+          </div>
         )}
         {visibleOptions.length === 0 && (
           <li className="cui-select-empty">No options</li>
