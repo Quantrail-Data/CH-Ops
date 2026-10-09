@@ -529,7 +529,7 @@ export async function refreshCluster(req, res) {
 
     return res.json({
       ok: true,
-      hosts: nodes.length,
+      hosts: addressing.nodes.length,
       refreshedAt: new Date().toISOString(),
     });
   } catch (err) {
