@@ -229,7 +229,7 @@ export async function updateChatMessage(
   activeDb
     .update(aiChatMessage)
     .set({
-      instruction: message.instruction ? message.insertError : existingMessage.instruction,
+      instruction: message.instruction ?? existingMessage.instruction,
       sql: message.sql ? message.sql : existingMessage?.sql,
       responseText: message.responseText ?? null,
       ddlSnapshot: message.ddlSnapshot ?? null,

@@ -180,7 +180,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
     const transport = nodemailer.createTransport({
       host: config.host,
       port: parseInt(config.port) || 587,
-      secure: config.secure === "true",
+      secure: config.secure === true || config.secure === "true",
       auth: config.user ? { user: config.user, pass: config.pass } : undefined,
     });
 
@@ -206,7 +206,7 @@ export async function sendNotification(channelConfig, alert) {
     const transport = nodemailer.createTransport({
       host: config.smtp_host,
       port: parseInt(config.smtp_port) || 587,
-      secure: config.smtp_secure === "true",
+      secure: config.smtp_secure === true || config.smtp_secure === "true",
       auth: config.smtp_user
         ? { user: config.smtp_user, pass: config.smtp_pass }
         : undefined,
