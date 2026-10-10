@@ -3,7 +3,7 @@
 // password resets, user creation, and deletion.
 // Admin and superadmin can manage users. Editor and readonly can only view.
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useId } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -54,6 +54,7 @@ export default function UserManagement() {
   const [smtpResult, setSmtpResult] = useState(null);
   const [testTo, setTestTo] = useState("");
   const [isSmtpConfigured, setIsSmtpConfigured] = useState(false);
+  const [setupURL, setSetupURL] = useState(null);
 
   async function loadSmtp() {
     try {
@@ -83,7 +84,7 @@ export default function UserManagement() {
   }
 
   useEffect(() => {
-    if (tab === "smtp" && !myLevel === ROLE_LEVEL['superadmin']) return;
+    if (tab === "smtp" && !myLevel === ROLE_LEVEL["superadmin"]) return;
     checkSmtpconfigured();
   }, [tab]);
 
@@ -229,7 +230,7 @@ export default function UserManagement() {
         body: JSON.stringify(form),
       });
       toast.success(`User "${form.username}" created.`);
-      setGeneratedPw(r.generatedPassword);
+      setSetupURL(r?.setPasswordUrl);
       setForm({ username: "", email: "", role: "readonly" });
       setShowCreate(false);
       load();
@@ -259,8 +260,8 @@ export default function UserManagement() {
     setRoleChange(null);
   }
 
-async function resetPassword(id,initUser) {
-    if(initUser) {
+  async function resetPassword(id, initUser) {
+    if (initUser) {
       toast.error("Cannot reset passord for init user");
     }
     try {
@@ -321,6 +322,42 @@ async function resetPassword(id,initUser) {
       toast.error(err.message);
     }
   }
+
+  async function reGenerateSetupURL(userId) {
+    try {
+      if (userId == null || userId === "") {
+        throw new Error("A valid user ID is required.");
+      }
+      const res = await apiFetch(`/api/users/regenerate?userId=${userId}`, {
+        method: "GET",
+      });
+
+      if (res?.setPasswordUrl) {
+        setSetupURL(res.setPasswordUrl);
+      } else {
+        throw new Error(res?.error || "Setup URL not found in the response.");
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to generate setup URL.");
+    }
+  }
+
+  const [setupURLCopied, setSetupURLCopied] = useState(false);
+
+  const handleCopySetupURL = async () => {
+    try {
+      await navigator.clipboard.writeText(setupURL);
+      setSetupURLCopied(true);
+      toast.success("Setup URL copied to clipboard");
+    } catch (error) {
+      toast.error("Unable to copy URL. Please copy it manually.");
+    }
+  };
+
+  const handleCloseSetupURL = () => {
+    setSetupURL(null);
+    setSetupURLCopied(false);
+  };
 
   if (!loaded)
     return (
@@ -598,7 +635,7 @@ async function resetPassword(id,initUser) {
           )}
           {/* {isSmtpConfigured &&  <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>} */}
 
-          {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"]&&(
+          {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"] && (
             <div className="alert-banner info" style={{ marginBottom: 14 }}>
               <Icon className="ti ti-info-circle"></Icon>SMTP is not configured.
               Email notifications are disabled. You can only create users and
@@ -619,6 +656,172 @@ async function resetPassword(id,initUser) {
               >
                 <Icon className="ti ti-x"></Icon>
               </button>
+            </div>
+          )}
+
+          {setupURL && (
+            <div
+              className="setup-url-card"
+              style={{
+                marginBottom: 20,
+                padding: 20,
+                border: "1px solid var(--border-default)",
+                borderRadius: 12,
+                background: "var(--bg-elevated)",
+                boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginBottom: 18,
+                }}
+              >
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(59, 130, 246, 0.10)",
+                      color: "#2563eb",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon className="ti ti-link" style={{ fontSize: 22 }} />
+                  </div>
+
+                  <div>
+                    <h4
+                      style={{
+                        margin: 0,
+                        fontSize: 16,
+                        fontWeight: 650,
+                        color: "var(--text-primary, #172033)",
+                      }}
+                    >
+                      Password Setup Link
+                    </h4>
+
+                    <p
+                      style={{
+                        margin: "4px 0 0",
+                        fontSize: 13,
+                        color: "var(--text-muted, #64748b)",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Share this secure link with the user to set their
+                      password.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleCloseSetupURL}
+                  aria-label="Close setup URL"
+                  title="Close"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Icon className="ti ti-x" />
+                </button>
+              </div>
+
+              <label
+                htmlFor="setup-password-url"
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  marginBottom: 7,
+                  color: "var(--text-primary, #334155)",
+                }}
+              >
+                Setup URL
+              </label>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "stretch",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                <input
+                  id="setup-password-url"
+                  className="form-input"
+                  type="text"
+                  readOnly
+                  value={setupURL}
+                  onFocus={(e) => e.target.select()}
+                  aria-label="Password setup URL"
+                  style={{
+                    flex: "1 1 280px",
+                    minWidth: 0,
+                    height: 40,
+                    fontSize: 13,
+                    borderRadius: 8,
+                    background: "var(--bg-page, #f8fafc)",
+                    fontFamily: "monospace",
+                  }}
+                />
+
+                <button
+                  className="btn btn-primary btn-sm"
+                  type="button"
+                  onClick={handleCopySetupURL}
+                  style={{
+                    minHeight: 40,
+                    padding: "0 16px",
+                    borderRadius: 8,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Icon
+                    className={setupURLCopied ? "ti ti-check" : "ti ti-copy"}
+                  />
+                  {setupURLCopied ? "Copied" : "Copy URL"}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  marginTop: 14,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  background: "rgba(59, 130, 246, 0.06)",
+                  color: "var(--text-muted, #64748b)",
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                }}
+              >
+                <Icon
+                  className="ti ti-shield-lock"
+                  style={{
+                    fontSize: 16,
+                    color: "#2563eb",
+                    marginTop: 1,
+                    flexShrink: 0,
+                  }}
+                />
+                <span>
+                  This link grants access to password setup. Share it securely
+                  with the intended user and avoid posting it in public
+                  channels.
+                </span>
+              </div>
             </div>
           )}
 
@@ -766,7 +969,7 @@ async function resetPassword(id,initUser) {
                         >
                           <button
                             className="btn btn-secondary btn-sm"
-                            onClick={() => resetPassword(u.id,u.initUser)}
+                            onClick={() => resetPassword(u.id, u.initUser)}
                             title="Reset Password"
                             disabled={!canManage || u.initUser}
                             style={
@@ -776,6 +979,19 @@ async function resetPassword(id,initUser) {
                             }
                           >
                             <Icon className="ti ti-key"></Icon>
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => reGenerateSetupURL(u?.id)}
+                            title="Copy setup URL"
+                            disabled={!canManage || u.initUser}
+                            style={
+                              !canManage || u.initUser
+                                ? { opacity: 0.35, cursor: "not-allowed" }
+                                : {}
+                            }
+                          >
+                            <Icon className="ti ti-refresh"></Icon>
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
@@ -1004,7 +1220,7 @@ async function resetPassword(id,initUser) {
                   marginTop: 2,
                 }}
               >
-               ( Recommended for secure SMTP connections)
+                ( Recommended for secure SMTP connections)
               </small>
             </div>
           </div>

@@ -54,13 +54,6 @@ export function loadEnv() {
     // Mirrors DISABLE_ENV_LOGIN. Stops the SMTP_* fallback once the settings page is configured
     disableEnvSmtp: process.env.DISABLE_ENV_SMTP === 'true',
     frontendLink:process.env.FRONTEND_LINK,
-    smtp: {
-      host: process.env.SMTP_HOST || '',
-      port: process.env.SMTP_PORT || '587',
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || '',
-      from: process.env.SMTP_FROM || 'CHOps <noreply@chops>',
-    },
     version: {
       clickhouseVersion: process?.env?.CLICKHOUSEVERSION,
       major: process?.env?.MAJOR,
