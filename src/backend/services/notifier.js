@@ -5,6 +5,8 @@
 import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
 import { loadEnv } from "../utils/env.js";
+import { OTP_TTL_MS }from "./OTPservice.js"
+import { OtelFieldDefinition$inboundSchema } from "@mistralai/mistralai/models/components";
 
 function validateWebhookUrl(url) {
   if (!url || typeof url !== "string")
@@ -131,6 +133,7 @@ function extractFirstName(name) {
 
 export const sendOTPEmail = async (email, otp, channelConfig) => {
   try {
+    const otpValidityMinutes = OTP_TTL_MS / (60 * 1000);
     const config =
       typeof channelConfig === "string"
         ? JSON.parse(channelConfig)
@@ -165,7 +168,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
               </div>
             </div>
             
-            <p style="color: #666; font-size: 14px;">This OTP is valid for <strong>30 seconds</strong>. Please do not share it with anyone.</p>
+            <p style="color: #666; font-size: 14px;">This OTP is valid for <strong> ${otpValidityMinutes} minutes </strong>. Please do not share it with anyone.</p>
             
             <p>If you didn't request this password reset, please ignore this email or contact our support team immediately.</p>
             
