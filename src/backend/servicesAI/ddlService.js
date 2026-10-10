@@ -168,6 +168,48 @@ function isFresh(row, ttlMs) {
   return Date.now() - at < ttlMs;
 }
 
+// Render a JS string array as a ClickHouse Array(String) parameter literal.
+function arrayParam(values) {
+  const esc = (v) => String(v).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  return `[${values.map((v) => `'${esc(v)}'`).join(",")}]`;
+}
+
+const accessKey = (database, table) => `${database}\u0000${table}`;
+
+// The cache is shared across users, so a hit is only served once the caller is
+// shown to be able to see the table themselves. system.columns is filtered by
+// SHOW_COLUMNS - the same privilege SHOW CREATE TABLE checks - so this grants
+// exactly what an uncached fetch would. One query covers every hit in the batch.
+//
+// -> Set of accessKey()s the caller may read. Any failure returns an empty set,
+// which sends every table down the uncached path where ClickHouse decides.
+async function verifyAccess(target, entries) {
+  if (entries.length === 0) return new Set();
+  try {
+    const result = await executeQuery({
+      host: target.host,
+      port: target.port,
+      secure: target.secure,
+      user: target.user,
+      password: target.password,
+      sql: `SELECT DISTINCT database, table
+              FROM system.columns
+             WHERE database IN {databases:Array(String)}
+               AND table IN {tables:Array(String)}`,
+      params: {
+        databases: arrayParam([...new Set(entries.map((e) => e.database))]),
+        tables: arrayParam([...new Set(entries.map((e) => e.table))]),
+      },
+      readOnly: true,
+    });
+    return new Set(
+      (result?.rows || []).map((r) => accessKey(r.database, r.table)),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
 // -> { results: [{ database, table, ddl, charCount, cached }], failures: [{ table, error }] }
 //
 // One table failing does not fail the batch: a dropped or unreadable table lands
@@ -191,6 +233,27 @@ export async function fetchDdl({
   const target = resolveTarget({ jti, context, clusterId, node });
   const ttlMs = ttlMinutes() * 60 * 1000;
 
+  // Collect fresh cache hits first so the caller's access to all of them can be
+  // checked in a single round trip before any is served.
+  const hits = new Map();
+  if (!forceRefresh) {
+    for (const entry of list) {
+      const database = entry?.database;
+      const table = entry?.table;
+      if (!database || !table) continue;
+      try {
+        const cached = readCache({ clusterId: target.clusterId, node: target.host, database, table });
+        if (cached && isFresh(cached, ttlMs)) hits.set(accessKey(database, table), cached);
+      } catch {
+        // A cache read failure just means a fresh fetch below.
+      }
+    }
+  }
+  const allowed = await verifyAccess(
+    target,
+    [...hits.values()].map((r) => ({ database: r.databaseName, table: r.tableName })),
+  );
+
   for (const entry of list) {
     const database = entry?.database;
     const table = entry?.table;
@@ -203,9 +266,11 @@ export async function fetchDdl({
 
       const key = { clusterId: target.clusterId, node: target.host, database, table };
 
-      if (!forceRefresh) {
-        const cached = readCache(key);
-        if (cached && isFresh(cached, ttlMs)) {
+      // A hit the caller cannot be shown to read falls through to the uncached
+      // fetch, which runs as the caller and fails with ClickHouse's own error.
+      if (allowed.has(accessKey(database, table))) {
+        const cached = hits.get(accessKey(database, table));
+        if (cached) {
           results.push({
             database,
             table,
