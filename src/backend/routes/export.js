@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import { Router } from "express";
 
-import { getClusterNodes } from "../services/clusterUtils.js";
+import { resolveTargetNode } from "../services/clusterUtils.js";
 import { getCredSession, CRED_CONTEXTS } from "../services/chCredStore.js";
 import { executeQuery } from "../services/clickhouse.js";
 import { measureBytes } from "../services/exportStream.js";
@@ -36,12 +36,11 @@ const ALLOWED_SETTINGS = new Set(OPTIONS.map((o) => o.key));
 
 // Find the node to talk to, and only ever one from the cluster configuration.
 function resolveNode(req) {
-  const nodes = getClusterNodes(req.body?.clusterId);
-  if (nodes.length === 0) return { error: "No cluster nodes configured." };
-  const wanted = req.body?.node;
-  const node = wanted ? nodes.find((n) => n.host === wanted) : nodes[0];
-  if (!node) return { error: "Node not found in cluster configuration." };
-  return { node };
+  try {
+    return { node: resolveTargetNode(req.body?.clusterId, req.body?.node) };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
 // The SQL Editor keeps its ClickHouse® login in an encrypted session.
