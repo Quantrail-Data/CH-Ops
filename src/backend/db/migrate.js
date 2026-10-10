@@ -32,6 +32,45 @@ try {
   /* table does not exist yet */
 }
 
+const APP_USER_COLUMNS = `
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+username TEXT NOT NULL UNIQUE,
+password_hash TEXT,
+role TEXT NOT NULL DEFAULT 'readonly',
+email TEXT UNIQUE,
+must_change_password INTEGER NOT NULL DEFAULT 1,
+last_login_at TEXT,
+created_at TEXT DEFAULT (datetime('now')),
+updated_at TEXT DEFAULT (datetime('now')),
+init_user INTEGER NOT NULL DEFAULT 0,
+password_setup_token_hash TEXT DEFAULT NULL,
+password_setup_token_expires_at TEXT DEFAULT NULL`;
+// An older version rebuilt app_user on every start. If one of those runs was
+// stopped half way, the users can be left in app_user_new. Put them back first.
+function recoverInterruptedAppUserRebuild() {
+  const tableNames = sqlite
+    .query("SELECT name FROM sqlite_master WHERE type = 'table'")
+    .all()
+    .map((row) => row.name);
+  if (!tableNames.includes("app_user_new")) return;
+  const userCount = tableNames.includes("app_user")
+    ? sqlite.query("SELECT count(*) AS total FROM app_user").get().total
+    : 0;
+  const recover = sqlite.transaction(() => {
+    if (userCount > 0) {
+      // app_user still holds the users, so app_user_new is a partial copy.
+      sqlite.exec("DROP TABLE app_user_new");
+    } else {
+      // The users exist only in app_user_new.
+      sqlite.exec("DROP TABLE IF EXISTS app_user");
+      sqlite.exec("ALTER TABLE app_user_new RENAME TO app_user");
+    }
+  });
+  recover();
+  console.log(" Recovered app_user from an interrupted rebuild.");
+}
+recoverInterruptedAppUserRebuild();
+
 // Create tables
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS app_setting (
@@ -101,16 +140,7 @@ sqlite.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
-  CREATE TABLE IF NOT EXISTS app_user (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'readonly',
-    email TEXT UNIQUE,
-    must_change_password INTEGER NOT NULL DEFAULT 1,
-    last_login_at TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+  CREATE TABLE IF NOT EXISTS app_user (${APP_USER_COLUMNS}
   );
   CREATE TABLE IF NOT EXISTS api_key (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -212,10 +242,10 @@ const migrations = [
   // arrive without it.
   "ALTER TABLE dashboard ADD COLUMN filters TEXT DEFAULT '{}'",
   "ALTER TABLE cluster ADD COLUMN k8s_addressing TEXT",
-  "CREATE TABLE app_user_new (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, role TEXT NOT NULL DEFAULT 'readonly', email TEXT UNIQUE, must_change_password INTEGER NOT NULL DEFAULT 1, last_login_at TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')), init_user INTEGER NOT NULL DEFAULT 0, password_setup_token_hash TEXT DEFAULT NULL, password_setup_token_expires_at TEXT  DEFAULT NULL);",
-  "INSERT INTO app_user_new (id, username, password_hash, role, email, must_change_password, last_login_at, created_at, updated_at, init_user) SELECT id, username, password_hash, role, email, must_change_password, last_login_at, created_at, updated_at, init_user FROM app_user;",
-  "DROP TABLE app_user;",
-  "ALTER TABLE app_user_new RENAME TO app_user;",
+  "ALTER TABLE alert_rule ADD COLUMN last_notified_at TEXT",
+  "ALTER TABLE alert_rule ADD COLUMN last_state TEXT",
+  "ALTER TABLE app_user ADD COLUMN password_setup_token_hash TEXT DEFAULT NULL",
+  "ALTER TABLE app_user ADD COLUMN password_setup_token_expires_at TEXT DEFAULT NULL",
 ];
 
 for (const sql of migrations) {
@@ -223,6 +253,28 @@ for (const sql of migrations) {
     sqlite.exec(sql);
   } catch (err) {}
 }
+// Older databases have password_hash NOT NULL, which SQLite cannot changein
+// place. Rebuild app_user once; after that the column is optional and this skips.
+function rebuildAppUserIfPasswordRequired() {
+  const columns = sqlite.query("PRAGMA table_info(app_user)").all();
+  const passwordColumn = columns.find((c) => c.name === "password_hash");
+  if (!passwordColumn || passwordColumn.notnull === 0) return;
+  const copiedColumns =
+    "id, username, password_hash, role, email, must_change_password, last_login_at, created_at, updated_at, init_user,password_setup_token_hash, password_setup_token_expires_at";
+  // All or nothing: on any error the old table stays exactly as it was.
+  const rebuild = sqlite.transaction(() => {
+    sqlite.exec(`CREATE TABLE app_user_new (${APP_USER_COLUMNS})`);
+    sqlite.exec(
+      `INSERT INTO app_user_new (${copiedColumns}) SELECT ${copiedColumns}
+FROM app_user`,
+    );
+    sqlite.exec("DROP TABLE app_user");
+    sqlite.exec("ALTER TABLE app_user_new RENAME TO app_user");
+  });
+  rebuild();
+  console.log(" Rebuilt app_user once so password_hash is optional.");
+}
+rebuildAppUserIfPasswordRequired();
 
 // Move cluster configuration out of the JSON blob and into the cluster and cluster_node
 const dryRun = process.argv.includes("--migrate-dry-run");

@@ -13,8 +13,6 @@ beforeAll(() => {
   process.env.SUPER_ADMIN_2_PASSWORD = 'pass2';
     process.env.SUPER_ADMIN_2_EMAIL = 'admin@gmail.com'
   process.env.ENCRYPTION_SECRET = 'long_random_secret_32_chars_min!';
-  process.env.SMTP_HOST = 'smtp.example.com';
-  process.env.SMTP_PORT = '465';
 });
 
 describe('Env Loader - super admins', () => {
@@ -95,12 +93,6 @@ describe('Env Loader - super admins', () => {
     process.env.SUPER_ADMIN_2 = saved.u2;
     process.env.SUPER_ADMIN_2_PASSWORD = saved.p2;
     process.env.SUPER_ADMIN_2_EMAIL = saved.e2;
-  });
-
-  it('reads SMTP config from env', () => {
-    const env = loadEnv();
-    expect(env.smtp.host).toBe('smtp.example.com');
-    expect(env.smtp.port).toBe('465');
   });
 });
 

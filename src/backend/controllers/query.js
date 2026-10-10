@@ -3,7 +3,7 @@
 // Proxies frontend queries to ClickHouse with multi-cluster routing and SSRF protection via node whitelist validation.
 
 
-import { getClusterNodes } from '../services/clusterUtils.js';
+import { getClusterNodes, resolveTargetNode as resolveNodeFromConfig } from '../services/clusterUtils.js';
 import { executeQuery } from '../services/clickhouse.js';
 import { isReadOnlySql } from '../../shared/sqlClassify.js';
 import { materialize } from '../../shared/sqlParams.js';
@@ -64,16 +64,12 @@ export async function runQuery(req, res) {
     });
   }
 
-  const clusterNodes = getClusterNodes(clusterId);
-  if (clusterNodes.length === 0) return res.status(400).json({ error: 'No cluster nodes configured.' });
-
   // Only connect to hosts that are in the cluster config (SSRF prevention)
-  const targetNode = node
-    ? clusterNodes.find(n => n.name === node)
-    : clusterNodes[0];
-
-  if (!targetNode) {
-    return res.status(400).json({ error: 'Node not found in cluster configuration.' });
+  let targetNode;
+  try {
+    targetNode = resolveNodeFromConfig(clusterId, node);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
   }
 
   // try { const result = await executeQuery({ host:
@@ -163,10 +159,11 @@ export async function testQueryConnection(req, res) {
   const { node, user, password, clusterId } = req.body;
   if (!node) return res.status(400).json({ ok: false, message: 'Node host required.' });
 
-  const clusterNodes = getClusterNodes(clusterId);
-  const targetNode = clusterNodes.find(n => n.name === node);
-  if (!targetNode) {
-    return res.json({ ok: false, message: 'Node not found in cluster configuration.' });
+  let targetNode;
+  try {
+    targetNode = resolveNodeFromConfig(clusterId, node);
+  } catch (e) {
+    return res.json({ ok: false, message: e.message });
   }
 
   // Fall back to the stored node credentials, exactly as runQuery does. The

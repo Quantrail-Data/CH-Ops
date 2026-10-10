@@ -42,6 +42,9 @@ const AUTH_METHODS = [
   { v: "no_password", l: "No Password" },
 ];
 
+const quoteIdent = (s) => "`" + String(s).replace(/`/g, "``") + "`";
+const quoteStr = (s) => "'" + String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
+
 function useDbList() {
   const q = useQuery();
   useEffect(() => {
@@ -243,21 +246,21 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
 
   function buildSql() {
     if (!f.name.trim()) return "";
-    const p = ["CREATE USER IF NOT EXISTS", f.name.trim()];
+    const p = ["CREATE USER IF NOT EXISTS", quoteIdent(f.name.trim())];
     if (f.onCluster) p.push(`ON CLUSTER '${f.onCluster}'`);
     if (f.authMethod === "no_password") p.push("NOT IDENTIFIED");
     else if (f.password) p.push(`IDENTIFIED WITH ${f.authMethod} BY '***'`);
     if (f.validUntil)
-      p.push(`VALID UNTIL '${f.validUntil.replace("T", " ")}:00'`);
-    if (f.hostIp.trim()) p.push(`HOST IP '${f.hostIp.trim()}'`);
-    if (f.defaultDb) p.push(`DEFAULT DATABASE ${f.defaultDb}`);
-    if (f.defaultRole) p.push(`DEFAULT ROLE ${f.defaultRole}`);
+      p.push(`VALID UNTIL ${quoteStr(f.validUntil.replace("T", " ") + ":00")}`);
+    if (f.hostIp.trim()) p.push(`HOST IP ${quoteStr(f.hostIp.trim())}`);
+    if (f.defaultDb) p.push(`DEFAULT DATABASE ${quoteIdent(f.defaultDb)}`);
+    if (f.defaultRole) p.push(`DEFAULT ROLE ${quoteIdent(f.defaultRole)}`);
     return p.join(" ");
   }
   async function submit(e) {
     e.preventDefault();
     try {
-      await runQuery(buildSql().replace("'***'", `'${f.password}'`));
+      await runQuery(buildSql().replace("'***'", quoteStr(f.password)));
       setResult({ ok: true, msg: "User created." });
       onSuccess();
       setF({
@@ -479,35 +482,35 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
 
   function buildSql() {
     if (!sel) return "";
-    const p = ["ALTER USER", sel];
+    const p = ["ALTER USER", quoteIdent(sel)];
     if (f.onCluster) p.push(`ON CLUSTER '${f.onCluster}'`);
-    if (f.rename.trim()) p.push(`RENAME TO ${f.rename.trim()}`);
+    if (f.rename.trim()) p.push(`RENAME TO ${quoteIdent(f.rename.trim())}`);
     if (f.resetAuth) p.push("RESET AUTHENTICATION METHODS TO NEW");
     else if (f.password && f.authMethod !== "no_password")
       p.push(`IDENTIFIED WITH ${f.authMethod} BY '***'`);
     else if (f.authMethod === "no_password") p.push("NOT IDENTIFIED");
     if (f.validUntil)
-      p.push(`VALID UNTIL '${f.validUntil.replace("T", " ")}:00'`);
+      p.push(`VALID UNTIL ${quoteStr(f.validUntil.replace("T", " ") + ":00")}`);
     if (f.hostAction === "add" && f.hostIp.trim())
-      p.push(`ADD HOST IP '${f.hostIp.trim()}'`);
+      p.push(`ADD HOST IP ${quoteStr(f.hostIp.trim())}`);
     else if (f.hostAction === "drop" && f.hostIp.trim())
-      p.push(`DROP HOST IP '${f.hostIp.trim()}'`);
-    if (f.defaultDb) p.push(`DEFAULT DATABASE ${f.defaultDb}`);
+      p.push(`DROP HOST IP ${quoteStr(f.hostIp.trim())}`);
+    if (f.defaultDb) p.push(`DEFAULT DATABASE ${quoteIdent(f.defaultDb)}`);
     if (f.defaultRole)
       p.push(
-        `DEFAULT ROLE ${f.defaultRoleAction === "all" ? "ALL" : f.defaultRole}`,
+        `DEFAULT ROLE ${f.defaultRoleAction === "all" ? "ALL" : quoteIdent(f.defaultRole)}`,
       );
     if (f.addSettings.trim()) p.push(`ADD SETTINGS ${f.addSettings.trim()}`);
     if (f.dropSettings.trim()) p.push(`DROP SETTINGS ${f.dropSettings.trim()}`);
-    if (f.addProfiles.trim()) p.push(`ADD PROFILES '${f.addProfiles.trim()}'`);
+    if (f.addProfiles.trim()) p.push(`ADD PROFILES ${quoteStr(f.addProfiles.trim())}`);
     if (f.dropProfiles.trim())
-      p.push(`DROP PROFILES '${f.dropProfiles.trim()}'`);
+      p.push(`DROP PROFILES ${quoteStr(f.dropProfiles.trim())}`);
     return p.join(" ");
   }
   async function submit(e) {
     e.preventDefault();
     try {
-      await runQuery(buildSql().replace("'***'", `'${f.password}'`));
+      await runQuery(buildSql().replace("'***'", quoteStr(f.password)));
       setResult({ ok: true, msg: "User altered." });
       onSuccess();
       setF({
@@ -868,7 +871,9 @@ function GrantRevoke({ users, roles, clusters, setResult, rbac }) {
     if (!f.user) return "";
     const verb = f.action === "grant" ? "GRANT" : "REVOKE";
     const dir = f.action === "grant" ? "TO" : "FROM";
-    return `${verb} ${f.accessType} ON ${f.database}.${f.table} ${dir} ${f.user}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ""}`;
+    const db = f.database === "*" ? "*" : quoteIdent(f.database);
+    const tbl = f.table === "*" ? "*" : quoteIdent(f.table);
+    return `${verb} ${f.accessType} ON ${db}.${tbl} ${dir} ${quoteIdent(f.user)}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ""}`;
   }
 
   async function submit(e) {
@@ -1029,7 +1034,7 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
   useEffect(() => {
     setSql(
       sel
-        ? `DROP USER IF EXISTS ${sel}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
+        ? `DROP USER IF EXISTS ${quoteIdent(sel)}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
         : "",
     );
   }, [sel, onCluster]);

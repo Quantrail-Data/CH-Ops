@@ -9,7 +9,7 @@ const OTP_STORE = new Map();
 // token -> { userId, expiresAt }. A separate map so redeeming is a lookup.
 const RESET_TOKENS = new Map();
 
-const OTP_TTL_MS = 10 * 60 * 1000; // code is valid for 10 minutes
+export const OTP_TTL_MS = 10 * 60 * 1000; // code is valid for 10 minutes
 const RESET_TOKEN_TTL_MS = 5 * 60 * 1000; // token is valid for 5 minutes
 const MAX_ATTEMPTS = 5; // wrong guesses before lockout
 const OTP_REISSUE_COOLDOWN_MS = 60 * 1000;
