@@ -852,6 +852,8 @@ if (unavailableMessage) {
                       fontSize: "13px",
                       cursor: "pointer",
                       padding: "3px 10px",
+                      justifyContent:"center",
+                      alignItems:"center",
                       borderRadius: 4,
                       border: levels.includes(lv)
                         ? "2px solid currentColor"

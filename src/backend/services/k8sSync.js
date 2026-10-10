@@ -16,6 +16,7 @@ const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
 
 // A host must be absent from this many consecutive successful refreshes before it is removed.
 
+const MISSES_BEFORE_REMOVAL = getConfig('k8s.missesBeforeRemoval') ?? 3;
 
 // Retries when the version check fails, meaning somebody wrote in between.
 const MAX_VERSION_RETRIES = 3;
@@ -44,6 +45,7 @@ export async function refreshOne(cluster) {
       cluster.k8s.connectionId,
       cluster.k8s.namespace,
       cluster.k8s.installation,
+      cluster.k8s.operator,
     );
   } catch (err) {
     // The cluster keeps the node list it already had.
@@ -73,7 +75,7 @@ export async function refreshOne(cluster) {
 
   // The endpoint is the same for every host, because from outside the cluster there is one way in.
   const endpoint = cluster.nodes[0]?.host;
-  const port = cluster.nodes[0]?.port ?? 8443;
+  const port = cluster.nodes[0]?.port ?? 8123;
   const nodes = hosts.map((h) => ({ ...h, host: endpoint, port }));
 
   // Optimistic concurrency.

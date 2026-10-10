@@ -619,8 +619,8 @@ function ErrorLogSearch() {
               <label className="form-label">Error Type (multi-select)</label>
               <div style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', padding: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {errorsQ.data?.map(r => (
-                  <label key={r.error} style={{ display: 'flex', gap: 4, fontSize: '13px', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, background: selectedErrors.includes(r.error) ? 'var(--accent-soft)' : 'transparent', border: '1px solid ' + (selectedErrors.includes(r.error) ? 'var(--accent-border)' : 'var(--border-default)') }}>
-                    <input type="checkbox" checked={selectedErrors.includes(r.error)} onChange={() => toggleError(r.error)} style={{ accentColor: 'var(--accent)' }} />{r.error}
+                  <label key={r.error} style={{ display: 'flex', gap: 4, fontSize: '12px', cursor: 'pointer', padding: '2px 6px', alignItems:"center", justifyContent:"center",borderRadius: 4, background: selectedErrors.includes(r.error) ? 'var(--accent-soft)' : 'transparent', border: '1px solid ' + (selectedErrors.includes(r.error) ? 'var(--accent-border)' : 'var(--border-default)') }}>
+                    <input type="checkbox" checked={selectedErrors.includes(r.error)} onChange={() => toggleError(r.error)} style={{ accentColor: 'var(--accent)' ,height:"12px",width:"14px",marginBottom:"2px"}} />{r.error}
                   </label>
                 ))}
                 {!errorsQ.data?.length && <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Loading errors...</span>}

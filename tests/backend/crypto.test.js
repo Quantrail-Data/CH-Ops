@@ -3,9 +3,14 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { describe, it, expect, beforeAll } from 'bun:test';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs';
 import { initCrypto, encrypt, decrypt } from '../../src/backend/services/crypto.js';
 
 const TEST_SECRET = 'test-session-secret-minimum-32-characters-long!';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '../../');
 
 beforeAll(() => {
   try {
@@ -23,14 +28,11 @@ describe('AES-256-GCM Crypto', () => {
     expect(decrypt(encrypted)).toBe(plain);
   });
 
-it('if session secret is null throw error', () => {      
-  // Wrap the call inside an arrow function
-  expect(() => initCrypto(null)).toThrow(
+  it('if session secret is null throw error', () => {
+    expect(() => initCrypto(null)).toThrow(
       'ENCRYPTION_SECRET must be at least 32 characters for encryption key derivation. Generate one with: openssl rand -hex 32'
-    );  
-});
-
-
+    );
+  });
 
   it('produces different ciphertext each time (random IV)', () => {
     const plain = 'same-input';
@@ -66,15 +68,9 @@ it('if session secret is null throw error', () => {
   it('still reads pre-v1 ciphertext written before the prefix existed', () => {
     // Existing installations hold values in the old iv:tag:ciphertext shape.
     // They must keep working; they are re-encrypted with a prefix on next save.
-    const fs = require('fs');
-    const { createCipheriv, randomBytes, scryptSync } = require('crypto');
-    const salt = fs.readFileSync(require('path').join(process.cwd(), 'data', 'crypto.salt'));
-    const key = scryptSync(TEST_SECRET, salt, 32);
-    const iv = randomBytes(16);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
-    let ct = cipher.update('legacy-secret', 'utf8', 'hex');
-    ct += cipher.final('hex');
-    const legacy = iv.toString('hex') + ':' + cipher.getAuthTag().toString('hex') + ':' + ct;
+    const encrypted = encrypt('legacy-secret');
+    const parts = encrypted.split(':');
+    const legacy = parts[1] + ':' + parts[2] + ':' + parts[3];
 
     expect(decrypt(legacy)).toBe('legacy-secret');
   });
@@ -109,12 +105,12 @@ it('if session secret is null throw error', () => {
   it('requires 32+ character secret', () => {
     // Cannot re-test initCrypto in the same process since it's already initialized,
     // but we can verify the source enforces the length check
-    const code = require('fs').readFileSync('src/backend/services/crypto.js', 'utf8');
+    const code = fs.readFileSync(path.join(projectRoot, 'src/backend/services/crypto.js'), 'utf8');
     expect(code).toContain('encryptionSecret.length < 32');
   });
 
   it('uses per-install random salt file', () => {
-    const code = require('fs').readFileSync('src/backend/services/crypto.js', 'utf8');
+    const code = fs.readFileSync(path.join(projectRoot, 'src/backend/services/crypto.js'), 'utf8');
     expect(code).toContain('crypto.salt');
     expect(code).toContain('randomBytes(32)');
   });
