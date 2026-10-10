@@ -8,6 +8,7 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useConnection, useAuth } from "../../App.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
+import IconAlert from "../common/IconAlert.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -23,7 +24,7 @@ const OPS = [
 
 export default function AlertRules() {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [rules, setRules] = useState([]);
@@ -242,6 +243,10 @@ export default function AlertRules() {
     setCronError(validateCron(r.schedule || ""));
   }
 
+  function isChannelSelected(chID) {
+    return f?.channel_ids?.some((id) => id === chID);
+  }
+
   return (
     <div className="page-content">
       <div className="section-header">
@@ -259,7 +264,7 @@ export default function AlertRules() {
               setShowForm(!showForm);
             }}
             disabled={!isAdmin}
-            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+            style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showForm ? "Cancel" : "New Rule"}
@@ -420,30 +425,63 @@ export default function AlertRules() {
               <label className="form-label">Channels</label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {channels.map((ch) => (
-                  <label
-                    key={ch.id}
+                  <div
                     style={{
                       display: "flex",
-                      gap: 4,
-                      fontSize: "14px",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      minWidth: "140px",
+                      margin: "0px 5px",
+                      padding: "7px 15px",
+                      borderRadius: "10px",
                       cursor: "pointer",
+                      backgroundColor: !isChannelSelected(ch?.id)
+                        ? "#59595910"
+                        : "var(--accent)",
+                      color: isChannelSelected(ch?.id)
+                        ? "white"
+                        : "var(--accent)",
+                    }}
+                    title={
+                      isChannelSelected(ch?.id)
+                        ? `unselected the ${ch.name} channel`
+                        : `Select the ${ch.name} channel`
+                    }
+                    key={ch.id}
+                    onClick={() => {
+                      setF((p) => ({
+                        ...p,
+                        channel_ids: p.channel_ids.includes(ch.id)
+                          ? p.channel_ids.filter((i) => i !== ch.id)
+                          : [...p.channel_ids, ch.id],
+                      }));
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={f.channel_ids.includes(ch.id)}
-                      onChange={() =>
-                        setF((p) => ({
-                          ...p,
-                          channel_ids: p.channel_ids.includes(ch.id)
-                            ? p.channel_ids.filter((i) => i !== ch.id)
-                            : [...p.channel_ids, ch.id],
-                        }))
-                      }
-                      style={{ accentColor: "var(--accent)" }}
-                    />
-                    {ch.name}
-                  </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                    >
+                      <IconAlert
+                        type={ch?.type}
+                        color={
+                          isChannelSelected(ch?.id) ? "white" : "var(--accent)"
+                        }
+                        width={20}
+                      />
+                      <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                        {ch.name}
+                      </span>
+                    </div>
+                    {isChannelSelected(ch?.id) && (
+                      <Icon
+                        className="ti ti-x"
+                        style={{ color: "white", fontSize: "15px" }}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -481,19 +519,30 @@ export default function AlertRules() {
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {clusterNodes.map((host) => (
-                  <label
-                    key={host}
+                                    <div
                     style={{
                       display: "flex",
-                      gap: 4,
-                      fontSize: "14px",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      minWidth: "140px",
+                      margin: "0px 5px",
+                      padding: "7px 15px",
+                      borderRadius: "10px",
                       cursor: "pointer",
+                      backgroundColor: !f.nodes.includes(host)
+                        ? "#59595910"
+                        : "var(--accent)",
+                      color: f.nodes.includes(host)
+                        ? "white"
+                        : "var(--accent)",
                     }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={f.nodes.includes(host)}
-                      onChange={() =>
+                    title={
+                      f.nodes.includes(host)
+                        ? `unselected the ${host} channel`
+                        : `Select the ${host} channel`
+                    }
+                    key={host}
+                    onClick={() =>
                         setF((p) => ({
                           ...p,
                           nodes: p.nodes.includes(host)
@@ -501,10 +550,56 @@ export default function AlertRules() {
                             : [...p.nodes, host],
                         }))
                       }
-                      style={{ accentColor: "var(--accent)" }}
-                    />
-                    {host}
-                  </label>
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                    >
+                      <IconAlert
+                        type="node"
+                        color={
+                          f.nodes.includes(host)? "white" : "var(--accent)"
+                        }
+                        width={20}
+                      />
+                      <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                        {host}
+                      </span>
+                    </div>
+                    {f.nodes.includes(host)&& (
+                      <Icon
+                        className="ti ti-x"
+                        style={{ color: "white", fontSize: "15px" }}
+                      />
+                    )}
+                  </div>
+                  // <label
+                  //   key={host}
+                  //   style={{
+                  //     display: "flex",
+                  //     gap: 4,
+                  //     fontSize: "14px",
+                  //     cursor: "pointer",
+                  //   }}
+                  // >
+                  //   <input
+                  //     type="checkbox"
+                  //     checked={f.nodes.includes(host)}
+                  //     onChange={() =>
+                  //       setF((p) => ({
+                  //         ...p,
+                  //         nodes: p.nodes.includes(host)
+                  //           ? p.nodes.filter((h) => h !== host)
+                  //           : [...p.nodes, host],
+                  //       }))
+                  //     }
+                  //     style={{ accentColor: "var(--accent)" }}
+                  //   />
+                  //   {host}
+                  // </label>
                 ))}
               </div>
             </div>
@@ -523,8 +618,7 @@ export default function AlertRules() {
             disabled={!f.name || !f.sql || !!cronError}
             style={{marginLeft:"10px"}}
           >
-            <Icon className="ti ti-send"></Icon>{" "}
-            Test
+            <Icon className="ti ti-send"></Icon> Test
           </button>
         </div>
       )}
@@ -697,7 +791,10 @@ export default function AlertRules() {
                     <span
                       style={{ fontSize: "12px", color: "var(--text-muted)" }}
                     >
-                      <Icon className="ti ti-server" style={{ fontSize: 14 }}></Icon>{" "}
+                      <Icon
+                        className="ti ti-server"
+                        style={{ fontSize: 14 }}
+                      ></Icon>{" "}
                       {r.nodes.join(", ")}
                     </span>
                   )}
@@ -740,7 +837,9 @@ export default function AlertRules() {
                     className="btn btn-secondary btn-sm"
                     onClick={() => edit(r)}
                     disabled={!isAdmin}
-                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                    style={
+                      !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}
+                    }
                   >
                     <Icon className="ti ti-edit"></Icon>
                   </button>
@@ -748,7 +847,9 @@ export default function AlertRules() {
                     className="btn btn-secondary btn-sm"
                     onClick={() => toggleEnabled(r)}
                     disabled={!isAdmin}
-                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                    style={
+                      !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}
+                    }
                   >
                     <Icon
                       className={`ti ${r.enabled ? "ti-player-pause" : "ti-player-play"}`}
@@ -759,7 +860,9 @@ export default function AlertRules() {
                     className="btn btn-danger btn-sm"
                     onClick={() => isAdmin && setDel(r.id)}
                     disabled={!isAdmin}
-                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                    style={
+                      !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}
+                    }
                   >
                     <Icon className="ti ti-trash"></Icon>
                   </button>
