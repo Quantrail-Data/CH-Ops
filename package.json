@@ -55,7 +55,7 @@
     "@tanstack/react-virtual": "^3.14.8",
     "@uiw/react-codemirror": "^4.25.11",
     "@xyflow/react": "^12.11.0",
-    "axios": "^1.18.0",
+    "axios": "^1.20.0",
     "drizzle-orm": "^0.45.2",
     "echarts": "6.1.0",
     "express": "5.1.0",
