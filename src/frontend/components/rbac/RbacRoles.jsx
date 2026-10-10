@@ -35,6 +35,9 @@ const ACCESS_TYPES = [
   "NONE",
 ];
 
+const quoteIdent = (s) => "`" + String(s).replace(/`/g, "``") + "`";
+const quoteStr = (s) => "'" + String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
+
 function useDbList() {
   const q = useQuery();
   useEffect(() => {
@@ -181,7 +184,7 @@ function CreateRole({ rbac, clusters, setResult, onSuccess }) {
   //   if (rbac?.defaultOnCluster) setOnCluster((prev) => prev || rbac.defaultOnCluster);
   // }, [rbac?.defaultOnCluster]);
   const sql = name.trim()
-    ? `CREATE ROLE IF NOT EXISTS ${name.trim()}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
+    ? `CREATE ROLE IF NOT EXISTS ${quoteIdent(name.trim())}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
     : "";
 
   async function submit(e) {
@@ -279,16 +282,16 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
   // }, [rbac?.defaultOnCluster]);
   function buildSql() {
     if (!sel) return "";
-    const p = ["ALTER ROLE", sel];
+    const p = ["ALTER ROLE", quoteIdent(sel)];
     if (f.onCluster) p.push(`ON CLUSTER '${f.onCluster}'`);
-    if (f.rename.trim()) p.push(`RENAME TO ${f.rename.trim()}`);
+    if (f.rename.trim()) p.push(`RENAME TO ${quoteIdent(f.rename.trim())}`);
     if (f.dropAllProfiles) p.push("DROP ALL PROFILES");
     if (f.dropAllSettings) p.push("DROP ALL SETTINGS");
     if (f.dropSettings.trim()) p.push(`DROP SETTINGS ${f.dropSettings.trim()}`);
     if (f.dropProfiles.trim())
-      p.push(`DROP PROFILES '${f.dropProfiles.trim()}'`);
+      p.push(`DROP PROFILES ${quoteStr(f.dropProfiles.trim())}`);
     if (f.addSettings.trim()) p.push(`ADD SETTINGS ${f.addSettings.trim()}`);
-    if (f.addProfiles.trim()) p.push(`ADD PROFILES '${f.addProfiles.trim()}'`);
+    if (f.addProfiles.trim()) p.push(`ADD PROFILES ${quoteStr(f.addProfiles.trim())}`);
     return p.join(" ");
   }
 
@@ -497,7 +500,9 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
     if (!f.role) return "";
     const verb = f.action === "grant" ? "GRANT" : "REVOKE";
     const dir = f.action === "grant" ? "TO" : "FROM";
-    return `${verb} ${f.accessType} ON ${f.database}.${f.table} ${dir} ${f.role}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ""}`;
+    const db = f.database === "*" ? "*" : quoteIdent(f.database);
+    const tbl = f.table === "*" ? "*" : quoteIdent(f.table);
+    return `${verb} ${f.accessType} ON ${db}.${tbl} ${dir} ${quoteIdent(f.role)}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ""}`;
   }
 
   async function submit(e) {
@@ -656,7 +661,7 @@ function DropRole({ rbac, roles, clusters, setResult, onSuccess }) {
   const [confirm, setConfirm] = useState(false);
   const [confirmName, setConfirmName] = useState("");
   const sql = sel
-    ? `DROP ROLE IF EXISTS ${sel}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
+    ? `DROP ROLE IF EXISTS ${quoteIdent(sel)}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
     : "";
 
   async function drop() {

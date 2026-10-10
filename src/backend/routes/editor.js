@@ -14,7 +14,7 @@
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 import express from 'express';
-import { getClusterNodes } from '../services/clusterUtils.js';
+import { resolveTargetNode } from '../services/clusterUtils.js';
 import { executeQuery } from '../services/clickhouse.js';
 import { rateLimiter } from '../middleware/rateLimiter.js';
 import {
@@ -22,23 +22,6 @@ import {
 } from '../services/chCredStore.js';
 
 const router = express.Router();
-
-// SSRF protection: only hosts in the configured cluster are reachable.
-function resolveTargetNode(clusterId, node) {
-  const nodes = getClusterNodes(clusterId);
-  if (!nodes.length) {
-    const e = new Error('No cluster nodes configured.');
-    e.status = 400;
-    throw e;
-  }
-  const target = node ? nodes.find((n) => n.name === node) : nodes[0];
-  if (!target) {
-    const e = new Error('Node not found in cluster configuration.');
-    e.status = 400;
-    throw e;
-  }
-  return target;
-}
 
 router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.username || req.ip}`), async (req, res) => {
   try {
@@ -63,7 +46,7 @@ router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.userna
       context: CRED_CONTEXTS.EDITOR,
       appUser: req.user.username,
       clusterId,
-      node: target.node,
+      node: target.name,
       port: target.port || 8123,
       chUser: user,
       password: password ?? '',
