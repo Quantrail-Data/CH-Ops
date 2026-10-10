@@ -41,6 +41,8 @@ export const alertRules = sqliteTable("alert_rule", {
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
   nodes: text("nodes"), // JSON array of node hostnames, null = all nodes
   clusterId: text("cluster_id"), // which cluster this alert runs on, null = first cluster
+  lastNotifiedAt: text("last_notified_at"),
+  lastState: text("last_state"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });

@@ -86,7 +86,7 @@ describe("Routes: Auth", () => {
   it("has brute-force lockout", () => {
     expect(code).toContain("checkLockout");
     expect(code).toContain("recordFailure");
-    expect(code).toContain("getConfig(\"security.maxFailures\")");
+    expect(code).toContain('getConfig("security.maxFailures")');
   });
   it("supports DISABLE_ENV_LOGIN", () => {
     expect(code).toContain("disableEnvLogin");
@@ -140,10 +140,10 @@ describe("Routes: Users RBAC (4-tier)", () => {
   const routes = read("src/backend/routes/users.js");
   it("defines 4 roles: superadmin, admin, editor, readonly", () => {
     expect(code).toContain("VALID_ROLES");
-    expect(code).toContain("\"superadmin\"");
-    expect(code).toContain("\"admin\"");
-    expect(code).toContain("\"editor\"");
-    expect(code).toContain("\"readonly\"");
+    expect(code).toContain('"superadmin"');
+    expect(code).toContain('"admin"');
+    expect(code).toContain('"editor"');
+    expect(code).toContain('"readonly"');
   });
   it("has ROLE_LEVEL hierarchy", () => {
     expect(code).toContain("readonly: 0");
@@ -280,7 +280,7 @@ describe("Services: App Data Backup", () => {
   });
 });
 
-describe("Routes: App Backup", () =>{
+describe("Routes: App Backup", () => {
   const code = read("src/backend/routes/appBackup.js");
   it("has create, list, and config endpoints", () => {
     expect(code).toContain('router.post("/create"');
@@ -309,15 +309,15 @@ describe("Services: Crypto", () => {
     expect(code).toContain("randomBytes(32)");
   });
   it("requires 32+ character ENCRYPTION_SECRET", () => {
-      expect(code).toContain("encryptionSecret.length < 32");
-    });
+    expect(code).toContain("encryptionSecret.length < 32");
+  });
 });
 
 describe("Security: SSRF Prevention", () => {
   const queryCode = read("src/backend/controllers/query.js");
   it("query controller validates node against cluster config", () => {
     expect(queryCode).toContain("SSRF prevention");
-    expect(queryCode).toContain("Node not found in cluster configuration");
+    expect(queryCode).toContain("resolveNodeFromConfig(clusterId, node)");
   });
   it("query controller does not accept raw host from request", () => {
     expect(queryCode).toContain("host: targetNode.host");
@@ -325,7 +325,7 @@ describe("Security: SSRF Prevention", () => {
   });
   it("query controller uses clusterUtils for SSRF-safe node lookup", () => {
     expect(queryCode).toContain("from '../services/clusterUtils.js'");
-    expect(queryCode).toContain("getClusterNodes(clusterId)");
+    expect(queryCode).toContain("resolveNodeFromConfig(clusterId, node)");
   });
 
   const notifierCode = read("src/backend/services/notifier.js");
@@ -414,9 +414,8 @@ describe("Services: JWT", () => {
     expect(code).not.toContain("secret = 'default'");
   });
   it("makes its own signing key, so there is nothing to set", () => {
-  // jwtKeys.js makes one on first use, so that error cannot happen.
-  expect(code).toContain("signingKey()");
-  expect(code).not.toMatch(/export const setSecret|setSecret\s*\(/);
+    expect(code).toContain("signingKey()");
+    expect(code).not.toMatch(/export const setSecret|setSecret\s*\(/);
   });
   it("includes jti in tokens", () => {
     expect(code).toContain("jti");

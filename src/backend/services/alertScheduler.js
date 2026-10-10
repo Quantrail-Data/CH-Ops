@@ -19,6 +19,8 @@ import { getClusterNodes } from './clusterUtils.js';
 
 // Cluster nodes loaded from clusterUtils.getClusterNodes()
 
+const DEFAULT_NOTIFY_COOLDOWN_MINUTES = 60;
+
 function cronMatches(expr, date) {
   const parts = expr.trim().split(/\s+/);
   if (parts.length < 5) return false;
@@ -39,6 +41,17 @@ function evalThreshold(value, operator, threshold) {
     case 'eq': return value === threshold; case 'neq': return value !== threshold;
     default: return false;
   }
+}
+
+function cooldownElapsed(rule, now) {
+  const minutes = Number.isFinite(Number(rule.cooldownMinutes))
+    ? Number(rule.cooldownMinutes)
+    : DEFAULT_NOTIFY_COOLDOWN_MINUTES;
+  if (minutes <= 0) return true;
+  if (!rule.lastNotifiedAt) return true;
+  const last = new Date(rule.lastNotifiedAt).getTime();
+  if (!Number.isFinite(last)) return true;
+  return now.getTime() - last >= minutes * 60 * 1000;
 }
 
 /**
@@ -126,7 +139,7 @@ function evalThreshold(value, operator, threshold) {
 // }
 
 async function evaluateRule(rule, allNodes, now) {
-  const prevStatus = rule.lastStatus;   // 'ok' | 'firing' | 'error' | null
+  const prevStatus = rule.lastState;   // 'ok' | 'firing' | 'error' | null
   let errorMsg = null;
   let firingNodes = [];
   let lastValue = 0;
@@ -187,7 +200,17 @@ async function evaluateRule(rule, allNodes, now) {
     isActive: isFiring,
   }).where(eq(alertRules.id, rule.id)).run();
 
-  await notify(rule, now, { prevStatus, status, errorMsg, firingNodes });
+  const notified = await notify(rule, now, { prevStatus, status, errorMsg, firingNodes });
+  if (notified) {
+    db.update(alertRules).set({
+      lastNotifiedAt: now.toISOString(),
+      lastState: status,
+    }).where(eq(alertRules.id, rule.id)).run();
+  } else {
+    db.update(alertRules).set({
+      lastState: status,
+    }).where(eq(alertRules.id, rule.id)).run();
+  }
 }
 
 async function notify(rule, now, { prevStatus, status, errorMsg, firingNodes }) {
@@ -203,7 +226,7 @@ async function notify(rule, now, { prevStatus, status, errorMsg, firingNodes }) 
       channels.push({ name: ch.name, config: { type: ch.type, ...cfgObj } });
     }
   }
-  if (channels.length === 0) return;
+  if (channels.length === 0) return false;
 
   const jobs = [];
   const push = (payload) => channels.forEach(ch =>
@@ -212,25 +235,30 @@ async function notify(rule, now, { prevStatus, status, errorMsg, firingNodes }) 
         .catch(err => log.error('Alert notification failed', { channel: ch.name, error: err.message }))
     ));
 
-  // (a) Threshold breach - existing behaviour, one per firing node.
-  if (status === 'firing') {
+  let dispatched = false;
+
+  if (status === 'firing' && (prevStatus !== 'firing' || cooldownElapsed(rule, now))) {
     for (const fn of firingNodes)
       push({ ...rule, kind: 'breach', lastValue: fn.value, lastRunAt: now.toISOString(), firedNode: fn.host });
+    dispatched = true;
   }
 
   // (b) Failure edge: was healthy, now errored -> notify once, with the exception.
   if (status === 'error' && prevStatus !== 'error') {
     push({ ...rule, kind: 'failure', severity: 'critical', error: errorMsg,
            lastRunAt: now.toISOString(), name: `${rule.name} - evaluation failed` });
+    dispatched = true;
   }
 
   // (c) Recovery edge: was errored, now healthy again.
   if (status !== 'error' && prevStatus === 'error') {
     push({ ...rule, kind: 'recovery', severity: 'info',
            lastRunAt: now.toISOString(), name: `${rule.name} - recovered` });
+    dispatched = true;
   }
 
   await Promise.allSettled(jobs);
+  return dispatched;
 }
 
 
