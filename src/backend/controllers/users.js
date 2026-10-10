@@ -221,7 +221,7 @@ export async function createUser(req, res) {
 
     const { passwordHash, passwordSetupTokenHash, ...safeUser } = user;
 
-    return res.status(201).json(safeUser);
+    return res.status(201).json({ ...safeUser, setPasswordUrl });
   } catch (error) {
     res.status(500).json(error.message);
   }
@@ -376,6 +376,7 @@ export function deleteUser(req, res) {
   }
 }
 
+/** Handles the initial password setup for a user logging in for the first time. */
 export async function setPassword(req, res) {
   try {
     const { token, password, newPassword } = req.body;
@@ -453,6 +454,64 @@ export async function setPassword(req, res) {
       },
     });
   } catch (error) {
+    return res.status(500).json({
+      error: error.message,
+    });
+  }
+}
+
+export async function reGenerateSetupLink(req, res) {
+  try {
+    const { userId } = req.query;
+
+    const user = db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.id, userId))
+      .get();
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+      });
+    }
+
+    if (user.passwordHash) {
+      return res.status(400).json({
+        error: "User already setups a password",
+      });
+    }
+
+    const setupToken = crypto.randomBytes(32).toString("hex");
+
+    const setupTokenHash = crypto
+      .createHash("sha256")
+      .update(setupToken)
+      .digest("hex");
+
+    const setupTokenExpiresAt = new Date(
+      Date.now() + 30 * 60 * 1000,
+    ).toISOString();
+
+    db.update(appUsers)
+      .set({
+        passwordHash: null,
+        mustChangePassword: true,
+        passwordSetupTokenHash: setupTokenHash,
+        passwordSetupTokenExpiresAt: setupTokenExpiresAt,
+      })
+      .where(eq(appUsers.id, user.id))
+      .run();
+
+    const env = loadEnv();
+
+    const appUrl = env.frontendLink;
+
+    const setPasswordUrl = `${appUrl}/#/set-password?token=${encodeURIComponent(setupToken)}`;
+
+    return res.status(201).json({ setPasswordUrl });
+  } catch (error) {
+    console.log(error);
     return res.status(500).json({
       error: error.message,
     });
