@@ -32,8 +32,6 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQuery: mockExecuteQuery,
   // bun's mock.module replaces this module for the whole test process, not just
-  // this file - stub every real export so whichever test file's mock.module call
-  // happens to win doesn't break other files that need executeQueryWithBody.
   executeQueryWithBody: mock(),
 }));
 
@@ -112,7 +110,7 @@ describe("runQuery", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({
-      error: "No cluster nodes configured.",
+      error: "No cluster nodes configured",
     });
   });
 
