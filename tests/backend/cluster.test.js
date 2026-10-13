@@ -17,6 +17,8 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterById,
   getClusterNodes,
   getNodeByName,
+  resolveTargetNode: () => null,
+
   // Real implementation, not a stub: the masking assertions below are the
   // point of several tests, so stubbing this would make them vacuous.
   maskClusterPasswords: (cluster) => ({

@@ -8,6 +8,7 @@ import { PAGE_HEADERS, PAGE_TEXT } from "./pageHeaders.generated.js";
 // Top-level section -> sidebar icon, so a result row shows the same glyph as the
 // sidebar. Mirrors the icons in Sidebar.jsx CORE_NAV_ITEMS.
 export const SECTION_ICONS = {
+  Home: "ti-home",
   Overview: "ti-eye",
   Tools: "ti-terminal-2",
   Dashboards: "ti-chart-pie",
@@ -21,13 +22,22 @@ export const SECTION_ICONS = {
 };
 
 export const SEARCH_CATALOG = [
-  // Overview
+ // Home
+ {
+ id: "home",
+ title: "Home",
+ section: "Home",
+ description: "Landing page with a card for each main task in CHOps.",
+ keywords: ["home", "landing page", "start page", "start", "all sections", "main menu"],
+ },
+
+ // Overview
   {
     id: "overview/cluster",
     title: "Cluster Overview",
     section: "Overview",
     description: "Node health dashboard: status cards, disk, RAM, Keeper, readonly tables.",
-    keywords: ["node overview", "cluster health", "status cards", "disk", "ram", "memory", "keeper", "zookeeper", "replicas", "readonly tables", "uptime", "landing page", "home"],
+    keywords: ["node overview", "cluster health", "status cards", "disk", "ram", "memory", "keeper", "zookeeper", "replicas", "readonly tables", "uptime"],
   },
   {
     id: "overview/summary",
