@@ -12,9 +12,9 @@ import { Router } from 'express';
 import { requireAdmin, listUsers, createUser, updateUser, deleteUser, reGenerateSetupLink } from '../controllers/users.js';
 
 const router = Router();
-router.get('/', listUsers);
+router.get('/',requireAdmin, listUsers);
 router.post('/', requireAdmin, createUser);
-router.put('/:id', updateUser);           // has internal RBAC checks for role changes
+router.put('/:id',requireAdmin, updateUser);           // has internal RBAC checks for role changes
 router.delete('/:id', requireAdmin, deleteUser);
 router.get('/regenerate', requireAdmin, reGenerateSetupLink);
 export default router;

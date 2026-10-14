@@ -15,6 +15,9 @@ import {
   validateCronExpression,
 } from "../services/alertScheduler.js";
 import { alertEvents } from "../db/schema.js";
+import { decrypt, encrypt } from "../services/crypto.js";
+
+const _DEFAULTPASSWORDVALUE = "*"?.repeat(15);
 
 function rulesWithChannels(where, req) {
   const rules = where
@@ -47,7 +50,7 @@ function rulesWithChannels(where, req) {
         }
         if (ch) {
           try {
-            ch.config = JSON.parse(ch.config);
+            ch.config = DecryptValuesChannels(ch?.config, ch?.type);
           } catch {
             ch.config = {};
           }
@@ -62,6 +65,142 @@ function rulesWithChannels(where, req) {
       cluster_id: rule.clusterId || null,
     };
   });
+}
+
+function EncryptValuesChannels(req) {
+  const { config, type } = req?.body;
+  if (!config || !type) return null;
+  let value = null;
+  try {
+    value = typeof config === "string" ? JSON.parse(config) : config;
+  } catch (err) {
+    console.log(err?.message);
+    return null;
+  }
+  switch (type) {
+    case "email":
+      value = { ...value, smtp_pass: encrypt(value?.smtp_pass) };
+      break;
+    case "slack":
+      value = { ...value, bot_token: encrypt(value?.bot_token) };
+      break;
+    case "google_chat":
+      value = { ...value, webhook_url: encrypt(value?.webhook_url) };
+      break;
+    case "teams":
+      value = { ...value, webhook_url: encrypt(value?.webhook_url) };
+      break;
+    case "pagerduty":
+      value = { ...value, routing_key: encrypt(value?.routing_key) };
+      break;
+    default:
+      value = { ...value, smtp_pass: encrypt(value?.smtp_pass) };
+      break;
+  }
+
+  return value;
+}
+
+export function DecryptValuesChannels(config, type) {
+  if (!config) return {};
+  let value = { ...config };
+  switch (type) {
+    case "email":
+      value = { ...value, smtp_pass: decrypt(value?.smtp_pass) };
+      break;
+    case "slack":
+      value = { ...value, bot_token: decrypt(value?.bot_token) };
+      break;
+    case "google_chat":
+      value = { ...value, webhook_url: decrypt(value?.webhook_url) };
+      break;
+    case "teams":
+      value = { ...value, webhook_url: decrypt(value?.webhook_url) };
+      break;
+    case "pagerduty":
+      value = { ...value, routing_key: decrypt(value?.routing_key) };
+      break;
+    default:
+      value = { ...value, smtp_pass: decrypt(value?.smtp_pass) };
+      break;
+  }
+
+  return value;
+}
+
+function DummyPaassword(config, type) {
+  if (!config) return {};
+  let value = { ...config };
+  switch (type) {
+    case "email":
+      value = { ...value, smtp_pass: _DEFAULTPASSWORDVALUE };
+      break;
+    case "slack":
+      value = { ...value, bot_token: _DEFAULTPASSWORDVALUE };
+      break;
+    case "google_chat":
+      value = { ...value, webhook_url: _DEFAULTPASSWORDVALUE };
+      break;
+    case "teams":
+      value = { ...value, webhook_url: _DEFAULTPASSWORDVALUE };
+      break;
+    case "pagerduty":
+      value = { ...value, routing_key: _DEFAULTPASSWORDVALUE };
+      break;
+    default:
+      value = { ...value, smtp_pass: _DEFAULTPASSWORDVALUE };
+      break;
+  }
+  console.log(value);
+  return value;
+}
+
+function UpdateKeysValuesChannels(config, type) {
+  if (!config) return {};
+
+  try {
+    let convertValue = typeof config === "string" ? JSON.parse(config) : config;
+    let value = { ...convertValue };
+    switch (type) {
+      case "email":
+        if (convertValue?.smtp_pass !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, smtp_pass: encrypt(convertValue?.smtp_pass) };
+        }
+        break;
+      case "slack":
+        if (convertValue?.bot_token !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, bot_token: encrypt(convertValue?.bot_token) };
+        }
+
+        break;
+      case "google_chat":
+        if (convertValue?.webhook_url !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, webhook_url: encrypt(convertValue?.webhook_url) };
+        }
+
+        break;
+      case "teams":
+        if (convertValue?.webhook_url !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, webhook_url: encrypt(convertValue?.webhook_url) };
+        }
+        break;
+      case "pagerduty":
+        if (convertValue?.routing_key !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, routing_key: encrypt(convertValue?.routing_key) };
+        }
+
+        break;
+      default:
+        if (convertValue?.smtp_pass !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, smtp_pass: encrypt(convertValue?.smtp_pass) };
+        }
+        break;
+    }
+
+    return value;
+  } catch (err) {
+    return {};
+  }
 }
 
 // Rules
@@ -256,7 +395,8 @@ export function listChannels(req, res) {
     channels.map((ch) => {
       if (!isAdmin) return { id: ch.id, name: ch.name, type: ch.type };
       try {
-        ch.config = JSON.parse(ch.config);
+        const convert = JSON.parse(ch.config);
+        ch.config = DummyPaassword(convert, ch?.type);
       } catch {
         ch.config = {};
       }
@@ -267,16 +407,13 @@ export function listChannels(req, res) {
 
 export function createChannel(req, res) {
   try {
+    const _encryptValue = EncryptValuesChannels(req);
     const result = db
       .insert(alertChannels)
       .values({
         name: req.body.name,
         type: req.body.type,
-        config: JSON.stringify(
-          typeof req.body.config === "string"
-            ? JSON.parse(req.body.config)
-            : req.body.config || {},
-        ),
+        config: JSON.stringify(_encryptValue || {}),
         enabled: req.body.enabled !== false,
       })
       .returning()
@@ -295,9 +432,7 @@ export function updateChannel(req, res) {
     if (req.body.type !== undefined) updates.type = req.body.type;
     if (req.body.config !== undefined)
       updates.config = JSON.stringify(
-        typeof req.body.config === "string"
-          ? JSON.parse(req.body.config)
-          : req.body.config,
+        UpdateKeysValuesChannels(req.body?.config, req.body?.type),
       );
     if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
 
@@ -344,8 +479,10 @@ export async function testChannel(req, res) {
     } catch {
       cfgObj = {};
     }
+
     const parsed = { type: ch.type, ...cfgObj };
-    await testChannelService(parsed);
+    const _decryptConfig = DecryptValuesChannels(parsed, ch?.type);
+    await testChannelService(_decryptConfig);
 
     db.update(alertChannels)
       .set({

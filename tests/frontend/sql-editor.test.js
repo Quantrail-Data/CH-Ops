@@ -125,8 +125,8 @@ describe('SQL Editor: Export wizard and its API', () => {
     // Compare against the ROUTER mount. A body-size cap is also mounted on
     // '/api/export', earlier in the file, and it calls next() rather than
     // handling the request - so a plain indexOf finds the wrong line.
-    const downloadAt = server.indexOf("'/api/export/download'");
-    const routerAt = server.indexOf("app.use('/api/export', rateLimiter");
+    const downloadAt = server.indexOf("\"/api/export/download\"");
+    const routerAt = server.indexOf("app.use(\"/api/export\", rateLimiter");
     expect(downloadAt).toBeGreaterThan(-1);
     expect(routerAt).toBeGreaterThan(-1);
     expect(downloadAt).toBeLessThan(routerAt);

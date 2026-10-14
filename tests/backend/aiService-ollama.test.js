@@ -95,7 +95,9 @@ describe("AIServices - OLLAMA ask()", () => {
   });
 
   it("propagates an unreachable-server error through the generic classification", async () => {
-    chatCompletionsCreate.mockRejectedValue(new Error("fetch failed"));
+    const err = new Error("fetch failed");
+    err.status = 400
+    chatCompletionsCreate.mockRejectedValue(err);
     const ai = new AIServices("OLLAMA", "llama3.2", BASE_URL);
     await expect(ai.ask("hi")).rejects.toThrow("fetch failed");
   });

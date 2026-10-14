@@ -5006,3 +5006,10 @@ select.sql-action-control {
   line-height: 1.5;
   max-width: 400px; 
 }
+
+
+/* storage profiles style */
+
+input:read-only {
+  opacity:0.3;
+}
