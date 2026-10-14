@@ -8,6 +8,9 @@
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 export const PAGE_HEADERS = {
+  "home": [
+    "Home"
+  ],
   "overview/queries": [
     "Queries"
   ],
@@ -122,6 +125,9 @@ export const PAGE_HEADERS = {
 };
 
 export const PAGE_TEXT = {
+  "home": [
+    "What do you want to do?"
+  ],
   "overview/cluster": [
     "Loading...",
     "Disk Details",
