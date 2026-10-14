@@ -132,6 +132,7 @@ export default function StorageProfiles() {
       setEditing(null);
       load();
     } catch (err) {
+      console.log(err?.message)
       setResult({ ok: false, msg: err.message });
     }
   }
