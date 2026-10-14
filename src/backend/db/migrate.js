@@ -119,6 +119,18 @@ sqlite.exec(`
     alert_channel_id INTEGER NOT NULL REFERENCES alert_channel(id) ON DELETE CASCADE,
     UNIQUE(alert_rule_id, alert_channel_id)
   );
+  CREATE TABLE IF NOT EXISTS alert_event (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alert_rule_id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    prev_status TEXT,
+    value REAL,
+    error TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_alert_event_rule ON
+    alert_event(alert_rule_id, created_at
+  );
   CREATE TABLE IF NOT EXISTS dashboard (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -246,6 +258,15 @@ const migrations = [
   "ALTER TABLE alert_rule ADD COLUMN last_state TEXT",
   "ALTER TABLE app_user ADD COLUMN password_setup_token_hash TEXT DEFAULT NULL",
   "ALTER TABLE app_user ADD COLUMN password_setup_token_expires_at TEXT DEFAULT NULL",
+
+  "ALTER TABLE alert_channel ADD COLUMN last_send_at TEXT",
+  "ALTER TABLE alert_channel ADD COLUMN last_send_ok INTEGER",
+  "ALTER TABLE alert_channel ADD COLUMN last_send_error TEXT",
+  "ALTER TABLE alert_rule ADD COLUMN notify_interval_minutes INTEGER DEFAULT 0",
+  "ALTER TABLE alert_rule ADD COLUMN last_breach_notified_at TEXT",
+  "ALTER TABLE alert_rule ADD COLUMN breach_runs_required INTEGER DEFAULT 1",
+  "ALTER TABLE alert_rule ADD COLUMN breach_run_count INTEGER DEFAULT 0",
+  "ALTER TABLE alert_rule ADD COLUMN no_rows_means_breach INTEGER DEFAULT 0",
 ];
 
 for (const sql of migrations) {

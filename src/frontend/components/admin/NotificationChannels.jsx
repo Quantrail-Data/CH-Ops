@@ -411,6 +411,41 @@ export default function NotificationChannels() {
                     at {new Date(ch.lastTestAt).toLocaleString()}
                   </div>
                 )}
+                {ch?.lastSendAt && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      marginTop: 8,
+                    }}
+                  >
+                    Last notification:{" "}
+                    {ch.lastTestOk ? (
+                      <span style={{ color: "var(--color-success)" }}>OK</span>
+                    ) : (
+                      <span style={{ color: "var(--color-danger)" }}>FAIL</span>
+                    )}
+                    {new Date(ch?.lastSendAt).toLocaleString()}
+                  </div>
+                )}
+
+                {ch?.lastSendError && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--color-danger)",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      border: "1px solid rgba(239, 68, 68, 0.2)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 8px",
+                      marginTop: 6,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    <strong>Last notification failed:</strong>{" "}
+                    {ch?.lastSendError}
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 6 }}>
                   <button
                     className="btn btn-secondary btn-sm"
