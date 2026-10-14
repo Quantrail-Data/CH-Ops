@@ -177,7 +177,7 @@ export default function StorageProfiles() {
       });
       setProfiles(removed?.removed);
     } catch (err) {
-      console.log(err);
+      console.log(err.message);
     } finally {
       load();
     }
