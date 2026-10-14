@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Controller managing alert rule lifecycles, evaluating thresholds, and triggering notification dispatches.
 
-
 import { eq, desc } from "drizzle-orm";
 import {
   db,
@@ -11,6 +10,11 @@ import {
   alertRuleChannels,
 } from "../db/index.js";
 import { testChannel as testChannelService } from "../services/notifier.js";
+import {
+  notifyBeforeRuleDisabled,
+  validateCronExpression,
+} from "../services/alertScheduler.js";
+import { alertEvents } from "../db/schema.js";
 
 function rulesWithChannels(where, req) {
   const rules = where
@@ -85,8 +89,13 @@ export function createRule(req, res) {
     channel_ids,
     nodes,
     cluster_id,
+    notifyIntervalMinutes,
+    breachRunsRequired,
+    noRowsMeansBreach,
   } = req.body;
   try {
+    const cronError = validateCronExpression(schedule || "*/5 * * * *");
+    if (cronError) return res.status(400).json({ error: cronError });
     const result = db
       .insert(alertRules)
       .values({
@@ -103,6 +112,9 @@ export function createRule(req, res) {
             ? JSON.stringify(nodes)
             : null,
         clusterId: cluster_id || null,
+        notifyIntervalMinutes: notifyIntervalMinutes,
+        breachRunsRequired: breachRunsRequired,
+        noRowsMeansBreach: noRowsMeansBreach,
       })
       .returning()
       .get();
@@ -121,9 +133,27 @@ export function createRule(req, res) {
   }
 }
 
-export function updateRule(req, res) {
+export async function updateRule(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
+    const { schedule } = req?.body;
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid alert rule ID" });
+    }
+
+    const cronError = validateCronExpression(schedule || "*/5 * * * *");
+    if (cronError) return res.status(400).json({ error: cronError });
+
+    const currentRule = db
+      .select()
+      .from(alertRules)
+      .where(eq(alertRules.id, id))
+      .get();
+
+    if (!currentRule) {
+      return res.status(404).json({ error: "Alert rule not found" });
+    }
+
     const updates = {};
     for (const k of [
       "name",
@@ -133,10 +163,27 @@ export function updateRule(req, res) {
       "operator",
       "severity",
       "schedule",
+      "notifyIntervalMinutes",
+      "breachRunsRequired",
+      "noRowsMeansBreach",
     ]) {
-      if (req.body[k] !== undefined) updates[k] = req.body[k];
+      if (req.body[k] !== undefined) {
+        updates[k] = req.body[k];
+      }
     }
-    if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
+
+    if (
+      req.body.enabled === false &&
+      currentRule.enabled &&
+      currentRule.lastState === "firing"
+    ) {
+      await notifyBeforeRuleDisabled(id);
+    }
+
+    if (req.body.enabled !== undefined) {
+      updates.enabled = req.body.enabled;
+    }
+
     if (req.body.nodes !== undefined) {
       updates.nodes =
         Array.isArray(req.body.nodes) && req.body.nodes.length > 0
@@ -147,26 +194,34 @@ export function updateRule(req, res) {
       updates.clusterId = req.body.cluster_id || null;
     }
 
-    db.update(alertRules).set(updates).where(eq(alertRules.id, id)).run();
+    if (Object.keys(updates).length > 0) {
+      db.update(alertRules).set(updates).where(eq(alertRules.id, id)).run();
+    }
 
     if (req.body.channel_ids !== undefined) {
       db.delete(alertRuleChannels)
         .where(eq(alertRuleChannels.alertRuleId, id))
         .run();
+
       for (const cid of req.body.channel_ids) {
         db.insert(alertRuleChannels)
-          .values({ alertRuleId: id, alertChannelId: cid })
+          .values({
+            alertRuleId: id,
+            alertChannelId: cid,
+          })
           .run();
       }
     }
+
     const rule = db
       .select()
       .from(alertRules)
       .where(eq(alertRules.id, id))
       .get();
-    res.json(rule);
+
+    return res.json(rule);
   } catch (error) {
-    res.status(500).json(error.message);
+    return res.status(500).json({ error: error.message });
   }
 }
 
@@ -318,4 +373,16 @@ export async function testChannel(req, res) {
     }
     res.json({ ok: false, error: err.message });
   }
+}
+
+export function listRuleEvents(req, res) {
+  const id = parseInt(req.params.id, 10);
+  const rows = db
+    .select()
+    .from(alertEvents)
+    .where(eq(alertEvents.alertRuleId, id))
+    .orderBy(desc(alertEvents.createdAt))
+    .limit(200)
+    .all();
+  res.json(rows);
 }

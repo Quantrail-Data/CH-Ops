@@ -45,6 +45,17 @@ export const alertRules = sqliteTable("alert_rule", {
   lastState: text("last_state"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  notifyIntervalMinutes: integer("notify_interval_minutes")
+    .notNull()
+    .default(0), // 0 means edge only: one mail when firing starts, one when it resolves.
+  lastBreachNotifiedAt: text("last_breach_notified_at"),
+  // The rule fires only after this many breaching runs in a row.
+  breachRunsRequired: integer("breach_runs_required").notNull().default(1),
+  breachRunCount: integer("breach_run_count").notNull().default(0),
+  // When the query returns zero rows: false means ok, true means breach.
+  noRowsMeansBreach: integer("no_rows_means_breach", { mode: "boolean" })
+    .notNull()
+    .default(false),
 });
 
 // Alert Channels
@@ -60,6 +71,9 @@ export const alertChannels = sqliteTable("alert_channel", {
   lastTestError: text("last_test_error"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  lastSendAt: text("last_send_at"),
+  lastSendOk: integer("last_send_ok", { mode: "boolean" }),
+  lastSendError: text("last_send_error"),
 });
 
 // Alert Rule <-> Channel (many-to-many)
@@ -72,6 +86,17 @@ export const alertRuleChannels = sqliteTable("alert_rule_channel", {
   alertChannelId: integer("alert_channel_id")
     .notNull()
     .references(() => alertChannels.id, { onDelete: "cascade" }),
+});
+
+// One row per status change of a rule: ok to firing, firing to ok, errors.
+export const alertEvents = sqliteTable("alert_event", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  alertRuleId: integer("alert_rule_id").notNull(),
+  status: text("status").notNull(),
+  prevStatus: text("prev_status"),
+  value: real("value"),
+  error: text("error"),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
 
 // Custom Dashboards

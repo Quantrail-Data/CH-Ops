@@ -62,7 +62,8 @@ export const PAGE_HEADERS = {
     "Playback"
   ],
   "alerting/rules": [
-    "Alert Rules"
+    "Alert Rules",
+    "History"
   ],
   "rbac/view": [
     "View Grants"
@@ -899,6 +900,10 @@ export const PAGE_TEXT = {
     "Schedule (cron)",
     "Operator",
     "Threshold",
+    "Notify Interval",
+    "Breach Run Required",
+    "Enabled",
+    "noRowsMeansBreach",
     "SQL (single value)",
     "Description",
     "Channels",
@@ -907,7 +912,6 @@ export const PAGE_TEXT = {
     "Test",
     "Loading...",
     "No rules yet. Click New Rule.",
-    "Enabled",
     "Disabled",
     "FIRING",
     "NO NODES",
@@ -1311,6 +1315,8 @@ export const PAGE_TEXT = {
     "Name",
     "Type",
     "No channels yet.",
+    "FAIL",
+    "Last notification failed:",
     "Test"
   ],
   "admin/trusted-cas": [
