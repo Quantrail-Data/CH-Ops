@@ -22,6 +22,7 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   saveClusters,
   getClusterById,
   getClusterNodes,
+  resolveTargetNode: () => null,
   getNodeByName,
   maskClusterPasswords,
   MAX_CLUSTERS: 3,

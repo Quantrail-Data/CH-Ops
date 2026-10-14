@@ -14,6 +14,30 @@ const mockExecuteQuery = mock();
 
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterNodes: mockGetClusterNodes,
+  //add
+  resolveTargetNode: (clusterId, selector) => {
+  const nodes = mockGetClusterNodes(clusterId) || [];
+
+  if (!nodes.length) {
+    throw Object.assign(new Error("No cluster nodes configured"), {
+      status: 400,
+    });
+  }
+
+  const target = selector
+    ? nodes.find((n) => n.name === selector || n.host === selector)
+    : nodes[0];
+
+  if (!target) {
+    throw Object.assign(
+      new Error("Node not found in cluster configuration."),
+      { status: 400 },
+    );
+  }
+
+  return target;
+},
+  //add here
   getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
   getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
   // bun's mock.module replaces this module for the whole test process, not just
