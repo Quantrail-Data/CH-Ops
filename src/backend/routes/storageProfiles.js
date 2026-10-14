@@ -126,7 +126,7 @@ router.delete("/profiles/delete/:id", async (req, res, next) => {
       .where(eq(appSettings?.key, "backup_profiles"));
     res.status(201).json({ removed });
   } catch (err) {
-    console.log(err);
+    console.log(err?.message);
   }
 });
 
