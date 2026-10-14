@@ -93,7 +93,8 @@ export const PAGE_HEADERS = {
     "Data Lifecycle"
   ],
   "admin/profiles": [
-    "Storage Profiles"
+    "Storage Profiles",
+    "// Storage Profiles //"
   ],
   "admin/users": [
     "User Management"
@@ -111,6 +112,7 @@ export const PAGE_HEADERS = {
     "Notification Channels"
   ],
   "admin/trusted-cas": [
+    "Trusted Certificate Authorities",
     "Trusted certificate authorities"
   ],
   "admin/app-config": [
@@ -1158,6 +1160,8 @@ export const PAGE_TEXT = {
     "Select a profile and click Scan S3 to discover backups."
   ],
   "admin/profiles": [
+    "Storage Profiles is only available for super administrators.",
+    "Storage Profiles //",
     "Type",
     "Amazon S3",
     "Azure Blob",
@@ -1165,6 +1169,8 @@ export const PAGE_TEXT = {
     "Endpoint",
     "Region",
     "No storage profiles configured.",
+    "Test //",
+    "Edit //",
     "Test",
     "Edit"
   ],
@@ -1176,9 +1182,6 @@ export const PAGE_TEXT = {
     "System Email",
     "Passwords match",
     "Update Password",
-    "Password Setup Link",
-    "Share this secure link with the user to set their password.",
-    "Setup URL",
     "Role",
     "Create User",
     "Username",
@@ -1199,8 +1202,6 @@ export const PAGE_TEXT = {
     "Test connection",
     "Delete configuration",
     "If email stops working",
-    "Close setup URL",
-    "Password setup URL",
     "For password email"
   ],
   "admin/cluster": [
@@ -1261,11 +1262,8 @@ export const PAGE_TEXT = {
   "admin/app-backup": [
     "Loading...",
     "App data backup is only available for superadministrators.",
-    "No storage profiles configured. Go to",
     "to add one.",
-    "Manual Backup",
     "Storage Profile",
-    "Scheduled Backup",
     "-- Select --",
     "Frequency",
     "Daily",
@@ -1273,8 +1271,6 @@ export const PAGE_TEXT = {
     "Day",
     "Hour (24h)",
     "Save Schedule",
-    "Last run:",
-    "Backup History",
     "No backups found for this profile.",
     "Backup ID",
     "Backup Type",
@@ -1282,7 +1278,6 @@ export const PAGE_TEXT = {
     "Size",
     "Version",
     "Tables",
-    "Restore Instructions",
     "Restoring replaces all app data. The server must be stopped during restore.",
     "1. Download the backup file from S3",
     "2. Stop the server",
@@ -1320,6 +1315,7 @@ export const PAGE_TEXT = {
     "Test"
   ],
   "admin/trusted-cas": [
+    "Trusted Certificate Authorities is only available for administrators.",
     "Add",
     "No certificate authorities added. CHOps uses the system list only.",
     "Which clusters use this",
@@ -1331,6 +1327,7 @@ export const PAGE_TEXT = {
     "Internal CA"
   ],
   "admin/app-config": [
+    "App Config is only available for administrators.",
     "Save",
     "Reset"
   ],

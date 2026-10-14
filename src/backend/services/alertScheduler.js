@@ -22,6 +22,7 @@ import { executeQuery } from "./clickhouse.js";
 import { sendNotification } from "./notifier.js";
 import { getClusterNodes } from "./clusterUtils.js";
 import { alertEvents } from "../db/schema.js";
+import { DecryptValuesChannels } from "../controllers/alerts.js";
 
 // Cluster nodes loaded from clusterUtils.getClusterNodes()
 
@@ -232,10 +233,7 @@ async function notify(
     if (ch?.enabled) {
       let cfgObj = {};
       try {
-        cfgObj =
-          typeof ch.config === "string"
-            ? JSON.parse(ch.config)
-            : ch.config || {};
+       cfgObj = DecryptValuesChannels(ch?.config,ch?.type)
       } catch {}
       channels.push({
         id: ch.id,
