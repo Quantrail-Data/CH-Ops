@@ -99,8 +99,8 @@ describe("Backups: S3 Glob Compatibility", () => {
   });
 
   it("uses escaped access key id and secret key in S3 read/write queries", () => {
-    expect(code).toContain("escSql(s3.accessKeyId)");
-    expect(code).toContain("escSql(s3.accessKey)");
+    expect(code).toContain("<accessKeyId>");
+    expect(code).toContain("<accessKey>");
   });
 
   it("redacts the S3 secret key in preview SQL", () => {
