@@ -177,7 +177,7 @@ describe("Services: Alert Scheduler", () => {
   });
   it("uses clusterUtils for node credentials", () => {
     expect(code).toContain("getClusterNodes");
-    expect(code).toContain("from './clusterUtils.js'");
+    expect(code).toContain("from \"./clusterUtils.js\"");
   });
   it("filters nodes by rule.nodes when set", () => {
     expect(code).toContain("selected.includes(n.host)");
