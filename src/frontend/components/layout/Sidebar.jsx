@@ -197,10 +197,12 @@ export default function Sidebar({
         ? pathSegment
         : "overview");
 
+    // On the Home page every section stays closed.
+    const isHomePage = pathSegment === "home";
     const next = {};
     NAV_ITEMS.forEach((s) => {
-      next[s.id] = s.id === activeSection;
-    });
+     next[s.id] = !isHomePage && s.id === activeSection;
+     });
     setOpenSections(next);
   }, [location.pathname, currentRoute, NAV_ITEMS]);
 
@@ -232,6 +234,19 @@ export default function Sidebar({
   return (
     <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
       <div className="sidebar-scroll">
+       <div
+        className={`sidebar-item ${currentRoute === "home" ? "active" :
+""}`}
+        onClick={() => onNavigate("home")}
+        title={isCollapsed ? "Home" : undefined}
+        style={isCollapsed ? {} : { padding: "12px 10px", gap: 12 }}
+       >
+        <Icon className="ti ti-home" style={{ fontSize: isCollapsed ? 28
+: 24 }} />
+        <span style={{ fontSize: "11.5px", fontWeight: "700",letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            Home
+        </span>
+      </div>
         {NAV_ITEMS.map((section) => (
           <div key={section.id}>
             <div
