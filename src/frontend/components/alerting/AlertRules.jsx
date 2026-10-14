@@ -64,7 +64,6 @@ export default function AlertRules() {
 
   function validateCron(expr) {
     const parts = expr.trim().split(/\s+/).filter(Boolean);
-    console.log()
     if (parts.length !== 4 && parts.length !== 5)
       return "Cron must have 4 or 5 fields";
     const normalized = parts.length === 4 ? ["0", ...parts] : parts;
@@ -243,7 +242,6 @@ export default function AlertRules() {
       const res = await apiFetch(`/api/alerts/rules/${id}/events`, {
         method: "GET",
       });
-      console.log(res);
       setHistory(res);
     } catch (error) {
       console.log(error.message);
