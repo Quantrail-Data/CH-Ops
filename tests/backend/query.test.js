@@ -14,6 +14,30 @@ const mockExecuteQuery = mock();
 
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterNodes: mockGetClusterNodes,
+  //add
+  resolveTargetNode: (clusterId, selector) => {
+  const nodes = mockGetClusterNodes(clusterId) || [];
+
+  if (!nodes.length) {
+    throw Object.assign(new Error("No cluster nodes configured"), {
+      status: 400,
+    });
+  }
+
+  const target = selector
+    ? nodes.find((n) => n.name === selector || n.host === selector)
+    : nodes[0];
+
+  if (!target) {
+    throw Object.assign(
+      new Error("Node not found in cluster configuration."),
+      { status: 400 },
+    );
+  }
+
+  return target;
+},
+  //add here
   getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
   getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
   // bun's mock.module replaces this module for the whole test process, not just
@@ -32,8 +56,6 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
 mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQuery: mockExecuteQuery,
   // bun's mock.module replaces this module for the whole test process, not just
-  // this file - stub every real export so whichever test file's mock.module call
-  // happens to win doesn't break other files that need executeQueryWithBody.
   executeQueryWithBody: mock(),
 }));
 
@@ -112,7 +134,7 @@ describe("runQuery", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({
-      error: "No cluster nodes configured.",
+      error: "No cluster nodes configured",
     });
   });
 

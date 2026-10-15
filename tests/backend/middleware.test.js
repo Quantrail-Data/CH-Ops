@@ -5,11 +5,8 @@
 import { describe, it, expect, beforeAll, beforeEach, mock } from "bun:test";
 import jwt from "jsonwebtoken";
 
-import {
-  create,
-  verify,
-  revokeToken,
-} from "../../src/backend/services/jwt.js";
+import { authMiddleware } from "../../src/backend/middleware/auth.js";
+import { create, verify, revokeToken } from "../../src/backend/services/jwt.js";
 
 function mockRes() {
   return {
@@ -72,11 +69,6 @@ mock.module("../../src/backend/db/index.js", () => ({
 const { authMiddleware } = await import("../../src/backend/middleware/auth.js");
 
 describe("authMiddleware", () => {
-  beforeEach(() => {
-    getMock.mockReset();
-    getMock.mockImplementation(() => ({ id: 1, username: "alice", role: "admin" }));
-  });
-
   it("missing Authorization header -> 401, next not called", () => {
     const res = mockRes();
     const next = counterNext();
@@ -89,7 +81,6 @@ describe("authMiddleware", () => {
   it("user not found -> 401", () => {
     const token = create({ userId: 999, username: "ghost" });
     getMock.mockReturnValueOnce(undefined);
-
 
     const req = {
       headers: {
@@ -106,6 +97,22 @@ describe("authMiddleware", () => {
     // account confirms the token itself was valid.
     expect(res.body).toEqual({ error: "Invalid or expired token" });
 
+    expect(next.calls.length).toBe(0);
+  });
+
+  it("token for a reused user id -> 401", () => {
+    // erin's token, but id 1 now belongs to frank.
+    const token = create({ userId: 1, username: "erin", role: "admin" });
+    getMock.mockReturnValueOnce({ id: 1, username: "frank", role: "admin" });
+    const res = mockRes();
+    const next = counterNext();
+    authMiddleware(
+      { headers: { authorization: `Bearer ${token}` } },
+      res,
+      next,
+    );
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ error: "Invalid or expired token" });
     expect(next.calls.length).toBe(0);
   });
 

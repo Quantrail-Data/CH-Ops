@@ -9,7 +9,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
 import { requireAdmin } from '../controllers/users.js';
-import { listRules, listActiveRules, createRule, updateRule, deleteRule, listChannels, createChannel, updateChannel, deleteChannel, testChannel } from '../controllers/alerts.js';
+import { listRules, listActiveRules, createRule, updateRule, deleteRule, listChannels, createChannel, updateChannel, deleteChannel, testChannel, listRuleEvents } from '../controllers/alerts.js';
 
 const router = Router();
 router.get('/rules', listRules);
@@ -22,4 +22,5 @@ router.post('/channels', requireAdmin, createChannel);
 router.put('/channels/:id', requireAdmin, updateChannel);
 router.delete('/channels/:id', requireAdmin, deleteChannel);
 router.post('/channels/:id/test', requireAdmin, testChannel);
+router.get('/rules/:id/events', listRuleEvents);
 export default router;

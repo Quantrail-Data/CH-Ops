@@ -2,14 +2,19 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Proxies frontend queries to ClickHouse with multi-cluster routing and SSRF protection via node whitelist validation.
 
-
-import { getClusterNodes } from '../services/clusterUtils.js';
-import { executeQuery } from '../services/clickhouse.js';
-import { isReadOnlySql } from '../../shared/sqlClassify.js';
-import { materialize } from '../../shared/sqlParams.js';
-import { leadingKeyword } from '../../shared/sqlClassify.js';
-import { getCredSession, CRED_CONTEXTS } from '../services/chCredStore.js';
-
+import {
+  getClusterNodes,
+  resolveTargetNode as resolveNodeFromConfig,
+} from "../services/clusterUtils.js";
+import { executeQuery } from "../services/clickhouse.js";
+import { isReadOnlySql } from "../../shared/sqlClassify.js";
+import { materialize } from "../../shared/sqlParams.js";
+import { leadingKeyword } from "../../shared/sqlClassify.js";
+import { getCredSession, CRED_CONTEXTS } from "../services/chCredStore.js";
+import { decrypt } from "../services/crypto.js";
+import { db } from "../db/index.js";
+import { appSettings } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 // Settings the client may set on a query.
 //
 // This is an allowlist, not a passthrough: setting names become URL parameters
@@ -28,12 +33,12 @@ import { getCredSession, CRED_CONTEXTS } from '../services/chCredStore.js';
 // large queries come back short or empty".
 const ALLOWED_QUERY_SETTINGS = new Set([
   // Result shaping, sent by the editor on every run.
-  'max_result_rows',
-  'max_result_bytes',
-  'result_overflow_mode',
+  "max_result_rows",
+  "max_result_bytes",
+  "result_overflow_mode",
   // EXPLAIN options (see explainOptions.js REQUIRED_SETTINGS).
-  'use_query_condition_cache',
-  'use_skip_indexes_on_data_read',
+  "use_query_condition_cache",
+  "use_skip_indexes_on_data_read",
 ]);
 
 function onlyKnownSettings(input) {
@@ -44,15 +49,63 @@ function onlyKnownSettings(input) {
   return clean;
 }
 
+function escSql(str) {
+  return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function SetterDecryptValueSP(sql, profile) {
+  if (profile?.type === "s3") {
+    let sqlConvert = (
+      sql
+        ?.replace("<endpoint>", escSql(decrypt(profile?.endpoint)))
+        ?.replace("<bucket>", profile?.bucket) + "/"
+    )
+      ?.replace("<accessKeyId>", escSql(decrypt(profile?.accessKeyId)))
+      ?.replace("<accessKey>", escSql(decrypt(profile?.accessKey)))
+      ?.replace("500/", "500")
+      ?.replace(")/", ")");
+
+    return sqlConvert;
+  } else if (profile?.type === "gcs") {
+    let sqlConvert = sql
+      ?.replace("<accessKeyId>", escSql(decrypt(profile?.accessKeyId)))
+      ?.replace("<accessKey>", escSql(decrypt(profile?.accessKey)));
+    return sqlConvert;
+  }
+  let sqlConvert = (
+    sql
+      ?.replace("<endpoint>", "https://s3.amazonaws.com/")
+      ?.replace("<bucket>", profile?.container) + "/"
+  )
+    ?.replace("<accessKeyId>", escSql(decrypt(profile?.accessKeyId)))
+    ?.replace("<accessKey>", escSql(decrypt(profile?.accessKey)))
+    ?.replace("500/", "500")
+    ?.replace(")/", ")");
+  return sqlConvert;
+}
+
 export async function runQuery(req, res) {
-  const { sql, node, user, password, clusterId, strictAuth, useSession, context, params, settings } = req.body;
- 
+  const {
+    sql,
+    node,
+    user,
+    password,
+    clusterId,
+    strictAuth,
+    useSession,
+    context,
+    params,
+    settings,
+    sp,
+    backup_sp,
+  } = req.body;
+
   let { readOnly } = req.body;
-  if (!sql) return res.status(400).json({ error: 'Missing SQL' });
+  if (!sql) return res.status(400).json({ error: "Missing SQL" });
 
   // Server-side role enforcement: the client-supplied readOnly flag is only a
   // UX hint.
-  if (req.user?.role === 'readonly') {
+  if (req.user?.role === "readonly") {
     readOnly = true;
   }
 
@@ -60,48 +113,46 @@ export async function runQuery(req, res) {
   // non-read statement here before it reaches ClickHouse.
   if (readOnly && !isReadOnlySql(sql)) {
     return res.status(400).json({
-      error: 'This request only allows read-only queries (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN, EXISTS).',
+      error:
+        "This request only allows read-only queries (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN, EXISTS).",
     });
   }
 
-  const clusterNodes = getClusterNodes(clusterId);
-  if (clusterNodes.length === 0) return res.status(400).json({ error: 'No cluster nodes configured.' });
-
   // Only connect to hosts that are in the cluster config (SSRF prevention)
-  const targetNode = node
-    ? clusterNodes.find(n => n.name === node)
-    : clusterNodes[0];
-
-  if (!targetNode) {
-    return res.status(400).json({ error: 'Node not found in cluster configuration.' });
+  let targetNode;
+  try {
+    targetNode = resolveNodeFromConfig(clusterId, node);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
   }
 
   // try { const result = await executeQuery({ host:
 
-
   // Resolve credentials.
   let resolvedUser, resolvedPassword;
   if (useSession) {
-
     const sess = getCredSession(req.user?.jti, context || CRED_CONTEXTS.EDITOR);
 
     if (!sess) {
       return res.status(401).json({
-        error: 'Your session expired. Please reconnect with your ClickHouse credentials.',
-        code: 'CRED_SESSION_EXPIRED',
+        error:
+          "Your session expired. Please reconnect with your ClickHouse credentials.",
+        code: "CRED_SESSION_EXPIRED",
       });
     }
     resolvedUser = sess.chUser;
     resolvedPassword = sess.password;
   } else if (strictAuth) {
     if (!user) {
-      return res.status(400).json({ error: 'Credentials required for this request.' });
+      return res
+        .status(400)
+        .json({ error: "Credentials required for this request." });
     }
     resolvedUser = user;
-    resolvedPassword = password ?? '';
+    resolvedPassword = password ?? "";
   } else {
-    resolvedUser = user || targetNode.user || 'default';
-    resolvedPassword = password ?? targetNode.password ?? '';
+    resolvedUser = user || targetNode.user || "default";
+    resolvedPassword = password ?? targetNode.password ?? "";
   }
 
   try {
@@ -112,14 +163,49 @@ export async function runQuery(req, res) {
     // which materializes unconditionally. If parameterized writes are ever
     // wanted, this gate is the thing to widen, and the two paths should be
     // brought back into agreement at the same time.
-    const kw = leadingKeyword(sql);
-    const rowReturning = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN', 'EXISTS'].includes(kw);
 
-    let finalSql = sql;
+    let backup_SQL = null;
+    if (backup_sp) {
+      const [id, sqlQ] = sql?.split("-//-");
+      const value = db
+        .select()
+        .from(appSettings)
+        .where(eq(appSettings?.key, "backup_profiles"))
+        .get();
+      const convertData =
+        typeof value?.value === "string"
+          ? JSON.parse(value?.value)
+          : value?.value;
+
+      const find = convertData.filter((_v) => _v?.id === Number(id));
+
+      if (find?.length === 0) {
+        return res.json({ status: true });
+      }
+
+      const convertedSQL = SetterDecryptValueSP(sqlQ, find[0]);
+      backup_SQL = convertedSQL;
+    }
+
+    const kw = leadingKeyword(sp ? decrypt(sql) : backup_sp ? backup_SQL : sql);
+    const rowReturning = [
+      "SELECT",
+      "WITH",
+      "SHOW",
+      "DESCRIBE",
+      "DESC",
+      "EXPLAIN",
+      "EXISTS",
+    ].includes(kw);
+
+    let finalSql = sp ? decrypt(sql) : backup_sp ? backup_SQL : sql;
     let finalParams = {};
     if (rowReturning) {
       try {
-        const m = materialize(sql, params || {});
+        const m = materialize(
+          sp ? decrypt(sql) : backup_sp ? backup_SQL : sql,
+          params || {},
+        );
         finalSql = m.sql;
         finalParams = m.params;
       } catch (e) {
@@ -132,7 +218,7 @@ export async function runQuery(req, res) {
 
     const result = await executeQuery({
       host: targetNode.host,
-      port:  targetNode.port || 8123,
+      port: targetNode.port || 8123,
       secure: !!targetNode.secure,
       user: resolvedUser,
       password: resolvedPassword,
@@ -146,7 +232,8 @@ export async function runQuery(req, res) {
     if (result && result.stats) {
       const s = result.stats;
       if (s.written_rows) result.written_rows = Number(s.written_rows);
-      else if (s.written_rows_count) result.written_rows = Number(s.written_rows_count);
+      else if (s.written_rows_count)
+        result.written_rows = Number(s.written_rows_count);
       else if (s.written) result.written_rows = Number(s.written);
       if (s.read_rows) result.read_rows = Number(s.read_rows);
       if (s.read_bytes) result.read_bytes = Number(s.read_bytes);
@@ -161,12 +248,14 @@ export async function runQuery(req, res) {
 
 export async function testQueryConnection(req, res) {
   const { node, user, password, clusterId } = req.body;
-  if (!node) return res.status(400).json({ ok: false, message: 'Node host required.' });
+  if (!node)
+    return res.status(400).json({ ok: false, message: "Node host required." });
 
-  const clusterNodes = getClusterNodes(clusterId);
-  const targetNode = clusterNodes.find(n => n.name === node);
-  if (!targetNode) {
-    return res.json({ ok: false, message: 'Node not found in cluster configuration.' });
+  let targetNode;
+  try {
+    targetNode = resolveNodeFromConfig(clusterId, node);
+  } catch (e) {
+    return res.json({ ok: false, message: e.message });
   }
 
   // Fall back to the stored node credentials, exactly as runQuery does. The
@@ -176,13 +265,13 @@ export async function testQueryConnection(req, res) {
   try {
     await executeQuery({
       host: targetNode.host,
-      port:  targetNode.port || 8123,
+      port: targetNode.port || 8123,
       secure: !!targetNode.secure,
-      user: user || targetNode.user || 'default',
-      password: password ?? targetNode.password ?? '',
-      sql: 'SELECT 1',
+      user: user || targetNode.user || "default",
+      password: password ?? targetNode.password ?? "",
+      sql: "SELECT 1",
     });
-    res.json({ ok: true, message: 'Connected successfully' });
+    res.json({ ok: true, message: "Connected successfully" });
   } catch (err) {
     res.json({ ok: false, message: err.message });
   }

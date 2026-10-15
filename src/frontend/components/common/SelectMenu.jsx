@@ -32,7 +32,7 @@ function computeStyle(anchorEl,isHgherZindex) {
   return style;
 }
 
-export default function SelectMenu({
+export default function SelectMenu({overwriteStyle=false,
   anchorRef,isHgherZindex, open, onRequestClose, listRef, className = "", children, ...rest
 }) {
   const elRef = useRef(null);
@@ -70,7 +70,7 @@ export default function SelectMenu({
         if (listRef) listRef.current = node;
       }}
       className={`cui-select-menu ${className}`}
-      style={style}
+      style={overwriteStyle ? {...style,paddingTop:"0",zIndex:"3"} :style}
       {...rest}
     >
       {children}

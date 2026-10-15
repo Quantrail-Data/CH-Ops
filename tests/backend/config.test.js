@@ -44,11 +44,13 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
     })),
   }),
   getNodeByName: mock(() => true),
-  getClusterById: mock(() => { }),
-  getClusterNodes: mock(() => { }),
-  saveClusters: mock(() => { }),
+  getClusterById: mock(() => {}),
+  getClusterNodes: mock(() => {}),
+  
+  saveClusters: mock(() => {}),
   getDefaultCluster: mock(() => null),
-  migrateClusterData: mock(() => { }),
+  migrateClusterData: mock(() => {}),
+  resolveTargetNode: mock(() => null),
   MAX_CLUSTERS: 3,
   MAX_TOTAL_NODES: 18,
 }));

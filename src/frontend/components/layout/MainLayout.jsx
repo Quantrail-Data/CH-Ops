@@ -22,6 +22,7 @@ import {
 import Navbar from "./Navbar.jsx";
 import Sidebar from "./Sidebar.jsx";
 import GlobalSearch from "./GlobalSearch.jsx";
+import BugReportButton from "./BugReportButton.jsx";
 import { ToastProvider } from "./Toast.jsx";
 import AlertMarquee from "./AlertMarquee.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -78,8 +79,11 @@ const SchemaStudio = lazy(() => import("../schema-studio/SchemaStudio.jsx"));
 const KubernetesInsightPage = lazy(() =>
   import("../kubernetes/KubernetesInsightPage.jsx"),
 );
+const HomePage = lazy(() => import("../home/HomePage.jsx"));
+
 
 const CORE_ROUTES = [
+  ["home", HomePage],
   ["overview/cluster", ClusterOverview],
   ["overview/summary", DailySummary],
   ["overview/queries/:tab?", QueriesSection],
@@ -167,7 +171,7 @@ function Breadcrumb({ route }) {
 function MainLayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
-  const route = location.pathname.replace(/^\//, "") || "overview/cluster";
+  const route = location.pathname.replace(/^\//, "") || "home";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [editChart, setEditChart] = useState(null);
@@ -260,7 +264,7 @@ function MainLayoutInner() {
                   />
                   <Route
                     path="/"
-                    element={<Navigate to="/overview/cluster" replace />}
+                    element={<Navigate to="/home" replace />}
                   />
                   {/* Channels moved to Administration. Keep old links working. */}
                   <Route
@@ -269,7 +273,7 @@ function MainLayoutInner() {
                   />
                   <Route
                     path="*"
-                    element={<Navigate to="/overview/cluster" replace />}
+                    element={<Navigate to="/home" replace />}
                   />
                 </Routes>
               </Suspense>
@@ -292,6 +296,7 @@ function MainLayoutInner() {
           onClose={() => setSearchOpen(false)}
           onNavigate={handleNavigate}
         />
+        <BugReportButton/>
       </div>
     </ToastProvider>
   );

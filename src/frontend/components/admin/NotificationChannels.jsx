@@ -17,6 +17,30 @@ const TYPES = [
     icon: "ti-mail",
     fields: ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "from", "to"],
   },
+  {
+    key: "slack",
+    label: "Slack",
+    icon: "ti-brand-slack",
+    fields: ["bot_token", "channel_id"],
+  },
+  {
+    key: "google_chat",
+    label: "Google Chat",
+    icon: "ti-message-circle",
+    fields: ["webhook_url"],
+  },
+  {
+    key: "teams",
+    label: "Microsoft Teams",
+    icon: "ti-brand-teams",
+    fields: ["webhook_url"],
+  },
+  {
+    key: "pagerduty",
+    label: "PagerDuty",
+    icon: "ti-bell-ringing",
+    fields: ["routing_key"],
+  },
 ];
 
 const LABELS = {
@@ -34,7 +58,7 @@ const LABELS = {
 
 export default function NotificationChannels() {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [channels, setChannels] = useState([]);
@@ -141,7 +165,9 @@ export default function NotificationChannels() {
         </div>
         <div className="alert-banner info" style={{ marginBottom: 14 }}>
           <Icon className="ti ti-lock"></Icon>
-          <span>Alert channels management is only available for administrators.</span>
+          <span>
+            Alert channels management is only available for administrators.
+          </span>
         </div>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
@@ -383,6 +409,41 @@ export default function NotificationChannels() {
                       </span>
                     )}{" "}
                     at {new Date(ch.lastTestAt).toLocaleString()}
+                  </div>
+                )}
+                {ch?.lastSendAt && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      marginTop: 8,
+                    }}
+                  >
+                    Last notification:{" "}
+                    {ch.lastTestOk ? (
+                      <span style={{ color: "var(--color-success)" }}>OK</span>
+                    ) : (
+                      <span style={{ color: "var(--color-danger)" }}>FAIL</span>
+                    )}
+                    {new Date(ch?.lastSendAt).toLocaleString()}
+                  </div>
+                )}
+
+                {ch?.lastSendError && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--color-danger)",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      border: "1px solid rgba(239, 68, 68, 0.2)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 8px",
+                      marginTop: 6,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    <strong>Last notification failed:</strong>{" "}
+                    {ch?.lastSendError}
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6 }}>

@@ -151,11 +151,15 @@ function getS3Base(profile) {
       endpoint: `https://storage.googleapis.com/${profile.bucket}`,
       accessKeyId: profile.accessKeyId,
       accessKey: profile.accessKey,
+      id:profile?.id,
+      type:"gcs"
     };
   return {
-    endpoint: `${profile.endpoint || "https://s3.amazonaws.com"}${profile.bucket}`,
+    endpoint: `${profile.endpoint || "https://s3.amazonaws.com"}<bucket>`,
     accessKeyId: profile.accessKeyId,
     accessKey: profile.accessKey,
+    id:profile?.id,
+    type:"aws"
   };
 }
 
@@ -164,8 +168,8 @@ async function scanS3Manifests(s3, patterns) {
   const errors = [];
   for (const pattern of patterns) {
     try {
-      const sql = `SELECT _path, data FROM s3('${pattern}', '${escSql(s3.accessKeyId)}', '${escSql(s3.accessKey)}', 'RawBLOB', 'data String') LIMIT 500`;
-      const r = await runQuery(sql);
+  const sql = `${s3?.id}-//-SELECT _path, data FROM s3('${pattern}', '<accessKeyId>', '<accessKey>', 'RawBLOB', 'data String') LIMIT 500`;
+      const r = await runQuery(sql,{},false,true);
       if (r.rows?.length) allRows.push(...r.rows);
     } catch (err) {
       const msg = err.message || "";
@@ -281,16 +285,16 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   function buildDestDisplay(path) {
     if (!s3) return "'-- select profile --'";
 
-    return `S3('${s3.endpoint}/backups/${path}/', '${selProfile.accessKeyId}', '***')`;
+    return `S3('<endpoint><bucket>/backups/${path}/', '<accessKeyId>', '***')`;
   }
 
   function buildDestReal(path) {
     if (!s3) return "'-- select profile --'";
 
     return `S3(
-    '${s3.endpoint}/backups/${path}/',
-    '${escSql(s3.accessKeyId)}',
-    '${escSql(s3.accessKey)}'
+    '<endpoint><bucket>/backups/${path}/',
+    '<accessKeyId>',
+    '<accessKey>'
   )`;
   }
 
@@ -363,10 +367,13 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     try {
       setExecuting(true);
 
-      const sql = buildRealSql();
+      const sql = `${s3?.id}-//-${buildRealSql()}`;
 
-      await runQuery(sql);
-      setResult({ ok: true, msg: `${action.toUpperCase()} executed successfully.` })
+      await runQuery(sql,{},false,true);
+      setResult({
+        ok: true,
+        msg: `${action.toUpperCase()} executed successfully.`,
+      });
 
       if (action === "backup" && s3) {
         try {
@@ -420,9 +427,9 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       scope,
       database: db || null,
       tables: tbl || null,
-      is_incremental:settingsStr.includes("base_backup"),
+      is_incremental: settingsStr.includes("base_backup"),
       created_at: new Date().toISOString(),
-      s3_path: `${s3.endpoint}/backups/${backupId}/`,
+      s3_path: `<endpoint><bucket>/backups/${backupId}/`,
     };
 
     const manifestJson = JSON.stringify(manifest);
@@ -430,11 +437,14 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     const manifestKey = `backups/${backupId}/manifest.json`;
 
     await runQuery(
-      `INSERT INTO FUNCTION s3('${s3.endpoint}/${manifestKey}', '${escSql(s3.accessKeyId)}', '${escSql(s3.accessKey)}', 'RawBLOB', 'data String') VALUES ('${escSql(manifestJson)}')`,
+      `${s3?.id}-//-INSERT INTO FUNCTION s3('<endpoint><bucket>/${manifestKey}', '<accessKeyId>', '<accessKey>', 'RawBLOB', 'data String') VALUES ('${escSql(manifestJson)}')`,
+      {},
+      false,
+      true,
     );
   }
 
-  async function listBackups() {
+ async function listBackups() {
     if (!s3) {
       toast.warning("Select a storage profile first.");
       return;
@@ -444,7 +454,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     setAvailableBackups([]);
     setScanErrors([]);
 
-    const base = `${s3.endpoint}/backups`;
+    const base = s3?.type === "gcs" ? s3?.endpoint : `<endpoint><bucket>/backups`;
 
     let patterns = [];
 
@@ -848,7 +858,7 @@ function AvailableBackupsTab({ profiles }) {
   const selProfile = profiles.find((p) => p.name === profile);
   const s3 = getS3Base(selProfile);
 
-  async function loadBackups() {
+   async function loadBackups() {
     if (!s3) {
       toast.warning("Select a storage profile first.");
       return;
@@ -857,7 +867,7 @@ function AvailableBackupsTab({ profiles }) {
     setBackups([]);
     setScanErrors([]);
 
-    const base = `${s3.endpoint}/backups`;
+    const base = s3?.type === "gcs" ? s3?.endpoint : `<endpoint><bucket>/backups`;
     const patterns = [];
     if (filter === "all" || filter === "manual") {
       patterns.push(`${base}/manual/*/manifest.json`);

@@ -3,7 +3,7 @@
 // Contributors -> kathir Moorthy
 
 import { eq, and } from 'drizzle-orm';
-import { db, appSettings, clusters as clusterTable, clusterNodes } from '../db/index.js';
+import { db, appSettings, clusters as clusterTable, clusterNodes, rawSqlite } from '../db/index.js';
 import { encrypt, decrypt } from './crypto.js';
 import { getStorageMode, STORAGE_TABLES } from '../db/migrateClusters.js';
 
@@ -65,6 +65,7 @@ function rowsToCluster(clusterRow, nodeRows) {
         lastRefreshedAt: clusterRow.lastRefreshedAt,
       }
       : null,
+    k8sAddressing: clusterRow.k8sAddressing ? JSON.parse(clusterRow.k8sAddressing) : null,
     nodes: nodeRows.map(n => ({
       name: n.name,
       host: n.host,
@@ -135,7 +136,8 @@ function saveClustersToTables(clusters) {
   const existingIds = new Set(existing.map(c => c.id));
   const incomingIds = new Set(normalizedClusters.map(c => c.id));
 
-  db.transaction(() => {
+  rawSqlite.exec('BEGIN TRANSACTION');
+  try {
     for (const id of existingIds) {
       if (!incomingIds.has(id)) {
         db.delete(clusterNodes).where(eq(clusterNodes.clusterId, id)).run();
@@ -157,6 +159,7 @@ function saveClustersToTables(clusters) {
         k8sNamespace: cluster.k8s?.namespace ?? null,
         k8sInstallation: cluster.k8s?.installation ?? null,
         k8sOperator: cluster.k8s?.operator || 'akoc',
+        k8sAddressing: cluster.k8sAddressing ? JSON.stringify(cluster.k8sAddressing) : null,
         updatedAt: new Date().toISOString(),
       };
       // Only overwrite the stored cluster password when one was supplied
@@ -189,7 +192,11 @@ function saveClustersToTables(clusters) {
         }).run();
       }
     }
-  });
+    rawSqlite.exec('COMMIT');
+  } catch (error) {
+    rawSqlite.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 // Public API.
@@ -289,7 +296,8 @@ export function updateClusterNodes(clusterId, nodes, expectedVersion) {
   const changed = (result?.changes ?? result?.rowsAffected ?? 0) > 0;
   if (!changed) return false;
 
-  db.transaction(() => {
+  rawSqlite.exec('BEGIN TRANSACTION');
+  try {
     const existing = db
       .select()
       .from(clusterNodes)
@@ -336,7 +344,11 @@ export function updateClusterNodes(clusterId, nodes, expectedVersion) {
     }
 
     // Anything absent from this round keeps its old lastSeenAt and stays in place.
-  });
+    rawSqlite.exec('COMMIT');
+  } catch (error) {
+    rawSqlite.exec('ROLLBACK');
+    throw error;
+  }
 
   return true;
 }
@@ -354,11 +366,16 @@ export function findStaleNodes(clusterId, olderThanIso) {
 
 export function removeNodes(clusterId, nodeIds) {
   if (!nodeIds.length) return;
-  db.transaction(() => {
+  rawSqlite.exec('BEGIN TRANSACTION');
+  try {
     for (const id of nodeIds) {
       db.delete(clusterNodes).where(eq(clusterNodes.id, id)).run();
     }
-  });
+    rawSqlite.exec('COMMIT');
+  } catch (error) {
+    rawSqlite.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 // Migrate old single-cluster format to new multi-cluster format.
@@ -383,22 +400,22 @@ export function migrateClusterData() {
 }
 
 // SSRF protection: only hosts in the configured cluster are reachable.
-export function resolveTargetNode(clusterId, node){
+export function resolveTargetNode(clusterId, selector) {
   const nodes = getClusterNodes(clusterId);
   if (!nodes.length) {
     const e = new Error('No cluster nodes configured');
     e.status = 400;
     throw e;
   }
-  const target = node ? nodes.find((n) => n.name === node) : nodes[0];
-  if(!target) {
+  const target = selector
+    ? nodes.find((n) => n.name === selector) || nodes.find((n) => n.host === selector)
+    : nodes[0];
+  if (!target) {
     const e = new Error('Node not found in cluster configuration.');
     e.status = 400;
     throw e;
-
   }
   return target;
-
 }
 
 export { MAX_CLUSTERS, MAX_TOTAL_NODES };

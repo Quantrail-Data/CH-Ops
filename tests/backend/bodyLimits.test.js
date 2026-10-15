@@ -24,12 +24,13 @@ describe("request body limits", () => {
   });
 
   it("mounts the tight limits before the global parser", () => {
-    const globalAt = server.indexOf("app.use(express.json({ limit: '2mb' }))");
+    const globalAt = server.indexOf("app.use(express.json({ limit: \"2mb\" }))");
+    console.log(typeof globalAt)
     expect(globalAt).toBeGreaterThan(-1);
 
     for (const route of SQL_ROUTES) {
       const tightAt = server.indexOf(
-        `app.use('${route}', express.json({ limit: '512kb' }))`,
+        `app.use("${route}", express.json({ limit: "512kb" }))`,
       );
       expect(tightAt).toBeGreaterThan(-1);
       // Strictly before: a tighter limit mounted after the global one is dead.
@@ -46,7 +47,7 @@ describe("request body limits", () => {
   });
 
   it("still allows 2mb on everything else", () => {
-    expect(server).toContain("app.use(express.json({ limit: '2mb' }));");
+    expect(server).toContain("app.use(express.json({ limit: \"2mb\" }));");
   });
 });
 

@@ -10,26 +10,12 @@
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { login, changePassword, logout } from '../controllers/auth.js';
+import { setPassword } from '../controllers/users.js';
 
 
-const router = Router();
-router.post('/', rateLimit({
-    windowMs: 60 * 1000,
-    limit: 100,
-    standardHeaders: true,
-    legacyHeaders: true,
-}), login);
-router.post('/logout', rateLimit({
-    windowMs: 60 * 1000,
-    limit: 100,
-    standardHeaders: true,
-    legacyHeaders: true,
-}), logout);
-router.post('/change-password', rateLimit({
-    windowMs: 60 * 1000,
-    limit: 100,
-    standardHeaders: true,
-    legacyHeaders: true,
-}), changePassword);
+router.post('/', login);
+router.post('/logout', logout);
+router.post('/change-password', changePassword);
+router.post('/set-password', setPassword);
 
 export default router;

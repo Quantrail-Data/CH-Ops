@@ -8,6 +8,9 @@
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 export const PAGE_HEADERS = {
+  "home": [
+    "Home"
+  ],
   "overview/queries": [
     "Queries"
   ],
@@ -59,7 +62,8 @@ export const PAGE_HEADERS = {
     "Playback"
   ],
   "alerting/rules": [
-    "Alert Rules"
+    "Alert Rules",
+    "History"
   ],
   "rbac/view": [
     "View Grants"
@@ -89,7 +93,8 @@ export const PAGE_HEADERS = {
     "Data Lifecycle"
   ],
   "admin/profiles": [
-    "Storage Profiles"
+    "Storage Profiles",
+    "// Storage Profiles //"
   ],
   "admin/users": [
     "User Management"
@@ -107,6 +112,7 @@ export const PAGE_HEADERS = {
     "Notification Channels"
   ],
   "admin/trusted-cas": [
+    "Trusted Certificate Authorities",
     "Trusted certificate authorities"
   ],
   "admin/app-config": [
@@ -121,6 +127,9 @@ export const PAGE_HEADERS = {
 };
 
 export const PAGE_TEXT = {
+  "home": [
+    "What do you want to do?"
+  ],
   "overview/cluster": [
     "Loading...",
     "Disk Details",
@@ -268,7 +277,12 @@ export const PAGE_TEXT = {
     "Cancel",
     "Requested",
     "Gone",
-    "Still running"
+    "Still running",
+    "Loading columns...",
+    "Additional Result Columns",
+    "AND",
+    "Add filter",
+    "Add columns to the result..."
   ],
   "overview/parts": [
     "Loading...",
@@ -707,7 +721,12 @@ export const PAGE_TEXT = {
     "Distinct Signals",
     "Crashed Versions",
     "Last Crash",
-    "partial..."
+    "partial...",
+    "Loading columns...",
+    "Additional Result Columns",
+    "AND",
+    "Add filter",
+    "Add columns to the result..."
   ],
   "logs/error": [
     "Overview",
@@ -732,7 +751,12 @@ export const PAGE_TEXT = {
     "Error Types",
     "Remote Share",
     "Last Error",
-    "partial..."
+    "partial...",
+    "Loading columns...",
+    "Additional Result Columns",
+    "AND",
+    "Add filter",
+    "Add columns to the result..."
   ],
   "logs/text": [
     "Overview",
@@ -756,7 +780,12 @@ export const PAGE_TEXT = {
     "Warnings",
     "Loggers",
     "Last Error",
-    "partial..."
+    "partial...",
+    "Loading columns...",
+    "Additional Result Columns",
+    "AND",
+    "Add filter",
+    "Add columns to the result..."
   ],
   "logs/session": [
     "Overview",
@@ -783,7 +812,12 @@ export const PAGE_TEXT = {
     "Logouts",
     "Distinct Users",
     "Last Event",
-    "partial..."
+    "partial...",
+    "Loading columns...",
+    "Additional Result Columns",
+    "AND",
+    "Add filter",
+    "Add columns to the result..."
   ],
   "monitoring/dashboards": [
     "Quick",
@@ -867,14 +901,18 @@ export const PAGE_TEXT = {
     "Schedule (cron)",
     "Operator",
     "Threshold",
+    "Notify Interval",
+    "Breach Run Required",
+    "Enabled",
+    "noRowsMeansBreach",
     "SQL (single value)",
     "Description",
     "Channels",
     "Cluster",
     "All clusters (default)",
+    "Test",
     "Loading...",
     "No rules yet. Click New Rule.",
-    "Enabled",
     "Disabled",
     "FIRING",
     "NO NODES",
@@ -1121,6 +1159,8 @@ export const PAGE_TEXT = {
     "Select a profile and click Scan S3 to discover backups."
   ],
   "admin/profiles": [
+    "Storage Profiles is only available for super administrators.",
+    "Storage Profiles //",
     "Type",
     "Amazon S3",
     "Azure Blob",
@@ -1128,6 +1168,8 @@ export const PAGE_TEXT = {
     "Endpoint",
     "Region",
     "No storage profiles configured.",
+    "Test //",
+    "Edit //",
     "Test",
     "Edit"
   ],
@@ -1219,11 +1261,8 @@ export const PAGE_TEXT = {
   "admin/app-backup": [
     "Loading...",
     "App data backup is only available for superadministrators.",
-    "No storage profiles configured. Go to",
     "to add one.",
-    "Manual Backup",
     "Storage Profile",
-    "Scheduled Backup",
     "-- Select --",
     "Frequency",
     "Daily",
@@ -1231,8 +1270,6 @@ export const PAGE_TEXT = {
     "Day",
     "Hour (24h)",
     "Save Schedule",
-    "Last run:",
-    "Backup History",
     "No backups found for this profile.",
     "Backup ID",
     "Backup Type",
@@ -1240,7 +1277,6 @@ export const PAGE_TEXT = {
     "Size",
     "Version",
     "Tables",
-    "Restore Instructions",
     "Restoring replaces all app data. The server must be stopped during restore.",
     "1. Download the backup file from S3",
     "2. Stop the server",
@@ -1273,9 +1309,12 @@ export const PAGE_TEXT = {
     "Name",
     "Type",
     "No channels yet.",
+    "FAIL",
+    "Last notification failed:",
     "Test"
   ],
   "admin/trusted-cas": [
+    "Trusted Certificate Authorities is only available for administrators.",
     "Add",
     "No certificate authorities added. CHOps uses the system list only.",
     "Which clusters use this",
@@ -1287,6 +1326,7 @@ export const PAGE_TEXT = {
     "Internal CA"
   ],
   "admin/app-config": [
+    "App Config is only available for administrators.",
     "Save",
     "Reset"
   ],

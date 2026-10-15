@@ -1,17 +1,12 @@
 // notifier.js - Multi-channel alert notification dispatcher
-//
 // Sends rich notifications to configured channels (email only for now).
-// Includes alert details: name, severity, description, SQL, schedule,
-// threshold, operator, current value, cluster name, fired node, and
-// timestamp. Email uses a styled HTML template with severity colors.
-// Webhook URLs are validated to prevent SSRF attacks (no localhost
-// or private IPs allowed).
-//
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
 import { loadEnv } from "../utils/env.js";
+import { OTP_TTL_MS }from "./OTPservice.js"
+import { OtelFieldDefinition$inboundSchema } from "@mistralai/mistralai/models/components";
 
 // Webhook delivery is deliberately constrained to public HTTPS endpoints. This
 // keeps a channel configuration from becoming an SSRF primitive against
@@ -45,34 +40,26 @@ export function validateWebhookUrl(value) {
     return parsed;
 }
 
-
-
-export function getClusterInfo(alert) {
-    const clusters = getAllClusters();
-    if (!clusters.length) return { clusterName: "No cluster", nodes: "-" };
-
-    // Find the cluster this alert is assigned to, or fall back to first
-    const cluster =
-        (alert?.clusterId
-            ? clusters.find((c) => c.id === alert.clusterId)
-            : null) || clusters[0];
-    const clusterName = cluster.name || "Default";
-
-    // If the alert targets specific nodes, show those
-    let targetNodes = [];
-    try {
-        if (alert?.nodes) {
-            const parsed =
-                typeof alert.nodes === "string" ? JSON.parse(alert.nodes) : alert.nodes;
-            if (Array.isArray(parsed) && parsed.length > 0) targetNodes = parsed;
-        }
-    } catch { }
-
-    if (targetNodes.length) {
-        return { clusterName, nodes: targetNodes.join(", ") };
-    }
-    const allNodes = (cluster.nodes || []).map((n) => n.host);
-    return { clusterName, nodes: allNodes.join(", ") || "all nodes" };
+function formatDetails(alert) {
+  const d = alert.lastRunAt ? new Date(alert.lastRunAt) : new Date();
+  const ts = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+  const info = getClusterInfo(alert);
+  return {
+    name: alert.name,
+    severity: (alert.severity || "info").toUpperCase(),
+    description: alert.description || "-",
+    sql: alert.sql || "-",
+    schedule: alert.schedule || "-",
+    operator: alert.operator || "gt",
+    threshold: alert.threshold,
+    value: alert.lastValue ?? "?",
+    clusterName: info.clusterName,
+    nodes: info.nodes,
+    firedNode: alert.firedNode || "-",
+    timestamp: ts,
+    kind: alert.kind || "breach",
+    error: alert.error || null,
+  };
 }
 
 export function formatDetails(alert) {
@@ -97,13 +84,28 @@ export function formatDetails(alert) {
     };
 }
 
-export function escapeHtml(value) {
-    return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+function extractAccountDetails(description) {
+  const text = String(description || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 2000);
+
+  const usernameMatch = text.match(
+    /Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i,
+  );
+  const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
+  const roleMatch = text.match(/Role:\s*([a-z]+)/i);
+  const noteMatch = text.match(
+    /(Please change your password on first login\.?)/i,
+  );
+
+  return {
+    intro: text.split(/Username:/i)[0].trim(),
+    username: usernameMatch ? usernameMatch[1].trim() : "",
+    password: passwordMatch ? passwordMatch[1].trim() : "",
+    role: roleMatch ? roleMatch[1].trim() : "",
+    note: noteMatch ? noteMatch[1].trim() : "",
+  };
 }
 
 export function extractAccountDetails(description) {
@@ -128,14 +130,17 @@ export function extractAccountDetails(description) {
 
 
 export const sendOTPEmail = async (email, otp, channelConfig) => {
-    try {
-        const config =
-            typeof channelConfig === "string"
-                ? JSON.parse(channelConfig)
-                : channelConfig;
+  try {
+    const otpValidityMinutes = OTP_TTL_MS / (60 * 1000);
+    const config =
+      typeof channelConfig === "string"
+        ? JSON.parse(channelConfig)
+        : channelConfig;
 
-        if (!config) {
-            return false;
+    if (!config) {
+      return false;
+    }
+    const webAppName = "CHOPS";
 
         }
         const webAppName = "CHOPS";
@@ -164,7 +169,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
               </div>
             </div>
             
-            <p style="color: #666; font-size: 14px;">This OTP is valid for <strong>30 seconds</strong>. Please do not share it with anyone.</p>
+            <p style="color: #666; font-size: 14px;">This OTP is valid for <strong> ${otpValidityMinutes} minutes </strong>. Please do not share it with anyone.</p>
             
             <p>If you didn't request this password reset, please ignore this email or contact our support team immediately.</p>
             
@@ -176,20 +181,20 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
       `,
         };
 
-        const transport = nodemailer.createTransport({
-            host: config.host,
-            port: parseInt(config.port) || 587,
-            secure: config.secure === "true",
-            auth: config.user
-                ? { user: config.user, pass: config.pass }
-                : undefined,
-        });
+    const transport = nodemailer.createTransport({
+      host: config.host,
+      port: parseInt(config.port) || 587,
+      secure: config.secure === true || config.secure === "true",
+      auth: config.user ? { user: config.user, pass: config.pass } : undefined,
+    });
 
-        await transport.sendMail(mailOptions);
-        return true;
-    } catch (error) {
-        return false;
-    }
+    const info = await transport.sendMail(mailOptions);
+    console.log("Password reset OTP sent to %s: %s", email, info.messageId);
+    return true;
+  } catch (error) {
+    console.error("Error sending OTP email:", error.message);
+    return false;
+  }
 };
 
 export async function sendNotification(channelConfig, alert) {
@@ -199,23 +204,23 @@ export async function sendNotification(channelConfig, alert) {
             : channelConfig;
     const d = formatDetails(alert);
 
-    if (config.type === "email") {
-        if (!config.smtp_host) throw new Error("SMTP host is not configured");
-        if (!config.to) throw new Error("Recipient email is not configured");
-        const transport = nodemailer.createTransport({
-            host: config.smtp_host,
-            port: parseInt(config.smtp_port) || 587,
-            secure: config.smtp_secure === "true",
-            auth: config.smtp_user
-                ? { user: config.smtp_user, pass: config.smtp_pass }
-                : undefined,
-        });
-        const sevColor =
-            d.severity === "CRITICAL"
-                ? "#f87171"
-                : d.severity === "WARNING"
-                    ? "#fbbf24"
-                    : "#8b5cf6";
+  if (config.type === "email") {
+    if (!config.smtp_host) throw new Error("SMTP host is not configured");
+    if (!config.to) throw new Error("Recipient email is not configured");
+    const transport = nodemailer.createTransport({
+      host: config.smtp_host,
+      port: parseInt(config.smtp_port) || 587,
+      secure: config.smtp_secure === true || config.smtp_secure === "true",
+      auth: config.smtp_user
+        ? { user: config.smtp_user, pass: config.smtp_pass }
+        : undefined,
+    });
+    const sevColor =
+      d.severity === "CRITICAL"
+        ? "#f87171"
+        : d.severity === "WARNING"
+          ? "#fbbf24"
+          : "#8b5cf6";
 
         const isAccountEmail = /account created/i.test(d.name || "");
         const isPasswordResetEmail = /password reset/i.test(d.name || "");
@@ -237,12 +242,15 @@ export async function sendNotification(channelConfig, alert) {
             ? extractAccountDetails(d.description)
             : null;
 
-        const descriptionHtml = d.description !== "-"
-            ? `<p style="color:#334155;margin:0 0 16px;font-size:15px;line-height:1.7">${escapeHtml(d.description)}</p>`
-            : "";
+    const descriptionHtml =
+      d.description !== "-"
+        ? `<p style="color:#334155;margin:0 0 16px;font-size:15px;line-height:1.7">${escapeHtml(d.description)}</p>`
+        : "";
 
-        const html = isAccountEmail ? `
+    const html = isAccountEmail
+      ? `
  <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -254,91 +262,78 @@ export async function sendNotification(channelConfig, alert) {
 <body
     style="margin:0;padding:0;background-color:#e6e6e620;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#e6e6e620;padding:40px 0;">
-        <tr>
-            <td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="background:#e6e6e620;padding:40px 0;">
+    <tr>
+        <td align="center">
 
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
+                style="width:600px;max-width:600px;background:#e6e6e620;border-radius:5px;box-shadow:0 0 40px #d6d6d6;font-family:system-ui,-apple-system,sans-serif;">
 
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
-                    style="width:600px;max-width:600px;background:#e6e6e620;border-radius:5px;box-shadow:0 0 40px #d6d6d6;font-family:system-ui,-apple-system,sans-serif;">
+                <tr>
+                    <td align="center" style="padding:25px 20px;">
+                        <img src="cid:logo-image-123" alt="Company Logo" width="250"
+                            style="display:block;border:0;max-width:250px;width:100%;pointer-events:none;">
+                    </td>
+                </tr>
 
+                <tr>
+                    <td align="center">
 
-                    <tr>
-                        <td align="center" style="padding:25px 20px;">
-                            <img src="cid:logo-image-123" alt="Company Logo" width="250"
-                                style="display:block;border:0;max-width:250px;width:100%; pointer-events:none;">
-                        </td>
-                    </tr>
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="85%"
+                            style="background:#ffffff;border-radius:5px;">
 
+                            <tr>
+                                <td style="padding:30px;">
 
-                    <tr>
-                        <td align="center">
+                                    <h1
+                                        style="margin:0 0 20px;font-size:24px;font-family:'Gill Sans','Gill Sans MT',Calibri,sans-serif;color:#440088;font-weight:700;">
+                                        Welcome! Your Account Is Ready
+                                    </h1>
 
-                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="85%"
-                                style="background:#ffffff;border-radius:5px;">
+                                    <p
+                                        style="margin:0 0 25px;font-size:13px;line-height:30px;color:#3a3a3a;font-family:Arial,sans-serif;">
+                                        <strong>Hi, ${escapeHtml(accountDetails?.username || "-")}</strong><br>
+                                        Welcome to CH-OPS!<br>
+                                        Your account has been created successfully. Please use the button below
+                                        to set your password and activate your account.
+                                    </p>
 
-                                <tr>
-                                    <td style="padding:30px;">
+                                    <!-- Account Details -->
+                                    <table width="100%" cellpadding="0" cellspacing="0"
+                                        style="border-collapse:collapse;font-size:14px;color:#000;margin:20px 0;">
 
-                                        <h1
-                                            style="margin:0 0 20px;font-size:24px;font-family:'Gill Sans','Gill Sans MT',Calibri,sans-serif;color:#440088;font-weight:700;">
-                                            Welcome! Your Account Is Ready
-                                        </h1>
+                                        <tr>
+                                            <td width="140"
+                                                style="padding:12px 16px;font-weight:600;color:#000;">
+                                                Username
+                                            </td>
 
-                                        <p
-                                            style="margin:0 0 25px;font-size:13px;line-height:30px;color:#3a3a3a;font-family:Arial,sans-serif;">
-                                            <strong>Hi, ${escapeHtml(accountDetails?.username || "-")}</strong><br>
-                                            Welcome to CH-OPS!<br>
-                                            Please click the button below to log in to CH-OPS.
-                                        </p>
+                                            <td
+                                                style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
+                                                ${escapeHtml(accountDetails?.username || "-")}
+                                            </td>
+                                        </tr>
 
-                                        <!-- Details -->
-                                        <table width="100%" cellpadding="0" cellspacing="0"
-                                            style="border-collapse:collapse;font-size:14px;color:#000;margin:20px 0;">
+                                        <tr>
+                                            <td
+                                                style="padding:12px 16px;font-weight:600;color:#000;">
+                                                Role
+                                            </td>
 
-                                            <tr>
-                                                <td width="140"
-                                                    style="padding:12px 16px;font-weight:600;color:#000;">
-                                                    Username
-                                                </td>
+                                            <td style="padding:12px 16px;color:#000;">
+                                                ${escapeHtml(accountDetails?.role || "-")}
+                                            </td>
+                                        </tr>
 
-                                                <td id="username"
-                                                    style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
-                                                    ${escapeHtml(accountDetails?.username || "-")}
-                                                </td>
-                                            </tr>
+                                    </table>
 
-                                            <tr>
-                                                <td
-                                                    style="padding:12px 16px;font-weight:600;color:#000;">
-                                                    Password
-                                                </td>
-
-                                                <td id="password"
-                                                    style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
-                                                    ${escapeHtml(accountDetails?.password || "-")}
-                                                </td>
-                                            </tr>
-
-                                            <tr>
-                                                <td
-                                                    style="padding:12px 16px;font-weight:600;color:#000;">
-                                                    Role
-                                                </td>
-
-                                                <td style="padding:12px 16px;color:#000;">
-                                                    ${escapeHtml(accountDetails?.role || "-")}
-                                                </td>
-                                            </tr>
-
-                                        </table>
-
+                                    <!-- One-Time Setup Button -->
                                     <table role="presentation" cellpadding="0" cellspacing="0" border="0"
                                         align="center" style="margin:18px auto;">
                                         <tr>
                                             <td bgcolor="#8a2be2" align="center" style="border-radius:6px;">
-                                                <a href="${env.frontendLink}" target="_blank"
+                                                <a href="${d.setPasswordUrl}" target="_blank"
                                                     style="
                                                         display:inline-block;
                                                         padding:10px 19px;
@@ -351,46 +346,55 @@ export async function sendNotification(channelConfig, alert) {
                                                         border-radius:6px;
                                                         line-height:1;
                                                     ">
-                                                    Login
+                                                    Set Up Your Password
                                                 </a>
                                             </td>
                                         </tr>
                                     </table>
 
-                                    </td>
-                                </tr>
+                                    <p
+                                        style="margin:20px 0 0;font-size:12px;line-height:20px;color:#777;font-family:Arial,sans-serif;text-align:center;">
+                                        This is a one-time setup link. Please use it to create your password
+                                        before logging in to CH-OPS.
+                                    </p>
 
-                            </table>
+                                </td>
+                            </tr>
 
-                        </td>
-                    </tr>
+                        </table>
 
-                    <tr>
-                        <td align="center"
-                            style="padding:30px 20px;font-size:12px;font-family:Arial,sans-serif;color:#808080;">
+                    </td>
+                </tr>
 
-                            <p style="margin:0 0 10px;">
-                                Visit our official website to explore our services, products, and latest updates.
-                            </p>
+                <tr>
+                    <td align="center"
+                        style="padding:30px 20px;font-size:12px;font-family:Arial,sans-serif;color:#808080;">
 
-                            <a href="https://www.ch-ops.io/" 
-                                style="color:#8a2be2;text-decoration:none;font-weight:600;">
-                                Learn more
-                            </a>
+                        <p style="margin:0 0 10px;">
+                            Visit our official website to explore our services, products, and latest updates.
+                        </p>
 
-                        </td>
-                    </tr>
+                        <a href="https://www.ch-ops.io/"
+                            style="color:#8a2be2;text-decoration:none;font-weight:600;">
+                            Learn more
+                        </a>
 
-                </table>
+                    </td>
+                </tr>
 
-            </td>
-        </tr>
-    </table>
+            </table>
+
+        </td>
+    </tr>
+</table>
 
 </body>
 
 </html>
-    ` : isPasswordResetEmail ? `
+
+    `
+      : isPasswordResetEmail
+        ? `
 <!DOCTYPE html>
 <html lang="en">
 
@@ -545,20 +549,22 @@ export async function sendNotification(channelConfig, alert) {
 </body>
 
 </html>
-    ` :
-            `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
+    `
+        : `<div style="font-family:'Jakarta Sans',system-ui,sans-serif;max-width:640px;margin:0 auto;border:1px solid ${containerBorder};border-radius:12px;overflow:hidden;background:${containerBg}">
       <div style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:white;padding:18px 24px"><h2 style="margin:0;font-size:20px">${escapeHtml(d.severity)}: ${escapeHtml(d.name)}</h2><p style="margin:4px 0 0;opacity:0.85;font-size:13px">${escapeHtml(d.timestamp)}</p></div>
       <div style="padding:24px;color:${bodyColor}">
         ${descriptionHtml}
         <div style="border:1px solid ${rowBorder};border-radius:10px;overflow:hidden;background:#ffffff">
           <div style="padding:12px 16px;background:#f8fafc;color:#0f172a;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Alert Summary</div>
           <table style="width:100%;font-size:14px;border-collapse:collapse;color:${tableTextColor}">
-            ${d.kind === 'failure'
-                ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || 'Evaluation failed')}</td></tr>`
-                : d.kind === 'recovery'
-                    ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
-                    : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
-                 <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Threshold</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.operator)} ${escapeHtml(d.threshold)}</td></tr>`}
+            ${
+              d.kind === "failure"
+                ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Error</td><td style="padding:10px 16px;font-weight:600;color:#b91c1c;border-bottom:1px solid ${rowBorder};font-family:monospace;word-break:break-all">${escapeHtml(d.error || "Evaluation failed")}</td></tr>`
+                : d.kind === "recovery"
+                  ? `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Status</td><td style="padding:10px 16px;font-weight:600;color:#15803d;border-bottom:1px solid ${rowBorder}">Recovered - evaluation succeeded again</td></tr>`
+                  : `<tr><td style="padding:10px 16px;color:#64748b;width:140px;border-bottom:1px solid ${rowBorder}">Value</td><td style="padding:10px 16px;font-weight:600;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.value)}</td></tr>
+                 <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Threshold</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.operator)} ${escapeHtml(d.threshold)}</td></tr>`
+            }
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Severity</td><td style="padding:10px 16px;border-bottom:1px solid ${rowBorder}"><span style="background:${sevColor};color:${severityTextColor};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${escapeHtml(d.severity)}</span></td></tr>
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Schedule</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder};font-family:monospace">${escapeHtml(d.schedule)}</td></tr>
             <tr><td style="padding:10px 16px;color:#64748b;border-bottom:1px solid ${rowBorder}">Cluster</td><td style="padding:10px 16px;color:${tableTextColor};border-bottom:1px solid ${rowBorder}">${escapeHtml(d.clusterName)}</td></tr>
@@ -570,33 +576,256 @@ export async function sendNotification(channelConfig, alert) {
         <p style="color:#94a3b8;font-size:11px;margin:16px 0 0;text-align:center">CHOps Alert Engine - Quantrail™ Data</p>
       </div></div>`;
 
-        await transport.sendMail({
-            from: config.from || "CHOps <noreply@chops>",
-            to: config.to,
-            subject: isPasswordResetEmail ? `[CHOps] Password Reset for ${passwordResetDetails?.username || 'User'}` : (isAccountEmail ? `[CHOps] Welcome! Your Account Is Ready` : `[CHOps] ${d.severity}: ${d.name}`),
-            html,
-            attachments: (isAccountEmail || isPasswordResetEmail) ? [
-                {
-                    filename: "logo.png",
-                    path: "src/frontend/assets/chops-dark.png",
-                    cid: "logo-image-123",
+    await transport.sendMail({
+      from: config.from || "CHOps <noreply@chops>",
+      to: config.to,
+      subject: isPasswordResetEmail
+        ? `[CHOps] Password Reset for ${passwordResetDetails?.username || "User"}`
+        : isAccountEmail
+          ? `[CHOps] Welcome! Your Account Is Ready`
+          : `[CHOps] ${d.severity}: ${d.name}`,
+      html,
+      attachments:
+        isAccountEmail || isPasswordResetEmail
+          ? [
+              {
+                filename: "logo.png",
+                path: "src/frontend/assets/chops-dark.png",
+                cid: "logo-image-123",
+              },
+            ]
+          : [],
+    });
+  } else if (config.type === "slack") {
+    if (!config.bot_token) throw new Error("Slack bot_token is not configured");
+    if (!config.channel_id)
+      throw new Error("Slack channel_id is not configured");
+    await fetch("https://slack.com/api/chat.postMessage", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.bot_token}`,
+      },
+      body: JSON.stringify({
+        channel: config.channel_id,
+        attachments: [
+          {
+            color:
+              d.kind === "recovery"
+                ? "#16a34a"
+                : d.kind === "failure"
+                  ? "#dc2626"
+                  : "#2563eb",
+
+            blocks: [
+              {
+                type: "header",
+                text: {
+                  type: "plain_text",
+                  text: `${d.severity.toUpperCase()}: ${d.name.toUpperCase()}`,
                 },
-            ] : [],
-        });
+              },
+              {
+                type: "section",
+                fields: [
+                  ...(d.kind === "failure"
+                    ? [{ type: "mrkdwn", text: `*Error:* ${d.error}` }]
+                    : d.kind === "recovery"
+                      ? [
+                          {
+                            type: "mrkdwn",
+                            text: `*Status:* Recovered - evaluation succeeded again`,
+                          },
+                        ]
+                      : [{ type: "mrkdwn", text: `*Value:* ${d.value}` }]),
+                  { type: "mrkdwn", text: `*Severity:* ${d.severity}` },
+                  { type: "mrkdwn", text: `*Cluster:* ${d.clusterName}` },
+                  { type: "mrkdwn", text: `*Node:* \`${d.firedNode}\`` },
+                  { type: "mrkdwn", text: `*Time:* ${d.timestamp}` },
+                ],
+              },
+              ...(d.description !== "-"
+                ? [
+                    {
+                      type: "section",
+                      text: {
+                        type: "mrkdwn",
+                        text: `*Description:* ${d.description}`,
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ],
+      }),
+    });
+  } else if (config.type === "google_chat") {
+    if (!config.webhook_url)
+      throw new Error("Google Chat webhook_url is not configured");
+    validateWebhookUrl(config.webhook_url);
+    let statusText = "";
+    let statusIcon = "DESCRIPTION";
+
+    if (d.kind === "failure") {
+      statusText = `<font color="#FF0000"><b>Error:</b> ${d.error || "Evaluation failed"}</font>`;
+      statusIcon = "CONFIRMATION_NUMBER_MONOCHROME";
+    } else if (d.kind === "recovery") {
+      statusText =
+        '<font color="#16a34a"><b>Status:</b>Recovered - evaluation succeeded again</font>';
+      statusIcon = "STAR";
+    } else {
+      statusText = `<b>Value:</b> ${String(d.value)}`;
     }
+
+    await fetch(config.webhook_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cardsV2: [
+          {
+            cardId: "alertCard",
+            card: {
+              header: {
+                title: `${d.severity.toUpperCase()}: ${d.name.toUpperCase()}`,
+                subtitle: d.timestamp,
+              },
+              sections: [
+                {
+                  widgets: [
+                    {
+                      decoratedText: {
+                        topLabel: "Alert Details",
+                        text: statusText,
+                      },
+                    },
+                    {
+                      decoratedText: {
+                        text: `<b>Severity:</b> ${d.severity}`,
+                      },
+                    },
+                    {
+                      decoratedText: {
+                        text: `<b>Cluster:</b> ${d.clusterName}`,
+                      },
+                    },
+                    {
+                      decoratedText: {
+                        text: `<b>Node:</b> ${d.firedNode}`,
+                      },
+                    },
+                    ...(d.description !== "-"
+                      ? [
+                          {
+                            decoratedText: {
+                              topLabel: "Description",
+                              text: d.description,
+                            },
+                          },
+                        ]
+                      : []),
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+  } else if (config.type === "teams") {
+    if (!config.webhook_url)
+      throw new Error("Microsoft Teams webhook_url is not configured");
+    validateWebhookUrl(config.webhook_url);
+    await fetch(config.webhook_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        "@type": "MessageCard",
+        summary: `${d.severity}: ${d.name}`,
+        themeColor:
+          d.severity === "CRITICAL"
+            ? "dc2626"
+            : d.severity === "WARNING"
+              ? "d97706"
+              : "2563eb",
+        sections: [
+          {
+            activityTitle: `${d.severity}: ${d.name}`,
+            activitySubtitle: d.timestamp,
+            facts: [
+              ...(d.kind === "failure"
+                ? [
+                    {
+                      name: "Status",
+                      value: `<span style="color:#dc2626"><b>Error:</b> ${d.error || "Evaluation failed"}</span>`,
+                    },
+                  ]
+                : d.kind === "recovery"
+                  ? [
+                      {
+                        name: "Status",
+                        value: `<span style="color:#16a34a"><b>Recovered:</b> Evaluation succeeded again</span>`,
+                      },
+                    ]
+                  : [{ name: "Value", value: String(d.value) }]),
+
+              { name: "Severity", value: d.severity },
+              { name: "Cluster", value: d.clusterName },
+              { name: "Node", value: d.firedNode },
+              ...(d.description !== "-"
+                ? [{ name: "Description", value: d.description }]
+                : []),
+            ],
+          },
+        ],
+      }),
+    });
+  } else if (config.type === "pagerduty") {
+    if (!config.routing_key)
+      throw new Error("PagerDuty routing_key is not configured");
+
+    await fetch("https://events.pagerduty.com/v2/enqueue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        routing_key: config.routing_key,
+        event_action: d.kind === "recovery" ? "resolve" : "trigger",
+        dedup_key: `chops-${alert.id || d.name}`,
+        payload: {
+          summary: `[CHOps] ${d.severity}: ${d.name} - value ${d.value}`,
+          source: `${d.clusterName} / ${d.firedNode}`,
+          severity:
+            d.kind === "failure"
+              ? "critical"
+              : d.kind === "recovery"
+                ? "info"
+                : "warning",
+          custom_details: {
+            ...(d.kind === "failure" ? { error: d.error } : {}),
+            ...(d.kind === "recovery"
+              ? { status: "Evaluation succeeded again" }
+              : {}),
+            ...(d.kind !== "failure" && d.kind !== "recovery"
+              ? { value: d.value }
+              : {}),
+            description: d.description,
+            cluster: d.clusterName,
+            node: d.firedNode,
+            timestamp: d.timestamp,
+          },
+        },
+      }),
+    });
+  }
 }
 
 export async function testChannel(config) {
-    const testAlert = {
-        name: "Test Alert",
-        severity: "info",
-        description: "This is a test notification from CHOps.",
-        sql: "SELECT 1",
-        schedule: "*/5 * * * *",
-        operator: "gt",
-        threshold: 0,
-        lastValue: 1,
-        lastRunAt: new Date().toISOString(),
-    };
-    await sendNotification(config, testAlert);
+  const testAlert = {
+    name: "Test Alert",
+    severity: "info",
+    description: "This is a test notification from CHOps.",
+    lastValue: 1,
+    lastRunAt: new Date().toISOString(),
+  };
+  await sendNotification(config, testAlert);
 }

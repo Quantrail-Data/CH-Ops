@@ -14,7 +14,7 @@ import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/lang
 import { tags as t } from "@lezer/highlight";
 
 // The completion list cap.
- 
+
 export const COMPLETION_CAP = 12;
 
 /** Fresh compartments per editor instance. Created by the component. */
@@ -196,116 +196,116 @@ export const sqlQualifierHighlight = ViewPlugin.fromClass(
 
 export function makeEditorTheme(dark) {
   return EditorView.theme({
-  "&": {
-    fontSize: "0.8125rem",
-    color: "var(--text-primary)",
-    backgroundColor: "transparent",
-    height: "100%",
-    // The editor sizes ITSELF to its container rather than relying on a rule in global.css.
-    width: "100%",
-    flex: "1 1 auto",
-    minWidth: 0,
-  },
-  "&.cm-focused": { outline: "none" },
-  ".cm-scroller": {
-    fontFamily: "var(--font-code)",
-    lineHeight: "1.55",
-    overflow: "auto",
-    // Width is forced at EVERY level rather than left to flex to chain down.
+    "&": {
+      fontSize: "0.8125rem",
+      color: "var(--text-primary)",
+      backgroundColor: "transparent",
+      height: "100%",
+      // The editor sizes ITSELF to its container rather than relying on a rule in global.css.
+      width: "100%",
+      flex: "1 1 auto",
+      minWidth: 0,
+    },
+    "&.cm-focused": { outline: "none" },
+    ".cm-scroller": {
+      fontFamily: "var(--font-code)",
+      lineHeight: "1.55",
+      overflow: "auto",
+      // Width is forced at EVERY level rather than left to flex to chain down.
 
-    width: "100%",
-    // The I-beam belongs to the whole editing area, not just the run of text.
+      width: "100%",
+      // The I-beam belongs to the whole editing area, not just the run of text.
 
-    cursor: "text",
-  },
-  ".cm-content": {
-    padding: "6px 0",
-    caretColor: "var(--text-primary)",
-    // Fill the scroller, so clicking in the empty space below the last line
-    // puts the caret at the end instead of doing nothing.
+      cursor: "text",
+    },
+    ".cm-content": {
+      padding: "6px 0",
+      caretColor: "var(--text-primary)",
+      // Fill the scroller, so clicking in the empty space below the last line
+      // puts the caret at the end instead of doing nothing.
 
-    boxSizing: "border-box",
-    minHeight: "100%",
-    // flex-grow alone is not enough; one container above with a non-stretch
-    // alignment collapses this to the text width.
-    width: "100%",
-    flexGrow: 1,
+      boxSizing: "border-box",
+      minHeight: "100%",
+      // flex-grow alone is not enough; one container above with a non-stretch
+      // alignment collapses this to the text width.
+      width: "100%",
+      flexGrow: 1,
+    },
+    ".cm-gutters": {
+      backgroundColor: "var(--bg-sunken)",
+      color: "var(--text-muted)",
+      border: "none",
+      borderRight: "1px solid var(--border-default)",
+      fontSize: "0.75rem",
+    },
+    ".cm-activeLineGutter": {
+      backgroundColor: "var(--bg-elevated, var(--bg-sunken))",
+      color: "var(--text-secondary, var(--text-primary))",
+    },
+    ".cm-activeLine": { backgroundColor: "rgba(148,163,184,0.07)" },
+    ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--text-primary)" },
+    // These selectors mirror the ones in CodeMirror's own base theme.
+    ".cm-selectionBackground": { backgroundColor: "rgba(139,92,246,0.30)" },
+    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
+      backgroundColor: "rgba(139,92,246,0.38)",
+    },
+    "&.cm-focused .cm-selectionBackground, ::selection": {
+      backgroundColor: "rgba(139,92,246,0.38)",
+    },
+    ".cm-selectionMatch": { backgroundColor: "rgba(148,163,184,0.20)" },
+    ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
+      backgroundColor: "rgba(139,92,246,0.28)",
+      outline: "1px solid var(--accent)",
+    },
+    ".cm-nonmatchingBracket": { outline: "1px solid var(--color-danger)" },
+    // Set by sqlQualifierHighlight on the "db" half of db.table.
+    ".cm-sql-qualifier": { color: "var(--sql-qualifier) !important" },
+    ".cm-foldPlaceholder": {
+      backgroundColor: "var(--bg-sunken)",
+      border: "1px solid var(--border-default)",
+      color: "var(--text-muted)",
+      padding: "0 6px",
+      borderRadius: "3px",
+    },
+    ".cm-tooltip": {
+      backgroundColor: "var(--bg-page)",
+      border: "1px solid var(--border-default)",
+      borderRadius: "var(--radius-sm)",
+      boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
+      color: "var(--text-primary)",
+      fontSize: "0.75rem",
+    },
+    ".cm-tooltip-autocomplete ul li": {
+      fontFamily: "var(--font-code)",
+      padding: "3px 8px",
+    },
+    ".cm-tooltip-autocomplete ul li[aria-selected]": {
+      backgroundColor: "var(--accent)",
+      color: "#fff",
+    },
+    ".cm-completionIcon": { paddingRight: "12px", opacity: 0.7 },
+    ".cm-completionDetail": { color: "var(--text-muted)", fontStyle: "normal", marginLeft: "8px" },
+    // The search panel ships unstyled and looks foreign otherwise.
+    ".cm-panels": {
+      backgroundColor: "var(--bg-sunken)",
+      color: "var(--text-primary)",
+      borderBottom: "1px solid var(--border-default)",
+    },
+    ".cm-panel.cm-search input, .cm-panel.cm-search button": {
+      fontFamily: "var(--font-body, inherit)",
+      fontSize: "0.75rem",
+      backgroundColor: "var(--input-bg, var(--bg-page))",
+      color: "var(--text-primary)",
+      border: "1px solid var(--border-default)",
+      borderRadius: "3px",
+      padding: "2px 6px",
+    },
+    ".cm-panel.cm-search label": { fontSize: "0.6875rem", color: "var(--text-muted)" },
+    ".cm-searchMatch": { backgroundColor: "rgba(251,191,36,0.30)" },
+    ".cm-searchMatch-selected": { backgroundColor: "rgba(251,191,36,0.55)" },
   },
-  ".cm-gutters": {
-    backgroundColor: "var(--bg-sunken)",
-    color: "var(--text-muted)",
-    border: "none",
-    borderRight: "1px solid var(--border-default)",
-    fontSize: "0.75rem",
-  },
-  ".cm-activeLineGutter": {
-    backgroundColor: "var(--bg-elevated, var(--bg-sunken))",
-    color: "var(--text-secondary, var(--text-primary))",
-  },
-  ".cm-activeLine": { backgroundColor: "rgba(148,163,184,0.07)" },
-  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--text-primary)" },
-  // These selectors mirror the ones in CodeMirror's own base theme.
-  ".cm-selectionBackground": { backgroundColor: "rgba(139,92,246,0.30)" },
-  "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    backgroundColor: "rgba(139,92,246,0.38)",
-  },
-  "&.cm-focused .cm-selectionBackground, ::selection": {
-    backgroundColor: "rgba(139,92,246,0.38)",
-  },
-  ".cm-selectionMatch": { backgroundColor: "rgba(148,163,184,0.20)" },
-  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
-    backgroundColor: "rgba(139,92,246,0.28)",
-    outline: "1px solid var(--accent)",
-  },
-  ".cm-nonmatchingBracket": { outline: "1px solid var(--color-danger)" },
-  // Set by sqlQualifierHighlight on the "db" half of db.table.
-  ".cm-sql-qualifier": { color: "var(--sql-qualifier) !important" },
-  ".cm-foldPlaceholder": {
-    backgroundColor: "var(--bg-sunken)",
-    border: "1px solid var(--border-default)",
-    color: "var(--text-muted)",
-    padding: "0 6px",
-    borderRadius: "3px",
-  },
-  ".cm-tooltip": {
-    backgroundColor: "var(--bg-page)",
-    border: "1px solid var(--border-default)",
-    borderRadius: "var(--radius-sm)",
-    boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
-    color: "var(--text-primary)",
-    fontSize: "0.75rem",
-  },
-  ".cm-tooltip-autocomplete ul li": {
-    fontFamily: "var(--font-code)",
-    padding: "3px 8px",
-  },
-  ".cm-tooltip-autocomplete ul li[aria-selected]": {
-    backgroundColor: "var(--accent)",
-    color: "#fff",
-  },
-  ".cm-completionIcon": { paddingRight: "12px", opacity: 0.7 },
-  ".cm-completionDetail": { color: "var(--text-muted)", fontStyle: "normal", marginLeft: "8px" },
-  // The search panel ships unstyled and looks foreign otherwise.
-  ".cm-panels": {
-    backgroundColor: "var(--bg-sunken)",
-    color: "var(--text-primary)",
-    borderBottom: "1px solid var(--border-default)",
-  },
-  ".cm-panel.cm-search input, .cm-panel.cm-search button": {
-    fontFamily: "var(--font-body, inherit)",
-    fontSize: "0.75rem",
-    backgroundColor: "var(--input-bg, var(--bg-page))",
-    color: "var(--text-primary)",
-    border: "1px solid var(--border-default)",
-    borderRadius: "3px",
-    padding: "2px 6px",
-  },
-  ".cm-panel.cm-search label": { fontSize: "0.6875rem", color: "var(--text-muted)" },
-  ".cm-searchMatch": { backgroundColor: "rgba(251,191,36,0.30)" },
-  ".cm-searchMatch-selected": { backgroundColor: "rgba(251,191,36,0.55)" },
-  },
-  // CodeMirror applies its LIGHT base theme without this flag
-  { dark });
+    // CodeMirror applies its LIGHT base theme without this flag
+    { dark });
 }
 
 // Which built-in features each surface gets.
@@ -465,7 +465,7 @@ function functionInfo(row) {
 }
 
 /* @param functions either bare names, */
-export function buildCompletionOptions({ keywords = [], functions = [], tables = [] }) {
+export function buildCompletionOptions({ keywords = [], functions = [], tables = [], columns = [] }) {
   const options = [];
   const seen = new Set();
   const add = (o) => {
@@ -474,32 +474,39 @@ export function buildCompletionOptions({ keywords = [], functions = [], tables =
     options.push(o);
   };
 
-  for (const k of keywords) add({ label: String(k).toUpperCase(), type: "keyword" });
-  for (const f of functions) {
-    const row = typeof f === "string" ? { name: f } : f || {};
+  // Table columns go first so a column wins the dedupe against a function
+  // of the same name. boost lifts them in the ranking.
+  for (const c of columns) {
+    const row = typeof c === "string" ? { name: c } : c || {};
     if (!row.name) continue;
-    add({
-      label: row.name,
-      type: "function",
-      apply: `${row.name}()`,
-      // The category reads better in the narrow detail column than the word
-      // "function" repeated down the whole list.
-      detail: String(row.categories || "function").split(",")[0].trim(),
-      // Only when there is something to show: an empty panel is worse than none.
-      info: row.description || row.syntax ? functionInfo(row) : undefined,
-    });
-  }
+    add({ label: row.name, type: "property", detail: row.type || "column", boost: 2 }); }
 
-  const dbs = new Set();
-  for (const row of tables) {
-    if (row.database) dbs.add(row.database);
-    if (row.name) add({ label: row.name, type: "class", detail: "table" });
-    if (row.database && row.name) {
-      add({ label: `${row.database}.${row.name}`, type: "class", detail: "table" });
+    for (const k of keywords) add({ label: String(k).toUpperCase(), type: "keyword" });
+    for (const f of functions) {
+      const row = typeof f === "string" ? { name: f } : f || {};
+      if (!row.name) continue;
+      add({
+        label: row.name,
+        type: "function",
+        apply: `${row.name}()`,
+        // The category reads better in the narrow detail column than the word
+        // "function" repeated down the whole list.
+        detail: String(row.categories || "function").split(",")[0].trim(),
+        // Only when there is something to show: an empty panel is worse than none.
+        info: row.description || row.syntax ? functionInfo(row) : undefined,
+      });
     }
-  }
-  for (const d of dbs) add({ label: d, type: "namespace", detail: "database" });
 
-  options.sort((a, b) => a.label.localeCompare(b.label));
-  return options;
-}
+    const dbs = new Set();
+    for (const row of tables) {
+      if (row.database) dbs.add(row.database);
+      if (row.name) add({ label: row.name, type: "class", detail: "table" });
+      if (row.database && row.name) {
+        add({ label: `${row.database}.${row.name}`, type: "class", detail: "table" });
+      }
+    }
+    for (const d of dbs) add({ label: d, type: "namespace", detail: "database" });
+
+    options.sort((a, b) => a.label.localeCompare(b.label));
+    return options;
+  }
