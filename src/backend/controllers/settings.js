@@ -20,6 +20,10 @@ const ADMIN_WRITABLE = new Set([
 
 const PROTECTED_KEYS = ADMIN_WRITABLE;
 
+function isSecretKey(key) {
+  return String(key).startsWith("jwt.");
+}
+
 const creatingStar = () => "*"?.repeat(15);
 
 function isBackupProfiler(req) {
@@ -128,13 +132,15 @@ export function listSettings(req, res) {
   // Protected keys (cluster nodes, backup profiles) hold credentials - never
   // list their values for non-admin callers, same restriction as writes.
   const isAdmin = isAdminRole(req);
-  const visible = isAdmin
-    ? rows
-    : rows.filter((r) => !ADMIN_WRITABLE.has(r.key));
+  const visible = rows.filter(
+    (r) => !isSecretKey(r.key) && (isAdmin || !ADMIN_WRITABLE.has(r.key)),
+  );
   res.json(visible);
 }
 
 export function getSetting(req, res) {
+  if (isSecretKey(req.params.key))
+    return res.status(404).json({ error: "Not found" });
   if (requireAdminForKey(req, res, req.params.key)) return;
 
   const row = db
