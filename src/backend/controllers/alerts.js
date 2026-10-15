@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Controller managing alert rule lifecycles, evaluating thresholds, and triggering notification dispatches.
 
-
 import { eq, desc } from "drizzle-orm";
 import {
   db,
@@ -11,6 +10,14 @@ import {
   alertRuleChannels,
 } from "../db/index.js";
 import { testChannel as testChannelService } from "../services/notifier.js";
+import {
+  notifyBeforeRuleDisabled,
+  validateCronExpression,
+} from "../services/alertScheduler.js";
+import { alertEvents } from "../db/schema.js";
+import { decrypt, encrypt } from "../services/crypto.js";
+
+const _DEFAULTPASSWORDVALUE = "*"?.repeat(15);
 
 function rulesWithChannels(where, req) {
   const rules = where
@@ -43,7 +50,7 @@ function rulesWithChannels(where, req) {
         }
         if (ch) {
           try {
-            ch.config = JSON.parse(ch.config);
+            ch.config = DecryptValuesChannels(ch?.config, ch?.type);
           } catch {
             ch.config = {};
           }
@@ -58,6 +65,142 @@ function rulesWithChannels(where, req) {
       cluster_id: rule.clusterId || null,
     };
   });
+}
+
+function EncryptValuesChannels(req) {
+  const { config, type } = req?.body;
+  if (!config || !type) return null;
+  let value = null;
+  try {
+    value = typeof config === "string" ? JSON.parse(config) : config;
+  } catch (err) {
+    console.log(err?.message);
+    return null;
+  }
+  switch (type) {
+    case "email":
+      value = { ...value, smtp_pass: encrypt(value?.smtp_pass) };
+      break;
+    case "slack":
+      value = { ...value, bot_token: encrypt(value?.bot_token) };
+      break;
+    case "google_chat":
+      value = { ...value, webhook_url: encrypt(value?.webhook_url) };
+      break;
+    case "teams":
+      value = { ...value, webhook_url: encrypt(value?.webhook_url) };
+      break;
+    case "pagerduty":
+      value = { ...value, routing_key: encrypt(value?.routing_key) };
+      break;
+    default:
+      value = { ...value, smtp_pass: encrypt(value?.smtp_pass) };
+      break;
+  }
+
+  return value;
+}
+
+export function DecryptValuesChannels(config, type) {
+  if (!config) return {};
+  let value = { ...config };
+  switch (type) {
+    case "email":
+      value = { ...value, smtp_pass: decrypt(value?.smtp_pass) };
+      break;
+    case "slack":
+      value = { ...value, bot_token: decrypt(value?.bot_token) };
+      break;
+    case "google_chat":
+      value = { ...value, webhook_url: decrypt(value?.webhook_url) };
+      break;
+    case "teams":
+      value = { ...value, webhook_url: decrypt(value?.webhook_url) };
+      break;
+    case "pagerduty":
+      value = { ...value, routing_key: decrypt(value?.routing_key) };
+      break;
+    default:
+      value = { ...value, smtp_pass: decrypt(value?.smtp_pass) };
+      break;
+  }
+
+  return value;
+}
+
+function DummyPaassword(config, type) {
+  if (!config) return {};
+  let value = { ...config };
+  switch (type) {
+    case "email":
+      value = { ...value, smtp_pass: _DEFAULTPASSWORDVALUE };
+      break;
+    case "slack":
+      value = { ...value, bot_token: _DEFAULTPASSWORDVALUE };
+      break;
+    case "google_chat":
+      value = { ...value, webhook_url: _DEFAULTPASSWORDVALUE };
+      break;
+    case "teams":
+      value = { ...value, webhook_url: _DEFAULTPASSWORDVALUE };
+      break;
+    case "pagerduty":
+      value = { ...value, routing_key: _DEFAULTPASSWORDVALUE };
+      break;
+    default:
+      value = { ...value, smtp_pass: _DEFAULTPASSWORDVALUE };
+      break;
+  }
+  console.log(value);
+  return value;
+}
+
+function UpdateKeysValuesChannels(config, type) {
+  if (!config) return {};
+
+  try {
+    let convertValue = typeof config === "string" ? JSON.parse(config) : config;
+    let value = { ...convertValue };
+    switch (type) {
+      case "email":
+        if (convertValue?.smtp_pass !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, smtp_pass: encrypt(convertValue?.smtp_pass) };
+        }
+        break;
+      case "slack":
+        if (convertValue?.bot_token !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, bot_token: encrypt(convertValue?.bot_token) };
+        }
+
+        break;
+      case "google_chat":
+        if (convertValue?.webhook_url !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, webhook_url: encrypt(convertValue?.webhook_url) };
+        }
+
+        break;
+      case "teams":
+        if (convertValue?.webhook_url !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, webhook_url: encrypt(convertValue?.webhook_url) };
+        }
+        break;
+      case "pagerduty":
+        if (convertValue?.routing_key !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, routing_key: encrypt(convertValue?.routing_key) };
+        }
+
+        break;
+      default:
+        if (convertValue?.smtp_pass !== _DEFAULTPASSWORDVALUE) {
+          value = { ...value, smtp_pass: encrypt(convertValue?.smtp_pass) };
+        }
+        break;
+    }
+
+    return value;
+  } catch (err) {
+    return {};
+  }
 }
 
 // Rules
@@ -85,8 +228,13 @@ export function createRule(req, res) {
     channel_ids,
     nodes,
     cluster_id,
+    notifyIntervalMinutes,
+    breachRunsRequired,
+    noRowsMeansBreach,
   } = req.body;
   try {
+    const cronError = validateCronExpression(schedule || "*/5 * * * *");
+    if (cronError) return res.status(400).json({ error: cronError });
     const result = db
       .insert(alertRules)
       .values({
@@ -103,6 +251,9 @@ export function createRule(req, res) {
             ? JSON.stringify(nodes)
             : null,
         clusterId: cluster_id || null,
+        notifyIntervalMinutes: notifyIntervalMinutes,
+        breachRunsRequired: breachRunsRequired,
+        noRowsMeansBreach: noRowsMeansBreach,
       })
       .returning()
       .get();
@@ -121,9 +272,27 @@ export function createRule(req, res) {
   }
 }
 
-export function updateRule(req, res) {
+export async function updateRule(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
+    const { schedule } = req?.body;
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid alert rule ID" });
+    }
+
+    const cronError = validateCronExpression(schedule || "*/5 * * * *");
+    if (cronError) return res.status(400).json({ error: cronError });
+
+    const currentRule = db
+      .select()
+      .from(alertRules)
+      .where(eq(alertRules.id, id))
+      .get();
+
+    if (!currentRule) {
+      return res.status(404).json({ error: "Alert rule not found" });
+    }
+
     const updates = {};
     for (const k of [
       "name",
@@ -133,10 +302,27 @@ export function updateRule(req, res) {
       "operator",
       "severity",
       "schedule",
+      "notifyIntervalMinutes",
+      "breachRunsRequired",
+      "noRowsMeansBreach",
     ]) {
-      if (req.body[k] !== undefined) updates[k] = req.body[k];
+      if (req.body[k] !== undefined) {
+        updates[k] = req.body[k];
+      }
     }
-    if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
+
+    if (
+      req.body.enabled === false &&
+      currentRule.enabled &&
+      currentRule.lastState === "firing"
+    ) {
+      await notifyBeforeRuleDisabled(id);
+    }
+
+    if (req.body.enabled !== undefined) {
+      updates.enabled = req.body.enabled;
+    }
+
     if (req.body.nodes !== undefined) {
       updates.nodes =
         Array.isArray(req.body.nodes) && req.body.nodes.length > 0
@@ -147,26 +333,34 @@ export function updateRule(req, res) {
       updates.clusterId = req.body.cluster_id || null;
     }
 
-    db.update(alertRules).set(updates).where(eq(alertRules.id, id)).run();
+    if (Object.keys(updates).length > 0) {
+      db.update(alertRules).set(updates).where(eq(alertRules.id, id)).run();
+    }
 
     if (req.body.channel_ids !== undefined) {
       db.delete(alertRuleChannels)
         .where(eq(alertRuleChannels.alertRuleId, id))
         .run();
+
       for (const cid of req.body.channel_ids) {
         db.insert(alertRuleChannels)
-          .values({ alertRuleId: id, alertChannelId: cid })
+          .values({
+            alertRuleId: id,
+            alertChannelId: cid,
+          })
           .run();
       }
     }
+
     const rule = db
       .select()
       .from(alertRules)
       .where(eq(alertRules.id, id))
       .get();
-    res.json(rule);
+
+    return res.json(rule);
   } catch (error) {
-    res.status(500).json(error.message);
+    return res.status(500).json({ error: error.message });
   }
 }
 
@@ -201,7 +395,8 @@ export function listChannels(req, res) {
     channels.map((ch) => {
       if (!isAdmin) return { id: ch.id, name: ch.name, type: ch.type };
       try {
-        ch.config = JSON.parse(ch.config);
+        const convert = JSON.parse(ch.config);
+        ch.config = DummyPaassword(convert, ch?.type);
       } catch {
         ch.config = {};
       }
@@ -212,16 +407,13 @@ export function listChannels(req, res) {
 
 export function createChannel(req, res) {
   try {
+    const _encryptValue = EncryptValuesChannels(req);
     const result = db
       .insert(alertChannels)
       .values({
         name: req.body.name,
         type: req.body.type,
-        config: JSON.stringify(
-          typeof req.body.config === "string"
-            ? JSON.parse(req.body.config)
-            : req.body.config || {},
-        ),
+        config: JSON.stringify(_encryptValue || {}),
         enabled: req.body.enabled !== false,
       })
       .returning()
@@ -240,9 +432,7 @@ export function updateChannel(req, res) {
     if (req.body.type !== undefined) updates.type = req.body.type;
     if (req.body.config !== undefined)
       updates.config = JSON.stringify(
-        typeof req.body.config === "string"
-          ? JSON.parse(req.body.config)
-          : req.body.config,
+        UpdateKeysValuesChannels(req.body?.config, req.body?.type),
       );
     if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
 
@@ -289,8 +479,10 @@ export async function testChannel(req, res) {
     } catch {
       cfgObj = {};
     }
+
     const parsed = { type: ch.type, ...cfgObj };
-    await testChannelService(parsed);
+    const _decryptConfig = DecryptValuesChannels(parsed, ch?.type);
+    await testChannelService(_decryptConfig);
 
     db.update(alertChannels)
       .set({
@@ -318,4 +510,16 @@ export async function testChannel(req, res) {
     }
     res.json({ ok: false, error: err.message });
   }
+}
+
+export function listRuleEvents(req, res) {
+  const id = parseInt(req.params.id, 10);
+  const rows = db
+    .select()
+    .from(alertEvents)
+    .where(eq(alertEvents.alertRuleId, id))
+    .orderBy(desc(alertEvents.createdAt))
+    .limit(200)
+    .all();
+  res.json(rows);
 }
