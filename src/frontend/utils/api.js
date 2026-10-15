@@ -115,7 +115,7 @@ export async function apiFetch(path, options = {}, type = false) {
   }
   if (res?.status === 400) {
     const d = await res.json().catch(() => ({}));
-    throw new Error(d.error || "Rate limited. Wait and retry.");
+    throw new Error(d.error || "Bad request.");
   }
 
   let data = null;

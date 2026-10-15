@@ -16,7 +16,7 @@ import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useNavigate } from "react-router-dom";
 import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { createPortal } from "react-dom";
 import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
 
@@ -41,11 +41,7 @@ const createHisMsgArr = async (messages = [], RunSqlQueryhandler) => {
 
       if (chat?.sql) {
         try {
-          const SQL = chat.sql.toLowerCase().includes("limit")
-            ? chat.sql
-            : `${chat.sql} limit 10`;
-
-          const QueryResult = await RunSqlQueryhandler(SQL);
+          const QueryResult = await RunSqlQueryhandler(chat.sql);
 
           if (QueryResult.success) {
             tablesData = QueryResult?.rows || [];
@@ -1029,17 +1025,13 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
         return;
       }
 
-      const SQL = responseAIQuery?.sql?.toLowerCase().includes("limit")
-        ? responseAIQuery?.sql
-        : `${responseAIQuery?.sql} limit 10`;
-
-      const QueryResult = await RunSqlQueryhandler(SQL);
+      const QueryResult = await RunSqlQueryhandler(responseAIQuery?.sql);
       QueryResult?.success
         ? insertMessage({
             id: Date.now(),
             type: "bot",
             isLoading: false,
-            sql: SQL,
+            sql: responseAIQuery?.sql,
             showResponse: true,
             tableData: QueryResult?.rows || [],
             chart: {
@@ -1055,7 +1047,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             id: Date.now(),
             type: "bot",
             isLoading: false,
-            sql: SQL,
+            sql: responseAIQuery?.sql,
             showResponse: true,
             tableData: [],
             chart: {
@@ -1160,16 +1152,13 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
               : responseAIQuery?.responseText,
           });
         } else {
-          const originalSql = responseAIQuery?.sql || "";
-          const hasLimit = /\blimit\b/i.test(originalSql);
-          const SQL = hasLimit ? originalSql : `${originalSql} LIMIT 10`;
-          const QueryResult = await RunSqlQueryhandler(SQL);
+          const QueryResult = await RunSqlQueryhandler(responseAIQuery?.sql);
 
           if (QueryResult?.success) {
             replaceChat({
               ...BotMessagesResponseBelowUser[0],
               isLoading: false,
-              sql: SQL,
+              sql: responseAIQuery?.sql,
               showResponse: true,
               tableData: QueryResult?.rows || [],
             });
@@ -1177,7 +1166,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             replaceChat({
               ...BotMessagesResponseBelowUser[0],
               isLoading: false,
-              sql: SQL,
+              sql: responseAIQuery?.sql,
             });
           }
         }
