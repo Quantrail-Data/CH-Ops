@@ -2,7 +2,13 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // CHOps v6 Drizzle ORM Schema configured for bun:sqlite with instructions for migration to Postgres.
 
-import { sqliteTable, text, integer, real, unique } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  unique,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 // App Settings
@@ -35,8 +41,21 @@ export const alertRules = sqliteTable("alert_rule", {
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
   nodes: text("nodes"), // JSON array of node hostnames, null = all nodes
   clusterId: text("cluster_id"), // which cluster this alert runs on, null = first cluster
+  lastNotifiedAt: text("last_notified_at"),
+  lastState: text("last_state"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  notifyIntervalMinutes: integer("notify_interval_minutes")
+    .notNull()
+    .default(0), // 0 means edge only: one mail when firing starts, one when it resolves.
+  lastBreachNotifiedAt: text("last_breach_notified_at"),
+  // The rule fires only after this many breaching runs in a row.
+  breachRunsRequired: integer("breach_runs_required").notNull().default(1),
+  breachRunCount: integer("breach_run_count").notNull().default(0),
+  // When the query returns zero rows: false means ok, true means breach.
+  noRowsMeansBreach: integer("no_rows_means_breach", { mode: "boolean" })
+    .notNull()
+    .default(false),
 });
 
 // Alert Channels
@@ -52,6 +71,9 @@ export const alertChannels = sqliteTable("alert_channel", {
   lastTestError: text("last_test_error"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  lastSendAt: text("last_send_at"),
+  lastSendOk: integer("last_send_ok", { mode: "boolean" }),
+  lastSendError: text("last_send_error"),
 });
 
 // Alert Rule <-> Channel (many-to-many)
@@ -64,6 +86,17 @@ export const alertRuleChannels = sqliteTable("alert_rule_channel", {
   alertChannelId: integer("alert_channel_id")
     .notNull()
     .references(() => alertChannels.id, { onDelete: "cascade" }),
+});
+
+// One row per status change of a rule: ok to firing, firing to ok, errors.
+export const alertEvents = sqliteTable("alert_event", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  alertRuleId: integer("alert_rule_id").notNull(),
+  status: text("status").notNull(),
+  prevStatus: text("prev_status"),
+  value: real("value"),
+  error: text("error"),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
 
 // Custom Dashboards
@@ -106,18 +139,20 @@ export const charts = sqliteTable("chart", {
 export const appUsers = sqliteTable("app_user", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"),
   role: text("role").notNull().default("readonly"), // 'superadmin' | 'admin' | 'editor' | 'readonly'
   email: text("email").unique(),
   mustChangePassword: integer("must_change_password", { mode: "boolean" })
     .notNull()
     .default(true),
-  initUser:integer("init_user", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  initUser: integer("init_user", { mode: "boolean" }).notNull().default(false),
   lastLoginAt: text("last_login_at"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  passwordSetupTokenHash: text("password_setup_token_hash").default(null),
+  passwordSetupTokenExpiresAt: text("password_setup_token_expires_at").default(
+    null,
+  ),
 });
 
 // API Keys for Qurioz AI
@@ -132,7 +167,7 @@ export const apiKeys = sqliteTable("api_key", {
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });
 
-// // AI databse details for storing the database id for ai chat 
+// // AI databse details for storing the database id for ai chat
 // export const aiDatabaseDetails = sqliteTable("ai_database_details", {
 //   id: integer("id").primaryKey({ autoIncrement: true }),
 //   credentials: text("credentials").notNull(),
@@ -145,25 +180,24 @@ export const apiKeys = sqliteTable("api_key", {
 //   createdAt: text("created_at").default(sql`(datetime('now'))`),
 // });
 
-
-// Qurioz AI Chats 
-export const aiChat = sqliteTable("ai_chat",{
-  id: integer("id").primaryKey({autoIncrement : true}),
+// Qurioz AI Chats
+export const aiChat = sqliteTable("ai_chat", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   appUser: text("app_user").notNull(),
   title: text("title"),
   clusterId: text("cluster_id"),
   node: text("node"),
   selectedTables: text("selected_tables").notNull().default("[]"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
-  updatedAt : text("updated_at").default(sql`(datetime('now'))`),
-})
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+});
 
 // Qurioz ai_chat_message
-export const aiChatMessage = sqliteTable("ai_chat_message",{
-  id: integer("id").primaryKey({autoIncrement: true}),
+export const aiChatMessage = sqliteTable("ai_chat_message", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   chatId: integer("chat_id")
-  .notNull().
-  references(() => aiChat.id, {onDelete: "cascade"}),
+    .notNull()
+    .references(() => aiChat.id, { onDelete: "cascade" }),
   instruction: text("instruction").notNull(),
   // Null when generation failed; errorCode says why.
   sql: text("sql"),
@@ -171,28 +205,38 @@ export const aiChatMessage = sqliteTable("ai_chat_message",{
   responseText: text("response_text"),
   ddlSnapshot: text("ddl_snapshot"),
   // Set when the snapshot exceeded 256 KB and was cut short.
-  ddlTruncated: integer("ddl_truncated", { mode: "boolean" }).notNull().default(false),
+  ddlTruncated: integer("ddl_truncated", { mode: "boolean" })
+    .notNull()
+    .default(false),
   tokensEstimated: integer("tokens_estimated"),
   provider: text("provider"),
   model: text("model"),
   errorCode: text("error_code"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
-})
+});
 
 // qurioz ai_ddl_cache table
-export const aiDdlCache = sqliteTable("ai_ddl_cache", {
-  id: integer("id").primaryKey({autoIncrement:true}),
-  clusterId: text("cluster_id").notNull(),
-  node: text("node").notNull(),
-  databaseName: text("database_name").notNull(),
-  tableName: text("table_name").notNull(),
-  ddl: text("ddl").notNull(),
-  charCount: integer("char_count").notNull(),
-  fetchedAt: text("fetched_at").default(sql`(datetime('now'))`),
-}, (t) => ({
-  ddlCacheTarget: unique("ai_ddl_cache_target")
-    .on(t.clusterId, t.node, t.databaseName, t.tableName),
-}));
+export const aiDdlCache = sqliteTable(
+  "ai_ddl_cache",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    clusterId: text("cluster_id").notNull(),
+    node: text("node").notNull(),
+    databaseName: text("database_name").notNull(),
+    tableName: text("table_name").notNull(),
+    ddl: text("ddl").notNull(),
+    charCount: integer("char_count").notNull(),
+    fetchedAt: text("fetched_at").default(sql`(datetime('now'))`),
+  },
+  (t) => ({
+    ddlCacheTarget: unique("ai_ddl_cache_target").on(
+      t.clusterId,
+      t.node,
+      t.databaseName,
+      t.tableName,
+    ),
+  }),
+);
 
 // Schema Studio per-user ClickHouse credential session.
 //
@@ -201,28 +245,32 @@ export const aiDdlCache = sqliteTable("ai_ddl_cache", {
 // browser never receives the password; the Schema Studio routes resolve it
 // server-side for the lifetime of the session and clear it on disconnect or
 // expiry. appUser is unique so connecting again replaces any prior session.
-export const chCredSession = sqliteTable("ch_cred_session", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  // app_user is kept for auditing only; the session is keyed by (jti, context).
-  appUser: text("app_user").notNull(),
-  // The JWT id of the login this credential belongs to, so the credential's
-  // lifetime is bound to the session: a new login (new jti) never reuses it, and
-  // revoking the token clears it.
-  jti: text("jti").notNull(),
-  // Which feature owns this credential: 'editor' or 'schema-studio'. Lets the two
-  // features hold distinct ClickHouse credentials under the same login.
-  context: text("context").notNull(),
-  clusterId: text("cluster_id"),
-  node: text("node"),
-  port: integer("port"),
-  chUser: text("ch_user").notNull(),
-  encryptedPassword: text("encrypted_password").notNull(),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
-  expiresAt: text("expires_at"),
-}, (t) => ({
-  jtiContext: unique("ch_cred_session_jti_context").on(t.jti, t.context),
-}));
+export const chCredSession = sqliteTable(
+  "ch_cred_session",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    // app_user is kept for auditing only; the session is keyed by (jti, context).
+    appUser: text("app_user").notNull(),
+    // The JWT id of the login this credential belongs to, so the credential's
+    // lifetime is bound to the session: a new login (new jti) never reuses it, and
+    // revoking the token clears it.
+    jti: text("jti").notNull(),
+    // Which feature owns this credential: 'editor' or 'schema-studio'. Lets the two
+    // features hold distinct ClickHouse credentials under the same login.
+    context: text("context").notNull(),
+    clusterId: text("cluster_id"),
+    node: text("node"),
+    port: integer("port"),
+    chUser: text("ch_user").notNull(),
+    encryptedPassword: text("encrypted_password").notNull(),
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+    expiresAt: text("expires_at"),
+  },
+  (t) => ({
+    jtiContext: unique("ch_cred_session_jti_context").on(t.jti, t.context),
+  }),
+);
 
 // Kubernetes support. Cluster config moved from a JSON blob to rows, so the refresh has a single writer.
 
@@ -247,6 +295,7 @@ export const clusters = sqliteTable("cluster", {
   k8sInstallation: text("k8s_installation"),
   // Which operator manages this installation: 'akoc' or 'ocko'.
   k8sOperator: text("k8s_operator").notNull().default("akoc"),
+  k8sAddressing: text("k8s_addressing"),
   lastRefreshedAt: text("last_refreshed_at"),
 
   createdAt: text("created_at").default(sql`(datetime('now'))`),
@@ -254,32 +303,39 @@ export const clusters = sqliteTable("cluster", {
 });
 
 // One row per node.
-export const clusterNodes = sqliteTable("cluster_node", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  clusterId: text("cluster_id").notNull(),
-  name: text("name").notNull(),
-  host: text("host").notNull(),
-  port: integer("port").notNull().default(8123),
+export const clusterNodes = sqliteTable(
+  "cluster_node",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    clusterId: text("cluster_id").notNull(),
+    name: text("name").notNull(),
+    host: text("host").notNull(),
+    port: integer("port").notNull().default(8123),
 
-  // Null means inherit from the cluster.
-  user: text("user"),
-  passwordEnc: text("password_enc"),
+    // Null means inherit from the cluster.
+    user: text("user"),
+    passwordEnc: text("password_enc"),
 
-  secure: integer("secure", { mode: "boolean" }).notNull().default(false),
-  source: text("source").notNull().default("manual"),
+    secure: integer("secure", { mode: "boolean" }).notNull().default(false),
+    source: text("source").notNull().default("manual"),
 
-  shard: integer("shard"),
-  replica: integer("replica"),
-  podName: text("pod_name"),
+    shard: integer("shard"),
+    replica: integer("replica"),
+    podName: text("pod_name"),
 
-  // Touched on every successful refresh.
-  lastSeenAt: text("last_seen_at"),
+    // Touched on every successful refresh.
+    lastSeenAt: text("last_seen_at"),
 
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
-}, (t) => ({
-  clusterNodeName: unique("cluster_node_cluster_name").on(t.clusterId, t.name),
-}));
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  },
+  (t) => ({
+    clusterNodeName: unique("cluster_node_cluster_name").on(
+      t.clusterId,
+      t.name,
+    ),
+  }),
+);
 
 // One row per Kubernetes cluster CHOps can read.
 export const k8sConnections = sqliteTable("k8s_connection", {

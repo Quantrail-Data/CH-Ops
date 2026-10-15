@@ -5,7 +5,6 @@
 import { eq } from 'drizzle-orm';
 import { db, appSettings } from '../db/index.js';
 import { encrypt, decrypt } from './crypto.js';
-import { loadEnv } from '../utils/env.js';
 
 const CATEGORY = 'smtp';
 
@@ -84,17 +83,4 @@ export function resolveSystemSmtp() {
     };
   }
 
-  const env = loadEnv();
-  if (env.disableEnvSmtp) return null;
-  if (!env.smtp?.host) return null;
-
-  return {
-    host: env.smtp.host,
-    port: env.smtp.port,
-    secure: false,
-    user: env.smtp.user,
-    pass: env.smtp.pass,
-    from: env.smtp.from,
-    source: 'environment',
-  };
 }

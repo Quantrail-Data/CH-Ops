@@ -19,7 +19,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import express from "express";
-import { getClusterNodes } from "../services/clusterUtils.js";
+import { resolveTargetNode } from "../services/clusterUtils.js";
 import { executeQuery, executeQueryWithBody } from "../services/clickhouse.js";
 import {
   getCredSession,
@@ -51,24 +51,6 @@ const MAX_UPLOAD = 100 * 1024 * 1024; // 100 MB
 const MAX_ROW_CSV = 999;
 
 // Request helpers
-
-// Resolve the target node from the cluster config (SSRF protection: only hosts
-// in the configured cluster are reachable).
-function resolveTargetNode(clusterId, node) {
-  const nodes = getClusterNodes(clusterId);
-  if (!nodes.length) {
-    const e = new Error("No cluster nodes configured.");
-    e.status = 400;
-    throw e;
-  }
-  const target = node ? nodes.find((n) => n.host === node) : nodes[0];
-  if (!target) {
-    const e = new Error("Node not found in cluster configuration.");
-    e.status = 400;
-    throw e;
-  }
-  return target;
-}
 
 // Resolve the active credential session, or throw a 401 if not connected.
 function requireSession(req) {

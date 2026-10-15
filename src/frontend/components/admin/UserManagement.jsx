@@ -198,7 +198,11 @@ export default function UserManagement() {
     setLoaded(true);
   }
   useEffect(() => {
-    load();
+    if(isAdmin) {
+      load();
+    }else{
+      setLoaded(true)
+    }
   }, []);
 
   function creatableRoles() {

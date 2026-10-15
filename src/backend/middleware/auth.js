@@ -31,7 +31,9 @@ export function authMiddleware(req, res, next) {
   // Same message as an invalid token. Saying the account no longer exists
   // confirms that the token itself was valid, which is more than an
   // unauthenticated caller needs to know.
-  if (!found) return res.status(401).json({ error: 'Invalid or expired token' });
+if (!found || found.username !== payload.username) {
+return res.status(401).json({ error: 'Invalid or expired token' });
+}
 
   // Server-side enforcement of the forced password-change gate: the frontend
   // blocks navigation on this flag, but a still-valid JWT issued before the

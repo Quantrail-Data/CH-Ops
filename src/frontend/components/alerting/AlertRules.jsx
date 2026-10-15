@@ -8,7 +8,9 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useConnection, useAuth } from "../../App.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
+import IconAlert from "../common/IconAlert.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
+import DataTable from "../layout/DataTable.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
@@ -23,7 +25,7 @@ const OPS = [
 
 export default function AlertRules() {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [rules, setRules] = useState([]);
@@ -48,7 +50,11 @@ export default function AlertRules() {
     channel_ids: [],
     nodes: [],
     cluster_id: "",
+    notifyIntervalMinutes: 0,
+    breachRunsRequired: 1,
+    noRowsMeansBreach: false,
   });
+  const [history, setHistory] = useState(null);
 
   function normalizeCron(expr) {
     const parts = expr.trim().split(/\s+/).filter(Boolean);
@@ -58,6 +64,7 @@ export default function AlertRules() {
 
   function validateCron(expr) {
     const parts = expr.trim().split(/\s+/).filter(Boolean);
+    console.log()
     if (parts.length !== 4 && parts.length !== 5)
       return "Cron must have 4 or 5 fields";
     const normalized = parts.length === 4 ? ["0", ...parts] : parts;
@@ -133,6 +140,9 @@ export default function AlertRules() {
       channel_ids: [],
       nodes: [],
       cluster_id: "",
+      notifyIntervalMinutes: 0,
+      breachRunsRequired: 1,
+      noRowsMeansBreach: false,
     });
     setEditing(null);
     setCronError("");
@@ -189,13 +199,18 @@ export default function AlertRules() {
       setShowForm(false);
       load();
     } catch (e) {
-      setResult({ ok: false, msg: e.message.slice(0, 200) + "....." });
+      setResult({
+        ok: false,
+        msg: e.message.includes("CRON ERROR")
+          ? e.message
+          : e.message.slice(0, 200) + ".....",
+      });
     }
   }
 
   async function testQuery() {
     try {
-      await runQuery(f.sql)
+      const check = await runQuery(f.sql);
       setResult({ ok: true, msg: "Query executed successfully" });
     } catch (error) {
       setResult({ ok: false, msg: error.message });
@@ -223,6 +238,18 @@ export default function AlertRules() {
     }
   }
 
+  async function getHistory(id) {
+    try {
+      const res = await apiFetch(`/api/alerts/rules/${id}/events`, {
+        method: "GET",
+      });
+      console.log(res);
+      setHistory(res);
+    } catch (error) {
+      console.log(error.message);
+    }
+  }
+
   function edit(r) {
     setF({
       name: r.name,
@@ -236,10 +263,17 @@ export default function AlertRules() {
       channel_ids: (r.channels || []).map((c) => c.id),
       nodes: Array.isArray(r.nodes) ? r.nodes : [],
       cluster_id: r.cluster_id || "",
+      notifyIntervalMinutes: r.notifyIntervalMinutes,
+      breachRunsRequired: r.breachRunsRequired,
+      noRowsMeansBreach: r.noRowsMeansBreach,
     });
     setEditing(r.id);
     setShowForm(true);
     setCronError(validateCron(r.schedule || ""));
+  }
+
+  function isChannelSelected(chID) {
+    return f?.channel_ids?.some((id) => id === chID);
   }
 
   return (
@@ -259,7 +293,7 @@ export default function AlertRules() {
               setShowForm(!showForm);
             }}
             disabled={!isAdmin}
-            style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+            style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showForm ? "Cancel" : "New Rule"}
@@ -269,7 +303,9 @@ export default function AlertRules() {
       {!isAdmin && (
         <div className="alert-banner info" style={{ marginBottom: 14 }}>
           <Icon className="ti ti-lock"></Icon>
-          <span>Alert rules management is only available for administrators.</span>
+          <span>
+            Alert rules management is only available for administrators.
+          </span>
         </div>
       )}
       {result && (
@@ -277,7 +313,9 @@ export default function AlertRules() {
           className={`alert-banner ${result.ok ? "success" : "danger"}`}
           style={{ marginBottom: 14 }}
         >
-          <Icon className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}></Icon>{" "}
+          <Icon
+            className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
+          ></Icon>{" "}
           {result.msg}
           <button
             className="btn btn-ghost btn-sm"
@@ -367,26 +405,82 @@ export default function AlertRules() {
                 }
               />
             </div>
+            <div className="form-group">
+              <label className="form-label">Notify Interval</label>
+              <input
+                className="form-input"
+                type="number"
+                value={f.notifyIntervalMinutes}
+                onChange={(e) =>
+                  setF({
+                    ...f,
+                    notifyIntervalMinutes: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Breach Run Required</label>
+              <input
+                className="form-input"
+                type="number"
+                value={f.breachRunsRequired}
+                onChange={(e) =>
+                  setF({
+                    ...f,
+                    breachRunsRequired: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
             <div
               className="form-group"
               style={{ display: "flex", alignItems: "center", paddingTop: 20 }}
             >
-              <label
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={f.enabled}
-                  onChange={(e) => setF({ ...f, enabled: e.target.checked })}
-                  style={{ accentColor: "var(--accent)" }}
-                />{" "}
+              <div className="form-label">
+                <label
+                  className="switch"
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    marginRight: "5px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={f.enabled}
+                    onChange={(e) => setF({ ...f, enabled: e.target.checked })}
+                    style={{ accentColor: "var(--accent)" }}
+                  />{" "}
+                  <span class="slider"></span>
+                </label>
                 Enabled
-              </label>
+              </div>
+              <div className="form-label">
+                <label
+                  className="switch"
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    marginRight: "5px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={f.noRowsMeansBreach}
+                    onChange={(e) =>
+                      setF({ ...f, noRowsMeansBreach: e.target.checked })
+                    }
+                    style={{ accentColor: "var(--accent)" }}
+                  />{" "}
+                  <span class="slider"></span>
+                </label>
+                noRowsMeansBreach
+              </div>
             </div>
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
@@ -420,30 +514,63 @@ export default function AlertRules() {
               <label className="form-label">Channels</label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {channels.map((ch) => (
-                  <label
-                    key={ch.id}
+                  <div
                     style={{
                       display: "flex",
-                      gap: 4,
-                      fontSize: "14px",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      minWidth: "140px",
+                      margin: "0px 5px",
+                      padding: "7px 15px",
+                      borderRadius: "10px",
                       cursor: "pointer",
+                      backgroundColor: !isChannelSelected(ch?.id)
+                        ? "#59595910"
+                        : "var(--accent)",
+                      color: isChannelSelected(ch?.id)
+                        ? "white"
+                        : "var(--accent)",
+                    }}
+                    title={
+                      isChannelSelected(ch?.id)
+                        ? `unselected the ${ch.name} channel`
+                        : `Select the ${ch.name} channel`
+                    }
+                    key={ch.id}
+                    onClick={() => {
+                      setF((p) => ({
+                        ...p,
+                        channel_ids: p.channel_ids.includes(ch.id)
+                          ? p.channel_ids.filter((i) => i !== ch.id)
+                          : [...p.channel_ids, ch.id],
+                      }));
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={f.channel_ids.includes(ch.id)}
-                      onChange={() =>
-                        setF((p) => ({
-                          ...p,
-                          channel_ids: p.channel_ids.includes(ch.id)
-                            ? p.channel_ids.filter((i) => i !== ch.id)
-                            : [...p.channel_ids, ch.id],
-                        }))
-                      }
-                      style={{ accentColor: "var(--accent)" }}
-                    />
-                    {ch.name}
-                  </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                    >
+                      <IconAlert
+                        type={ch?.type}
+                        color={
+                          isChannelSelected(ch?.id) ? "white" : "var(--accent)"
+                        }
+                        width={20}
+                      />
+                      <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                        {ch.name}
+                      </span>
+                    </div>
+                    {isChannelSelected(ch?.id) && (
+                      <Icon
+                        className="ti ti-x"
+                        style={{ color: "white", fontSize: "15px" }}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -481,30 +608,85 @@ export default function AlertRules() {
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {clusterNodes.map((host) => (
-                  <label
-                    key={host}
+                  <div
                     style={{
                       display: "flex",
-                      gap: 4,
-                      fontSize: "14px",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      minWidth: "140px",
+                      margin: "0px 5px",
+                      padding: "7px 15px",
+                      borderRadius: "10px",
                       cursor: "pointer",
+                      backgroundColor: !f.nodes.includes(host)
+                        ? "#59595910"
+                        : "var(--accent)",
+                      color: f.nodes.includes(host) ? "white" : "var(--accent)",
                     }}
+                    title={
+                      f.nodes.includes(host)
+                        ? `unselected the ${host} channel`
+                        : `Select the ${host} channel`
+                    }
+                    key={host}
+                    onClick={() =>
+                      setF((p) => ({
+                        ...p,
+                        nodes: p.nodes.includes(host)
+                          ? p.nodes.filter((h) => h !== host)
+                          : [...p.nodes, host],
+                      }))
+                    }
                   >
-                    <input
-                      type="checkbox"
-                      checked={f.nodes.includes(host)}
-                      onChange={() =>
-                        setF((p) => ({
-                          ...p,
-                          nodes: p.nodes.includes(host)
-                            ? p.nodes.filter((h) => h !== host)
-                            : [...p.nodes, host],
-                        }))
-                      }
-                      style={{ accentColor: "var(--accent)" }}
-                    />
-                    {host}
-                  </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                    >
+                      <IconAlert
+                        type="node"
+                        color={
+                          f.nodes.includes(host) ? "white" : "var(--accent)"
+                        }
+                        width={20}
+                      />
+                      <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                        {host}
+                      </span>
+                    </div>
+                    {f.nodes.includes(host) && (
+                      <Icon
+                        className="ti ti-x"
+                        style={{ color: "white", fontSize: "15px" }}
+                      />
+                    )}
+                  </div>
+                  // <label
+                  //   key={host}
+                  //   style={{
+                  //     display: "flex",
+                  //     gap: 4,
+                  //     fontSize: "14px",
+                  //     cursor: "pointer",
+                  //   }}
+                  // >
+                  //   <input
+                  //     type="checkbox"
+                  //     checked={f.nodes.includes(host)}
+                  //     onChange={() =>
+                  //       setF((p) => ({
+                  //         ...p,
+                  //         nodes: p.nodes.includes(host)
+                  //           ? p.nodes.filter((h) => h !== host)
+                  //           : [...p.nodes, host],
+                  //       }))
+                  //     }
+                  //     style={{ accentColor: "var(--accent)" }}
+                  //   />
+                  //   {host}
+                  // </label>
                 ))}
               </div>
             </div>
@@ -523,8 +705,7 @@ export default function AlertRules() {
             disabled={!f.name || !f.sql || !!cronError}
             style={{ marginLeft: "10px" }}
           >
-            <Icon className="ti ti-send"></Icon>{" "}
-            Test
+            <Icon className="ti ti-send"></Icon> Test
           </button>
         </div>
       )}
@@ -689,7 +870,10 @@ export default function AlertRules() {
                     <span className="badge badge-amber">NO NODES</span>
                   )}
                   {(!r.channels || r.channels.length === 0) && (
-                    <span className="badge badge-red" title="This rule will not notify anyone">
+                    <span
+                      className="badge badge-red"
+                      title="This rule will not notify anyone"
+                    >
                       NO CHANNELS
                     </span>
                   )}
@@ -697,7 +881,10 @@ export default function AlertRules() {
                     <span
                       style={{ fontSize: "12px", color: "var(--text-muted)" }}
                     >
-                      <Icon className="ti ti-server" style={{ fontSize: 14 }}></Icon>{" "}
+                      <Icon
+                        className="ti ti-server"
+                        style={{ fontSize: 14 }}
+                      ></Icon>{" "}
                       {r.nodes.join(", ")}
                     </span>
                   )}
@@ -740,7 +927,9 @@ export default function AlertRules() {
                     className="btn btn-secondary btn-sm"
                     onClick={() => edit(r)}
                     disabled={!isAdmin}
-                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                    style={
+                      !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}
+                    }
                   >
                     <Icon className="ti ti-edit"></Icon>
                   </button>
@@ -748,7 +937,9 @@ export default function AlertRules() {
                     className="btn btn-secondary btn-sm"
                     onClick={() => toggleEnabled(r)}
                     disabled={!isAdmin}
-                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                    style={
+                      !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}
+                    }
                   >
                     <Icon
                       className={`ti ${r.enabled ? "ti-player-pause" : "ti-player-play"}`}
@@ -759,9 +950,22 @@ export default function AlertRules() {
                     className="btn btn-danger btn-sm"
                     onClick={() => isAdmin && setDel(r.id)}
                     disabled={!isAdmin}
-                    style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                    style={
+                      !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}
+                    }
                   >
                     <Icon className="ti ti-trash"></Icon>
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    title="History"
+                    onClick={() => getHistory(r.id)}
+                    disabled={!isAdmin}
+                    style={
+                      !isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}
+                    }
+                  >
+                    <Icon className="ti ti-clock"></Icon>
                   </button>
                 </div>
               </div>
@@ -769,6 +973,27 @@ export default function AlertRules() {
           })}
         </div>
       )}
+
+      {history && (
+        <div className="modal-overlay">
+          <div
+            className="modal-box"
+            style={{ padding: 0, maxWidth: 800, maxHeight: "40rem" ,padding:"2px" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", margin:"1rem"}}>
+              <h2 className="section-title" style={{fontSize:"18px"}}>
+                <Icon className="ti ti-clock"></Icon> History
+              </h2>
+              <div onClick={() => setHistory(null)}>
+                <Icon className="ti ti-x" />
+              </div>
+            </div>
+
+            <DataTable rows={history} allowFullscreen={false} />
+          </div>
+        </div>
+      )}
+
       {del && isAdmin && (
         <ConfirmModal
           title="Delete Rule"

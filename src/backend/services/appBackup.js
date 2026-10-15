@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm';
 import { db, appSettings, alertRules, alertChannels, dashboards, charts, appUsers } from '../db/index.js';
 import { executeQuery } from './clickhouse.js';
 import { getClusterNodes } from './clusterUtils.js';
+import { decrypt } from "./crypto.js";
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, 'chops.db');
@@ -33,8 +34,17 @@ function getStorageProfiles() {
 }
 
 function getS3Base(profile) {
-  if (profile.type === 'gcs') return { endpoint: `https://storage.googleapis.com/${profile.bucket}`, accessKeyId: profile.accessKeyId, accessKey: profile.accessKey };
-  return { endpoint: `${profile.endpoint || 'https://s3.amazonaws.com'}${profile.bucket}`, accessKeyId: profile.accessKeyId, accessKey: profile.accessKey };
+  if (profile.type === "gcs")
+    return {
+      endpoint: `https://storage.googleapis.com/${profile.bucket}`,
+      accessKeyId: decrypt(profile.accessKeyId),
+      accessKey: decrypt(profile.accessKey),
+    };
+  return {
+    endpoint: `${(decrypt(profile.endpoint) || "https://s3.amazonaws.com").replace(/\/$/, "")}/${profile.bucket}`,
+    accessKeyId: decrypt(profile.accessKeyId),
+    accessKey: decrypt(profile.accessKey),
+  };
 }
 
 function buildTimestamp(date) {
@@ -228,7 +238,7 @@ export function startAppBackupScheduler() {
       const day = now.getDay();
 
       // Check if it's time to run
-      if (hour !== (config.backupHour || 2)) return;
+      if (hour !== (Number.isInteger(config.backupHour) ? config.backupHour : 2)) return;
       if (config.frequency === 'weekly' && day !== (config.weekday || 0)) return;
 
       // Check if already ran this hour

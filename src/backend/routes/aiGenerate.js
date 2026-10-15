@@ -25,30 +25,31 @@ router.post(
       isApiConfigured = false,
     } = req.body || {};
 
-    if (!chatId) {
-      const resolvedTitle =
-        (title && String(title).trim()) ||
-        String(instruction ?? "")
-          .trim()
-          .slice(0, TITLE_MAX_CHARS) ||
-        null;
-
-      const chat = await ChatStore.createChat(req.user?.username, {
-        title: resolvedTitle,
-        clusterId,
-        node,
-        selectedTables: normaliseTables(tables),
-      });
-
-      chatId = chat?.id;
-
-      if (!chatId) {
-        return res.status(500).json({
-          error: "Failed to create chat.",
-        });
-      }
-    }
     try {
+      if (!chatId) {
+        const resolvedTitle =
+          (title && String(title).trim()) ||
+          String(instruction ?? "")
+            .trim()
+            .slice(0, TITLE_MAX_CHARS) ||
+          null;
+
+        const chat = await ChatStore.createChat(req.user?.username, {
+          title: resolvedTitle,
+          clusterId,
+          node,
+          selectedTables: normaliseTables(tables),
+        });
+
+        chatId = chat?.id;
+
+        if (!chatId) {
+          return res.status(500).json({
+            error: "Failed to create chat.",
+          });
+        }
+      }
+
       const isFindChatId = await ChatStore.getChat(req.user?.username, chatId);
 
       if (!isFindChatId) {
@@ -182,8 +183,8 @@ router.post(
         message: "No Api key configured yet",
       };
       return res
-        .json({ error: error?.message,sql:null})
-        .status(422);
+        .status(422)
+        .json({ error: error?.message, sql: null });
     }
 
     if (!instruction || !String(instruction).trim()) {
@@ -192,8 +193,8 @@ router.post(
         message: "An instruction is required.",
       };
       return res
-        .json({ error: error?.message,sql:null})
-        .status(422);
+        .status(422)
+        .json({ error: error?.message, sql: null });
     }
 
     const normalisedTables = normaliseTables(tables);
@@ -205,8 +206,8 @@ router.post(
       };
 
       return res
-        .json({ error: error?.message,sql:null})
-        .status(422);
+        .status(422)
+        .json({ error: error?.message, sql: null });
     }
 
     const { sql } = await generateSql({
@@ -226,8 +227,8 @@ router.post(
     });
 
     return res
-      .json({ sql,error:null })
-      .status(201);
+      .status(201)
+      .json({ sql, error: null });
   },
 );
 export default router;

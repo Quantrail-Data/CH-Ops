@@ -183,7 +183,7 @@ function rowLimitSettings(options) {
 
 // ClickHouse® query - always sends current connection credentials
 
-export async function runQuery(sql, overrides = {}) {
+export async function runQuery(sql, overrides = {},sp=false,backup_sp=false) {
   if (!sql || typeof sql !== "string") throw new Error("SQL is required.");
   const conn = getGlobalConnection();
   return apiFetch("/api/query", {
@@ -200,6 +200,8 @@ export async function runQuery(sql, overrides = {}) {
       // blocks and sends the survivors as param_<name> arguments; values are
       // never interpolated into the SQL.
       params: overrides.params || undefined,
+      sp,
+      backup_sp,
       settings: { ...rowLimitSettings(overrides), ...(overrides.settings || {}) },
     }),
   });

@@ -2,7 +2,7 @@
 // Contributors -> Kathirdhasan
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import { Router } from 'express';
+import { Router } from "express";
 import {
   listK8sConnections,
   listOperators,
@@ -17,7 +17,7 @@ import {
   verifyClusterConnection,
   reresolveCluster,
   refreshCluster,
-} from '../controllers/k8s.js';
+} from "../controllers/k8s.js";
 import {
   getTopology,
   getReconcile,
@@ -29,44 +29,44 @@ import {
   getHealth,
   getRbacContext,
   refreshNow,
-} from '../controllers/k8sInsight.js';
-import { requireAdmin } from '../controllers/users.js';
+} from "../controllers/k8sInsight.js";
+import { requireAdmin } from "../controllers/users.js";
 
 const router = Router();
 
 // Connections.
-router.get('/operators', listOperators);
-router.get('/connections', listK8sConnections);
-router.post('/connections', requireAdmin, createK8sConnection);
-router.put('/connections/:id', requireAdmin, updateK8sConnection);
-router.delete('/connections/:id', requireAdmin, deleteK8sConnection);
+router.get("/operators", listOperators);
+router.get("/connections", listK8sConnections);
+router.post("/connections", requireAdmin, createK8sConnection);
+router.put("/connections/:id", requireAdmin, updateK8sConnection);
+router.delete("/connections/:id", requireAdmin, deleteK8sConnection);
 
 // Testing reaches out to a caller-supplied address, so it is admin only.
-router.post('/test', requireAdmin, testK8sConnection);
+router.post("/test", requireAdmin, testK8sConnection);
 
 // Discovery.
-router.get('/connections/:id/namespaces', listNamespaces);
-router.get('/connections/:id/installations', listInstallations);
-router.get('/connections/:id/installations/:name', getInstallation);
+router.get("/connections/:id/namespaces", listNamespaces);
+router.get("/connections/:id/installations", listInstallations);
+router.get("/connections/:id/installations/:name", getInstallation);
 
 // Import creates a CHOps cluster, so it matches cluster creation.
-router.post('/import', requireAdmin, importInstallation);
+router.post("/import", requireAdmin, importInstallation);
 
 // Manual refresh re-reads the host list.
-router.post('/clusters/:id/refresh', refreshCluster);
-router.post('/clusters/:id/reresolve', requireAdmin, reresolveCluster);
-router.post('/clusters/verify', requireAdmin, verifyClusterConnection);
+router.post("/clusters/:id/refresh", refreshCluster);
+router.post("/clusters/:id/reresolve", requireAdmin, reresolveCluster);
+router.post("/clusters/verify", requireAdmin, verifyClusterConnection);
 
 // Insight.
-router.get('/insight/:clusterId/topology', getTopology);
-router.get('/insight/:clusterId/reconcile', getReconcile);
-router.get('/insight/:clusterId/config', getConfig);
-router.get('/insight/:clusterId/storage', getStorage);
-router.get('/insight/:clusterId/network', getNetwork);
-router.get('/insight/:clusterId/events', getEvents);
-router.get('/insight/:clusterId/logs/:pod', getLogs);
-router.get('/insight/:clusterId/health', getHealth);
-router.get('/insight/:clusterId/rbac-context', getRbacContext);
-router.post('/insight/:clusterId/refresh', refreshNow);
+router.get("/insight/:clusterId/topology", requireAdmin, getTopology);
+router.get("/insight/:clusterId/reconcile", requireAdmin, getReconcile);
+router.get("/insight/:clusterId/config", requireAdmin, getConfig);
+router.get("/insight/:clusterId/storage", requireAdmin, getStorage);
+router.get("/insight/:clusterId/network", requireAdmin, getNetwork);
+router.get("/insight/:clusterId/events", requireAdmin, getEvents);
+router.get("/insight/:clusterId/logs/:pod", requireAdmin, getLogs);
+router.get("/insight/:clusterId/health", requireAdmin, getHealth);
+router.get("/insight/:clusterId/rbac-context", requireAdmin, getRbacContext);
+router.post("/insight/:clusterId/refresh", refreshNow);
 
 export default router;

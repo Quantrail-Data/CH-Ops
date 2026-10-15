@@ -11,7 +11,7 @@ import {
 import useIdleTimeout from "./hooks/useIdleTimeout.js";
 import LoginPage from "./components/layout/LoginPage.jsx";
 import MainLayout from "./components/layout/MainLayout.jsx";
-import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
+import SetupPassword from "./components/layout/SetupPassword.jsx";
 import { apiFetch } from "./utils/api.js";
 
 // Each context defaults to an inert value with the SAME SHAPE the provider
@@ -48,7 +48,7 @@ const NO_CONNECTION = Object.freeze({
   error: null,
   clusterName: "",
   serverVersion: null,
-  unavailable:[],
+  unavailable: [],
   setConnection: () => {},
   testConnection: () => {},
   reloadConfig: () => {},
@@ -153,14 +153,14 @@ export default function App() {
     error: null,
     clusterName: "",
     serverVersion: null,
-    unavailable:[]
+    unavailable: [],
   });
 
   // Keep global connection store in sync
   function setConnection(updater) {
     setConnectionState((prev) => {
       const next =
-      typeof updater === "function" ? updater(prev) : { ...prev, ...updater };
+        typeof updater === "function" ? updater(prev) : { ...prev, ...updater };
       setGlobalConnection({
         node: next.selectedNode,
         nodeName: next.nodeName,
@@ -168,7 +168,7 @@ export default function App() {
         port: next.port,
         clusterId: next.selectedClusterId,
         connected: true,
-        unavailable:next.unavailable
+        unavailable: next.unavailable,
       });
       return next;
     });
@@ -277,7 +277,7 @@ export default function App() {
         connected: Object?.keys(first)?.length > 0 ? true : false,
         error: null,
         serverVersion: null,
-        unavailable:[],
+        unavailable: [],
       };
     });
   }
@@ -294,7 +294,7 @@ export default function App() {
         setConnection((prev) => ({
           ...prev,
           serverVersion: r.version ?? null,
-          unavailable:r.unavailable
+          unavailable: r.unavailable,
         }));
       })
       .catch(() => {
@@ -342,6 +342,8 @@ export default function App() {
       return { ok: false, message: err.message };
     }
   }
+  const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+  const token = params.get("token");
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
@@ -356,11 +358,9 @@ export default function App() {
           }}
         >
           {auth ? (
-            auth.mustChangePassword ? (
-              <ForceChangePassword />
-            ) : (
               <MainLayout />
-            )
+          ) : token ? (
+            <SetupPassword token={token}/>
           ) : (
             <LoginPage />
           )}
