@@ -24,6 +24,27 @@ const searchHeadersPlugin = {
   },
 };
 
+const NODE_MODE = process.env.VITEST_NODE_MODE === '1';
+
+const BUN_EXCLUDED_SUITES = [
+  '**/node_modules/**',
+  'tests/frontend/ExportWizard-resume.test.jsx',
+  'tests/frontend/api-management.test.jsx',
+  'tests/frontend/app-data-backup.test.jsx',
+  'tests/frontend/export-wizard.test.jsx',
+  'tests/frontend/navbar.test.jsx',
+  'tests/frontend/overview-components.test.jsx',
+  'tests/frontend/overview-live.test.jsx',
+  'tests/frontend/overview-page.test.jsx',
+  'tests/frontend/query-metrics.test.jsx',
+  'tests/frontend/sqlActions.test.jsx',
+  'tests/frontend/user-management.test.jsx',
+];
+
+const NODE_EXCLUDED_SUITES = [
+  '**/node_modules/**',
+];
+
 export default defineConfig({
   plugins: [react(), searchHeadersPlugin],
   define: {
@@ -71,20 +92,7 @@ export default defineConfig({
     //     npx vitest run tests/frontend
     // Remove this exclude list on any machine that has Node, or if the suites
     // are ever reworked to inject their dependencies rather than mock modules.
-    exclude: [
-      '**/node_modules/**',
-      'tests/frontend/ExportWizard-resume.test.jsx',
-      'tests/frontend/api-management.test.jsx',
-      'tests/frontend/app-data-backup.test.jsx',
-      'tests/frontend/export-wizard.test.jsx',
-      'tests/frontend/navbar.test.jsx',
-      'tests/frontend/overview-components.test.jsx',
-      'tests/frontend/overview-live.test.jsx',
-      'tests/frontend/overview-page.test.jsx',
-      'tests/frontend/query-metrics.test.jsx',
-      'tests/frontend/sqlActions.test.jsx',
-      'tests/frontend/user-management.test.jsx',
-    ],
+    exclude: NODE_MODE ? NODE_EXCLUDED_SUITES : BUN_EXCLUDED_SUITES,
     setupFiles: ['tests/frontend/setup.js'],
     coverage: {
       provider: 'istanbul',

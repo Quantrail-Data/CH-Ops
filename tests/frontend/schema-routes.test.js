@@ -370,10 +370,11 @@ describe("Security: RBAC on Write Operations", () => {
   });
 
   const settingsCode = read("src/backend/controllers/settings.js");
-  it("settings protects sensitive keys at admin level", () => {
-    expect(settingsCode).toContain("PROTECTED_KEYS");
+  it("settings allows writes only for allowlisted keys", () => {
+    expect(settingsCode).toContain("USER_WRITABLE");
+    expect(settingsCode).toContain("ADMIN_WRITABLE");
     expect(settingsCode).toContain("cluster.nodes");
-    expect(settingsCode).toContain("requireAdminForKey");
+    expect(settingsCode).toContain("requireWriteAccess");
   });
 
   const clusterCode = read("src/backend/controllers/cluster.js");
