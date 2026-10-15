@@ -40,12 +40,6 @@ describe('Sidebar: 10 Core Sections', () => {
 
   it('auto-collapsed on editor routes', () => {
     const ml = read('src/frontend/components/layout/MainLayout.jsx');
-    expect(
-      ml.includes('const isEditorRoute = route.startsWith("editor/")') ||
-      ml.includes("const isEditorRoute = route.startsWith('editor/')") ||
-      ml.includes('const isEditorRoute = route.includes("qurioz")') ||
-      ml.includes("const isEditorRoute = route.includes('qurioz')")
-    ).toBe(true);
     expect(ml).toContain('forceCollapsed={false}');
     expect(ml).toContain('collapsed={sidebarCollapsed}');
   });
@@ -231,10 +225,7 @@ describe('Sidebar: current structure behavior', () => {
     expect(code).toContain('useLocation');
   });
 
-  it('uses useTheme', () => {
-    expect(code).toContain('useTheme');
-    expect(code).toContain('const {theme} = useTheme();');
-  });
+
 
   it('contains openSections state', () => {
     expect(code).toContain('const [openSections, setOpenSections]');

@@ -100,17 +100,17 @@ export function getEnginePalette() {
 export function getEdgeColors() {
   return isDarkTheme()
     ? {
-        mv: "#BA68C8",
-        dict: "#4FC3F7",
-        distributed: "#FFB74D",
-        normal: "#666",
-      }
+      mv: "#BA68C8",
+      dict: "#4FC3F7",
+      distributed: "#FFB74D",
+      normal: "#666",
+    }
     : {
-        mv: "#6A1B9A",
-        dict: "#01579B",
-        distributed: "#BF360C",
-        normal: "#999",
-      };
+      mv: "#6A1B9A",
+      dict: "#01579B",
+      distributed: "#BF360C",
+      normal: "#999",
+    };
 }
 
 // Formatting
@@ -325,14 +325,14 @@ export async function fetchSchemaData() {
     dictsRes = await runQuery(
       `SELECT database, name, source FROM system.dictionaries WHERE status IN ('LOADED','NOT_LOADED','LOADING')`,
     );
-  } catch {}
+  } catch { }
 
   let refreshesRes = { rows: [] };
   try {
     refreshesRes = await runQuery(
       `SELECT database, view, status, last_success_time, next_refresh_time, exception FROM system.view_refreshes`,
     );
-  } catch {}
+  } catch { }
 
   const columnsByTable = new Map();
   for (const c of columnsRes.rows) {

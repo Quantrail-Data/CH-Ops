@@ -213,7 +213,7 @@ export default function ClusterManagement() {
   const [k8sForm, setK8sForm] = useState(null);
   const [k8sVerify, setK8sVerify] = useState(null);
   const [k8sSaving, setK8sSaving] = useState(false);
-  const [onRefresh,setOnRefresh] = useState(false);
+  const [onRefresh, setOnRefresh] = useState(false);
 
 
   const [deleting, setDeleting] = useState(null);
@@ -352,7 +352,7 @@ export default function ClusterManagement() {
             valid.findIndex((formNode) => formNode.name === node.name),
           );
 
-          arrayIndexes.map((idx) =>{
+          arrayIndexes.map((idx) => {
             const key = `${editing || "new"}-${idx}`;
             setTestResults((p) => ({ ...p, [key]: { ok: false, msg: "node test is failed check the host and password" } }));
           })
@@ -372,7 +372,7 @@ export default function ClusterManagement() {
             valid.findIndex((formNode) => formNode.name === node.name),
           );
 
-          arrayIndexes.map((idx) =>{
+          arrayIndexes.map((idx) => {
             const key = `${"new"}-${idx}`;
             setTestResults((p) => ({ ...p, [key]: { ok: false, msg: "node test is failed check the host and password" } }));
           })
@@ -390,8 +390,8 @@ export default function ClusterManagement() {
       toast.error(err.message);
     }
   }
-  
-useEffect(() => {
+
+  useEffect(() => {
     if (!editingK8s) return undefined;
     const onKey = (e) => {
       if (e.key === "Escape" && !k8sSaving) setEditingK8s(null);
@@ -401,7 +401,7 @@ useEffect(() => {
   }, [editingK8s, k8sSaving]);
 
 
-function startEditK8s(cluster) {
+  function startEditK8s(cluster) {
     setEditingK8s(cluster);
     setK8sForm({
       name: cluster.name,
@@ -541,25 +541,25 @@ function startEditK8s(cluster) {
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <button className="btn btn-secondary btn-sm" onClick={load}>
-           {onRefresh ? <div className="loading-spinner"/> :
-                           <Icon className="ti ti-refresh"></Icon>}
+            {onRefresh ? <div className="loading-spinner" /> :
+              <Icon className="ti ti-refresh"></Icon>}
           </button>
           {k8sEnabled && tab === "k8s"
             ? !showK8sWizard &&
-              clusters.length < MAX_CLUSTERS && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => setShowK8sWizard(true)}
-                >
-                  <Icon className="ti ti-plus"></Icon> New Cluster
-                </button>
-              )
+            clusters.length < MAX_CLUSTERS && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => setShowK8sWizard(true)}
+              >
+                <Icon className="ti ti-plus"></Icon> New Cluster
+              </button>
+            )
             : !showForm &&
-              clusters.length < MAX_CLUSTERS && (
-                <button className="btn btn-primary btn-sm" onClick={startNew}>
-                  <Icon className="ti ti-plus"></Icon> New Cluster
-                </button>
-              )}
+            clusters.length < MAX_CLUSTERS && (
+              <button className="btn btn-primary btn-sm" onClick={startNew}>
+                <Icon className="ti ti-plus"></Icon> New Cluster
+              </button>
+            )}
           {k8sEnabled && tab === "k8s" && showK8sWizard && (
             <button
               className="btn btn-secondary btn-sm"
@@ -911,16 +911,15 @@ function startEditK8s(cluster) {
         </div>
       )}
 
-      
+
       <ConfirmDialog
         open={!!deleting}
         tone="danger"
         title="Delete this cluster?"
         message={
           deleting
-            ? `"${deleting.name}" will be removed from CHOps, along with its ${deleting.nodes?.length ?? 0} node${
-                deleting.nodes?.length === 1 ? "" : "s"
-              }.`
+            ? `"${deleting.name}" will be removed from CHOps, along with its ${deleting.nodes?.length ?? 0} node${deleting.nodes?.length === 1 ? "" : "s"
+            }.`
             : ""
         }
         detail={

@@ -5,7 +5,7 @@
 // be absent), computes overall line coverage, and - when run against a PR
 // (COVERAGE_BASE_SHA / COVERAGE_HEAD_SHA set) - a per-file "patch coverage"
 // table limited to files changed in that diff. Prints Markdown to stdout.
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 
 const LCOV_FILES = ['coverage/backend/lcov.info', 'coverage/frontend/lcov.info'];
@@ -51,7 +51,7 @@ function changedFiles() {
   const head = process.env.COVERAGE_HEAD_SHA;
   if (!base || !head) return null;
   try {
-    const out = execSync(`git diff --name-only ${base} ${head}`, { encoding: 'utf8' });
+    const out = execFileSync('git', ['diff', '--name-only', base, head], { encoding: 'utf8' });
     return new Set(out.split('\n').map((f) => f.trim()).filter(Boolean));
   } catch {
     return null;

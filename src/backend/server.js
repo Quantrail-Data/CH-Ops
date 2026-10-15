@@ -12,7 +12,7 @@ let embeddedAssets = null;
 try {
   const mod = await import("./embeddedAssets.js");
   embeddedAssets = mod.default;
-} catch {}
+} catch { }
 
 // let RD_SERVICE = null;
 // try {

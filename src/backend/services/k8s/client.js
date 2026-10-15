@@ -68,7 +68,7 @@ export function createK8sClient({
     };
 
     let attempt = 0;
-    for (;;) {
+    for (; ;) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       const abortSignal = signal
@@ -157,7 +157,10 @@ export function createK8sClient({
 
   // POST, used only for SelfSubjectRulesReview.
   async function post(path, payload, options = {}) {
-    const url = new URL(base + path);
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(String(path || ''))) {
+      throw new Error('Invalid request path');
+    }
+    const url = new URL(String(path || ''), base);
     let response;
     try {
       response = await fetch(url.toString(), {

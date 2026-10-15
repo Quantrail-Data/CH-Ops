@@ -3,12 +3,10 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { describe, it, expect, beforeEach, beforeAll, mock } from "bun:test";
-
 const fakeDB = {
   users: [],
 };
 
-const eq = (field, value) => ({ field, value });
 
 function createQuery() {
   const data = fakeDB.users;
@@ -16,7 +14,6 @@ function createQuery() {
   return {
     where: (cond) => {
       let filtered = data;
-
       if (cond?.field === "id") {
         filtered = data.filter((u) => u.id === cond.value);
       }
@@ -83,12 +80,24 @@ const db = {
   }),
 };
 
-const jsonMock = mock(() => {});
+const eq = (l, r) => {
+  return { field: l, value: r }
+}
+const jsonMock = mock(() => { });
 const statusMock = mock(() => ({ json: jsonMock }));
 const nextMock = mock();
-
+const loadEnv = () => {
+  return {
+    smtp: {
+      host: 'localhost',
+      port: '3000',
+      user: 'test',
+      pass: '1234',
+      from: 'b@test.com'
+    }
+  }
+}
 const sendNotification = mock();
-const logAudit = mock();
 
 // Controller functions - populated in beforeAll after mocks are registered.
 // Keeping these at module scope so all it() blocks can reference them.
@@ -123,8 +132,19 @@ beforeAll(async () => {
 
   mock.module("../../src/backend/services/notifier.js", () => ({
     sendNotification,
-    testChannel: () => {},
+    testChannel: () => { },
   }));
+
+  const drizzle = await import("drizzle-orm");
+  mock.module("drizzle-orm", async () => {
+    return { ...drizzle, eq }
+  })
+
+  mock.module('../../src/backend/utils/env.js', () => {
+    return {
+      loadEnv
+    }
+  })
 
   const mod = await import("../../src/backend/controllers/users.js");
   listUsers = mod.listUsers;
@@ -150,6 +170,7 @@ describe("Users Controller", () => {
     jsonMock.mockClear();
     statusMock.mockClear();
     nextMock.mockClear();
+    sendNotification.mockReset();
 
     db.insert = originalDb.insert;
     db.update = originalDb.update;
@@ -163,6 +184,15 @@ describe("Users Controller", () => {
     listUsers({}, { json: jsonMock });
 
     expect(jsonMock).toHaveBeenCalled();
+  });
+
+  it("listUsers empty returns empty array", () => {
+    // ensure no users
+    fakeDB.users = [];
+
+    listUsers({}, { json: jsonMock });
+
+    expect(jsonMock).toHaveBeenCalledWith([]);
   });
 
   it("requireAdmin blocks readonly", () => {
@@ -255,8 +285,44 @@ describe("Users Controller", () => {
     expect(statusMock).toHaveBeenCalledWith(403);
   });
 
+  it("createUser limits 3 superadmin", async () => {
+    fakeDB.users.push({ id: 1, username: "test1", role: "superadmin" }, { id: 2, username: "test2", role: "superadmin" }, { id: 3, username: "test3", role: "superadmin" })
+    await createUser(
+      {
+        user: { role: "superadmin" },
+        body: {
+          username: "test4",
+          email: "a@test.com",
+          role: "superadmin",
+          audit: {},
+        },
+      },
+      { status: statusMock, json: jsonMock },
+    );
+    expect(jsonMock).toBeCalledWith({
+      error: "Maximum 3 super admins allowed.",
+    })
+  })
+
+  it("createUser sends generated password if SMTP is configured", async () => {
+
+    await createUser({
+      user: { role: "admin" },
+      body: {
+        username: "john",
+        email: "a@test.com",
+        role: "readonly",
+        audit: {},
+      },
+    },
+      { status: statusMock, json: jsonMock },)
+
+    expect(sendNotification).toHaveBeenCalled()
+
+  })
+
   it("updateUser reset password flow", async () => {
-    fakeDB.users.push({ id: 1, username: "john", role: "readonly" });
+    fakeDB.users.push({ id: 1, username: "john", role: "readonly", email: "john@example.test" });
 
     await updateUser(
       {
@@ -273,6 +339,7 @@ describe("Users Controller", () => {
     expect(jsonMock).toHaveBeenCalledWith(
       expect.objectContaining({ ok: true }),
     );
+    expect(sendNotification).toHaveBeenCalled()
   });
 
   it("deleteUser blocks higher role", () => {
@@ -418,6 +485,69 @@ describe("Users Controller", () => {
     });
   });
 
+  it('allows a superadmin to change a lower-privilege user role', async () => {
+    fakeDB.users.push({ id: 1, username: 'john', role: 'readonly' });
+
+    await updateUser(
+      {
+        params: { id: '1' },
+        user: { userId: 2, role: 'superadmin' },
+        body: { role: 'editor' },
+      },
+      { json: jsonMock, status: statusMock },
+    );
+
+    expect(fakeDB.users[0].role).toBe('editor');
+    expect(jsonMock).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it('resets a password and continues when reset-email delivery fails', async () => {
+    fakeDB.users.push({ id: 1, username: 'john', role: 'readonly', email: 'john@example.test' });
+    sendNotification.mockRejectedValueOnce(new Error('SMTP unavailable'));
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      await updateUser(
+        {
+          params: { id: '1' },
+          user: { userId: 2, role: 'admin' },
+          body: { resetPassword: true },
+        },
+        { json: jsonMock, status: statusMock },
+      );
+    } finally {
+      console.error = originalError;
+    }
+
+    expect(sendNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'email', to: 'john@example.test' }),
+      expect.objectContaining({ name: 'CHOps Password Reset' }),
+    );
+    expect(fakeDB.users[0].mustChangePassword).toBe(true);
+    expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ ok: true, generatedPassword: expect.any(String) }));
+  });
+
+  it('resets a password without attempting email when the user has no address', async () => {
+    fakeDB.users.push({ id: 1, username: 'no-email', role: 'readonly' });
+    const originalLog = console.log;
+    console.log = () => {};
+    try {
+      await updateUser(
+        {
+          params: { id: '1' },
+          user: { userId: 2, role: 'admin' },
+          body: { resetPassword: true },
+        },
+        { json: jsonMock, status: statusMock },
+      );
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(sendNotification).not.toHaveBeenCalled();
+    expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+  });
+
   it("deleteUser self blocked", () => {
     deleteUser(
       {
@@ -429,6 +559,22 @@ describe("Users Controller", () => {
     );
 
     expect(statusMock).toHaveBeenCalledWith(400);
+  });
+
+  it("deleteUser 404 when user not found", () => {
+    // no users in DB
+    fakeDB.users = [];
+
+    deleteUser(
+      {
+        params: { id: "999" },
+        user: { userId: 2, role: "admin" },
+        body: { audit: {} },
+      },
+      { status: statusMock },
+    );
+
+    expect(statusMock).toHaveBeenCalledWith(404);
   });
 
   it("deleteUser success", () => {

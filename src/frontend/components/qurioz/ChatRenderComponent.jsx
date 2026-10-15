@@ -11,10 +11,9 @@ import { AnimatePresence, motion } from "motion/react";
 import ChartVisualization from "./ChartVisualization";
 import { useToast } from "../layout/Toast";
 import { apiFetch } from "../../utils/api";
-import {  useAuth } from "../../App";
+import { useAuth } from "../../App";
 import AILoaderComponent from "./AILoaderComponent";
 
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 function ChatRenderComponent({
   chatMessage,
@@ -50,10 +49,7 @@ function ChatRenderComponent({
     }
   }, [editMessage]);
 
-  const downloadingFilesDataOptionSetting = [
-    { id: 1, title: "JSON", icon: "ti-file-code-2" },
-    { id: 2, title: "CSV", icon: "ti-file-spreadsheet" },
-  ];
+
 
   const editHandler = () => {
     setEditMessage(chatMessage?.userQuestion);
@@ -71,9 +67,9 @@ function ChatRenderComponent({
       ...chatMessage,
       id: chatMessage?.id,
       userQuestion: editMessage,
-    
+
     };
-    ReFormQuestionSQLGenerating(editMessage, index,chatMessage?.messageId);
+    ReFormQuestionSQLGenerating(editMessage, index, chatMessage?.messageId);
     replaceChat(updatedUserQuestion);
     setIsEditable(false);
     setEditMessage(null);
@@ -502,7 +498,7 @@ function ChatRenderComponent({
                     >
                       <Icon className="ti ti-copy" />
                     </button>
-                    
+
 
                     <button
                       className="icon-action-bot btn btn-ghost"

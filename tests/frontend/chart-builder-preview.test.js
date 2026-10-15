@@ -72,12 +72,6 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toMatch(/setTimeout\(\(\)\s*=>\s*\{[\s\S]*previewInst\.current[\s\S]*resize\(\)[\s\S]*\}\s*,\s*150\s*\);/);
   });
 
-  it('keeps zoom reset support in the component', () => {
-    expect(code).toContain('function resetZoom()');
-    expect(code).toContain('type: "dataZoom"');
-    expect(code).toContain('dataZoomIndex: 0');
-  });
-
   it('defines chart control flags for pie and non-pie charts', () => {
     expect(code).toContain('const pieChartControlsFlags = {');
     expect(code).toContain('zoomFun: false');

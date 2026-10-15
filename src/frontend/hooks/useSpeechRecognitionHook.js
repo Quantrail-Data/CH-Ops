@@ -56,7 +56,7 @@ function useSpeechRecognitionHook(onTranscript) {
         const SpeechRecognition_v1 = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition_v1) {
             // Not supported; nothing else to do
-            return () => {};
+            return () => { };
         }
 
         const recognition = new SpeechRecognition_v1();
@@ -109,7 +109,7 @@ function useSpeechRecognitionHook(onTranscript) {
                 }
             } catch (e) {
             }
-        }
+        };
     }, [onTranscript]);
 
     // start/stop listening

@@ -14,7 +14,6 @@ import Icon from "../common/Icon.jsx";
 import {
   ReactFlow,
   Controls,
-  MiniMap,
   Background,
   Handle,
   Position,
@@ -36,7 +35,6 @@ import {
   formatBytes,
   formatNum,
   formatDuration,
-  DEFAULT_WHERE,
   DEFAULT_KIND,
   DEFAULT_TYPE,
   defaultTimeRange,
@@ -132,21 +130,21 @@ function DetailPanel({ processorId, profile, onClose }) {
 
   const rows = profile
     ? [
-        ["Processor", profile.name || processorId],
-        ["Uniq ID", processorId],
-        ["Step", profile.step_id || "-"],
-        ["Elapsed", formatUs(profile.elapsed_us)],
-        ["Input wait", formatUs(profile.input_wait_us)],
-        ["Output wait", formatUs(profile.output_wait_us)],
-        ["Input rows", formatNum(profile.input_rows)],
-        ["Input bytes", formatBytes(profile.input_bytes)],
-        ["Output rows", formatNum(profile.output_rows)],
-        ["Output bytes", formatBytes(profile.output_bytes)],
-      ]
+      ["Processor", profile.name || processorId],
+      ["Uniq ID", processorId],
+      ["Step", profile.step_id || "-"],
+      ["Elapsed", formatUs(profile.elapsed_us)],
+      ["Input wait", formatUs(profile.input_wait_us)],
+      ["Output wait", formatUs(profile.output_wait_us)],
+      ["Input rows", formatNum(profile.input_rows)],
+      ["Input bytes", formatBytes(profile.input_bytes)],
+      ["Output rows", formatNum(profile.output_rows)],
+      ["Output bytes", formatBytes(profile.output_bytes)],
+    ]
     : [
-        ["Processor", processorId],
-        ["Status", "No data in processors_profile_log"],
-      ];
+      ["Processor", processorId],
+      ["Status", "No data in processors_profile_log"],
+    ];
 
   return (
     <div
@@ -362,7 +360,7 @@ function ProcessorsProfileInner() {
       // Step 2: Flush logs (best-effort, non-fatal)
       try {
         await runQuery("SYSTEM FLUSH LOGS");
-      } catch {}
+      } catch { }
       if (isStale()) return;
 
       // Step 3: EXPLAIN PIPELINE graph
@@ -449,10 +447,10 @@ function ProcessorsProfileInner() {
         if (result.rows?.length > 0) {
           const exists = qidFromUrl
             ? result.rows.some((r) => {
-                if (r.query_id === qidFromUrl) {
-                  return r;
-                }
-              })
+              if (r.query_id === qidFromUrl) {
+                return r;
+              }
+            })
             : false;
 
           const qid = exists ? qidFromUrl : result.rows[0].query_id;
@@ -881,12 +879,12 @@ function ProcessorsProfileInner() {
         style={{
           ...(fullscreen
             ? {
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                borderRadius: 0,
-                margin: 0,
-              }
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              borderRadius: 0,
+              margin: 0,
+            }
             : { flex: 1 }),
           padding: 0,
           overflow: "hidden",

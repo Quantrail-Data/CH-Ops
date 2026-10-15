@@ -122,6 +122,12 @@ describe("ockoPaths", () => {
     expect(p.keepers("prod")).toBe(
       "/apis/clickhouse.com/v1beta1/namespaces/prod/keeperclusters",
     );
+    expect(p.cluster('prod', 'analytics')).toBe(
+      '/apis/clickhouse.com/v1beta1/namespaces/prod/clickhouseclusters/analytics',
+    );
+    expect(p.keeper('prod', 'zoo')).toBe(
+      '/apis/clickhouse.com/v1beta1/namespaces/prod/keeperclusters/zoo',
+    );
   });
 
   it("reads the preferred version from discovery", async () => {
@@ -141,6 +147,35 @@ describe("ockoPaths", () => {
       "app.kubernetes.io/instance=test-clickhouse,clickhouse.com/role=clickhouse-server",
     );
     expect(instanceOf("test")).toBe("test-clickhouse");
+    expect(selectors.ownedByInstance('test')).toBe('app.kubernetes.io/instance=test-clickhouse');
+    expect(selectors.keeperOwnedBy('zoo')).toBe('app.kubernetes.io/instance=zoo-keeper');
+  });
+});
+
+describe('OCKO discovery and installation listing', () => {
+  it('lists namespaces and fails clearly when the operator API group is absent', async () => {
+    const provider = createOckoProvider(stubClient({
+      namespaces: [{ metadata: { name: 'prod' } }, { metadata: { name: 'dev' } }],
+    }));
+    expect(await provider.listNamespaces()).toEqual(['prod', 'dev']);
+    await expect(provider.listInstallations('prod')).rejects.toMatchObject({
+      code: 'K8S_OPERATOR_MISSING',
+    });
+  });
+
+  it('maps condition status and default shard/replica counts for listed clusters', async () => {
+    const provider = createOckoProvider(stubClient({
+      ...DISCOVERY,
+      clickhouseclusters: [
+        { metadata: { name: 'ready' }, spec: { shards: 2, replicas: 4 }, status: { version: '25.8', conditions: [{ type: 'Ready', status: 'True' }] } },
+        { metadata: { name: 'pending' }, spec: {}, status: { conditions: [{ type: 'Ready', status: 'False', reason: 'Reconciling' }] } },
+      ],
+    }));
+
+    expect(await provider.listInstallations('prod')).toEqual([
+      { namespace: 'prod', name: 'ready', status: 'Ready', version: '25.8', clusters: 1, shards: 2, hosts: 8, endpoint: null },
+      { namespace: 'prod', name: 'pending', status: 'Reconciling', version: null, clusters: 1, shards: 1, hosts: 3, endpoint: null },
+    ]);
   });
 });
 
@@ -522,6 +557,61 @@ describe("getNetwork", () => {
 
     expect((await p.getNetwork("chtest", "test")).services[0].name)
       .toBe("test-clickhouse-headless");
+  });
+});
+
+describe('OCKO events, logs, and operator health', () => {
+  it('maps service, policy, ingress, and event information', async () => {
+    const provider = createOckoProvider(stubClient({
+      ...DISCOVERY,
+      '/services': [{
+        metadata: { name: 'public' }, spec: { type: 'LoadBalancer', clusterIP: '10.1.0.2', ports: [{ name: 'https', port: 8443, targetPort: 8123 }] },
+        status: { loadBalancer: { ingress: [{ ip: '203.0.113.8' }] } },
+      }],
+      networkpolicies: [{ metadata: { name: 'allow-client' }, spec: { policyTypes: ['Ingress'] } }],
+      ingresses: [{ metadata: { name: 'web' }, spec: { rules: [{ host: 'ch.example.test' }, {}] } }],
+      poddisruptionbudgets: [],
+      events: [
+        { type: 'Normal', reason: 'Old', message: 'old', involvedObject: { name: 'test-clickhouse-0' }, lastTimestamp: '2026-01-01T00:00:00Z' },
+        { type: 'Warning', reason: 'New', message: 'new', involvedObject: { name: 'test' }, count: 2, eventTime: '2026-01-02T00:00:00Z' },
+        { type: 'Normal', reason: 'Skip', involvedObject: { name: 'other' } },
+      ],
+    }));
+    const network = await provider.getNetwork('prod', 'test');
+    expect(network.services[0]).toEqual({
+      name: 'public', type: 'LoadBalancer', clusterIP: '10.1.0.2', externalAddress: '203.0.113.8',
+      ports: [{ name: 'https', port: 8443, targetPort: 8123 }],
+    });
+    expect(network.networkPolicies).toEqual([{ name: 'allow-client', policyTypes: ['Ingress'] }]);
+    expect(network.ingresses).toEqual([{ name: 'web', hosts: ['ch.example.test'] }]);
+
+    const events = await provider.getEvents('prod', 'test');
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ reason: 'New', count: 2 });
+    expect(events[1]).toMatchObject({ reason: 'Old', count: 1 });
+  });
+
+  it('forwards log options and reports reachable or unavailable operators', async () => {
+    let received;
+    const client = stubClient(DISCOVERY);
+    client.stream = async (path, options) => { received = { path, options }; return 'stream'; };
+    const provider = createOckoProvider(client);
+    expect(await provider.streamLogs('prod', 'test-0', {
+      container: 'sidecar', tailLines: 10, sinceSeconds: 30, previous: true,
+      timestamps: false, follow: true, limitBytes: 50,
+    })).toBe('stream');
+    expect(received.options).toEqual({
+      query: { container: 'sidecar', tailLines: 10, sinceSeconds: 30, previous: 'true', timestamps: undefined, follow: 'true', limitBytes: 50 },
+      context: { namespace: 'prod', resource: 'pods/log' },
+    });
+    expect(await provider.getOperatorHealth('prod')).toEqual({ reachable: true, version: 'v1alpha1' });
+
+    const unavailable = stubClient({});
+    unavailable.get = async () => { const error = new Error('forbidden'); error.code = 403; throw error; };
+    expect(await createOckoProvider(unavailable).getOperatorHealth('prod')).toEqual({
+      reachable: false, reason: 'K8S_OPERATOR_MISSING',
+      message: 'The Official ClickHouse® Kubernetes Operator was not found in this cluster.',
+    });
   });
 });
 

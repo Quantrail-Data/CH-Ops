@@ -207,7 +207,6 @@ export function disposeChart(el) {
       el._ro.disconnect();
     } catch (e) {
     }
-    el._ro = null;
   }
   const inst = echarts.getInstanceByDom(el);
   if (!inst) return;

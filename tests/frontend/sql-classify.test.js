@@ -77,6 +77,15 @@ describe('sqlClassify: lexing is comment / string / identifier safe', () => {
     expect(isReadOnlySql("SELECT 'DROP TABLE t' AS note")).toBe(true);
     expect(isReadOnlySql('SELECT 1 AS `DROP TABLE`')).toBe(true);
   });
+  it('does not split on semicolons inside quoted identifiers', () => {
+    const a = analyzeSql('SELECT * FROM "my;table"; SELECT 2');
+    expect(a.multiple).toBe(true);
+    expect(a.readOnly).toBe(true);
+
+    const b = analyzeSql('SELECT * FROM `my;table`; SELECT 2');
+    expect(b.multiple).toBe(true);
+    expect(b.readOnly).toBe(true);
+  });
   it('handles a leading parenthesized SELECT', () => {
     expect(isReadOnlySql('(SELECT 1) UNION ALL (SELECT 2)')).toBe(true);
   });

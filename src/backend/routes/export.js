@@ -4,6 +4,7 @@
 
 import fs from "node:fs";
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 
 import { resolveTargetNode } from "../services/clusterUtils.js";
 import { getCredSession, CRED_CONTEXTS } from "../services/chCredStore.js";
@@ -98,7 +99,7 @@ router.post("/estimate", async (req, res) => {
 
   if (!selectLike) return res.json(answer);
 
- 
+
   try {
     const est = await executeQuery({
       ...target,
@@ -115,7 +116,7 @@ router.post("/estimate", async (req, res) => {
         sql: `${wrapForCount(sql)} SETTINGS max_execution_time = 20`,
         readOnly: true,
         timeoutMs: 10000,
-      noResultLimit: true,
+        noResultLimit: true,
       });
       answer.rows = Number(counted.rows?.[0]?.c || 0);
       answer.exact = true;
@@ -170,7 +171,7 @@ router.post("/jobs", (req, res) => {
   try {
     const job = createJob({
       username: req.user?.username,
-      jti:req.user.jti,
+      jti: req.user.jti,
       sql,
       format,
       compression: compression || "none",
@@ -210,8 +211,14 @@ router.delete("/jobs/:id", (req, res) => {
   res.json({ ok: true });
 });
 
+const routeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: true,
+});
 
-downloadRouter.get("/:ticket", (req, res) => {
+downloadRouter.get("/:ticket", routeLimiter, (req, res) => {
   const job = redeemTicket(req.params.ticket);
   if (!job) return res.status(404).json({ error: "This download link has expired." });
 

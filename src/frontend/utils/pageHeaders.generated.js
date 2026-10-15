@@ -693,7 +693,6 @@ export const PAGE_TEXT = {
     "Rebuild from form",
     "Local table (created on each shard)",
     "Valid. Ready to create.",
-    "Preparing ClickHouse syntax...",
     "Evaluate with AI",
     "Assessment:",
     "Suggestions:",

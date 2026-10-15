@@ -7,7 +7,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -320,7 +320,8 @@ function MetricBar({ label, value, max, color }) {
 
 
 function buildFullQuerySql(queryId) {
-  const safeId = String(queryId).replace(/'/g, "\\'");
+  const safeId = String(queryId).replace(/'/g, "\\\\'");
+
   return `SELECT query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 
@@ -461,7 +462,7 @@ function ScatterChart({ rows, title, note }) {
       .then((r) => {
         if (alive && r.rows?.[0]?.query) setFullText(r.rows[0].query);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         if (alive) setLoadingText(false);
       });
@@ -591,7 +592,6 @@ function QueryAnalytics() {
   const [slowData, setSlowData] = useState(null);
   const [memIntData, setMemIntData] = useState(null);
   const [scatterData, setScatterData] = useState(null);
-  const navigate = useNavigate();
   const toast = useToast();
 
   useEffect(() => {
@@ -599,7 +599,7 @@ function QueryAnalytics() {
       "SELECT DISTINCT query_kind FROM system.query_log WHERE query_kind!='' ORDER BY query_kind",
     )
       .then((r) => setQueryKinds((r.rows || []).map((r) => r.query_kind)))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   function applyDuration(d) {
@@ -988,9 +988,6 @@ function QueryLogSearch({ sidebar }) {
     { k: "memory_usage", l: "Memory" },
   ];
 
-  const widthStyle = {
-    width: `${(window?.innerWidth - (sidebar ? 250 : 1200)) / (sidebar ? 8 : 5)}px`,
-  };
   const widthStyle_2 = {
     width: `${(window?.innerWidth - (sidebar ? 450 : 900)) / (sidebar ? 4 : 3)}px `,
   };

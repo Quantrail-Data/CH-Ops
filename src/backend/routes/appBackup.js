@@ -12,7 +12,6 @@ import { requireAdmin } from "../controllers/users.js";
 import { createAppBackup, listAppBackups } from "../services/appBackup.js";
 import { eq } from "drizzle-orm";
 import { db, appSettings } from "../db/index.js";
-import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
 
 const router = Router();
 

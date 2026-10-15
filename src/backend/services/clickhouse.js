@@ -125,7 +125,7 @@ export async function executeQuery({
   try {
     const summaryHeader = res.headers.get("X-ClickHouse-Summary");
     if (summaryHeader) stats = JSON.parse(summaryHeader);
-  } catch {}
+  } catch { }
 
   // The query ID assigned by ClickHouse for this execution.
   // Frontend uses this to link to profiling tools (flame graph, pipeline, metrics).
@@ -205,17 +205,17 @@ export async function executeQueryWithBody({
 
   const rows = text.trim()
     ? text
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => {
-          try {
-            return JSON.parse(line);
-          } catch {
-            return null;
-          }
-        })
-        .filter(Boolean)
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
     : [];
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
   return { rows, columns, queryId };

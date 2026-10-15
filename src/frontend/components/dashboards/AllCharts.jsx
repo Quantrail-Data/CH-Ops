@@ -47,12 +47,12 @@ export default function AllCharts({ onEdit }) {
   const previewContainerRef = useRef(null);
   const [hasPreviewInstance, setHasPreviewInstance] = useState(false);
   const appliedOptionRef = useRef(null);
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterDashboard, setFilterDashboard] = useState('all');
 
-  const { theme } = useTheme()
+  const { theme } = useTheme();
 
   const isDarkColor = theme === 'dark' ? 'white' : 'black';
 
@@ -73,7 +73,7 @@ export default function AllCharts({ onEdit }) {
       const deduped = Array.from(byId.values());
       setCharts(deduped);
       setDashboards(d);
-    } catch {}
+    } catch { }
   }
   useEffect(() => { load(); }, []);
 
@@ -89,13 +89,13 @@ export default function AllCharts({ onEdit }) {
     return charts.filter(chart => {
       // Search filter - search chart name
       const matchesSearch = chart.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
-      
+
       // Type filter - filter based on chart types
       const matchesType = filterType === 'all' || chart.chartType === filterType;
-      
+
       // Dashboard filter - filter based on dashboards
       const matchesDashboard = filterDashboard === 'all' || String(chart.dashboardId) === filterDashboard;
-      
+
       return matchesSearch && matchesType && matchesDashboard;
     });
   }, [charts, searchTerm, filterType, filterDashboard]);
@@ -144,8 +144,8 @@ export default function AllCharts({ onEdit }) {
 
       const r = await runQuery(chart.sqlQuery, Object.keys(values).length ? { params: values } : {});
       const cfg = typeof chart.config === 'string' ? JSON.parse(chart.config) : chart.config;
-      setPreviewOpt(buildChartOption(chart.chartType, chart.chartSubtype, r.rows || [], cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend } ));
-      
+      setPreviewOpt(buildChartOption(chart.chartType, chart.chartSubtype, r.rows || [], cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend }));
+
       setTimeout(() => {
         if (previewContainerRef.current) {
           previewContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -168,9 +168,9 @@ export default function AllCharts({ onEdit }) {
 
   useEffect(() => {
     if (!previewRef.current || !previewOpt || previewOpt._kpi || previewOpt._table || previewOpt._error) {
-      if (previewInst.current) { 
-        disposeChart(previewRef.current); 
-        previewInst.current = null; 
+      if (previewInst.current) {
+        disposeChart(previewRef.current);
+        previewInst.current = null;
         setHasPreviewInstance(false);
       }
       return;
@@ -185,9 +185,9 @@ export default function AllCharts({ onEdit }) {
 
   function buildChart() {
     if (!previewRef.current || !previewOpt || previewOpt._kpi || previewOpt._table || previewOpt._error) {
-      if (previewInst.current) { 
-        disposeChart(previewRef.current); 
-        previewInst.current = null; 
+      if (previewInst.current) {
+        disposeChart(previewRef.current);
+        previewInst.current = null;
         setHasPreviewInstance(false);
       }
       return;
@@ -231,59 +231,59 @@ export default function AllCharts({ onEdit }) {
 
       const resolvedLegend = previewTools.fullscreen
         ? {
+          ...previewOpt?.legend,
+          show: supportsLegend && hasLegend && showLegend,
+          type: 'scroll',
+          orient: 'vertical',
+          left: 0,
+          top: 8,
+          bottom: 8,
+          width: 220,
+          textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor, fontSize: 16 },
+          itemStyle: {
+            ...(previewOpt?.legend?.itemStyle || {}),
+            borderColor: 'transparent',
+            borderWidth: 0,
+          },
+        }
+        : isSmallScreen
+          ? {
             ...previewOpt?.legend,
             show: supportsLegend && hasLegend && showLegend,
             type: 'scroll',
-            orient: 'vertical',
+            orient: 'horizontal',
             left: 0,
-            top: 8,
-            bottom: 8,
-            width: 220,
-            textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor, fontSize: 16 },
+            right: 0,
+            top: 0,
+            width: '100%',
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
+            textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor },
             itemStyle: {
               ...(previewOpt?.legend?.itemStyle || {}),
               borderColor: 'transparent',
               borderWidth: 0,
             },
           }
-        : isSmallScreen
-          ? {
-              ...previewOpt?.legend,
-              show: supportsLegend && hasLegend && showLegend,
-              type: 'scroll',
-              orient: 'horizontal',
-              left: 0,
-              right: 0,
-              top: 0,
-              width: '100%',
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor },
-              itemStyle: {
-                ...(previewOpt?.legend?.itemStyle || {}),
-                borderColor: 'transparent',
-                borderWidth: 0,
-              },
-            }
           : {
-              ...previewOpt?.legend,
-              show: supportsLegend && hasLegend && showLegend,
-              type: 'scroll',
-              left: 0,
-              right: 0,
-              top: 0,
-              orient: "horizontal",
-              pageIconColor: isDarkColor,
-              pageIconInactiveColor: 'var(--text-muted)',
-              pageTextStyle: { color: isDarkColor },
-              textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor },
-              itemStyle: {
-                ...(previewOpt?.legend?.itemStyle || {}),
-                borderColor: 'transparent',
-                borderWidth: 0,
-              },
-            };
+            ...previewOpt?.legend,
+            show: supportsLegend && hasLegend && showLegend,
+            type: 'scroll',
+            left: 0,
+            right: 0,
+            top: 0,
+            orient: "horizontal",
+            pageIconColor: isDarkColor,
+            pageIconInactiveColor: 'var(--text-muted)',
+            pageTextStyle: { color: isDarkColor },
+            textStyle: { ...(previewOpt?.legend?.textStyle || {}), color: isDarkColor },
+            itemStyle: {
+              ...(previewOpt?.legend?.itemStyle || {}),
+              borderColor: 'transparent',
+              borderWidth: 0,
+            },
+          };
 
       const baseOption = withZoomable({
         ...previewOpt,
@@ -331,7 +331,7 @@ export default function AllCharts({ onEdit }) {
       const tickCount = determineTickCount(baseOption);
 
       const isFullscreen = previewTools.fullscreen;
-      const axisFontSize = isFullscreen 
+      const axisFontSize = isFullscreen
         ? (tickCount > 80 ? 11 : tickCount > 60 ? 12 : tickCount > 40 ? 13 : tickCount > 24 ? 14 : 15)
         : (tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11);
       const dataLabelFontSize = isFullscreen
@@ -370,11 +370,11 @@ export default function AllCharts({ onEdit }) {
         if (isHeatmap) {
           const totalHeatmapCells = Array.isArray(baseOption.series)
             ? baseOption.series.reduce((acc, s) => {
-                if (s.type === 'heatmap' && Array.isArray(s.data)) {
-                  return acc + s.data.length;
-                }
-                return acc;
-              }, 0)
+              if (s.type === 'heatmap' && Array.isArray(s.data)) {
+                return acc + s.data.length;
+              }
+              return acc;
+            }, 0)
             : 0;
           if (totalHeatmapCells > 15) return false;
           return true;
@@ -419,8 +419,8 @@ export default function AllCharts({ onEdit }) {
         if (!isFunnelChart) return true;
         const funnelCount = Array.isArray(baseOption.series)
           ? baseOption.series
-              .filter((s) => s?.type === "funnel")
-              .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
+            .filter((s) => s?.type === "funnel")
+            .reduce((acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0), 0)
           : 0;
         if (isSmallScreen && funnelCount > 10) return false;
         if (!isSmallScreen && funnelCount > 16) return false;
@@ -442,64 +442,133 @@ export default function AllCharts({ onEdit }) {
         animationDurationUpdate: 120,
         grid: Array.isArray(baseOption.grid)
           ? baseOption.grid.map((g) => ({
-              ...g,
-              containLabel: false,
-              top: gridTop,
-              left: gridLeft,
-              right: gridRight,
-              bottom: Math.max(parseInt(g?.bottom, 10) || 18, gridBottomAuto),
-            }))
+            ...g,
+            containLabel: false,
+            top: gridTop,
+            left: gridLeft,
+            right: gridRight,
+            bottom: Math.max(parseInt(g?.bottom, 10) || 18, gridBottomAuto),
+          }))
           : {
-              ...baseOption.grid,
-              containLabel: false,
-              top: gridTop,
-              left: gridLeft,
-              right: gridRight,
-              bottom: Math.max(
-                parseInt(baseOption?.grid?.bottom, 10) || 18,
-                gridBottomAuto,
-              ),
-            },
+            ...baseOption.grid,
+            containLabel: false,
+            top: gridTop,
+            left: gridLeft,
+            right: gridRight,
+            bottom: Math.max(
+              parseInt(baseOption?.grid?.bottom, 10) || 18,
+              gridBottomAuto,
+            ),
+          },
         xAxis: Array.isArray(baseOption.xAxis)
           ? baseOption.xAxis.map((axis) => ({
-              ...axis,
+            ...axis,
+            nameLocation: "middle",
+            nameGap: axisNameGapX,
+            splitLine: usesCartesianGrid ? {
+              ...(axis?.splitLine || {}),
+              show: isHeatmap ? false : true,
+              lineStyle: {
+                ...(axis?.splitLine?.lineStyle || {}),
+                color: gridLineColor,
+                width: 1,
+                type: 'solid',
+                opacity: 1,
+              },
+            } : axis?.splitLine,
+            axisLine: usesCartesianGrid ? {
+              ...(axis?.axisLine || {}),
+              show: true,
+              lineStyle: {
+                ...(axis?.axisLine?.lineStyle || {}),
+                color: gridLineColor,
+                width: 1,
+                opacity: 1,
+              },
+            } : axis?.axisLine,
+            axisTick: usesCartesianGrid ? {
+              ...(axis?.axisTick || {}),
+              show: true,
+              lineStyle: {
+                ...(axis?.axisTick?.lineStyle || {}),
+                color: gridLineColor,
+                opacity: 1,
+              },
+            } : axis?.axisTick,
+            axisLabel: {
+              ...axis?.axisLabel,
+              rotate: xRotate,
+              align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
+              margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
+              hideOverlap: false,
+              showMinLabel: true,
+              showMaxLabel: true,
+              interval: 0,
+              color: isDarkColor,
+              fontSize: axisFontSize,
+              formatter: (v) => {
+                try {
+                  const n = Number(v);
+                  if (Number.isFinite(n)) {
+                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                  }
+                  const s = String(v);
+                  const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+                  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+                } catch { return v; }
+              },
+            },
+            nameTextStyle: {
+              ...(axis?.nameTextStyle || {}),
+              color: isDarkColor,
+              fontSize: Math.max(8, axisFontSize - 1),
+              fontWeight: 'bold'
+            }
+          }))
+          : baseOption.xAxis
+            ? {
+              ...baseOption.xAxis,
               nameLocation: "middle",
               nameGap: axisNameGapX,
               splitLine: usesCartesianGrid ? {
-                ...(axis?.splitLine || {}),
+                ...(baseOption?.xAxis?.splitLine || {}),
                 show: isHeatmap ? false : true,
                 lineStyle: {
-                  ...(axis?.splitLine?.lineStyle || {}),
+                  ...(baseOption?.xAxis?.splitLine?.lineStyle || {}),
                   color: gridLineColor,
                   width: 1,
                   type: 'solid',
                   opacity: 1,
                 },
-              } : axis?.splitLine,
+              } : baseOption?.xAxis?.splitLine,
               axisLine: usesCartesianGrid ? {
-                ...(axis?.axisLine || {}),
+                ...(baseOption?.xAxis?.axisLine || {}),
                 show: true,
                 lineStyle: {
-                  ...(axis?.axisLine?.lineStyle || {}),
+                  ...(baseOption?.xAxis?.axisLine?.lineStyle || {}),
                   color: gridLineColor,
                   width: 1,
                   opacity: 1,
                 },
-              } : axis?.axisLine,
+              } : baseOption?.xAxis?.axisLine,
               axisTick: usesCartesianGrid ? {
-                ...(axis?.axisTick || {}),
+                ...(baseOption?.xAxis?.axisTick || {}),
                 show: true,
                 lineStyle: {
-                  ...(axis?.axisTick?.lineStyle || {}),
+                  ...(baseOption?.xAxis?.axisTick?.lineStyle || {}),
                   color: gridLineColor,
                   opacity: 1,
                 },
-              } : axis?.axisTick,
+              } : baseOption?.xAxis?.axisTick,
               axisLabel: {
-                ...axis?.axisLabel,
+                ...baseOption?.xAxis?.axisLabel,
                 rotate: xRotate,
                 align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
-                margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
+                margin: Math.max(
+                  baseOption?.xAxis?.axisLabel?.margin || 8,
+                  axisMarginX,
+                ),
                 hideOverlap: false,
                 showMinLabel: true,
                 showMaxLabel: true,
@@ -520,123 +589,116 @@ export default function AllCharts({ onEdit }) {
                 },
               },
               nameTextStyle: {
-                ...(axis?.nameTextStyle || {}),
                 color: isDarkColor,
                 fontSize: Math.max(8, axisFontSize - 1),
                 fontWeight: 'bold'
               }
-            }))
-          : baseOption.xAxis
-            ? {
-                ...baseOption.xAxis,
-                nameLocation: "middle",
-                nameGap: axisNameGapX,
-                splitLine: usesCartesianGrid ? {
-                  ...(baseOption?.xAxis?.splitLine || {}),
-                  show: isHeatmap ? false : true,
-                  lineStyle: {
-                    ...(baseOption?.xAxis?.splitLine?.lineStyle || {}),
-                    color: gridLineColor,
-                    width: 1,
-                    type: 'solid',
-                    opacity: 1,
-                  },
-                } : baseOption?.xAxis?.splitLine,
-                axisLine: usesCartesianGrid ? {
-                  ...(baseOption?.xAxis?.axisLine || {}),
-                  show: true,
-                  lineStyle: {
-                    ...(baseOption?.xAxis?.axisLine?.lineStyle || {}),
-                    color: gridLineColor,
-                    width: 1,
-                    opacity: 1,
-                  },
-                } : baseOption?.xAxis?.axisLine,
-                axisTick: usesCartesianGrid ? {
-                  ...(baseOption?.xAxis?.axisTick || {}),
-                  show: true,
-                  lineStyle: {
-                    ...(baseOption?.xAxis?.axisTick?.lineStyle || {}),
-                    color: gridLineColor,
-                    opacity: 1,
-                  },
-                } : baseOption?.xAxis?.axisTick,
-                axisLabel: {
-                  ...baseOption?.xAxis?.axisLabel,
-                  rotate: xRotate,
-                  align: isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot || isScatterLike || xRotate > 0 ? 'right' : 'left',
-                  margin: Math.max(
-                    baseOption?.xAxis?.axisLabel?.margin || 8,
-                    axisMarginX,
-                  ),
-                  hideOverlap: false,
-                  showMinLabel: true,
-                  showMaxLabel: true,
-                  interval: 0,
-                  color: isDarkColor,
-                  fontSize: axisFontSize,
-                  formatter: (v) => {
-                    try {
-                      const n = Number(v);
-                      if (Number.isFinite(n)) {
-                        if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                        if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                      }
-                      const s = String(v);
-                      const maxLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
-                      return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
-                    } catch { return v; }
-                  },
-                },
-                nameTextStyle: {
-                  color: isDarkColor,
-                  fontSize: Math.max(8, axisFontSize - 1),
-                  fontWeight: 'bold'
-                }
-              }
+            }
             : baseOption.xAxis,
         yAxis: Array.isArray(baseOption.yAxis)
           ? baseOption.yAxis.map((axis) => ({
-              ...axis,
+            ...axis,
+            splitLine: usesCartesianGrid ? {
+              ...(axis?.splitLine || {}),
+              show: isHeatmap ? false : true,
+              lineStyle: {
+                ...(axis?.splitLine?.lineStyle || {}),
+                color: gridLineColor,
+                width: 1,
+                type: 'solid',
+                opacity: 1,
+              },
+            } : axis?.splitLine,
+            axisLine: usesCartesianGrid ? {
+              ...(axis?.axisLine || {}),
+              show: true,
+              lineStyle: {
+                ...(axis?.axisLine?.lineStyle || {}),
+                color: gridLineColor,
+                width: 1,
+                opacity: 1,
+              },
+            } : axis?.axisLine,
+            axisTick: usesCartesianGrid ? {
+              ...(axis?.axisTick || {}),
+              show: true,
+              lineStyle: {
+                ...(axis?.axisTick?.lineStyle || {}),
+                color: gridLineColor,
+                opacity: 1,
+              },
+            } : axis?.axisTick,
+            axisLabel: {
+              ...axis?.axisLabel,
+              color: isDarkColor,
+              hideOverlap: isHorizontalBar ? false : (axis?.axisLabel?.hideOverlap ?? false),
+              showMinLabel: true,
+              showMaxLabel: true,
+              interval: isHorizontalBar ? 0 : (axis?.axisLabel?.interval ?? 0),
+              fontSize: axisFontSize,
+              margin: isHorizontalBar ? 28 : (axis?.axisLabel?.margin ?? 0),
+              formatter: (v) => {
+                try {
+                  const n = Number(v);
+                  if (Number.isFinite(n)) {
+                    if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                  }
+                  return v;
+                } catch { return v; }
+              },
+            },
+            nameLocation: axis?.nameLocation || 'middle',
+            nameGap: isHorizontalBar ? Math.max(axis?.nameGap || 25, 58) : Math.max(axis?.nameGap || 25, yAxisNameGap(baseOption)),
+            nameTextStyle: {
+              ...(axis?.nameTextStyle || {}),
+              color: isDarkColor,
+              fontSize: Math.max(8, axisFontSize - 1),
+              fontWeight: 'bold'
+            }
+          }))
+          : baseOption.yAxis
+            ? {
+              ...baseOption.yAxis,
               splitLine: usesCartesianGrid ? {
-                ...(axis?.splitLine || {}),
+                ...(baseOption?.yAxis?.splitLine || {}),
                 show: isHeatmap ? false : true,
                 lineStyle: {
-                  ...(axis?.splitLine?.lineStyle || {}),
+                  ...(baseOption?.yAxis?.splitLine?.lineStyle || {}),
                   color: gridLineColor,
                   width: 1,
                   type: 'solid',
                   opacity: 1,
                 },
-              } : axis?.splitLine,
+              } : baseOption?.yAxis?.splitLine,
               axisLine: usesCartesianGrid ? {
-                ...(axis?.axisLine || {}),
+                ...(baseOption?.yAxis?.axisLine || {}),
                 show: true,
                 lineStyle: {
-                  ...(axis?.axisLine?.lineStyle || {}),
+                  ...(baseOption?.yAxis?.axisLine?.lineStyle || {}),
                   color: gridLineColor,
                   width: 1,
                   opacity: 1,
                 },
-              } : axis?.axisLine,
+              } : baseOption?.yAxis?.axisLine,
               axisTick: usesCartesianGrid ? {
-                ...(axis?.axisTick || {}),
+                ...(baseOption?.yAxis?.axisTick || {}),
                 show: true,
                 lineStyle: {
-                  ...(axis?.axisTick?.lineStyle || {}),
+                  ...(baseOption?.yAxis?.axisTick?.lineStyle || {}),
                   color: gridLineColor,
                   opacity: 1,
                 },
-              } : axis?.axisTick,
+              } : baseOption?.yAxis?.axisTick,
               axisLabel: {
-                ...axis?.axisLabel,
+                ...baseOption?.yAxis?.axisLabel,
                 color: isDarkColor,
-                hideOverlap: isHorizontalBar ? false : (axis?.axisLabel?.hideOverlap ?? false),
+                hideOverlap: isHorizontalBar ? false : (baseOption?.yAxis?.axisLabel?.hideOverlap ?? false),
                 showMinLabel: true,
                 showMaxLabel: true,
-                interval: isHorizontalBar ? 0 : (axis?.axisLabel?.interval ?? 0),
+                interval: isHorizontalBar ? 0 : (baseOption?.yAxis?.axisLabel?.interval ?? 0),
                 fontSize: axisFontSize,
-                margin: isHorizontalBar ? 28 : (axis?.axisLabel?.margin ?? 0),
+                margin: isHorizontalBar ? 28 : (baseOption?.yAxis?.axisLabel?.margin ?? 0),
                 formatter: (v) => {
                   try {
                     const n = Number(v);
@@ -648,77 +710,15 @@ export default function AllCharts({ onEdit }) {
                   } catch { return v; }
                 },
               },
-              nameLocation: axis?.nameLocation || 'middle',
-              nameGap: isHorizontalBar ? Math.max(axis?.nameGap || 25, 58) : Math.max(axis?.nameGap || 25, yAxisNameGap(baseOption)),
+              nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
+              nameGap: isHorizontalBar ? Math.max(baseOption?.yAxis?.nameGap || 25, 58) : Math.max(baseOption?.yAxis?.nameGap || 25, yAxisNameGap(baseOption)),
               nameTextStyle: {
-                ...(axis?.nameTextStyle || {}),
+                ...(baseOption?.yAxis?.nameTextStyle || {}),
                 color: isDarkColor,
                 fontSize: Math.max(8, axisFontSize - 1),
                 fontWeight: 'bold'
               }
-            }))
-          : baseOption.yAxis
-            ? {
-                ...baseOption.yAxis,
-                splitLine: usesCartesianGrid ? {
-                  ...(baseOption?.yAxis?.splitLine || {}),
-                  show: isHeatmap ? false : true,
-                  lineStyle: {
-                    ...(baseOption?.yAxis?.splitLine?.lineStyle || {}),
-                    color: gridLineColor,
-                    width: 1,
-                    type: 'solid',
-                    opacity: 1,
-                  },
-                } : baseOption?.yAxis?.splitLine,
-                axisLine: usesCartesianGrid ? {
-                  ...(baseOption?.yAxis?.axisLine || {}),
-                  show: true,
-                  lineStyle: {
-                    ...(baseOption?.yAxis?.axisLine?.lineStyle || {}),
-                    color: gridLineColor,
-                    width: 1,
-                    opacity: 1,
-                  },
-                } : baseOption?.yAxis?.axisLine,
-                axisTick: usesCartesianGrid ? {
-                  ...(baseOption?.yAxis?.axisTick || {}),
-                  show: true,
-                  lineStyle: {
-                    ...(baseOption?.yAxis?.axisTick?.lineStyle || {}),
-                    color: gridLineColor,
-                    opacity: 1,
-                  },
-                } : baseOption?.yAxis?.axisTick,
-                axisLabel: {
-                  ...baseOption?.yAxis?.axisLabel,
-                  color: isDarkColor,
-                  hideOverlap: isHorizontalBar ? false : (baseOption?.yAxis?.axisLabel?.hideOverlap ?? false),
-                  showMinLabel: true,
-                  showMaxLabel: true,
-                  interval: isHorizontalBar ? 0 : (baseOption?.yAxis?.axisLabel?.interval ?? 0),
-                  fontSize: axisFontSize,
-                  margin: isHorizontalBar ? 28 : (baseOption?.yAxis?.axisLabel?.margin ?? 0),
-                  formatter: (v) => {
-                    try {
-                      const n = Number(v);
-                      if (Number.isFinite(n)) {
-                        if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-                        if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
-                      }
-                      return v;
-                    } catch { return v; }
-                  },
-                },
-                nameLocation: baseOption?.yAxis?.nameLocation || 'middle',
-                nameGap: isHorizontalBar ? Math.max(baseOption?.yAxis?.nameGap || 25, 58) : Math.max(baseOption?.yAxis?.nameGap || 25, yAxisNameGap(baseOption)),
-                nameTextStyle: {
-                  ...(baseOption?.yAxis?.nameTextStyle || {}),
-                  color: isDarkColor,
-                  fontSize: Math.max(8, axisFontSize - 1),
-                  fontWeight: 'bold'
-                }
-              }
+            }
             : baseOption.yAxis,
       };
 
@@ -744,10 +744,10 @@ export default function AllCharts({ onEdit }) {
         if (Array.isArray(chartOption.series)) {
           chartOption.series = chartOption.series.map((s) => {
             if (!s || s.type !== 'heatmap') return s;
-            
+
             const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
             const shouldHideHeatmapLabels = totalHeatmapCells > 15;
-            
+
             return {
               ...s,
               label: {
@@ -787,7 +787,7 @@ export default function AllCharts({ onEdit }) {
           if (!s || !s.type) return s;
           if (s.type !== 'bar' && s.type !== 'line' && s.type !== 'scatter' && s.type !== 'candlestick' && s.type !== 'boxplot') return s;
           const labelFont = previewTools.fullscreen ? Math.max(13, dataLabelFontSize + 3) : dataLabelFontSize;
-          const labelWidth = previewTools.fullscreen 
+          const labelWidth = previewTools.fullscreen
             ? (tickCount > 80 ? 60 : tickCount > 60 ? 72 : tickCount > 40 ? 84 : tickCount > 24 ? 96 : 108)
             : seriesLabelWidth;
           return {
@@ -1044,7 +1044,7 @@ export default function AllCharts({ onEdit }) {
         }
       }
 
-        const isSankey =
+      const isSankey =
         Array.isArray(chartOption.series) &&
         chartOption.series.some((s) => s.type === "sankey");
 
@@ -1142,9 +1142,9 @@ export default function AllCharts({ onEdit }) {
 
   useEffect(() => {
     if (!previewRef.current || !previewOpt || previewOpt._kpi || previewOpt._table || previewOpt._error) {
-      if (previewInst.current) { 
-        disposeChart(previewRef.current); 
-        previewInst.current = null; 
+      if (previewInst.current) {
+        disposeChart(previewRef.current);
+        previewInst.current = null;
         setHasPreviewInstance(false);
       }
       return;
@@ -1155,14 +1155,14 @@ export default function AllCharts({ onEdit }) {
   useEffect(() => () => { if (previewRef.current) disposeChart(previewRef.current); }, []);
   useEffect(() => { const t = setTimeout(() => previewInst.current?.resize(), 150); return () => clearTimeout(t); }, [previewTools.fullscreen, showLegend, isSmallScreen]);
 
-  async function performDeleteChartById(id) { 
-    try { 
-      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} }); 
-      setSelected(null); 
-      setPreviewOpt(null); 
-      await load(); 
-    } catch (e) { /* preserve behavior and don't throw */ } 
-    finally { setDel(null); } 
+  async function performDeleteChartById(id) {
+    try {
+      await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE', body: {} });
+      setSelected(null);
+      setPreviewOpt(null);
+      await load();
+    } catch (e) { /* preserve behavior and don't throw */ }
+    finally { setDel(null); }
   }
 
   function resetPreviewView() {
@@ -1174,13 +1174,13 @@ export default function AllCharts({ onEdit }) {
       if (!stored) return;
       try {
         previewInst.current.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
-      } catch {}
+      } catch { }
       try {
         previewInst.current.dispatchAction({ type: isSunburstNow ? 'sunburstRootToNode' : 'treemapRootToNode' });
-      } catch {}
+      } catch { }
       try {
         previewInst.current.resize();
-      } catch {}
+      } catch { }
       return;
     }
     previewTools.zoomReset();
@@ -1383,12 +1383,12 @@ export default function AllCharts({ onEdit }) {
           )}
         </div>
       </div>
-      
+
       {/* Search and Filter Bar */}
-      <div style={{ 
-        display: 'flex', 
-        gap: 12, 
-        marginBottom: 16, 
+      <div style={{
+        display: 'flex',
+        gap: 12,
+        marginBottom: 16,
         flexWrap: 'wrap',
         alignItems: 'center',
         background: 'var(--bg-card)',
@@ -1406,7 +1406,7 @@ export default function AllCharts({ onEdit }) {
             style={{ width: '100%' }}
           />
         </div>
-        
+
         <div style={{ minWidth: '150px' }}>
           <Select
             className="form-select"
@@ -1420,7 +1420,7 @@ export default function AllCharts({ onEdit }) {
             ))}
           </Select>
         </div>
-        
+
         <div style={{ minWidth: '150px' }}>
           <Select
             className="form-select"
@@ -1434,7 +1434,7 @@ export default function AllCharts({ onEdit }) {
             ))}
           </Select>
         </div>
-        
+
         {(searchTerm || filterType !== 'all' || filterDashboard !== 'all') && (
           <button
             className="btn btn-ghost btn-sm"
@@ -1448,12 +1448,12 @@ export default function AllCharts({ onEdit }) {
             <Icon className="ti ti-x"></Icon> Clear
           </button>
         )}
-        
+
         <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
           {filteredCharts.length} chart{filteredCharts.length !== 1 ? 's' : ''}
         </span>
       </div>
-      
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="data-table-wrap dt-single">
           <table className="data-table">
@@ -1479,8 +1479,8 @@ export default function AllCharts({ onEdit }) {
           <div ref={previewContainerRef} className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: (previewOpt && previewOpt._table) ? 'auto' : (isSmallScreen ? '500px' : '420px'), width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: '14px', fontWeight: 600 }}>{selected.name}</div>
-              <button 
-                className="btn btn-ghost btn-sm" 
+              <button
+                className="btn btn-ghost btn-sm"
                 onClick={() => { setSelected(null); setPreviewOpt(null); if (previewInst.current) { disposeChart(previewRef.current); previewInst.current = null; setHasPreviewInstance(false); } }}
                 title="Close preview"
               >

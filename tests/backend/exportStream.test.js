@@ -111,6 +111,23 @@ describe("measureBytes", () => {
     await measureBytes({ ...NODE, sql: "SELECT 1", format: "CSVWithNames" });
     expect(calls[0].url.searchParams.get("max_execution_time")).toBe("30");
   });
+
+  test("Throws error failed response", async () => {
+    global.fetch = mock(async () => ({
+      ok: false, status: 500, body: "stream-placeholder",
+      headers: { get: (k) => headers[k] ?? null },
+      text: async () => body,
+      arrayBuffer: async () => new TextEncoder().encode(body).buffer,
+    }));
+    try {
+
+      await measureBytes({ ...NODE, sql: "SELECT 1", format: "CSVWithNames" })
+      throw new Error('FAILED')
+    } catch (e) {
+      expect(e.message).toBe('ClickHouse HTTP 500')
+    }
+  })
+
 });
 
 describe("killExportQuery", () => {

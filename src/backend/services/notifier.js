@@ -8,67 +8,36 @@ import { loadEnv } from "../utils/env.js";
 import { OTP_TTL_MS }from "./OTPservice.js"
 import { OtelFieldDefinition$inboundSchema } from "@mistralai/mistralai/models/components";
 
-function validateWebhookUrl(url) {
-  if (!url || typeof url !== "string")
-    throw new Error("Webhook URL is required.");
-  let parsed;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error("Invalid webhook URL format.");
-  }
-  if (parsed.protocol !== "https:")
-    throw new Error("Webhook URL must use HTTPS.");
-  const host = parsed.hostname.toLowerCase();
-  // Block localhost
-  if (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "0.0.0.0"
-  ) {
-    throw new Error("Webhook URL cannot point to localhost.");
-  }
-  // Block private IP ranges, link-local, metadata
-  const parts = host.split(".").map(Number);
-  if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
-    if (parts[0] === 10)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 192 && parts[1] === 168)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 169 && parts[1] === 254)
-      throw new Error("Webhook URL cannot point to link-local addresses.");
-  }
-}
-
-function getClusterInfo(alert) {
-  const clusters = getAllClusters();
-  if (!clusters.length) return { clusterName: "No cluster", nodes: "-" };
-
-  // Find the cluster this alert is assigned to, or fall back to first
-  const cluster =
-    (alert?.clusterId
-      ? clusters.find((c) => c.id === alert.clusterId)
-      : null) || clusters[0];
-  const clusterName = cluster.name || "Default";
-
-  // If the alert targets specific nodes, show those
-  let targetNodes = [];
-  try {
-    if (alert?.nodes) {
-      const parsed =
-        typeof alert.nodes === "string" ? JSON.parse(alert.nodes) : alert.nodes;
-      if (Array.isArray(parsed) && parsed.length > 0) targetNodes = parsed;
+// Webhook delivery is deliberately constrained to public HTTPS endpoints. This
+// keeps a channel configuration from becoming an SSRF primitive against
+// localhost, private networks, or link-local metadata services.
+export function validateWebhookUrl(value) {
+    let parsed;
+    try {
+        parsed = new URL(String(value || ""));
+    } catch {
+        throw new Error("Webhook URL must be a valid HTTPS URL.");
     }
-  } catch {}
 
-  if (targetNodes.length) {
-    return { clusterName, nodes: targetNodes.join(", ") };
-  }
-  const allNodes = (cluster.nodes || []).map((n) => n.host);
-  return { clusterName, nodes: allNodes.join(", ") || "all nodes" };
+    if (parsed.protocol !== "https:") {
+        throw new Error("Webhook URLs must use HTTPS.");
+    }
+
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    const isPrivateIpv4 = /^(?:127|10|0)\./.test(hostname)
+        || /^169\.254\./.test(hostname) // link-local
+        || /^192\.168\./.test(hostname)
+        || /^172\.(?:1[6-9]|2\d|3[0-1])\./.test(hostname);
+    const isPrivateIpv6 = hostname === "::1" || hostname === "::"
+        || hostname.startsWith("fc") || hostname.startsWith("fd")
+        || hostname.startsWith("fe8") || hostname.startsWith("fe9")
+        || hostname.startsWith("fea") || hostname.startsWith("feb"); // link-local
+
+    if (hostname === "localhost" || hostname.endsWith(".localhost") || isPrivateIpv4 || isPrivateIpv6) {
+        throw new Error("Webhook URLs cannot target localhost, private networks, or link-local addresses.");
+    }
+
+    return parsed;
 }
 
 function formatDetails(alert) {
@@ -93,13 +62,26 @@ function formatDetails(alert) {
   };
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+export function formatDetails(alert) {
+    const d = alert.lastRunAt ? new Date(alert.lastRunAt) : new Date();
+    const ts = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+    const info = getClusterInfo(alert);
+    return {
+        name: alert.name,
+        severity: (alert.severity || "info").toUpperCase(),
+        description: alert.description || "-",
+        sql: alert.sql || "-",
+        schedule: alert.schedule || "-",
+        operator: alert.operator || "gt",
+        threshold: alert.threshold,
+        value: alert.lastValue ?? "?",
+        clusterName: info.clusterName,
+        nodes: info.nodes,
+        firedNode: alert.firedNode || "-",
+        timestamp: ts,
+        kind: alert.kind || "breach",
+        error: alert.error || null,
+    };
 }
 
 function extractAccountDetails(description) {
@@ -126,10 +108,26 @@ function extractAccountDetails(description) {
   };
 }
 
-function extractFirstName(name) {
-  if (typeof name !== "string" || !name.trim()) return "User";
-  return name.split(" ")[0];
+export function extractAccountDetails(description) {
+    const text = String(description || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 2000);
+
+    const usernameMatch = text.match(/Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i);
+    const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
+    const roleMatch = text.match(/Role:\s*([a-z]+)/i);
+    const noteMatch = text.match(/(Please change your password on first login\.?)/i);
+
+    return {
+        intro: text.split(/Username:/i)[0].trim(),
+        username: usernameMatch ? usernameMatch[1].trim() : "",
+        password: passwordMatch ? passwordMatch[1].trim() : "",
+        role: roleMatch ? roleMatch[1].trim() : "",
+        note: noteMatch ? noteMatch[1].trim() : "",
+    };
 }
+
 
 export const sendOTPEmail = async (email, otp, channelConfig) => {
   try {
@@ -144,16 +142,19 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
     }
     const webAppName = "CHOPS";
 
-    const escapeEmail = escapeHtml(email);
-    const escapeOtp = escapeHtml(otp);
-    const escapeWebAppName = escapeHtml(webAppName);
+        }
+        const webAppName = "CHOPS";
 
-    const mailOptions = {
-      from: config?.from,
-      to: email,
-      subject: "Password Reset OTP",
-      text: `Hi ${escapeEmail},\n\nHere is your OTP (One Time PIN) for resetting your password on ${escapeWebAppName}:\n\nOTP: ${escapeOtp}\n\nThis OTP is valid for 30 seconds.`,
-      html: `
+        const escapeEmail = escapeHtml(email);
+        const escapeOtp = escapeHtml(otp);
+        const escapeWebAppName = escapeHtml(webAppName);
+
+        const mailOptions = {
+            from: config?.from,
+            to: email,
+            subject: "Password Reset OTP",
+            text: `Hi ${escapeEmail},\n\nHere is your OTP (One Time PIN) for resetting your password on ${escapeWebAppName}:\n\nOTP: ${escapeOtp}\n\nThis OTP is valid for 30 seconds.`,
+            html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <div style="background: linear-gradient(135deg, #5D3FD3, #8B5CF6); padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0;">Password Reset OTP</h1>
@@ -178,7 +179,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
           </div>
         </div>
       `,
-    };
+        };
 
     const transport = nodemailer.createTransport({
       host: config.host,
@@ -197,11 +198,11 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
 };
 
 export async function sendNotification(channelConfig, alert) {
-  const config =
-    typeof channelConfig === "string"
-      ? JSON.parse(channelConfig)
-      : channelConfig;
-  const d = formatDetails(alert);
+    const config =
+        typeof channelConfig === "string"
+            ? JSON.parse(channelConfig)
+            : channelConfig;
+    const d = formatDetails(alert);
 
   if (config.type === "email") {
     if (!config.smtp_host) throw new Error("SMTP host is not configured");
@@ -221,26 +222,25 @@ export async function sendNotification(channelConfig, alert) {
           ? "#fbbf24"
           : "#8b5cf6";
 
-    const isAccountEmail = /account created/i.test(d.name || "");
-    const isPasswordResetEmail = /password reset/i.test(d.name || "");
-    const containerBg = "#ffffff";
-    const bodyColor = "#0b1220";
-    const containerBorder = "rgba(15,23,42,0.06)";
-    const rowBorder = "rgba(15,23,42,0.06)";
-    const preColor = "#ffffff";
-    const tableTextColor = "#0b1220";
-    const severityTextColor = d.severity === "WARNING" ? "#1a1a2e" : "#fff";
-    const mutedTextColor = "#64748b";
+        const isAccountEmail = /account created/i.test(d.name || "");
+        const isPasswordResetEmail = /password reset/i.test(d.name || "");
+        const containerBg = "#ffffff";
+        const bodyColor = "#0b1220";
+        const containerBorder = "rgba(15,23,42,0.06)";
+        const rowBorder = "rgba(15,23,42,0.06)";
+        const preColor = "#ffffff";
+        const tableTextColor = "#0b1220";
+        const severityTextColor = d.severity === "WARNING" ? "#1a1a2e" : "#fff";
 
-    const env = loadEnv();
+        const env = loadEnv();
 
-    const accountDetails = isAccountEmail
-      ? extractAccountDetails(d.description)
-      : null;
+        const accountDetails = isAccountEmail
+            ? extractAccountDetails(d.description)
+            : null;
 
-    const passwordResetDetails = isPasswordResetEmail
-      ? extractAccountDetails(d.description)
-      : null;
+        const passwordResetDetails = isPasswordResetEmail
+            ? extractAccountDetails(d.description)
+            : null;
 
     const descriptionHtml =
       d.description !== "-"

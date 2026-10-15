@@ -8,10 +8,10 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { login, changePassword, logout } from '../controllers/auth.js';
 import { setPassword } from '../controllers/users.js';
 
-const router = Router();
 
 router.post('/', login);
 router.post('/logout', logout);

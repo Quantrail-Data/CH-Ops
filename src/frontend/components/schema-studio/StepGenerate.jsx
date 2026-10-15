@@ -53,7 +53,6 @@ function sanitizeDdlCodecs(sql) {
 export default function StepGenerate({ columns, stats, sampleRows, form, onBack }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [aiLoading,setAiLoading] = useState(false)
   const [error, setError] = useState(null);
   const [specErrors, setSpecErrors] = useState([]);
 
@@ -148,7 +147,7 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
   }
 
   async function doEvaluate() {
-    setBusy(true); setError(null); setReview(null);setAiLoading(true);
+    setBusy(true); setError(null); setReview(null);
     try {
       const res = await evaluate({
         columns: mapColumns(columns),
@@ -168,7 +167,6 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
       setError(e.message);
     } finally {
       setBusy(false);
-      setAiLoading(false);
     }
   }
 
@@ -260,7 +258,7 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
       <div className="studio-eval">
         <button className="btn btn-secondary" onClick={doEvaluate}
           disabled={busy || !ddl.trim() || (ai && !ai.executable)}>
-          {(busy && aiLoading) ? <><div className="loading-spinner" style={{color:"white"}}> </div> Preparing ClickHouse syntax...</>  : <><Icon className="ti ti-bolt" /> Evaluate with AI</>}
+          <Icon className="ti ti-bolt" /> Evaluate with AI
         </button>
         {ai && !ai.executable && (
           <span className="studio-hint">

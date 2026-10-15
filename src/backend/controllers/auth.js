@@ -11,7 +11,7 @@ import { create, verify, revokeToken } from "../services/jwt.js";
 import { loadEnv } from "../utils/env.js";
 import { getConfig } from "../services/appConfig.js";
 
-async function hashPassword(pw) {
+export async function hashPassword(pw) {
   return Bun.password.hash(pw, {
     algorithm: "argon2id",
     memoryCost: 65536,
@@ -53,7 +53,7 @@ function safeCompare(a, b) {
 
 const loginAttempts = new Map();
 
-function checkLockout(username) {
+export function checkLockout(username) {
   const key = username.toLowerCase().trim();
   const entry = loginAttempts.get(key);
 
