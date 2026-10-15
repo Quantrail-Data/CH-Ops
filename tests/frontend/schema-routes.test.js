@@ -177,7 +177,7 @@ describe("Services: Alert Scheduler", () => {
   });
   it("uses clusterUtils for node credentials", () => {
     expect(code).toContain("getClusterNodes");
-    expect(code).toContain("from './clusterUtils.js'");
+    expect(code).toContain("from \"./clusterUtils.js\"");
   });
   it("filters nodes by rule.nodes when set", () => {
     expect(code).toContain("selected.includes(n.host)");
@@ -324,7 +324,7 @@ describe("Security: SSRF Prevention", () => {
     expect(queryCode).not.toContain("host: node ||");
   });
   it("query controller uses clusterUtils for SSRF-safe node lookup", () => {
-    expect(queryCode).toContain("from '../services/clusterUtils.js'");
+    expect(queryCode).toContain("from \"../services/clusterUtils.js\"");
     expect(queryCode).toContain("resolveNodeFromConfig(clusterId, node)");
   });
 
@@ -452,22 +452,22 @@ describe("Server: Safety", () => {
     expect(code).toContain("initCrypto(env.encryptionSecret)");
   });
   it("SQL endpoints have a 512kb body limit mounted before the global parser", () => {
-    const tight = code.indexOf("app.use('/api/query', express.json({ limit: '512kb' }))");
-    const global = code.indexOf("app.use(express.json({ limit: '2mb' }))");
+    const tight = code.indexOf("app.use(\"/api/query\", express.json({ limit: \"512kb\" }))");
+    const global = code.indexOf("app.use(express.json({ limit: \"2mb\" }))");
     expect(tight).toBeGreaterThan(-1);
-    expect(code).toContain("app.use('/api/export', express.json({ limit: '512kb' }))");
+    expect(code).toContain("app.use(\"/api/export\", express.json({ limit: \"512kb\" }))");
     // Order is the whole point: body-parser skips once req._body is set, so a
     // tighter limit mounted after the global one never applies.
     expect(tight).toBeLessThan(global);
   });
   it("SPA catch-all skips /docs/ so Docsify can fetch .md files", () => {
-    expect(code).toContain("req.path.startsWith('/docs/')");
+    expect(code).toContain("req.path.startsWith(\"/docs/\")");
   });
   it("SPA catch-all skips /api/ routes", () => {
-    expect(code).toContain("req.path.startsWith('/api/')");
+    expect(code).toContain("req.path.startsWith(\"/api/\")");
   });
   it("serves docs directory as static files", () => {
-    expect(code).toContain("app.use('/docs', express.static(docsDir))");
+    expect(code).toContain("app.use(\"/docs\", express.static(docsDir))");
   });
 });
 
@@ -489,7 +489,7 @@ describe("Server: Auth middleware on all routes except login", () => {
   it("auth route has no authMiddleware", () => {
     const line = sv
       .split("\n")
-      .find((l) => (l.includes("'/api/auth'") || l.includes('"/api/auth"')) && l.includes("app.use"));
+      .find((l) => (l.includes("\"/api/auth\"") || l.includes('"/api/auth"')) && l.includes("app.use"));
     expect(line).not.toContain("authMiddleware");
   });
   [
@@ -507,8 +507,8 @@ describe("Server: Auth middleware on all routes except login", () => {
       // the first line mentioning the path.
       const lines = sv
         .split("\n")
-        .filter((l) => (l.includes(`'/api/${r}'`) || l.includes(`"/api/${r}"`)) && l.includes("app.use"));
-      expect(lines.length).toBeGreaterThan(0);
+        .filter((l) => (l.includes(`"/api/${r}"`) || l.includes(`"/api/${r}"`)) && l.includes("app.use"));
+        expect(lines.length).toBeGreaterThan(0);
       const mount = lines.find((l) => !/express\.json\([^)]*\)\s*\)\s*;?\s*$/.test(l)) || lines[lines.length - 1];
       expect(mount).toContain("authMiddleware");
     });
