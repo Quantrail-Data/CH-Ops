@@ -1278,8 +1278,7 @@ export const PAGE_TEXT = {
     "Size",
     "Version",
     "Tables",
-    "Restoring replaces all app data. The server must be stopped during restore.",
-    "1. Download the backup file from S3",
+    "1. Download the database and crypto salt from S3",
     "2. Stop the server",
     "3. Replace the database",
     "4. Restart the server"
