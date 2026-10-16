@@ -50,7 +50,7 @@ function rulesWithChannels(where, req) {
         }
         if (ch) {
           try {
-            ch.config = DecryptValuesChannels(ch?.config, ch?.type);
+            ch.config = DummyPaassword(JSON.parse(ch.config), ch.type);
           } catch {
             ch.config = {};
           }
@@ -103,7 +103,8 @@ function EncryptValuesChannels(req) {
 
 export function DecryptValuesChannels(config, type) {
   if (!config) return {};
-  let value = { ...config };
+  const parsedConfig = typeof config === "string" ? JSON.parse(config) : config;
+  let value = { ...parsedConfig };
   switch (type) {
     case "email":
       value = { ...value, smtp_pass: decrypt(value?.smtp_pass) };
@@ -151,56 +152,32 @@ function DummyPaassword(config, type) {
       value = { ...value, smtp_pass: _DEFAULTPASSWORDVALUE };
       break;
   }
-  console.log(value);
   return value;
 }
 
-function UpdateKeysValuesChannels(config, type) {
+function secretFieldFor(type) {
+  if (type === "slack") return "bot_token";
+  if (type === "google_chat" || type === "teams") return "webhook_url";
+  if (type === "pagerduty") return "routing_key";
+  return "smtp_pass";
+}
+
+function UpdateKeysValuesChannels(config, type, storedConfig) {
   if (!config) return {};
+  const newConfig = typeof config === "string" ? JSON.parse(config) : config;
+  const oldConfig =
+    typeof storedConfig === "string"
+      ? JSON.parse(storedConfig)
+      : storedConfig || {};
+  const secretField = secretFieldFor(type);
+  const value = { ...newConfig };
 
-  try {
-    let convertValue = typeof config === "string" ? JSON.parse(config) : config;
-    let value = { ...convertValue };
-    switch (type) {
-      case "email":
-        if (convertValue?.smtp_pass !== _DEFAULTPASSWORDVALUE) {
-          value = { ...value, smtp_pass: encrypt(convertValue?.smtp_pass) };
-        }
-        break;
-      case "slack":
-        if (convertValue?.bot_token !== _DEFAULTPASSWORDVALUE) {
-          value = { ...value, bot_token: encrypt(convertValue?.bot_token) };
-        }
-
-        break;
-      case "google_chat":
-        if (convertValue?.webhook_url !== _DEFAULTPASSWORDVALUE) {
-          value = { ...value, webhook_url: encrypt(convertValue?.webhook_url) };
-        }
-
-        break;
-      case "teams":
-        if (convertValue?.webhook_url !== _DEFAULTPASSWORDVALUE) {
-          value = { ...value, webhook_url: encrypt(convertValue?.webhook_url) };
-        }
-        break;
-      case "pagerduty":
-        if (convertValue?.routing_key !== _DEFAULTPASSWORDVALUE) {
-          value = { ...value, routing_key: encrypt(convertValue?.routing_key) };
-        }
-
-        break;
-      default:
-        if (convertValue?.smtp_pass !== _DEFAULTPASSWORDVALUE) {
-          value = { ...value, smtp_pass: encrypt(convertValue?.smtp_pass) };
-        }
-        break;
-    }
-
-    return value;
-  } catch (err) {
-    return {};
+  if (newConfig[secretField] === _DEFAULTPASSWORDVALUE) {
+    value[secretField] = oldConfig[secretField];
+  } else {
+    value[secretField] = encrypt(newConfig[secretField]);
   }
+  return value;
 }
 
 // Rules
@@ -427,12 +404,23 @@ export function createChannel(req, res) {
 export function updateChannel(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
+    const existing = db
+      .select()
+      .from(alertChannels)
+      .where(eq(alertChannels.id, id))
+      .get();
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
     const updates = {};
     if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.type !== undefined) updates.type = req.body.type;
     if (req.body.config !== undefined)
       updates.config = JSON.stringify(
-        UpdateKeysValuesChannels(req.body?.config, req.body?.type),
+        UpdateKeysValuesChannels(
+          req.body.config,
+          req.body.type ?? existing.type,
+          existing.config,
+        ),
       );
     if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
 

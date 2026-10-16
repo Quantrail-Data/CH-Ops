@@ -189,8 +189,7 @@ SELECT
   count() AS samples
 FROM system.trace_log
 WHERE query_id = '${safeId}'
-GROUP BY stack
-SETTINGS allow_introspection_functions = 1`.trim();
+GROUP BY stack`.trim();
 }
 // flamegraph parser
 
@@ -721,10 +720,13 @@ export default function QueryProfiler() {
       to: toDt,
       memoryContext,
     });
-    setGeneratedSql(sql);
+
+    setGeneratedSql(sql + "\nSETTINGS allow_introspection_functions = 1");
 
     try {
-      const result = await runQuery(sql);
+      const result = await runQuery(sql, {
+        settings: { allow_introspection_functions: 1 },
+      });
       if (!result.rows?.length) {
         setError(
           'No trace data found for this query and trace type. Try a different trace type (e.g., "Real" instead of "CPU"). If none work, the query may have been too fast to sample.',
