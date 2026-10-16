@@ -376,6 +376,10 @@ describe("Security: RBAC on Write Operations", () => {
     expect(settingsCode).toContain("cluster.nodes");
     expect(settingsCode).toContain("requireWriteAccess");
   });
+  it("settings reads use canReadSetting with server-only prefixes", () => {
+    expect(settingsCode).toContain("canReadSetting");
+    expect(settingsCode).toContain("SERVER_ONLY_PREFIXES");
+  });
 
   const clusterCode = read("src/backend/controllers/cluster.js");
   it("cluster update requires admin level", () => {
