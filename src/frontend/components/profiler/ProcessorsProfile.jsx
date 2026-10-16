@@ -345,7 +345,11 @@ function ProcessorsProfileInner() {
     setEdges([]);
 
     try {
-      qidFromUrl && (await runQuery("SYSTEM FLUSH LOGS"));
+      if (qidFromUrl) {
+        try {
+          await runQuery("SYSTEM FLUSH LOGS");
+        } catch {}
+      }
       // Step 1: Fetch query text
       const textResult = await runQuery(buildQueryTextSql(queryId));
 
