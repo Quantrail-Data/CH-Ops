@@ -15,7 +15,8 @@ import { decrypt } from "./crypto.js";
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, 'chops.db');
-const TEMP_DIR = path.join(DB_DIR, 'tmp');
+const TEMP_DIR = path.join(DB_DIR, "tmp");
+const CRYPTO_SALT_PATH = path.join(DB_DIR, "crypto.salt");
 
 function pad(n) { return String(n).padStart(2, '0'); }
 
@@ -141,48 +142,88 @@ async function writeManifest(manifest, s3Key, s3, node) {
 }
 
 // Create and upload a backup to the selected storage profile
-export async function createAppBackup(profileName,backupType) {
+export async function createAppBackup(profileName, backupType) {
   const profiles = getStorageProfiles();
-  const profile = profiles.find(p => p.name === profileName);
-  if (!profile) throw new Error(`Storage profile "${profileName}" not found`);
+  const profile = profiles.find((p) => p.name === profileName);
+
+  if (!profile) {
+    throw new Error(`Storage profile "${profileName}" not found`);
+  }
+
+  if (!fs.existsSync(CRYPTO_SALT_PATH)) {
+    throw new Error(
+      "Encryption salt file not found. Cannot create a restorable backup.",
+    );
+  }
 
   const nodes = getClusterNodes();
-  if (!nodes.length) throw new Error('No cluster nodes configured. Need at least one node to upload via ClickHouse® S3 function.');
-  const node = nodes[0];
 
+  if (!nodes.length) {
+    throw new Error(
+      "No cluster nodes configured. Need at least one node to upload via ClickHouse S3 function.",
+    );
+  }
+
+  const node = nodes[0];
   const s3 = getS3Base(profile);
   const now = new Date();
   const ts = buildTimestamp(now);
   const backupKey = `chops-app-backups/${ts}.db`;
+  const saltKey = `chops-app-backups/${ts}.salt`;
   const manifestKey = `chops-app-backups/${ts}.json`;
 
-  // Step 1: create WAL-safe snapshot
+  // Create the WAL-safe database snapshot.
   const snapshot = createSnapshot();
 
-  try {
-    // Step 2: upload the snapshot
-    await uploadToS3(snapshot.path, backupKey, s3, node);
+  // Keep temporary files in the application's temp directory.
+  if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  }
 
-    // Step 3: write manifest
+  const saltSnapshotPath = path.join(TEMP_DIR, `crypto-salt-${ts}.salt`);
+
+  try {
+    // Capture the matching salt before uploading either artifact.
+    fs.copyFileSync(CRYPTO_SALT_PATH, saltSnapshotPath);
+
+    const saltSize = fs.statSync(saltSnapshotPath).size;
+
+    // Upload database and salt.
+    await uploadToS3(snapshot.path, backupKey, s3, node);
+    await uploadToS3(saltSnapshotPath, saltKey, s3, node);
+
+    // Publish the manifest only after both uploads succeed.
+    const appVersion = getAppVersion();
+
     const manifest = {
       backup_id: ts,
       created_at: now.toISOString(),
-      app_version: getAppVersion().display || getAppVersion().version || 'unknown',
+      app_version: appVersion.display || appVersion.version || "unknown",
       file_size_bytes: snapshot.size,
-      file_size_display: snapshot.size < 1024 * 1024
-        ? `${(snapshot.size / 1024).toFixed(1)} KB`
-        : `${(snapshot.size / (1024 * 1024)).toFixed(2)} MB`,
+      file_size_display:
+        snapshot.size < 1024 * 1024
+          ? `${(snapshot.size / 1024).toFixed(1)} KB`
+          : `${(snapshot.size / (1024 * 1024)).toFixed(2)} MB`,
       profile_name: profileName,
       s3_path: `${s3.endpoint}/${backupKey}`,
+      crypto_salt_s3_path: `${s3.endpoint}/${saltKey}`,
+      crypto_salt_size_bytes: saltSize,
       table_counts: getTableCounts(),
-      backup_type:backupType
+      backup_type: backupType,
     };
+
     await writeManifest(manifest, manifestKey, s3, node);
 
     return manifest;
   } finally {
-    // Always clean up the temp file
-    try { fs.unlinkSync(snapshot.path); } catch {}
+    // Always clean up both temporary files.
+    try {
+      fs.unlinkSync(snapshot.path);
+    } catch {}
+
+    try {
+      fs.unlinkSync(saltSnapshotPath);
+    } catch {}
   }
 }
 
