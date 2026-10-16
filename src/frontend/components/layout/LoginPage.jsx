@@ -342,7 +342,7 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
         }),
       });
 
-      console.log(res)
+
       if (res?.success) {
         localStorage.removeItem("otp-mail");
         sessionStorage.removeItem("otp-reset-token");
@@ -352,7 +352,6 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
         setError(res?.message)
       }
     } catch (err) {
-      console.log(err)
       setError(err?.message);
     } finally {
       setLoading(false);
