@@ -546,110 +546,117 @@ export default function AppDataBackup() {
               </button>
             </div>
             {showRestore && (
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "var(--text-secondary)",
-                  lineHeight: 1.7,
-                }}
-              >
-                <p
-                  style={{
-                    marginBottom: 12,
-                    color: "var(--color-warning)",
-                    fontWeight: 600,
-                  }}
-                >
-                  <Icon
-                    className="ti ti-alert-triangle"
-                    style={{ fontSize: 16, marginRight: 4 }}
-                  ></Icon>
-                  Restoring replaces all app data. The server must be stopped
-                  during restore.
-                </p>
+<div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+  <p style={{ marginBottom: 12, color: 'var(--color-warning)', fontWeight: 600 }}>
+    <Icon
+      className="ti ti-alert-triangle"
+      style={{ fontSize: 16, marginRight: 4 }}
+    />
+    Restoring replaces all app data. Stop the server before restoring the database
+    and crypto salt. Keep the same ENCRYPTION_SECRET used by the original server.
+  </p>
 
-                <p style={{ fontWeight: 700, marginBottom: 6 }}>
-                  1. Download the backup file from S3
-                </p>
-                <pre
-                  style={{
-                    background: "var(--bg-sunken)",
-                    padding: 12,
-                    borderRadius: "var(--radius-sm)",
-                    fontFamily: "var(--font-code)",
-                    fontSize: "13px",
-                    marginBottom: 16,
-                    overflowX: "auto",
-                  }}
-                >
-                  {`# Using AWS CLI (works with any S3-compatible storage)
+  <p style={{ fontWeight: 700, marginBottom: 6 }}>
+    1. Download the database and crypto salt from S3
+  </p>
+  <pre style={{
+    background: 'var(--bg-sunken)',
+    padding: 12,
+    borderRadius: 'var(--radius-sm)',
+    fontFamily: 'var(--font-code)',
+    fontSize: '13px',
+    marginBottom: 16,
+    overflowX: 'auto'
+  }}>
+{`# Replace BACKUP_ID, bucket, and endpoint with your values
 aws s3 cp s3://YOUR_BUCKET/chops-app-backups/BACKUP_ID.db ./chops-restore.db \\
-  --endpoint-url YOUR_ENDPOINT`}
-                </pre>
+  --endpoint-url YOUR_ENDPOINT
 
-                <p style={{ fontWeight: 700, marginBottom: 6 }}>
-                  2. Stop the server
-                </p>
-                <pre
-                  style={{
-                    background: "var(--bg-sunken)",
-                    padding: 12,
-                    borderRadius: "var(--radius-sm)",
-                    fontFamily: "var(--font-code)",
-                    fontSize: "13px",
-                    marginBottom: 16,
-                    overflowX: "auto",
-                  }}
-                >
-                  {`# Dev mode (Ctrl+C to stop, then):
-# If using bun run dev, just stop the process
+# Download the matching salt file saved with this backup
+aws s3 cp s3://YOUR_BUCKET/chops-app-backups/BACKUP_ID.crypto.salt ./crypto.salt \\
+  --endpoint-url YOUR_ENDPOINT`}
+  </pre>
+
+  <p style={{ fontWeight: 700, marginBottom: 6 }}>
+    2. Stop the server
+  </p>
+  <pre style={{
+    background: 'var(--bg-sunken)',
+    padding: 12,
+    borderRadius: 'var(--radius-sm)',
+    fontFamily: 'var(--font-code)',
+    fontSize: '13px',
+    marginBottom: 16,
+    overflowX: 'auto'
+  }}>
+{`# Dev mode: press Ctrl+C
 
 # Production (systemd)
 sudo systemctl stop chops
 
-# Production (binary, running in foreground)
-# Ctrl+C or kill the process`}
-                </pre>
+# Production (foreground process): press Ctrl+C`}
+  </pre>
 
-                <p style={{ fontWeight: 700, marginBottom: 6 }}>
-                  3. Replace the database
-                </p>
-                <pre
-                  style={{
-                    background: "var(--bg-sunken)",
-                    padding: 12,
-                    borderRadius: "var(--radius-sm)",
-                    fontFamily: "var(--font-code)",
-                    fontSize: "13px",
-                    marginBottom: 16,
-                    overflowX: "auto",
-                  }}
-                >
-                  {`# Remove WAL and SHM files (they contain unflushed data from the old DB)
+  <p style={{ fontWeight: 700, marginBottom: 6 }}>
+    3. Restore the database
+  </p>
+  <pre style={{
+    background: 'var(--bg-sunken)',
+    padding: 12,
+    borderRadius: 'var(--radius-sm)',
+    fontFamily: 'var(--font-code)',
+    fontSize: '13px',
+    marginBottom: 16,
+    overflowX: 'auto'
+  }}>
+{`# Remove stale SQLite WAL/SHM files
 rm -f data/chops.db-wal data/chops.db-shm
 
-# Decode the base64 text back to a real SQLite binary
+# Decode only if the downloaded backup is base64-encoded text
 base64 -d chops-restore.db > chops_decoded.db
 
 # Replace the database
 cp chops_decoded.db data/chops.db`}
-                </pre>
+  </pre>
 
-                <p style={{ fontWeight: 700, marginBottom: 6 }}>
-                  4. Restart the server
-                </p>
-                <pre
-                  style={{
-                    background: "var(--bg-sunken)",
-                    padding: 12,
-                    borderRadius: "var(--radius-sm)",
-                    fontFamily: "var(--font-code)",
-                    fontSize: "13px",
-                    marginBottom: 16,
-                    overflowX: "auto",
-                  }}
-                >
-                  {`# Dev mode
+  <p style={{ fontWeight: 700, marginBottom: 6 }}>
+    4. Restore crypto.salt
+  </p>
+  <pre style={{
+    background: 'var(--bg-sunken)',
+    padding: 12,
+    borderRadius: 'var(--radius-sm)',
+    fontFamily: 'var(--font-code)',
+    fontSize: '13px',
+    marginBottom: 16,
+    overflowX: 'auto'
+  }}>
+{`# Ensure the data directory exists
+mkdir -p data
+
+# Validate that the salt is exactly 32 bytes
+test "$(wc -c < ./crypto.salt)" -eq 32 || {
+  echo "Invalid crypto.salt file; restore aborted"
+  exit 1
+}
+
+# Install the matching salt
+install -m 600 ./crypto.salt data/crypto.salt`}
+  </pre>
+
+  <p style={{ fontWeight: 700, marginBottom: 6 }}>
+    5. Restart the server
+  </p>
+  <pre style={{
+    background: 'var(--bg-sunken)',
+    padding: 12,
+    borderRadius: 'var(--radius-sm)',
+    fontFamily: 'var(--font-code)',
+    fontSize: '13px',
+    marginBottom: 16,
+    overflowX: 'auto'
+  }}>
+{`# Dev mode
 bun run dev
 
 # Production (systemd)
@@ -657,16 +664,15 @@ sudo systemctl start chops
 
 # Production (binary)
 ./chops`}
-                </pre>
+  </pre>
 
-                <p style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-                  The backup is a self-contained SQLite file created with VACUUM
-                  INTO. It does not depend on WAL or SHM files. All alert rules,
-                  channels, dashboards, charts, backup schedules, user accounts,
-                  and settings are included. ClickHouse® data is not affected -
-                  only CHOps's internal state is restored.
-                </p>
-              </div>
+  <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+    Restore the database and its matching crypto.salt from the same backup.
+    Keep ENCRYPTION_SECRET unchanged. The salt is required to derive the
+    original encryption key for stored credentials. ClickHouse data is not
+    affected; this procedure restores CH-Ops internal application state.
+  </p>
+</div>
             )}
           </div>
         </>
