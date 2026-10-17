@@ -132,7 +132,9 @@ function HealthTab({ data }) {
 // Topology
 
 function HostCell({ host, signalsUnreliable }) {
-  const bad = !host.operatorReady || host.inRotation?.ready === false;
+  // OCKO has no operator readiness label, so fall back to pod readiness.
+  const hostReady = host.operatorReady === null ? host.podReady : host.operatorReady;
+  const bad = !hostReady || host.inRotation?.ready === false;
   const draining = host.inRotation?.terminating;
 
   return (
@@ -154,7 +156,7 @@ function HostCell({ host, signalsUnreliable }) {
             readiness unknown
           </span>
         ) : (
-          <span>{host.operatorReady ? "ready" : "not ready"}</span>
+          <span>{hostReady ? "ready" : "not ready"}</span>
         )}
       </div>
 
@@ -183,6 +185,13 @@ function TopologyTab({ data }) {
 
   return (
     <div>
+      {data.lastRefresh?.at && (
+        <div style={{ ...muted, fontSize: 12, marginBottom: 12 }}>
+          Host list last refreshed {new
+    Date(data.lastRefresh.at).toLocaleString()}
+              {data.lastRefresh.ok === false ? " (last refresh failed)" : ""}
+        </div>
+      )}
       {data.healthSignalsUnreliable && (
         <Banner tone="warn">
           <strong>Troubleshoot mode is on.</strong> The operator has disabled
