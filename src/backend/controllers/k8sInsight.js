@@ -192,7 +192,7 @@ export async function getReconcile(req, res) {
 // Passwords appear in plain text under configuration.users when somebody puts them there, and people do.
 const SECRET_KEY = /password|secret|token|key$|_key/i;
 
-function redact(value) {
+export function redact(value) {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(redact);
   const out = {};
@@ -380,10 +380,9 @@ export async function getEvents(req, res) {
 
 // GET /api/k8s/insight/:clusterId/logs/:pod previous=true reads the container that died
 export async function getLogs(req, res) {
+  // client.js encodes the pod name in the path, so it is not encoded here.
   const { pod: rawPod } = req.params;
   const { previous, tailLines, sinceSeconds } = req.query;
-
-  const pod = encodeURIComponent(rawPod);
 
   try {
     const { provider, ns } = resolve(req.params.clusterId);
