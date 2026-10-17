@@ -11,6 +11,7 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import IconAlert from "../common/IconAlert.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import DataTable from "../layout/DataTable.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
@@ -435,52 +436,16 @@ export default function AlertRules() {
             </div>
             <div
               className="form-group"
-              style={{ display: "flex", alignItems: "center", paddingTop: 20 }}
+              style={{ display: "flex", flexDirection:"row",justifyContent:"end", paddingTop: 20 ,gap:"4rem"}}
             >
-              <div className="form-label">
-                <label
-                  className="switch"
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    marginRight: "5px",
-                  }}
-                >
-                  <input
-                    type="checkbox"
+              
+              <ToggleSwitch 
                     checked={f.enabled}
-                    onChange={(e) => setF({ ...f, enabled: e.target.checked })}
-                    style={{ accentColor: "var(--accent)" }}
-                  />{" "}
-                  <span class="slider"></span>
-                </label>
-                Enabled
-              </div>
-              <div className="form-label">
-                <label
-                  className="switch"
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    marginRight: "5px",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={f.noRowsMeansBreach}
+                    onChange={(e) => setF({ ...f, enabled: e.target.checked })}  label="Enabled"/>
+              <ToggleSwitch checked={f.noRowsMeansBreach}
                     onChange={(e) =>
                       setF({ ...f, noRowsMeansBreach: e.target.checked })
-                    }
-                    style={{ accentColor: "var(--accent)" }}
-                  />{" "}
-                  <span class="slider"></span>
-                </label>
-                noRowsMeansBreach
-              </div>
+                    } label="noRowsMeansBreach"/>
             </div>
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
@@ -719,7 +684,7 @@ export default function AlertRules() {
           <p>Alert rules management is only available for administrators.</p>
         </div>
       ) : rules.length === 0 ? (
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh" }} >
           <Icon className="ti ti-bell-plus" style={{ fontSize: 36 }}></Icon>
           <p>No rules yet. Click New Rule.</p>
         </div>

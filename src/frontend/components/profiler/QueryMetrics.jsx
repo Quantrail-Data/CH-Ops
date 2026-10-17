@@ -1384,6 +1384,7 @@ export default function QueryMetrics() {
             padding: "60px 20px",
             textAlign: "center",
             color: "var(--text-muted)",
+            height:"35vh"
           }}
         >
           <Icon

@@ -614,7 +614,7 @@ if (unavailableMessage) {
       {loading ? (
         <div className="empty-state"><span className="loading-spinner"></span></div>
       ) : !loaded ? (
-        <div className="empty-state"><Icon className="ti ti-player-play" style={{ color: "#fb923c" }}></Icon><p>Select a time range and click Load.</p></div>
+        <div className="empty-state" style={{height:"50vh" }}><Icon className="ti ti-player-play" style={{ color: "#fb923c" }}></Icon><p>Select a time range and click Load.</p></div>
       ) : !hasData && !hasErrs ? (
         <div className="empty-state"><Icon className="ti ti-file-text" style={{ color: "#60a5fa" }}></Icon><p>No log entries in the selected range.</p></div>
       ) : (
