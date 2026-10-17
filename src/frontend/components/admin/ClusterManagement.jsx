@@ -10,6 +10,7 @@ import { useConnection } from "../../App.jsx";
 import { useAuth } from "../../App.jsx";
 import KubernetesClusterTab from "./KubernetesClusterTab.jsx";
 import ConfirmDialog from "../editor/ConfirmDialog.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const MAX_CLUSTERS = 3;
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -774,7 +775,7 @@ function startEditK8s(cluster) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">ClickHouse address</label>
+              <label className="form-label" style={{marginTop:"1rem"}}>ClickHouse address</label>
               <input
                 className="form-input"
                 value={k8sForm.endpoint}
@@ -786,7 +787,7 @@ function startEditK8s(cluster) {
               />
             </div>
 
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12,marginTop:"1rem" }}>
               <div className="form-group" style={{ flex: "0 0 120px" }}>
                 <label className="form-label">Port</label>
                 <input
@@ -800,26 +801,16 @@ function startEditK8s(cluster) {
                   style={{ width: "100%" }}
                 />
               </div>
-              <div
-                className="form-group"
-                style={{ display: "flex", alignItems: "flex-end", paddingBottom: 8 }}
-              >
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                  <input
-                    type="checkbox"
+              <ToggleSwitch 
                     checked={k8sForm.secure}
                     onChange={(e) => {
                       setK8sForm((p) => ({ ...p, secure: e.target.checked }));
                       setK8sVerify(null);
-                    }}
-                  />
-                  Use TLS
-                </label>
-              </div>
+                    }} label="Use TLS" />
             </div>
 
             <div className="form-group">
-              <label className="form-label">ClickHouse user</label>
+              <label className="form-label" style={{marginTop:"1rem"}}>ClickHouse user</label>
               <input
                 className="form-input"
                 value={k8sForm.chUser}
@@ -832,7 +823,7 @@ function startEditK8s(cluster) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">ClickHouse password</label>
+              <label className="form-label" style={{marginTop:"1rem"}}>ClickHouse password</label>
               <input
                 className="form-input"
                 type="password"
@@ -850,7 +841,7 @@ function startEditK8s(cluster) {
               />
             </div>
 
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12,marginTop:10 }}>
               Nodes come from the installation and are re-read on refresh.
             </p>
 
