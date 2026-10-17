@@ -623,6 +623,7 @@ export default function CurrentQueries() {
         onRowClick={setActiveRow}
         onClickSetData = {setActiveRowModal}
         activeKey={activeRow?.query_id}
+        maxHeight="100px"
         emptyMessage={
           loading
             ? "Reading system.processes..."

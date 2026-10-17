@@ -11,6 +11,7 @@ import DataTable from "../layout/DataTable.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const ROLES = ["superadmin", "admin", "editor", "readonly"];
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -973,44 +974,14 @@ async function resetPassword(id,initUser) {
                 }}
               />
             </div>
-
-            <div className="form-label">
-              <label
-                className="switch"
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  marginRight: "5px",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={smtpForm.secure}
+            <ToggleSwitch  checked={smtpForm.secure}
                   onChange={(e) => {
                     setSmtpForm((p) => ({
                       ...p,
                       secure: e.target.checked,
                     }));
                     setSmtpResult(null);
-                  }}
-                  style={{ accentColor: "var(--accent)" }}
-                />{" "}
-                <span class="slider"></span>
-              </label>
-              Use TLS
-              <small
-                style={{
-                  display: "block",
-                  color: "var(--text-muted)",
-                  fontSize: 11,
-                  marginTop: 2,
-                }}
-              >
-               ( Recommended for secure SMTP connections)
-              </small>
-            </div>
+                  }} label="Use TLS" info="( Recommended for secure SMTP connections)"/>
           </div>
 
           {!smtpFormReady() && (
