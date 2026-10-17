@@ -12,9 +12,22 @@ import { join } from "node:path";
 import { peerIssuer } from "../../src/backend/controllers/trustedCa.js";
 import { withSystemAuthorities } from "../../src/backend/services/trustedCa.js";
 
+function hasOpenssl() {
+  try {
+    execFileSync("openssl", ["version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const HAS_OPENSSL = hasOpenssl();
+
 let caPem, caPem2, server, port;
 
 beforeAll(async () => {
+  if (!HAS_OPENSSL) return;
+
   const dir = mkdtempSync(join(tmpdir(), "tls-"));
   const p = (f) => join(dir, f);
 
@@ -51,7 +64,7 @@ beforeAll(async () => {
 
 afterAll(() => { server?.close(); });
 
-describe("supplying a certificate authority", () => {
+describe.skipIf(!HAS_OPENSSL)("supplying a certificate authority", () => {
   it("fails without one, which is the bug this feature fixes", async () => {
     // The exact error a user reports: "unable to verify the first certificate".
     await expect(fetch(`https://localhost:${port}/`)).rejects.toThrow(/unable to verify/i);
@@ -84,10 +97,12 @@ describe("supplying a certificate authority", () => {
   });
 });
 
-describe("checking a cluster reached by IP address", () => {
+describe.skipIf(!HAS_OPENSSL)("checking a cluster reached by IP address", () => {
   let strictServer, strictPort, srvKey, srvCert, caPemIp;
 
   beforeAll(async () => {
+    if (!HAS_OPENSSL) return;
+
     const dir = mkdtempSync(join(tmpdir(), "tls-ip-"));
     const p = (f) => join(dir, f);
 
@@ -160,7 +175,7 @@ describe("the assumption the whole design rests on", () => {
     }
     expect(res.status).toBeGreaterThan(0);
   });
-  it("the merged bundle holds the custom authority and the system roots", () => {
+  it.skipIf(!HAS_OPENSSL)("the merged bundle holds the custom authority and the system roots", () => {
     const merged = withSystemAuthorities(caPem);
     expect(merged).toContain("BEGIN CERTIFICATE");
     expect(merged).toContain(caPem.trim());
@@ -169,7 +184,7 @@ describe("the assumption the whole design rests on", () => {
   });
 });
 
-describe("reading the certificate a server presents", () => {
+describe.skipIf(!HAS_OPENSSL)("reading the certificate a server presents", () => {
   it("exposes the issuer, which is how the usage list matches", () => {
     // controllers/trustedCa.js compares this against the stored subjects to say
     // which clusters depend on which authority.
