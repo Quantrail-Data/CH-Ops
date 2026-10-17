@@ -9,7 +9,7 @@ GRANT ACCESS MANAGEMENT ON *.* TO chops_admin;
 GRANT ALTER INDEX ON *.* TO chops_admin;
 GRANT ALTER PROJECTION ON *.* TO chops_admin;
 
-CREATE USER IF NOT EXISTS chops IDENTIFIED BY 'your_secure_password';
+CREATE USER IF NOT EXISTS chops IDENTIFIED BY 'root';
 GRANT chops_admin TO chops;
 SET DEFAULT ROLE ALL TO chops;
 ALTER USER chops SETTINGS allow_introspection_functions = 1;
