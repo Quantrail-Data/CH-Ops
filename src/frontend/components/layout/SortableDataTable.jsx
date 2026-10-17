@@ -161,12 +161,12 @@ export default function SortableDataTable({
 
   if (!rows.length) {
     return (
-      <div className={wrapClass} style={{ minHeight: 80 }}>
+      <div className={wrapClass} style={{ minHeight: 80,height:"40vh" }}>
         <table className="data-table" >
           {header}
           <tbody></tbody>
         </table>
-        <div className="empty-state" style={{ padding: "32px 16px" }}>
+        <div className="empty-state" style={{ padding: "32px 16px",height:"34vh" }}>
           <Icon className="ti ti-inbox"></Icon>
           <p>{emptyMessage || "No data found."}</p>
         </div>
@@ -264,3 +264,5 @@ export default function SortableDataTable({
     </div>
   );
 }
+// Yesterday I fixed the issuen in kubernates page and fix some UI issues and also complete one concept in go excercise.
+//  Today I going fix the aligment issues and continue sidecar challenge and practise go 
