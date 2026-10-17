@@ -16,30 +16,34 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterNodes: mockGetClusterNodes,
   //add
   resolveTargetNode: (clusterId, selector) => {
-  const nodes = mockGetClusterNodes(clusterId) || [];
+    const nodes = mockGetClusterNodes(clusterId) || [];
 
-  if (!nodes.length) {
-    throw Object.assign(new Error("No cluster nodes configured"), {
-      status: 400,
-    });
-  }
+    if (!nodes.length) {
+      throw Object.assign(new Error("No cluster nodes configured"), {
+        status: 400,
+      });
+    }
 
-  const target = selector
-    ? nodes.find((n) => n.name === selector || n.host === selector)
-    : nodes[0];
+    const target = selector
+      ? nodes.find((n) => n.name === selector || n.host === selector)
+      : nodes[0];
 
-  if (!target) {
-    throw Object.assign(
-      new Error("Node not found in cluster configuration."),
-      { status: 400 },
-    );
-  }
+    if (!target) {
+      throw Object.assign(
+        new Error("Node not found in cluster configuration."),
+        { status: 400 },
+      );
+    }
 
-  return target;
-},
+    return target;
+  },
   //add here
-  getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
-  getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
+  getAllClusters: () => [],
+  getClusterById: () => null,
+  getNodeByName: () => null,
+  getDefaultCluster: () => null,
+  saveClusters: () => {},
+  migrateClusterData: () => {},
   // bun's mock.module replaces this module for the whole test process, not just
   // this file - stub every real export so whichever test file's mock.module
   // call happens to win doesn't break other files that need this one.
@@ -50,7 +54,8 @@ mock.module("../../src/backend/services/clusterUtils.js", () => ({
       hasPassword: !!password,
     })),
   }),
-  MAX_CLUSTERS: 3, MAX_TOTAL_NODES: 18,
+  MAX_CLUSTERS: 3,
+  MAX_TOTAL_NODES: 18,
 }));
 
 mock.module("../../src/backend/services/clickhouse.js", () => ({
@@ -59,10 +64,9 @@ mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQueryWithBody: mock(),
 }));
 
-const {
-  runQuery,
-  testQueryConnection,
-} = await import("../../src/backend/controllers/query.js");
+const { runQuery, testQueryConnection } = await import(
+  "../../src/backend/controllers/query.js"
+);
 
 // Editor credential session store: isolated in-memory DB so useSession queries
 // resolve real (jti, context) credentials without touching production data.
@@ -79,8 +83,14 @@ _credSqlite.exec(`
 `);
 credStore.__setDb(drizzle(_credSqlite, { schema }));
 credStore.setCredSession({
-  jti: "ed-jti", context: "editor-qurioz",appUser: "u",
-  clusterId: "c1", node: "h1", port: 8123, chUser: "ed_user", password: "ed_pw",
+  jti: "ed-jti",
+  context: "editor-qurioz",
+  appUser: "u",
+  clusterId: "c1",
+  node: "h1",
+  port: 8123,
+  chUser: "ed_user",
+  password: "ed_pw",
 });
 
 function createRes() {
@@ -139,9 +149,7 @@ describe("runQuery", () => {
   });
 
   test("returns 400 when node is not found in cluster", async () => {
-    mockGetClusterNodes.mockReturnValue([
-      { name: "node1" },
-    ]);
+    mockGetClusterNodes.mockReturnValue([{ name: "node1" }]);
 
     const req = {
       body: {
@@ -182,7 +190,8 @@ describe("runQuery", () => {
         sql: "SELECT 1",
         clusterId: "cluster1",
       },
-      on:() => true
+      user: { role: "admin" },
+      on: () => true,
     };
 
     const res = createRes();
@@ -213,7 +222,7 @@ describe("runQuery", () => {
     mockGetClusterNodes.mockReturnValue([
       {
         name: "node1",
-        host:"node1",
+        host: "node1",
         port: 8123,
         user: "default",
         password: "",
@@ -230,7 +239,8 @@ describe("runQuery", () => {
         password: "secret",
         clusterId: "cluster1",
       },
-      on:() => true
+      user: { role: "admin" },
+      on: () => true,
     };
 
     const res = createRes();
@@ -251,20 +261,17 @@ describe("runQuery", () => {
   });
 
   test("returns query errors as 400", async () => {
-    mockGetClusterNodes.mockReturnValue([
-      { name: "node1" },
-    ]);
+    mockGetClusterNodes.mockReturnValue([{ name: "node1" }]);
 
-    mockExecuteQuery.mockRejectedValue(
-      new Error("Syntax error")
-    );
+    mockExecuteQuery.mockRejectedValue(new Error("Syntax error"));
 
     const req = {
       body: {
         sql: "BAD SQL",
         clusterId: "cluster1",
       },
-      on:() => true
+      user: { role: "admin" },
+      on: () => true,
     };
 
     const res = createRes();
@@ -278,9 +285,7 @@ describe("runQuery", () => {
   });
 
   test("maps ClickHouse stats fields", async () => {
-    mockGetClusterNodes.mockReturnValue([
-      { name: "node1" },
-    ]);
+    mockGetClusterNodes.mockReturnValue([{ name: "node1" }]);
 
     mockExecuteQuery.mockResolvedValue({
       stats: {
@@ -296,7 +301,8 @@ describe("runQuery", () => {
         sql: "SELECT 1",
         clusterId: "cluster1",
       },
-      on:() => true
+      user: { role: "admin" },
+      on: () => true,
     };
 
     const res = createRes();
@@ -319,14 +325,25 @@ describe("runQuery", () => {
 });
 
 describe("runQuery request settings", () => {
-  const node = { name: "node1", port: 8123, user: "chops", password: "pw" };
+  const node = {
+    name: "node1",
+    port: 8123,
+    user: "chops",
+    password: "pw",
+  };
 
   function run(body) {
     mockGetClusterNodes.mockReturnValue([node]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { body: { node: "node1", clusterId: "c1", sql: "SELECT 1", ...body }, user: {},on:() => true };
+    const req = {
+      body: { sql: "SELECT 1", node: "node1", clusterId: "c1", ...body },
+      user: { role: "admin" },
+      on: () => true,
+    };
     const res = createRes();
-    return runQuery(req, res).then(() => mockExecuteQuery.mock.calls[0]?.[0]);
+    return runQuery(req, res).then(
+      () => mockExecuteQuery.mock.calls[0]?.[0],
+    );
   }
 
   test("forwards the editor's row limit to ClickHouse", async () => {
@@ -343,7 +360,10 @@ describe("runQuery request settings", () => {
 
   test("forwards EXPLAIN settings", async () => {
     const sent = await run({
-      settings: { use_query_condition_cache: 0, use_skip_indexes_on_data_read: 0 },
+      settings: {
+        use_query_condition_cache: 0,
+        use_skip_indexes_on_data_read: 0,
+      },
     });
     expect(sent.settings.use_query_condition_cache).toBe(0);
     expect(sent.settings.use_skip_indexes_on_data_read).toBe(0);
@@ -376,14 +396,26 @@ describe("runQuery request settings", () => {
 });
 
 describe("runQuery query parameters", () => {
-  const node = { name: "node1", port: 8123, user: "chops", password: "pw" };
+  const node = {
+    name: "node1",
+    port: 8123,
+    user: "chops",
+    password: "pw",
+  };
 
   function run(body) {
     mockGetClusterNodes.mockReturnValue([node]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { body: { node: "node1", clusterId: "c1", ...body }, user: {} ,on:() => true};
+    const req = {
+      body: { node: "node1", clusterId: "c1", ...body },
+      user: { role: "admin" },
+      on: () => true,
+    };
     const res = createRes();
-    return runQuery(req, res).then(() => ({ res, sent: mockExecuteQuery.mock.calls[0]?.[0] }));
+    return runQuery(req, res).then(() => ({
+      res,
+      sent: mockExecuteQuery.mock.calls[0]?.[0],
+    }));
   }
 
   test("passes values through as params, never interpolated", async () => {
@@ -438,7 +470,7 @@ describe("runQuery query parameters", () => {
         sql: "SELECT {a:String} FROM t WHERE b = {a:UInt8}",
         params: { a: "1" },
       },
-      user: {},
+      user: { role: "admin" },
     };
     const res = createRes();
 
@@ -484,9 +516,7 @@ describe("testQueryConnection", () => {
   });
 
   test("returns error when node is not in cluster", async () => {
-    mockGetClusterNodes.mockReturnValue([
-      { host: "node1" },
-    ]);
+    mockGetClusterNodes.mockReturnValue([{ host: "node1" }]);
 
     const req = {
       body: {
@@ -550,7 +580,7 @@ describe("testQueryConnection", () => {
     mockGetClusterNodes.mockReturnValue([
       {
         name: "node1",
-        host:"node",
+        host: "node",
         port: 8123,
         user: "chops",
         password: "stored-secret",
@@ -573,17 +603,16 @@ describe("testQueryConnection", () => {
       password: "stored-secret",
       sql: "SELECT 1",
     });
-    expect(res.body).toEqual({ ok: true, message: "Connected successfully" });
+    expect(res.body).toEqual({
+      ok: true,
+      message: "Connected successfully",
+    });
   });
 
   test("returns failure when connection throws", async () => {
-    mockGetClusterNodes.mockReturnValue([
-      { name: "node1" },
-    ]);
+    mockGetClusterNodes.mockReturnValue([{ name: "node1" }]);
 
-    mockExecuteQuery.mockRejectedValue(
-      new Error("Connection refused")
-    );
+    mockExecuteQuery.mockRejectedValue(new Error("Connection refused"));
 
     const req = {
       body: {
@@ -602,10 +631,20 @@ describe("testQueryConnection", () => {
     });
   });
 });
+
 describe("runQuery readonly enforcement", () => {
   test("rejects a non-read statement when readOnly is set, without hitting ClickHouse", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
-    const req = { body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1", readOnly: true } };
+    mockGetClusterNodes.mockReturnValue([
+      { host: "h1", port: 8123, user: "u", password: "p" },
+    ]);
+    const req = {
+      body: {
+        sql: "DROP TABLE t",
+        node: "h1",
+        clusterId: "c1",
+        readOnly: true,
+      },
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(res.statusCode).toBe(400);
@@ -614,28 +653,55 @@ describe("runQuery readonly enforcement", () => {
   });
 
   test("passes readOnly through to executeQuery for a read query", async () => {
-    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "u", password: "p" },
+    ]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", readOnly: true },on:() => true };
+    const req = {
+      body: {
+        sql: "SELECT 1",
+        node: "h1",
+        clusterId: "c1",
+        readOnly: true,
+      },
+      user: { role: "admin" },
+      on: () => true,
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
-    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({ readOnly: true, sql: "SELECT 1" });
+    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({
+      readOnly: true,
+      sql: "SELECT 1",
+    });
   });
 
-  test("does not block writes when readOnly is not requested (e.g. SQL editor)", async () => {
-    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
+  test("does not block an admin's writes when readOnly is not requested", async () => {
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "u", password: "p" },
+    ]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" },on:() => true };
+    const req = {
+      user: { role: "admin" },
+      body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" },
+      on: () => true,
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
-    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({ readOnly: false });
+    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({
+      readOnly: false,
+    });
   });
 
   test("a 'readonly' app role cannot bypass by omitting readOnly in the request body", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
-    const req = { user: { role: "readonly" }, body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" } };
+    mockGetClusterNodes.mockReturnValue([
+      { host: "h1", port: 8123, user: "u", password: "p" },
+    ]);
+    const req = {
+      user: { role: "readonly" },
+      body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" },
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(res.statusCode).toBe(400);
@@ -644,8 +710,18 @@ describe("runQuery readonly enforcement", () => {
   });
 
   test("a 'readonly' app role cannot bypass by explicitly setting readOnly: false", async () => {
-    mockGetClusterNodes.mockReturnValue([{ host: "h1", port: 8123, user: "u", password: "p" }]);
-    const req = { user: { role: "readonly" }, body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1", readOnly: false } };
+    mockGetClusterNodes.mockReturnValue([
+      { host: "h1", port: 8123, user: "u", password: "p" },
+    ]);
+    const req = {
+      user: { role: "readonly" },
+      body: {
+        sql: "DROP TABLE t",
+        node: "h1",
+        clusterId: "c1",
+        readOnly: false,
+      },
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(res.statusCode).toBe(400);
@@ -654,40 +730,131 @@ describe("runQuery readonly enforcement", () => {
   });
 
   test("a 'readonly' app role can still run read queries", async () => {
-    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "u", password: "p" },
+    ]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { user: { role: "readonly" }, body: { sql: "SELECT 1", node: "h1", clusterId: "c1" },on:() => true };
+    const req = {
+      user: { role: "readonly" },
+      body: { sql: "SELECT 1", node: "h1", clusterId: "c1" },
+      on: () => true,
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
-    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({ readOnly: true });
+    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({
+      readOnly: true,
+    });
   });
 
-  test("a non-readonly app role (editor) is not forced into readOnly", async () => {
-    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "u", password: "p" }]);
+  test("an editor cannot write with the service account", async () => {
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "u", password: "p" },
+    ]);
+    const req = {
+      user: { role: "editor" },
+      body: {
+        sql: "DROP TABLE t",
+        node: "h1",
+        clusterId: "c1",
+        readOnly: false,
+      },
+      on: () => true,
+    };
+    const res = createRes();
+    await runQuery(req, res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toMatch(/read-only/i);
+    expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+
+  test("an editor can write with their own ClickHouse login (strictAuth)", async () => {
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "u", password: "p" },
+    ]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { user: { role: "editor" }, body: { sql: "DROP TABLE t", node: "h1", clusterId: "c1" },on:() => true };
+    const req = {
+      user: { role: "editor" },
+      body: {
+        sql: "DROP TABLE t",
+        node: "h1",
+        clusterId: "c1",
+        strictAuth: true,
+        user: "ed",
+        password: "pw",
+      },
+      on: () => true,
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
-    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({ readOnly: false });
+    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({
+      readOnly: false,
+      user: "ed",
+    });
+  });
+
+  test("an editor cannot run storage profile SQL", async () => {
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "u", password: "p" },
+    ]);
+    const req = {
+      user: { role: "editor" },
+      body: {
+        sql: "1-//-SELECT 1",
+        node: "h1",
+        clusterId: "c1",
+        backup_sp: true,
+      },
+      on: () => true,
+    };
+    const res = createRes();
+    await runQuery(req, res);
+    expect(res.statusCode).toBe(403);
+    expect(mockExecuteQuery).not.toHaveBeenCalled();
   });
 });
 
 describe("runQuery editor session (useSession)", () => {
   test("resolves credentials from the (jti, editor) session, no password in body", async () => {
-    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "node_user", password: "node_pw" }]);
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "node_user", password: "node_pw" },
+    ]);
     mockExecuteQuery.mockResolvedValue({ rows: [], columns: [], stats: {} });
-    const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", useSession: true, context: "editor-qurioz" }, user: { jti: "ed-jti", username: "u" },on:() => true };
+    const req = {
+      body: {
+        sql: "SELECT 1",
+        node: "h1",
+        clusterId: "c1",
+        useSession: true,
+        context: "editor-qurioz",
+      },
+      user: { jti: "ed-jti", username: "u" },
+      on: () => true,
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
-    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({ user: "ed_user", password: "ed_pw" });
+    expect(mockExecuteQuery.mock.calls[0][0]).toMatchObject({
+      user: "ed_user",
+      password: "ed_pw",
+    });
   });
 
   test("returns 401 CRED_SESSION_EXPIRED when the session is gone (no fallback to default)", async () => {
-    mockGetClusterNodes.mockReturnValue([{ name: "h1", port: 8123, user: "node_user", password: "node_pw" }]);
-    const req = { body: { sql: "SELECT 1", node: "h1", clusterId: "c1", useSession: true, context: "editor" }, user: { jti: "missing-jti", username: "u" } };
+    mockGetClusterNodes.mockReturnValue([
+      { name: "h1", port: 8123, user: "node_user", password: "node_pw" },
+    ]);
+    const req = {
+      body: {
+        sql: "SELECT 1",
+        node: "h1",
+        clusterId: "c1",
+        useSession: true,
+        context: "editor",
+      },
+      user: { jti: "missing-jti", username: "u" },
+    };
     const res = createRes();
     await runQuery(req, res);
     expect(res.statusCode).toBe(401);
