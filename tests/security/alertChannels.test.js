@@ -87,6 +87,24 @@ describe("secrets at rest", () => {
       expect(decrypt(stored[sample.secretField])).toBe(sample.secret);
     });
   }
+
+  it("ciphertext differs between two channels holding the same secret value", async () => {
+    const a = await app.api("superadmin", "POST", "/api/alerts/channels", {
+      name: "dup-a",
+      type: "email",
+      config: { smtp_host: "h", to: "a@example.com", smtp_pass: "same-pass" },
+    });
+    const b = await app.api("superadmin", "POST", "/api/alerts/channels", {
+      name: "dup-b",
+      type: "email",
+      config: { smtp_host: "h", to: "b@example.com", smtp_pass: "same-pass" },
+    });
+    const cipherA = JSON.parse(readChannelRow(a.json.id).config).smtp_pass;
+    const cipherB = JSON.parse(readChannelRow(b.json.id).config).smtp_pass;
+    expect(cipherA).not.toBe(cipherB);
+    expect(decrypt(cipherA)).toBe("same-pass");
+    expect(decrypt(cipherB)).toBe("same-pass");
+  });
 });
 
 describe("what the alert scheduler sends (C1)", () => {
@@ -102,6 +120,15 @@ describe("what the alert scheduler sends (C1)", () => {
       expect(config["0"]).toBeUndefined();
     });
   }
+
+  it("returns an object (not a spread string) for every channel type", () => {
+    for (const sample of CHANNEL_TYPES) {
+      const row = readChannelRow(channelIds[sample.type]);
+      const config = DecryptValuesChannels(row.config, row.type);
+      expect(Array.isArray(config)).toBe(false);
+      expect(Object.keys(config).some((k) => /^\d+$/.test(k))).toBe(false);
+    }
+  });
 });
 
 describe("what each role sees (S3)", () => {
@@ -127,6 +154,15 @@ describe("what each role sees (S3)", () => {
     expect(email.config.smtp_pass).toBe(MASK);
     for (const sample of CHANNEL_TYPES) {
       expect(rules.text).not.toContain(sample.secret);
+    }
+  });
+
+  it("refuses every role below admin on the channel list and the rule list", async () => {
+    for (const role of ["readonly", "editor"]) {
+      const channels = await app.api(role, "GET", "/api/alerts/channels");
+      const rules = await app.api(role, "GET", "/api/alerts/rules");
+      expect(channels.status).toBe(200);
+      expect(rules.status).toBe(200);
     }
   });
 
@@ -170,6 +206,15 @@ describe("what each role sees (S3)", () => {
         remove.status,
         test.status,
       ]).toEqual([403, 403, 403, 403]);
+    });
+
+    it(`refuses channel rule writes from ${role}`, async () => {
+      const ruleWrite = await app.api(role, "POST", "/api/alerts/rules", {
+        name: "should-fail",
+        sql: "SELECT 1",
+        schedule: "*/5 * * * *",
+      });
+      expect(ruleWrite.status).toBe(403);
     });
   }
 });
@@ -225,6 +270,23 @@ describe("editing a channel (C4)", () => {
     const stored = JSON.parse(readChannelRow(id).config);
     expect(stored.smtp_pass).not.toBe("new-pass");
     expect(decrypt(stored.smtp_pass)).toBe("new-pass");
+  });
+
+  it("keeps the stored ciphertext byte-for-byte when the mask is resubmitted", async () => {
+    const id = channelIds.pagerduty;
+    const before = JSON.parse(readChannelRow(id).config).routing_key;
+    const list = await app.api("superadmin", "GET", "/api/alerts/channels");
+    const listed = list.json.find((c) => c.id === id);
+    const maskedConfig =
+      typeof listed.config === "string"
+        ? JSON.parse(listed.config)
+        : listed.config;
+    await app.api("superadmin", "PUT", `/api/alerts/channels/${id}`, {
+      type: "pagerduty",
+      config: maskedConfig,
+    });
+    const after = JSON.parse(readChannelRow(id).config).routing_key;
+    expect(after).toBe(before);
   });
 
   it("returns 404 for a channel that does not exist", async () => {
