@@ -581,8 +581,8 @@ export function LiveControlBar({ nodeName, live: s }) {
         </span>
 
         {error && (
-          <span style={{ fontSize: "0.75rem", color: "var(--color-danger)" }}>
-            <Icon className="ti ti-alert-circle" /> {error}
+          <span style={{ fontSize: "0.75rem", color: "var(--color-danger)",display:"flex",justifyContent:"center",alignItems:"center" , gap:"4px" }}>
+            <Icon style={{marginBottom:"2px"}} className="ti ti-alert-circle" /> {error}
           </span>
         )}
 

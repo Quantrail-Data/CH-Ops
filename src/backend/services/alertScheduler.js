@@ -316,8 +316,6 @@ async function notify(
   }
 
   // (d) Resolved edge: was firing, now healthy.
-  console.log("status", status);
-  console.log("Pre status", prevStatus);
   if (status === "ok" && prevStatus === "firing") {
     push({
       ...rule,
@@ -334,7 +332,6 @@ async function notify(
 }
 
 function recordSendResult(channelId, ok, errorMessage) {
-  console.log(errorMessage);
   try {
     db.update(alertChannels)
       .set({

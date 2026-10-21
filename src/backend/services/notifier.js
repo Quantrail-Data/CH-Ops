@@ -5,8 +5,7 @@
 import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
 import { loadEnv } from "../utils/env.js";
-import { OTP_TTL_MS }from "./OTPservice.js"
-import { OtelFieldDefinition$inboundSchema } from "@mistralai/mistralai/models/components";
+import { OTP_TTL_MS } from "./OTPservice.js";
 
 function validateWebhookUrl(url) {
   if (!url || typeof url !== "string")
@@ -187,8 +186,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
       auth: config.user ? { user: config.user, pass: config.pass } : undefined,
     });
 
-    const info = await transport.sendMail(mailOptions);
-    console.log("Password reset OTP sent to %s: %s", email, info.messageId);
+    await transport.sendMail(mailOptions);
     return true;
   } catch (error) {
     console.error("Error sending OTP email:", error.message);

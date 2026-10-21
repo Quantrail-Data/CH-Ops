@@ -39,6 +39,7 @@ const ALLOWED_QUERY_SETTINGS = new Set([
   // EXPLAIN options (see explainOptions.js REQUIRED_SETTINGS).
   "use_query_condition_cache",
   "use_skip_indexes_on_data_read",
+  "allow_introspection_functions",
 ]);
 
 function onlyKnownSettings(input) {
@@ -103,19 +104,22 @@ export async function runQuery(req, res) {
   let { readOnly } = req.body;
   if (!sql) return res.status(400).json({ error: "Missing SQL" });
 
+  const role = req.user?.role;
+  const isAdmin = role === "admin" || role === "superadmin";
+
+  if ((sp || backup_sp) && !isAdmin) {
+    return res.status(403).json({ error: "Admin access required." });
+  }
+
   // Server-side role enforcement: the client-supplied readOnly flag is only a
   // UX hint.
-  if (req.user?.role === "readonly") {
+  if (role === "readonly") {
     readOnly = true;
   }
 
-  // Defense in depth: when the caller asks for a read-only request, reject any
-  // non-read statement here before it reaches ClickHouse.
-  if (readOnly && !isReadOnlySql(sql)) {
-    return res.status(400).json({
-      error:
-        "This request only allows read-only queries (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN, EXISTS).",
-    });
+  const usesServiceAccount = !useSession && !strictAuth;
+  if (usesServiceAccount && !isAdmin) {
+    readOnly = true;
   }
 
   // Only connect to hosts that are in the cluster config (SSRF prevention)
@@ -199,6 +203,14 @@ export async function runQuery(req, res) {
     ].includes(kw);
 
     let finalSql = sp ? decrypt(sql) : backup_sp ? backup_SQL : sql;
+
+    if (readOnly && !isReadOnlySql(finalSql)) {
+      return res.status(400).json({
+        error:
+          "This request only allows read-only queries (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN, EXISTS).",
+      });
+    }
+
     let finalParams = {};
     if (rowReturning) {
       try {

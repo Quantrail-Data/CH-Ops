@@ -508,7 +508,7 @@ function CrashLogOverview({ unavailable }) {
           <span className="loading-spinner"></span>
         </div>
       ) : !loaded ? (
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh"}}>
           <Icon
             className="ti ti-player-play"
             style={{ color: "#fb923c" }}
