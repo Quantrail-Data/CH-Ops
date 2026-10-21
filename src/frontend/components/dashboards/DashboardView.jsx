@@ -599,7 +599,7 @@ export default function DashboardView({sidebar}) {
         </div>)}
       </div>}
 
-      {dashboards.length === 0 && !showCreate && <div className="empty-state"><Icon className="ti ti-layout-dashboard"></Icon><p>No dashboards. Create one to get started.</p></div>}
+      {dashboards.length === 0 && !showCreate && <div className="empty-state" style={{height:"60vh"}}><Icon className="ti ti-layout-dashboard"></Icon><p>No dashboards. Create one to get started.</p></div>}
 
       {selDash && (
         <DashboardFilters

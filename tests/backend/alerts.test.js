@@ -126,6 +126,7 @@ mock.module("../../src/backend/db/index.js", () => ({
   clusters: {},
   clusterNodes: {},
   k8sConnections: {},
+  rawSqlite: {},
 }));
 
 mock.module("../../src/backend/services/notifier.js", () => ({
@@ -405,6 +406,7 @@ describe("Alert Channels", () => {
   });
 
   it("updateChannel should udpate channel", () => {
+    fakeDB.channels.push({ id: 1, name: "slack", type: "slack", config: "{}" });
     const { req, res } = mockReqRes({
       id: 1,
       name: "slack",
@@ -419,7 +421,14 @@ describe("Alert Channels", () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it("updateChannel returns 404 when the channel does not exist", () => {
+    const { req, res } = mockReqRes({ name: "x" }, { id: "99" });
+    updateChannel(req, res);
+    expect(res.statusCode).toBe(404);
+  });
+
   it("updateChannel should 500 if any backend error happen", () => {
+    fakeDB.channels.push({ id: 1, name: "slack", type: "slack", config: "{}" });
     const { req, res } = mockReqRes({
       id: 1,
       name: "slack",

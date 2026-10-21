@@ -57,7 +57,7 @@ export default function DistributedDDL() {
     <div className="page-content">
       <div className="section-header"><h2 className="section-title"><Icon className="ti ti-database-cog"></Icon> Distributed DDL & Readonly Tables</h2></div>
 
-      {ddlError && <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>}
+      {ddlError && <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon style={{marginTop:"1px"}} className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>}
 
       <h3 style={{ fontSize: '15px', margin: '0 0 12px' }}><Icon className="ti ti-list-details" style={{ marginRight: 6 }}></Icon>Distributed DDL Queue <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>(auto-refresh 10s)</span></h3>
       <div className="stat-grid">

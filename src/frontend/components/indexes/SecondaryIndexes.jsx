@@ -279,7 +279,7 @@ export default function SecondaryIndexes() {
           </div>
         </div>
       ) : (
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh" }}>
           <Icon className="ti ti-list-tree"></Icon>
           <p>
             {db ? "No indexes found." : "Select a database to view indexes."}

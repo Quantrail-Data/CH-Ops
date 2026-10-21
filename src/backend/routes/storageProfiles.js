@@ -3,6 +3,7 @@ import { db } from "../db";
 import { appSettings } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { decrypt, encrypt } from "../services/crypto";
+import { requireAdmin } from "../controllers/users.js";
 
 const router = Router();
 
@@ -17,7 +18,7 @@ function testingSQLQueryCMD(p) {
   return testSql;
 }
 
-router.get("/testing/:id", (req, res, next) => {
+router.get("/testing/:id", requireAdmin, (req, res, next) => {
   try {
     const id = Number(req?.params?.id);
 
@@ -61,7 +62,7 @@ router.get("/testing/:id", (req, res, next) => {
   }
 });
 
-router.put("/profiles/update/:id", async (req, res, next) => {
+router.put("/profiles/update/:id", requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req?.params?.id);
 
@@ -101,7 +102,7 @@ router.put("/profiles/update/:id", async (req, res, next) => {
   }
 });
 
-router.delete("/profiles/delete/:id", async (req, res, next) => {
+router.delete("/profiles/delete/:id", requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req?.params?.id);
 
@@ -126,7 +127,7 @@ router.delete("/profiles/delete/:id", async (req, res, next) => {
       .where(eq(appSettings?.key, "backup_profiles"));
     res.status(201).json({ removed });
   } catch (err) {
-    console.log(err?.message);
+    next(err);
   }
 });
 
