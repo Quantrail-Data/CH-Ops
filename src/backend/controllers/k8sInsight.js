@@ -14,6 +14,7 @@ import {
   rbacContext,
 } from "../services/capabilities.js";
 import { getLastResult, refreshOne } from "../services/k8sSync.js";
+import { buildDiskForecast } from "../services/k8s/diskForecast.js";
 
 function fail(res, err) {
   const isK8s = typeof err?.code === "string" && err.code.startsWith("K8S_");
@@ -77,6 +78,11 @@ async function resolveChClusterName(cluster, installation) {
   } catch {
     return null;
   }
+}
+
+// The cluster name comes from a system table, but quote it anyway.
+function escapeSqlString(value) {
+  return String(value).replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
 // GET /api/k8s/insight/:clusterId/topology
@@ -192,7 +198,7 @@ export async function getReconcile(req, res) {
 // Passwords appear in plain text under configuration.users when somebody puts them there, and people do.
 const SECRET_KEY = /password|secret|token|key$|_key/i;
 
-function redact(value) {
+export function redact(value) {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(redact);
   const out = {};
@@ -232,6 +238,7 @@ export async function getStorage(req, res) {
     const volumes = await provider.getStorage(ns, name);
 
     let disks = [];
+    let forecast = {};
     if (hasCapability(cluster.id, CAPABILITY.DISKS)) {
       const chCluster = await resolveChClusterName(cluster, name);
       if (chCluster) {
@@ -239,7 +246,7 @@ export async function getStorage(req, res) {
           disks = await query(
             cluster,
             `SELECT hostName() AS host, name, free_space, total_space
-             FROM clusterAllReplicas('${chCluster}', system.disks)`,
+             FROM clusterAllReplicas('${escapeSqlString(chCluster)}', system.disks)`,
           );
         } catch {
           disks = [];
@@ -255,6 +262,67 @@ export async function getStorage(req, res) {
         } catch {
           disks = [];
         }
+      }
+
+      // Usage history for the growth rate. 7 days smooths weekly patterns.
+      if (disks.length) {
+        // ClickHouse 26.8 and later log the disk name in the key column.
+        const keyedUsageSql = `SELECT host, concat('DiskUsed_', disk_key) AS metric,
+            oldest_value, oldest_time, newest_value, newest_time
+          FROM (
+            SELECT hostName() AS host, key AS disk_key,
+              argMin(value, event_time) AS oldest_value,
+              min(event_time) AS oldest_time,
+              argMax(value, event_time) AS newest_value,
+              max(event_time) AS newest_time
+            FROM system.asynchronous_metric_log
+            WHERE metric = 'DiskUsed' AND event_time > now() - INTERVAL 7 DAY
+            GROUP BY host, disk_key
+          )`;
+        // Older versions, or the legacy_names mode, put it in the metric name.
+        const legacyUsageSql = `SELECT hostName() AS host, metric,
+            argMin(value, event_time) AS oldest_value,
+            min(event_time) AS oldest_time,
+            argMax(value, event_time) AS newest_value,
+            max(event_time) AS newest_time
+          FROM merge('system', '^asynchronous_metric_log')
+          WHERE metric LIKE 'DiskUsed\\_%' AND event_time > now() - INTERVAL 7 DAY
+          GROUP BY host, metric`;
+
+        // Fan out to every replica first; fall back to this node alone.
+        async function readUsageSamples(usageSql, tableExpression) {
+          if (chCluster) {
+            try {
+              const rows = await query(
+                cluster,
+                usageSql.replace(
+                  `FROM ${tableExpression}`,
+                  `FROM clusterAllReplicas('${escapeSqlString(chCluster)}', ${tableExpression})`,
+                ),
+              );
+              if (rows.length) return rows;
+            } catch {
+              // Fan-out refused or the query does not fit this version.
+            }
+          }
+          try {
+            return await query(cluster, usageSql);
+          } catch {
+            return [];
+          }
+        }
+
+        let usageSamples = await readUsageSamples(
+          keyedUsageSql,
+          "system.asynchronous_metric_log",
+        );
+        if (!usageSamples.length) {
+          usageSamples = await readUsageSamples(
+            legacyUsageSql,
+            "merge('system', '^asynchronous_metric_log')",
+          );
+        }
+        forecast = buildDiskForecast(usageSamples, disks);
       }
     }
 
@@ -295,9 +363,24 @@ export async function getStorage(req, res) {
       }
     }
 
+    for (const [forecastKey, diskForecast] of Object.entries(forecast)) {
+      if (
+        diskForecast.daysUntilFull !== null &&
+        diskForecast.daysUntilFull <= 14
+      ) {
+        const [diskHost, diskName] = forecastKey.split("|");
+        warnings.push({
+          volume: `disk ${diskName} on ${diskHost}`,
+          severity: "high",
+          message: `At the current growth rate this disk is full in about ${diskForecast.daysUntilFull} days.`,
+        });
+      }
+    }
+
     return res.json({
       volumes,
       disks,
+      forecast,
       warnings,
       capabilities: {
         disks: hasCapability(cluster.id, CAPABILITY.DISKS),
@@ -328,7 +411,7 @@ export async function getNetwork(req, res) {
         systemClusters = await query(
           cluster,
           `SELECT cluster, shard_num, replica_num, host_name
-           FROM system.clusters WHERE cluster = '${chCluster}'`,
+           FROM system.clusters WHERE cluster = '${escapeSqlString(chCluster)}'`,
         );
       } catch {
         systemClusters = [];
@@ -380,10 +463,9 @@ export async function getEvents(req, res) {
 
 // GET /api/k8s/insight/:clusterId/logs/:pod previous=true reads the container that died
 export async function getLogs(req, res) {
-  const { pod: rawPod } = req.params;
+  // client.js encodes the pod name in the path, so it is not encoded here.
+  const { pod } = req.params;
   const { previous, tailLines, sinceSeconds } = req.query;
-
-  const pod = encodeURIComponent(rawPod);
 
   try {
     const { provider, ns } = resolve(req.params.clusterId);
@@ -440,17 +522,25 @@ export async function getHealth(req, res) {
     // AKOC publishes its own readiness verdict
     const readyOf = (h) =>
       h.operatorReady === null ? h.podReady : h.operatorReady;
-    add(
-      "All hosts ready",
-      hosts.every(readyOf),
-      `${hosts.filter(readyOf).length} of ${hosts.length} ready`,
-    );
+    if (hosts.length === 0) {
+      unknown(
+        "All hosts ready",
+        "No hosts reported, so readiness cannot be checked.",
+      );
+      unknown("All hosts in rotation", "No hosts reported.");
+    } else {
+      add(
+        "All hosts ready",
+        hosts.every(readyOf),
+        `${hosts.filter(readyOf).length} of ${hosts.length} ready`,
+      );
 
-    add(
-      "All hosts in rotation",
-      hosts.every((h) => h.inRotation?.ready !== false),
-      "A pod can be Running and still be removed from the service.",
-    );
+      add(
+        "All hosts in rotation",
+        hosts.every((host) => host.inRotation?.ready !== false),
+        "A pod can be Running and still be removed from the service.",
+      );
+    }
 
     const images = [...new Set(hosts.map((h) => h.image).filter(Boolean))];
     add(
@@ -508,6 +598,75 @@ export async function getHealth(req, res) {
       // Checks that could not run are excluded from the denominator rather than counted against the cluster.
       total: checks.filter((c) => c.ok !== null).length,
       unavailable: unavailableFeatures(cluster.id),
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return fail(res, err);
+  }
+}
+
+// GET /api/k8s/insight/:clusterId/keeper
+export async function getKeeper(req, res) {
+  try {
+    const { cluster, provider, ns, name } = resolve(req.params.clusterId);
+    const chCluster = await resolveChClusterName(cluster, name);
+    const installation = await provider.getInstallation(ns, name);
+
+    const connectionSql = `SELECT hostName() AS ch_host, name AS connection_name,
+        host AS keeper_address, port AS keeper_port,
+        is_expired, session_uptime_elapsed_seconds
+      FROM system.zookeeper_connection`;
+
+    let connections = [];
+    let connectionsChecked = true;
+    try {
+      connections = chCluster
+        ? await query(
+            cluster,
+            connectionSql.replace(
+              "FROM system.zookeeper_connection",
+              `FROM clusterAllReplicas('${escapeSqlString(chCluster)}', system.zookeeper_connection)`,
+            ),
+          )
+        : await query(cluster, connectionSql);
+    } catch {
+      try {
+        connections = await query(cluster, connectionSql);
+      } catch {
+        connectionsChecked = false;
+      }
+    }
+
+    const replicaSql = `SELECT hostName() AS ch_host,
+        countIf(is_readonly) AS readonly_tables, count() AS total_tables
+      FROM system.replicas GROUP BY ch_host`;
+
+    let replicas = [];
+    let replicasChecked = true;
+    try {
+      replicas = chCluster
+        ? await query(
+            cluster,
+            replicaSql.replace(
+              "FROM system.replicas",
+              `FROM clusterAllReplicas('${escapeSqlString(chCluster)}', system.replicas)`,
+            ),
+          )
+        : await query(cluster, replicaSql);
+    } catch {
+      try {
+        replicas = await query(cluster, replicaSql);
+      } catch {
+        replicasChecked = false;
+      }
+    }
+
+    return res.json({
+      connections,
+      connectionsChecked,
+      replicas,
+      replicasChecked,
+      keeper: installation.keeper ?? null,
     });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
