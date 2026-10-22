@@ -121,7 +121,7 @@ export async function ensureCapabilities(clusterId) {
 // Can this screen work?
 export function hasCapability(clusterId, table) {
   const entry = cache.get(clusterId);
-  if (!entry?.probed || !entry.tables || entry.tables.size === 0) return true;
+  if (!entry?.probed || !entry.tables) return true;
   return entry.tables.has(table);
 }
 

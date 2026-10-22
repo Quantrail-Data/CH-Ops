@@ -47,12 +47,11 @@ router.post("/test", requireAdmin, testK8sConnection);
 
 // Discovery reads the cluster with the stored token, so it is admin only.
 router.get("/connections/:id/namespaces", requireAdmin, listNamespaces);
-router.get("/connections/:id/installations", requireAdmin,
-listInstallations);
+router.get("/connections/:id/installations", requireAdmin, listInstallations);
 router.get(
-"/connections/:id/installations/:name",
-requireAdmin,
-getInstallation,
+  "/connections/:id/installations/:name",
+  requireAdmin,
+  getInstallation,
 );
 
 // Import creates a CHOps cluster, so it matches cluster creation.
