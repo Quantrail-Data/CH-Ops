@@ -15,6 +15,7 @@ import AlertBanner from "../layout/AlertBanner.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -465,7 +466,7 @@ function ViewProjections() {
           </div>
         </div>
       ) : (
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh" }}>
           <Icon className="ti ti-transform"></Icon>
           <p>{db ? "No projections found." : "Select a database."}</p>
         </div>
@@ -570,38 +571,8 @@ function AddProjection() {
               placeholder="proj_name"
             />
           </div>
-             <div
-          className="form-group"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: 22,
-            gap: 6,
-          }}
-        >
-        <div className="form-label">
-
-          <label
-          className="switch"
-            style={{
-              display: "flex",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: "14px",
-              marginRight:"5px"
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={ifNotExists}
-              onChange={(e) => setIfNotExists(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />{" "}
-            <span class="slider"></span>
-          </label>
-          IF NOT EXISTS
-      </div>
-        </div>
+        <ToggleSwitch checked={ifNotExists}
+              onChange={(e) => setIfNotExists(e.target.checked)} label="IF NOT EXISTS"/>
         </div>
 
         <div className="form-group" style={{ marginBottom: 14 }}>
@@ -774,38 +745,8 @@ function DropProjection() {
               ))}
             </Select>
           </div>
-             <div
-          className="form-group"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: 22,
-            gap: 6,
-          }}
-        >
-        <div className="form-label">
-
-          <label
-          className="switch"
-            style={{
-              display: "flex",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: "14px",
-              marginRight:"5px"
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={ifExists}
-              onChange={(e) => setIfExists(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />{" "}
-            <span class="slider"></span>
-          </label>
-          IF EXISTS
-      </div>
-        </div>
+        <ToggleSwitch  checked={ifExists}
+              onChange={(e) => setIfExists(e.target.checked)} label="IF EXISTS"/>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
@@ -917,38 +858,8 @@ function MaterializeProjection() {
               style={{ fontFamily: "var(--font-code)" }}
             />
           </div>
-          <div
-          className="form-group"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: 22,
-            gap: 6,
-          }}
-        >
-        <div className="form-label">
-
-          <label
-          className="switch"
-            style={{
-              display: "flex",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: "14px",
-              marginRight:"5px"
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={ifExists}
-              onChange={(e) => setIfExists(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />{" "}
-            <span class="slider"></span>
-          </label>
-          IF EXISTS
-      </div>
-        </div>
+        <ToggleSwitch checked={ifExists}
+              onChange={(e) => setIfExists(e.target.checked)} label="IF EXISTS"/>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
@@ -1051,38 +962,8 @@ function ClearProjection() {
               style={{ fontFamily: "var(--font-code)" }}
             />
           </div>
-             <div
-          className="form-group"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: 22,
-            gap: 6,
-          }}
-        >
-        <div className="form-label">
-
-          <label
-          className="switch"
-            style={{
-              display: "flex",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: "14px",
-              marginRight:"5px"
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={ifExists}
-              onChange={(e) => setIfExists(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />{" "}
-            <span class="slider"></span>
-          </label>
-          IF EXISTS
-      </div>
-        </div>
+        <ToggleSwitch checked={ifExists}
+              onChange={(e) => setIfExists(e.target.checked)} label="IF EXISTS"/>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>

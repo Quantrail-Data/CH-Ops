@@ -185,7 +185,7 @@ describe("Settings Controller", () => {
 
     const res = { json: jsonMock };
 
-    listSettings({ query: {} }, res);
+    listSettings({ query: {}, user: { role: "admin" } }, res);
 
     expect(jsonMock).toHaveBeenCalled();
   });
@@ -193,7 +193,7 @@ describe("Settings Controller", () => {
   it("getSetting returns 404 if missing", () => {
     const res = { status: statusMock };
 
-    getSetting({ params: { key: "missing" }, user: { role: "editor" } }, res);
+    getSetting({ params: { key: "missing" }, user: { role: "admin" } }, res);
 
     expect(statusMock).toHaveBeenCalledWith(404);
   });
@@ -207,13 +207,51 @@ describe("Settings Controller", () => {
 
     const res = { json: jsonMock };
 
-    getSetting({ params: { key: "theme" }, user: { role: "editor" } }, res);
+    getSetting({ params: { key: "theme" }, user: { role: "admin" } }, res);
 
     expect(jsonMock).toHaveBeenCalledWith(
       expect.objectContaining({
         key: "theme",
       }),
     );
+  });
+
+  it("getSetting refuses the JWT signing key to every role", () => {
+    fakeDB.settings.push({ key: "jwt.currentSecret", value: "secret", category: "jwt" });
+    for (const role of ["readonly", "editor", "admin", "superadmin"]) {
+      statusMock.mockClear();
+      const res = { status: statusMock };
+      getSetting({ params: { key: "jwt.currentSecret" }, user: { role } }, res);
+      expect(statusMock).toHaveBeenCalledWith(403);
+    }
+  });
+
+  it("getSetting refuses a general key to an editor", () => {
+    fakeDB.settings.push({ key: "theme", value: "dark", category: "ui" });
+    const res = { status: statusMock };
+    getSetting({ params: { key: "theme" }, user: { role: "editor" } }, res);
+    expect(statusMock).toHaveBeenCalledWith(403);
+  });
+
+  it("getSetting returns query bookmarks to a readonly user", () => {
+    fakeDB.settings.push({ key: "query_bookmarks", value: "[]", category: "general" });
+    const res = { json: jsonMock };
+    getSetting({ params: { key: "query_bookmarks" }, user: { role: "readonly" } }, res);
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "query_bookmarks" }),
+    );
+  });
+
+  it("listSettings never lists the JWT keys", () => {
+    fakeDB.settings.push({ key: "jwt.currentSecret", value: "secret", category: "jwt" });
+    fakeDB.settings.push({ key: "query_bookmarks", value: "[]", category: "general" });
+    for (const role of ["readonly", "admin"]) {
+      jsonMock.mockClear();
+      listSettings({ query: {}, user: { role } }, { json: jsonMock });
+      const keys = jsonMock.mock.calls[0][0].map((row) => row.key);
+      expect(keys).not.toContain("jwt.currentSecret");
+      expect(keys).toContain("query_bookmarks");
+    }
   });
 
   it("upsertSetting creates setting", () => {

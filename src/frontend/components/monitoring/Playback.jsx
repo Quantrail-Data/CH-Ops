@@ -1773,6 +1773,7 @@ export default function Playback() {
             padding: "60px 20px",
             textAlign: "center",
             color: "var(--text-muted)",
+            height:"50vh"
           }}
         >
           <Icon

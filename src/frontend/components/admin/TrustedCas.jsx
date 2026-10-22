@@ -117,7 +117,7 @@ export default function TrustedCas() {
             administrators.
           </span>
         </div>
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh" }}>
           <Icon className="ti ti-lock"></Icon>
           <p>
             <span>
@@ -142,7 +142,7 @@ export default function TrustedCas() {
     <div className="page-content">
       <div className="section-header">
         <h2 className="section-title">
-          <Icon className="ti ti-certificate" /> Trusted certificate authorities
+          <Icon className="ti ti-contract" /> Trusted certificate authorities
         </h2>
         <button
           className="btn btn-primary btn-sm"
@@ -168,7 +168,7 @@ export default function TrustedCas() {
       </p>
 
       {!cas.length && (
-        <div className="empty-state" style={{ padding: 40 }}>
+        <div className="empty-state" style={{ padding: 40 ,height:"60vh"}}>
           No certificate authorities added. CHOps uses the system list only.
         </div>
       )}
