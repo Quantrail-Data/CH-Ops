@@ -26,6 +26,7 @@ const TABS = [
   { id: "health", label: "Health" },
   { id: "topology", label: "Topology" },
   { id: "reconcile", label: "Reconcile" },
+  { id: "keeper", label: "Keeper" },
   { id: "storage", label: "Storage" },
   { id: "network", label: "Network" },
   { id: "config", label: "Configuration" },
@@ -71,12 +72,49 @@ function Banner({ tone = "info", children }) {
 
 // Health
 
-function HealthTab({ data }) {
+function buildHealthReportText(data, clusterName) {
+  const lines = [
+    `CHOps Kubernetes health: ${clusterName}`,
+    data.unknown
+      ? `${data.passing} of ${data.total} checks passing, ${data.unknown} could not run`
+      : `${data.passing} of ${data.total} checks passing`,
+    "",
+  ];
+  for (const check of data.checks) {
+    const mark = check.ok === true ? "PASS   " : check.ok === null ? "UNKNOWN" : "FAIL   ";
+    lines.push(`${mark} ${check.name}: ${check.detail}`);
+  }
+  return lines.join("\n");
+}
+
+function CopyHealthReportButton({ data, clusterName }) {
+  const toast = useToast();
+
+  async function copyReport() {
+    try {
+      await navigator.clipboard.writeText(buildHealthReportText(data, clusterName));
+      toast.success("Health report copied.");
+    } catch {
+      toast.error("Could not copy. Copy from the table instead.");
+    }
+  }
+
+  return (
+    <button type="button" className="btn btn-secondary btn-sm" onClick={copyReport}>
+      <Icon className="ti ti-copy" /> Copy report
+    </button>
+  );
+}
+
+function HealthTab({ data, clusterName }) {
   if (!data) return null;
   const failing = data.checks.filter((c) => c.ok === false);
 
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <CopyHealthReportButton data={data} clusterName={clusterName} />
+      </div>
       <Panel
         title={
           data.unknown
@@ -132,7 +170,9 @@ function HealthTab({ data }) {
 // Topology
 
 function HostCell({ host, signalsUnreliable }) {
-  const bad = !host.operatorReady || host.inRotation?.ready === false;
+  // OCKO has no operator readiness label, so fall back to pod readiness.
+  const hostReady = host.operatorReady === null ? host.podReady : host.operatorReady;
+  const bad = !hostReady || host.inRotation?.ready === false;
   const draining = host.inRotation?.terminating;
 
   return (
@@ -154,7 +194,7 @@ function HostCell({ host, signalsUnreliable }) {
             readiness unknown
           </span>
         ) : (
-          <span>{host.operatorReady ? "ready" : "not ready"}</span>
+          <span>{hostReady ? "ready" : "not ready"}</span>
         )}
       </div>
 
@@ -183,6 +223,12 @@ function TopologyTab({ data }) {
 
   return (
     <div>
+      {data.lastRefresh?.at && (
+        <div style={{ ...muted, fontSize: 12, marginBottom: 12 }}>
+          Host list last refreshed {new Date(data.lastRefresh.at).toLocaleString()}
+          {data.lastRefresh.ok === false ? " (last refresh failed)" : ""}
+        </div>
+      )}
       {data.healthSignalsUnreliable && (
         <Banner tone="warn">
           <strong>Troubleshoot mode is on.</strong> The operator has disabled
@@ -368,7 +414,133 @@ function ReconcileTab({ data }) {
   );
 }
 
+// Keeper
+
+function formatSeconds(totalSeconds) {
+  const seconds = Number(totalSeconds);
+  if (!Number.isFinite(seconds)) return "-";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h`;
+  return `${Math.floor(seconds / 86400)} days`;
+}
+
+function KeeperTab({ data }) {
+  if (!data) return null;
+
+  const readonlyHosts = (data.replicas || []).filter(
+    (replica) => Number(replica.readonly_tables) > 0,
+  );
+  const expiredSessions = (data.connections || []).filter((connection) => connection.is_expired);
+
+  return (
+    <div>
+      {readonlyHosts.length > 0 && (
+        <Banner tone="bad">
+          <strong>Read-only tables.</strong>{" "}
+          {readonlyHosts
+            .map((replica) => `${replica.ch_host}: ${replica.readonly_tables} of ${replica.total_tables} tables`)
+            .join("; ")}
+          . A replicated table goes read-only when its Keeper session is lost.
+          Writes to those tables fail right now.
+        </Banner>
+      )}
+
+      {expiredSessions.length > 0 && (
+        <Banner tone="warn">
+          <strong>Expired Keeper sessions.</strong>{" "}
+          {expiredSessions.map((connection) => connection.ch_host).join(", ")}. These hosts must
+          reconnect before replication recovers.
+        </Banner>
+      )}
+
+      {!data.connectionsChecked && (
+        <Banner tone="info">
+          system.zookeeper_connection was not readable from this endpoint, so
+          session details are unavailable. This is normal on a cluster without
+          replication.
+        </Banner>
+      )}
+
+      {data.connectionsChecked && (
+        <Panel
+          title="Keeper sessions"
+          subtitle="One row per ClickHouse host, reported by the host itself."
+        >
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Keeper address</th>
+                <th>Session uptime</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.connections.map((connection, index) => (
+                <tr key={index}>
+                  <td>{connection.ch_host}</td>
+                  <td>
+                    {connection.keeper_address}:{connection.keeper_port}
+                  </td>
+                  <td>{formatSeconds(connection.session_uptime_elapsed_seconds)}</td>
+                  <td style={connection.is_expired ? { fontWeight: 600 } : undefined}>
+                    {connection.is_expired ? "expired" : "connected"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+
+      {data.replicasChecked && (
+        <Panel
+          title="Replicated tables"
+          subtitle="A read-only count above zero is the symptom users feel: inserts fail."
+        >
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Replicated tables</th>
+                <th>Read-only</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.replicas.map((replica, index) => (
+                <tr key={index}>
+                  <td>{replica.ch_host}</td>
+                  <td>{replica.total_tables}</td>
+                  <td style={Number(replica.readonly_tables) > 0 ? { fontWeight: 600 } : undefined}>
+                    {replica.readonly_tables}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+
+      {data.keeper?.hosts?.length > 0 && (
+        <Panel title="Keeper hosts" subtitle="From the installation.">
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+            {data.keeper.hosts.map((keeperHost) => (
+              <li key={keeperHost}>{keeperHost}</li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
 // Storage
+
+function formatGrowthPerDay(bytesPerDay) {
+  if (!Number.isFinite(bytesPerDay)) return "-";
+  if (bytesPerDay <= 0) return "not growing";
+  return `${(bytesPerDay / 1073741824).toFixed(2)} GiB`;
+}
 
 function StorageTab({ data }) {
   if (!data) return null;
@@ -435,6 +607,8 @@ function StorageTab({ data }) {
                 <th>Free</th>
                 <th>Total</th>
                 <th>Used</th>
+                <th>Growth per day</th>
+                <th>Full in</th>
               </tr>
             </thead>
             <tbody>
@@ -442,6 +616,8 @@ function StorageTab({ data }) {
                 const used = d.total_space
                   ? Math.round(((d.total_space - d.free_space) / d.total_space) * 100)
                   : null;
+                const diskForecast = data.forecast?.[`${d.host}|${d.name}`];
+                const daysUntilFull = diskForecast?.daysUntilFull ?? null;
                 return (
                   <tr key={i}>
                     <td>{d.host}</td>
@@ -450,6 +626,10 @@ function StorageTab({ data }) {
                     <td>{d.total_space}</td>
                     <td style={used > 80 ? { fontWeight: 600 } : undefined}>
                       {used === null ? "-" : `${used}%`}
+                    </td>
+                    <td>{formatGrowthPerDay(diskForecast?.growthBytesPerDay)}</td>
+                    <td style={daysUntilFull !== null && daysUntilFull <= 14 ? { fontWeight: 600 } : undefined}>
+                      {daysUntilFull === null ? "-" : `about ${daysUntilFull} days`}
                     </td>
                   </tr>
                 );
@@ -628,13 +808,48 @@ function ConfigTab({ data }) {
 
 // Events and logs
 
-function EventsTab({ data }) {
+function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
+  const [warningsOnly, setWarningsOnly] = useState(false);
+  const [autoReload, setAutoReload] = useState(false);
+
+  useEffect(() => {
+    if (!autoReload) return undefined;
+    const timer = setInterval(onReload, 30000);
+    return () => clearInterval(timer);
+  }, [autoReload, onReload]);
+
   if (!data) return null;
+
+  const events = warningsOnly
+    ? data.events.filter((event) => event.type === "Warning")
+    : data.events;
+  const knownPodNames = new Set(podNames || []);
 
   return (
     <Panel title="Recent events">
-      {data.events.length === 0 ? (
-        <div style={{ fontSize: 13, ...muted }}>No recent events.</div>
+      <div style={{ display: "flex", gap: 16, fontSize: 13, marginBottom: 12 }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={warningsOnly}
+            onChange={(changeEvent) => setWarningsOnly(changeEvent.target.checked)}
+          />{" "}
+          warnings only
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={autoReload}
+            onChange={(changeEvent) => setAutoReload(changeEvent.target.checked)}
+          />{" "}
+          reload every 30 s
+        </label>
+      </div>
+
+      {events.length === 0 ? (
+        <div style={{ fontSize: 13, ...muted }}>
+          {warningsOnly ? "No warnings." : "No recent events."}
+        </div>
       ) : (
         <table className="data-table" style={{ width: "100%" }}>
           <thead>
@@ -646,14 +861,27 @@ function EventsTab({ data }) {
             </tr>
           </thead>
           <tbody>
-            {data.events.map((e, i) => (
-              <tr key={i} style={e.type === "Warning" ? { fontWeight: 600 } : undefined}>
-                <td style={{ whiteSpace: "nowrap" }}>{e.lastSeen}</td>
-                <td>{e.object}</td>
-                <td>{e.reason}</td>
+            {events.map((event, index) => (
+              <tr key={index} style={event.type === "Warning" ? { fontWeight: 600 } : undefined}>
+                <td style={{ whiteSpace: "nowrap" }}>{event.lastSeen}</td>
+                <td>
+                  {knownPodNames.has(event.object) ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      title="Open this pod in the Logs tab"
+                      onClick={() => onOpenPodLogs(event.object)}
+                    >
+                      {event.object}
+                    </button>
+                  ) : (
+                    event.object
+                  )}
+                </td>
+                <td>{event.reason}</td>
                 <td style={{ fontSize: 13 }}>
-                  {e.message}
-                  {e.count > 1 && <span style={muted}> ({e.count} times)</span>}
+                  {event.message}
+                  {event.count > 1 && <span style={muted}> ({event.count} times)</span>}
                 </td>
               </tr>
             ))}
@@ -664,7 +892,7 @@ function EventsTab({ data }) {
   );
 }
 
-function LogsTab({ clusterId, hosts }) {
+function LogsTab({ clusterId, hosts, initialPod }) {
   const toast = useToast();
   const [pod, setPod] = useState(hosts?.[0]?.podName ?? "");
   const [previous, setPrevious] = useState(false);
@@ -681,6 +909,10 @@ function LogsTab({ clusterId, hosts }) {
   useEffect(() => {
     if (!pod && hosts?.length) setPod(hosts[0].podName);
   }, [hosts, pod]);
+
+  useEffect(() => {
+    if (initialPod) setPod(initialPod);
+  }, [initialPod]);
 
   function changeLineCount(n) {
     const v = clampLines(n);
@@ -942,6 +1174,7 @@ export default function KubernetesInsight({ cluster }) {
   const [tab, setTab] = useState("health");
   const [data, setData] = useState({});
   const [busy, setBusy] = useState(false);
+  const [logsPod, setLogsPod] = useState(null);
 
   const load = useCallback(
     async (which) => {
@@ -958,9 +1191,9 @@ export default function KubernetesInsight({ cluster }) {
   );
 
   useEffect(() => {
-    // Logs need the pod list, which comes from topology.
-    const needed = tab === "logs" ? "topology" : tab;
-    if (!data[needed]) load(needed);
+    if (tab !== "logs" && !data[tab]) load(tab);
+    // Logs and the event-to-log links need the pod list from topology.
+    if ((tab === "logs" || tab === "events") && !data.topology) load("topology");
     // `data` is deliberately not a dependency: including it would refetch on every state
   }, [tab, load]);
 
@@ -978,6 +1211,14 @@ export default function KubernetesInsight({ cluster }) {
     }
     setBusy(false);
   }
+
+  function openPodLogs(podName) {
+    setLogsPod(podName);
+    setTab("logs");
+  }
+
+  // Stable between renders, so the Events tab's 30 second timer does not restart.
+  const reloadEvents = useCallback(() => load("events"), [load]);
 
   return (
     <div>
@@ -1010,15 +1251,27 @@ export default function KubernetesInsight({ cluster }) {
 
       {busy && <div style={{ ...muted, fontSize: 13 }}>Loading...</div>}
 
-      {tab === "health" && <HealthTab data={data.health} />}
+      {tab === "health" && <HealthTab data={data.health} clusterName={cluster.name} />}
       {tab === "topology" && <TopologyTab data={data.topology} />}
       {tab === "reconcile" && <ReconcileTab data={data.reconcile} />}
+      {tab === "keeper" && <KeeperTab data={data.keeper} />}
       {tab === "storage" && <StorageTab data={data.storage} />}
       {tab === "network" && <NetworkTab data={data.network} />}
       {tab === "config" && <ConfigTab data={data.config} />}
-      {tab === "events" && <EventsTab data={data.events} />}
+      {tab === "events" && (
+        <EventsTab
+          data={data.events}
+          onReload={reloadEvents}
+          onOpenPodLogs={openPodLogs}
+          podNames={(data.topology?.hosts || []).map((host) => host.podName)}
+        />
+      )}
       {tab === "logs" && (
-        <LogsTab clusterId={cluster.id} hosts={data.topology?.hosts} />
+        <LogsTab
+          clusterId={cluster.id}
+          hosts={data.topology?.hosts}
+          initialPod={logsPod}
+        />
       )}
     </div>
   );

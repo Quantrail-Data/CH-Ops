@@ -90,6 +90,32 @@ describe("service account: readonly and editor users", () => {
       );
       expect(encrypted.status).toBe(403);
     });
+
+    it(`refuses a write from ${role} sent with a lower-case keyword`, async () => {
+      app.clickHouse.requests.length = 0;
+      const result = await app.api(
+        role,
+        "POST",
+        "/api/query",
+        queryBody("drop table db1.lowercase"),
+      );
+      expect(result.status).toBe(400);
+      expect(sentToClickHouse("drop table db1.lowercase")).toEqual([]);
+    });
+
+    it(`runs an ordinary SELECT from ${role} even when the SQL contains the word 'readonly' inside a string`, async () => {
+      app.clickHouse.requests.length = 0;
+      const result = await app.api(
+        role,
+        "POST",
+        "/api/query",
+        queryBody("SELECT 'readonly' AS note"),
+      );
+      expect(result.status).toBe(200);
+      const sent = sentToClickHouse("SELECT 'readonly' AS note");
+      expect(sent.length).toBe(1);
+      expect(sent[0].readonly).toBe("1");
+    });
   }
 });
 
@@ -130,6 +156,20 @@ describe("service account: admins", () => {
       expect(sent[0].readonly).toBe(null);
     });
   }
+
+  it("does not add readonly=1 to an admin's SELECT either", async () => {
+    app.clickHouse.requests.length = 0;
+    const result = await app.api(
+      "admin",
+      "POST",
+      "/api/query",
+      queryBody("SELECT 44"),
+    );
+    expect(result.status).toBe(200);
+    const sent = sentToClickHouse("SELECT 44");
+    expect(sent.length).toBe(1);
+    expect(sent[0].readonly).toBe(null);
+  });
 });
 
 describe("settings passed with a query", () => {
