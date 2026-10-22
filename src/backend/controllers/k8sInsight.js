@@ -15,6 +15,7 @@ import {
 } from "../services/capabilities.js";
 import { getLastResult, refreshOne } from "../services/k8sSync.js";
 import { buildDiskForecast } from "../services/k8s/diskForecast.js";
+
 function fail(res, err) {
   const isK8s = typeof err?.code === "string" && err.code.startsWith("K8S_");
   return res.status(err?.code === "K8S_FORBIDDEN" ? 403 : 502).json({
@@ -78,9 +79,10 @@ async function resolveChClusterName(cluster, installation) {
     return null;
   }
 }
+
 // The cluster name comes from a system table, but quote it anyway.
 function escapeSqlString(value) {
-return String(value).replaceAll("\\", "\\\\").replaceAll("'", "\\'");
+  return String(value).replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
 // GET /api/k8s/insight/:clusterId/topology
@@ -244,8 +246,7 @@ export async function getStorage(req, res) {
           disks = await query(
             cluster,
             `SELECT hostName() AS host, name, free_space, total_space
-            FROM clusterAllReplicas('${escapeSqlString(chCluster)}',
-      system.disks)`,
+             FROM clusterAllReplicas('${escapeSqlString(chCluster)}', system.disks)`,
           );
         } catch {
           disks = [];
@@ -262,69 +263,68 @@ export async function getStorage(req, res) {
           disks = [];
         }
       }
+
       // Usage history for the growth rate. 7 days smooths weekly patterns.
       if (disks.length) {
         // ClickHouse 26.8 and later log the disk name in the key column.
-        const keyedUsageSql = `SELECT host, concat('DiskUsed_', disk_key)
-AS metric,
+        const keyedUsageSql = `SELECT host, concat('DiskUsed_', disk_key) AS metric,
             oldest_value, oldest_time, newest_value, newest_time
-        FROM (
-          SELECT hostName() AS host, key AS disk_key,
+          FROM (
+            SELECT hostName() AS host, key AS disk_key,
+              argMin(value, event_time) AS oldest_value,
+              min(event_time) AS oldest_time,
+              argMax(value, event_time) AS newest_value,
+              max(event_time) AS newest_time
+            FROM system.asynchronous_metric_log
+            WHERE metric = 'DiskUsed' AND event_time > now() - INTERVAL 7 DAY
+            GROUP BY host, disk_key
+          )`;
+        // Older versions, or the legacy_names mode, put it in the metric name.
+        const legacyUsageSql = `SELECT hostName() AS host, metric,
             argMin(value, event_time) AS oldest_value,
             min(event_time) AS oldest_time,
             argMax(value, event_time) AS newest_value,
             max(event_time) AS newest_time
-        FROM system.asynchronous_metric_log
-        WHERE metric = 'DiskUsed' AND event_time > now() - INTERVAL 7
-DAY
-        GROUP BY host, disk_key
-      )`;
-    // Older versions, or the legacy_names mode, put it in the metric name. 
-    const legacyUsageSql = `SELECT hostName() AS host, metric,
-        argMin(value, event_time) AS oldest_value,
-        min(event_time) AS oldest_time,
-        argMax(value, event_time) AS newest_value,
-        max(event_time) AS newest_time
-      FROM merge('system', '^asynchronous_metric_log')
-      WHERE metric LIKE 'DiskUsed\\_%' AND event_time > now() -
-INTERVAL 7 DAY
-      GROUP BY host, metric`;
-    // Fan out to every replica first; fall back to this node alone.
-    async function readUsageSamples(usageSql, tableExpression) {
-      if (chCluster) {
-        try {
-          const rows = await query(
-            cluster,
-            usageSql.replace(
-              `FROM ${tableExpression}`,
-              `FROM clusterAllReplicas('${escapeSqlString(chCluster)}',
-${tableExpression})`,
-           ),
-          );
-          if (rows.length) return rows;
-        } catch {
-          // Fan-out refused or the query does not fit this version.
+          FROM merge('system', '^asynchronous_metric_log')
+          WHERE metric LIKE 'DiskUsed\\_%' AND event_time > now() - INTERVAL 7 DAY
+          GROUP BY host, metric`;
+
+        // Fan out to every replica first; fall back to this node alone.
+        async function readUsageSamples(usageSql, tableExpression) {
+          if (chCluster) {
+            try {
+              const rows = await query(
+                cluster,
+                usageSql.replace(
+                  `FROM ${tableExpression}`,
+                  `FROM clusterAllReplicas('${escapeSqlString(chCluster)}', ${tableExpression})`,
+                ),
+              );
+              if (rows.length) return rows;
+            } catch {
+              // Fan-out refused or the query does not fit this version.
+            }
+          }
+          try {
+            return await query(cluster, usageSql);
+          } catch {
+            return [];
+          }
         }
-      }
-      try {
-        return await query(cluster, usageSql);
-      } catch {
-        return [];
+
+        let usageSamples = await readUsageSamples(
+          keyedUsageSql,
+          "system.asynchronous_metric_log",
+        );
+        if (!usageSamples.length) {
+          usageSamples = await readUsageSamples(
+            legacyUsageSql,
+            "merge('system', '^asynchronous_metric_log')",
+          );
+        }
+        forecast = buildDiskForecast(usageSamples, disks);
       }
     }
-    let usageSamples = await readUsageSamples(
-      keyedUsageSql,
-      "system.asynchronous_metric_log",
-    );
-    if (!usageSamples.length) {
-      usageSamples = await readUsageSamples(
-        legacyUsageSql,
-        "merge('system', '^asynchronous_metric_log')",
-      );
-    }
-    forecast = buildDiskForecast(usageSamples, disks);
-   }
-  }
 
     const warnings = [];
     for (const v of volumes) {
@@ -362,8 +362,9 @@ ${tableExpression})`,
         });
       }
     }
+
     for (const [forecastKey, diskForecast] of Object.entries(forecast)) {
-      if ( 
+      if (
         diskForecast.daysUntilFull !== null &&
         diskForecast.daysUntilFull <= 14
       ) {
@@ -371,8 +372,7 @@ ${tableExpression})`,
         warnings.push({
           volume: `disk ${diskName} on ${diskHost}`,
           severity: "high",
-          message: `At the current growth rate this disk is full in about
-${diskForecast.daysUntilFull} days.`,
+          message: `At the current growth rate this disk is full in about ${diskForecast.daysUntilFull} days.`,
         });
       }
     }
@@ -411,8 +411,7 @@ export async function getNetwork(req, res) {
         systemClusters = await query(
           cluster,
           `SELECT cluster, shard_num, replica_num, host_name
-           FROM system.clusters WHERE cluster =
-    '${escapeSqlString(chCluster)}'`,
+           FROM system.clusters WHERE cluster = '${escapeSqlString(chCluster)}'`,
         );
       } catch {
         systemClusters = [];
@@ -532,15 +531,16 @@ export async function getHealth(req, res) {
     } else {
       add(
         "All hosts ready",
-         hosts.every(readyOf),
-         `${hosts.filter(readyOf).length} of ${hosts.length} ready`,
-        );
-        add(
-          "All hosts in rotation",
-          hosts.every((host) => host.inRotation?.ready !== false),
-          "A pod can be Running and still be removed from the service.",
-        );
-      }
+        hosts.every(readyOf),
+        `${hosts.filter(readyOf).length} of ${hosts.length} ready`,
+      );
+
+      add(
+        "All hosts in rotation",
+        hosts.every((host) => host.inRotation?.ready !== false),
+        "A pod can be Running and still be removed from the service.",
+      );
+    }
 
     const images = [...new Set(hosts.map((h) => h.image).filter(Boolean))];
     add(
@@ -604,31 +604,31 @@ export async function getHealth(req, res) {
     return fail(res, err);
   }
 }
+
 // GET /api/k8s/insight/:clusterId/keeper
 export async function getKeeper(req, res) {
   try {
     const { cluster, provider, ns, name } = resolve(req.params.clusterId);
     const chCluster = await resolveChClusterName(cluster, name);
     const installation = await provider.getInstallation(ns, name);
-    const connectionSql = `SELECT hostName() AS ch_host, name AS
-connection_name,
+
+    const connectionSql = `SELECT hostName() AS ch_host, name AS connection_name,
         host AS keeper_address, port AS keeper_port,
         is_expired, session_uptime_elapsed_seconds
       FROM system.zookeeper_connection`;
-    
+
     let connections = [];
     let connectionsChecked = true;
     try {
       connections = chCluster
-      ? await query(
-        cluster,
-        connectionSql.replace(
-          "FROM system.zookeeper_connection",
-          `FROM clusterAllReplicas('${escapeSqlString(chCluster)}',
-system.zookeeper_connection)`,
-        ),
-      )
-      : await query(cluster, connectionSql);
+        ? await query(
+            cluster,
+            connectionSql.replace(
+              "FROM system.zookeeper_connection",
+              `FROM clusterAllReplicas('${escapeSqlString(chCluster)}', system.zookeeper_connection)`,
+            ),
+          )
+        : await query(cluster, connectionSql);
     } catch {
       try {
         connections = await query(cluster, connectionSql);
@@ -636,42 +636,43 @@ system.zookeeper_connection)`,
         connectionsChecked = false;
       }
     }
-  const replicaSql = `SELECT hostName() AS ch_host,
-    countIf(is_readonly) AS readonly_tables, count() AS total_tables
-  FROM system.replicas GROUP BY ch_host`;
-  let replicas = [];
-  let replicasChecked = true;
-  try {
-    replicas = chCluster
-    ? await query(
-      cluster,
-      replicaSql.replace(
-        "FROM system.replicas",
-        `FROM clusterAllReplicas('${escapeSqlString(chCluster)}',
-system.replicas)`,
-      ),
-    )
-    : await query(cluster, replicaSql);
-  } catch {
+
+    const replicaSql = `SELECT hostName() AS ch_host,
+        countIf(is_readonly) AS readonly_tables, count() AS total_tables
+      FROM system.replicas GROUP BY ch_host`;
+
+    let replicas = [];
+    let replicasChecked = true;
     try {
-      replicas = await query(cluster, replicaSql);
+      replicas = chCluster
+        ? await query(
+            cluster,
+            replicaSql.replace(
+              "FROM system.replicas",
+              `FROM clusterAllReplicas('${escapeSqlString(chCluster)}', system.replicas)`,
+            ),
+          )
+        : await query(cluster, replicaSql);
     } catch {
-      replicasChecked = false;
+      try {
+        replicas = await query(cluster, replicaSql);
+      } catch {
+        replicasChecked = false;
+      }
     }
+
+    return res.json({
+      connections,
+      connectionsChecked,
+      replicas,
+      replicasChecked,
+      keeper: installation.keeper ?? null,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return fail(res, err);
   }
-  return res.json({
-    connections,
-    connectionsChecked,
-    replicas,
-    replicasChecked,
-    keeper: installation.keeper ?? null,
-  });
-} catch (err) {
-  if (err.status) return res.status(err.status).json({ error: err.message
-});
-  return fail(res, err);
-  }
- }
+}
 
 // GET /api/k8s/insight/:clusterId/rbac-context
 export async function getRbacContext(req, res) {

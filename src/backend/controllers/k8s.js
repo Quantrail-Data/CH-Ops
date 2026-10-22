@@ -35,12 +35,13 @@ function fail(res, err) {
 // Kubernetes names are lowercase letters, digits, "-" and ".".
 // Without "/" a name stays one path segment and cannot reach another API path.
 function isValidKubernetesName(value) {
-return (
-typeof value === "string" &&
-value.length <= 253 &&
-/^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/.test(value)
-);
+  return (
+    typeof value === "string" &&
+    value.length <= 253 &&
+    /^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/.test(value)
+  );
 }
+
 // GET /api/k8s/operators
 export function listOperators(req, res) {
   return res.json({ operators: Object.values(OPERATORS) });
@@ -149,7 +150,7 @@ export async function testK8sConnection(req, res) {
 
   // The namespace is optional here, but must be a real name when given.
   if (namespace && !isValidKubernetesName(namespace)) {
-     return res.status(400).json({ error: "The namespace is not valid." });
+    return res.status(400).json({ error: "The namespace is not valid." });
   }
 
   try {
@@ -210,11 +211,9 @@ export async function listNamespaces(req, res) {
 
 // GET /api/k8s/connections/:id/installations?namespace=
 export async function listInstallations(req, res) {
-  const { namespace: rawNamespace } = req.query;
-  const namespace = encodeURIComponent(rawNamespace);
+  const { namespace } = req.query;
   if (!isValidKubernetesName(namespace)) {
-    return res.status(400).json({ error: "A valid namespace is required."
- });
+    return res.status(400).json({ error: "A valid namespace is required." });
   }
 
   try {
@@ -229,20 +228,20 @@ export async function listInstallations(req, res) {
 
 // GET /api/k8s/connections/:id/installations/:name?namespace=
 export async function getInstallation(req, res) {
-  const { namespace: rawNamespace } = req.query;
+  const { namespace } = req.query;
   if (!isValidKubernetesName(namespace)) {
-    return res.status(400).json({ error: "A valid namespace is required."
-});
+    return res.status(400).json({ error: "A valid namespace is required." });
   }
   if (!isValidKubernetesName(req.params.name)) {
     return res
       .status(400)
-    .json({ error: "A valid installation name is required." });
+      .json({ error: "A valid installation name is required." });
   }
+
   try {
     const { provider } = providerFor(req.params.id, req.query.operator);
-    const detail = await provider.getInstallation(namespace,req.params.name);
-  // Same redaction as the Configuration tab: specs often hold passwords.
+    const detail = await provider.getInstallation(namespace, req.params.name);
+    // Same redaction as the Configuration tab: specs often hold passwords.
     return res.json({
       ...detail,
       spec: redact(detail.spec),
@@ -327,7 +326,7 @@ async function checkClickHouseCredentials({
 export async function importInstallation(req, res) {
   const {
     connectionId,
-    namespace ,
+    namespace,
     installation,
     operator = "akoc",
     displayName,
@@ -340,8 +339,6 @@ export async function importInstallation(req, res) {
     addressingMode = ADDRESSING.AUTO,
     acknowledgeSharedEndpoint = false,
   } = req.body || {};
-
- 
 
   if (!OPERATORS[operator]) {
     return res.status(400).json({ error: "Unknown operator." });
@@ -358,8 +355,8 @@ export async function importInstallation(req, res) {
   ) {
     return res.status(400).json({
       error: "The namespace or installation is not a valid Kubernetes name.",
-  });
-}
+    });
+  }
   if (!endpoint?.trim()) {
     return res.status(400).json({
       error:
@@ -581,7 +578,7 @@ export async function reresolveCluster(req, res) {
   try {
     const addressing = await readInstallationAddresses({
       connectionId: cluster.k8s.connectionId,
-      namespace: encodeURIComponent(cluster.k8s.namespace),
+      namespace: cluster.k8s.namespace,
       installation: cluster.k8s.installation,
       operator: cluster.k8s.operator,
       endpoint: cluster.endpoint,

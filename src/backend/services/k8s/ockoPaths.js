@@ -40,15 +40,13 @@ export function instanceOf(clusterName) {
 export function createOckoPaths(version = OCKO_FALLBACK_VERSION) {
   const base = `/apis/${OCKO_GROUP}/${version}`;
   return {
-  // Encoded the same way as the core paths in client.js.
-    clusters: (namespace) =>
-    `${base}/namespaces/${encodeURIComponent(namespace)}/clickhouseclusters`,
+    // Encoded the same way as the core paths in client.js.
+    clusters: (namespace) => `${base}/namespaces/${encodeURIComponent(namespace)}/clickhouseclusters`,
     cluster: (namespace, name) =>
-    `${base}/namespaces/${encodeURIComponent(namespace)}/clickhouseclusters/${encodeURIComponent(name)}`,
-    keepers: (namespace) =>
-    `${base}/namespaces/${encodeURIComponent(namespace)}/keeperclusters`,
+      `${base}/namespaces/${encodeURIComponent(namespace)}/clickhouseclusters/${encodeURIComponent(name)}`,
+    keepers: (namespace) => `${base}/namespaces/${encodeURIComponent(namespace)}/keeperclusters`,
     keeper: (namespace, name) =>
-    `${base}/namespaces/${encodeURIComponent(namespace)}/keeperclusters/${encodeURIComponent(name)}`,
+      `${base}/namespaces/${encodeURIComponent(namespace)}/keeperclusters/${encodeURIComponent(name)}`,
   };
 }
 

@@ -1291,8 +1291,8 @@ export const PAGE_TEXT = {
     "Tables",
     "1. Download the database and crypto salt from S3",
     "2. Stop the server",
-    "3. Replace the database",
-    "4. Restart the server"
+    "3. Restore the database",
+    "5. Restart the server"
   ],
   "admin/api-management": [
     "Loading...",
