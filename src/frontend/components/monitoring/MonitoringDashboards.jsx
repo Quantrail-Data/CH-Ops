@@ -1314,7 +1314,7 @@ export default function MonitoringDashboards() {
       </div>
 
       {!loadedTabs.has(activeTab) && !loading && (
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh"}}>
           <Icon className="ti ti-chart-line"></Icon>
           <p>
             Select a time range and click Load Charts for the{" "}

@@ -8,6 +8,10 @@ import { encrypt } from "../services/crypto.js";
 
 const USER_WRITABLE = new Set(["query_bookmarks"]);
 
+const USER_READABLE = new Set(["query_bookmarks"]);
+
+const SERVER_ONLY_PREFIXES = ["jwt.", "smtp."];
+
 const ADMIN_WRITABLE = new Set([
   "backup_profiles",
   "clusters",
@@ -105,16 +109,14 @@ function requireWriteAccess(req, res, key) {
   return true;
 }
 
-function requireAdminForKey(req, res, key) {
-  if (ADMIN_WRITABLE.has(key)) {
-    if (!isAdminRole(req)) {
-      res
-        .status(403)
-        .json({ error: "Admin access required for this setting." });
-      return true;
-    }
-  }
-  return false;
+function isServerOnlyKey(key) {
+  return SERVER_ONLY_PREFIXES.some((prefix) => String(key).startsWith(prefix));
+}
+
+function canReadSetting(req, key) {
+  if (isServerOnlyKey(key)) return false;
+  if (isAdminRole(req)) return true;
+  return USER_READABLE.has(key);
 }
 
 export function listSettings(req, res) {
@@ -125,17 +127,15 @@ export function listSettings(req, res) {
     ? db.select().from(appSettings).where(where).all()
     : db.select().from(appSettings).orderBy(appSettings.key).all();
 
-  // Protected keys (cluster nodes, backup profiles) hold credentials - never
-  // list their values for non-admin callers, same restriction as writes.
-  const isAdmin = isAdminRole(req);
-  const visible = isAdmin
-    ? rows
-    : rows.filter((r) => !ADMIN_WRITABLE.has(r.key));
+  const visible = rows.filter((r) => canReadSetting(req, r.key));
+
   res.json(visible);
 }
 
 export function getSetting(req, res) {
-  if (requireAdminForKey(req, res, req.params.key)) return;
+  if (!canReadSetting(req, req.params.key)) {
+    return res.status(403).json({ error: "Not allowed to read this setting." });
+  }
 
   const row = db
     .select()

@@ -259,6 +259,7 @@ export default function KubernetesClusterTab({ onImported }) {
   }
 
   async function doImport(overrides = {}) {
+    console.log(overrides)
     if (!endpoint.trim()) {
       toast.warning("A reachable ClickHouse® address is required.");
       return;
@@ -278,12 +279,13 @@ export default function KubernetesClusterTab({ onImported }) {
           secure,
           chUser,
           chPassword,
-          acknowledgeCredentialFailure: false,
+          acknowledgeCredentialFailure: overrides.acknowledgeCredentialFailure ?? false,
           addressingMode,
           acknowledgeSharedEndpoint:
             overrides.acknowledgeSharedEndpoint ?? false,
         },
       });
+      console.log(r)
 
       // Nothing was created.
       if (r.needsConfirmation) {
@@ -308,7 +310,7 @@ export default function KubernetesClusterTab({ onImported }) {
 
   function confirmWithoutCredentials() {
     setCredentialWarning(null);
-    doImport(true);
+    doImport({acknowledgeSharedEndpoint:true,acknowledgeCredentialFailure:true});
   }
 
   function reset() {
@@ -326,12 +328,13 @@ export default function KubernetesClusterTab({ onImported }) {
     <div>
       <div
         className="card"
-        style={{ padding: 12, marginBottom: 16, fontSize: 13 }}
+        style={{ padding: 12, marginBottom: 16, fontSize: 13 ,display:"flex", alignItems:"center",gap:"5px"}}
       >
-        <Icon className="ti ti-info-circle" /> Using ClickHouse® Cloud or hosted
+        <Icon className="ti ti-info-circle" /> 
+        <div style={{marginTop:"4px"}}>Using ClickHouse® Cloud or hosted
         Altinity.Cloud®? Add them under <strong>Direct connection</strong>{" "}
         instead. Those are managed services, so there is no Kubernetes API for
-        CHOps to read.
+        CHOps to read.</div>
       </div>
 
       <StepHeader current={step} />
@@ -371,7 +374,7 @@ export default function KubernetesClusterTab({ onImported }) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">
+                <label className="form-label" style={{marginTop:"1rem"}}>
                   Paste the output of chops-k8s-setup.sh
                 </label>
                 <textarea
@@ -384,7 +387,7 @@ export default function KubernetesClusterTab({ onImported }) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">API address *</label>
+                <label className="form-label" style={{marginTop:"1rem"}}>API address *</label>
                 <input
                   className="form-input"
                   value={conn.apiAddress}
@@ -396,7 +399,7 @@ export default function KubernetesClusterTab({ onImported }) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">CA certificate *</label>
+                <label className="form-label" style={{marginTop:"1rem"}}>CA certificate *</label>
                 <textarea
                   className="form-input"
                   rows={4}
@@ -409,7 +412,7 @@ export default function KubernetesClusterTab({ onImported }) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Token *</label>
+                <label className="form-label" style={{marginTop:"1rem"}}>Token *</label>
                 <input
                   className="form-input"
                   type="password"
@@ -515,6 +518,7 @@ export default function KubernetesClusterTab({ onImported }) {
             className="btn btn-secondary"
             onClick={loadInstallations}
             disabled={busy}
+            style={{marginTop:"1rem"}}
           >
             Find installations
           </button>
@@ -659,7 +663,7 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">ClickHouse® address *</label>
+            <label className="form-label" style={{marginTop:"1rem"}}>ClickHouse® address *</label>
             <input
               className="form-input"
               value={endpoint}
@@ -672,7 +676,7 @@ export default function KubernetesClusterTab({ onImported }) {
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
           >
             <div className="form-group">
-              <label className="form-label">Port</label>
+              <label className="form-label" style={{marginTop:"1rem"}}>Port</label>
               <input
                 className="form-input"
                 type="number"
@@ -681,7 +685,7 @@ export default function KubernetesClusterTab({ onImported }) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">TLS</label>
+              <label className="form-label" style={{marginTop:"1rem"}}>TLS</label>
               <Select
                 className="form-select"
                 value={secure ? "yes" : "no"}
@@ -721,7 +725,7 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">ClickHouse® user *</label>
+            <label className="form-label" style={{marginTop:"1rem"}}>ClickHouse® user *</label>
             <input
               className="form-input"
               value={chUser}
@@ -739,7 +743,7 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label" style={{marginTop:"1rem"}}>Password</label>
             <input
               className="form-input"
               type="password"

@@ -916,8 +916,6 @@ export const PAGE_TEXT = {
     "Threshold",
     "Notify Interval",
     "Breach Run Required",
-    "Enabled",
-    "noRowsMeansBreach",
     "SQL (single value)",
     "Description",
     "Channels",
@@ -926,10 +924,12 @@ export const PAGE_TEXT = {
     "Test",
     "Loading...",
     "No rules yet. Click New Rule.",
+    "Enabled",
     "Disabled",
     "FIRING",
     "NO NODES",
-    "NO CHANNELS"
+    "NO CHANNELS",
+    "noRowsMeansBreach"
   ],
   "rbac/view": [
     "User Grants",
@@ -1059,20 +1059,20 @@ export const PAGE_TEXT = {
     "Database",
     "Table",
     "All",
-    "IF NOT EXISTS",
     "(column list)",
     "GROUP BY (optional)",
     "ORDER BY (optional)",
     "WITH SETTINGS (optional)",
     "Add Projection",
-    "IF EXISTS",
     "Drop Projection",
     "IN PARTITION (optional)",
     "Materialize",
     "Clear Projection",
     "Download PNG",
+    "IF NOT EXISTS",
     "col1, col2, sum(col3) - DISTINCT not supported in projections",
-    "col1, col2"
+    "col1, col2",
+    "IF EXISTS"
   ],
   "indexes/create": [
     "Create",
@@ -1153,7 +1153,6 @@ export const PAGE_TEXT = {
     "Database",
     "Table",
     "ON CLUSTER",
-    "ASYNC",
     "Exceptions",
     "EXCEPT TABLES",
     "EXCEPT DATABASES",
@@ -1169,7 +1168,8 @@ export const PAGE_TEXT = {
     "Backup Type",
     "INC",
     "FULL",
-    "Select a profile and click Scan S3 to discover backups."
+    "Select a profile and click Scan S3 to discover backups.",
+    "ASYNC"
   ],
   "admin/profiles": [
     "Storage Profiles is only available for super administrators.",
@@ -1206,15 +1206,14 @@ export const PAGE_TEXT = {
     "Port",
     "Password",
     "From address",
-    "Use TLS",
-    "( Recommended for secure SMTP connections)",
     "Test email",
     "Send a test email to",
     "Send test email",
     "Test connection",
     "Delete configuration",
     "If email stops working",
-    "For password email"
+    "For password email",
+    "Use TLS"
   ],
   "admin/cluster": [
     "Port",
@@ -1233,13 +1232,13 @@ export const PAGE_TEXT = {
     "Edit cluster",
     "Cluster name",
     "ClickHouse address",
-    "Use TLS",
     "ClickHouse user",
     "ClickHouse password",
     "Nodes come from the installation and are re-read on refresh.",
     "Configuration mismatch detected:",
     "Test connection",
     "node-1",
+    "Use TLS",
     "Missing permissions:",
     "Re-run the setup script, or grant these to the service account.",
     "Available with reduced detail:",
@@ -1290,8 +1289,7 @@ export const PAGE_TEXT = {
     "Size",
     "Version",
     "Tables",
-    "Restoring replaces all app data. The server must be stopped during restore.",
-    "1. Download the backup file from S3",
+    "1. Download the database and crypto salt from S3",
     "2. Stop the server",
     "3. Replace the database",
     "4. Restart the server"

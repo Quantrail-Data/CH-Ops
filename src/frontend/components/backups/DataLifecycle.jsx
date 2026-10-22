@@ -10,6 +10,7 @@ import { runQuery, apiFetch } from "../../utils/api.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -673,38 +674,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             ))}
           </Select>
         </div>
-        <div
-          className="form-group"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: 22,
-            gap: 6,
-          }}
-        >
-        <div className="form-label">
-
-          <label
-          className="switch"
-            style={{
-              display: "flex",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: "14px",
-              marginRight:"5px"
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={isAsync}
-              onChange={(e) => setIsAsync(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />{" "}
-            <span class="slider"></span>
-          </label>
-          ASYNC
-      </div>
-        </div>
+        <ToggleSwitch checked={isAsync}
+              onChange={(e) => setIsAsync(e.target.checked)} label="ASYNC"/>
       </div>
       {action === "backup" && (
         <div style={{ marginBottom: 20 }}>
