@@ -370,7 +370,7 @@ export function createOckoProvider(client, { version } = {}) {
   // Pod logs have nothing to do with the operator, so this is the AKOC implementation unchanged.
   async function streamLogs(namespace, podName, options = {}) {
     const {
-      container = 'clickhouse',
+      container = 'clickhouse-server',
       tailLines = 1000,
       sinceSeconds,
       previous = false,

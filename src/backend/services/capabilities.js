@@ -44,7 +44,6 @@ const EXPLANATIONS = {
 function rowsOf(result) {
   return result?.rows ?? [];
 }
-
 // Ask the server which system tables exist.
 export async function probeCapabilities(clusterId, node) {
   const cached = cache.get(clusterId);
@@ -122,7 +121,7 @@ export async function ensureCapabilities(clusterId) {
 // Can this screen work?
 export function hasCapability(clusterId, table) {
   const entry = cache.get(clusterId);
-  if (!entry?.probed || !entry.tables) return true;
+  if (!entry?.probed || !entry.tables || entry.tables.size === 0) return true;
   return entry.tables.has(table);
 }
 
