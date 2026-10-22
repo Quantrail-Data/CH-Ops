@@ -215,7 +215,7 @@ export const paths = {
   configMaps: (ns) => `/api/v1/namespaces/${encodeURIComponent(ns)}/configmaps`,
   events: (ns) => `/api/v1/namespaces/${encodeURIComponent(ns)}/events`,
   resourceQuotas: (ns) =>
-    `/api/v1/namespaces/${encodeURIComponent(encodeURIComponent(ns))}/resourcequotas`,
+    `/api/v1/namespaces/${encodeURIComponent(ns)}/resourcequotas`,
 
   // EndpointSlice replaces the core Endpoints API, which is deprecated from Kubernetes 1.33.
   endpointSlices: (ns) =>

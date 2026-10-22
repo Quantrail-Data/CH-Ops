@@ -94,11 +94,11 @@ const EXPECTED_GUARDS = {
   "PUT k8s.js /connections/:id": "requireAdmin",
   "DELETE k8s.js /connections/:id": "requireAdmin",
   "POST k8s.js /test": "requireAdmin",
-  "GET k8s.js /connections/:id/namespaces": "none",
-  "GET k8s.js /connections/:id/installations": "none",
-  "GET k8s.js /connections/:id/installations/:name": "none",
+  "GET k8s.js /connections/:id/namespaces": "requireAdmin",
+  "GET k8s.js /connections/:id/installations": "requireAdmin",
+  "GET k8s.js /connections/:id/installations/:name": "requireAdmin",
   "POST k8s.js /import": "requireAdmin",
-  "POST k8s.js /clusters/:id/refresh": "none",
+  "POST k8s.js /clusters/:id/refresh": "requireAdmin",
   "POST k8s.js /clusters/:id/reresolve": "requireAdmin",
   "POST k8s.js /clusters/verify": "requireAdmin",
   "GET k8s.js /insight/:clusterId/topology": "requireAdmin",
@@ -109,8 +109,9 @@ const EXPECTED_GUARDS = {
   "GET k8s.js /insight/:clusterId/events": "requireAdmin",
   "GET k8s.js /insight/:clusterId/logs/:pod": "requireAdmin",
   "GET k8s.js /insight/:clusterId/health": "requireAdmin",
+  "GET k8s.js /insight/:clusterId/keeper": "requireAdmin",
   "GET k8s.js /insight/:clusterId/rbac-context": "requireAdmin",
-  "POST k8s.js /insight/:clusterId/refresh": "none",
+  "POST k8s.js /insight/:clusterId/refresh": "requireAdmin",
   "POST query.js /": "none",
   "POST query.js /test-connection": "none",
   "POST schemaStudio.js /connect": "none",
@@ -201,6 +202,26 @@ describe("Part 1: the role check on each route", () => {
       );
     expect(changed).toEqual([]);
   });
+
+  it("checks requireSuperAdminOnly before requireAdmin when both appear", () => {
+    for (const [route, guard] of Object.entries(EXPECTED_GUARDS)) {
+      if (guard === "requireSuperAdminOnly") {
+        expect(found[route]).toBe("requireSuperAdminOnly");
+      }
+    }
+  });
+
+  it("never grants a lower guard where a higher one is expected", () => {
+    const rank = { none: 0, requireEditor: 1, requireAdmin: 2, requireSuperAdminOnly: 3 };
+    const worse = [];
+    for (const [route, expected] of Object.entries(EXPECTED_GUARDS)) {
+      if (!(route in found)) continue;
+      if (rank[found[route]] < rank[expected]) {
+        worse.push(`${route}: expected ${expected}, found ${found[route]}`);
+      }
+    }
+    expect(worse).toEqual([]);
+  });
 });
 
 describe("Part 2: admin-only routes refuse readonly and editor users", () => {
@@ -275,5 +296,31 @@ describe("Part 2: admin-only routes refuse readonly and editor users", () => {
     );
     expect(result.status).toBe(201);
     expect(result.json.removed).toEqual([]);
+  });
+
+  it("refuses every admin-only call from a role that is not even admin", async () => {
+    for (const role of ["readonly", "editor"]) {
+      for (const [method, url] of ADMIN_ONLY_CALLS) {
+        const result = await app.api(
+          role,
+          method,
+          url,
+          method === "GET" ? undefined : { name: "x" },
+        );
+        expect(result.status).not.toBe(200);
+      }
+    }
+  });
+
+  it("still lets a superadmin reach every admin-only call", async () => {
+    for (const [method, url] of ADMIN_ONLY_CALLS) {
+      const result = await app.api(
+        "superadmin",
+        method,
+        url,
+        method === "GET" ? undefined : { name: "x" },
+      );
+      expect(result.status).not.toBe(403);
+    }
   });
 });

@@ -63,6 +63,31 @@ describe("settings reads", () => {
       expect([200, 404]).toContain(result.status);
     }
   });
+
+  it("returns 403 rather than 404 for a JWT key that does not exist", async () => {
+    const result = await app.api(
+      "readonly",
+      "GET",
+      "/api/settings/jwt.doesNotExist",
+    );
+    expect(result.status).toBe(403);
+  });
+
+  it("refuses every smtp.* key to readonly and editor users", async () => {
+    for (const role of ["readonly", "editor"]) {
+      for (const key of ["smtp.host", "smtp.user", "smtp.pass"]) {
+        const result = await app.api(role, "GET", `/api/settings/${key}`);
+        expect(result.status).toBe(403);
+      }
+    }
+  });
+
+  it("gives admins a 200 or 404 but never a 403 for a general key", async () => {
+    for (const role of ["admin", "superadmin"]) {
+      const result = await app.api(role, "GET", "/api/settings/theme");
+      expect([200, 404]).toContain(result.status);
+    }
+  });
 });
 
 describe("settings writes", () => {
@@ -114,6 +139,15 @@ describe("settings writes", () => {
         "/api/settings/some.unknown.key",
         { value: "x" },
       );
+      expect(write.status).toBe(403);
+    }
+  });
+
+  it("refuses every smtp.* write to every role, including superadmin", async () => {
+    for (const role of ROLES) {
+      const write = await app.api(role, "PUT", "/api/settings/smtp.pass", {
+        value: "attack",
+      });
       expect(write.status).toBe(403);
     }
   });

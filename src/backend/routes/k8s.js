@@ -27,6 +27,7 @@ import {
   getEvents,
   getLogs,
   getHealth,
+  getKeeper,
   getRbacContext,
   refreshNow,
 } from "../controllers/k8sInsight.js";
@@ -44,16 +45,20 @@ router.delete("/connections/:id", requireAdmin, deleteK8sConnection);
 // Testing reaches out to a caller-supplied address, so it is admin only.
 router.post("/test", requireAdmin, testK8sConnection);
 
-// Discovery.
-router.get("/connections/:id/namespaces", listNamespaces);
-router.get("/connections/:id/installations", listInstallations);
-router.get("/connections/:id/installations/:name", getInstallation);
+// Discovery reads the cluster with the stored token, so it is admin only.
+router.get("/connections/:id/namespaces", requireAdmin, listNamespaces);
+router.get("/connections/:id/installations", requireAdmin, listInstallations);
+router.get(
+  "/connections/:id/installations/:name",
+  requireAdmin,
+  getInstallation,
+);
 
 // Import creates a CHOps cluster, so it matches cluster creation.
 router.post("/import", requireAdmin, importInstallation);
 
 // Manual refresh re-reads the host list.
-router.post("/clusters/:id/refresh", refreshCluster);
+router.post("/clusters/:id/refresh", requireAdmin, refreshCluster);
 router.post("/clusters/:id/reresolve", requireAdmin, reresolveCluster);
 router.post("/clusters/verify", requireAdmin, verifyClusterConnection);
 
@@ -66,7 +71,8 @@ router.get("/insight/:clusterId/network", requireAdmin, getNetwork);
 router.get("/insight/:clusterId/events", requireAdmin, getEvents);
 router.get("/insight/:clusterId/logs/:pod", requireAdmin, getLogs);
 router.get("/insight/:clusterId/health", requireAdmin, getHealth);
+router.get("/insight/:clusterId/keeper", requireAdmin, getKeeper);
 router.get("/insight/:clusterId/rbac-context", requireAdmin, getRbacContext);
-router.post("/insight/:clusterId/refresh", refreshNow);
+router.post("/insight/:clusterId/refresh", requireAdmin, refreshNow);
 
 export default router;
