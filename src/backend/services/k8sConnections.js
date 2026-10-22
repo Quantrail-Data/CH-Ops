@@ -163,10 +163,11 @@ export async function detectOperators(client, namespace) {
   const found = [];
 
   try {
-    await client.listPage(
-      `/apis/clickhouse.altinity.com/v1/namespaces/${namespace}/clickhouseinstallations`,
-      { limit: 1, context: { isCustomResource: true, namespace } },
-    );
+    // paths.installations encodes the namespace, like every other path.
+    await client.listPage(paths.installations(namespace), {
+      limit: 1,
+      context: { isCustomResource: true, namespace },
+    });
     found.push('akoc');
   } catch {
     // Absent, which a 404 on the resource type reports.

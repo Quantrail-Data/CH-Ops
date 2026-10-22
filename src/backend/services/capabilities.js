@@ -44,7 +44,6 @@ const EXPLANATIONS = {
 function rowsOf(result) {
   return result?.rows ?? [];
 }
-
 // Ask the server which system tables exist.
 export async function probeCapabilities(clusterId, node) {
   const cached = cache.get(clusterId);
