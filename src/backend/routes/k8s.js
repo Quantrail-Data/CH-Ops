@@ -27,6 +27,7 @@ import {
   getEvents,
   getLogs,
   getHealth,
+  getKeeper,
   getRbacContext,
   refreshNow,
 } from "../controllers/k8sInsight.js";
@@ -71,6 +72,7 @@ router.get("/insight/:clusterId/network", requireAdmin, getNetwork);
 router.get("/insight/:clusterId/events", requireAdmin, getEvents);
 router.get("/insight/:clusterId/logs/:pod", requireAdmin, getLogs);
 router.get("/insight/:clusterId/health", requireAdmin, getHealth);
+router.get("/insight/:clusterId/keeper", requireAdmin, getKeeper);
 router.get("/insight/:clusterId/rbac-context", requireAdmin, getRbacContext);
 router.post("/insight/:clusterId/refresh", requireAdmin, refreshNow);
 
