@@ -56,6 +56,12 @@ export const alertRules = sqliteTable("alert_rule", {
   noRowsMeansBreach: integer("no_rows_means_breach", { mode: "boolean" })
     .notNull()
     .default(false),
+  // The template this rule came from (services/alertTemplates.js). Null for a rule written by hand.
+  templateId: text("template_id"),
+  // True after an admin changes the rule. A changed template rule stays when its cluster is deleted.
+  templateEdited: integer("template_edited", { mode: "boolean" })
+    .notNull()
+    .default(false),
 });
 
 // Alert Channels
