@@ -50,7 +50,8 @@ function cronMatches(expr, date) {
   return true;
 }
 
-function evalThreshold(value, operator, threshold) {
+// Also used by the rule test endpoint in controllers/alerts.js.
+export function evalThreshold(value, operator, threshold) {
   switch (operator) {
     case "gt":
       return value > threshold;
