@@ -1120,7 +1120,7 @@ export const PAGE_TEXT = {
     "NO NODES",
     "NO CHANNELS",
     "noRowsMeansBreach",
-    "Search templates"
+    "Search templates",
     "No options",
     "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Cancel",
