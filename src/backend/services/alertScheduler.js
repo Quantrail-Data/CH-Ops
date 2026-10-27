@@ -82,13 +82,13 @@ function cooldownElapsed(rule, now) {
 }
 
 async function evaluateRule(rule, allNodes, now) {
-  const prevStatus = rule.lastState; // 'ok' | 'firing' | 'error' | null
+  const prevStatus = rule.lastState; 
   let errorMsg = null;
   let firingNodes = [];
   let lastValue = 0;
 
   try {
-    // Resolve target nodes.
+  
     let nodes = allNodes;
     if (rule.nodes) {
       try {
@@ -109,7 +109,6 @@ async function evaluateRule(rule, allNodes, now) {
             user: node.user,
             password: node.password,
             sql: rule.sql,
-            // Alert rules are SELECTs. Everywhere else applies this guard.
             readOnly: true,
             timeoutMs: 120000,
           }),
@@ -120,7 +119,6 @@ async function evaluateRule(rule, allNodes, now) {
       for (let i = 0; i < nodeResults.length; i++) {
         const r = nodeResults[i];
         if (r.status === "rejected") {
-          // <-- was silently skipped
           errs.push(
             `${nodes[i].name || nodes[i].host}: ${r.reason?.message || "query failed"}`,
           );
@@ -151,14 +149,13 @@ non numeric value: ${String(rawValue).slice(0, 50)}`);
             value: v,
           });
       }
-      if (errs.length) errorMsg = errs.join("; "); // any node error = failed run
+      if (errs.length) errorMsg = errs.join("; "); 
     }
   } catch (err) {
-    errorMsg = err?.message || "evaluation failed"; // rule-level failure
+    errorMsg = err?.message || "evaluation failed"; 
   }
 
   if (errorMsg) errorMsg = String(errorMsg).slice(0, 500);
-  // The rule fires only after enough breaching runs in a row.
   const breachedThisRun = firingNodes.length > 0;
   const requiredRuns = rule.breachRunsRequired || 1;
   const breachRunCount = breachedThisRun ? (rule.breachRunCount || 0) + 1 : 0;
@@ -170,14 +167,14 @@ non numeric value: ${String(rawValue).slice(0, 50)}`);
       lastRunAt: now.toISOString(),
       lastValue,
       lastStatus: status,
-      lastError: errorMsg, // null when healthy
+      lastError: errorMsg, 
       isActive: isFiring,
       breachRunCount,
     })
     .where(eq(alertRules.id, rule.id))
     .run();
 
-  // Record every status change for the history view.
+
   if (status !== prevStatus) {
     db.insert(alertEvents)
       .values({
@@ -263,8 +260,7 @@ async function notify(
 
   let dispatched = false;
 
-  // (a) Breach edge: notify when the rule starts firing. While it stays
-  // firing, notify again only after the optional reminder interval.
+ 
   if (status === "firing") {
     const newlyFiring = prevStatus !== "firing";
     const reminderMinutes = rule.notifyIntervalMinutes || 0;
@@ -291,7 +287,7 @@ async function notify(
     }
   }
 
-  // (b) Failure edge: was healthy, now errored -> notify once, with the exception.
+
   if (status === "error" && prevStatus !== "error") {
     push({
       ...rule,
@@ -304,7 +300,7 @@ async function notify(
     dispatched = true;
   }
 
-  // (c) Recovery edge: was errored, now healthy again.
+
   if (status !== "error" && prevStatus === "error") {
     push({
       ...rule,
@@ -316,7 +312,7 @@ async function notify(
     dispatched = true;
   }
 
-  // (d) Resolved edge: was firing, now healthy.
+
   if (status === "ok" && prevStatus === "firing") {
     push({
       ...rule,
@@ -372,7 +368,7 @@ datetime('now', '-90 days')`);
       return;
     }
 
-    // Filter to rules that are due and haven't already run this minute
+
     const dueRules = rules.filter((rule) => {
       if (!cronMatches(rule.schedule, now)) return false;
       if (rule.lastRunAt) {
@@ -389,11 +385,10 @@ datetime('now', '-90 days')`);
 
     if (dueRules.length === 0) return;
 
-    // Evaluate all due rules in parallel, each on its own cluster
     await Promise.allSettled(
       dueRules.map((rule) => {
         const ruleNodes = getClusterNodes(rule.clusterId || null);
-        if (ruleNodes.length === 0) return Promise.resolve(); // no nodes for this cluster
+        if (ruleNodes.length === 0) return Promise.resolve(); 
         return evaluateRule(rule, ruleNodes, now);
       }),
     );
@@ -404,7 +399,7 @@ datetime('now', '-90 days')`);
   log.info("Alert scheduler started (60s interval)");
 }
 
-/** **Notify** :- the Rule is resolved before it disabled in db . */
+
 export async function notifyBeforeRuleDisabled(ruleId) {
   const rule = db
     .select()
@@ -439,7 +434,7 @@ export async function notifyBeforeRuleDisabled(ruleId) {
     .run();
 }
 
-// The grammar cronMatches() supports: *, */n, and comma lists. No ranges.
+
 export function validateCronExpression(expr) {
   const parts = String(expr || "")
     .trim()

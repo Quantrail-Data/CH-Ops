@@ -96,7 +96,9 @@ export async function createCluster(req, res) {
     };
 
     clusters.push(newCluster);
+
     saveClusters(clusters);
+
     try {
       createTemplateRulesForCluster(newCluster.id);
     } catch (error) {
