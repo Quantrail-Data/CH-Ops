@@ -482,6 +482,11 @@ export default function AlertRules() {
                   {cronError}
                 </span>
               )}
+              <span
+                style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}
+              >
+                Supported: *, */n, and comma lists. Schedules run in the server's timezone.
+              </span>
             </div>
             <div className="form-group">
               <label className="form-label">Operator</label>
