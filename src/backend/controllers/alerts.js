@@ -257,8 +257,10 @@ export async function updateRule(req, res) {
       return res.status(400).json({ error: "Invalid alert rule ID" });
     }
 
-    const cronError = validateCronExpression(schedule || "*/5 * * * *");
-    if (cronError) return res.status(400).json({ error: cronError });
+    if (req.body.schedule !== undefined) {
+      const cronError = validateCronExpression(req.body.schedule);
+      if (cronError) return res.status(400).json({ error: cronError });
+    }
 
     const currentRule = db
       .select()
