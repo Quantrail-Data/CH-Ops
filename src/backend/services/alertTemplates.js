@@ -1,15 +1,13 @@
 // alertTemplates.js - Ready-made alert rules that read the ClickHouse system tables.
 // CHOps adds them, disabled, to each cluster. Admins turn them on and tune them on Alert Rules.
+// author -> (kathir Moorthy, kathir dhasan, Praveen kumar, Sanjeev Kumar G)
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db, alertRules, alertRuleChannels, appSettings } from "../db/index.js";
 import { alertEvents } from "../db/schema.js";
-// Set after the one-time step that adds the template rules to clusters that existed before the upgrade.
 const EXISTING_CLUSTERS_DONE_KEY =
   "alerts.templates_added_to_existing_clusters";
-// Each template is one alert rule. The first SQL column is the value that CHOps compares with the threshold.
-// The second column, no_data_check, stops the query with a clear error when the data is missing.
 export const ALERT_TEMPLATES = [
   {
     id: "cpu-busy",
@@ -751,7 +749,6 @@ function ruleDescription(template) {
   if (!template.tuning) return template.description;
   return `${template.description} Tuning: ${template.tuning}`;
 }
-// Adds each template as a disabled rule for one cluster. Skips the templates that the cluster already has.
 export function createTemplateRulesForCluster(clusterId) {
   const clusterRules = db
     .select()
@@ -781,8 +778,6 @@ export function createTemplateRulesForCluster(clusterId) {
   }
   return createdCount;
 }
-// Runs when a cluster is deleted. Deletes its template rules that nobody changed.
-// Rules that an admin changed stay, so their work is not lost.
 export function removeTemplateRulesForCluster(clusterId) {
   const unchangedRules = db
     .select()
@@ -804,8 +799,6 @@ export function removeTemplateRulesForCluster(clusterId) {
   }
   return unchangedRules.length;
 }
-// Runs at each server start, but does its work only once: at the first start after the upgrade.
-// Clusters added later get their template rules when they are added.
 export function createTemplateRulesForExistingClusters(clusters) {
   const doneSetting = db
     .select()

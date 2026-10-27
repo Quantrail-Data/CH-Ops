@@ -12,6 +12,11 @@ import {
   maskClusterPasswords,
 } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
+import {
+  createTemplateRulesForCluster,
+  removeTemplateRulesForCluster,
+} from "../services/alertTemplates.js";
+import { log } from "../services/logger.js";
 
 export function listClusters(req, res) {
   res.json(getAllClusters().map(maskClusterPasswords));
@@ -91,8 +96,14 @@ export async function createCluster(req, res) {
     };
 
     clusters.push(newCluster);
-
     saveClusters(clusters);
+    try {
+      createTemplateRulesForCluster(newCluster.id);
+    } catch (error) {
+      log.error("Could not add the alert template rules", {
+        error: error.message,
+      });
+    }
 
     return res
       .status(201)
@@ -259,6 +270,13 @@ export function deleteCluster(req, res) {
       return res.status(404).json({ error: "Cluster not found." });
 
     saveClusters(filtered);
+    try {
+      removeTemplateRulesForCluster(req.params.id);
+    } catch (error) {
+      log.error("Could not remove the alert template rules", {
+        error: error.message,
+      });
+    }
     res.json({ deleted: true });
   } catch (error) {
     res.status(500).json({ error: error.message || "Internal server error" });

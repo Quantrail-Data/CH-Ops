@@ -1,5 +1,6 @@
 // alert-templates.test.js - The template catalog, and the rules it adds to and removes from clusters.
 // Uses an in-memory database, so no server or ClickHouse is needed.
+// author -> (kathir Moorthy, kathir dhasan, Praveen kumar, Sanjeev Kumar G)
 // Copyright (C) 2026 Quantrail Data Private Limited
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";

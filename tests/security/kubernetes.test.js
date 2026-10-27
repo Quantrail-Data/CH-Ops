@@ -28,10 +28,24 @@ const INSTALLATION = {
   },
   status: {
     status: "Completed",
+    pods: ["chi-demo-main-0-0-0"],
+    fqdns: ["chi-demo-main-0-0.default.svc.cluster.local"],
     normalizedCompleted: {
       configuration: { users: { "admin/password": INSTALLATION_PASSWORD } },
     },
   },
+};
+
+const DEMO_POD = {
+  metadata: {
+    name: "chi-demo-main-0-0-0",
+    labels: {
+      "clickhouse.altinity.com/cluster": "main",
+      "clickhouse.altinity.com/shard": "0",
+      "clickhouse.altinity.com/replica": "0",
+    },
+  },
+  status: { phase: "Running" },
 };
 
 let app;
@@ -52,6 +66,9 @@ function startFakeKubernetesApi() {
       const requestPath = new URL(request.url).pathname;
       kubernetesRequests.push(requestPath);
       if (requestPath === INSTALLATION_PATH) return Response.json(INSTALLATION);
+      if (requestPath === "/api/v1/namespaces/default/pods") {
+          return Response.json({ kind: "List", metadata: {}, items:[DEMO_POD] });
+      }
       return Response.json({ kind: "List", metadata: {}, items: [] });
     },
   });
@@ -134,6 +151,29 @@ describe("installation details", () => {
   });
 });
 
+describe("import", () => {
+  it("adds the alert template rules to the imported cluster", async () => {
+    const imported = await app.api("admin", "POST", "/api/k8s/import", {
+      connectionId,
+      namespace: "default",
+      installation: "demo",
+      operator: "akoc",
+      displayName: "imported-demo",
+      endpoint: "127.0.0.1",
+      port: app.clickHouse.port,
+      secure: false,
+      chUser: "default",
+      acknowledgeCredentialFailure: true,
+      acknowledgeSharedEndpoint: true,
+    });
+    expect(imported.status).toBe(201);
+    const rules = await app.api("admin", "GET", "/api/alerts/rules");
+    const importedTemplateRules = rules.json.filter(
+      (rule) => rule.cluster_id === imported.json.id && rule.templateId,
+    );
+    expect(importedTemplateRules.length).toBe(31);
+  });
+});
 describe("Kubernetes name checks", () => {
   it("refuses an installation name that leaves its path segment", async () => {
     kubernetesRequests.length = 0;

@@ -120,8 +120,18 @@ try {
 log.info("Database ready (Drizzle ORM + bun:sqlite)");
 
 import { assertDatabaseReadable } from "./db/index.js";
-import { migrateClusterData } from "./services/clusterUtils.js";
+import { migrateClusterData, getAllClusters } from "./services/clusterUtils.js";
+import { createTemplateRulesForExistingClusters } from "./services/alertTemplates.js";
 migrateClusterData();
+try {
+  const createdCount = createTemplateRulesForExistingClusters(getAllClusters());
+  if (createdCount > 0) {
+    log.info(`Added ${createdCount} alert template rules to existing
+clusters`);
+  }
+} catch (error) {
+  log.error("Could not add the alert template rules", { error: error.message });
+}
 
 const app = express();
 
@@ -171,11 +181,31 @@ app.use("/api/query", authMiddleware, rateLimiter(10000, 60), queryRoute);
 app.use("/api/editor", authMiddleware, rateLimiter(10000, 60), editorRoute);
 app.use("/api/config", authMiddleware, rateLimiter(10000, 60), configRoute);
 app.use("/api/settings", authMiddleware, rateLimiter(10000, 60), settingsRoute);
-app.use("/api/app-config", authMiddleware, rateLimiter(120, 60), appConfigRoute);
-app.use("/api/trusted-cas", authMiddleware, rateLimiter(60, 60), trustedCaRoute);
-app.use("/api/system-smtp", authMiddleware, rateLimiter(30, 60), systemSmtpRoute);
+app.use(
+  "/api/app-config",
+  authMiddleware,
+  rateLimiter(120, 60),
+  appConfigRoute,
+);
+app.use(
+  "/api/trusted-cas",
+  authMiddleware,
+  rateLimiter(60, 60),
+  trustedCaRoute,
+);
+app.use(
+  "/api/system-smtp",
+  authMiddleware,
+  rateLimiter(30, 60),
+  systemSmtpRoute,
+);
 app.use("/api/alerts", authMiddleware, rateLimiter(10000, 60), alertsRoute);
-app.use("/api/dashboards", authMiddleware, rateLimiter(10000, 60), dashboardsRoute);
+app.use(
+  "/api/dashboards",
+  authMiddleware,
+  rateLimiter(10000, 60),
+  dashboardsRoute,
+);
 app.use("/api/users", authMiddleware, rateLimiter(10000, 60), usersRoute);
 app.use("/api/cluster", authMiddleware, rateLimiter(10000, 60), clusterRoute);
 app.use("/api/k8s", authMiddleware, rateLimiter(10000, 60), k8sRoute);
@@ -194,8 +224,12 @@ app.use(
 app.use("/api/export/download", rateLimiter(10000, 60), downloadRouter);
 app.use("/api/export", rateLimiter(10000, 60), authMiddleware, exportRoute);
 
-app.use('/api/storage/', authMiddleware, rateLimiter(10000, 60), StorageProfiles);
-
+app.use(
+  "/api/storage/",
+  authMiddleware,
+  rateLimiter(10000, 60),
+  StorageProfiles,
+);
 
 // app.use("/api/ai/database", authMiddleware,rateLimiter(10000, 60),databaseAIConnection);
 // app.use("/api/ai/sql",authMiddleware,rateLimiter(10000, 60), sqlAIChat);
