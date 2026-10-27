@@ -54,8 +54,16 @@ export default function AlertRules() {
     notifyIntervalMinutes: 0,
     breachRunsRequired: 1,
     noRowsMeansBreach: false,
+    templateId: null,
   });
   const [history, setHistory] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
+  const [showTemplateRulesThatAreOff, setShowTemplateRulesThatAreOff] =
+    useState(false);
+  const [testResults, setTestResults] = useState(null);
 
   function normalizeCron(expr) {
     const parts = expr.trim().split(/\s+/).filter(Boolean);
@@ -121,6 +129,15 @@ export default function AlertRules() {
   }, []);
 
   useEffect(() => {
+    if (!isAdmin) return;
+    apiFetch("/api/alerts/templates")
+      .then((templateList) =>
+        setTemplates(Array.isArray(templateList) ? templateList : []),
+      )
+      .catch(() => setTemplates([]));
+  }, [isAdmin]);
+
+  useEffect(() => {
     function onVisible() {
       if (document.visibilityState === "visible") load();
     }
@@ -128,6 +145,7 @@ export default function AlertRules() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
+  console.log(templates)
   function resetForm() {
     setF({
       name: "",
@@ -144,9 +162,61 @@ export default function AlertRules() {
       notifyIntervalMinutes: 0,
       breachRunsRequired: 1,
       noRowsMeansBreach: false,
+      templateId: null,
     });
     setEditing(null);
+    setEditingTemplateId(null);
+    setTestResults(null);
     setCronError("");
+  }
+
+
+  function templateFormValues(template) {
+    return {
+      name: template.name,
+      description: template.tuning
+        ? `${template.description} Tuning: ${template.tuning}`
+        : template.description,
+      sql: template.sql,
+      threshold: template.threshold,
+      operator: template.operator,
+      severity: template.severity,
+      schedule: template.schedule,
+    };
+  }
+
+
+  function startFromTemplate(template) {
+    resetForm();
+    setF((previous) => ({
+      ...previous,
+      ...templateFormValues(template),
+      templateId: template.id,
+    }));
+    setEditingTemplateId(template.id);
+    setShowTemplatePicker(false);
+    setTemplateSearch("");
+    setShowForm(true);
+  }
+
+
+  function unitOfTemplate(templateId) {
+    const template = templates.find((item) => item.id === templateId);
+    return template ? template.unit : "";
+  }
+
+
+  function withUnit(value, unit) {
+    if (!unit) return String(value);
+    if (unit === "%") return `${value}%`;
+    return `${value} ${unit}`;
+  }
+
+
+  function resetToTemplate() {
+    const template = templates.find((item) => item.id === editingTemplateId);
+    if (!template) return;
+    setF((previous) => ({ ...previous, ...templateFormValues(template) }));
   }
 
   async function save() {
@@ -175,7 +245,7 @@ export default function AlertRules() {
         return;
       }
 
-      // noRowLimit: an alert threshold query returns ONE value by definition.
+
       const checkQuery = await runQuery(f.sql, { noRowLimit: true });
       const payload = {
         ...f,
@@ -209,10 +279,22 @@ export default function AlertRules() {
     }
   }
 
+
   async function testQuery() {
+    setTestResults(null);
     try {
-      const check = await runQuery(f.sql);
-      setResult({ ok: true, msg: "Query executed successfully" });
+      const response = await apiFetch("/api/alerts/rules/test", {
+        method: "POST",
+        body: JSON.stringify({
+          sql: f.sql,
+          operator: f.operator,
+          threshold: f.threshold,
+          cluster_id: f.cluster_id || null,
+          nodes: f.nodes,
+          noRowsMeansBreach: f.noRowsMeansBreach,
+        }),
+      });
+      setTestResults(response.results || []);
     } catch (error) {
       setResult({ ok: false, msg: error.message });
     }
@@ -267,15 +349,27 @@ export default function AlertRules() {
       notifyIntervalMinutes: r.notifyIntervalMinutes,
       breachRunsRequired: r.breachRunsRequired,
       noRowsMeansBreach: r.noRowsMeansBreach,
+      templateId: r.templateId || null,
     });
     setEditing(r.id);
+    setEditingTemplateId(r.templateId || null);
+    setTestResults(null);
     setShowForm(true);
     setCronError(validateCron(r.schedule || ""));
   }
 
+
+  const templateRulesThatAreOff = rules.filter(
+    (rule) => rule.templateId && !rule.enabled,
+  );
+  const visibleRules = showTemplateRulesThatAreOff
+    ? rules
+    : rules.filter((rule) => !(rule.templateId && !rule.enabled));
+
   function isChannelSelected(chID) {
     return f?.channel_ids?.some((id) => id === chID);
   }
+  console.log(rules)
 
   return (
     <div className="page-content">
@@ -286,6 +380,14 @@ export default function AlertRules() {
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <button className="btn btn-secondary btn-sm" onClick={load}>
             <Icon className="ti ti-refresh"></Icon>
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowTemplatePicker(true)}
+            disabled={!isAdmin}
+            style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
+          >
+            <Icon className="ti ti-list-check"></Icon> New from template
           </button>
           <button
             className="btn btn-primary btn-sm"
@@ -380,6 +482,11 @@ export default function AlertRules() {
                   {cronError}
                 </span>
               )}
+              <span
+                style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}
+              >
+                Supported: *, */n, and comma lists. Schedules run in the server's timezone.
+              </span>
             </div>
             <div className="form-group">
               <label className="form-label">Operator</label>
@@ -396,7 +503,12 @@ export default function AlertRules() {
               </Select>
             </div>
             <div className="form-group">
-              <label className="form-label">Threshold</label>
+              <label className="form-label">
+                Threshold
+                {unitOfTemplate(f.templateId)
+                  ? ` (${unitOfTemplate(f.templateId)})`
+                  : ""}
+              </label>
               <input
                 className="form-input"
                 type="number"
@@ -672,7 +784,62 @@ export default function AlertRules() {
           >
             <Icon className="ti ti-send"></Icon> Test
           </button>
+          {editingTemplateId && (
+            <button
+              className="btn btn-secondary"
+              onClick={resetToTemplate}
+              style={{ marginLeft: "10px" }}
+            >
+              <Icon className="ti ti-refresh"></Icon> Reset to template
+            </button>
+          )}
+          {testResults && (
+            <table className="data-table" style={{ marginTop: 14 }}>
+              <thead>
+                <tr>
+                  <th>Node</th>
+                  <th>Value</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {testResults.map((nodeResult) => (
+                  <tr key={nodeResult.node}>
+                    <td>{nodeResult.node}</td>
+                    <td>
+                      {nodeResult.value === null
+                        ? "-"
+                        : withUnit(nodeResult.value, unitOfTemplate(f.templateId))}
+                    </td>
+                    <td
+                      style={{
+                        color:
+                          nodeResult.error || nodeResult.wouldFire
+                            ? "var(--color-danger)"
+                            : "var(--text-secondary)",
+                      }}
+                    >
+                      {nodeResult.error
+                        ? `Error: ${nodeResult.error}`
+                        : nodeResult.wouldFire
+                          ? "Would fire"
+                          : nodeResult.value === null
+                            ? "No rows. Would not fire."
+                            : "OK. Would not fire."}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
+      )}
+      {isAdmin && templateRulesThatAreOff.length > 0 && (
+        <ToggleSwitch
+          checked={showTemplateRulesThatAreOff}
+          onChange={(e) => setShowTemplateRulesThatAreOff(e.target.checked)}
+          label={`Show the template rules that are off (${templateRulesThatAreOff.length})`}
+        />
       )}
       {!loaded ? (
         <div className="empty-state">
@@ -683,7 +850,7 @@ export default function AlertRules() {
           <Icon className="ti ti-lock"></Icon>
           <p>Alert rules management is only available for administrators.</p>
         </div>
-      ) : rules.length === 0 ? (
+      ) : visibleRules.length === 0 ? (
         <div className="empty-state" style={{height:"50vh" }} >
           <Icon className="ti ti-bell-plus" style={{ fontSize: 36 }}></Icon>
           <p>No rules yet. Click New Rule.</p>
@@ -696,7 +863,7 @@ export default function AlertRules() {
             gap: 14,
           }}
         >
-          {rules.map((r) => {
+          {visibleRules.map((r) => {
             const selectedCluster = r.cluster_id
               ? (clusters || []).find((c) => c.id === r.cluster_id)
               : null;
@@ -734,8 +901,8 @@ export default function AlertRules() {
               : r.lastError
                 ? `Alert error: ${r.lastError}`
                 : r.isActive
-                  ? `Alert firing${r.lastValue != null ? ` - Current value: ${r.lastValue}` : ""}`
-                  : `Last status: ${r.lastStatus}${r.lastValue != null ? ` (${r.lastValue})` : ""}`;
+                  ? `Alert firing${r.lastValue != null ? ` - Current value: ${withUnit(r.lastValue, unitOfTemplate(r.templateId))}` : ""}`
+                  : `Last status: ${r.lastStatus}${r.lastValue != null ? ` (${withUnit(r.lastValue, unitOfTemplate(r.templateId))})` : ""}`;
             return (
               <div key={r.id} className="card" style={{ padding: 16 }}>
                 <div
@@ -746,7 +913,22 @@ export default function AlertRules() {
                     marginBottom: 8,
                   }}
                 >
-                  <strong>{r.name}</strong>
+                  <strong>
+                    {r.name}
+                    {r.templateId && (
+                      <span
+                        className="badge badge-gray"
+                        style={{ marginLeft: 8 }}
+                        title={
+                          r.templateEdited
+                            ? "Made from a template, then changed"
+                            : "Made from a template"
+                        }
+                      >
+                        template
+                      </span>
+                    )}
+                  </strong>
                   <span
                     className={`badge ${r.severity === "critical" ? "badge-red" : r.severity === "warning" ? "badge-amber" : "badge-blue"}`}
                   >
@@ -816,7 +998,7 @@ export default function AlertRules() {
                   <span>
                     Fires when value is{" "}
                     {OPS.find((o) => o.k === r.operator)?.l || r.operator}{" "}
-                    {r.threshold}
+                    {withUnit(r.threshold, unitOfTemplate(r.templateId))}
                   </span>
                   <span>
                     <Icon className="ti ti-clock"></Icon> {r.schedule}
@@ -876,7 +1058,7 @@ export default function AlertRules() {
                   >
                     {hasZeroNodes
                       ? "Last: warning (selected cluster has zero nodes)"
-                      : `Last: ${r.lastStatus} ${r.lastValue != null ? `(${r.lastValue})` : ""}${r.lastRunAt ? ` at ${new Date(r.lastRunAt).toLocaleString()}` : ""}`}
+                      : `Last: ${r.lastStatus} ${r.lastValue != null ? `(${withUnit(r.lastValue, unitOfTemplate(r.templateId))})` : ""}${r.lastRunAt ? ` at ${new Date(r.lastRunAt).toLocaleString()}` : ""}`}
                     {r.lastError ? (
                       <span style={{ color: "var(--color-danger)" }}>
                         {" "}
@@ -955,6 +1137,86 @@ export default function AlertRules() {
             </div>
 
             <DataTable rows={history} allowFullscreen={false} />
+          </div>
+        </div>
+      )}
+
+      {showTemplatePicker && isAdmin && (
+        <div className="modal-overlay">
+          <div
+            className="modal-box"
+            style={{ maxWidth: 800, maxHeight: "40rem", overflowY: "auto" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <h2 className="section-title" style={{ fontSize: "18px" }}>
+                <Icon className="ti ti-list-check"></Icon> New from template
+              </h2>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setShowTemplatePicker(false)}
+              >
+                <Icon className="ti ti-x" />
+              </button>
+            </div>
+            <input
+              className="form-input"
+              placeholder="Search templates"
+              value={templateSearch}
+              onChange={(e) => setTemplateSearch(e.target.value)}
+              style={{ marginBottom: 12 }}
+            />
+            {templates
+              .filter((template) =>
+                `${template.name} ${template.category} ${template.description}`
+                  .toLowerCase()
+                  .includes(templateSearch.toLowerCase()),
+              )
+              .map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className="card"
+                  onClick={() => startFromTemplate(template)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    padding: 12,
+                    marginBottom: 8,
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <strong>{template.name}</strong>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      {template.category}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "var(--text-muted)",
+                      marginTop: 4,
+                    }}
+                  >
+                    {template.description}
+                  </div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>
+                    Fires when the value is{" "}
+                    {template.operator === "gt" ? "above" : "below"}{" "}
+                    {withUnit(template.threshold, template.unit)}. Severity:{" "}
+                    {template.severity}.
+                  </div>
+                </button>
+              ))}
           </div>
         </div>
       )}

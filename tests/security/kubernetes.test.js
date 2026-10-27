@@ -1,7 +1,9 @@
 // kubernetes.test.js - Kubernetes discovery, refresh and Keeper routes.
 // Checks admin only access, Kubernetes name checks before any API call, and password redaction.
 // A fake Kubernetes API runs over HTTPS with the test-only certificates in ./fixtures.
+// author -> Sanjeev Kumar G
 // Copyright (C) 2026 Quantrail Data Private Limited
+
 
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import path from "node:path";
@@ -12,7 +14,7 @@ const INSTALLATION_PASSWORD = "installation-secret-password";
 const INSTALLATION_PATH =
   "/apis/clickhouse.altinity.com/v1/namespaces/default/clickhouseinstallations/demo";
 
-// An Altinity operator installation with a password in its spec, as people often write it.
+
 const INSTALLATION = {
   metadata: { name: "demo", namespace: "default" },
   spec: {
@@ -28,16 +30,31 @@ const INSTALLATION = {
   },
   status: {
     status: "Completed",
+    pods: ["chi-demo-main-0-0-0"],
+    fqdns: ["chi-demo-main-0-0.default.svc.cluster.local"],
     normalizedCompleted: {
       configuration: { users: { "admin/password": INSTALLATION_PASSWORD } },
     },
   },
 };
 
+
+const DEMO_POD = {
+  metadata: {
+    name: "chi-demo-main-0-0-0",
+    labels: {
+      "clickhouse.altinity.com/cluster": "main",
+      "clickhouse.altinity.com/shard": "0",
+      "clickhouse.altinity.com/replica": "0",
+    },
+  },
+  status: { phase: "Running" },
+};
+
 let app;
 let fakeKubernetesApi;
 let connectionId;
-// The path of each request that reached the fake Kubernetes API.
+
 const kubernetesRequests = [];
 
 function startFakeKubernetesApi() {
@@ -52,6 +69,9 @@ function startFakeKubernetesApi() {
       const requestPath = new URL(request.url).pathname;
       kubernetesRequests.push(requestPath);
       if (requestPath === INSTALLATION_PATH) return Response.json(INSTALLATION);
+      if (requestPath === "/api/v1/namespaces/default/pods") {
+        return Response.json({ kind: "List", metadata: {}, items: [DEMO_POD] });
+      }
       return Response.json({ kind: "List", metadata: {}, items: [] });
     },
   });
@@ -131,6 +151,31 @@ describe("installation details", () => {
       "::/0",
     );
     expect(result.text).not.toContain(INSTALLATION_PASSWORD);
+  });
+});
+
+describe("import", () => {
+  it("adds the alert template rules to the imported cluster", async () => {
+    const imported = await app.api("admin", "POST", "/api/k8s/import", {
+      connectionId,
+      namespace: "default",
+      installation: "demo",
+      operator: "akoc",
+      displayName: "imported-demo",
+      endpoint: "127.0.0.1",
+      port: app.clickHouse.port,
+      secure: false,
+      chUser: "default",
+      acknowledgeCredentialFailure: true,
+      acknowledgeSharedEndpoint: true,
+    });
+    expect(imported.status).toBe(201);
+
+    const rules = await app.api("admin", "GET", "/api/alerts/rules");
+    const importedTemplateRules = rules.json.filter(
+      (rule) => rule.cluster_id === imported.json.id && rule.templateId,
+    );
+    expect(importedTemplateRules.length).toBe(31);
   });
 });
 

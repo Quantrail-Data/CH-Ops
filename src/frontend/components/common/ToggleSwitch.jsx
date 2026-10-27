@@ -2,19 +2,21 @@ export default function ToggleSwitch({
   checked = false,
   onChange,
   label,
-  info=null
+  info=null,
+  verticalAlignment = false,
+  btnContainer=false
 }) {
   return (
     <div
       className="form-group"
-      style={{
+      style={ verticalAlignment || btnContainer ? {paddingTop: 0 } : {
         display: "flex",
         alignItems: "center",
         paddingTop: 22,
         gap: 6,
-      }}
+      } }
     >
-      <div className="form-label">
+      <div className="form-label" style={verticalAlignment ? {flexDirection:"column-reverse",alignItems:"center",justifyContent:"start",gap:"12px"} : {}}>
         <label
           className="switch"
           style={{
