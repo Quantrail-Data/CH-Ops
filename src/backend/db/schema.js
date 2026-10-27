@@ -39,22 +39,26 @@ export const alertRules = sqliteTable("alert_rule", {
   lastStatus: text("last_status"),
   lastError: text("last_error"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
-  nodes: text("nodes"), 
-  clusterId: text("cluster_id"), 
+  nodes: text("nodes"), // JSON array of node hostnames, null = all nodes
+  clusterId: text("cluster_id"), // which cluster this alert runs on, null = first cluster
   lastNotifiedAt: text("last_notified_at"),
   lastState: text("last_state"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
   notifyIntervalMinutes: integer("notify_interval_minutes")
     .notNull()
-    .default(0), 
+    .default(0), // 0 means edge only: one mail when firing starts, one when it resolves.
   lastBreachNotifiedAt: text("last_breach_notified_at"),
+  // The rule fires only after this many breaching runs in a row.
   breachRunsRequired: integer("breach_runs_required").notNull().default(1),
   breachRunCount: integer("breach_run_count").notNull().default(0),
+  // When the query returns zero rows: false means ok, true means breach.
   noRowsMeansBreach: integer("no_rows_means_breach", { mode: "boolean" })
     .notNull()
     .default(false),
+  // The template this rule came from (services/alertTemplates.js). Null for a rule written by hand.
   templateId: text("template_id"),
+  // True after an admin changes the rule. A changed template rule stays when its cluster is deleted.
   templateEdited: integer("template_edited", { mode: "boolean" })
     .notNull()
     .default(false),

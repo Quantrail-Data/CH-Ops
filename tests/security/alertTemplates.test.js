@@ -1,10 +1,12 @@
 // alertTemplates.test.js - Alert templates through the real API.
 // Checks who can use the template routes, the rules a new cluster gets, the rule test,
 // how a change to a template rule is recorded, what a cluster delete removes, and the server start step.
+// author -> Sanjeev Kumar G
 // Copyright (C) 2026 Quantrail Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
+
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { startServer, NODE_NAME } from "./harness.js";
+
 
 function answerQuery({ sql }) {
   if (sql.includes("cpu_busy_percent")) {
@@ -21,17 +23,22 @@ function answerQuery({ sql }) {
   }
   return null;
 }
+
 let app;
+
 beforeAll(async () => {
   app = await startServer({ answerQuery });
 }, 30000);
+
 afterAll(async () => {
   await app?.stop();
 });
+
 async function templateRules() {
   const result = await app.api("admin", "GET", "/api/alerts/rules");
   return result.json.filter((rule) => rule.templateId);
 }
+
 describe("who can use the template routes", () => {
   for (const role of ["readonly", "editor"]) {
     it(`refuses ${role}`, async () => {
@@ -43,12 +50,14 @@ describe("who can use the template routes", () => {
       expect([templates.status, test.status]).toEqual([403, 403]);
     });
   }
+
   it("gives an admin the 31 templates", async () => {
     const result = await app.api("admin", "GET", "/api/alerts/templates");
     expect(result.status).toBe(200);
     expect(result.json.length).toBe(31);
   });
 });
+
 describe("server start", () => {
   it("records that the one-time step for existing clusters ran", () => {
     const database = app.openDatabase();
@@ -59,6 +68,7 @@ describe("server start", () => {
     expect(setting?.value).toBe("true");
   });
 });
+
 describe("rules for a new cluster", () => {
   it("adds every template to the new cluster as a rule that is off", async () => {
     const rules = await templateRules();
@@ -70,6 +80,7 @@ describe("rules for a new cluster", () => {
     }
   });
 });
+
 describe("rule test", () => {
   it("runs the rule read-only on each node and says it would fire", async () => {
     const cpuRule = (await templateRules()).find(
@@ -90,6 +101,7 @@ describe("rule test", () => {
     );
     expect(cpuQuery.readonly).toBe("1");
   });
+
   it("shows the ClickHouse error when the data is missing", async () => {
     const diskRule = (await templateRules()).find(
       (rule) => rule.templateId === "disk-space-low",
@@ -104,6 +116,7 @@ describe("rule test", () => {
     expect(result.json.results[0].wouldFire).toBe(false);
     expect(result.json.results[0].error).toContain("Cannot compute");
   });
+
   it("reads a number that ClickHouse sends as text", async () => {
     const result = await app.api("admin", "POST", "/api/alerts/rules/test", {
       sql: "SELECT count() AS counted FROM system.parts",
@@ -113,6 +126,7 @@ describe("rule test", () => {
     });
     expect(result.json.results[0]).toMatchObject({ value: 7, wouldFire: true });
   });
+
   it("gives an error when the first column is not a number", async () => {
     const result = await app.api("admin", "POST", "/api/alerts/rules/test", {
       sql: "SELECT 'abc' AS label",
@@ -121,36 +135,22 @@ describe("rule test", () => {
     expect(result.json.results[0].wouldFire).toBe(false);
     expect(result.json.results[0].error).toContain("not a number");
   });
+
   it("follows the no-rows setting of the rule", async () => {
     const noRowsSql = "SELECT 1 AS value WHERE 0";
-    const defaultResult = await app.api(
-      "admin",
-      "POST",
-      "/api/alerts/rules/test",
-      {
-        sql: noRowsSql,
-        cluster_id: app.clusterId,
-      },
-    );
-    const breachResult = await app.api(
-      "admin",
-      "POST",
-      "/api/alerts/rules/test",
-      {
-        sql: noRowsSql,
-        cluster_id: app.clusterId,
-        noRowsMeansBreach: true,
-      },
-    );
-    expect(defaultResult.json.results[0]).toMatchObject({
-      value: null,
-      wouldFire: false,
+    const defaultResult = await app.api("admin", "POST", "/api/alerts/rules/test", {
+      sql: noRowsSql,
+      cluster_id: app.clusterId,
     });
-    expect(breachResult.json.results[0]).toMatchObject({
-      value: null,
-      wouldFire: true,
+    const breachResult = await app.api("admin", "POST", "/api/alerts/rules/test", {
+      sql: noRowsSql,
+      cluster_id: app.clusterId,
+      noRowsMeansBreach: true,
     });
+    expect(defaultResult.json.results[0]).toMatchObject({ value: null, wouldFire: false });
+    expect(breachResult.json.results[0]).toMatchObject({ value: null, wouldFire: true });
   });
+
   it("refuses a test without SQL or without nodes", async () => {
     const noSql = await app.api("admin", "POST", "/api/alerts/rules/test", {
       cluster_id: app.clusterId,
@@ -163,7 +163,9 @@ describe("rule test", () => {
     expect([noSql.status, noNodes.status]).toEqual([400, 400]);
   });
 });
+
 describe("changes to a template rule", () => {
+  // The same body that the edit form sends when nothing is changed.
   function formBody(rule) {
     return {
       name: rule.name,
@@ -182,11 +184,11 @@ describe("changes to a template rule", () => {
       noRowsMeansBreach: rule.noRowsMeansBreach,
     };
   }
+
   async function ruleWithTemplate(templateId) {
-    return (await templateRules()).find(
-      (rule) => rule.templateId === templateId,
-    );
+    return (await templateRules()).find((rule) => rule.templateId === templateId);
   }
+
   it("does not count turning the rule on, or a save with no change", async () => {
     const rule = await ruleWithTemplate("cpu-iowait");
     await app.api("admin", "PUT", `/api/alerts/rules/${rule.id}`, {
@@ -202,15 +204,12 @@ describe("changes to a template rule", () => {
     expect(after.enabled).toBe(true);
     expect(after.templateEdited).toBe(false);
   });
+
   it("counts a new channel", async () => {
     const channel = await app.api("admin", "POST", "/api/alerts/channels", {
       name: "template-test-channel",
       type: "email",
-      config: {
-        smtp_host: "smtp.example.com",
-        to: "ops@example.com",
-        smtp_pass: "pass",
-      },
+      config: { smtp_host: "smtp.example.com", to: "ops@example.com", smtp_pass: "pass" },
     });
     const rule = await ruleWithTemplate("memory-clickhouse");
     await app.api("admin", "PUT", `/api/alerts/rules/${rule.id}`, {
@@ -221,6 +220,7 @@ describe("changes to a template rule", () => {
     expect(after.channels.map((item) => item.id)).toEqual([channel.json.id]);
     expect(after.templateEdited).toBe(true);
   });
+
   it("counts a change of target nodes", async () => {
     const rule = await ruleWithTemplate("host-memory-low");
     await app.api("admin", "PUT", `/api/alerts/rules/${rule.id}`, {
@@ -230,6 +230,38 @@ describe("changes to a template rule", () => {
     const after = await ruleWithTemplate("host-memory-low");
     expect(after.templateEdited).toBe(true);
   });
+
+  it("keeps the template id of a rule made from the picker", async () => {
+    const template = (await app.api("admin", "GET", "/api/alerts/templates")).json.find(
+      (item) => item.id === "failed-inserts",
+    );
+    const created = await app.api("admin", "POST", "/api/alerts/rules", {
+      name: "Failed inserts, from the picker",
+      sql: template.sql,
+      threshold: template.threshold,
+      operator: template.operator,
+      severity: template.severity,
+      schedule: template.schedule,
+      cluster_id: app.clusterId,
+      templateId: template.id,
+    });
+    expect(created.status).toBe(201);
+    expect(created.json.templateId).toBe("failed-inserts");
+    expect(created.json.templateEdited).toBe(true);
+  });
+
+  it("does not keep a template id that is not in the catalog", async () => {
+    const created = await app.api("admin", "POST", "/api/alerts/rules", {
+      name: "Unknown template",
+      sql: "SELECT 1",
+      cluster_id: app.clusterId,
+      templateId: "not-a-template",
+    });
+    expect(created.status).toBe(201);
+    expect(created.json.templateId).toBe(null);
+    expect(created.json.templateEdited).toBe(false);
+  });
+
   it("counts a new threshold", async () => {
     const rule = await ruleWithTemplate("cpu-busy");
     await app.api("admin", "PUT", `/api/alerts/rules/${rule.id}`, {
@@ -242,6 +274,7 @@ describe("changes to a template rule", () => {
   });
 });
 
+
 describe("cluster delete", () => {
   it("deletes the unchanged template rules and keeps the changed one", async () => {
     const result = await app.api(
@@ -253,9 +286,9 @@ describe("cluster delete", () => {
     const remaining = (await templateRules())
       .map((rule) => rule.templateId)
       .sort();
-
     expect(remaining).toEqual([
       "cpu-busy",
+      "failed-inserts",
       "host-memory-low",
       "memory-clickhouse",
     ]);

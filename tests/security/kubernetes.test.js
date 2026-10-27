@@ -1,7 +1,9 @@
 // kubernetes.test.js - Kubernetes discovery, refresh and Keeper routes.
 // Checks admin only access, Kubernetes name checks before any API call, and password redaction.
 // A fake Kubernetes API runs over HTTPS with the test-only certificates in ./fixtures.
+// author -> Sanjeev Kumar G
 // Copyright (C) 2026 Quantrail Data Private Limited
+
 
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import path from "node:path";
@@ -12,7 +14,7 @@ const INSTALLATION_PASSWORD = "installation-secret-password";
 const INSTALLATION_PATH =
   "/apis/clickhouse.altinity.com/v1/namespaces/default/clickhouseinstallations/demo";
 
-// An Altinity operator installation with a password in its spec, as people often write it.
+
 const INSTALLATION = {
   metadata: { name: "demo", namespace: "default" },
   spec: {
@@ -36,6 +38,7 @@ const INSTALLATION = {
   },
 };
 
+
 const DEMO_POD = {
   metadata: {
     name: "chi-demo-main-0-0-0",
@@ -51,7 +54,7 @@ const DEMO_POD = {
 let app;
 let fakeKubernetesApi;
 let connectionId;
-// The path of each request that reached the fake Kubernetes API.
+
 const kubernetesRequests = [];
 
 function startFakeKubernetesApi() {
@@ -67,7 +70,7 @@ function startFakeKubernetesApi() {
       kubernetesRequests.push(requestPath);
       if (requestPath === INSTALLATION_PATH) return Response.json(INSTALLATION);
       if (requestPath === "/api/v1/namespaces/default/pods") {
-          return Response.json({ kind: "List", metadata: {}, items:[DEMO_POD] });
+        return Response.json({ kind: "List", metadata: {}, items: [DEMO_POD] });
       }
       return Response.json({ kind: "List", metadata: {}, items: [] });
     },
@@ -167,6 +170,7 @@ describe("import", () => {
       acknowledgeSharedEndpoint: true,
     });
     expect(imported.status).toBe(201);
+
     const rules = await app.api("admin", "GET", "/api/alerts/rules");
     const importedTemplateRules = rules.json.filter(
       (rule) => rule.cluster_id === imported.json.id && rule.templateId,
@@ -174,6 +178,7 @@ describe("import", () => {
     expect(importedTemplateRules.length).toBe(31);
   });
 });
+
 describe("Kubernetes name checks", () => {
   it("refuses an installation name that leaves its path segment", async () => {
     kubernetesRequests.length = 0;
