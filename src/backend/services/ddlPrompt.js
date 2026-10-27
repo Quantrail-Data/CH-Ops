@@ -50,12 +50,19 @@ export function buildUserMessage(bundle) {
 // Parse the AI response defensively: strip code fences, then extract the JSON
 // object. If no JSON is found, treat the whole response as the DDL.
 export function parseAiResponse(raw) {
-  let t = String(raw || '').trim();
-  t = t.replace(/^```(?:json|sql)?\s*/i, '').replace(/```\s*$/i, '').trim();
-  const start = t.indexOf('{');
-  const end = t.lastIndexOf('}');
+  let t = String(raw || "").trim();
+  t = t
+    .replace(/^```(?:json|sql)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
   if (start >= 0 && end > start) {
-    try { return JSON.parse(t.slice(start, end + 1)); } catch { /* fall through */ }
+    try {
+      return JSON.parse(t.slice(start, end + 1));
+    } catch {
+      /* fall through */
+    }
   }
   return { ddl: t };
 }
@@ -76,7 +83,7 @@ export function lowCardinalitySuggestions(columns, stats, sampleRows) {
 
 // Detect whether a DDL already has an ORDER BY clause.
 export function hasOrderBy(ddl) {
-  return /\bORDER\s+BY\b/i.test(ddl || '');
+  return /\bORDER\s+BY\b/i.test(ddl || "");
 }
 
 // Build a fallback ORDER BY from frequently filtered columns first, then by
@@ -94,15 +101,20 @@ export function fallbackOrderBy(columns, stats, frequentlyFiltered = []) {
       return a.card - b.card;
     });
   const keys = ranked.slice(0, 3).map((r) => r.name);
-  return keys.length ? `(${keys.join(', ')})` : 'tuple()';
+  return keys.length ? `(${keys.join(", ")})` : "tuple()";
 }
 
 // Guard for the create route: allow only a single CREATE TABLE statement.
 export function isCreateTableOnly(sql) {
-  const trimmed = String(sql || '').trim().replace(/;\s*$/, '');
-  if (trimmed.includes(';')) return false; // single statement only
+  const trimmed = String(sql || "")
+    .trim()
+    .replace(/;\s*$/, "");
+  if (trimmed.includes(";")) return false; // single statement only
   const upper = trimmed.toUpperCase();
-  return upper.startsWith('CREATE TABLE') || upper.startsWith('CREATE OR REPLACE TABLE');
+  return (
+    upper.startsWith("CREATE TABLE") ||
+    upper.startsWith("CREATE OR REPLACE TABLE")
+  );
 }
 
 // AI evaluation (review + suggested rewrite)
@@ -110,24 +122,201 @@ export function isCreateTableOnly(sql) {
 // that DDL given the columns, statistics, and intent, returns advisory feedback,
 // and may return a full corrected CREATE TABLE the user can choose to apply.
 
-export const EVAL_SYSTEM_PROMPT = `You are an expert ClickHouse data engineer reviewing a proposed CREATE TABLE statement.
+export const EVAL_SYSTEM_PROMPT = `
 
-You are given the columns, sampled statistics, the design intent, and the exact DDL the user has composed. Assess whether the DDL is sound and how it could be improved.
 
-Consider, among other things:
-- The sort key (ORDER BY): is the column order sensible (low to high cardinality, frequently filtered columns first)?
-- Whether a separate PRIMARY KEY would help, and whether it is a valid prefix of ORDER BY.
-- Partitioning: is it coarse and reasonable, or missing or too granular?
-- Per column types and codecs: low cardinality strings, delta or double delta for monotonic values, and so on.
-- TTL, sampling, indexes, and projections where relevant.
+You are an expert ClickHouse SQL and schema reviewer.
 
-Return a single JSON object and nothing else, with this shape:
+
+Review the EXACT CREATE TABLE statement provided by the user.
+
+
+Your tasks:
+
+
+Validate ClickHouse syntax.
+Validate ClickHouse semantic and engine rules.
+Identify correctness, compatibility, and meaningful performance risks.
+Suggest practical improvements.
+ALWAYS return a complete suggested_ddl.
+SOURCE OF TRUTH
+
+
+Use this priority:
+
+
+Actual ClickHouse execution error/result, if provided.
+Target ClickHouse version/settings, if provided.
+Official ClickHouse behavior.
+General ClickHouse knowledge.
+
+
+If an actual ClickHouse error is provided, treat it as authoritative. The final DDL MUST resolve that error.
+
+
+Never invent ClickHouse syntax, settings, rules, or version behavior.
+
+
+EXACT DDL
+
+
+Analyze the user's exact SQL.
+
+
+Never:
+
+
+substitute or reinterpret columns/clauses
+silently add/remove clauses
+review a modified version instead of the original
+
+
+Preserve the user's intent.
+
+
+VALIDITY VS DESIGN
+
+
+Distinguish:
+
+
+SYNTAX_ERROR
+SEMANTIC_ERROR
+POTENTIAL_PROBLEM
+DESIGN_RECOMMENDATION
+INSUFFICIENT_CONTEXT
+
+
+A valid DDL may still have design concerns.
+
+
+Never present a recommendation as a ClickHouse requirement.
+
+
+MERGETREE
+
+
+For MergeTree-family engines, check:
+
+
+ENGINE
+ORDER BY
+PRIMARY KEY
+PARTITION BY
+SAMPLE BY
+TTL
+indexes
+projections
+codecs
+relevant settings
+
+
+Rules:
+
+
+ENGINE = MergeTree() is valid syntax.
+An explicit PRIMARY KEY must be a prefix of ORDER BY.
+PRIMARY KEY does not enforce uniqueness.
+Missing PRIMARY KEY is not an error.
+Missing PARTITION BY is not an error.
+NULLABLE KEYS
+
+
+Evaluate the actual key expression, referenced columns, effective allow_nullable_key, and ClickHouse version.
+
+
+Do not assume:
+
+
+Nullable keys are always forbidden.
+ifNull()/coalesce() automatically makes a MergeTree key valid.
+a traditional relational PRIMARY KEY must be physically non-null.
+
+
+If the server reports:
+
+
+Sorting key contains nullable columns, but merge tree setting allow_nullable_key is disabled
+
+
+classify it as SEMANTIC_ERROR and return a DDL that actually resolves it.
+
+
+Do not change Nullable(T) to T unless the available information supports that semantic change.
+
+
+Observed null_fraction = 0 does not make a Nullable column non-nullable.
+
+
+DESIGN REVIEW
+
+
+Evaluate ORDER BY, PRIMARY KEY, partitioning, data types, nullability, TTL, indexes, projections, and codecs.
+
+
+Consider workload, cardinality, data distribution, query patterns, table size, retention, and compression.
+
+
+Do not use simplistic rules such as:
+
+
+always put time first
+always put high-cardinality first
+always put low-cardinality first
+always add partitioning/indexes
+
+
+If the correct design depends on missing information, say so instead of guessing.
+
+
+SUGGESTED_DDL
+
+
+suggested_ddl MUST NEVER be empty.
+
+
+It must always contain the COMPLETE CREATE TABLE statement.
+
+
+Rules:
+
+
+If DDL is invalid → return corrected full DDL.
+If a clearly justified improvement exists → return full improved DDL.
+If design depends on missing context → return the original full DDL unchanged and explain the limitation in suggestions.
+Never return a diff or partial SQL.
+Never return a DDL that reproduces a known ClickHouse error.
+Every change in suggested_ddl must be explained in suggestions.
+Never silently remove or change unrelated clauses.
+OUTPUT
+
+
+Return ONLY valid JSON:
+
+
 {
-  "assessment": "one or two sentences on the overall quality",
-  "suggestions": ["specific, actionable suggestions"],
-  "warnings": ["correctness or performance risks, if any"],
-  "suggested_ddl": "the FULL corrected CREATE TABLE statement that applies your suggestions - the complete statement, not a diff. Use an empty string if the DDL is already optimal and needs no change."
-}`;
+"assessment": "One or two sentences describing validity and overall design quality.",
+"suggestions": [
+"Specific actionable corrections, improvements, or missing information."
+],
+"warnings": [
+"Correctness, compatibility, semantic, or meaningful performance risks."
+],
+"suggested_ddl": "The COMPLETE CREATE TABLE statement."
+}
+
+
+Output rules:
+
+
+No markdown.
+No code fences.
+No text outside JSON.
+Do not invent facts or workload information.
+Do not claim server verification unless an actual server result/error was provided.
+
+
+`;
 
 // Build the user message for evaluation from a review payload.
 export function buildEvalMessage(payload) {
@@ -136,18 +325,30 @@ export function buildEvalMessage(payload) {
 
 // Parse the evaluation response into { assessment, suggestions, warnings }.
 export function parseEvalResponse(raw) {
-  let t = String(raw || '').trim();
-  t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-  const start = t.indexOf('{');
-  const end = t.lastIndexOf('}');
+  let t = String(raw || "").trim();
+  t = t
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
   let obj = {};
   if (start >= 0 && end > start) {
-    try { obj = JSON.parse(t.slice(start, end + 1)); } catch { obj = {}; }
+    try {
+      obj = JSON.parse(t.slice(start, end + 1));
+    } catch {
+      obj = {};
+    }
   }
   return {
-    assessment: typeof obj.assessment === 'string' ? obj.assessment : '',
-    suggestions: Array.isArray(obj.suggestions) ? obj.suggestions.filter((s) => typeof s === 'string') : [],
-    warnings: Array.isArray(obj.warnings) ? obj.warnings.filter((s) => typeof s === 'string') : [],
-    suggested_ddl: typeof obj.suggested_ddl === 'string' ? obj.suggested_ddl : '',
+    assessment: typeof obj.assessment === "string" ? obj.assessment : "",
+    suggestions: Array.isArray(obj.suggestions)
+      ? obj.suggestions.filter((s) => typeof s === "string")
+      : [],
+    warnings: Array.isArray(obj.warnings)
+      ? obj.warnings.filter((s) => typeof s === "string")
+      : [],
+    suggested_ddl:
+      typeof obj.suggested_ddl === "string" ? obj.suggested_ddl : "",
   };
 }
