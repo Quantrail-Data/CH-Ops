@@ -1146,7 +1146,7 @@ function LineCountControl({ value, onChange, disabled }) {
 
 export default function KubernetesInsight({ cluster }) {
   const toast = useToast();
-  const [tab, setTab] = useState("logs");
+  const [tab, setTab] = useState("health");
   const [data, setData] = useState({});
   const [busy, setBusy] = useState(false);
   const [logsPod, setLogsPod] = useState(null);
