@@ -21,6 +21,8 @@ import {
   MAX_CLUSTERS,
 } from "../services/clusterUtils.js";
 import { clearCapabilities } from "../services/capabilities.js";
+import { createTemplateRulesForCluster } from "../services/alertTemplates.js";
+import { log } from "../services/logger.js";
 import { executeQuery } from "../services/clickhouse.js";
 import { redact } from "./k8sInsight.js";
 
@@ -469,6 +471,13 @@ export async function importInstallation(req, res) {
       return res.status(400).json({ error: err.message });
     }
     clearCapabilities(cluster.id);
+    try {
+      createTemplateRulesForCluster(cluster.id);
+    } catch (error) {
+      log.error("Could not add the alert template rules", {
+        error: error.message,
+      });
+    }
     return res.status(201).json({
       id: cluster.id,
       hosts: nodes.length,
