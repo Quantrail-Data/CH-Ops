@@ -31,6 +31,8 @@ const EXPECTED_GUARDS = {
   "GET alerts.js /rules": "none",
   "GET alerts.js /rules/active": "none",
   "GET alerts.js /channels": "none",
+  "GET alerts.js /templates": "requireAdmin",
+  "POST alerts.js /rules/test": "requireAdmin",
   "POST alerts.js /rules": "requireAdmin",
   "PUT alerts.js /rules/:id": "requireAdmin",
   "DELETE alerts.js /rules/:id": "requireAdmin",

@@ -13,7 +13,11 @@ import { testChannel as testChannelService } from "../services/notifier.js";
 import {
   notifyBeforeRuleDisabled,
   validateCronExpression,
+  evalThreshold,
 } from "../services/alertScheduler.js";
+import { getClusterNodes } from "../services/clusterUtils.js";
+import { executeQuery } from "../services/clickhouse.js";
+import { ALERT_TEMPLATES } from "../services/alertTemplates.js";
 import { alertEvents } from "../db/schema.js";
 import { decrypt, encrypt } from "../services/crypto.js";
 
@@ -180,7 +184,7 @@ function UpdateKeysValuesChannels(config, type, storedConfig) {
   return value;
 }
 
-// Rules
+
 
 export function listRules(req, res) {
   res.json(rulesWithChannels(undefined, req));
@@ -208,7 +212,11 @@ export function createRule(req, res) {
     notifyIntervalMinutes,
     breachRunsRequired,
     noRowsMeansBreach,
+    templateId,
   } = req.body;
+  const pickedTemplate = ALERT_TEMPLATES.find(
+    (template) => template.id === templateId,
+  );
   try {
     const cronError = validateCronExpression(schedule || "*/5 * * * *");
     if (cronError) return res.status(400).json({ error: cronError });
@@ -231,6 +239,8 @@ export function createRule(req, res) {
         notifyIntervalMinutes: notifyIntervalMinutes,
         breachRunsRequired: breachRunsRequired,
         noRowsMeansBreach: noRowsMeansBreach,
+        templateId: pickedTemplate ? pickedTemplate.id : null,
+        templateEdited: Boolean(pickedTemplate),
       })
       .returning()
       .get();
@@ -249,6 +259,55 @@ export function createRule(req, res) {
   }
 }
 
+
+function sameValue(storedValue, sentValue) {
+  const stored =
+    storedValue === null || storedValue === undefined ? "" : String(storedValue);
+  const sent =
+    sentValue === null || sentValue === undefined ? "" : String(sentValue);
+  return stored === sent;
+}
+
+
+function requestChangesRule(currentRule, body, currentChannelIds) {
+  const fields = [
+    "name",
+    "description",
+    "sql",
+    "threshold",
+    "operator",
+    "severity",
+    "schedule",
+    "notifyIntervalMinutes",
+    "breachRunsRequired",
+    "noRowsMeansBreach",
+  ];
+  for (const field of fields) {
+    if (body[field] !== undefined && !sameValue(currentRule[field], body[field])) {
+      return true;
+    }
+  }
+  if (body.nodes !== undefined) {
+    const sentNodes =
+      Array.isArray(body.nodes) && body.nodes.length > 0
+        ? JSON.stringify(body.nodes)
+        : null;
+    if (!sameValue(currentRule.nodes, sentNodes)) return true;
+  }
+  if (
+    body.cluster_id !== undefined &&
+    !sameValue(currentRule.clusterId, body.cluster_id)
+  ) {
+    return true;
+  }
+  if (Array.isArray(body.channel_ids)) {
+    const sentChannels = body.channel_ids.map(Number).sort().join(",");
+    const storedChannels = [...currentChannelIds].sort().join(",");
+    if (sentChannels !== storedChannels) return true;
+  }
+  return false;
+}
+
 export async function updateRule(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
@@ -257,8 +316,10 @@ export async function updateRule(req, res) {
       return res.status(400).json({ error: "Invalid alert rule ID" });
     }
 
-    const cronError = validateCronExpression(schedule || "*/5 * * * *");
-    if (cronError) return res.status(400).json({ error: cronError });
+    if (req.body.schedule !== undefined) {
+      const cronError = validateCronExpression(req.body.schedule);
+      if (cronError) return res.status(400).json({ error: cronError });
+    }
 
     const currentRule = db
       .select()
@@ -285,6 +346,19 @@ export async function updateRule(req, res) {
     ]) {
       if (req.body[k] !== undefined) {
         updates[k] = req.body[k];
+      }
+    }
+
+
+    if (currentRule.templateId && !currentRule.templateEdited) {
+      const currentChannelIds = db
+        .select()
+        .from(alertRuleChannels)
+        .where(eq(alertRuleChannels.alertRuleId, id))
+        .all()
+        .map((link) => link.alertChannelId);
+      if (requestChangesRule(currentRule, req.body, currentChannelIds)) {
+        updates.templateEdited = true;
       }
     }
 
@@ -341,6 +415,80 @@ export async function updateRule(req, res) {
   }
 }
 
+
+export function listTemplates(req, res) {
+  res.json(ALERT_TEMPLATES);
+}
+
+
+export async function testRule(req, res) {
+  const { sql, operator, threshold, cluster_id, nodes, noRowsMeansBreach } =
+    req.body || {};
+  if (typeof sql !== "string" || !sql.trim()) {
+    return res.status(400).json({ error: "SQL is required." });
+  }
+
+  let targetNodes = getClusterNodes(cluster_id || null);
+  if (Array.isArray(nodes) && nodes.length > 0) {
+    targetNodes = targetNodes.filter((node) => nodes.includes(node.host));
+  }
+  if (targetNodes.length === 0) {
+    return res.status(400).json({ error: "No nodes found for this cluster." });
+  }
+
+  const results = [];
+  for (const node of targetNodes) {
+    const nodeName = node.name || node.host;
+    try {
+      const response = await executeQuery({
+        host: node.host,
+        port: node.port,
+        secure: !!node.secure,
+        user: node.user,
+        password: node.password,
+        sql,
+        readOnly: true,
+        timeoutMs: 30000,
+      });
+      const firstRow = response.rows?.[0];
+      if (!firstRow) {
+        results.push({
+          node: nodeName,
+          value: null,
+          wouldFire: noRowsMeansBreach === true,
+          error: null,
+        });
+        continue;
+      }
+      const firstValue = Object.values(firstRow)[0];
+      const value = Number(firstValue);
+      if (firstValue === null || firstValue === "" || Number.isNaN(value)) {
+        results.push({
+          node: nodeName,
+          value: null,
+          wouldFire: false,
+          error: `The first column is not a number: ${String(firstValue).slice(0, 50)}`,
+        });
+        continue;
+      }
+      results.push({
+        node: nodeName,
+        value,
+        wouldFire: evalThreshold(value, operator || "gt", Number(threshold) || 0),
+        error: null,
+      });
+    } catch (error) {
+      results.push({
+        node: nodeName,
+        value: null,
+        wouldFire: false,
+        error: String(error?.message || "The query failed.").slice(0, 500),
+      });
+    }
+  }
+  res.json({ results });
+}
+
 export function deleteRule(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
@@ -355,7 +503,7 @@ export function deleteRule(req, res) {
   }
 }
 
-// Channels
+
 
 export function listChannels(req, res) {
   const channels = db
@@ -364,8 +512,7 @@ export function listChannels(req, res) {
     .orderBy(alertChannels.name)
     .all();
 
-  // config holds webhook URLs / SMTP credentials. Non-admins only need
-  // id/name/type to assign a channel to a rule, not the secret payload.
+
   const role = req.user?.role;
   const isAdmin = role === "superadmin" || role === "admin";
   res.json(

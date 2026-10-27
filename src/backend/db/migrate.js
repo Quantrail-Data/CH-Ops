@@ -267,6 +267,8 @@ const migrations = [
   "ALTER TABLE alert_rule ADD COLUMN breach_runs_required INTEGER DEFAULT 1",
   "ALTER TABLE alert_rule ADD COLUMN breach_run_count INTEGER DEFAULT 0",
   "ALTER TABLE alert_rule ADD COLUMN no_rows_means_breach INTEGER DEFAULT 0",
+  "ALTER TABLE alert_rule ADD COLUMN template_id TEXT",
+  "ALTER TABLE alert_rule ADD COLUMN template_edited INTEGER NOT NULL DEFAULT 0",
 ];
 
 for (const sql of migrations) {
