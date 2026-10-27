@@ -128,7 +128,8 @@ export const PAGE_HEADERS = {
 
 export const PAGE_TEXT = {
   "home": [
-    "What do you want to do?"
+    "What do you want to do?",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "overview/cluster": [
     "Loading...",
@@ -142,6 +143,17 @@ export const PAGE_TEXT = {
     "Merges",
     "Mutations",
     "Readonly Tables",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Node",
     "Cluster topology",
     "Loading topology...",
@@ -175,7 +187,17 @@ export const PAGE_TEXT = {
     "Total Written",
     "Query errors + critical/fatal system log entries",
     "Query Errors",
-    "Critical / Fatal"
+    "Critical / Fatal",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions"
   ],
   "overview/queries": [
     "Click to view query",
@@ -208,6 +230,17 @@ export const PAGE_TEXT = {
     "From (required)",
     "To (required)",
     "Search exception...",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Open in...",
     "All users",
     "All kinds",
@@ -233,7 +266,6 @@ export const PAGE_TEXT = {
     "Memory",
     "Longest",
     "Read",
-    "Actions",
     "Query detail",
     "Cancellation requested. The query is winding down.",
     "Loading full text...",
@@ -282,7 +314,9 @@ export const PAGE_TEXT = {
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Select...",
+    "Type to filter..."
   ],
   "overview/parts": [
     "Loading...",
@@ -292,7 +326,18 @@ export const PAGE_TEXT = {
     "Active Parts",
     "Inactive Parts",
     "Detached Parts",
-    "Broken Parts"
+    "Broken Parts",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "Generated SQL"
   ],
   "overview/operations": [
     "Loading...",
@@ -300,7 +345,18 @@ export const PAGE_TEXT = {
     "Mutations",
     "Active Merges",
     "Active Mutations",
-    "Replication Queue"
+    "Replication Queue",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Generated SQL",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG"
   ],
   "overview/ddl": [
     "Loading...",
@@ -311,9 +367,18 @@ export const PAGE_TEXT = {
     "(auto-refresh 30s)",
     "DDL Queue Length",
     "Median Processing Time",
-    "Failed DDLs"
+    "Failed DDLs",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Generated SQL",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions"
   ],
   "overview/queues": [
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Loading ingestion data...",
     "By error code",
     "All failures",
@@ -321,14 +386,27 @@ export const PAGE_TEXT = {
     "Search files",
     "File name contains",
     "Exception contains",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading queue state...",
     "Executing",
     "With errors",
     "Filter tasks...",
-    "Nothing pending."
+    "Nothing pending.",
+    "Something went wrong",
+    "Try Again"
   ],
   "overview/kubernetes": [
     "Loading...",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "No options",
     "Copy report",
     "readiness unknown",
     "Troubleshoot mode is on.",
@@ -436,6 +514,14 @@ export const PAGE_TEXT = {
     "Resize the SQL editor",
     "Bookmark name",
     "Download PNG",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
     "Analyzing query...",
     "Cost Estimate",
     "Database",
@@ -547,7 +633,13 @@ export const PAGE_TEXT = {
     "Generate Flame Graph",
     "to visualize execution.",
     "View Generated SQL",
-    "Reset zoom"
+    "Reset zoom",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "Cancel"
   ],
   "tools/pipeline": [
     "Processor Details",
@@ -562,7 +654,9 @@ export const PAGE_TEXT = {
     "Refreshing options...",
     "Query text (click to expand)",
     "Loading pipeline graph...",
-    "Select a query above to visualize its execution pipeline"
+    "Select a query above to visualize its execution pipeline",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "tools/metrics": [
     "Query Details",
@@ -579,7 +673,11 @@ export const PAGE_TEXT = {
     "Clear",
     "Select a query and click",
     "Show Query Metrics",
-    "to visualize its resource usage over time."
+    "to visualize its resource usage over time.",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG"
   ],
   "tools/qurioz": [
     "New Chat",
@@ -598,6 +696,8 @@ export const PAGE_TEXT = {
     "ClickHouse username",
     "password",
     "ClickHouse password",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -609,6 +709,12 @@ export const PAGE_TEXT = {
     "Error occurs while executing the query",
     "Retry",
     "Chart View",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
     "Clickhouse Query",
     "Copy",
     "Run..",
@@ -627,6 +733,9 @@ export const PAGE_TEXT = {
     "Max",
     "Preview",
     "Map columns to see preview.",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Get Tables",
     "Generate DDL & Estimate"
   ],
@@ -638,6 +747,7 @@ export const PAGE_TEXT = {
     "ClickHouse user",
     "Password",
     "default",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Upload a file",
     "Object storage",
     "HTTP Field Size Warning",
@@ -662,6 +772,7 @@ export const PAGE_TEXT = {
     "Secret access key",
     "Azure connection string",
     "Container",
+    "No options",
     "Review the inferred schema",
     "Column",
     "Type",
@@ -678,6 +789,7 @@ export const PAGE_TEXT = {
     "ZSTD(3)",
     "TDigest, Uniq",
     "d + INTERVAL 30 DAY",
+    "Cancel",
     "Choose the engine and table clauses",
     "(none)",
     "Keys and clauses",
@@ -696,6 +808,8 @@ export const PAGE_TEXT = {
     "column or expression",
     "Remove projection",
     "SELECT country, count() GROUP BY country",
+    "Select...",
+    "Type to filter...",
     "Use expression:",
     "Move earlier",
     "Move later",
@@ -713,8 +827,7 @@ export const PAGE_TEXT = {
     "Apply to editor",
     "Validate",
     "Create table",
-    "Create this table?",
-    "Cancel"
+    "Create this table?"
   ],
   "logs/crash": [
     "Overview",
@@ -734,11 +847,24 @@ export const PAGE_TEXT = {
     "Crashed Versions",
     "Last Crash",
     "partial...",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "No options",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Select...",
+    "Type to filter..."
   ],
   "logs/error": [
     "Overview",
@@ -764,11 +890,24 @@ export const PAGE_TEXT = {
     "Remote Share",
     "Last Error",
     "partial...",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "No options",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Select...",
+    "Type to filter..."
   ],
   "logs/text": [
     "Overview",
@@ -793,11 +932,24 @@ export const PAGE_TEXT = {
     "Loggers",
     "Last Error",
     "partial...",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Select...",
+    "Type to filter..."
   ],
   "logs/session": [
     "Overview",
@@ -825,16 +977,34 @@ export const PAGE_TEXT = {
     "Distinct Users",
     "Last Event",
     "partial...",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "No options",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Select...",
+    "Type to filter..."
   ],
   "monitoring/dashboards": [
     "Quick",
     "Rounding (s)",
-    "From"
+    "From",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "No options"
   ],
   "monitoring/playback": [
     "User",
@@ -848,7 +1018,18 @@ export const PAGE_TEXT = {
     "Select a time range and click",
     "Fetch Data",
     "to start.",
-    "From"
+    "From",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "No options",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions"
   ],
   "monitoring/allocator": [
     "Loading memory allocator stats...",
@@ -904,7 +1085,12 @@ export const PAGE_TEXT = {
     "Memory Efficiency",
     "Virtual Memory",
     "Reclaimable",
-    "Bookkeeping"
+    "Bookkeeping",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG"
   ],
   "alerting/rules": [
     "Alert rules management is only available for administrators.",
@@ -928,7 +1114,16 @@ export const PAGE_TEXT = {
     "FIRING",
     "NO NODES",
     "NO CHANNELS",
-    "noRowsMeansBreach"
+    "noRowsMeansBreach",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Cancel",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions"
   ],
   "rbac/view": [
     "User Grants",
@@ -941,7 +1136,15 @@ export const PAGE_TEXT = {
     "Select a role.",
     "Users",
     "Roles",
-    "All Grants"
+    "All Grants",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions"
   ],
   "rbac/users": [
     "Loading...",
@@ -978,7 +1181,17 @@ export const PAGE_TEXT = {
     "Type the username",
     "to confirm:",
     "optional",
-    "var, ..."
+    "var, ...",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Generated SQL",
+    "Cancel"
   ],
   "rbac/roles": [
     "Loading...",
@@ -1000,7 +1213,17 @@ export const PAGE_TEXT = {
     "Role",
     "Drop",
     "Type the role name",
-    "to confirm:"
+    "to confirm:",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Generated SQL",
+    "Cancel"
   ],
   "rbac/profiles": [
     "-- default --",
@@ -1018,7 +1241,17 @@ export const PAGE_TEXT = {
     "Type the profile name",
     "to confirm:",
     "default",
-    "var1, var2"
+    "var1, var2",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Generated SQL",
+    "Cancel"
   ],
   "indexes/visualizer": [
     "Failed to load schema",
@@ -1041,7 +1274,9 @@ export const PAGE_TEXT = {
     "Fit",
     "CREATE Statement",
     "All connected tables across databases will be shown",
-    "Search table or column..."
+    "Search table or column...",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "No options"
   ],
   "indexes/secondary": [
     "Loading...",
@@ -1049,7 +1284,9 @@ export const PAGE_TEXT = {
     "-- select --",
     "Table",
     "All",
-    "Download PNG"
+    "Download PNG",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "indexes/projections": [
     "-- select --",
@@ -1071,7 +1308,11 @@ export const PAGE_TEXT = {
     "IF NOT EXISTS",
     "col1, col2, sum(col3) - DISTINCT not supported in projections",
     "col1, col2",
-    "IF EXISTS"
+    "IF EXISTS",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Generated SQL",
+    "Cancel",
+    "No options"
   ],
   "indexes/create": [
     "Create",
@@ -1108,7 +1349,10 @@ export const PAGE_TEXT = {
     "Materialize Index",
     "-- select --",
     "Drop Index",
-    "expression(str)"
+    "expression(str)",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Generated SQL"
   ],
   "custom/dashboards": [
     "Legends",
@@ -1118,6 +1362,8 @@ export const PAGE_TEXT = {
     "No charts. Use Chart Builder to add some.",
     "Drag charts to swap positions.",
     "Save Layout",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "This dashboard's filters cannot be built.",
     "Chart filters",
     "Out of date",
@@ -1134,7 +1380,16 @@ export const PAGE_TEXT = {
     "Cancel",
     "Save settings",
     "Close",
-    "Value:"
+    "Value:",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions"
   ],
   "backups/lifecycle": [
     "Loading...",
@@ -1168,7 +1423,10 @@ export const PAGE_TEXT = {
     "INC",
     "FULL",
     "Select a profile and click Scan S3 to discover backups.",
-    "ASYNC"
+    "ASYNC",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Generated SQL"
   ],
   "admin/profiles": [
     "Storage Profiles is only available for super administrators.",
@@ -1183,7 +1441,9 @@ export const PAGE_TEXT = {
     "Test //",
     "Edit //",
     "Test",
-    "Edit"
+    "Edit",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "admin/users": [
     "Loading...",
@@ -1217,7 +1477,15 @@ export const PAGE_TEXT = {
     "Close setup URL",
     "Password setup URL",
     "For password email",
-    "Use TLS"
+    "Use TLS",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Cancel"
   ],
   "admin/cluster": [
     "Port",
@@ -1243,6 +1511,7 @@ export const PAGE_TEXT = {
     "Test connection",
     "node-1",
     "Use TLS",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Missing permissions:",
     "Re-run the setup script, or grant these to the service account.",
     "Available with reduced detail:",
@@ -1272,7 +1541,8 @@ export const PAGE_TEXT = {
     "https://10.0.0.5:6443",
     "-----BEGIN CERTIFICATE-----",
     "production",
-    "chops"
+    "chops",
+    "No options"
   ],
   "admin/app-backup": [
     "Loading...",
@@ -1296,7 +1566,9 @@ export const PAGE_TEXT = {
     "1. Download the database and crypto salt from S3",
     "2. Stop the server",
     "3. Restore the database",
-    "5. Restart the server"
+    "5. Restart the server",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "admin/api-management": [
     "Loading...",
@@ -1316,7 +1588,9 @@ export const PAGE_TEXT = {
     "No, Cancel",
     "Yes, Delete",
     "Enter the Name",
-    "Fetch models to choose one"
+    "Fetch models to choose one",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "admin/channels": [
     "Loading...",
@@ -1326,7 +1600,10 @@ export const PAGE_TEXT = {
     "No channels yet.",
     "FAIL",
     "Last notification failed:",
-    "Test"
+    "Test",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Cancel"
   ],
   "admin/trusted-cas": [
     "Trusted Certificate Authorities is only available for administrators.",
@@ -1338,12 +1615,14 @@ export const PAGE_TEXT = {
     "Certificate",
     "Cancel",
     "Close",
-    "Internal CA"
+    "Internal CA",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "admin/app-config": [
     "App Config is only available for administrators.",
     "Save",
-    "Reset"
+    "Reset",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the"
   ],
   "/qurioz": [
     "New Chat",
@@ -1362,6 +1641,8 @@ export const PAGE_TEXT = {
     "ClickHouse username",
     "password",
     "ClickHouse password",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -1373,6 +1654,12 @@ export const PAGE_TEXT = {
     "Error occurs while executing the query",
     "Retry",
     "Chart View",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
     "Clickhouse Query",
     "Copy",
     "Run..",
@@ -1391,6 +1678,9 @@ export const PAGE_TEXT = {
     "Max",
     "Preview",
     "Map columns to see preview.",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Get Tables",
     "Generate DDL & Estimate"
   ],
@@ -1414,8 +1704,21 @@ export const PAGE_TEXT = {
     "Map columns to see preview.",
     "Create a dashboard first in the Dashboards section.",
     "SELECT ...",
+    "No options",
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "(none)",
     "Value:",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Actions",
+    "Something went wrong",
+    "Try Again",
     "Max rows",
     "Fewer rows",
     "Maximum rows to return",
@@ -1432,6 +1735,17 @@ export const PAGE_TEXT = {
     "Actions",
     "No charts found matching your criteria.",
     "Search charts by name...",
-    "Value:"
+    "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
+    "Value:",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "index/value list. return",
+    "(empty object)",
+    "Cancel",
+    "No options"
   ]
 };
