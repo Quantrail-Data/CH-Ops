@@ -63,7 +63,8 @@ export const PAGE_HEADERS = {
   ],
   "alerting/rules": [
     "Alert Rules",
-    "History"
+    "History",
+    "New from template"
   ],
   "rbac/view": [
     "View Grants"
@@ -1098,7 +1099,6 @@ export const PAGE_TEXT = {
     "Severity",
     "Schedule (cron)",
     "Operator",
-    "Threshold",
     "Notify Interval",
     "Breach Run Required",
     "SQL (single value)",
@@ -1107,14 +1107,20 @@ export const PAGE_TEXT = {
     "Cluster",
     "All clusters (default)",
     "Test",
+    "Reset to template",
+    "Node",
+    "Value",
+    "Result",
     "Loading...",
     "No rules yet. Click New Rule.",
+    "template",
     "Enabled",
     "Disabled",
     "FIRING",
     "NO NODES",
     "NO CHANNELS",
     "noRowsMeansBreach",
+    "Search templates",
     "No options",
     "webfont icons: it keeps // the original \"ti ti-NAME\" classes on the",
     "Cancel",

@@ -120,8 +120,19 @@ try {
 log.info("Database ready (Drizzle ORM + bun:sqlite)");
 
 import { assertDatabaseReadable } from "./db/index.js";
-import { migrateClusterData } from "./services/clusterUtils.js";
+import { migrateClusterData, getAllClusters } from "./services/clusterUtils.js";
+import { createTemplateRulesForExistingClusters } from "./services/alertTemplates.js";
 migrateClusterData();
+
+// One time only, at the first start after the upgrade.
+try {
+  const createdCount = createTemplateRulesForExistingClusters(getAllClusters());
+  if (createdCount > 0) {
+    log.info(`Added ${createdCount} alert template rules to existing clusters`);
+  }
+} catch (error) {
+  log.error("Could not add the alert template rules", { error: error.message });
+}
 
 const app = express();
 
