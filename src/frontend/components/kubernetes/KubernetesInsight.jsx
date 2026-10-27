@@ -21,6 +21,8 @@ import {
   LOG_LINES_MAX,
   LOG_LINES_STEP,
 } from "../../utils/podLogs.js";
+import DataTable from "../layout/DataTable.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const TABS = [
   { id: "health", label: "Health" },
@@ -828,22 +830,8 @@ function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
   return (
     <Panel title="Recent events">
       <div style={{ display: "flex", gap: 16, fontSize: 13, marginBottom: 12 }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={warningsOnly}
-            onChange={(changeEvent) => setWarningsOnly(changeEvent.target.checked)}
-          />{" "}
-          warnings only
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={autoReload}
-            onChange={(changeEvent) => setAutoReload(changeEvent.target.checked)}
-          />{" "}
-          reload every 30 s
-        </label>
+        <ToggleSwitch checked={warningsOnly} label="warnings only" onChange={(changeEvent) => setWarningsOnly(changeEvent.target.checked)}/> 
+        <ToggleSwitch checked={autoReload} label="reload every 30 s" onChange={(changeEvent) => setAutoReload(changeEvent.target.checked)}/> 
       </div>
 
       {events.length === 0 ? (
@@ -851,42 +839,7 @@ function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
           {warningsOnly ? "No warnings." : "No recent events."}
         </div>
       ) : (
-        <table className="data-table" style={{ width: "100%" }}>
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Object</th>
-              <th>Reason</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((event, index) => (
-              <tr key={index} style={event.type === "Warning" ? { fontWeight: 600 } : undefined}>
-                <td style={{ whiteSpace: "nowrap" }}>{event.lastSeen}</td>
-                <td>
-                  {knownPodNames.has(event.object) ? (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      title="Open this pod in the Logs tab"
-                      onClick={() => onOpenPodLogs(event.object)}
-                    >
-                      {event.object}
-                    </button>
-                  ) : (
-                    event.object
-                  )}
-                </td>
-                <td>{event.reason}</td>
-                <td style={{ fontSize: 13 }}>
-                  {event.message}
-                  {event.count > 1 && <span style={muted}> ({event.count} times)</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable  rows={events} maxHeight="67vh" />
       )}
     </Panel>
   );
@@ -920,10 +873,39 @@ function LogsTab({ clusterId, hosts, initialPod }) {
     writeLineCount(v);
   }
 
-  function changeSince(v) {
-    setSince(v);
-    writeSince(v);
+function changeSince(v) {
+  const getLocalISOString = (date) => {
+    const tzOffset = date.getTimezoneOffset() * 60000; 
+    const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+    return localISOTime;
+  };
+
+  if (!v) {
+    const now = new Date();
+    const localNow = getLocalISOString(now);
+    setSince(localNow);
+    writeSince(localNow);
+    return;
   }
+
+  const since = new Date(v);
+  const now = new Date();
+
+  if (since > now) {
+    toast.error("Only select current time or before");
+    const localNow = getLocalISOString(now);
+    
+    setSince(localNow);
+    writeSince(localNow);
+    console.log(localNow);
+    return;
+  }
+
+  setSince(v);
+  writeSince(v);
+}
+
+
 
   async function load() {
     if (!pod) return;
@@ -1013,20 +995,13 @@ function LogsTab({ clusterId, hosts, initialPod }) {
           <LineCountControl value={lineCount} onChange={changeLineCount} disabled={busy} />
         </div>
 
-        <label style={{ fontSize: 13, paddingBottom: 8, whiteSpace: "nowrap" }}>
-          <input
-            type="checkbox"
-            checked={previous}
-            onChange={(e) => setPrevious(e.target.checked)}
-          />{" "}
-          previous container
-        </label>
+        <div className="btn btn-secondary" onClick={(e) => setPrevious(!previous)} style={{ height:"2.5rem" }}><ToggleSwitch checked={previous} label="Previous container"  onChange={(e) => setPrevious(e.target.checked)} btnContainer = {true}/></div>
 
         <button
           className="btn btn-secondary"
           onClick={load}
           disabled={busy}
-          style={{ marginBottom: 8 }}
+          style={{ height:"2.5rem" }}
         >
           {busy ? "Reading..." : "Read logs"}
         </button>
@@ -1129,7 +1104,7 @@ function LineCountControl({ value, onChange, disabled }) {
 
   return (
     <span className="mx-rows">
-      <span className="mx-rows-group">
+      <span className="mx-rows-group" style={{height:"42px"}}>
         <button
           type="button"
           className="mx-rows-btn"
@@ -1171,7 +1146,7 @@ function LineCountControl({ value, onChange, disabled }) {
 
 export default function KubernetesInsight({ cluster }) {
   const toast = useToast();
-  const [tab, setTab] = useState("health");
+  const [tab, setTab] = useState("logs");
   const [data, setData] = useState({});
   const [busy, setBusy] = useState(false);
   const [logsPod, setLogsPod] = useState(null);
@@ -1187,7 +1162,7 @@ export default function KubernetesInsight({ cluster }) {
       }
       setBusy(false);
     },
-    [cluster.id, toast],
+    [cluster.id],
   );
 
   useEffect(() => {
