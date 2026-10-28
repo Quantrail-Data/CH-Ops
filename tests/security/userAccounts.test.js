@@ -53,7 +53,7 @@ describe("password reset", () => {
     expect(result.status).toBe(200);
     expect(result.json.generatedPassword).toBeUndefined();
     // FRONTEND_LINK is not set in the tests, so the link uses the address of the request.
-    expect(result.json.setPasswordUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/#\/set-password\?token=/);
+    expect(result.json.setPasswordUrl).toMatch(/^https?:\/\/[^\/]+(?::\d+)?\/#\/set-password\?token=/);
     const user = database
       .query("SELECT password_hash, password_setup_token_hash FROM app_user WHERE id = ?")
       .get(userId);

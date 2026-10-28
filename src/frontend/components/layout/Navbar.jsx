@@ -164,25 +164,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     applyFontScale(fontScale + delta);
   }
 
-  // handlenodechange function for change the node in selection option and check the connection => (praveen kumar)
-  // async function handleNodeChange(host) {
-  //   const node = nodes.find((n) => n.host === host);
-  //   if (node) {
-  //     setConnecting(true);
-  //     setConnection((prev) => ({
-  //       ...prev,
-  //       selectedNode: host,
-  //       user: node.user || "default",
-  //       password: node.password || "",
-  //       port: node.port || 8123,
-  //     }));
-  //     await testConnection(node?.host, node?.user, node?.password, node?.port);
-  //     onRefresh();
-  //     setConnecting(false);
-  //   } else setConnection((prev) => ({ ...prev, selectedNode: host }));
-  // }
 
-  // storing the chops node details in localstorage => praveenkumar
     async function handleNodeChange(name) {
     const node = nodes.find((n) => n.name === name);
     if (node) {
