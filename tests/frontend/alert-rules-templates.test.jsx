@@ -27,6 +27,14 @@ vi.mock("../../src/frontend/utils/api.js", () => ({
 const CONNECTION = {
   clusters: [
     { id: "cluster_a", name: "cluster a", nodes: [{ host: "node-a1" }] },
+    {
+      id: "cluster_k8s",
+      name: "kubernetes cluster",
+      nodes: [
+        { name: "replica-1", host: "shared.example.com" },
+        { name: "replica-2", host: "shared.example.com" },
+      ],
+    },
   ],
 };
 
@@ -107,6 +115,18 @@ const RULES = [
   }),
   rule({ id: 2, name: "Disk space low (data path)", templateId: "disk-space-low" }),
   rule({ id: 3, name: "My own rule" }),
+  rule({
+    id: 5,
+    name: "Rule on all clusters",
+    cluster_id: null,
+    nodes: ["replica-2"],
+  }),
+  rule({
+    id: 4,
+    name: "Old rule with a host",
+    cluster_id: "cluster_k8s",
+    nodes: ["shared.example.com"],
+  }),
 ];
 
 function answerApi(url, options) {
@@ -248,5 +268,71 @@ describe("Alert Rules: templates", () => {
     );
     expect(templateCalls).toEqual([]);
     expect(screen.getByRole("button", { name: /New from template/ })).toBeDisabled();
+  });
+});
+
+describe("Alert Rules: schedule check", () => {
+  beforeEach(() => {
+    cleanup();
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation(async (url, options) => answerApi(url, options));
+    mockUseAuth.mockReturnValue({ auth: { role: "admin" } });
+  });
+
+  async function typeSchedule(schedule) {
+    const ownCard = (await screen.findByText("My own rule")).closest(".card");
+    fireEvent.click(ownCard.querySelector(".btn-secondary.btn-sm"));
+    fireEvent.change(screen.getByDisplayValue("*/5 * * * *"), {
+      target: { value: schedule },
+    });
+  }
+
+  it("refuses day of week 7", async () => {
+    render(<AlertRules />);
+    await typeSchedule("0 9 * * 7");
+    expect(
+      screen.getByText(
+        "day-of-week must be a number from 0 to 6, or a comma list of numbers: 7",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("refuses a range, the same as the server", async () => {
+    render(<AlertRules />);
+    await typeSchedule("0 9 * * 1-5");
+    expect(screen.getByText(/day-of-week must be a number from 0 to 6/)).toBeInTheDocument();
+  });
+
+  it("accepts a comma list of days", async () => {
+    render(<AlertRules />);
+    await typeSchedule("0 9 * * 0,6");
+    expect(screen.queryByText(/must be a number from/)).toBeNull();
+  });
+});
+
+describe("Alert Rules: node choice", () => {
+  beforeEach(() => {
+    cleanup();
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation(async (url, options) => answerApi(url, options));
+    mockUseAuth.mockReturnValue({ auth: { role: "admin" } });
+  });
+
+  it("shows the nodes by name, and reads a host saved by an older version", async () => {
+    render(<AlertRules />);
+    const oldCard = (await screen.findByText("Old rule with a host")).closest(".card");
+    fireEvent.click(oldCard.querySelector(".btn-secondary.btn-sm"));
+    expect(screen.getByTitle("Unselect node replica-1")).toBeInTheDocument();
+    expect(screen.getByTitle("Unselect node replica-2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Unselect node replica-1"));
+    expect(screen.getByTitle("Select node replica-1")).toBeInTheDocument();
+  });
+
+  it("keeps the node choice of a rule that runs on all clusters", async () => {
+    render(<AlertRules />);
+    const card = (await screen.findByText("Rule on all clusters")).closest(".card");
+    fireEvent.click(card.querySelector(".btn-secondary.btn-sm"));
+    expect(screen.getByTitle("Unselect node replica-2")).toBeInTheDocument();
   });
 });

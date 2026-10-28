@@ -169,7 +169,9 @@ export default function ExportWizard({ sql, username, onClose }) {
       toast.error(errorMsg);
     } finally {
       setEstimating(false);
-      setIsEstimated(true)
+      setIsEstimated(true);
+      // The estimate ran, also if it failed. The export can continue with a warning.
+      setTried(true);
     }
   }
 

@@ -24,6 +24,11 @@ const OPS = [
   { k: "neq", l: "not equal to" },
 ];
 
+// Rules choose nodes by name. Nodes of one Kubernetes cluster can share one host.
+function nodeName(node) {
+  return node.name || node.host;
+}
+
 export default function AlertRules() {
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
@@ -73,7 +78,6 @@ export default function AlertRules() {
 
   function validateCron(expr) {
     const parts = expr.trim().split(/\s+/).filter(Boolean);
-    console.log()
     if (parts.length !== 4 && parts.length !== 5)
       return "Cron must have 4 or 5 fields";
     const normalized = parts.length === 4 ? ["0", ...parts] : parts;
@@ -82,7 +86,7 @@ export default function AlertRules() {
       [0, 23],
       [1, 31],
       [1, 12],
-      [0, 7],
+      [0, 6],
     ];
     const names = ["minute", "hour", "day-of-month", "month", "day-of-week"];
     for (let i = 0; i < 5; i++) {
@@ -93,10 +97,10 @@ export default function AlertRules() {
         if (isNaN(n) || n < 1) return `Invalid step in ${names[i]}: ${p}`;
         continue;
       }
-      for (const v of p.split(",")) {
-        const n = parseInt(v);
-        if (isNaN(n) || n < ranges[i][0] || n > ranges[i][1])
-          return `${names[i]} value out of range (${ranges[i][0]}-${ranges[i][1]}): ${v}`;
+      for (const value of p.split(",")) {
+        const number = Number(value);
+        if (!Number.isInteger(number) || number < ranges[i][0] || number > ranges[i][1])
+          return `${names[i]} must be a number from ${ranges[i][0]} to ${ranges[i][1]}, or a comma list of numbers: ${value}`;
       }
     }
     return "";
@@ -117,10 +121,10 @@ export default function AlertRules() {
   useEffect(() => {
     if (f.cluster_id) {
       const cluster = (clusters || []).find((c) => c.id === f.cluster_id);
-      setClusterNodes(cluster ? cluster.nodes.map((n) => n.host) : []);
+      setClusterNodes(cluster ? cluster.nodes.map(nodeName) : []);
     } else {
       setClusterNodes(
-        (clusters || []).flatMap((c) => (c.nodes || []).map((n) => n.host)),
+        (clusters || []).flatMap((cluster) => (cluster.nodes || []).map(nodeName)),
       );
     }
   }, [f.cluster_id, clusters]);
@@ -145,7 +149,6 @@ export default function AlertRules() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  console.log(templates)
   function resetForm() {
     setF({
       name: "",
@@ -326,36 +329,53 @@ export default function AlertRules() {
       const res = await apiFetch(`/api/alerts/rules/${id}/events`, {
         method: "GET",
       });
-      console.log(res);
       setHistory(res);
-    } catch (error) {
-      console.log(error.message);
+    } catch {
+      setHistory([]);
     }
   }
 
-  function edit(r) {
-    setF({
-      name: r.name,
-      description: r.description || "",
-      sql: r.sql,
-      threshold: r.threshold,
-      operator: r.operator,
-      severity: r.severity,
-      schedule: r.schedule,
-      enabled: r.enabled,
-      channel_ids: (r.channels || []).map((c) => c.id),
-      nodes: Array.isArray(r.nodes) ? r.nodes : [],
-      cluster_id: r.cluster_id || "",
-      notifyIntervalMinutes: r.notifyIntervalMinutes,
-      breachRunsRequired: r.breachRunsRequired,
-      noRowsMeansBreach: r.noRowsMeansBreach,
-      templateId: r.templateId || null,
+  // Rules saved before node names were used hold hosts. Each host becomes the names of its nodes.
+  // A value that matches no node stays, so saving the form does not drop it.
+  function ruleNodeNames(rule) {
+    if (!Array.isArray(rule.nodes)) return [];
+    const allClusters = clusters || [];
+    const ruleCluster = allClusters.find((cluster) => cluster.id === rule.cluster_id);
+    const nodes = rule.cluster_id
+      ? ruleCluster?.nodes || []
+      : allClusters.flatMap((cluster) => cluster.nodes || []);
+    const names = rule.nodes.flatMap((value) => {
+      if (nodes.some((node) => nodeName(node) === value)) return [value];
+      const namesOfHost = nodes.filter((node) => node.host === value).map(nodeName);
+      return namesOfHost.length > 0 ? namesOfHost : [value];
     });
-    setEditing(r.id);
-    setEditingTemplateId(r.templateId || null);
+    // Two saved values can give the same node name. The Set removes the duplicates.
+    return [...new Set(names)];
+  }
+
+  function edit(rule) {
+    setF({
+      name: rule.name,
+      description: rule.description || "",
+      sql: rule.sql,
+      threshold: rule.threshold,
+      operator: rule.operator,
+      severity: rule.severity,
+      schedule: rule.schedule,
+      enabled: rule.enabled,
+      channel_ids: (rule.channels || []).map((channel) => channel.id),
+      nodes: ruleNodeNames(rule),
+      cluster_id: rule.cluster_id || "",
+      notifyIntervalMinutes: rule.notifyIntervalMinutes,
+      breachRunsRequired: rule.breachRunsRequired,
+      noRowsMeansBreach: rule.noRowsMeansBreach,
+      templateId: rule.templateId || null,
+    });
+    setEditing(rule.id);
+    setEditingTemplateId(rule.templateId || null);
     setTestResults(null);
     setShowForm(true);
-    setCronError(validateCron(r.schedule || ""));
+    setCronError(validateCron(rule.schedule || ""));
   }
 
 
@@ -369,7 +389,6 @@ export default function AlertRules() {
   function isChannelSelected(chID) {
     return f?.channel_ids?.some((id) => id === chID);
   }
-  console.log(rules)
 
   return (
     <div className="page-content">
@@ -485,7 +504,7 @@ export default function AlertRules() {
               <span
                 style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}
               >
-                Supported: *, */n, and comma lists. Schedules run in the server's timezone.
+                Supported: *, */n, and comma lists. Day of week is 0 to 6, and 0 is Sunday. Schedules run in the server&apos;s timezone.
               </span>
             </div>
             <div className="form-group">
@@ -684,7 +703,7 @@ export default function AlertRules() {
                 </span>
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {clusterNodes.map((host) => (
+                {clusterNodes.map((chipNodeName) => (
                   <div
                     style={{
                       display: "flex",
@@ -695,23 +714,23 @@ export default function AlertRules() {
                       padding: "7px 15px",
                       borderRadius: "10px",
                       cursor: "pointer",
-                      backgroundColor: !f.nodes.includes(host)
+                      backgroundColor: !f.nodes.includes(chipNodeName)
                         ? "#59595910"
                         : "var(--accent)",
-                      color: f.nodes.includes(host) ? "white" : "var(--accent)",
+                      color: f.nodes.includes(chipNodeName) ? "white" : "var(--accent)",
                     }}
                     title={
-                      f.nodes.includes(host)
-                        ? `unselected the ${host} channel`
-                        : `Select the ${host} channel`
+                      f.nodes.includes(chipNodeName)
+                        ? `Unselect node ${chipNodeName}`
+                        : `Select node ${chipNodeName}`
                     }
-                    key={host}
+                    key={chipNodeName}
                     onClick={() =>
-                      setF((p) => ({
-                        ...p,
-                        nodes: p.nodes.includes(host)
-                          ? p.nodes.filter((h) => h !== host)
-                          : [...p.nodes, host],
+                      setF((previousForm) => ({
+                        ...previousForm,
+                        nodes: previousForm.nodes.includes(chipNodeName)
+                          ? previousForm.nodes.filter((name) => name !== chipNodeName)
+                          : [...previousForm.nodes, chipNodeName],
                       }))
                     }
                   >
@@ -725,15 +744,15 @@ export default function AlertRules() {
                       <IconAlert
                         type="node"
                         color={
-                          f.nodes.includes(host) ? "white" : "var(--accent)"
+                          f.nodes.includes(chipNodeName) ? "white" : "var(--accent)"
                         }
                         width={20}
                       />
                       <span style={{ fontSize: "13px", fontWeight: "600" }}>
-                        {host}
+                        {chipNodeName}
                       </span>
                     </div>
-                    {f.nodes.includes(host) && (
+                    {f.nodes.includes(chipNodeName) && (
                       <Icon
                         className="ti ti-x"
                         style={{ color: "white", fontSize: "15px" }}
@@ -971,6 +990,8 @@ export default function AlertRules() {
                       border: `1px solid ${marqueeBorder}`,
                     }}
                   >
+                    {/* behavior and scrollamount are attributes of <marquee>, which the React lint list does not know. */}
+                    {/* eslint-disable react/no-unknown-property */}
                     <marquee
                       behavior="scroll"
                       direction="left"
@@ -983,6 +1004,7 @@ export default function AlertRules() {
                     >
                       {marqueeText}
                     </marquee>
+                    {/* eslint-enable react/no-unknown-property */}
                   </div>
                 )}
                 <div
@@ -1125,7 +1147,7 @@ export default function AlertRules() {
         <div className="modal-overlay">
           <div
             className="modal-box"
-            style={{ padding: 0, maxWidth: 800, maxHeight: "40rem" ,padding:"2px" }}
+            style={{ maxWidth: 800, maxHeight: "40rem", padding: "2px" }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", margin:"1rem"}}>
               <h2 className="section-title" style={{fontSize:"18px"}}>

@@ -261,7 +261,7 @@ describe('AppDataBackup', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Restoring replaces all app data/i)).toBeTruthy();
-      expect(screen.getByText(/Using AWS CLI/i)).toBeTruthy();
+      expect(screen.getByText(/Download the database and crypto salt from S3/i)).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Hide/i }));

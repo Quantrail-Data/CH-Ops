@@ -234,11 +234,11 @@ describe("Settings Controller", () => {
   });
 
   it("getSetting returns query bookmarks to a readonly user", () => {
-    fakeDB.settings.push({ key: "query_bookmarks", value: "[]", category: "general" });
+    fakeDB.settings.push({ key: "query_bookmarks:7", value: "[]", category: "general" });
     const res = { json: jsonMock };
-    getSetting({ params: { key: "query_bookmarks" }, user: { role: "readonly" } }, res);
+    getSetting({ params: { key: "query_bookmarks" }, user: { role: "readonly", userId: 7 } }, res);
     expect(jsonMock).toHaveBeenCalledWith(
-      expect.objectContaining({ key: "query_bookmarks" }),
+      expect.objectContaining({ key: "query_bookmarks:7" }),
     );
   });
 
@@ -262,7 +262,7 @@ describe("Settings Controller", () => {
         category: "ui",
         audit: {},
       },
-      user: { role: "user" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
@@ -278,7 +278,7 @@ describe("Settings Controller", () => {
     const existingId = 12345;
     fakeDB.settings.push({
       id: existingId,
-      key: "query_bookmarks",
+      key: "query_bookmarks:7",
       value: "light",
       category: "ui",
     });
@@ -290,7 +290,7 @@ describe("Settings Controller", () => {
         category: "ui",
         audit: {},
       },
-      user: { role: "user" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
@@ -324,7 +324,7 @@ describe("Settings Controller", () => {
   it("deleteSetting removes setting", () => {
     fakeDB.settings.push({
       id: 99999,
-      key: "query_bookmarks",
+      key: "query_bookmarks:7",
       value: "dark",
     });
 
@@ -333,7 +333,7 @@ describe("Settings Controller", () => {
     const req = {
       params: { key: "query_bookmarks" },
       body: { audit: {} },
-      user: { role: "user" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
@@ -384,7 +384,7 @@ describe("Settings Controller", () => {
     const req = {
       params: { key: "query_bookmarks" },
       body: { value: "dark", audit: {} },
-      user: { role: "user" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
@@ -423,7 +423,7 @@ describe("Settings Controller", () => {
     const req = {
       params: { key: "query_bookmarks" },
       body: { audit: {} },
-      user: { role: "user" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 

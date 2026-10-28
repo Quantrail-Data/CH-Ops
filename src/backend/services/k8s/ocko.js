@@ -165,6 +165,9 @@ export function createOckoProvider(client, { version } = {}) {
       const container =
         (pod.status?.containerStatuses ?? []).find((c) => c.name === 'clickhouse') ??
         pod.status?.containerStatuses?.[0];
+      const containerSpec =
+        (pod.spec?.containers ?? []).find((spec) => spec.name === 'clickhouse') ??
+        pod.spec?.containers?.[0];
 
       const shard = intLabel(pod, LABEL.shard);
       const replica = intLabel(pod, LABEL.replica);
@@ -198,6 +201,14 @@ export function createOckoProvider(client, { version } = {}) {
 
         image: container?.image ?? null,
         node: pod.spec?.nodeName ?? null,
+
+        // What the scheduler reserves for the pod (request), and where the kernel stops it (limit).
+        resources: {
+          cpuRequest: containerSpec?.resources?.requests?.cpu ?? null,
+          cpuLimit: containerSpec?.resources?.limits?.cpu ?? null,
+          memoryRequest: containerSpec?.resources?.requests?.memory ?? null,
+          memoryLimit: containerSpec?.resources?.limits?.memory ?? null,
+        },
 
         inRotation: rotation.get(podName) ?? null,
         volumes: volumesByHost.get(`${shard}/${replica}`) ?? [],
@@ -393,6 +404,66 @@ export function createOckoProvider(client, { version } = {}) {
     });
   }
 
+  // Live CPU and memory of each pod, from the metrics API. Returns null when the API is not there.
+  async function getPodMetrics(namespace, podNames) {
+    const wantedPodNames = new Set(podNames || []);
+    let podMetricsList;
+    try {
+      podMetricsList = await client.get(
+        `/apis/metrics.k8s.io/v1beta1/namespaces/${encodeURIComponent(namespace)}/pods`,
+      );
+    } catch {
+      // No metrics server, or no grant. The caller shows unknown.
+      return null;
+    }
+
+    const usageByPod = new Map();
+    for (const podMetrics of podMetricsList?.items ?? []) {
+      const podName = podMetrics.metadata?.name;
+      if (!podName || !wantedPodNames.has(podName)) continue;
+      const containerMetrics =
+        (podMetrics.containers ?? []).find((container) => container.name === 'clickhouse') ??
+        podMetrics.containers?.[0];
+      usageByPod.set(podName, {
+        cpu: containerMetrics?.usage?.cpu ?? null,
+        memory: containerMetrics?.usage?.memory ?? null,
+      });
+    }
+    return usageByPod;
+  }
+
+  // The label of the OCKO operator pod. Confirm it on a live OCKO cluster before release.
+  const OPERATOR_POD_SELECTOR = 'app.kubernetes.io/name=clickhouse-operator';
+
+  // Finds the operator pod, to read its logs. Prefers a pod that is Running.
+  async function getOperatorPod(operatorNamespace) {
+    const operatorPods = await client.listAll(corePaths.pods(operatorNamespace), {
+      query: { labelSelector: OPERATOR_POD_SELECTOR },
+    });
+    const runningPod = operatorPods.find((pod) => pod.status?.phase === 'Running');
+    const operatorPod = runningPod ?? operatorPods[0];
+    if (!operatorPod) return null;
+    return {
+      podName: operatorPod.metadata.name,
+      namespace: operatorPod.metadata.namespace ?? operatorNamespace,
+      container: operatorPod.spec?.containers?.[0]?.name ?? null,
+    };
+  }
+
+  // The zone label of each node, to find replicas that share a zone.
+  async function getNodeZones(nodeNames) {
+    const wantedNodeNames = new Set(nodeNames || []);
+    const nodes = await client.listAll(corePaths.nodes());
+    const zoneByNode = new Map();
+    for (const node of nodes) {
+      const nodeName = node.metadata?.name;
+      if (!nodeName || !wantedNodeNames.has(nodeName)) continue;
+      const zone = node.metadata?.labels?.['topology.kubernetes.io/zone'];
+      if (zone) zoneByNode.set(nodeName, zone);
+    }
+    return zoneByNode;
+  }
+
   async function getOperatorHealth(namespace) {
     try {
       await ready();
@@ -420,6 +491,9 @@ export function createOckoProvider(client, { version } = {}) {
     getNetwork,
     getEvents,
     streamLogs,
+    getNodeZones,
+    getOperatorPod,
+    getPodMetrics,
     getOperatorHealth,
     isUnmanaged,
   };

@@ -7,6 +7,10 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import jwt from "jsonwebtoken";
 import * as schema from "../../src/backend/db/schema.js";
+import { initCrypto, decrypt } from "../../src/backend/services/crypto.js";
+
+// The keys are stored encrypted.
+initCrypto("jwt-keys-test-secret-at-least-32-characters");
 
 const sqlite = new Database(":memory:");
 sqlite.exec(`
@@ -66,12 +70,31 @@ describe("making the keys", () => {
     expect(signingKey()).toBe(first);
   });
 
-  it("writes the key to the database", () => {
-    signingKey();
+  it("writes the key to the database, encrypted", () => {
+    const key = signingKey();
     const row = sqlite
       .query("SELECT value FROM app_setting WHERE key = 'jwt.currentSecret'")
       .get();
-    expect(row.value.length).toBe(64);
+    expect(row.value.startsWith("v1:")).toBe(true);
+    expect(row.value).not.toContain(key);
+    expect(decrypt(row.value)).toBe(key);
+  });
+
+  it("reads a key stored in plain text by an older version, and encrypts it", () => {
+    const plainKey = "a".repeat(64);
+    sqlite
+      .query("INSERT INTO app_setting (key, value, category) VALUES ('jwt.currentSecret', ?, 'jwt')")
+      .run(plainKey);
+    sqlite
+      .query("INSERT INTO app_setting (key, value, category) VALUES ('jwt.rotatedAt', ?, 'jwt')")
+      .run(String(Date.now()));
+    invalidateKeyCache();
+
+    expect(signingKey()).toBe(plainKey);
+    const row = sqlite
+      .query("SELECT value FROM app_setting WHERE key = 'jwt.currentSecret'")
+      .get();
+    expect(row.value.startsWith("v1:")).toBe(true);
   });
 
   it("has one key to read with at the start", () => {

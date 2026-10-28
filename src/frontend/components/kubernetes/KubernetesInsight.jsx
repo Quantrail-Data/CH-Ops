@@ -5,8 +5,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
+import MultiSelect from "../common/MultiSelect.jsx";
 import yaml from "js-yaml";
 import { apiFetch, apiFetchText } from "../../utils/api.js";
+import { formatBytes } from "../../utils/exportApi.js";
 import { useToast } from "../layout/Toast.jsx";
 import {
   splitLines,
@@ -30,6 +32,7 @@ const TABS = [
   { id: "reconcile", label: "Reconcile" },
   { id: "keeper", label: "Keeper" },
   { id: "storage", label: "Storage" },
+  { id: "resources", label: "Resources" },
   { id: "network", label: "Network" },
   { id: "config", label: "Configuration" },
   { id: "events", label: "Events" },
@@ -108,7 +111,7 @@ function CopyHealthReportButton({ data, clusterName }) {
   );
 }
 
-function HealthTab({ data, clusterName }) {
+function HealthTab({ data, clusterName, clusterId }) {
   if (!data) return null;
   const failing = data.checks.filter((c) => c.ok === false);
 
@@ -165,11 +168,93 @@ function HealthTab({ data, clusterName }) {
           </ul>
         </Panel>
       )}
+
+      <HealthAlertsPanel clusterId={clusterId} />
     </div>
   );
 }
 
+function HealthAlertsPanel({ clusterId }) {
+  const toast = useToast();
+  const [enabled, setEnabled] = useState(false);
+  const [selectedChannelIds, setSelectedChannelIds] = useState([]);
+  const [channelOptions, setChannelOptions] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch(`/api/k8s/insight/${clusterId}/health-alerts`),
+      apiFetch("/api/alerts/channels"),
+    ])
+      .then(([config, channels]) => {
+        setEnabled(Boolean(config.enabled));
+        setSelectedChannelIds((config.channels || []).map(String));
+        setChannelOptions(
+          (channels || []).map((channel) => ({
+            value: String(channel.id),
+            label: channel.name,
+          })),
+        );
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(false));
+  }, [clusterId]);
+
+  async function save() {
+    try {
+      await apiFetch(`/api/k8s/insight/${clusterId}/health-alerts`, {
+        method: "PUT",
+        body: { enabled, channels: selectedChannelIds.map(Number) },
+      });
+      toast.success("Health alert settings saved.");
+    } catch (error) {
+      toast.error(error.message);
+    }
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Panel
+      title="Health alerts"
+      subtitle="Sends a notification when a check fails two times in a row, and again when it recovers. Runs every 15 minutes."
+    >
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <ToggleSwitch
+          checked={enabled}
+          onChange={(changeEvent) => setEnabled(changeEvent.target.checked)}
+          label="Alert on health check failures"
+          btnContainer={true}
+        />
+        <div style={{ flex: "1 1 260px" }}>
+          <MultiSelect
+            options={channelOptions}
+            value={selectedChannelIds}
+            onChange={setSelectedChannelIds}
+            placeholder="Choose channels..."
+          />
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={save}>
+          Save
+        </button>
+      </div>
+      {channelOptions.length === 0 && (
+        <div style={{ ...muted, fontSize: 12, marginTop: 8 }}>
+          No notification channels exist yet. Create one under Custom Alerts first.
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 // Topology
+
+function describeZoneRisks(zoneRisks) {
+  const riskTexts = zoneRisks.map(
+    (risk) => `shard ${risk.shard} has ${risk.replicas} replicas in ${risk.zone}`,
+  );
+  return riskTexts.join("; ");
+}
 
 function HostCell({ host, signalsUnreliable }) {
   // OCKO has no operator readiness label, so fall back to pod readiness.
@@ -256,6 +341,14 @@ function TopologyTab({ data }) {
             .map((r) => `shard ${r.shard} has ${r.replicas} replicas on ${r.node}`)
             .join("; ")}
           . Losing that node loses more than one copy.
+        </Banner>
+      )}
+
+      {data.zoneRisks?.length > 0 && (
+        <Banner tone="warn">
+          <strong>Replicas sharing an availability zone.</strong>{" "}
+          {describeZoneRisks(data.zoneRisks)}
+          . A zone outage takes more than one copy with it.
         </Banner>
       )}
 
@@ -656,6 +749,95 @@ function StorageTab({ data }) {
   );
 }
 
+// Resources
+
+function formatClickHouseMemory(row) {
+  if (row.memoryTracking == null) return "-";
+  const memoryText = formatBytes(row.memoryTracking);
+  if (row.memoryUsagePercent == null) return memoryText;
+  return `${memoryText} (${Math.round(row.memoryUsagePercent)}% of limit)`;
+}
+
+function ResourcesTab({ data }) {
+  if (!data) return null;
+
+  const podsWithoutMemoryLimit = data.rows.filter((row) => !row.memoryLimit);
+
+  return (
+    <div>
+      {podsWithoutMemoryLimit.length > 0 && (
+        <Banner tone="warn">
+          <strong>Pods without a memory limit.</strong>{" "}
+          {podsWithoutMemoryLimit.map((row) => row.podName).join(", ")}. A pod
+          without a limit can use all the memory of its node.
+        </Banner>
+      )}
+
+      {(data.warnings || []).map((warning) => (
+        <Banner key={warning.podName} tone="warn">
+          <strong>{warning.podName}.</strong> {warning.message}
+        </Banner>
+      ))}
+
+      {data.memoryChecked === false && (
+        <Banner tone="info">
+          system.metrics was not readable from this endpoint, so ClickHouse
+          memory usage is unavailable.
+        </Banner>
+      )}
+
+      {data.liveChecked === false && (
+        <Banner tone="info">
+          The Kubernetes metrics API is not available on this cluster, so live
+          usage is unknown. Install metrics-server to turn it on.
+        </Banner>
+      )}
+
+      <Panel
+        title="Requests, limits and usage"
+        subtitle="A request is what the scheduler reserves for the pod. A limit is where the kernel stops it."
+      >
+        <table className="data-table" style={{ width: "100%" }}>
+          <thead>
+            <tr>
+              <th>Pod</th>
+              <th>CPU request</th>
+              <th>CPU limit</th>
+              <th>Memory request</th>
+              <th>Memory limit</th>
+              <th>ClickHouse memory</th>
+              <th>Live CPU</th>
+              <th>Live memory</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.map((row) => (
+              <tr key={row.podName}>
+                <td>{row.podName}</td>
+                <td>{row.cpuRequest ?? "-"}</td>
+                <td>{row.cpuLimit ?? "-"}</td>
+                <td>{row.memoryRequest ?? "-"}</td>
+                <td style={!row.memoryLimit ? { fontWeight: 600 } : undefined}>
+                  {row.memoryLimit ?? "none"}
+                </td>
+                <td
+                  style={
+                    row.memoryUsagePercent >= 80 ? { fontWeight: 600 } : undefined
+                  }
+                >
+                  {formatClickHouseMemory(row)}
+                </td>
+                <td>{row.liveCpu ?? "-"}</td>
+                <td>{row.liveMemory ?? "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+    </div>
+  );
+}
+
 // Network
 
 function NetworkTab({ data }) {
@@ -810,7 +992,7 @@ function ConfigTab({ data }) {
 
 // Events and logs
 
-function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
+export function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
   const [warningsOnly, setWarningsOnly] = useState(false);
   const [autoReload, setAutoReload] = useState(false);
 
@@ -839,7 +1021,44 @@ function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
           {warningsOnly ? "No warnings." : "No recent events."}
         </div>
       ) : (
-        <DataTable  rows={events} maxHeight="67vh" />
+        <DataTable
+          rows={events.map((event) => ({
+            When: event.lastSeen,
+            Type: event.type,
+            Object: event.object,
+            Reason: event.reason,
+            Message: event.message,
+            count: event.count,
+          }))}
+          columns={["When", "Type", "Object", "Reason", "Message"]}
+          cellRenderers={{
+            // Show warnings in bold. Then they are easy to see in a long list.
+            Type: (type) => (type === "Warning" ? <strong>Warning</strong> : type),
+            Reason: (reason, row) =>
+              row.Type === "Warning" ? <strong>{reason}</strong> : reason,
+            // A pod that CHOps knows opens in the Logs tab.
+            Object: (objectName) =>
+              knownPodNames.has(objectName) ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  title="Open this pod in the Logs tab"
+                  onClick={() => onOpenPodLogs(objectName)}
+                >
+                  {objectName}
+                </button>
+              ) : (
+                objectName
+              ),
+            Message: (message, row) => (
+              <span style={{ whiteSpace: "normal", display: "inline-block", minWidth: 320 }}>
+                {message}
+                {row.count > 1 && <span style={muted}> ({row.count} times)</span>}
+              </span>
+            ),
+          }}
+          maxHeight="67vh"
+        />
       )}
     </Panel>
   );
@@ -866,6 +1085,15 @@ function LogsTab({ clusterId, hosts, initialPod }) {
   useEffect(() => {
     if (initialPod) setPod(initialPod);
   }, [initialPod]);
+
+  // The operator pod, when the connection has an operator namespace.
+  const [operatorPod, setOperatorPod] = useState(null);
+
+  useEffect(() => {
+    apiFetch(`/api/k8s/insight/${clusterId}/operator-pod`)
+      .then(setOperatorPod)
+      .catch(() => setOperatorPod(null));
+  }, [clusterId]);
 
   function changeLineCount(n) {
     const v = clampLines(n);
@@ -897,7 +1125,6 @@ function changeSince(v) {
     
     setSince(localNow);
     writeSince(localNow);
-    console.log(localNow);
     return;
   }
 
@@ -915,6 +1142,9 @@ function changeSince(v) {
         previous: String(previous),
         tailLines: String(lineCount),
       });
+      if (operatorPod?.found && pod === operatorPod.podName) {
+        params.set("operator", "true");
+      }
       // A dead container has no logs in the last N minutes
       const seconds = previous ? undefined : sinceSecondsFrom(since);
       if (seconds) params.set("sinceSeconds", String(seconds));
@@ -971,6 +1201,16 @@ function changeSince(v) {
                 {h.restartCount > 0 ? ` (${h.restartCount} restarts)` : ""}
               </option>
             ))}
+            {operatorPod?.found && (
+              <option value={operatorPod.podName}>
+                Operator: {operatorPod.podName}
+              </option>
+            )}
+            {operatorPod && !operatorPod.found && (
+              <option value="operator-unavailable" disabled>
+                Operator logs: {operatorPod.message}
+              </option>
+            )}
           </Select>
         </div>
 
@@ -1148,6 +1388,7 @@ export default function KubernetesInsight({ cluster }) {
   const toast = useToast();
   const [tab, setTab] = useState("health");
   const [data, setData] = useState({});
+  const [permissions, setPermissions] = useState(null);
   const [busy, setBusy] = useState(false);
   const [logsPod, setLogsPod] = useState(null);
 
@@ -1162,7 +1403,7 @@ export default function KubernetesInsight({ cluster }) {
       }
       setBusy(false);
     },
-    [cluster.id],
+    [cluster.id, toast],
   );
 
   useEffect(() => {
@@ -1171,6 +1412,18 @@ export default function KubernetesInsight({ cluster }) {
     if ((tab === "logs" || tab === "events") && !data.topology) load("topology");
     // `data` is deliberately not a dependency: including it would refetch on every state
   }, [tab, load]);
+
+  useEffect(() => {
+    apiFetch(`/api/k8s/insight/${cluster.id}/permissions`)
+      .then(setPermissions)
+      .catch(() => setPermissions(null));
+  }, [cluster.id]);
+
+  // These features need the grants that the new setup script adds.
+  const featuresThatNeedNewGrants = ["Zone awareness", "Live pod resource usage"];
+  const featuresWithMissingGrant = (permissions?.degraded || [])
+    .map((permission) => permission.feature)
+    .filter((feature) => featuresThatNeedNewGrants.includes(feature));
 
   async function refresh() {
     setBusy(true);
@@ -1197,6 +1450,14 @@ export default function KubernetesInsight({ cluster }) {
 
   return (
     <div>
+      {featuresWithMissingGrant.length > 0 && (
+        <Banner tone="info">
+          <strong>Optional permissions are missing.</strong> These features
+          are not available until the setup script runs again:{" "}
+          {featuresWithMissingGrant.join(", ")}. Run
+          scripts/chops-k8s-setup.sh again against this cluster to grant them.
+        </Banner>
+      )}
       <div
         style={{
           display: "flex",
@@ -1226,11 +1487,14 @@ export default function KubernetesInsight({ cluster }) {
 
       {busy && <div style={{ ...muted, fontSize: 13 }}>Loading...</div>}
 
-      {tab === "health" && <HealthTab data={data.health} clusterName={cluster.name} />}
+      {tab === "health" && (
+        <HealthTab data={data.health} clusterName={cluster.name} clusterId={cluster.id} />
+      )}
       {tab === "topology" && <TopologyTab data={data.topology} />}
       {tab === "reconcile" && <ReconcileTab data={data.reconcile} />}
       {tab === "keeper" && <KeeperTab data={data.keeper} />}
       {tab === "storage" && <StorageTab data={data.storage} />}
+      {tab === "resources" && <ResourcesTab data={data.resources} />}
       {tab === "network" && <NetworkTab data={data.network} />}
       {tab === "config" && <ConfigTab data={data.config} />}
       {tab === "events" && (

@@ -300,11 +300,17 @@ describe("Users Controller", () => {
           role: "readonly",
           audit: {},
         },
+        protocol: "https",
+        get: () => "chops.example.com",
       },
       { status: statusMock, json: jsonMock },
     );
 
     expect(fakeDB.users.length).toBe(1);
+    expect(statusMock).toHaveBeenCalledWith(201);
+    expect(jsonMock.mock.calls.at(-1)[0].setPasswordUrl).toMatch(
+      /\/#\/set-password\?token=/,
+    );
   });
 
   it("check user admin counts ", async () => {

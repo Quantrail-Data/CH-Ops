@@ -19,6 +19,14 @@ export default [
   // Base JS config
   js.configs.recommended,
 
+  // Some steps use an empty catch block on purpose, for example cleanup and optional reads.
+  // Other empty blocks are still errors.
+  {
+    rules: {
+      "no-empty": ["error", { allowEmptyCatch: true }],
+    },
+  },
+
   // Frontend (React) config
   {
     files: ["src/frontend/**/*.{js,jsx}"],
@@ -28,6 +36,9 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.es2021,
+        // Set by vite.config.js (define) at build time.
+        __APP_VERSION__: "readonly",
+        __CH_VERSION__: "readonly",
       },
       parserOptions: {
         ecmaFeatures: {

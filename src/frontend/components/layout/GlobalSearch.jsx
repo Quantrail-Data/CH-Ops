@@ -183,7 +183,7 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
                     className="ti ti-list-search"
                     style={{ fontSize: 22, opacity: 0.5 }}
                   ></Icon>
-                  <span>No pages match "{trimmed}"</span>
+                  <span>No pages match &quot;{trimmed}&quot;</span>
                 </div>
               ) : (
                 results.map((item, i) => (

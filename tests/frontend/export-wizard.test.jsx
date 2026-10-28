@@ -41,8 +41,8 @@ function open(sql = SQL) {
 
 async function toFormatStep() {
   fireEvent.click(screen.getByText(/Estimate rows/i));
-  await waitFor(() => expect(screen.getByText("Next")).not.toBeDisabled());
-  fireEvent.click(screen.getByText("Next"));
+  await waitFor(() => expect(screen.getByText(/^Next/)).not.toBeDisabled());
+  fireEvent.click(screen.getByText(/^Next/));
 }
 
 beforeEach(() => {
@@ -69,13 +69,13 @@ describe("Step 1: checking the query", () => {
 
   it("blocks Next until an estimate has been attempted", () => {
     open();
-    expect(screen.getByText("Next")).toBeDisabled();
+    expect(screen.getByText(/^Next/)).toBeDisabled();
   });
 
   it("unblocks Next once the estimate succeeds, and shows the numbers", async () => {
     open();
     fireEvent.click(screen.getByText(/Estimate rows/i));
-    await waitFor(() => expect(screen.getByText("Next")).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByText(/^Next/)).not.toBeDisabled());
     expect(api.estimateExport).toHaveBeenCalledTimes(1);
     expect(screen.getByText("1000")).toBeTruthy();
   });
@@ -85,7 +85,7 @@ describe("Step 1: checking the query", () => {
     api.estimateExport.mockRejectedValue(new Error("cannot estimate"));
     open();
     fireEvent.click(screen.getByText(/Estimate rows/i));
-    await waitFor(() => expect(screen.getByText("Next")).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByText(/^Next/)).not.toBeDisabled());
     expect(toast.error).toHaveBeenCalled();
   });
 
@@ -115,8 +115,8 @@ describe("Step 1: checking the query", () => {
     window.confirm.mockReturnValue(false);
     open();
     fireEvent.click(screen.getByText(/Estimate rows/i));
-    await waitFor(() => expect(screen.getByText("Next")).not.toBeDisabled());
-    fireEvent.click(screen.getByText("Next"));
+    await waitFor(() => expect(screen.getByText(/^Next/)).not.toBeDisabled());
+    fireEvent.click(screen.getByText(/^Next/));
     expect(screen.getByText(SQL)).toBeTruthy();
   });
 });
@@ -139,7 +139,7 @@ describe("Required parameters block the export", () => {
   it("disables Estimate and Next", () => {
     open(REQUIRED);
     expect(screen.getByText(/Estimate rows/i).closest("button")).toBeDisabled();
-    expect(screen.getByText("Next")).toBeDisabled();
+    expect(screen.getByText(/^Next/)).toBeDisabled();
   });
 
   it("does not call the estimate endpoint", () => {

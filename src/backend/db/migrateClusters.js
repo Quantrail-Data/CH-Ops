@@ -131,6 +131,7 @@ export function createClusterTables(sqlite) {
       token_enc TEXT NOT NULL,
       namespaces_json TEXT,
       affinity_ok INTEGER,
+      operator_namespace TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );

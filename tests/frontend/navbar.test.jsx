@@ -7,7 +7,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
 
-// --- Mocks -----------------------------------------------------------------
+// Mocks
 
 const mockUseAuth = vi.fn();
 const mockUseTheme = vi.fn();
@@ -48,7 +48,7 @@ vi.mock('../../src/frontend/assets/chops-dark.svg', () => ({ default: 'dark.svg'
 // Import AFTER the mocks are registered.
 import Navbar from '../../src/frontend/components/layout/Navbar.jsx';
 
-// --- Helpers ---------------------------------------------------------------
+// Helpers
 
 function connState(overrides = {}) {
   return {
@@ -98,7 +98,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// --- Tests -----------------------------------------------------------------
+// Tests
 
 describe('Navbar server clock - disconnected', () => {
   it('shows a red clock-off icon, no time, and does not query the server', () => {
@@ -194,17 +194,17 @@ describe('Navbar core', () => {
   });
 
   it('reconnects when a different node is selected', async () => {
-    const state = connState();
+    const state = connState({ nodeName: 'node-1' });
     mockUseConnection.mockReturnValue(state);
     renderNavbar();
 
-    // The node <select> is the one whose value is the selected host.
+    // The node <select> chooses by node name, so nodes that share one host stay apart.
     const selects = screen.getAllByRole('combobox');
-    const nodeSelect = selects.find((s) => s.value === '10.0.0.1');
-    fireEvent.change(nodeSelect, { target: { value: '10.0.0.2' } });
+    const nodeSelect = selects.find((s) => s.value === 'node-1');
+    fireEvent.change(nodeSelect, { target: { value: 'node-2' } });
 
     await waitFor(() => expect(state.testConnection).toHaveBeenCalled());
-    expect(state.testConnection.mock.calls[0][0]).toBe('10.0.0.2');
+    expect(state.testConnection.mock.calls[0][0]).toBe('node-2');
     expect(localStorage.getItem('chops_nodename')).toBe('node-2');
   });
 });

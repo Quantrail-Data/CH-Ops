@@ -101,7 +101,7 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
           {!ordered.length && (
             <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
               No filters on this dashboard yet. Add a {"{name:Type}"} placeholder to a
-              chart's SQL and it appears here.
+              chart&apos;s SQL and it appears here.
             </div>
           )}
 

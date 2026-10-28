@@ -4,7 +4,6 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
-import { loadEnv } from "../utils/env.js";
 import { OTP_TTL_MS } from "./OTPservice.js";
 
 function validateWebhookUrl(url) {
@@ -89,6 +88,8 @@ function formatDetails(alert) {
     timestamp: ts,
     kind: alert.kind || "breach",
     error: alert.error || null,
+    // The one-time link of the account and password reset emails.
+    setPasswordUrl: alert.setPasswordUrl || "",
   };
 }
 
@@ -151,7 +152,7 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
       from: config?.from,
       to: email,
       subject: "Password Reset OTP",
-      text: `Hi ${escapeEmail},\n\nHere is your OTP (One Time PIN) for resetting your password on ${escapeWebAppName}:\n\nOTP: ${escapeOtp}\n\nThis OTP is valid for 30 seconds.`,
+      text: `Hi ${escapeEmail},\n\nHere is your OTP (One Time PIN) for resetting your password on ${escapeWebAppName}:\n\nOTP: ${escapeOtp}\n\nThis OTP is valid for ${otpValidityMinutes} minutes.`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <div style="background: linear-gradient(135deg, #5D3FD3, #8B5CF6); padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -194,6 +195,22 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
   }
 };
 
+// Throws when a notification service refuses the message, so the failure shows in the channel status.
+// Slack answers 200 also when it refuses a message, with ok: false in the body.
+async function throwIfRefused(response, serviceName) {
+  if (!response.ok) {
+    throw new Error(`${serviceName} refused the message: HTTP ${response.status}`);
+  }
+  if (serviceName === "Slack") {
+    const slackResult = await response.json().catch(() => ({}));
+    if (!slackResult.ok) {
+      throw new Error(
+        `Slack refused the message: ${slackResult.error || "unknown error"}`,
+      );
+    }
+  }
+}
+
 export async function sendNotification(channelConfig, alert) {
   const config =
     typeof channelConfig === "string"
@@ -229,8 +246,6 @@ export async function sendNotification(channelConfig, alert) {
     const tableTextColor = "#0b1220";
     const severityTextColor = d.severity === "WARNING" ? "#1a1a2e" : "#fff";
     const mutedTextColor = "#64748b";
-
-    const env = loadEnv();
 
     const accountDetails = isAccountEmail
       ? extractAccountDetails(d.description)
@@ -331,7 +346,7 @@ export async function sendNotification(channelConfig, alert) {
                                         align="center" style="margin:18px auto;">
                                         <tr>
                                             <td bgcolor="#8a2be2" align="center" style="border-radius:6px;">
-                                                <a href="${d.setPasswordUrl}" target="_blank"
+                                                <a href="${escapeHtml(d.setPasswordUrl)}" target="_blank"
                                                     style="
                                                         display:inline-block;
                                                         padding:10px 19px;
@@ -441,7 +456,7 @@ export async function sendNotification(channelConfig, alert) {
                                             style="margin:0 0 25px;font-size:13px;line-height:30px;color:#3a3a3a;font-family:Arial,sans-serif;">
                                             <strong>Hi, ${escapeHtml(passwordResetDetails?.username || "-")}</strong><br>
                                             Your CH-OPS account password has been reset by an administrator.<br>
-                                            Please use the credentials below to log in and change your password immediately.
+                                            Please use the button below to set a new password.
                                         </p>
 
                                         <!-- Details -->
@@ -463,18 +478,6 @@ export async function sendNotification(channelConfig, alert) {
                                             <tr>
                                                 <td
                                                     style="padding:12px 16px;font-weight:600;color:#000;">
-                                                    Password
-                                                </td>
-
-                                                <td id="password"
-                                                    style="padding:12px 16px;font-family:monospace;word-break:break-all;color:#000;">
-                                                    ${escapeHtml(passwordResetDetails?.password || "-")}
-                                                </td>
-                                            </tr>
-
-                                            <tr>
-                                                <td
-                                                    style="padding:12px 16px;font-weight:600;color:#000;">
                                                     Role
                                                 </td>
 
@@ -487,7 +490,7 @@ export async function sendNotification(channelConfig, alert) {
 
                                         <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;border-radius:4px;">
                                             <p style="margin:0;font-size:13px;color:#78350f;">
-                                                <strong>⚠️ Important:</strong> For security reasons, you must change your password on first login.
+                                                <strong>Important:</strong> The link works one time only, and expires in 30 minutes.
                                             </p>
                                         </div>
 
@@ -495,7 +498,7 @@ export async function sendNotification(channelConfig, alert) {
                                         align="center" style="margin:18px auto;">
                                         <tr>
                                             <td bgcolor="#8a2be2" align="center" style="border-radius:6px;">
-                                                <a href="${env.frontendLink}" target="_blank"
+                                                <a href="${escapeHtml(d.setPasswordUrl)}" target="_blank"
                                                     style="
                                                         display:inline-block;
                                                         padding:10px 19px;
@@ -508,7 +511,7 @@ export async function sendNotification(channelConfig, alert) {
                                                         border-radius:6px;
                                                         line-height:1;
                                                     ">
-                                                    Login Now
+                                                    Set a New Password
                                                 </a>
                                             </td>
                                         </tr>
@@ -598,7 +601,7 @@ export async function sendNotification(channelConfig, alert) {
     if (!config.bot_token) throw new Error("Slack bot_token is not configured");
     if (!config.channel_id)
       throw new Error("Slack channel_id is not configured");
-    await fetch("https://slack.com/api/chat.postMessage", {
+    const slackResponse = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -658,6 +661,7 @@ export async function sendNotification(channelConfig, alert) {
         ],
       }),
     });
+    await throwIfRefused(slackResponse, "Slack");
   } else if (config.type === "google_chat") {
     if (!config.webhook_url)
       throw new Error("Google Chat webhook_url is not configured");
@@ -676,7 +680,7 @@ export async function sendNotification(channelConfig, alert) {
       statusText = `<b>Value:</b> ${String(d.value)}`;
     }
 
-    await fetch(config.webhook_url, {
+    const googleChatResponse = await fetch(config.webhook_url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -730,11 +734,12 @@ export async function sendNotification(channelConfig, alert) {
         ],
       }),
     });
+    await throwIfRefused(googleChatResponse, "Google Chat");
   } else if (config.type === "teams") {
     if (!config.webhook_url)
       throw new Error("Microsoft Teams webhook_url is not configured");
     validateWebhookUrl(config.webhook_url);
-    await fetch(config.webhook_url, {
+    const teamsResponse = await fetch(config.webhook_url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -778,16 +783,19 @@ export async function sendNotification(channelConfig, alert) {
         ],
       }),
     });
+    await throwIfRefused(teamsResponse, "Microsoft Teams");
   } else if (config.type === "pagerduty") {
     if (!config.routing_key)
       throw new Error("PagerDuty routing_key is not configured");
 
-    await fetch("https://events.pagerduty.com/v2/enqueue", {
+    const pagerDutyResponse = await fetch("https://events.pagerduty.com/v2/enqueue", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         routing_key: config.routing_key,
-        event_action: d.kind === "recovery" ? "resolve" : "trigger",
+        // "resolved" closes a breach incident, "recovery" closes a failure incident.
+        event_action:
+          d.kind === "recovery" || d.kind === "resolved" ? "resolve" : "trigger",
         dedup_key: `chops-${alert.id || d.name}`,
         payload: {
           summary: `[CHOps] ${d.severity}: ${d.name} - value ${d.value}`,
@@ -814,6 +822,7 @@ export async function sendNotification(channelConfig, alert) {
         },
       }),
     });
+    await throwIfRefused(pagerDutyResponse, "PagerDuty");
   }
 }
 

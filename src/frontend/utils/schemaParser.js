@@ -212,7 +212,7 @@ function parseDistributedTarget(createQuery) {
 
   const onClusterMatch = createQuery.match(/ON\s+CLUSTER\s+['"`]?(\w+)['"`]?/i);
   const engineMatch = createQuery.match(
-    /ENGINE\s*=\s*Distributed\s*\(\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*(?:,|[\s\)])/i,
+    /ENGINE\s*=\s*Distributed\s*\(\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*(?:,|[\s)])/i,
   );
 
   if (engineMatch) {

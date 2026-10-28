@@ -10,6 +10,7 @@ import {
   updateK8sConnection,
   deleteK8sConnection,
   testK8sConnection,
+  probeOperatorPod,
   listNamespaces,
   listInstallations,
   getInstallation,
@@ -23,11 +24,16 @@ import {
   getReconcile,
   getConfig,
   getStorage,
+  getResources,
   getNetwork,
   getEvents,
   getLogs,
+  getOperatorPodInfo,
   getHealth,
   getKeeper,
+  getPermissions,
+  getHealthAlertConfig,
+  saveHealthAlertConfig,
   getRbacContext,
   refreshNow,
 } from "../controllers/k8sInsight.js";
@@ -44,6 +50,7 @@ router.delete("/connections/:id", requireAdmin, deleteK8sConnection);
 
 // Testing reaches out to a caller-supplied address, so it is admin only.
 router.post("/test", requireAdmin, testK8sConnection);
+router.post("/operator-probe", requireAdmin, probeOperatorPod);
 
 // Discovery reads the cluster with the stored token, so it is admin only.
 router.get("/connections/:id/namespaces", requireAdmin, listNamespaces);
@@ -67,12 +74,29 @@ router.get("/insight/:clusterId/topology", requireAdmin, getTopology);
 router.get("/insight/:clusterId/reconcile", requireAdmin, getReconcile);
 router.get("/insight/:clusterId/config", requireAdmin, getConfig);
 router.get("/insight/:clusterId/storage", requireAdmin, getStorage);
+router.get("/insight/:clusterId/resources", requireAdmin, getResources);
 router.get("/insight/:clusterId/network", requireAdmin, getNetwork);
 router.get("/insight/:clusterId/events", requireAdmin, getEvents);
 router.get("/insight/:clusterId/logs/:pod", requireAdmin, getLogs);
+router.get(
+  "/insight/:clusterId/operator-pod",
+  requireAdmin,
+  getOperatorPodInfo,
+);
 router.get("/insight/:clusterId/health", requireAdmin, getHealth);
 router.get("/insight/:clusterId/keeper", requireAdmin, getKeeper);
 router.get("/insight/:clusterId/rbac-context", requireAdmin, getRbacContext);
+router.get("/insight/:clusterId/permissions", requireAdmin, getPermissions);
+router.get(
+  "/insight/:clusterId/health-alerts",
+  requireAdmin,
+  getHealthAlertConfig,
+);
+router.put(
+  "/insight/:clusterId/health-alerts",
+  requireAdmin,
+  saveHealthAlertConfig,
+);
 router.post("/insight/:clusterId/refresh", requireAdmin, refreshNow);
 
 export default router;

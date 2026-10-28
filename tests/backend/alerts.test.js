@@ -126,6 +126,8 @@ mock.module("../../src/backend/db/index.js", () => ({
   clusters: {},
   clusterNodes: {},
   k8sConnections: {},
+  k8sHealthState: {},
+  k8sHealthAlertConfigs: {},
   rawSqlite: {},
 }));
 

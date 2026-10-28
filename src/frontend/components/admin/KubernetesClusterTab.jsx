@@ -131,6 +131,7 @@ export default function KubernetesClusterTab({ onImported }) {
     token: "",
   });
   const [addressingMode, setAddressingMode] = useState("auto");
+  const [operatorNamespace, setOperatorNamespace] = useState("");
   const [sharedEndpointWarning, setSharedEndpointWarning] = useState(null);
   const [pasteBlock, setPasteBlock] = useState("");
   const [testResult, setTestResult] = useState(null);
@@ -160,6 +161,14 @@ export default function KubernetesClusterTab({ onImported }) {
       .catch(() => setOperators([]));
   }, []);
 
+  // Shows the stored operator namespace of the selected connection.
+  useEffect(() => {
+    const selectedConnection = connections.find(
+      (connection) => connection.id === connectionId,
+    );
+    setOperatorNamespace(selectedConnection?.operatorNamespace ?? "");
+  }, [connectionId, connections]);
+
   async function loadConnections() {
     try {
       const r = await apiFetch("/api/k8s/connections");
@@ -178,6 +187,32 @@ export default function KubernetesClusterTab({ onImported }) {
         "Read the address, certificate and token from the pasted block.",
       );
     }
+  }
+
+  async function probeOperator() {
+    if (!connectionId) {
+      toast.warning("Save the connection first, then probe.");
+      return;
+    }
+    if (!operatorNamespace.trim()) {
+      toast.warning("Type the operator namespace first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const probeResult = await apiFetch("/api/k8s/operator-probe", {
+        method: "POST",
+        body: { connectionId, operatorNamespace: operatorNamespace.trim() },
+      });
+      if (probeResult.found) {
+        toast.success(`Found operator pod ${probeResult.podName}.`);
+      } else {
+        toast.warning(probeResult.message);
+      }
+    } catch (error) {
+      toast.error("Probe failed: " + error.message);
+    }
+    setBusy(false);
   }
 
   async function testConnection() {
@@ -211,11 +246,24 @@ export default function KubernetesClusterTab({ onImported }) {
         }
         const r = await apiFetch("/api/k8s/connections", {
           method: "POST",
-          body: conn,
+          body: { ...conn, operatorNamespace: operatorNamespace.trim() },
         });
         id = r.id;
         setConnectionId(id);
         await loadConnections();
+      } else {
+        const selectedConnection = connections.find(
+          (connection) => connection.id === id,
+        );
+        const storedOperatorNamespace =
+          selectedConnection?.operatorNamespace ?? "";
+        if (storedOperatorNamespace !== operatorNamespace.trim()) {
+          await apiFetch(`/api/k8s/connections/${id}`, {
+            method: "PUT",
+            body: { operatorNamespace: operatorNamespace.trim() },
+          });
+          await loadConnections();
+        }
       }
       await loadNamespaces(id);
       setStep(2);
@@ -259,7 +307,6 @@ export default function KubernetesClusterTab({ onImported }) {
   }
 
   async function doImport(overrides = {}) {
-    console.log(overrides)
     if (!endpoint.trim()) {
       toast.warning("A reachable ClickHouse® address is required.");
       return;
@@ -285,7 +332,6 @@ export default function KubernetesClusterTab({ onImported }) {
             overrides.acknowledgeSharedEndpoint ?? false,
         },
       });
-      console.log(r)
 
       // Nothing was created.
       if (r.needsConfirmation) {
@@ -425,6 +471,31 @@ export default function KubernetesClusterTab({ onImported }) {
             </>
           )}
 
+          <div className="form-group">
+            <label className="form-label">Operator namespace</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="form-input"
+                value={operatorNamespace}
+                onChange={(event) => setOperatorNamespace(event.target.value)}
+                placeholder="kube-system"
+              />
+              <button
+                className="btn btn-secondary"
+                onClick={probeOperator}
+                disabled={busy}
+              >
+                Probe
+              </button>
+            </div>
+            <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>
+              Where the operator pod runs, to read the operator logs. Optional.
+              The Altinity operator installs into kube-system by default. OCKO
+              usually runs in its own namespace. Probe works after the
+              connection is saved.
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button
               className="btn btn-secondary"
@@ -469,7 +540,7 @@ export default function KubernetesClusterTab({ onImported }) {
                   color: "var(--text-muted)",
                 }}
               >
-                Early access. This operator's API is at v1alpha1, which means it
+                Early access. This operator&apos;s API is at v1alpha1, which means it
                 may change without a deprecation cycle. We track it and will
                 update, so a future operator release could need a CHOps update
                 to match.
@@ -649,7 +720,7 @@ export default function KubernetesClusterTab({ onImported }) {
                     </p>
                     <p>
                       The simplest option is to run CHOps inside the cluster,
-                      where each pod's internal address works with no extra
+                      where each pod&apos;s internal address works with no extra
                       setup.
                     </p>
                   </div>
@@ -736,7 +807,7 @@ export default function KubernetesClusterTab({ onImported }) {
               style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}
             >
               Do not use the default user. The operator restricts it to the
-              cluster's own pods, so a connection from here is refused and the
+              cluster&apos;s own pods, so a connection from here is refused and the
               refusal looks like a wrong password. Use clickhouse-user-setup.sql
               to create a dedicated user.
             </div>

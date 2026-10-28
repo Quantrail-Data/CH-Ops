@@ -2,7 +2,6 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Implements 4-tier RBAC user management, restricting hierarchical role modifications and credential updates by access level.
 
-import { randomBytes } from "crypto";
 import crypto from "crypto";
 import { eq, desc } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
@@ -12,6 +11,7 @@ import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
 import { resolveSystemSmtp } from "../services/systemSmtp.js";
 import { loadEnv } from "../utils/env.js";
 import { create } from "../services/jwt.js";
+import { log } from "../services/logger.js";
 
 const VALID_ROLES = ["superadmin", "admin", "editor", "readonly"];
 
@@ -24,10 +24,6 @@ async function hashPassword(pw) {
     memoryCost: 65536,
     timeCost: 2,
   });
-}
-
-function generatePassword() {
-  return randomBytes(16).toString("base64url");
 }
 
 // Returns true if the caller has admin-level access (superadmin or admin)
@@ -47,6 +43,48 @@ function canChangeRole(callerRole, targetCurrentRole, targetNewRole) {
   // Can't promote to your level or above
   if (newLevel >= callerLevel) return false;
   return true;
+}
+
+// Tells if the caller can reset the password of the target user or make a new setup link.
+// A superadmin can do this for all users. Other users can do it only below their own level.
+function canManageUser(callerRole, targetRole) {
+  if (callerRole === "superadmin") return true;
+  return (ROLE_LEVEL[targetRole] || 0) < (ROLE_LEVEL[callerRole] || 0);
+}
+
+const SETUP_LINK_MINUTES = 30;
+
+// Returns the address of the CHOps page. This is FRONTEND_LINK when it is set.
+// Otherwise it is the address of this request.
+function appAddress(req) {
+  const configured = loadEnv().frontendLink;
+  const address = configured || `${req.protocol}://${req.get("host")}`;
+  return address.replace(/\/+$/, "");
+}
+
+function setupLink(req, setupToken) {
+  return `${appAddress(req)}/#/set-password?token=${encodeURIComponent(setupToken)}`;
+}
+
+// Removes the password of a user and makes a one-time link to set a new one.
+// The link holds a random token. Only its hash is stored. Returns the link.
+function startPasswordSetup(req, userId) {
+  const setupToken = crypto.randomBytes(32).toString("hex");
+  const setupTokenHash = crypto
+    .createHash("sha256")
+    .update(setupToken)
+    .digest("hex");
+  const expiresAt = new Date(Date.now() + SETUP_LINK_MINUTES * 60 * 1000);
+  db.update(appUsers)
+    .set({
+      passwordHash: null,
+      mustChangePassword: true,
+      passwordSetupTokenHash: setupTokenHash,
+      passwordSetupTokenExpiresAt: expiresAt.toISOString(),
+    })
+    .where(eq(appUsers.id, userId))
+    .run();
+  return setupLink(req, setupToken);
 }
 
 // -- Middleware --
@@ -151,9 +189,6 @@ export async function createUser(req, res) {
           .json({ error: "Maximum 3 super admins allowed." });
     }
 
-    // const password = generatePassword();
-    // const hash = await hashPassword(password);
-
     const setupToken = crypto.randomBytes(32).toString("hex");
 
     const setupTokenHash = crypto
@@ -178,11 +213,7 @@ export async function createUser(req, res) {
       .returning()
       .get();
 
-    const env = loadEnv();
-
-    const appUrl = env.frontendLink;
-
-    const setPasswordUrl = `${appUrl}/#/set-password?token=${encodeURIComponent(setupToken)}`;
+    const setPasswordUrl = setupLink(req, setupToken);
 
     try {
       const smtp = resolveSystemSmtp();
@@ -287,54 +318,51 @@ export async function updateUser(req, res) {
       return res.status(403).json({ error: "Default user cannot self reset" });
     }
 
-    // Password reset: only admin-level users can reset others' passwords
-    if (
-      req.body.resetPassword &&
-      callerIsAdmin &&
-      !isSelf &&
-      !target.initUser
-    ) {
-      const pw = generatePassword();
-      updates.passwordHash = await hashPassword(pw);
-      updates.mustChangePassword = true;
-      db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+    // Password reset: the user gets a one-time link to set a new password.
+    // CHOps does not make, show or send a password.
+    if (req.body.resetPassword && callerIsAdmin && !isSelf && !target.initUser) {
+      if (!canManageUser(req.user?.role, target.role)) {
+        return res.status(403).json({
+          error: "You cannot reset the password of a user at or above your level.",
+        });
+      }
+      if (Object.keys(updates).length > 0) {
+        db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+      }
+      const setPasswordUrl = startPasswordSetup(req, id);
 
       const smtp = resolveSystemSmtp();
       if (smtp?.host && target.email) {
         try {
-          const emailConfig = {
-            type: "email",
-            smtp_host: smtp.host,
-            smtp_port: smtp.port,
-            smtp_user: smtp.user,
-            smtp_pass: smtp.pass,
-            from: smtp.from,
-            to: target.email,
-          };
-          await sendNotification(emailConfig, {
-            name: "CHOps Password Reset",
-            severity: "info",
-            description: `Your CHOps account password has been reset by an administrator.\n\nUsername: ${target.username}\nNew Password: ${pw}\nRole: ${target.role}\n\nPlease change your password on first login.`,
-            sql: "",
-            schedule: "",
-            operator: "eq",
-            threshold: 0,
-            lastValue: 0,
-            lastRunAt: new Date().toISOString(),
-          });
-        } catch (emailErr) {
-          console.error(
-            "Failed to send password reset email:",
-            emailErr.message,
+          await sendNotification(
+            {
+              type: "email",
+              smtp_host: smtp.host,
+              smtp_port: smtp.port,
+              smtp_user: smtp.user,
+              smtp_pass: smtp.pass,
+              from: smtp.from,
+              to: target.email,
+            },
+            {
+              name: "CHOps Password Reset",
+              severity: "info",
+              description: `Your CHOps password was reset by an administrator.\n\nUsername: ${target.username}\nRole: ${target.role}`,
+              sql: "",
+              schedule: "",
+              operator: "eq",
+              threshold: 0,
+              lastValue: 0,
+              lastRunAt: new Date().toISOString(),
+              setPasswordUrl,
+            },
           );
+        } catch (emailError) {
+          log.warn("Password reset email failed", { error: emailError.message });
         }
-      } else if (!target.email) {
-        console.log(
-          `User ${target.username} has no email configured, password not sent via email`,
-        );
       }
 
-      return res.json({ ok: true, generatedPassword: pw });
+      return res.json({ ok: true, setPasswordUrl });
     }
 
     if (Object.keys(updates).length > 0) {
@@ -462,7 +490,7 @@ export async function setPassword(req, res) {
 
 export async function reGenerateSetupLink(req, res) {
   try {
-    const { userId } = req.query;
+    const userId = parseInt(req.query.userId, 10);
 
     const user = db
       .select()
@@ -476,38 +504,19 @@ export async function reGenerateSetupLink(req, res) {
       });
     }
 
+    if (!canManageUser(req.user?.role, user.role)) {
+      return res.status(403).json({
+        error: "You cannot make a setup link for a user at or above your level.",
+      });
+    }
+
     if (user.passwordHash) {
       return res.status(400).json({
         error: "User already setups a password",
       });
     }
 
-    const setupToken = crypto.randomBytes(32).toString("hex");
-
-    const setupTokenHash = crypto
-      .createHash("sha256")
-      .update(setupToken)
-      .digest("hex");
-
-    const setupTokenExpiresAt = new Date(
-      Date.now() + 30 * 60 * 1000,
-    ).toISOString();
-
-    db.update(appUsers)
-      .set({
-        passwordHash: null,
-        mustChangePassword: true,
-        passwordSetupTokenHash: setupTokenHash,
-        passwordSetupTokenExpiresAt: setupTokenExpiresAt,
-      })
-      .where(eq(appUsers.id, user.id))
-      .run();
-
-    const env = loadEnv();
-
-    const appUrl = env.frontendLink;
-
-    const setPasswordUrl = `${appUrl}/#/set-password?token=${encodeURIComponent(setupToken)}`;
+    const setPasswordUrl = startPasswordSetup(req, user.id);
 
     return res.status(201).json({ setPasswordUrl });
   } catch (error) {

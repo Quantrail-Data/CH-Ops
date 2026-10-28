@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, cleanup, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import UserManagement from '../../src/frontend/components/admin/UserManagement.jsx';
 
 const mockToast = {
@@ -31,6 +31,8 @@ vi.mock('../../src/frontend/App.jsx', () => ({
 async function waitUntilLoaded() {
   await screen.findAllByText('User Management');
 }
+
+const SETUP_LINK = 'https://chops.example.com/#/set-password?token=abc';
 
 function setAuthRole(role) {
   mockUseAuth.mockReturnValue({
@@ -210,10 +212,10 @@ describe('UserManagement', () => {
     });
   });
 
-  it('creates user successfully and shows generated password', async () => {
+  it('creates user successfully and shows the setup link', async () => {
     mockApiFetch.mockImplementation(async (url, options) => {
       if (url === '/api/users' && !options) return [];
-      if (url === '/api/users' && options?.method === 'POST') return { generatedPassword: 'GenPw123!' };
+      if (url === '/api/users' && options?.method === 'POST') return { setPasswordUrl: SETUP_LINK };
       return { ok: true };
     });
 
@@ -228,32 +230,8 @@ describe('UserManagement', () => {
 
     await waitFor(() => {
       expect(mockToast.success).toHaveBeenCalledWith('User "newuser" created.');
-      expect(screen.getByText('GenPw123!')).toBeTruthy();
+      expect(screen.getByDisplayValue(SETUP_LINK)).toBeTruthy();
     });
-  });
-
-  it('dismisses generated password alert', async () => {
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === '/api/users' && !options) return [];
-      if (url === '/api/users' && options?.method === 'POST') return { generatedPassword: 'GenPw123!' };
-      return { ok: true };
-    });
-
-    render(<UserManagement />);
-    await waitUntilLoaded();
-
-    openNewUserForm();
-    await waitFor(() => expect(screen.getByRole('button', { name: /Create User/i })).toBeTruthy());
-    fillCreateForm({ username: 'newuser', email: 'new@example.com' });
-    clickCreateUser();
-
-    await waitFor(() => expect(screen.getByText('GenPw123!')).toBeTruthy());
-
-    const alert = screen.getByText(/Generated password:/i).closest('.alert-banner');
-    const dismiss = within(alert).getAllByRole('button')[0];
-    fireEvent.click(dismiss);
-
-    await waitFor(() => expect(screen.queryByText('GenPw123!')).toBeNull());
   });
 
   it('handles create user failure', async () => {
@@ -431,6 +409,41 @@ describe('UserManagement', () => {
     expect(screen.getByTitle('Delete')).toBeTruthy();
   });
 
+  it('lets a superadmin reset another superadmin, but not delete them', async () => {
+    setAuthRole('superadmin');
+    mockApiFetch.mockImplementation(async (url) => {
+      if (url === '/api/users') return [{ id: 1, username: 'second', role: 'superadmin', email: 's@x.com', lastLoginAt: null }];
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    expect(screen.getByTitle('Reset Password')).not.toHaveAttribute('disabled');
+    expect(screen.getByTitle('Delete')).toHaveAttribute('disabled');
+  });
+
+  it('does not ask an admin for the SMTP settings, which are for superadmins only', async () => {
+    setAuthRole('admin');
+    render(<UserManagement />);
+    await waitUntilLoaded();
+    const smtpCalls = mockApiFetch.mock.calls.filter(([url]) => url === '/api/system-smtp');
+    expect(smtpCalls).toEqual([]);
+  });
+
+  it('disables the reset of your own account', async () => {
+    mockUseAuth.mockReturnValue({ auth: { role: 'superadmin', username: 'me' } });
+    mockApiFetch.mockImplementation(async (url) => {
+      if (url === '/api/users') return [{ id: 1, username: 'me', role: 'superadmin', email: 'me@x.com', lastLoginAt: null }];
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    expect(screen.getByTitle('Reset Password')).toHaveAttribute('disabled');
+  });
+
   it('disables reset and delete for equal-level user', async () => {
     mockApiFetch.mockImplementation(async (url) => {
       if (url === '/api/users') return [{ id: 1, username: 'adminuser', role: 'admin', email: 'a@x.com', lastLoginAt: null }];
@@ -447,7 +460,7 @@ describe('UserManagement', () => {
   it('resets user password successfully', async () => {
     mockApiFetch.mockImplementation(async (url, options) => {
       if (url === '/api/users') return [{ id: 1, username: 'testuser', role: 'editor', email: 'test@example.com', lastLoginAt: null }];
-      if (url === '/api/users/1' && options?.method === 'PUT') return { generatedPassword: 'ResetPw123!' };
+      if (url === '/api/users/1' && options?.method === 'PUT') return { ok: true, setPasswordUrl: SETUP_LINK };
       return { ok: true };
     });
 
@@ -457,7 +470,8 @@ describe('UserManagement', () => {
     fireEvent.click(screen.getByTitle('Reset Password'));
 
     await waitFor(() => {
-      expect(mockToast.success).toHaveBeenCalledWith('New password: ResetPw123!');
+      expect(mockToast.success).toHaveBeenCalledWith('Password reset. Send the setup link to the user.');
+      expect(screen.getByDisplayValue(SETUP_LINK)).toBeTruthy();
     });
   });
 

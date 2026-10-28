@@ -62,10 +62,23 @@ export function listK8sConnections(req, res) {
 
 // POST /api/k8s/connections
 export function createK8sConnection(req, res) {
-  const { name, apiAddress, caCertificate, token, namespaces } = req.body || {};
+  const {
+    name,
+    apiAddress,
+    caCertificate,
+    token,
+    namespaces,
+    operatorNamespace,
+  } = req.body || {};
 
   if (!name?.trim())
     return res.status(400).json({ error: "A name is required." });
+  const operatorNamespaceText = String(operatorNamespace || "").trim();
+  if (operatorNamespaceText && !isValidKubernetesName(operatorNamespaceText)) {
+    return res
+      .status(400)
+      .json({ error: "The operator namespace is not valid." });
+  }
   if (!apiAddress?.trim())
     return res.status(400).json({ error: "An API address is required." });
   if (!caCertificate?.trim()) {
@@ -86,6 +99,7 @@ export function createK8sConnection(req, res) {
       caCertificate: caCertificate.trim(),
       token: token.trim(),
       namespaces,
+      operatorNamespace: operatorNamespaceText || null,
     });
     return res.status(201).json({ id });
   } catch (error) {
@@ -102,7 +116,25 @@ export function updateK8sConnection(req, res) {
   if (!existing)
     return res.status(404).json({ error: "Connection not found." });
 
-  const { name, apiAddress, caCertificate, token, namespaces } = req.body || {};
+  const {
+    name,
+    apiAddress,
+    caCertificate,
+    token,
+    namespaces,
+    operatorNamespace,
+  } = req.body || {};
+
+  // undefined keeps the stored operator namespace. An empty text clears it.
+  const operatorNamespaceText =
+    operatorNamespace === undefined
+      ? undefined
+      : String(operatorNamespace || "").trim();
+  if (operatorNamespaceText && !isValidKubernetesName(operatorNamespaceText)) {
+    return res
+      .status(400)
+      .json({ error: "The operator namespace is not valid." });
+  }
 
   try {
     saveConnection({
@@ -113,6 +145,7 @@ export function updateK8sConnection(req, res) {
       caCertificate: caCertificate?.trim() || undefined,
       token: token?.trim() || undefined,
       namespaces: namespaces ?? existing.namespaces,
+      operatorNamespace: operatorNamespaceText,
     });
     return res.json({ ok: true });
   } catch (error) {
@@ -180,6 +213,47 @@ export async function testK8sConnection(req, res) {
     return res.json(
       await runConnectionTest({ apiAddress, caCertificate, token, namespace }),
     );
+  } catch (err) {
+    return fail(res, err);
+  }
+}
+
+// POST /api/k8s/operator-probe: checks that the operator pod can be seen in a namespace.
+export async function probeOperatorPod(req, res) {
+  const { connectionId, operatorNamespace } = req.body || {};
+  if (!connectionId) {
+    return res.status(400).json({ error: "A connection is required." });
+  }
+  if (!isValidKubernetesName(operatorNamespace)) {
+    return res
+      .status(400)
+      .json({ error: "A valid operator namespace is required." });
+  }
+
+  try {
+    let operator = "akoc";
+    let operatorPod = await providerFor(connectionId, "akoc").provider.getOperatorPod(
+      operatorNamespace,
+    );
+    if (!operatorPod) {
+      operator = "ocko";
+      operatorPod = await providerFor(connectionId, "ocko").provider.getOperatorPod(
+        operatorNamespace,
+      );
+    }
+
+    if (!operatorPod) {
+      return res.json({
+        found: false,
+        message: `No operator pod was found in ${operatorNamespace}. Check the namespace. The token may also lack read access to pods there.`,
+      });
+    }
+    return res.json({
+      found: true,
+      operator,
+      podName: operatorPod.podName,
+      container: operatorPod.container,
+    });
   } catch (err) {
     return fail(res, err);
   }
@@ -471,6 +545,7 @@ export async function importInstallation(req, res) {
       return res.status(400).json({ error: err.message });
     }
     clearCapabilities(cluster.id);
+    // The cluster is saved. A template problem must not fail the import.
     try {
       createTemplateRulesForCluster(cluster.id);
     } catch (error) {
@@ -540,7 +615,8 @@ export async function refreshCluster(req, res) {
       namespace: cluster.k8s.namespace,
       installation: cluster.k8s.installation,
       operator: cluster.k8s.operator,
-      endpoint: cluster.k8sAddressing?.endpoint || cluster.nodes[0]?.host,
+      // The stored ClickHouse address. The first node may have the address of one pod only.
+      endpoint: cluster.endpoint,
       port: cluster.port ?? 8443,
       secure: cluster.secure !== false,
       user: cluster.chUser || "default",

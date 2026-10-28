@@ -81,7 +81,6 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
     return value
   }
 
-  console.log(form.primaryKey)
 
   // Compose the DDL deterministically from the form.
   const build = useCallback(() => {
@@ -103,8 +102,6 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
         ttl: form.tableTtl,
         settings: form.tableSettings,
       };
-
-      console.log(base)
 
       if (form.distributed) {
         const localName = form.localTableName || `${form.target.table}_local`;

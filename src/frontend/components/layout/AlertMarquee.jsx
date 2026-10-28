@@ -106,7 +106,6 @@ export default function AlertMarquee() {
         display: "flex",
         alignItems: "center",
       }}
-      duration={40000}
     >
       <marquee
         style={{

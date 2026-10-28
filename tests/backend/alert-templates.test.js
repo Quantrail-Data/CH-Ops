@@ -52,6 +52,16 @@ sqlite.exec(`
     error TEXT,
     created_at TEXT
   );
+  CREATE TABLE alert_rule_node_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alert_rule_id INTEGER NOT NULL,
+    node_name TEXT NOT NULL,
+    firing INTEGER NOT NULL DEFAULT 0,
+    breach_run_count INTEGER NOT NULL DEFAULT 0,
+    last_value REAL,
+    last_error TEXT,
+    updated_at TEXT
+  );
   CREATE TABLE app_setting (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL UNIQUE,
@@ -85,7 +95,7 @@ function rulesOfCluster(clusterId) {
 
 beforeEach(() => {
   sqlite.exec(
-    "DELETE FROM alert_rule; DELETE FROM alert_rule_channel; DELETE FROM alert_event; DELETE FROM app_setting;",
+    "DELETE FROM alert_rule; DELETE FROM alert_rule_channel; DELETE FROM alert_event; DELETE FROM alert_rule_node_state; DELETE FROM app_setting;",
   );
 });
 
@@ -184,6 +194,9 @@ describe("removeTemplateRulesForCluster", () => {
     sqlite.exec(
       `INSERT INTO alert_event (alert_rule_id, status) VALUES (${unchangedRule.id}, 'ok')`,
     );
+    sqlite.exec(
+      `INSERT INTO alert_rule_node_state (alert_rule_id, node_name, firing) VALUES (${unchangedRule.id}, 'node-1', 1)`,
+    );
 
     const removedCount = removeTemplateRulesForCluster("cluster_a");
 
@@ -199,8 +212,12 @@ describe("removeTemplateRulesForCluster", () => {
     const leftEvents = sqlite
       .query("SELECT count(*) AS total FROM alert_event")
       .get();
+    const leftNodeStates = sqlite
+      .query("SELECT count(*) AS total FROM alert_rule_node_state")
+      .get();
     expect(leftLinks.total).toBe(0);
     expect(leftEvents.total).toBe(0);
+    expect(leftNodeStates.total).toBe(0);
   });
 });
 

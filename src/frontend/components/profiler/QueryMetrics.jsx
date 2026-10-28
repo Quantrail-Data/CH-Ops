@@ -666,7 +666,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
                   fullText || query.query_preview || "",
                 );
                 toast.success("Query Text Copied Successfully");
-                e.target.closest("button").textContent = "✓ Copied";
+                e.target.closest("button").textContent = "Copied";
                 setTimeout(() => {
                   if (e.target.closest("button"))
                     e.target.closest("button").innerHTML =
@@ -1056,7 +1056,7 @@ export default function QueryMetrics() {
         Drill into per-second metric snapshots from{" "}
         <code>system.query_metric_log</code> for any query. Select a time range,
         pick a query, and click Show Query Metrics to see how memory, CPU, IO,
-        cache, and other resources were consumed over the query's lifetime. Only
+        cache, and other resources were consumed over the query&apos;s lifetime. Only
         metrics with non-zero values are shown, grouped by category.
       </div>
 

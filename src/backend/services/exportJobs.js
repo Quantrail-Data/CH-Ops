@@ -53,6 +53,8 @@ export function safeFileName(input, fallback) {
   const base = String(input || "")
     .replace(/[\\/]/g, "-")
     .replace(/\.\./g, "-")
+    // Control characters are removed on purpose: they are not safe in a file name.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, "")
     .replace(/[^A-Za-z0-9._-]/g, "-")
     .replace(/-+/g, "-")

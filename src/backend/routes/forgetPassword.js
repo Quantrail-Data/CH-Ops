@@ -39,11 +39,11 @@ router.post("/email/verify", async (req, res) => {
 
     const otp = issueOTP(user.id);
     if (otp) {
-      try {
-        await sendOTPEmail(email, otp, resolveSystemSmtp() || {});
-      } catch (err) {
-        log.error("Password reset email failed:", err?.message || err);
-      }
+      // Not awaited: the answer must take the same time for a known and an unknown address,
+      // or the time shows which addresses have an account.
+      sendOTPEmail(email, otp, resolveSystemSmtp() || {}).catch((err) =>
+        log.error("Password reset email failed", { error: err?.message }),
+      );
     }
     return res.status(200).json(GENERIC);
   } catch (err) {

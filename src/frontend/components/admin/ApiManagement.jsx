@@ -45,11 +45,15 @@ export default function ApiManagement() {
 
   const isOllama = formAIProvider === "OLLAMA";
 
+  // Load the keys one time only. The Escape listener changes with the dialog.
+  // Thus the listener has its own effect.
   useEffect(() => {
     loadApiKeys();
+  }, []);
 
-    const handleEscape = (e) => {
-      if (e.key === "Escape" && deleteConfirm.show) {
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape" && deleteConfirm.show) {
         cancelDelete();
       }
     };
@@ -222,8 +226,8 @@ export default function ApiManagement() {
         );
         return duplicate;
       }
-    } catch (err) {
-      console.log("Failed to check duplicate values");
+    } catch {
+      // The duplicate check is only a help. If it fails, the save continues.
     }
     return false;
   }
@@ -396,7 +400,8 @@ export default function ApiManagement() {
   }
 
   function startAddNew() {
-    if (apiKeys.length >= 6) {
+    // The server allows 5 keys (MAX_API_KEYS in services/apiKeys.js).
+    if (apiKeys.length >= 5) {
       toast.warning("Maximum 5 API keys allowed");
       return;
     }
@@ -991,10 +996,10 @@ export default function ApiManagement() {
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
                       >
                         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                         <path d="M10.09 4.01l.496 -.495a2 2 0 0 1 2.828 0l7.071 7.07a2 2 0 0 1 0 2.83l-7.07 7.07a2 2 0 0 1 -2.83 0l-7.07 -7.07a2 2 0 0 1 0 -2.83l3.535 -3.535h-3.988" />
@@ -1099,7 +1104,7 @@ export default function ApiManagement() {
             <p style={modalParagraphStyle}>
               Are you sure you want to delete API key{" "}
               <strong style={{ color: "#6366f1" }}>
-                "{deleteConfirm.keyName}"
+                &quot;{deleteConfirm.keyName}&quot;
               </strong>
               ?
             </p>

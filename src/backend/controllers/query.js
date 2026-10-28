@@ -170,7 +170,7 @@ export async function runQuery(req, res) {
 
     let backup_SQL = null;
     if (backup_sp) {
-      const [id, sqlQ] = sql?.split("-//-");
+      const [id, sqlQ] = String(sql || "").split("-//-");
       const value = db
         .select()
         .from(appSettings)

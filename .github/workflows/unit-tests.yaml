@@ -54,9 +54,9 @@ jobs:
       - name: Run Tests with Coverage
         run: set -o pipefail && bun run test:coverage 2>&1
 
+      # Lint errors fail the build. Warnings do not.
       - name: Run Lint
         run: bun run lint
-        continue-on-error: true
 
       # Built here, posted by coverage-comment.yml. This job can be running
       # fork code, so it stays read-only.
