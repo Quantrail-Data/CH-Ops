@@ -18,7 +18,8 @@ import {
 import { getClusterNodes } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
 import { ALERT_TEMPLATES } from "../services/alertTemplates.js";
-import { alertEvents } from "../db/schema.js";
+import { alertEvents, alertRuleNodeStates } from "../db/schema.js";
+import { selectRuleNodes } from "../services/alertNodeStates.js";
 import { decrypt, encrypt } from "../services/crypto.js";
 
 const _DEFAULTPASSWORDVALUE = "*"?.repeat(15);
@@ -72,13 +73,13 @@ function rulesWithChannels(where, req) {
 }
 
 function EncryptValuesChannels(req) {
-  const { config, type } = req?.body;
+  const { config, type } = req?.body || {};
   if (!config || !type) return null;
   let value = null;
   try {
     value = typeof config === "string" ? JSON.parse(config) : config;
-  } catch (err) {
-    console.log(err?.message);
+  } catch {
+    // Not valid JSON: the channel is saved with an empty config.
     return null;
   }
   switch (type) {
@@ -184,7 +185,7 @@ function UpdateKeysValuesChannels(config, type, storedConfig) {
   return value;
 }
 
-
+// Rules
 
 export function listRules(req, res) {
   res.json(rulesWithChannels(undefined, req));
@@ -259,7 +260,7 @@ export function createRule(req, res) {
   }
 }
 
-
+// Compares a stored value with a value from the rule form. null, undefined and "" are the same.
 function sameValue(storedValue, sentValue) {
   const stored =
     storedValue === null || storedValue === undefined ? "" : String(storedValue);
@@ -268,7 +269,8 @@ function sameValue(storedValue, sentValue) {
   return stored === sent;
 }
 
-
+// True when the request changes the rule. A change of the enabled field alone does not count.
+// The edit form sends every field, so each field is compared with the stored value.
 function requestChangesRule(currentRule, body, currentChannelIds) {
   const fields = [
     "name",
@@ -311,7 +313,7 @@ function requestChangesRule(currentRule, body, currentChannelIds) {
 export async function updateRule(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
-    const { schedule } = req?.body;
+    const { schedule } = req?.body || {};
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ error: "Invalid alert rule ID" });
     }
@@ -349,7 +351,7 @@ export async function updateRule(req, res) {
       }
     }
 
-
+    // A template rule counts as changed after any change other than on or off.
     if (currentRule.templateId && !currentRule.templateEdited) {
       const currentChannelIds = db
         .select()
@@ -415,12 +417,13 @@ export async function updateRule(req, res) {
   }
 }
 
-
+// GET /api/alerts/templates: the ready-made rules.
 export function listTemplates(req, res) {
   res.json(ALERT_TEMPLATES);
 }
 
-
+// POST /api/alerts/rules/test: runs the rule SQL one time on each node, read-only.
+// It shows what the rule would do now. Nothing is saved and nobody is notified.
 export async function testRule(req, res) {
   const { sql, operator, threshold, cluster_id, nodes, noRowsMeansBreach } =
     req.body || {};
@@ -428,10 +431,8 @@ export async function testRule(req, res) {
     return res.status(400).json({ error: "SQL is required." });
   }
 
-  let targetNodes = getClusterNodes(cluster_id || null);
-  if (Array.isArray(nodes) && nodes.length > 0) {
-    targetNodes = targetNodes.filter((node) => nodes.includes(node.host));
-  }
+  // The same node choice as the scheduler: by node name, so nodes that share one address stay apart.
+  const targetNodes = selectRuleNodes(getClusterNodes(cluster_id || null), nodes);
   if (targetNodes.length === 0) {
     return res.status(400).json({ error: "No nodes found for this cluster." });
   }
@@ -452,6 +453,7 @@ export async function testRule(req, res) {
       });
       const firstRow = response.rows?.[0];
       if (!firstRow) {
+        // The scheduler treats no rows the same way.
         results.push({
           node: nodeName,
           value: null,
@@ -495,6 +497,11 @@ export function deleteRule(req, res) {
     db.delete(alertRuleChannels)
       .where(eq(alertRuleChannels.alertRuleId, id))
       .run();
+    // The history and node states of a deleted rule are not used again.
+    db.delete(alertEvents).where(eq(alertEvents.alertRuleId, id)).run();
+    db.delete(alertRuleNodeStates)
+      .where(eq(alertRuleNodeStates.alertRuleId, id))
+      .run();
     db.delete(alertRules).where(eq(alertRules.id, id)).run();
 
     res.json({ deleted: true });
@@ -503,7 +510,7 @@ export function deleteRule(req, res) {
   }
 }
 
-
+// Channels
 
 export function listChannels(req, res) {
   const channels = db
@@ -512,7 +519,8 @@ export function listChannels(req, res) {
     .orderBy(alertChannels.name)
     .all();
 
-
+  // config holds webhook URLs and SMTP credentials. Non-admins only need
+  // id, name and type to assign a channel to a rule, not the secret payload.
   const role = req.user?.role;
   const isAdmin = role === "superadmin" || role === "admin";
   res.json(

@@ -149,7 +149,6 @@ const OTP_Component = ({ setFormStatus }) => {
           email,
         }),
       });
-      console.log(res);
       if (res?.success) {
         // sessionStorage, not localStorage: this is a credential and it should
         // disappear when the tab closes rather than persist on disk.

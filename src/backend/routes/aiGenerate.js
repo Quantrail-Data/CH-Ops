@@ -4,6 +4,7 @@ import { generateSql } from "../servicesAI/SQLGenerationService.js";
 import { normaliseTables, resolveContext, fail } from "./aiRouteHelpers.js";
 import { TITLE_MAX_CHARS } from "../servicesAI/constants.js";
 import * as ChatStore from "../servicesAI/chatStore.js";
+import { getActiveApiKey } from "../services/apiKeys.js";
 
 const router = express.Router();
 
@@ -22,8 +23,9 @@ router.post(
       forceRefreshDdl = false,
       title = "",
       messageId = null,
-      isApiConfigured = false,
     } = req.body || {};
+    // The server checks the API key itself. A value sent by the browser is not trusted.
+    const isApiConfigured = Boolean(getActiveApiKey());
 
     try {
       if (!chatId) {
@@ -172,8 +174,9 @@ router.post(
       previousSql = null,
       forceRefreshDdl = false,
       messageId = null,
-      isApiConfigured = false,
     } = req.body || {};
+    // The server checks the API key itself. A value sent by the browser is not trusted.
+    const isApiConfigured = Boolean(getActiveApiKey());
 
 
 

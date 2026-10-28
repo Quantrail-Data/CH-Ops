@@ -24,7 +24,6 @@
     "test:coverage": "bun run test:backend:coverage && bun run test:frontend:coverage",
     "test:backend:coverage": "bun scripts/test-each-file.mjs tests/backend && bun test tests/isolated && bun test tests/no-mocks && bun test tests/db && bun test tests/net && bun test tests/security",
     "test:frontend:coverage": "vitest run tests/frontend --coverage",
-    "test:frontend:node": "VITEST_NODE_MODE=1 npx vitest run tests/frontend",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "check:sensitive-logging": "node scripts/check-sensitive-logging.mjs",
