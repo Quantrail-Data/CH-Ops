@@ -80,6 +80,7 @@ mock.module("../../src/backend/db/index.js", () => ({
   appSettings: {
     key: "key",
   },
+  alertChannels:{},
 }));
 
 const {
