@@ -32,6 +32,7 @@ mock.module("../../src/backend/db/index.js", () => ({
   clusterNodes: schema.clusterNodes,
   trustedCas: schema.trustedCas,
   rawSqlite: sqlite,
+  alertChannels:{},
 }));
 
 const {

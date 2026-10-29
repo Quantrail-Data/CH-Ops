@@ -57,6 +57,7 @@ mock.module("../../src/backend/db/index.js", () => ({
   clusters: {},
   clusterNodes: {},
   k8sConnections: {},
+  alertChannels:{},
 }));
 
 describe("authMiddleware", () => {
