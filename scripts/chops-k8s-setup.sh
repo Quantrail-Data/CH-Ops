@@ -10,6 +10,7 @@ SA_NAMESPACE="chops"
 SA_NAME="chops-reader"
 SECRET_NAME="chops-reader-token"
 NAMESPACES=()
+OPERATOR_NAMESPACE=""
 ASSUME_YES=0
 
 usage() {
@@ -20,15 +21,19 @@ Usage: chops-k8s-setup.sh [options]
                  Without this, the account gets cluster-wide read access,
                  which is what lets CHOps show you a namespace dropdown.
   -s NAMESPACE   Namespace to create the service account in. Default: chops
+  -o NAMESPACE   Namespace the ClickHouse operator pod runs in. Grants read
+                 access to the operator pod and its logs there, so CHOps can
+                 show operator logs. Optional.
   -y             Do not ask for confirmation.
   -h             Show this message.
 EOF
 }
 
-while getopts "n:s:yh" opt; do
+while getopts "n:s:o:yh" opt; do
   case "$opt" in
     n) NAMESPACES+=("$OPTARG") ;;
     s) SA_NAMESPACE="$OPTARG" ;;
+    o) OPERATOR_NAMESPACE="$OPTARG" ;;
     y) ASSUME_YES=1 ;;
     h) usage; exit 0 ;;
     *) usage; exit 1 ;;
@@ -70,8 +75,12 @@ echo "  ClickHouse installations and Keeper installations (AKOC and OCKO)"
 echo "  Pods, pod logs, services, config maps, events"
 echo "  Persistent volume claims and endpoint slices"
 echo "  Stateful sets, network policies, ingresses, pod disruption budgets"
+echo "  Pod metrics (metrics.k8s.io), on clusters that have a metrics server"
 if [ "$SCOPED" -eq 0 ]; then
-  echo "  Namespaces and storage classes (cluster-wide)"
+  echo "  Namespaces, storage classes and nodes (cluster-wide)"
+fi
+if [ -n "${OPERATOR_NAMESPACE}" ]; then
+  echo "  Operator pods and their logs in namespace ${OPERATOR_NAMESPACE}"
 fi
 echo
 echo "It will NOT be allowed to:"
@@ -125,6 +134,9 @@ NAMESPACED_RULES=$(cat <<'EOF'
   - apiGroups: ["authorization.k8s.io"]
     resources: ["selfsubjectrulesreviews"]
     verbs: ["create"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
 EOF
 )
 
@@ -168,6 +180,9 @@ ${NAMESPACED_RULES}
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list"]
@@ -186,6 +201,39 @@ subjects:
     namespace: ${SA_NAMESPACE}
 EOF
   echo "  Granted cluster-wide read access"
+fi
+
+# Read access to the operator pod and its logs, for the operator log reader.
+if [ -n "${OPERATOR_NAMESPACE}" ]; then
+  kubectl apply -f - >/dev/null <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ${SA_NAME}-operator
+  namespace: ${OPERATOR_NAMESPACE}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ${SA_NAME}-operator
+  namespace: ${OPERATOR_NAMESPACE}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ${SA_NAME}-operator
+subjects:
+  - kind: ServiceAccount
+    name: ${SA_NAME}
+    namespace: ${SA_NAMESPACE}
+EOF
+  echo "  Granted operator pod read access in namespace ${OPERATOR_NAMESPACE}"
 fi
 
 # A token that does not expire.
@@ -260,7 +308,8 @@ you. Type the namespace name instead of choosing from the dropdown:
   ${NAMESPACES[*]}
 
 Volume expansion checks will show as unavailable, because storage classes are
-a cluster-wide object this token cannot read.
+a cluster-wide object this token cannot read. Zone awareness will show as
+unknown for the same reason: nodes are a cluster-wide object.
 
 EOF
 fi

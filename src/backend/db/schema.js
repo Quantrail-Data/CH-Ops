@@ -105,6 +105,27 @@ export const alertEvents = sqliteTable("alert_event", {
   createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
 
+// The state of a rule on each node, so each node fires and recovers on its own.
+export const alertRuleNodeStates = sqliteTable(
+  "alert_rule_node_state",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    alertRuleId: integer("alert_rule_id").notNull(),
+    nodeName: text("node_name").notNull(),
+    firing: integer("firing", { mode: "boolean" }).notNull().default(false),
+    breachRunCount: integer("breach_run_count").notNull().default(0),
+    lastValue: real("last_value"),
+    lastError: text("last_error"),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    oneRowPerRuleNode: unique("alert_rule_node_state_rule_node").on(
+      table.alertRuleId,
+      table.nodeName,
+    ),
+  }),
+);
+
 // Custom Dashboards
 
 export const dashboards = sqliteTable("dashboard", {
@@ -357,7 +378,39 @@ export const k8sConnections = sqliteTable("k8s_connection", {
   // Result of the hostName() probe: whether two queries on one connection reach the same
   affinityOk: integer("affinity_ok", { mode: "boolean" }),
 
+  // The namespace where the operator pod runs, to read its logs.
+  operatorNamespace: text("operator_namespace"),
+
   createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+});
+
+// The last result of each Kubernetes health check, to know when the result changes.
+export const k8sHealthState = sqliteTable(
+  "k8s_health_state",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    clusterId: text("cluster_id").notNull(),
+    checkName: text("check_name").notNull(),
+    status: text("status").notNull(),
+    consecutiveFails: integer("consecutive_fails").notNull().default(0),
+    notified: integer("notified", { mode: "boolean" }).notNull().default(false),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    oneRowPerClusterCheck: unique("k8s_health_state_cluster_check").on(
+      table.clusterId,
+      table.checkName,
+    ),
+  }),
+);
+
+// For each cluster: are health alerts on, and which channels get them.
+export const k8sHealthAlertConfigs = sqliteTable("k8s_health_alert_config", {
+  clusterId: text("cluster_id").primaryKey(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  channelsJson: text("channels_json").notNull().default("[]"),
+  lastRunAt: text("last_run_at"),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });
 

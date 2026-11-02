@@ -1398,7 +1398,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 {
                   label: {
                     position: "outside",
-                    rotate: "tangential",
                     distance: previewTools.fullscreen ? 20 : 10,
                     rotate: 0,
                     show: !hideSunburst,

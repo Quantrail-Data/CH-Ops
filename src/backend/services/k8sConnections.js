@@ -53,6 +53,18 @@ const OPTIONAL_PERMISSIONS = [
     verb: 'list',
     feature: 'Scale-out headroom',
   },
+  {
+    group: '',
+    resource: 'nodes',
+    verb: 'list',
+    feature: 'Zone awareness',
+  },
+  {
+    group: 'metrics.k8s.io',
+    resource: 'pods',
+    verb: 'list',
+    feature: 'Live pod resource usage',
+  },
 ];
 
 function rowToConnection(row, { includeToken = false } = {}) {
@@ -63,6 +75,7 @@ function rowToConnection(row, { includeToken = false } = {}) {
     apiAddress: row.apiAddress,
     namespaces: row.namespacesJson ? JSON.parse(row.namespacesJson) : null,
     affinityOk: row.affinityOk,
+    operatorNamespace: row.operatorNamespace ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     // Only ever true for internal callers building a client.
@@ -81,7 +94,15 @@ export function getConnection(id, options) {
   return rowToConnection(row, options);
 }
 
-export function saveConnection({ id, name, apiAddress, caCertificate, token, namespaces }) {
+export function saveConnection({
+  id,
+  name,
+  apiAddress,
+  caCertificate,
+  token,
+  namespaces,
+  operatorNamespace,
+}) {
   const now = new Date().toISOString();
   const connectionId = id || `k8s_${Date.now().toString(36)}`;
 
@@ -94,6 +115,10 @@ export function saveConnection({ id, name, apiAddress, caCertificate, token, nam
   if (caCertificate) values.caCertificate = caCertificate;
   // Only overwrite the stored token when a new one was supplied
   if (token) values.tokenEnc = encrypt(token);
+  // undefined keeps the stored operator namespace. An empty text clears it.
+  if (operatorNamespace !== undefined) {
+    values.operatorNamespace = operatorNamespace || null;
+  }
 
   const existing = db
     .select()
