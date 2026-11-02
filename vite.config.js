@@ -24,27 +24,6 @@ const searchHeadersPlugin = {
   },
 };
 
-const NODE_MODE = process.env.VITEST_NODE_MODE === '1';
-
-const BUN_EXCLUDED_SUITES = [
-  '**/node_modules/**',
-  'tests/frontend/ExportWizard-resume.test.jsx',
-  'tests/frontend/api-management.test.jsx',
-  'tests/frontend/app-data-backup.test.jsx',
-  'tests/frontend/export-wizard.test.jsx',
-  'tests/frontend/navbar.test.jsx',
-  'tests/frontend/overview-components.test.jsx',
-  'tests/frontend/overview-live.test.jsx',
-  'tests/frontend/overview-page.test.jsx',
-  'tests/frontend/query-metrics.test.jsx',
-  'tests/frontend/sqlActions.test.jsx',
-  'tests/frontend/user-management.test.jsx',
-];
-
-const NODE_EXCLUDED_SUITES = [
-  '**/node_modules/**',
-];
-
 export default defineConfig({
   plugins: [react(), searchHeadersPlugin],
   define: {
@@ -74,25 +53,10 @@ export default defineConfig({
     hookTimeout: 20000,
     include: ['tests/frontend/**/*.test.{js,jsx}'],
 
-    // EXCLUDED BECAUSE THEY REQUIRE vi.mock, WHICH NEEDS NODE.
-    //
-    // vi.mock is implemented through Vite's transform pipeline. Bun's loader
-    // does not run that pipeline, so the call is a no-op and the real module
-    // loads instead - verified with a probe: neither a self-contained inline
-    // factory nor one closing over a hoisted value applies under `bun x vitest`.
-    //
-    // The suites below mock api.js, Toast.jsx, Icon.jsx or Select.jsx in ways
-    // the tests depend on: without the mock the components make real fetch
-    // calls, so the failures are the mocking, not the code. Each was checked
-    // individually with its mocks disabled; the two other mock-using suites
-    // (DashboardFilters, DataTable-virtual) pass without them and are NOT
-    // excluded.
-    //
-    // These are not broken tests. They pass under Node:
-    //     npx vitest run tests/frontend
-    // Remove this exclude list on any machine that has Node, or if the suites
-    // are ever reworked to inject their dependencies rather than mock modules.
-    exclude: NODE_MODE ? NODE_EXCLUDED_SUITES : BUN_EXCLUDED_SUITES,
+    // vi.mock needs Vite's transform pipeline, which runs under Node. `bun run` starts vitest
+    // with Node (the shebang of the vitest command), so every suite runs. Do not start vitest
+    // with `bun --bun`: the mocks then do nothing, and the suites that use them fail.
+    exclude: ['**/node_modules/**'],
     setupFiles: ['tests/frontend/setup.js'],
     coverage: {
       provider: 'istanbul',

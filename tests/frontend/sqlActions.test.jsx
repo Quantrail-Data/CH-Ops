@@ -72,12 +72,12 @@ const explainSelect = (c) =>
   );
 
 describe("labels", () => {
-  it("calls the run button Go, the estimate Cost, and the plain mode Execute SQL", async () => {
+  it("calls the run button Go, the estimate Cost, and the plain mode Select Explain", async () => {
     const { container } = render(<QueryEditor />, { wrapper: MemoryRouter });
     await ready(container);
     expect(btn(container, /^\s*Go\s*$/)).toBeTruthy();
     expect(btn(container, /Cost/)).toBeTruthy();
-    expect(container.querySelector('option[value="GENERAL RUN"]').textContent).toBe("Execute SQL");
+    expect(container.querySelector('option[value="GENERAL RUN"]').textContent).toBe("Select Explain");
   });
 });
 

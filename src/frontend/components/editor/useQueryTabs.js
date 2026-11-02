@@ -232,7 +232,6 @@ export function useQueryTabs() {
     });
 
     if (creates) {
-     console.log(creates)
       setRuntimeAll((r) => ({ ...r, [creates.id]: blankRuntime() }));
       setActiveId(creates.id);
     }

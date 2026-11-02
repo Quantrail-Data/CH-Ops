@@ -232,6 +232,8 @@ export const paths = {
 
   storageClasses: () => "/apis/storage.k8s.io/v1/storageclasses",
 
+  nodes: () => "/api/v1/nodes",
+
   selfSubjectRulesReviews: () =>
     "/apis/authorization.k8s.io/v1/selfsubjectrulesreviews",
 

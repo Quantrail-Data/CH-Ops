@@ -431,19 +431,22 @@ chops.example.com {
 
 Note: the `rate_limit` directive requires the `caddy-ratelimit` plugin.
 
-### Multiple CHOps instances behind load balancer
+### Run one CHOps instance only
 
-```
-chops.example.com {
-    reverse_proxy localhost:3000 localhost:3001 {
-        lb_policy round_robin
-        health_uri /api/health
-        health_interval 10s
-    }
-}
-```
+Run exactly one CHOps process for one database. Do not put two CHOps instances behind a load balancer. This also applies to Kubernetes `replicas: 2` or more. CHOps keeps these items in the memory of its process:
 
-Note: CHOps uses SQLite, which does not support multiple writers. Only use this for read scaling or active/standby setups.
+- password reset codes and reset tokens,
+- failed login counts and rate limits,
+- the alert scheduler and the Kubernetes health alerts.
+
+Two instances cause these problems:
+
+- A reset code from one instance does not work on the other instance.
+- The login limits count only half of the attempts.
+- CHOps sends each alert two times.
+- SQLite does not support two writers.
+
+For high availability, use a standby instance. Start it only when the first instance stops. It must use the same database file and the same `data/crypto.salt`. For example, use a systemd service on a second server that you start manually. Or use a Kubernetes Deployment with `replicas: 1` and `strategy: Recreate`.
 
 ---
 

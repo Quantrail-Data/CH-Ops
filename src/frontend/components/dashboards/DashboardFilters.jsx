@@ -46,7 +46,7 @@ export default function DashboardFilters({
       <div className="alert-banner danger" style={{ marginBottom: 12 }}>
         <Icon className="ti ti-alert-circle" />
         <div>
-          <strong>This dashboard's filters cannot be built.</strong>
+          <strong>This dashboard&apos;s filters cannot be built.</strong>
           <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
             {conflicts.map((c, i) => (
               <li key={i} style={{ fontSize: "13px" }}>{c}</li>

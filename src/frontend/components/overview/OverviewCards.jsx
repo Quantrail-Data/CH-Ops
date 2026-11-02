@@ -27,7 +27,7 @@ export function MetricDescriptions({ value, children }) {
 // METRICS is keyed by our names (cpu_used); system.metrics is keyed by the
 // server's (OSIdleTimeNormalized), so the formula is the only thing that joins
 // the two.
-function serverNotesFor(formula) {
+function useServerNotes(formula) {
   const descriptions = useContext(DescriptionsContext);
   return useMemo(() => {
     if (!descriptions || !formula) return [];
@@ -88,7 +88,7 @@ export function ChartCard({
   emptyMessage = "Collecting...",
 }) {
   const meta = METRICS[metricKey] || {};
-  const notes = serverNotesFor(meta.formula);
+  const notes = useServerNotes(meta.formula);
   const dark = useIsDark();
   const elRef = useRef(null);
   const instRef = useRef(null);
@@ -245,7 +245,7 @@ export function KpiStrip({ title, items, minWidth = 168 }) {
 
 function KpiValue({ metricKey, value }) {
   const meta = METRICS[metricKey] || {};
-  const notes = serverNotesFor(meta.formula);
+  const notes = useServerNotes(meta.formula);
   const unavailable = value === NO_VALUE || value === undefined || !Number.isFinite(value);
 
   return (
@@ -392,7 +392,7 @@ export function HealthStrip({ chips }) {
 
 function MiniGauge({ metricKey, label, value, formatter, dark }) {
   const meta = METRICS[metricKey] || {};
-  const notes = serverNotesFor(meta.formula);
+  const notes = useServerNotes(meta.formula);
   const elRef = useRef(null);
   const instRef = useRef(null);
 

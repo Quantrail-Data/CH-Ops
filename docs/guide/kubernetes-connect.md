@@ -189,6 +189,16 @@ fix it here. Nothing later can work until it succeeds.
 
 ---
 
+### Run the script again after a CHOps upgrade
+
+This CHOps version reads more optional objects: nodes (zone awareness),
+pod metrics (live resource usage), and the operator namespace (operator
+logs). A token from an older script keeps working. The new features show
+as unknown, and the Kubernetes page names the missing grants. To turn them
+on, run the script again with the options that you used before. Add
+`-o <operator namespace>` if you want operator logs. It is safe to run the
+script again: it changes each object in place, and the token stays the same.
+
 ## 5. Step 2: make ClickHouse reachable
 
 This is the step people miss, for the reason in

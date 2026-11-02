@@ -638,8 +638,8 @@ export default function MemoryAllocator() {
 
       {/* ROW 2: Memory Breakdown */}
       <InfoBanner>
-        How physical RAM is divided. The gap between "Used by Queries" and
-        "Given to Allocator" is internal fragmentation. Smaller gap = healthier.
+        How physical RAM is divided. The gap between &quot;Used by Queries&quot; and
+        &quot;Given to Allocator&quot; is internal fragmentation. Smaller gap = healthier.
       </InfoBanner>
       <div
         className="card"
