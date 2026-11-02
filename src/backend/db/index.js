@@ -30,6 +30,7 @@ try {
 
 try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN nodes TEXT"); } catch {}
 try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN cluster_id TEXT"); } catch {}
+try { sqlite.exec("ALTER TABLE k8s_connection ADD COLUMN operator_namespace TEXT"); } catch { /* The column exists. */ }
 
 export const db = drizzle(sqlite, { schema });
 
@@ -38,6 +39,7 @@ export const db = drizzle(sqlite, { schema });
 
 export const appSettings = schema.appSettings;
 export const alertRules = schema.alertRules;
+export const alertRuleNodeStates = schema.alertRuleNodeStates;
 export const alertChannels = schema.alertChannels;
 export const alertRuleChannels = schema.alertRuleChannels;
 export const dashboards = schema.dashboards;
@@ -48,6 +50,8 @@ export const appUsers = schema.appUsers;
 export const clusters = schema.clusters;
 export const clusterNodes = schema.clusterNodes;
 export const k8sConnections = schema.k8sConnections;
+export const k8sHealthState = schema.k8sHealthState;
+export const k8sHealthAlertConfigs = schema.k8sHealthAlertConfigs;
 export const trustedCas = schema.trustedCas;
 
 // The raw handle, for the cluster storage migration.

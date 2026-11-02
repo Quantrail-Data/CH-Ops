@@ -1523,7 +1523,7 @@ export default function AllCharts({ onEdit }) {
           </div>
         )}
       </div>
-      {del && canEdit && <ConfirmModal title="Delete Chart" message={del?.name ? `Delete \"${del.name}\"?` : "Delete this chart?"} onConfirm={() => performDeleteChartById(del.id)} onCancel={() => setDel(null)} danger />}
+      {del && canEdit && <ConfirmModal title="Delete Chart" message={del?.name ? `Delete "${del.name}"?` : "Delete this chart?"} onConfirm={() => performDeleteChartById(del.id)} onCancel={() => setDel(null)} danger />}
     </div>
   );
 }

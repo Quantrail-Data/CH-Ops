@@ -48,12 +48,25 @@ const DEMO_POD = {
       "clickhouse.altinity.com/replica": "0",
     },
   },
+  spec: {
+    containers: [
+      {
+        name: "clickhouse",
+        resources: {
+          requests: { cpu: "1", memory: "2Gi" },
+          limits: { cpu: "2", memory: "4Gi" },
+        },
+      },
+    ],
+  },
   status: { phase: "Running" },
 };
 
 let app;
 let fakeKubernetesApi;
 let connectionId;
+// The id of the cluster that the import test makes.
+let importedClusterId;
 
 const kubernetesRequests = [];
 
@@ -71,6 +84,17 @@ function startFakeKubernetesApi() {
       if (requestPath === INSTALLATION_PATH) return Response.json(INSTALLATION);
       if (requestPath === "/api/v1/namespaces/default/pods") {
         return Response.json({ kind: "List", metadata: {}, items: [DEMO_POD] });
+      }
+      if (requestPath === "/apis/metrics.k8s.io/v1beta1/namespaces/default/pods") {
+        return Response.json({
+          kind: "PodMetricsList",
+          items: [
+            {
+              metadata: { name: DEMO_POD.metadata.name },
+              containers: [{ name: "clickhouse", usage: { cpu: "250m", memory: "1Gi" } }],
+            },
+          ],
+        });
       }
       return Response.json({ kind: "List", metadata: {}, items: [] });
     },
@@ -115,6 +139,12 @@ describe("admin only routes", () => {
       ["POST", `/api/k8s/clusters/${app.clusterId}/refresh`],
       ["POST", `/api/k8s/insight/${app.clusterId}/refresh`],
       ["GET", `/api/k8s/insight/${app.clusterId}/keeper`],
+      ["GET", `/api/k8s/insight/${app.clusterId}/permissions`],
+      ["GET", `/api/k8s/insight/${app.clusterId}/resources`],
+      ["POST", "/api/k8s/operator-probe"],
+      ["GET", `/api/k8s/insight/${app.clusterId}/operator-pod`],
+      ["GET", `/api/k8s/insight/${app.clusterId}/health-alerts`],
+      ["PUT", `/api/k8s/insight/${app.clusterId}/health-alerts`],
     ];
   }
 
@@ -170,12 +200,98 @@ describe("import", () => {
       acknowledgeSharedEndpoint: true,
     });
     expect(imported.status).toBe(201);
+    importedClusterId = imported.json.id;
 
     const rules = await app.api("admin", "GET", "/api/alerts/rules");
     const importedTemplateRules = rules.json.filter(
       (rule) => rule.cluster_id === imported.json.id && rule.templateId,
     );
     expect(importedTemplateRules.length).toBe(31);
+  });
+});
+
+describe("Kubernetes Insights Part 2", () => {
+  it("lists the new features as degraded when the token lacks their grants", async () => {
+    const result = await app.api(
+      "admin",
+      "GET",
+      `/api/k8s/insight/${importedClusterId}/permissions`,
+    );
+    expect(result.status).toBe(200);
+    const degradedFeatures = result.json.degraded.map(
+      (permission) => permission.feature,
+    );
+    expect(degradedFeatures).toContain("Zone awareness");
+    expect(degradedFeatures).toContain("Live pod resource usage");
+  });
+
+  it("lists the requests and limits of each pod", async () => {
+    const result = await app.api(
+      "admin",
+      "GET",
+      `/api/k8s/insight/${importedClusterId}/resources`,
+    );
+    expect(result.status).toBe(200);
+    expect(result.json.rows).toEqual([
+      expect.objectContaining({
+        podName: "chi-demo-main-0-0-0",
+        cpuRequest: "1",
+        cpuLimit: "2",
+        memoryRequest: "2Gi",
+        memoryLimit: "4Gi",
+      }),
+    ]);
+    expect(result.json.memoryChecked).toBe(true);
+    expect(result.json.warnings).toEqual([]);
+    expect(result.json.liveChecked).toBe(true);
+    expect(result.json.rows[0].liveCpu).toBe("250m");
+    expect(result.json.rows[0].liveMemory).toBe("1Gi");
+  });
+
+  it("refuses an operator namespace that is not a Kubernetes name", async () => {
+    const result = await app.api("admin", "PUT", `/api/k8s/connections/${connectionId}`, {
+      operatorNamespace: "Kube System",
+    });
+    expect(result.status).toBe(400);
+    expect(result.json.error).toBe("The operator namespace is not valid.");
+  });
+
+  it("says when the probe finds no operator pod", async () => {
+    const result = await app.api("admin", "POST", "/api/k8s/operator-probe", {
+      connectionId,
+      operatorNamespace: "kube-system",
+    });
+    expect(result.status).toBe(200);
+    expect(result.json.found).toBe(false);
+  });
+
+  it("answers found false on the Logs tab when no operator namespace is set", async () => {
+    const result = await app.api(
+      "admin",
+      "GET",
+      `/api/k8s/insight/${importedClusterId}/operator-pod`,
+    );
+    expect(result.json).toEqual({
+      found: false,
+      message: "No operator namespace is set on this Kubernetes connection.",
+    });
+    const logs = await app.api(
+      "admin",
+      "GET",
+      `/api/k8s/insight/${importedClusterId}/logs/chi-demo-main-0-0-0?operator=true`,
+    );
+    expect(logs.status).toBe(400);
+  });
+
+  it("saves and reads the health alert settings", async () => {
+    const url = `/api/k8s/insight/${importedClusterId}/health-alerts`;
+    const saved = await app.api("admin", "PUT", url, {
+      enabled: true,
+      channels: [3, "4", "not-a-number"],
+    });
+    expect(saved.status).toBe(200);
+    const config = await app.api("admin", "GET", url);
+    expect(config.json).toEqual({ enabled: true, channels: [3, 4] });
   });
 });
 

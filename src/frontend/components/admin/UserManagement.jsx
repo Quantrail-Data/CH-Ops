@@ -37,7 +37,6 @@ export default function UserManagement() {
     email: "",
     role: "readonly",
   });
-  const [generatedPw, setGeneratedPw] = useState(null);
   const [del, setDel] = useState(null);
   const [changePw, setChangePw] = useState({
     show: false,
@@ -85,7 +84,8 @@ export default function UserManagement() {
   }
 
   useEffect(() => {
-    if (tab === "smtp" && !myLevel === ROLE_LEVEL['superadmin']) return;
+    // Only a superadmin may read the SMTP settings, and only a superadmin sees the result.
+    if (myLevel !== ROLE_LEVEL.superadmin) return;
     checkSmtpconfigured();
   }, [tab]);
 
@@ -266,16 +266,17 @@ export default function UserManagement() {
   }
 
 async function resetPassword(id,initUser) {
-    if(initUser) {
-      toast.error("Cannot reset passord for init user");
+    if (initUser) {
+      toast.error("Cannot reset the password of the default user.");
+      return;
     }
     try {
-      const r = await apiFetch(`/api/users/${id}`, {
+      const response = await apiFetch(`/api/users/${id}`, {
         method: "PUT",
         body: JSON.stringify({ resetPassword: true }),
       });
-      setGeneratedPw(r.generatedPassword);
-      toast.success("Password changed successfully.");
+      setSetupURL(response.setPasswordUrl);
+      toast.success("Password reset. Send the setup link to the user.");
     } catch (err) {
       toast.error(err.message);
     }
@@ -643,27 +644,10 @@ async function resetPassword(id,initUser) {
           {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"]&&(
             <div className="alert-banner info" style={{ marginBottom: 14 }}>
               <Icon className="ti ti-info-circle"></Icon>SMTP is not configured.
-              Email notifications are disabled. You can only create users and
-              retrieve passwords directly in the UI.
+              Email notifications are disabled. Copy the setup link from this
+              page and send it to the user.
             </div>
           )}
-          {generatedPw && (
-            <div className="alert-banner success" style={{ marginBottom: 14 }}>
-              <Icon className="ti ti-key"></Icon> Generated password:{" "}
-              <strong style={{ fontFamily: "var(--font-code)", marginLeft: 8 }}>
-                {generatedPw}
-              </strong>{" "}
-              - share securely with the user.
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ marginLeft: "auto" }}
-                onClick={() => setGeneratedPw(null)}
-              >
-                <Icon className="ti ti-x"></Icon>
-              </button>
-            </div>
-          )}
-
           {setupURL && (
             <div
               className="setup-url-card"
@@ -916,7 +900,13 @@ async function resetPassword(id,initUser) {
               <tbody>
                 {users.map((u) => {
                   const targetLevel = ROLE_LEVEL[u.role] || 0;
-                  const canManage = isAdmin && targetLevel <= myLevel;
+                  // These are the same rules as on the server. Role changes and deletes are only for
+                  // users below your own level. A superadmin can also reset another superadmin.
+                  const canManage = isAdmin && targetLevel < myLevel;
+                  // No user resets their own password here. "Change My Password" does that.
+                  const isOwnRow = u.username === auth?.username;
+                  const canResetPassword =
+                    !isOwnRow && (canManage || myRole === "superadmin");
                   const rolesForTarget = assignableRoles(u.role);
                   return (
                     <tr key={u.id}>
@@ -976,9 +966,9 @@ async function resetPassword(id,initUser) {
                             className="btn btn-secondary btn-sm"
                             onClick={() => resetPassword(u.id,u.initUser)}
                             title="Reset Password"
-                            disabled={!canManage || u.initUser}
+                            disabled={!canResetPassword || u.initUser}
                             style={
-                              !canManage
+                              !canResetPassword || u.initUser
                                 ? { opacity: 0.35, cursor: "not-allowed" }
                                 : {}
                             }
@@ -989,9 +979,9 @@ async function resetPassword(id,initUser) {
                             className="btn btn-secondary btn-sm"
                             onClick={() => reGenerateSetupURL(u?.id)}
                             title="Copy setup URL"
-                            disabled={!canManage || u.initUser}
+                            disabled={!canResetPassword || u.initUser}
                             style={
-                              !canManage || u.initUser
+                              !canResetPassword || u.initUser
                                 ? { opacity: 0.35, cursor: "not-allowed" }
                                 : {}
                             }

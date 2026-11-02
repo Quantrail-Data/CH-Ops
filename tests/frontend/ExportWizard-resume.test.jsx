@@ -93,8 +93,8 @@ describe("remembering", () => {
     const btn = (re) =>
       [...container.querySelectorAll("button")].find((b) => re.test(b.textContent));
     fireEvent.click(btn(/Estimate rows/));
-    await waitFor(() => expect(btn(/^Next$/).disabled).toBe(false));
-    fireEvent.click(btn(/^Next$/));
+    await waitFor(() => expect(btn(/^Next/).disabled).toBe(false));
+    fireEvent.click(btn(/^Next/));
     await waitFor(() => expect(btn(/Start export/)).toBeTruthy());
     fireEvent.click(btn(/Start export/));
     await waitFor(() => {

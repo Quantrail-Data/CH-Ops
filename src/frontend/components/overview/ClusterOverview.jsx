@@ -281,10 +281,13 @@ export default function ClusterOverview() {
     fullscreenFun: true,
   };
 
-    const getUnavailableMessage = () => {
-  const match = connection.unavailable.find(item => item.table === "system.disks");
-  return match ? match.message : null;
-};
+  // The connection can have no list yet, for example while it connects.
+  const getUnavailableMessage = () => {
+    const match = (connection.unavailable || []).find(
+      (item) => item.table === "system.disks",
+    );
+    return match ? match.message : null;
+  };
 
 const unavailableMessage = getUnavailableMessage();
 

@@ -545,14 +545,16 @@ function ErrorLogSearch() {
 
   function toggleError(err) { setSelectedErrors(prev => prev.includes(err) ? prev.filter(e => e !== err) : [...prev, err]); }
 
-  async function handleSearch(e) {
-    e.preventDefault();
-    const conds = [`event_time BETWEEN '${from}' AND '${to}'`];
-    if (errorMessage.trim()) conds.push(`last_error_message LIKE '%${errorMessage.trim()}%'`);
-    if (selectedErrors.length > 0) conds.push(`error IN (${selectedErrors.map(e => `'${e}'`).join(',')})`);
+  async function handleSearch(event) {
+    event.preventDefault();
+    const conditions = [`event_time BETWEEN '${from}' AND '${to}'`];
+    if (errorMessage.trim()) conditions.push(`last_error_message LIKE '%${errorMessage.trim()}%'`);
+    if (selectedErrors.length > 0) conditions.push(`error IN (${selectedErrors.map(errorName => `'${errorName}'`).join(',')})`);
     setSubmitted(true);
     setFiltersOpen(false);
-    await q.execute(`SELECT ${ERROR_LOG_COLS.join(", ")}${extraSelectSql(ERROR_LOG_COLS,adv.columns)} FROM system.error_log WHERE ${where} ORDER BY event_time DESC LIMIT ${rowLimit}`, { readOnly: true },);  }
+    const where = buildWhere(conditions, adv.filters);
+    await q.execute(`SELECT ${ERROR_LOG_COLS.join(", ")}${extraSelectSql(ERROR_LOG_COLS,adv.columns)} FROM system.error_log WHERE ${where} ORDER BY event_time DESC LIMIT ${rowLimit}`, { readOnly: true },);
+  }
 
       // handle the Date change infinity like FROM > TO -->( Kathirdhasan )
       const handleDateOnChange = (date, label) => {

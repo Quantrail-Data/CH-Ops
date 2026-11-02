@@ -40,7 +40,6 @@ export default function DistReplTab({ view = "replication" ,unavailable}) {
     try {
       if (isRepl) {
         const r = await loadReplication();
-        console.log(r)
         setRepl(r);
         prevRef.current.replTotal = r?.cards ? Number(r.cards.total_pending) : null;
       } else {

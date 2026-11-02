@@ -1,11 +1,10 @@
 // alertScheduler.js - Cron-based alert evaluation engine
 //
 // Runs every minute and evaluates all enabled alert rules that are due.
-// Each rule is evaluated in parallel across all nodes in its cluster.
-// If a node breaches the threshold, a separate notification is sent
-// for that node with its specific value. Rules can target specific
-// nodes via the nodes field. All notifications (nodes x channels)
-// are dispatched in parallel for maximum throughput.
+// Each rule runs on all nodes of its cluster, or on the nodes in its nodes field.
+// The state of each node is kept apart (alertNodeStates.js). A rule sends one
+// message for all its nodes: when the list of firing nodes changes, and
+// "resolved" when no node fires. Query errors send their own messages.
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
@@ -21,12 +20,16 @@ import {
 import { executeQuery } from "./clickhouse.js";
 import { sendNotification } from "./notifier.js";
 import { getClusterNodes } from "./clusterUtils.js";
-import { alertEvents } from "../db/schema.js";
+import { alertEvents, alertRuleNodeStates } from "../db/schema.js";
 import { DecryptValuesChannels } from "../controllers/alerts.js";
-
-// Cluster nodes loaded from clusterUtils.getClusterNodes()
-
-const DEFAULT_NOTIFY_COOLDOWN_MINUTES = 60;
+import { runK8sHealthAlerts } from "./k8sHealthAlerts.js";
+import {
+  nodeKey,
+  selectRuleNodes,
+  nextNodeState,
+  decideRuleNotifications,
+  ruleStatus,
+} from "./alertNodeStates.js";
 
 function cronMatches(expr, date) {
   const parts = expr.trim().split(/\s+/);
@@ -70,262 +73,377 @@ export function evalThreshold(value, operator, threshold) {
   }
 }
 
-function cooldownElapsed(rule, now) {
-  const minutes = Number.isFinite(Number(rule.cooldownMinutes))
-    ? Number(rule.cooldownMinutes)
-    : DEFAULT_NOTIFY_COOLDOWN_MINUTES;
-  if (minutes <= 0) return true;
-  if (!rule.lastNotifiedAt) return true;
-  const last = new Date(rule.lastNotifiedAt).getTime();
-  if (!Number.isFinite(last)) return true;
-  return now.getTime() - last >= minutes * 60 * 1000;
+// Runs the rule SQL on each node. Returns one result for each node: its value, or its error.
+async function runRuleOnNodes(rule, nodes) {
+  const queryResults = await Promise.allSettled(
+    nodes.map((node) =>
+      executeQuery({
+        host: node.host,
+        port: node.port,
+        secure: !!node.secure,
+        user: node.user,
+        password: node.password,
+        sql: rule.sql,
+        // Alert rules only read data. All other queries in CHOps use this guard too.
+        readOnly: true,
+        timeoutMs: 120000,
+      }),
+    ),
+  );
+
+  return queryResults.map((queryResult, index) => {
+    const name = nodeKey(nodes[index]);
+    if (queryResult.status === "rejected") {
+      return { name, error: queryResult.reason?.message || "query failed" };
+    }
+    if (!queryResult.value.rows?.length) {
+      // No rows is a breach only when noRowsMeansBreach is true.
+      return { name, value: null, breached: rule.noRowsMeansBreach === true };
+    }
+    const rawValue = Object.values(queryResult.value.rows[0])[0];
+    const value = Number(rawValue);
+    if (rawValue === null || rawValue === "" || Number.isNaN(value)) {
+      return {
+        name,
+        error: `query returned a non numeric value: ${String(rawValue).slice(0, 50)}`,
+      };
+    }
+    return {
+      name,
+      value,
+      breached: evalThreshold(value, rule.operator, rule.threshold),
+    };
+  });
 }
 
-async function evaluateRule(rule, allNodes, now) {
-  const prevStatus = rule.lastState; 
-  let errorMsg = null;
-  let firingNodes = [];
-  let lastValue = 0;
+// The name used for the state of a rule whose node choice matches no node.
+const NO_NODE = "(no node)";
 
+// The names of the nodes whose state passes the test.
+function nodeNamesWhere(states, test) {
+  const names = new Set();
+  for (const [name, state] of states) {
+    if (test(state)) names.add(name);
+  }
+  return names;
+}
+
+// For example "node-1: timeout; node-2: query failed".
+function describeNodeErrors(nodeStates) {
+  return [...nodeStates]
+    .filter(([, state]) => state.error)
+    .map(([name, state]) => `${name}: ${state.error}`)
+    .join("; ");
+}
+
+function storedRowToState(row) {
+  return {
+    firing: Boolean(row.firing),
+    breachRunCount: row.breachRunCount,
+    value: row.lastValue,
+    error: row.lastError,
+  };
+}
+
+function loadNodeStates(ruleId) {
+  const stateByNode = new Map();
+  const rows = db
+    .select()
+    .from(alertRuleNodeStates)
+    .where(eq(alertRuleNodeStates.alertRuleId, ruleId))
+    .all();
+  for (const row of rows) stateByNode.set(row.nodeName, row);
+  return stateByNode;
+}
+
+function saveNodeStates(ruleId, nodeStates, now) {
+  // Nodes that the rule no longer runs on lose their state.
+  db.delete(alertRuleNodeStates)
+    .where(eq(alertRuleNodeStates.alertRuleId, ruleId))
+    .run();
+  for (const [nodeName, state] of nodeStates) {
+    db.insert(alertRuleNodeStates)
+      .values({
+        alertRuleId: ruleId,
+        nodeName,
+        firing: state.firing,
+        breachRunCount: state.breachRunCount,
+        lastValue: state.value,
+        lastError: state.error ? String(state.error).slice(0, 300) : null,
+        updatedAt: now.toISOString(),
+      })
+      .run();
+  }
+}
+
+// Exported for the tests.
+export async function evaluateRule(rule, allNodes, now) {
+  const previousStatus = rule.lastState; // 'ok' | 'firing' | 'error' | null
+  const breachRunsRequired = rule.breachRunsRequired || 1;
+
+  let selectedNodes = null;
   try {
-  
-    let nodes = allNodes;
-    if (rule.nodes) {
-      try {
-        const selected = JSON.parse(rule.nodes);
-        if (Array.isArray(selected) && selected.length > 0)
-          nodes = allNodes.filter((n) => selected.includes(n.host));
-      } catch {}
-    }
-    if (nodes.length === 0) errorMsg = "No target nodes resolved for this rule";
+    selectedNodes = rule.nodes ? JSON.parse(rule.nodes) : null;
+  } catch {
+    selectedNodes = null;
+  }
+  const nodes = selectRuleNodes(allNodes, selectedNodes);
 
-    if (!errorMsg) {
-      const nodeResults = await Promise.allSettled(
-        nodes.map((node) =>
-          executeQuery({
-            host: node.host,
-            port: node.port,
-            secure: !!node.secure,
-            user: node.user,
-            password: node.password,
-            sql: rule.sql,
-            readOnly: true,
-            timeoutMs: 120000,
-          }),
-        ),
-      );
+  const storedStates = loadNodeStates(rule.id);
+  // Rules from before the upgrade have no node state rows. Then the rule row gives the old state.
+  // is_active is true when the rule fired. It stays true also when last_state is "error".
+  const noStoredStates = storedStates.size === 0;
+  const firedBeforeNodeStates =
+    noStoredStates && (previousStatus === "firing" || Boolean(rule.isActive));
+  const failedBeforeNodeStates = noStoredStates && previousStatus === "error";
 
-      const errs = [];
-      for (let i = 0; i < nodeResults.length; i++) {
-        const r = nodeResults[i];
-        if (r.status === "rejected") {
-          errs.push(
-            `${nodes[i].name || nodes[i].host}: ${r.reason?.message || "query failed"}`,
-          );
-          continue;
-        }
-        if (!r.value.rows?.length) {
-          if (rule.noRowsMeansBreach) {
-            firingNodes.push({
-              host: nodes[i].host,
-              name: nodes[i].name || nodes[i].host,
-              value: null,
-            });
-          }
-          continue;
-        }
-        const rawValue = Object.values(r.value.rows[0])[0];
-        const v = Number(rawValue);
-        if (rawValue === null || rawValue === "" || Number.isNaN(v)) {
-          errs.push(`${nodes[i].name || nodes[i].host}: query returned a
-non numeric value: ${String(rawValue).slice(0, 50)}`);
-          continue;
-        }
-        if (Math.abs(v) > Math.abs(lastValue)) lastValue = v;
-        if (evalThreshold(v, rule.operator, rule.threshold))
-          firingNodes.push({
-            host: nodes[i].host,
-            name: nodes[i].name || nodes[i].host,
-            value: v,
-          });
-      }
-      if (errs.length) errorMsg = errs.join("; "); 
+  const nodeStates = new Map();
+  if (nodes.length === 0) {
+    // No node matches the rule. The rule does not run, so the stored node states do not change.
+    for (const [name, row] of storedStates) nodeStates.set(name, storedRowToState(row));
+    nodeStates.set(NO_NODE, {
+      firing: false,
+      breachRunCount: 0,
+      value: null,
+      error: "No target nodes resolved for this rule",
+    });
+  } else {
+    let nodeResults;
+    try {
+      nodeResults = await runRuleOnNodes(rule, nodes);
+    } catch (error) {
+      nodeResults = nodes.map((node) => ({
+        name: nodeKey(node),
+        error: error?.message || "evaluation failed",
+      }));
     }
-  } catch (err) {
-    errorMsg = err?.message || "evaluation failed"; 
+    for (const result of nodeResults) {
+      // After the upgrade, a node that answers starts as firing when the rule fired before.
+      const previousState =
+        firedBeforeNodeStates && !result.error
+          ? { firing: true, breachRunCount: breachRunsRequired }
+          : storedStates.get(result.name);
+      nodeStates.set(result.name, nextNodeState(previousState, result, breachRunsRequired));
+    }
   }
 
-  if (errorMsg) errorMsg = String(errorMsg).slice(0, 500);
-  const breachedThisRun = firingNodes.length > 0;
-  const requiredRuns = rule.breachRunsRequired || 1;
-  const breachRunCount = breachedThisRun ? (rule.breachRunCount || 0) + 1 : 0;
-  const isFiring = breachedThisRun && breachRunCount >= requiredRuns;
-  if (!isFiring) firingNodes = [];
-  const status = errorMsg ? "error" : isFiring ? "firing" : "ok";
+  const currentFiring = nodeNamesWhere(nodeStates, (state) => state.firing);
+  const currentErrored = nodeNamesWhere(nodeStates, (state) => Boolean(state.error));
+  let previousFiring = nodeNamesWhere(storedStates, (state) => state.firing);
+  let previousErrored = nodeNamesWhere(storedStates, (state) => Boolean(state.lastError));
+
+  // The first run after the upgrade must not repeat the message of a rule that fired before.
+  // It must send "resolved" or "recovered" when the old problem is gone.
+  if (firedBeforeNodeStates) {
+    const answeringNodes = nodeNamesWhere(nodeStates, (state) => !state.error);
+    previousFiring = currentFiring.size > 0 ? new Set(currentFiring) : answeringNodes;
+  }
+  if (failedBeforeNodeStates) {
+    previousErrored =
+      currentErrored.size > 0 ? new Set(currentErrored) : new Set(nodeStates.keys());
+  }
+
+  const status = ruleStatus(currentFiring, currentErrored);
+  const errorText = describeNodeErrors(nodeStates).slice(0, 500);
+  let largestValue = 0;
+  let highestBreachRunCount = 0;
+  for (const state of nodeStates.values()) {
+    if (Number.isFinite(state.value) && Math.abs(state.value) > Math.abs(largestValue)) {
+      largestValue = state.value;
+    }
+    highestBreachRunCount = Math.max(highestBreachRunCount, state.breachRunCount);
+  }
+
+  saveNodeStates(rule.id, nodeStates, now);
   db.update(alertRules)
     .set({
       lastRunAt: now.toISOString(),
-      lastValue,
+      lastValue: largestValue,
       lastStatus: status,
-      lastError: errorMsg, 
-      isActive: isFiring,
-      breachRunCount,
+      lastError: errorText || null,
+      isActive: currentFiring.size > 0,
+      breachRunCount: highestBreachRunCount,
+      lastState: status,
     })
     .where(eq(alertRules.id, rule.id))
     .run();
 
-
-  if (status !== prevStatus) {
+  // Record every status change for the history view.
+  if (status !== previousStatus) {
     db.insert(alertEvents)
       .values({
         alertRuleId: rule.id,
         status,
-        prevStatus: prevStatus || null,
-        value: lastValue,
-        error: errorMsg,
+        prevStatus: previousStatus || null,
+        value: largestValue,
+        error: errorText || null,
       })
       .run();
   }
 
-  const notified = await notify(rule, now, {
-    prevStatus,
-    status,
-    errorMsg,
-    firingNodes,
+  const reminderMinutes = rule.notifyIntervalMinutes || 0;
+  const reminderDue =
+    reminderMinutes > 0 &&
+    Boolean(rule.lastBreachNotifiedAt) &&
+    now.getTime() - new Date(rule.lastBreachNotifiedAt).getTime() >= reminderMinutes * 60000;
+
+  const notifications = decideRuleNotifications({
+    previousFiring,
+    currentFiring,
+    previousErrored,
+    currentErrored,
+    reminderDue,
   });
+  const notified = await notify(rule, now, notifications, nodeStates);
   if (notified) {
     db.update(alertRules)
-      .set({
-        lastNotifiedAt: now.toISOString(),
-        lastState: status,
-      })
-      .where(eq(alertRules.id, rule.id))
-      .run();
-  } else {
-    db.update(alertRules)
-      .set({
-        lastState: status,
-      })
+      .set({ lastNotifiedAt: now.toISOString() })
       .where(eq(alertRules.id, rule.id))
       .run();
   }
 }
 
-async function notify(
-  rule,
-  now,
-  { prevStatus, status, errorMsg, firingNodes },
-) {
+// The channels of a rule that are on, with their secrets decrypted.
+function loadRuleChannels(ruleId) {
   const links = db
     .select()
     .from(alertRuleChannels)
-    .where(eq(alertRuleChannels.alertRuleId, rule.id))
+    .where(eq(alertRuleChannels.alertRuleId, ruleId))
     .all();
   const channels = [];
   for (const link of links) {
-    const ch = db
+    const channel = db
       .select()
       .from(alertChannels)
       .where(eq(alertChannels.id, link.alertChannelId))
       .get();
-    if (ch?.enabled) {
-      let cfgObj = {};
-      try {
-       cfgObj = DecryptValuesChannels(ch?.config,ch?.type)
-      } catch {}
-      channels.push({
-        id: ch.id,
-        name: ch.name,
-        config: { type: ch.type, ...cfgObj },
-      });
+    if (!channel?.enabled) continue;
+    let channelConfig = {};
+    try {
+      channelConfig = DecryptValuesChannels(channel.config, channel.type);
+    } catch {
+      // The channel gets an empty config. The send then fails, and the channel status shows the error.
     }
+    channels.push({
+      id: channel.id,
+      name: channel.name,
+      config: { type: channel.type, ...channelConfig },
+    });
   }
+  return channels;
+}
+
+// For example "node-1 = 95.5, node-2 = 97 (new: node-2; stopped: node-3)".
+function describeFiringNodes(nodeStates, notification) {
+  const firingNodes = [...nodeStates].filter(([, state]) => state.firing);
+  let text = firingNodes
+    .map(([name, state]) => (state.value === null ? name : `${name} = ${state.value}`))
+    .join(", ");
+  if (notification.firstBreach) return text;
+  const changes = [];
+  if (notification.newNodes.length) changes.push(`new: ${notification.newNodes.join(", ")}`);
+  if (notification.stoppedNodes.length) changes.push(`stopped: ${notification.stoppedNodes.join(", ")}`);
+  if (changes.length) text += ` (${changes.join("; ")})`;
+  return text;
+}
+
+function largestFiringValue(nodeStates) {
+  let largest = null;
+  for (const state of nodeStates.values()) {
+    if (!state.firing || state.value === null) continue;
+    if (largest === null || Math.abs(state.value) > Math.abs(largest)) largest = state.value;
+  }
+  return largest;
+}
+
+// Builds the message of one notification. Breach and resolved messages use the rule id.
+// Failure and recovery messages use a different id. So PagerDuty keeps two incidents,
+// and each incident closes separately.
+function buildMessage(rule, now, notification, nodeStates) {
+  const lastRunAt = now.toISOString();
+  switch (notification.kind) {
+    case "breach":
+    case "reminder": {
+      let titleSuffix = " - nodes changed";
+      if (notification.kind === "reminder") titleSuffix = " - still firing";
+      if (notification.firstBreach) titleSuffix = "";
+      return {
+        ...rule,
+        kind: "breach",
+        name: `${rule.name}${titleSuffix}`,
+        lastValue: largestFiringValue(nodeStates),
+        firedNode: describeFiringNodes(nodeStates, notification),
+        lastRunAt,
+      };
+    }
+    case "resolved":
+      return {
+        ...rule,
+        kind: "resolved",
+        severity: "info",
+        name: `${rule.name} - resolved`,
+        firedNode: notification.stoppedNodes.join(", "),
+        lastRunAt,
+      };
+    case "failure":
+      return {
+        ...rule,
+        id: `${rule.id}-evaluation`,
+        kind: "failure",
+        severity: "critical",
+        name: `${rule.name} - evaluation failed`,
+        error: describeNodeErrors(nodeStates),
+        firedNode: [...nodeNamesWhere(nodeStates, (state) => Boolean(state.error))].join(", "),
+        lastRunAt,
+      };
+    default:
+      return {
+        ...rule,
+        id: `${rule.id}-evaluation`,
+        kind: "recovery",
+        severity: "info",
+        name: `${rule.name} - recovered`,
+        firedNode: notification.stoppedNodes.join(", "),
+        lastRunAt,
+      };
+  }
+}
+
+// Sends the notifications of one run to every channel of the rule. Returns true when it sent one.
+async function notify(rule, now, notifications, nodeStates) {
+  if (notifications.length === 0) return false;
+  const channels = loadRuleChannels(rule.id);
   if (channels.length === 0) return false;
 
-  const jobs = [];
-  const push = (payload) =>
-    channels.forEach((ch) =>
-      jobs.push(
-        sendNotification(ch.config, payload)
-          .then(() => recordSendResult(ch.id, true, null))
-          .catch((err) => {
-            recordSendResult(ch.id, false, err.message);
+  const sends = [];
+  for (const notification of notifications) {
+    const message = buildMessage(rule, now, notification, nodeStates);
+    for (const channel of channels) {
+      sends.push(
+        sendNotification(channel.config, message)
+          .then(() => recordSendResult(channel.id, true, null))
+          .catch((error) => {
+            recordSendResult(channel.id, false, error.message);
             log.error("Alert notification failed", {
-              channel: ch.name,
-              error: err.message,
+              channel: channel.name,
+              error: error.message,
             });
           }),
-      ),
-    );
-
-  let dispatched = false;
-
- 
-  if (status === "firing") {
-    const newlyFiring = prevStatus !== "firing";
-    const reminderMinutes = rule.notifyIntervalMinutes || 0;
-    let reminderDue = false;
-    if (!newlyFiring && reminderMinutes > 0 && rule.lastBreachNotifiedAt) {
-      const lastSent = new Date(rule.lastBreachNotifiedAt).getTime();
-      reminderDue = now.getTime() - lastSent >= reminderMinutes * 60000;
-    }
-    if (newlyFiring || reminderDue) {
-      for (const fn of firingNodes)
-        push({
-          ...rule,
-          kind: "breach",
-          lastValue: fn.value,
-          lastRunAt: now.toISOString(),
-          firedNode: fn.host,
-        });
-      db.update(alertRules)
-        .set({ lastBreachNotifiedAt: now.toISOString() })
-        .where(eq(alertRules.id, rule.id))
-        .run();
-
-      dispatched = true;
+      );
     }
   }
+  await Promise.allSettled(sends);
 
-
-  if (status === "error" && prevStatus !== "error") {
-    push({
-      ...rule,
-      kind: "failure",
-      severity: "critical",
-      error: errorMsg,
-      lastRunAt: now.toISOString(),
-      name: `${rule.name} - evaluation failed`,
-    });
-    dispatched = true;
+  const sentBreachMessage = notifications.some(
+    (notification) => notification.kind === "breach" || notification.kind === "reminder",
+  );
+  if (sentBreachMessage) {
+    db.update(alertRules)
+      .set({ lastBreachNotifiedAt: now.toISOString() })
+      .where(eq(alertRules.id, rule.id))
+      .run();
   }
-
-
-  if (status !== "error" && prevStatus === "error") {
-    push({
-      ...rule,
-      kind: "recovery",
-      severity: "info",
-      lastRunAt: now.toISOString(),
-      name: `${rule.name} - recovered`,
-    });
-    dispatched = true;
-  }
-
-
-  if (status === "ok" && prevStatus === "firing") {
-    push({
-      ...rule,
-      kind: "resolved",
-      severity: "info",
-      lastRunAt: now.toISOString(),
-      name: `${rule.name} - resolved`,
-    });
-    dispatched = true;
-  }
-
-  await Promise.allSettled(jobs);
-  return dispatched;
+  return true;
 }
 
 function recordSendResult(channelId, ok, errorMessage) {
@@ -349,6 +467,11 @@ export function startScheduler(env) {
 
   async function tick() {
     const now = new Date();
+
+    // The code does not wait for this call. A slow Kubernetes API must not delay the alert rules.
+    runK8sHealthAlerts(now).catch((error) =>
+      log.error("Kubernetes health alert run failed", { error: error.message }),
+    );
     const today = now.toISOString().slice(0, 10);
     if (today !== lastPruneDay) {
       lastPruneDay = today;
@@ -368,7 +491,7 @@ datetime('now', '-90 days')`);
       return;
     }
 
-
+    // Keep only the rules that are due and that did not run in this minute.
     const dueRules = rules.filter((rule) => {
       if (!cronMatches(rule.schedule, now)) return false;
       if (rule.lastRunAt) {
@@ -385,10 +508,11 @@ datetime('now', '-90 days')`);
 
     if (dueRules.length === 0) return;
 
+    // All due rules run at the same time. Each rule runs on the nodes of its own cluster.
     await Promise.allSettled(
       dueRules.map((rule) => {
         const ruleNodes = getClusterNodes(rule.clusterId || null);
-        if (ruleNodes.length === 0) return Promise.resolve(); 
+        if (ruleNodes.length === 0) return Promise.resolve();
         return evaluateRule(rule, ruleNodes, now);
       }),
     );
@@ -400,6 +524,9 @@ datetime('now', '-90 days')`);
 }
 
 
+// Runs before a rule is turned off. It sends "resolved" for a breach,
+// and "recovered" for query errors.
+// So no PagerDuty incident stays open for a rule that is off.
 export async function notifyBeforeRuleDisabled(ruleId) {
   const rule = db
     .select()
@@ -411,18 +538,23 @@ export async function notifyBeforeRuleDisabled(ruleId) {
     throw new Error("Alert rule not found");
   }
 
-  if (rule.lastState !== "firing") {
-    return;
+  const storedStates = loadNodeStates(ruleId);
+  db.delete(alertRuleNodeStates)
+    .where(eq(alertRuleNodeStates.alertRuleId, ruleId))
+    .run();
+
+  const firingNodeNames = [...nodeNamesWhere(storedStates, (state) => state.firing)];
+  const erroredNodeNames = [...nodeNamesWhere(storedStates, (state) => Boolean(state.lastError))];
+  const notifications = [];
+  if (rule.lastState === "firing" || rule.isActive) {
+    notifications.push({ kind: "resolved", newNodes: [], stoppedNodes: firingNodeNames });
   }
+  if (erroredNodeNames.length > 0) {
+    notifications.push({ kind: "recovery", newNodes: [], stoppedNodes: erroredNodeNames });
+  }
+  if (notifications.length === 0) return;
 
-  const now = new Date();
-
-  await notify(rule, now, {
-    prevStatus: "firing",
-    status: "ok",
-    errorMsg: null,
-    firingNodes: [],
-  });
+  await notify(rule, new Date(), notifications, new Map());
 
   db.update(alertRules)
     .set({
@@ -434,7 +566,7 @@ export async function notifyBeforeRuleDisabled(ruleId) {
     .run();
 }
 
-
+// The grammar cronMatches() supports: *, */n, and comma lists. No ranges.
 export function validateCronExpression(expr) {
   const parts = String(expr || "")
     .trim()
@@ -445,7 +577,8 @@ export function validateCronExpression(expr) {
     [0, 23],
     [1, 31],
     [1, 12],
-    [0, 7],
+    // getDay() gives 0 (Sunday) to 6. 7 never matches, so the check refuses it.
+    [0, 6],
   ];
   const names = ["minute", "hour", "day-of-month", "month", "day-of-week"];
   for (let i = 0; i < 5; i++) {
@@ -454,15 +587,13 @@ export function validateCronExpression(expr) {
     if (p.startsWith("*/")) {
       const n = parseInt(p.slice(2), 10);
       if (!Number.isInteger(n) || n < 1)
-        return `Invalid step in
-${names[i]}: ${p}`;
+        return `Invalid step in ${names[i]}: ${p}`;
       continue;
     }
     for (const v of p.split(",")) {
       const n = Number(v);
       if (!Number.isInteger(n) || n < ranges[i][0] || n > ranges[i][1])
-        return `CRON ERROR : ${names[i]} value out of range or unsupported syntax:
-${v}`;
+        return `CRON ERROR : ${names[i]} must be a number from ${ranges[i][0]} to ${ranges[i][1]}, or a comma list of numbers: ${v}`;
     }
   }
   return null;
