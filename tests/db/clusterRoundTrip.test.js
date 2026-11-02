@@ -132,7 +132,6 @@ describe("cluster round trip", () => {
   it("keeps every cluster-level setting through a save and a load", () => {
     const original = k8sCluster();
     const data = saveClusters([original]);
-    console.log(data)
 
     const loaded = getAllClusters().find((c) => c.id === original.id);
 
