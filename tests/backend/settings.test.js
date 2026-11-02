@@ -379,6 +379,7 @@ describe("Settings Controller", () => {
       alertRuleChannels: {},
       dashboards: {},
       charts: {},
+      clusters:{},
     }));
 
     const req = {
@@ -418,6 +419,7 @@ describe("Settings Controller", () => {
       alertRuleChannels: {},
       dashboards: {},
       charts: {},
+      clusters:{},
     }));
 
     const req = {

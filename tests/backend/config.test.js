@@ -81,6 +81,7 @@ mock.module("../../src/backend/db/index.js", () => ({
     key: "key",
   },
   alertChannels:{},
+  clusters:{},
 }));
 
 const {
