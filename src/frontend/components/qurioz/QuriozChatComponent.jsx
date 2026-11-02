@@ -761,18 +761,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     fetchAPIKEY_Details();
   }, []);
 
-  const loadDbs = () =>
-    new Promise((res, rej) => {
-      if (!editorCreds) rej([]);
-      apiFetch("/api/ai/databases", { method: "GET" })
-        .then((resp) => {
-          res(resp?.databases);
-        })
-        .catch((err) => {
-          console.error(err.message);
-          rej([]);
-        });
-    });
+  // Without a ClickHouse connection there is no session, and the request gets a 401.
+  async function loadDbs() {
+    if (!editorCreds) return [];
+    const response = await apiFetch("/api/ai/databases", { method: "GET" });
+    return response?.databases || [];
+  }
 
   useEffect(() => {
     async function initSetup() {

@@ -7,6 +7,7 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import jwt from "jsonwebtoken";
 import * as schema from "../../src/backend/db/schema.js";
+import { databaseModuleMock } from "./databaseModuleMock.js";
 import { initCrypto, decrypt } from "../../src/backend/services/crypto.js";
 
 // The keys are stored encrypted.
@@ -25,14 +26,7 @@ sqlite.exec(`
 
 const db = drizzle(sqlite, { schema });
 
-mock.module("../../src/backend/db/index.js", () => ({
-  db,
-  appSettings: schema.appSettings,
-  clusters: schema.clusters,
-  clusterNodes: schema.clusterNodes,
-  trustedCas: schema.trustedCas,
-  rawSqlite: sqlite,
-}));
+mock.module("../../src/backend/db/index.js", () => databaseModuleMock(db, sqlite));
 
 const {
   signingKey,

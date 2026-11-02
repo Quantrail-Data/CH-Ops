@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "../../src/backend/db/schema.js";
+import { databaseModuleMock } from "./databaseModuleMock.js";
 import { initCrypto, encrypt, decrypt } from "../../src/backend/services/crypto.js";
 
 initCrypto("legacy-secrets-test-secret-at-least-32-characters");
@@ -31,11 +32,7 @@ sqlite.exec(`
 `);
 const db = drizzle(sqlite, { schema });
 
-mock.module("../../src/backend/db/index.js", () => ({
-  db,
-  appSettings: schema.appSettings,
-  alertChannels: schema.alertChannels,
-}));
+mock.module("../../src/backend/db/index.js", () => databaseModuleMock(db, sqlite));
 
 const { encryptLegacySecrets } = await import("../../src/backend/services/legacySecrets.js");
 
