@@ -6,11 +6,13 @@ The Memory Allocator page shows how ClickHouse&reg;'s internal memory manager (j
 
 You do not need to understand jemalloc internals to use this page. Every chart and metric uses plain language, with hover tooltips that explain what each number means.
 
+To open it, go to **Monitoring**, **Memory Allocator**. CHOps reads `system.jemalloc_stats` once when you open the page, so to read the values again, open the page again.
+
 ---
 
 ## Health Cards (Top of Page)
 
-Eight cards show the key memory metrics. Cards with green left borders are healthy. Amber means something deserves attention. Red means there is a problem.
+Eight cards show the key memory metrics. The **Internal Fragmentation** and **Memory Efficiency** cards have a colored border: green means healthy, amber means something deserves attention, and red means there is a problem.
 
 #### Used by Queries
 
@@ -38,7 +40,7 @@ The percentage of allocator-active memory that is wasted inside pages. Formula: 
 
 #### Memory Efficiency
 
-The inverse of fragmentation. The percentage of the allocator's active pages that queries actually use. Formula: Used by Queries / Given to Allocator.
+The inverse of fragmentation: the percentage of the allocator's active pages that queries actually use. Formula: Used by Queries / Given to Allocator.
 
 | Value | Meaning | Card border |
 |-------|---------|-------------|
@@ -52,11 +54,11 @@ The total physical memory (RAM) that the ClickHouse&reg; process occupies, as re
 
 #### Virtual Memory
 
-The total virtual address space that jemalloc mapped. This can be much larger than Physical RAM, because jemalloc maps memory regions lazily. Pages are reserved in virtual address space but may not be backed by physical RAM until they are actually used. A large Virtual Memory value with a much smaller Physical RAM value is normal and not a concern.
+The total virtual address space that jemalloc mapped. This can be much larger than Physical RAM, because jemalloc maps memory regions lazily. jemalloc reserves pages in virtual address space, but they may not be backed by physical RAM until they are actually used. A large Virtual Memory value with a much smaller Physical RAM value is normal and not a concern.
 
 #### Reclaimable
 
-Memory pages that jemalloc has freed internally but has not yet returned to the operating system. jemalloc holds these pages for efficiency. To return memory to the OS (with `madvise`) is expensive, and the same pages will likely be needed again soon.
+Memory pages that jemalloc has freed internally but has not yet returned to the operating system. jemalloc holds these pages for efficiency, because returning memory to the OS (with `madvise`) is expensive and it will likely need the same pages again soon.
 
 **What to look for:** a large Reclaimable value after a period of high memory use is normal. It means jemalloc freed the memory internally but waits before it returns it to the OS. Future allocations will reuse the pages, or jemalloc's background thread will purge them gradually.
 
@@ -91,23 +93,23 @@ jemalloc divides memory into independent pools (called arenas). Each pool has it
 
 Shows how many threads are assigned to each pool. Ideally, threads are spread evenly. A highly uneven spread (one pool with 80% of threads) can make that pool a bottleneck.
 
-**Bar colors:**
+The bar color depends on the share of all threads that the pool has, compared with the balanced share (100% divided by the number of pools):
 
-- Green: the pool has a proportional share of threads.
-- Amber: the pool has more threads than average.
-- Red: the pool has a disproportionately large share.
+- Green: up to 0.33 times the balanced share.
+- Amber: more than 0.33 times and up to 0.66 times the balanced share.
+- Red: more than 0.66 times the balanced share.
 
 The line at the bottom shows the total thread count and the ideal balanced percentage per pool.
 
-#### Pool Load Balance (right heatmap)
+#### Pool Load Balance (by Alloc Rate) (right heatmap)
 
 Shows the allocation request rate (allocations per second) for each pool. Even if threads are spread evenly, one pool might handle a much higher allocation rate if those threads do more memory-intensive work.
 
 **Bar colors:**
 
-- Green: low load relative to the busiest pool.
-- Amber: moderate load.
-- Red: the highest load (this pool does the most work).
+- Green: up to 33% of the rate of the busiest pool.
+- Amber: more than 33% and up to 66% of the rate of the busiest pool.
+- Red: more than 66% of the rate of the busiest pool. The busiest pool is always red.
 
 **What to look for:** if one pool consistently has 3x or more the request rate of others, the workload is unbalanced. This is usually not actionable (jemalloc manages pool assignment automatically), but it explains why one pool might show higher fragmentation.
 
@@ -115,7 +117,7 @@ Shows the allocation request rate (allocations per second) for each pool. Even i
 
 ## Pool Comparison Table
 
-A sortable table with per-pool metrics. Click any column header to sort.
+A table of per-pool metrics, with one row for each pool.
 
 | Column | What it means |
 |--------|---------------|
@@ -134,7 +136,7 @@ A sortable table with per-pool metrics. Click any column header to sort.
 
 Two side-by-side heatmaps that show the top 15 allocation size classes by activity and by waste.
 
-#### Busiest Sizes (left)
+#### Busiest Sizes (top 15 by alloc rate) (left)
 
 Shows which allocation sizes have the highest request rate (allocations per second). jemalloc groups small allocations (8 bytes to about 14 KB) into fixed-size "bins." Each bin handles one size class.
 
@@ -143,9 +145,9 @@ Shows which allocation sizes have the highest request rate (allocations per seco
 - If one size dominates (for example, 64 bytes at 50K req/s while everything else is under 1K), that size class is under heavy pressure. This is common for hash table entries in GROUP BY operations.
 - Very high allocation rates for small sizes (8 to 64 bytes) can mean excessive temporary object creation.
 
-#### Most Wasteful Sizes (right)
+#### Most Wasteful Sizes (top 15 by waste) (right)
 
-Shows which size classes have the lowest slot usage (utilization). Slot Usage is the fraction of allocated slots in a slab that are actually in use. Low utilization means the slab has reserved space that sits empty.
+Shows which size classes waste the most bytes. Waste is the allocated bytes multiplied by the unused part of the slots: Allocated x (1 - Slot Usage). Slot Usage is the fraction of allocated slots in a slab that are actually in use. Low utilization means the slab has reserved space that sits empty. The bar color shows the Slot Usage.
 
 **Bar colors:**
 
@@ -158,13 +160,13 @@ Shows which size classes have the lowest slot usage (utilization). Slot Usage is
 This is usually not directly actionable (you cannot control which sizes ClickHouse&reg; allocates), but it explains where memory overhead comes from. If waste is extreme, consider:
 
 - A lower `max_threads` to reduce the number of thread caches.
-- A tune of `max_bytes_before_external_group_by` to spill large GROUP BY operations to disk instead of a growth of hash tables in memory.
+- A lower `max_bytes_before_external_group_by`. Large GROUP BY operations then spill to disk, and hash tables do not grow in memory.
 
 ---
 
 ## Lock Contention (Conditional Section)
 
-This section only appears when jemalloc's internal locks show non-zero contention. On healthy systems, it is hidden entirely.
+The table appears only when jemalloc's internal locks show non-zero contention. On healthy systems, only the note above the table shows.
 
 Each row is one internal mutex. The columns:
 
@@ -174,7 +176,7 @@ Each row is one internal mutex. The columns:
 | Lock Ops | Total lock acquisitions. High numbers are normal. |
 | Spin Waits | Times a thread had to spin-wait (busy-wait) to acquire the lock. Non-zero means contention. Shown in amber. |
 | Blocked | Times a thread had to sleep-wait for the lock. Worse than spin waits. Shown in red. |
-| Total Wait | Cumulative nanoseconds all threads spent to wait for this lock |
+| Total Wait | Cumulative nanoseconds that all threads waited for this lock |
 | Worst Wait | The single longest wait in nanoseconds. Shows the worst-case latency impact. |
 
 **What to look for:**
@@ -189,7 +191,7 @@ If Total Wait or Worst Wait is in the millisecond range (1,000,000+ ns), the all
 
 ## Collapsed Detail Sections
 
-There are five sections at the bottom of the page. All are collapsed by default. Click the section title to expand it.
+The bottom of the page has five sections, all collapsed by default. Click a section title to expand it.
 
 #### All Allocation Sizes
 
@@ -210,7 +212,7 @@ The full table of every bin (allocation size class) with 10 columns. This is a s
 
 #### Large Allocations
 
-Allocations larger than about 14 KB. These are managed differently from small allocations (one extent per allocation, no slabs).
+Allocations larger than about 14 KB. jemalloc manages these differently from small allocations (one extent per allocation, no slabs).
 
 #### Memory Regions (extents)
 
@@ -218,7 +220,7 @@ Shows how memory pages are distributed by state: dirty (recently freed), muzzy (
 
 #### Per-Pool Drill-down
 
-Select a specific pool (arena) from the dropdown to see its allocation breakdown (small, large, total) and counts.
+Select a pool (arena) in **Select Pool** to see its allocation breakdown (small, large, total) and counts.
 
 #### Raw jemalloc Output
 
@@ -230,7 +232,7 @@ The complete unprocessed text from `system.jemalloc_stats`. Use the Copy or Save
 
 #### "Physical RAM is 32 GB but Used by Queries is only 8 GB"
 
-This is normal if the workload is light. The server has 24 GB of headroom. Check Reclaimable: if it is large (say 6 GB), that means jemalloc previously used more memory and holds freed pages for reuse. The OS still counts those pages in the process's resident set size.
+This is normal if the workload is light. The server has 24 GB of headroom. Check Reclaimable: if it is large (say 6 GB), jemalloc previously used more memory and holds freed pages for reuse. The OS still counts those pages in the process's resident set size.
 
 #### "Fragmentation is above 30%"
 
@@ -258,9 +260,9 @@ jemalloc's background thread purges reclaimable pages at a configured interval (
 
 #### "No data on the page"
 
-There are three possible causes:
+The page shows **Failed to load jemalloc stats** with the error from the server. There are three possible causes:
 
-1. `system.jemalloc_stats` does not exist. This table was added in ClickHouse&reg; 23.x. Older versions do not have it.
+1. `system.jemalloc_stats` does not exist. ClickHouse&reg; added this table in 23.x, so older versions do not have it.
 2. The ClickHouse&reg; user configured in CHOps does not have SELECT permission on `system.jemalloc_stats`.
 3. The ClickHouse&reg; build does not use jemalloc (some custom builds use a different allocator).
 
@@ -271,4 +273,4 @@ There are three possible causes:
 - **Check after workload changes.** Memory allocation patterns change when query patterns change. After you deploy new queries or change table schemas, review the Memory Allocator page to see whether fragmentation increased.
 - **Compare pools.** If one pool consistently shows higher fragmentation, the threads assigned to it run a more allocation-heavy workload. This is informational, not actionable, but it helps explain memory behavior.
 - **Use Raw Output for support.** When you file a ClickHouse&reg; issue about memory use, attach the Raw jemalloc Output. It contains everything the ClickHouse&reg; team needs to diagnose allocator-level problems.
-- **Reclaimable is not a leak.** Large Reclaimable values after a spike are normal. jemalloc intentionally delays the return of memory to the OS for performance. It reuses those pages for future allocations.
+- **Reclaimable is not a leak.** Large Reclaimable values after a spike are normal. jemalloc intentionally delays the return of memory to the OS for performance and reuses those pages for future allocations.

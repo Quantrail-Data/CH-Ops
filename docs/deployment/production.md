@@ -1,6 +1,6 @@
 # Production Deployment
 
-This guide walks you through a deployment of CHOps on a Linux server with automatic HTTPS (via Caddy) and automatic startup (via systemd). At the end, CHOps runs as a background service at `https://your-domain.com`, and restarts automatically if it crashes or the server reboots.
+This guide walks you through deploying CHOps on a Linux server with automatic HTTPS (via Caddy) and automatic startup (via systemd). At the end, CHOps runs as a background service at `https://your-domain.com`, and restarts automatically if it crashes or the server reboots.
 
 If you are new to Linux servers, read every step. Nothing is skipped.
 
@@ -21,9 +21,15 @@ You need:
 ## Step 1: Install Bun
 
 ```bash
-curl -fsSL https://bun.com/install | bash -s "bun-v1.3.13"
+curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
 source ~/.bashrc
 bun --version
+```
+
+The service user in Step 3 cannot read your home directory. For a source install, copy Bun to a shared path:
+
+```bash
+sudo cp "$(which bun)" /usr/local/bin/bun
 ```
 
 If you build a binary instead, you only need Bun on your build machine, not on the production server.
@@ -35,9 +41,8 @@ If you build a binary instead, you only need Bun on your build machine, not on t
 ### Option A: Run from source
 
 ```bash
-cd /opt
-git clone https://github.com/Quantrail-Data/CH-Ops.git
-cd CH-Ops
+git clone https://github.com/Quantrail-Data/CH-Ops.git /opt/chops
+cd /opt/chops
 bun install
 cp .env.example .env
 ```
@@ -61,7 +66,7 @@ Generate a strong ENCRYPTION_SECRET (it must be at least 32 characters):
 openssl rand -hex 32
 ```
 
-Run the database migration and build the frontend:
+Build the frontend. The `db:migrate` step is optional, because the server also runs the migration at each start:
 
 ```bash
 bun run db:migrate
@@ -78,9 +83,9 @@ bun src/backend/server.js
 
 ### Option B: Run from binary
 
-You can download a prebuilt binary instead of a build of your own. Prebuilt binaries for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). Download `chops-linux-x64` and skip to "Copy the binary and `.env` to your server" below (the copy step already renames it to `/opt/chops/chops`).
+You can download a prebuilt binary instead of building your own. We publish prebuilt binaries for Linux, macOS, and Windows on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). Download `chops-linux-x64` and skip to "Copy the binary and `.env` to your server" below (the copy step already renames it to `/opt/chops/chops`).
 
-To build it yourself, do so on your development machine. Run `bun install` first: it installs dependencies and applies the `@xenova/transformers` patch that keeps the compiled binary self-contained. A build without it produces a binary that crashes at startup on native modules. See [Building a Binary](../development/binary-build.md) for details.
+To build it yourself, do so on your development machine, and run `bun install` first to install the dependencies. See [Building a Binary](../development/binary-build.md) for details.
 
 ```bash
 bun install
@@ -90,6 +95,7 @@ bun run build:binary:linux
 Copy the binary and `.env` to your server:
 
 ```bash
+ssh your-server 'sudo mkdir -p /opt/chops && sudo chown "$USER" /opt/chops'
 scp chops-linux-x64 your-server:/opt/chops/chops
 scp .env your-server:/opt/chops/.env
 ```
@@ -136,7 +142,7 @@ Type=simple
 User=chops
 Group=chops
 WorkingDirectory=/opt/chops
-ExecStart=/home/chops/.bun/bin/bun src/backend/server.js
+ExecStart=/usr/local/bin/bun src/backend/server.js
 Restart=on-failure
 RestartSec=5
 
@@ -197,14 +203,14 @@ WantedBy=multi-user.target
 
 **What each setting does:**
 
-- `After=network.target`: wait for networking before start.
+- `After=network.target`: wait for networking before starting.
 - `User=chops`: run as the dedicated user, not root.
 - `Restart=on-failure`: restart automatically if CHOps crashes.
 - `RestartSec=5`: wait 5 seconds between restarts.
 - `EnvironmentFile`: loads your `.env` variables into the process.
 - `NoNewPrivileges=true`: the process cannot gain extra permissions.
 - `ProtectSystem=strict`: makes the filesystem read-only except for allowed paths.
-- `ReadWritePaths=/opt/chops/data`: CHOps can only write to its data directory.
+- `ReadWritePaths=/opt/chops/data`: CHOps can only write to its data directory. This directory holds `chops.db`, `crypto.salt`, the export files, and the backups.
 - `PrivateTmp=true`: gives the service its own /tmp (isolated from other processes).
 
 Enable and start the service:
@@ -264,9 +270,9 @@ sudo journalctl -u chops --since "1 hour ago"
 
 **Log levels:** set `LOG_LEVEL=debug` in your `.env` file to enable debug-level logging. The default is `info`. Levels: debug, info, warn, error.
 
-**What is logged:** every API request (method, path, status, duration, username, IP). Scheduler events (backup started, completed, failed, and alert notifications). Server startup. Errors.
+**What is logged:** CHOps logs every API request (method, path, status, duration, username, IP), scheduler events (backup started, completed, failed, and alert notifications), server startup, and errors.
 
-**What is NOT logged by the request logger:** passwords, tokens, request bodies, or response bodies. Note that unhandled errors and some diagnostic output are still written directly to stdout and stderr, outside the structured logger, so treat the journal as content that may contain raw error detail.
+**What is NOT logged by the request logger:** passwords, tokens, request bodies, or response bodies. Unhandled errors and some diagnostic output still go directly to stdout and stderr, outside the structured logger, so treat the journal as content that may contain raw error detail.
 
 ---
 
@@ -433,7 +439,7 @@ Note: the `rate_limit` directive requires the `caddy-ratelimit` plugin.
 
 ### Run one CHOps instance only
 
-Run exactly one CHOps process for one database. Do not put two CHOps instances behind a load balancer. This also applies to Kubernetes `replicas: 2` or more. CHOps keeps these items in the memory of its process:
+Run exactly one CHOps process for one database. Do not put two CHOps instances behind a load balancer, and that includes Kubernetes `replicas: 2` or more. CHOps keeps these items in the memory of its process:
 
 - password reset codes and reset tokens,
 - failed login counts and rate limits,
@@ -446,7 +452,7 @@ Two instances cause these problems:
 - CHOps sends each alert two times.
 - SQLite does not support two writers.
 
-For high availability, use a standby instance. Start it only when the first instance stops. It must use the same database file and the same `data/crypto.salt`. For example, use a systemd service on a second server that you start manually. Or use a Kubernetes Deployment with `replicas: 1` and `strategy: Recreate`.
+For high availability, use a standby instance that you start only when the first instance stops. It must use the same database file and the same `data/crypto.salt`. For example, use a systemd service on a second server that you start manually, or a Kubernetes Deployment with `replicas: 1` and `strategy: Recreate`.
 
 ---
 
@@ -457,7 +463,7 @@ Run through this checklist:
 1. Open your CHOps address (`https://chops.example.com`, an internal DNS name, or the server IP). It should load the login page. With a public domain you get a trusted certificate. With `tls internal` you see a certificate warning until Caddy's root CA is trusted on the client.
 2. If you configured public HTTPS, `http://chops.example.com` should redirect to HTTPS automatically.
 3. Log in with your super admin credentials.
-4. Go to Administration > Cluster Management, add a ClickHouse&reg; node, and test the connection.
+4. Go to Control panel > Cluster Management, add a ClickHouse&reg; node, and test the connection.
 5. Reboot the server (`sudo reboot`) and check that CHOps comes back automatically.
 
 ---
@@ -473,21 +479,23 @@ sudo crontab -u chops -e
 Add this line:
 
 ```
-0 2 * * * cd /opt/chops && /home/chops/.bun/bin/bun run db:backup
+0 2 * * * cd /opt/chops && /usr/local/bin/bun run db:backup
 ```
 
-This runs `bun run db:backup` every day at 2:00 AM. Backups are saved to `/opt/chops/data/backups/` as `chops-<timestamp>.db`. The binary does not expose a `db:backup` subcommand (to run `./chops` only starts the server), so for binary installs use either the in-app **Administration > App Data Backup** (super admin), or a SQLite backup on a schedule:
+This runs `bun run db:backup` every day at 2:00 AM. Each run saves two files to `/opt/chops/data/backups/`: `chops-<timestamp>.db` and `chops-<timestamp>.salt`. To restore, you need both files and the same `ENCRYPTION_SECRET`.
+
+The binary does not have a `db:backup` subcommand. `./chops` only starts the server. For binary installs, use the in-app **Control panel > App Data Backup** (admin), which uploads the database and the salt to an S3 storage profile. Or use a SQLite backup on a schedule:
 
 ```
 0 2 * * * sqlite3 /opt/chops/data/chops.db ".backup '/opt/chops/data/backups/chops-$(date +\%Y\%m\%d).db'"
 ```
 
-This needs `sqlite3` on the host, and `/opt/chops/data/backups/` to exist.
+This needs `sqlite3` on the host, and `/opt/chops/data/backups/` must exist. The command does not copy `data/crypto.salt`, so keep a copy of that file too. It does not change after the first start.
 
-To keep only the last 30 backups, add a cleanup line:
+To delete backups that are older than 30 days, add a cleanup line:
 
 ```
-5 2 * * * find /opt/chops/data/backups -name "chops-*.db" -mtime +30 -delete
+5 2 * * * find /opt/chops/data/backups -name "chops-*" -mtime +30 -delete
 ```
 
 ---
@@ -501,7 +509,6 @@ sudo systemctl stop chops
 cd /opt/chops
 git pull
 bun install
-bun run db:migrate
 bun run build
 sudo systemctl start chops
 ```
@@ -514,7 +521,7 @@ sudo systemctl stop chops
 sudo systemctl start chops
 ```
 
-The database migration is safe to run on an existing database. It only creates tables that do not already exist.
+The server runs the database migration at each start. The migration is safe on an existing database. At the first start of a new version, CHOps also encrypts any secret that an older version stored in plain text, such as the login signing keys, notification channel secrets, and storage profile keys.
 
 ---
 
@@ -536,7 +543,7 @@ The database migration is safe to run on an existing database. It only creates t
 
 ## Docker Deployment
 
-CHOps ships with a Dockerfile and docker-compose.yml for a containerized deployment. The image uses `oven/bun:1.3.13-alpine` with a multi-stage build.
+CHOps ships with a Dockerfile and docker-compose.yml for a containerized deployment. The image uses `oven/bun:1.4.2-alpine` with a multi-stage build. Published images are also on Docker Hub (`quantrailadmin1/ch-ops`) and GitHub Container Registry (`ghcr.io/quantrail-data/ch-ops`).
 
 ### Quick Start
 
@@ -561,7 +568,7 @@ docker compose logs -f
 
 CHOps is now at `http://localhost:3000`. The SQLite database persists in the `chops-data` Docker volume.
 
-Because the compose file reads from `.env`, put your values in that file. To export them only in your shell does not pass them to the container.
+Because the compose file reads from `.env`, put your values in that file. Exporting them only in your shell does not pass them to the container.
 
 ### Build Only (without Compose)
 
@@ -582,22 +589,27 @@ docker run -d \
 
 Pass environment variables through the `docker compose` env file or `docker run -e`:
 
-- `ENCRYPTION_SECRET` (required): a random string that makes the key for stored credentials. It cannot be changed after the first start.
+- `ENCRYPTION_SECRET` (required): a random string that makes the key for stored credentials. You cannot change it after the first start.
 - `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL` (required): the first super admin, seeded on first startup.
 - `DISABLE_ENV_LOGIN=true` (optional): disable the .env login fallback in production.
 - `PORT=3000` (default): the HTTP port inside the container.
 - `LOG_LEVEL=info` (default): debug, info, warn, error.
+- `FRONTEND_LINK` (optional): the address that users open. CHOps uses it in the one-time links that set a password.
+- `TRUST_PROXY` (optional): the number of reverse proxies in front of CHOps.
 
-The bundled `docker-compose.yml` loads your whole `.env` with `env_file: .env`, so every variable in the file reaches the container, including `SUPER_ADMIN_1_EMAIL` and any `SMTP_*` settings. It then sets `NODE_ENV=production` and `PORT=3000` in its own `environment:` section, which override anything in `.env`. Because it reads from the file, put your values in `.env` rather than only in your shell.
+The bundled `docker-compose.yml` loads your whole `.env` with `env_file: .env`, so every variable in the file reaches the container, including `SUPER_ADMIN_1_EMAIL` and `FRONTEND_LINK`. It then sets `NODE_ENV=production` and `PORT=3000` in its own `environment:` section, which override anything in `.env`. Because it reads from the file, put your values in `.env` rather than only in your shell.
 
 ### Data Persistence
 
-The SQLite database is stored at `/app/data/chops.db` inside the container. The `docker-compose.yml` maps this to a named volume (`chops-data`), so the data survives container restarts and rebuilds.
+Inside the container, CHOps stores the SQLite database at `/app/data/chops.db` and the encryption salt at `/app/data/crypto.salt`. The `docker-compose.yml` maps `/app/data` to a named volume (`chops-data`), so the data survives container restarts and rebuilds.
 
-To back up the database:
+To back up the database, stop the container first. A copy of a running database can miss data that is still in the WAL file. Copy the salt file too:
 
 ```bash
+docker stop chops
 docker cp chops:/app/data/chops.db ./chops-backup.db
+docker cp chops:/app/data/crypto.salt ./chops-backup.salt
+docker start chops
 ```
 
 ### Updating
@@ -608,7 +620,7 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-The database volume is not deleted during a rebuild. Your data, users, alerts, dashboards, and cluster config persist across updates.
+A rebuild does not delete the database volume, so your data, users, alerts, dashboards, and cluster config persist across updates.
 
 ### Health Check
 
@@ -620,7 +632,41 @@ docker inspect --format='{{.State.Health.Status}}' chops
 
 ### Image Details
 
-- Base: `oven/bun:1.3.13-alpine` (Alpine Linux and the Bun runtime).
+- Base: `oven/bun:1.4.2-alpine` (Alpine Linux and the Bun runtime).
 - Multi-stage build: dependencies and the frontend build in stage 1, a slim runtime in stage 2.
 - Non-root user (`chops`) for security.
-- Includes: the built React frontend, the backend source, production node_modules, and the docs.
+- Includes: the built React frontend, the backend source, the shared source (`src/shared`), production node_modules, and the docs.
+- Health check: `/api/health` answers when the server runs. `/api/ready` also checks that the database can be read.
+
+---
+
+## Kubernetes Deployment
+
+The repository has example manifests in its root folder: `configmap.yaml`, `statefulset.yaml`, `service.yaml`, and `ingress.yaml`. They run one CHOps pod with a persistent disk for `/app/data`.
+
+1. Put the image in a registry that your cluster can pull from. Then set the `image:` field in `statefulset.yaml`. You can use a published image, for example `quantrailadmin1/ch-ops:latest`.
+2. Make a Secret named `chops-secrets` with the four required values:
+
+   ```bash
+   kubectl create secret generic chops-secrets \
+     --from-literal=ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
+     --from-literal=SUPER_ADMIN_1=admin \
+     --from-literal=SUPER_ADMIN_1_PASSWORD=your_strong_password_here \
+     --from-literal=SUPER_ADMIN_1_EMAIL=you@example.com
+   ```
+
+   Keep a copy of `ENCRYPTION_SECRET`. A new value makes the stored passwords unreadable.
+3. Apply the manifests:
+
+   ```bash
+   kubectl apply -f configmap.yaml -f statefulset.yaml -f service.yaml
+   ```
+
+4. Change the host name in `ingress.yaml`. Then apply it with `kubectl apply -f ingress.yaml`. The ingress example is for the NGINX ingress controller.
+
+What the manifests set:
+
+- `replicas: 1`. Do not raise it. See [Run one CHOps instance only](#run-one-chops-instance-only).
+- `DB_PATH=/app/data/chops.db` on the persistent disk. `crypto.salt` is also in `/app/data`.
+- `EXPORT_DIR=/app/exports` on an `emptyDir` volume with an 8Gi limit. Export files do not survive a pod restart. Keep `EXPORT_MAX_TOTAL_BYTES` below the volume limit.
+- A liveness probe and a startup probe on `/api/health`, and a readiness probe on `/api/ready`.

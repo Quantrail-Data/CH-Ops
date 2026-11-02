@@ -2,7 +2,7 @@
 
 Query Metrics shows a second-by-second timeline of how a query used resources while it ran: memory, CPU, disk IO, cache hits and misses, network, and hundreds of other counters. It shows the resource use of one query over its whole lifetime.
 
-Go to **Tools > Query Metrics**.
+Go to **SQL Tools > Query Metrics**.
 
 ---
 
@@ -10,7 +10,7 @@ Go to **Tools > Query Metrics**.
 
 When a query runs for more than about 1 second, ClickHouse&reg; takes a snapshot of its resource use every second. Each snapshot records hundreds of counters: how much memory the query uses right now, how many bytes it has read from disk so far, how many cache hits and misses occurred, and much more.
 
-ClickHouse&reg; stores these snapshots in the `system.query_metric_log` table. Query Metrics turns the raw data into visual timelines, grouped by category and unit, so you can see exactly how resources were used over the query's lifetime.
+ClickHouse&reg; stores these snapshots in the `system.query_metric_log` table. Query Metrics turns the raw data into visual timelines, grouped by category and unit, so you can see exactly how the query used resources over its lifetime.
 
 **When is this useful?**
 
@@ -23,11 +23,13 @@ ClickHouse&reg; stores these snapshots in the `system.query_metric_log` table. Q
 
 ## Getting Started
 
-1. Set the **From** and **To** datetime fields. The default is the last 1 hour.
-2. Click **Load Queries**. This shows queries that have per-second metric data.
+1. Set the **From** and **To** datetime fields. The default is the last 1 hour, and the range can be at most 24 hours.
+2. Click **Load Queries** to list the queries that have per-second metric data. Use the search box to filter by query text or query ID.
 3. Click a query in the list to see its details (query ID, SQL text, duration), then click **Use This Query**.
 4. Click **Show Query Metrics**.
 5. Charts appear, grouped by category and unit.
+
+You can also open Query Metrics from the **Metrics** button in the SQL Editor, and the query is then already selected.
 
 Only categories with non-zero data appear. A simple `SELECT 1` might show only Memory and CPU. A complex query with JOINs, disk spilling, and remote reads shows many more groups.
 
@@ -37,9 +39,9 @@ Only categories with non-zero data appear. A simple `SELECT 1` might show only M
 
 #### Layout
 
-Charts appear **two per row** in a grid. Each chart shows one category of metrics at one unit of measurement. The X axis is time, one data point per second of query execution. The Y axis is the metric value, labeled with the unit.
+Charts appear in a grid. Each chart is at least 560 pixels wide, so the number of charts per row depends on the window width. Each chart shows one category of metrics at one unit of measurement. The X axis is time, one data point per second of query execution. The Y axis is the metric value, labeled with the unit.
 
-If a category has metrics with different units, for example Memory has both byte values and count values, they appear as **separate charts**, so the Y axis scale stays meaningful. You see labels like "Memory, Bytes" and "Memory, Count" side by side.
+If a category has metrics with different units, for example Memory has both byte values and count values, they appear as **separate charts**, so the Y axis scale stays meaningful. You see titles like "Memory - Bytes" and "Memory - Count" side by side. If a category has only one unit, the title is the category name only, for example "Memory".
 
 #### Reading the Charts
 
@@ -49,7 +51,7 @@ Each colored line is one metric. The legend at the bottom shows the metric names
 
 #### Chart Splitting
 
-When a category has more than 4 metrics of the same unit, CHOps splits them into sub-charts of 4 metrics each. The charts are labeled with part numbers: "In-Memory Caches, Count (1/3)", "(2/3)", "(3/3)". The most active metrics, by total value across the query's lifetime, appear in the first sub-chart.
+When a category has more than 4 metrics of the same unit, CHOps splits them into sub-charts of 4 metrics each. CHOps labels the charts with part numbers, for example "In-Memory Caches - Count (1/3)", "(2/3)", and "(3/3)". The most active metrics, by total value across the query's lifetime, appear in the first sub-chart.
 
 ---
 
@@ -66,8 +68,8 @@ A typical Memory, Bytes chart shows:
 |---------|------------------|
 | Both lines climb steadily | The query accumulates data in memory (a hash table, a sort, an aggregation) |
 | memory_usage spikes then drops, peak stays high | A brief memory spike, common with large hash JOINs that allocate a big hash table, use it, then release it |
-| Both lines are flat and low | The query uses little memory. It streams data without buffering |
-| peak_memory_usage hits the memory limit | The query was killed or throttled for going above `max_memory_usage` |
+| Both lines are flat and low | The query uses little memory and streams data without buffering |
+| peak_memory_usage hits the memory limit | ClickHouse&reg; killed or throttled the query for going above `max_memory_usage` |
 
 #### Disk IO Chart
 
@@ -96,13 +98,13 @@ CHOps detects the unit of each metric from its column name, and never mixes metr
 | Everything else (hits, misses, faults, cycles, counts) | count | Count |
 | `memory_usage`, `peak_memory_usage` | bytes | Bytes |
 
-So a category like "CPU & Time" may produce two charts: one for time metrics (μs) and one for count metrics (page faults, context switches). Both are labeled clearly.
+So a category like "CPU & Time" may produce two charts: one for time metrics (μs) and one for count metrics (page faults, context switches). CHOps labels both clearly.
 
 ---
 
 ## Metric Categories
 
-CHOps classifies the hundreds of possible metrics into categories. Only categories with non-zero data appear. Categories are ordered by how commonly they appear.
+CHOps classifies the hundreds of possible metrics into categories. Only categories with non-zero data appear, and the charts follow a fixed order: Memory, CPU & Time, Disk IO, Data Read (Selected), In-Memory Caches, and then the other categories.
 
 #### Common Categories (appear for most queries)
 
@@ -111,9 +113,9 @@ CHOps classifies the hundreds of possible metrics into categories. Only categori
 | **Memory** | Memory usage, peak, arena allocations, jemalloc stats | `memory_usage` against `peak_memory_usage`, to see spikes |
 | **CPU & Time** | Wall-clock time, CPU time, IO wait time, page faults | `RealTimeMicroseconds` against `UserTimeMicroseconds`. If Real is much higher than User, the query waits, it does not compute |
 | **Disk IO** | Bytes and time for disk reads and writes, IO buffer allocations | `OSReadBytes`. If high, the query reads a lot from disk |
-| **Data Read** | Rows and bytes selected, parts and marks scanned | `SelectedRows`, `SelectedMarks`. High values mean a large scan |
+| **Data Read (Selected)** | Rows and bytes selected, parts and marks scanned | `SelectedRows`, `SelectedMarks`. High values mean a large scan |
 | **In-Memory Caches** | Mark cache, page cache, primary index cache, query cache hits and misses | Hits against Misses. High misses mean the cache is too small |
-| **Marks & Index Loading** | Time and count to load mark files and primary index blocks | `WaitMarksLoadMicroseconds`. If high, marks are loaded from disk |
+| **Marks & Index Loading** | Time and count to load mark files and primary index blocks | `WaitMarksLoadMicroseconds`. If high, ClickHouse&reg; loads marks from disk |
 | **Query Execution** | Function calls, JIT compilation, overflow checks | Compilation time and function call counts |
 | **Threading & Locks** | Thread pool activity, context switches, lock wait times | High lock wait times mean contention between threads |
 
@@ -121,7 +123,7 @@ CHOps classifies the hundreds of possible metrics into categories. Only categori
 
 | Category | What It Shows |
 |----------|--------------|
-| **Data Write** | Rows and bytes inserted, delayed and rejected inserts |
+| **Data Write (Inserted)** | Rows and bytes inserted, delayed and rejected inserts |
 | **Merges & Mutations** | Background merge activity, rows merged, merge duration |
 
 #### Infrastructure Categories (appear based on your setup)
@@ -130,10 +132,10 @@ CHOps classifies the hundreds of possible metrics into categories. Only categori
 |----------|----------------|
 | **Filesystem Cache** | When the filesystem cache is enabled in your ClickHouse&reg; config |
 | **Network & Connections** | Distributed queries that read from remote shards |
-| **S3 / Azure / Remote** | Data stored on S3, Azure Blob Storage, or other remote storage |
-| **External Operations** | The query goes above in-memory limits and spills to disk (sort, aggregation, join) |
+| **S3 / Azure / Remote Storage** | Data stored on S3, Azure Blob Storage, or other remote storage |
+| **External Operations (Spill to Disk)** | The query goes above in-memory limits and spills to disk (sort, aggregation, join) |
 | **JOIN Operations** | Queries with JOINs (hash table sizes, probe and build counts) |
-| **ClickHouse® Keeper** | Operations on replicated tables |
+| **ZooKeeper / Keeper** | Operations on replicated tables |
 
 #### Rare Categories
 
@@ -143,7 +145,7 @@ CHOps classifies the hundreds of possible metrics into categories. Only categori
 | **Backup** | BACKUP and RESTORE commands |
 | **Logging** | Always present but usually low (internal log message counts) |
 | **Throttling** | When bandwidth throttling settings are active |
-| **Other** | Metrics that do not fit any category |
+| **Other Metrics** | Metrics that do not fit any category |
 
 #### What Appears Per Query Type
 
@@ -219,7 +221,7 @@ Everything from INSERT, plus:
 | Category | What to Check | Red Flags |
 |----------|--------------|-----------|
 | Keeper, Time (μs) | `ZooKeeperWaitMicroseconds` | High values mean ClickHouse&reg; Keeper is slow. Check Keeper node health |
-| Keeper, Bytes | `ZooKeeperBytesSent`, `ZooKeeperBytesReceived` | Large payloads to Keeper are unusual. They may mean large part metadata |
+| Keeper, Bytes | `ZooKeeperBytesSent`, `ZooKeeperBytesReceived` | Large payloads to Keeper are unusual and may mean large part metadata |
 | Keeper, Count | `ZooKeeperTransactions` | Many transactions per insert. Check the replication queue depth |
 
 A simple `SELECT 1` might show only Memory (bytes) and CPU (μs).
@@ -238,7 +240,7 @@ A simple `SELECT 1` might show only Memory (bytes) and CPU (μs).
 6. **Split** categories with more than 4 metrics of the same unit into sub-charts.
 7. **Build charts** directly from the fetched data. There is no second query.
 
-This approach is version-agnostic. It works across all ClickHouse&reg; versions, because `SELECT *` discovers the schema at query time.
+This approach is version-agnostic and works across all ClickHouse&reg; versions, because `SELECT *` discovers the schema at query time.
 
 ---
 
@@ -249,7 +251,7 @@ This approach is version-agnostic. It works across all ClickHouse&reg; versions,
 | ClickHouse&reg; 26.3 LTS or newer | CHOps's minimum supported version | `SELECT version()` |
 | `query_metric_log` enabled | ClickHouse&reg; stores the metric snapshots here (on by default on 26.3) | `SELECT count() FROM system.query_metric_log`. An error means the table is off |
 | Query duration over about 1 second | ClickHouse&reg; samples once per second by default | Run a longer query if you see "no metric data found" |
-| SELECT access on `system.query_metric_log` and `system.query_log` | The ClickHouse&reg; user needs read access | `GRANT SELECT ON system.query_metric_log TO your_user` |
+| SELECT access on `system.query_metric_log` and `system.query_log` | The ClickHouse&reg; user that CHOps uses for the node needs read access | `GRANT SELECT ON system.query_metric_log TO your_user` |
 
 #### Enabling query_metric_log
 
@@ -287,7 +289,8 @@ Lower values give more detail but add overhead. A value of `0` disables collecti
 | Only Memory and CPU appear | The query did not use disk, cache, network, and so on | Normal for simple queries. Run a complex query to see more categories |
 | Charts show flat lines | The query finished in 1 to 2 seconds (only 1 to 2 data points) | Run a longer query for a more detailed timeline |
 | Too many lines in one chart | More than 4 metrics in one category and unit group | Already handled. CHOps splits into sub-charts of 4. Click legend items to hide specific metrics |
-| Two charts for the same category | The category has metrics with different units | By design. "Memory, Bytes" and "Memory, Count" are separate, to keep the Y axis scales meaningful |
+| Two charts for the same category | The category has metrics with different units | By design. "Memory - Bytes" and "Memory - Count" are separate, to keep the Y axis scales meaningful |
+| "Maximum interval is 24 hours. Narrow your range." | The range between **From** and **To** is longer than 24 hours | Choose a shorter range |
 | Charts look empty after a theme switch | A rare rendering glitch | Charts rebuild on a theme change. If still empty, click Show Query Metrics again |
 
 ---
@@ -302,7 +305,7 @@ For example, if the slow query shows high `MarkCacheMisses` and the fast query s
 
 #### Diagnose Memory Spikes
 
-If a query is killed with "Memory limit exceeded":
+If ClickHouse&reg; kills a query with "Memory limit exceeded":
 
 1. Find the timestamp where `peak_memory_usage` jumps in the Memory, Bytes chart.
 2. Look at what other metrics rise at the same moment in other charts.
@@ -327,11 +330,11 @@ If the **External Operations** category appears, the query went above in-memory 
 - `ExternalAggregationWritePart` and `ExternalAggregationMerge` mean GROUP BY spilled. Increase `max_bytes_before_external_group_by`.
 - `ExternalJoinWritePart` and `ExternalJoinMerge` mean JOIN spilled. Consider a different JOIN algorithm or higher memory limits.
 
-Spilling is not an error. It is a safety mechanism. But it is much slower than in-memory processing.
+Spilling is not an error but a safety mechanism, although it is much slower than in-memory processing.
 
 #### Understand Time Metrics
 
-When you see both "CPU & Time, Time (μs)" and "CPU & Time, Count" charts:
+When you see both "CPU & Time - Time (μs)" and "CPU & Time - Count" charts:
 
 - The **Time chart** shows `RealTimeMicroseconds` (wall clock), `UserTimeMicroseconds` (CPU in user mode), and `SystemTimeMicroseconds` (CPU in kernel mode).
 - If `RealTime` is much higher than `UserTime + SystemTime`, the query waits (IO, locks, network).

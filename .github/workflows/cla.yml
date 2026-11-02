@@ -98,7 +98,7 @@ jobs:
           # so the version lives in the path. Bump on a terms change, not on a
           # typo fix, or old acceptances silently read as covering new terms.
           # Keep the old files, they're the record for whoever accepted then.
-          path-to-signatures: 'consents/v1.0/cla.json'
+          path-to-signatures: 'consents/v1.1/cla.json'
 
           # The JSON is just an index; the acceptance is the PR comment it
           # points at, and its author can still edit it. Lock to freeze it.
