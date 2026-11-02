@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "../../src/backend/db/schema.js";
+import { databaseModuleMock } from "./databaseModuleMock.js";
 import { initCrypto } from "../../src/backend/services/crypto.js";
 
 initCrypto("cluster-round-trip-test-secret-at-least-32-chars");
@@ -56,22 +57,7 @@ sqlite.exec(`
 
 const db = drizzle(sqlite, { schema });
 
-mock.module("../../src/backend/db/index.js", () => ({
-  db,
-  appSettings: schema.appSettings,
-  alertRules: schema.alertRules,
-  alertChannels: schema.alertChannels,
-  alertRuleChannels: schema.alertRuleChannels,
-  dashboards: schema.dashboards,
-  charts: schema.charts,
-  appUsers: schema.appUsers,
-  clusters: schema.clusters,
-  clusterNodes: schema.clusterNodes,
-  k8sConnections: schema.k8sConnections,
-  trustedCas: schema.trustedCas,
-  rawSqlite: sqlite,
-  assertDatabaseReadable: () => {},
-}));
+mock.module("../../src/backend/db/index.js", () => databaseModuleMock(db, sqlite));
 
 
 sqlite.exec(
