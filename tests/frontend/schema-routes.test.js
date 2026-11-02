@@ -179,11 +179,9 @@ describe("Services: Alert Scheduler", () => {
     expect(code).toContain("getClusterNodes");
     expect(code).toContain("from \"./clusterUtils.js\"");
   });
-  it("filters nodes by rule.nodes when set", () => {
-    expect(code).toContain("selected.includes(n.host)");
-  });
-  it("falls back to all nodes when rule.nodes is null", () => {
-    expect(code).toContain("let nodes = allNodes");
+  // The node choice itself is tested in tests/backend/alert-node-states.test.js.
+  it("chooses the nodes of a rule with selectRuleNodes", () => {
+    expect(code).toContain("selectRuleNodes(allNodes, selectedNodes)");
   });
   it("uses per-rule clusterId for node lookup", () => {
     expect(code).toContain("getClusterNodes(rule.clusterId");

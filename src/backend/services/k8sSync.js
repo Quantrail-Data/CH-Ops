@@ -9,7 +9,7 @@ import {
   findStaleNodes,
   removeNodes,
 } from './clusterUtils.js';
-import { readInstallationHosts } from './k8sConnections.js';
+import { readInstallationAddresses, ADDRESSING, RESOLUTION } from './k8sConnections.js';
 import { getConfig } from './appConfig.js';
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
@@ -31,6 +31,15 @@ export function getLastResult(clusterId) {
   return lastResult.get(clusterId) ?? null;
 }
 
+// The background refresh keeps the addressing that the cluster uses now.
+// Thus one failed probe does not move every host to the shared endpoint.
+function backgroundAddressingMode(cluster) {
+  const resolution = cluster.k8sAddressing?.resolution;
+  if (resolution === RESOLUTION.ENDPOINT) return ADDRESSING.ENDPOINT;
+  if (resolution === RESOLUTION.FQDN) return ADDRESSING.PER_POD;
+  return cluster.k8sAddressing?.mode || ADDRESSING.AUTO;
+}
+
 // Refresh one cluster.
 export async function refreshOne(cluster) {
   const started = Date.now();
@@ -41,12 +50,20 @@ export async function refreshOne(cluster) {
 
   let hosts;
   try {
-    hosts = await readInstallationHosts(
-      cluster.k8s.connectionId,
-      cluster.k8s.namespace,
-      cluster.k8s.installation,
-      cluster.k8s.operator,
-    );
+    // Use the same addresses as the import. Each pod keeps its own address when it has one.
+    const addressing = await readInstallationAddresses({
+      connectionId: cluster.k8s.connectionId,
+      namespace: cluster.k8s.namespace,
+      installation: cluster.k8s.installation,
+      operator: cluster.k8s.operator,
+      endpoint: cluster.endpoint || cluster.nodes[0]?.host,
+      port: cluster.port,
+      secure: cluster.secure,
+      user: cluster.chUser || 'default',
+      password: cluster.chPassword || '',
+      mode: backgroundAddressingMode(cluster),
+    });
+    hosts = addressing.nodes;
   } catch (err) {
     // The cluster keeps the node list it already had.
     const result = {
@@ -73,18 +90,13 @@ export async function refreshOne(cluster) {
     return result;
   }
 
-  // The endpoint is the same for every host, because from outside the cluster there is one way in.
-  const endpoint = cluster.nodes[0]?.host;
-  const port = cluster.nodes[0]?.port ?? 8123;
-  const nodes = hosts.map((h) => ({ ...h, host: endpoint, port }));
-
   // Optimistic concurrency.
   let applied = false;
   let attempt = 0;
   let currentVersion = cluster.version;
 
   while (!applied && attempt < MAX_VERSION_RETRIES) {
-    applied = updateClusterNodes(cluster.id, nodes, currentVersion);
+    applied = updateClusterNodes(cluster.id, hosts, currentVersion);
     if (!applied) {
       attempt += 1;
       const fresh = getAllClusters().find((c) => c.id === cluster.id);
@@ -109,7 +121,7 @@ export async function refreshOne(cluster) {
   const result = {
     clusterId: cluster.id,
     ok: true,
-    hosts: nodes.length,
+    hosts: hosts.length,
     removed,
     durationMs: Date.now() - started,
     at: new Date().toISOString(),

@@ -2,7 +2,11 @@
 // Read-only Kubernetes views: topology, reconcile, storage, network, events, logs and health.
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import { providerFor } from "../services/k8sConnections.js";
+import {
+  providerFor,
+  checkPermissions,
+  getConnection,
+} from "../services/k8sConnections.js";
 import { getClusterById } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
 import {
@@ -10,11 +14,15 @@ import {
   ensureCapabilities,
   explain,
   CAPABILITY,
-  unavailableFeatures,
   rbacContext,
 } from "../services/capabilities.js";
+import { runHealthChecks } from "../services/k8sHealth.js";
+import { eq } from "drizzle-orm";
+import { db, k8sHealthAlertConfigs } from "../db/index.js";
 import { getLastResult, refreshOne } from "../services/k8sSync.js";
 import { buildDiskForecast } from "../services/k8s/diskForecast.js";
+import { buildZoneRisks } from "../services/k8s/zoneRisks.js";
+import { parseMemoryQuantity } from "../services/k8s/quantity.js";
 
 function fail(res, err) {
   const isK8s = typeof err?.code === "string" && err.code.startsWith("K8S_");
@@ -45,7 +53,9 @@ function resolve(clusterId) {
     cluster,
     provider,
     ns: cluster.k8s.namespace,
+    namespace: cluster.k8s.namespace,
     name: cluster.k8s.installation,
+    installationName: cluster.k8s.installation,
   };
 }
 
@@ -125,6 +135,18 @@ export async function getTopology(req, res) {
       }
     }
 
+    // Replicas of one shard in one availability zone fail together.
+    let zoneRisks = null;
+    try {
+      const zoneByNode = await provider.getNodeZones(
+        hosts.map((host) => host.node).filter(Boolean),
+      );
+      if (zoneByNode.size > 0) zoneRisks = buildZoneRisks(hosts, zoneByNode);
+    } catch {
+      // No nodes grant. The page then shows nothing about zones.
+      zoneRisks = null;
+    }
+
     // Hosts running different images mean an upgrade stopped part way.
     const images = [...new Set(hosts.map((h) => h.image).filter(Boolean))];
 
@@ -136,6 +158,7 @@ export async function getTopology(req, res) {
       healthSignalsUnreliable: installation.lifecycle.troubleshoot,
       keeper: installation.keeper,
       placementRisks,
+      zoneRisks,
       versionSkew: images.length > 1 ? images : null,
       disruptionBudgets: network.disruptionBudgets,
       drainProtection:
@@ -395,6 +418,120 @@ export async function getStorage(req, res) {
   }
 }
 
+// Runs a query on every replica when the ClickHouse cluster name is known, else on one node.
+// Returns { rows, checked }. checked is false when no node can read the table.
+async function queryEveryReplica(cluster, chCluster, sql, systemTable) {
+  if (chCluster) {
+    try {
+      const everyReplicaSql = sql.replace(
+        `FROM ${systemTable}`,
+        `FROM clusterAllReplicas('${escapeSqlString(chCluster)}', ${systemTable})`,
+      );
+      return { rows: await query(cluster, everyReplicaSql), checked: true };
+    } catch {
+      // Fall back to the node that answers.
+    }
+  }
+  try {
+    return { rows: await query(cluster, sql), checked: true };
+  } catch {
+    return { rows: [], checked: false };
+  }
+}
+
+// GET /api/k8s/insight/:clusterId/resources: requests, limits and memory use of each pod.
+export async function getResources(req, res) {
+  try {
+    const { cluster, provider, namespace, installationName } = resolve(
+      req.params.clusterId,
+    );
+    const hosts = await provider.getHosts(namespace, installationName);
+
+    const rows = hosts.map((host) => ({
+      podName: host.podName,
+      node: host.node,
+      cpuRequest: host.resources?.cpuRequest ?? null,
+      cpuLimit: host.resources?.cpuLimit ?? null,
+      memoryRequest: host.resources?.memoryRequest ?? null,
+      memoryLimit: host.resources?.memoryLimit ?? null,
+    }));
+
+    // ClickHouse memory per pod. On Kubernetes, hostName() is the pod name.
+    const chCluster = await resolveChClusterName(cluster, installationName);
+    const memoryResult = await queryEveryReplica(
+      cluster,
+      chCluster,
+      `SELECT hostName() AS ch_host, value AS memory_tracking
+       FROM system.metrics WHERE metric = 'MemoryTracking'`,
+      "system.metrics",
+    );
+    const memorySettingResult = await queryEveryReplica(
+      cluster,
+      chCluster,
+      `SELECT hostName() AS ch_host, toUInt64OrZero(value) AS max_server_memory
+       FROM system.server_settings WHERE name = 'max_server_memory_usage'`,
+      "system.server_settings",
+    );
+
+    const warnings = [];
+    for (const row of rows) {
+      const memoryRow = memoryResult.rows.find(
+        (metricRow) => metricRow.ch_host === row.podName,
+      );
+      if (memoryRow) row.memoryTracking = Number(memoryRow.memory_tracking);
+
+      const memorySettingRow = memorySettingResult.rows.find(
+        (settingRow) => settingRow.ch_host === row.podName,
+      );
+      if (memorySettingRow) {
+        row.maxServerMemory = Number(memorySettingRow.max_server_memory);
+      }
+
+      const memoryLimitBytes = parseMemoryQuantity(row.memoryLimit);
+      if (row.memoryTracking != null && memoryLimitBytes) {
+        row.memoryUsagePercent = (row.memoryTracking / memoryLimitBytes) * 100;
+      }
+
+      // ClickHouse may use more memory than the container has, so the kernel kills the pod.
+      if (
+        row.maxServerMemory > 0 &&
+        memoryLimitBytes &&
+        row.maxServerMemory > memoryLimitBytes
+      ) {
+        warnings.push({
+          podName: row.podName,
+          message:
+            "max_server_memory_usage is larger than the container memory limit. ClickHouse will use more memory than the limit, and the kernel will kill the pod.",
+        });
+      }
+    }
+
+    // Live usage from the metrics API, when the cluster has one.
+    const usageByPod = await provider.getPodMetrics(
+      namespace,
+      hosts.map((host) => host.podName),
+    );
+    if (usageByPod) {
+      for (const row of rows) {
+        const usage = usageByPod.get(row.podName);
+        row.liveCpu = usage?.cpu ?? null;
+        row.liveMemory = usage?.memory ?? null;
+      }
+    }
+
+    return res.json({
+      rows,
+      memoryChecked: memoryResult.checked,
+      settingsChecked: memorySettingResult.checked,
+      liveChecked: Boolean(usageByPod),
+      warnings,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return fail(res, err);
+  }
+}
+
 // GET /api/k8s/insight/:clusterId/network Three views of the same cluster that should agree.
 export async function getNetwork(req, res) {
   try {
@@ -468,8 +605,30 @@ export async function getLogs(req, res) {
   const { previous, tailLines, sinceSeconds } = req.query;
 
   try {
-    const { provider, ns } = resolve(req.params.clusterId);
-    const stream = await provider.streamLogs(ns, pod, {
+    const { cluster, provider, ns } = resolve(req.params.clusterId);
+
+    // The operator pod is in another namespace, so the server checks the pod name itself.
+    let logNamespace = ns;
+    let container;
+    if (req.query.operator === "true") {
+      const connection = getConnection(cluster.k8s.connectionId);
+      if (!connection?.operatorNamespace) {
+        return res
+          .status(400)
+          .json({ error: "No operator namespace is set on this connection." });
+      }
+      const operatorPod = await provider.getOperatorPod(
+        connection.operatorNamespace,
+      );
+      if (!operatorPod || operatorPod.podName !== pod) {
+        return res.status(404).json({ error: "That is not the operator pod." });
+      }
+      logNamespace = operatorPod.namespace;
+      container = operatorPod.container;
+    }
+
+    const stream = await provider.streamLogs(logNamespace, pod, {
+      container,
       previous: previous === "true",
       tailLines: Math.min(Number(tailLines) || 1000, 10000),
       sinceSeconds: sinceSeconds ? Number(sinceSeconds) : undefined,
@@ -492,113 +651,10 @@ export async function getLogs(req, res) {
   }
 }
 
-// GET /api/k8s/insight/:clusterId/health The individual checks are each small.
+// GET /api/k8s/insight/:clusterId/health: the checks are in services/k8sHealth.js.
 export async function getHealth(req, res) {
   try {
-    const { cluster, provider, ns, name } = resolve(req.params.clusterId);
-    await ensureCapabilities(cluster.id);
-    const [hosts, installation, network, storage, operator] = await Promise.all(
-      [
-        provider.getHosts(ns, name),
-        provider.getInstallation(ns, name),
-        provider.getNetwork(ns, name),
-        provider.getStorage(ns, name),
-        provider.getOperatorHealth(ns),
-      ],
-    );
-
-    // A check can pass, fail, or be unable to run.
-    const checks = [];
-    const add = (label, ok, detail) => checks.push({ name: label, ok, detail });
-    const unknown = (label, detail) =>
-      checks.push({ name: label, ok: null, detail });
-
-    add(
-      "Operator reachable",
-      operator.reachable,
-      "If the operator is down the cluster looks healthy and nothing you change will apply.",
-    );
-
-    // AKOC publishes its own readiness verdict
-    const readyOf = (h) =>
-      h.operatorReady === null ? h.podReady : h.operatorReady;
-    if (hosts.length === 0) {
-      unknown(
-        "All hosts ready",
-        "No hosts reported, so readiness cannot be checked.",
-      );
-      unknown("All hosts in rotation", "No hosts reported.");
-    } else {
-      add(
-        "All hosts ready",
-        hosts.every(readyOf),
-        `${hosts.filter(readyOf).length} of ${hosts.length} ready`,
-      );
-
-      add(
-        "All hosts in rotation",
-        hosts.every((host) => host.inRotation?.ready !== false),
-        "A pod can be Running and still be removed from the service.",
-      );
-    }
-
-    const images = [...new Set(hosts.map((h) => h.image).filter(Boolean))];
-    add(
-      "No version skew",
-      images.length <= 1,
-      images.length > 1
-        ? `Running ${images.length} different images`
-        : "Consistent",
-    );
-
-    add(
-      "Health signals trustworthy",
-      !installation.lifecycle.troubleshoot,
-      installation.lifecycle.troubleshoot
-        ? "Troubleshoot mode is on, which disables liveness and readiness probes. Pod readiness means nothing right now."
-        : "Probes are active.",
-    );
-
-    add(
-      "Protected against node drains",
-      network.disruptionBudgets.length > 0,
-      network.disruptionBudgets.length === 0
-        ? "No pod disruption budget exists, so a node drain can evict several replicas at once."
-        : "A budget is in place.",
-    );
-
-    add(
-      "No stalled volume expansion",
-      !storage.some(
-        (v) =>
-          String(v.resizeState).includes("Pending") ||
-          String(v.resizeState).includes("Failed"),
-      ),
-      "NodeResizePending looks finished and is not.",
-    );
-
-    const knownPolicy = storage.filter((v) => v.reclaimPolicy);
-    if (!storage.length || knownPolicy.length !== storage.length) {
-      unknown(
-        "Data survives a scale-down",
-        "The reclaim policy could not be read for every volume, so this cannot be answered either way.",
-      );
-    } else {
-      add(
-        "Data survives a scale-down",
-        knownPolicy.every((v) => v.reclaimPolicy === "Retain"),
-        "Volumes without a Retain policy are deleted when their host is removed.",
-      );
-    }
-
-    return res.json({
-      checks,
-      passing: checks.filter((c) => c.ok === true).length,
-      unknown: checks.filter((c) => c.ok === null).length,
-      // Checks that could not run are excluded from the denominator rather than counted against the cluster.
-      total: checks.filter((c) => c.ok !== null).length,
-      unavailable: unavailableFeatures(cluster.id),
-    });
+    return res.json(await runHealthChecks(req.params.clusterId));
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     return fail(res, err);
@@ -674,6 +730,54 @@ export async function getKeeper(req, res) {
   }
 }
 
+// GET /api/k8s/insight/:clusterId/operator-pod: the operator pod, for the Logs tab.
+export async function getOperatorPodInfo(req, res) {
+  try {
+    const { cluster, provider } = resolve(req.params.clusterId);
+    const connection = getConnection(cluster.k8s.connectionId);
+
+    if (!connection?.operatorNamespace) {
+      return res.json({
+        found: false,
+        message: "No operator namespace is set on this Kubernetes connection.",
+      });
+    }
+
+    const operatorPod = await provider.getOperatorPod(
+      connection.operatorNamespace,
+    );
+    if (!operatorPod) {
+      return res.json({
+        found: false,
+        message: `No operator pod was found in ${connection.operatorNamespace}.`,
+      });
+    }
+    return res.json({ found: true, ...operatorPod });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    // A missing grant must not break the Logs tab. The pod list explains it instead.
+    return res.json({
+      found: false,
+      message: "The operator pod could not be read.",
+    });
+  }
+}
+
+// GET /api/k8s/insight/:clusterId/permissions: what the Kubernetes token may read.
+export async function getPermissions(req, res) {
+  try {
+    const { cluster, namespace } = resolve(req.params.clusterId);
+    const { client } = providerFor(
+      cluster.k8s.connectionId,
+      cluster.k8s.operator,
+    );
+    return res.json(await checkPermissions(client, namespace));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return fail(res, err);
+  }
+}
+
 // GET /api/k8s/insight/:clusterId/rbac-context
 export async function getRbacContext(req, res) {
   try {
@@ -685,6 +789,58 @@ export async function getRbacContext(req, res) {
       .status(500)
       .json({ error: error.message || "Internal server error" });
   }
+}
+
+// GET /api/k8s/insight/:clusterId/health-alerts: the health alert settings of a cluster.
+export function getHealthAlertConfig(req, res) {
+  const config = db
+    .select()
+    .from(k8sHealthAlertConfigs)
+    .where(eq(k8sHealthAlertConfigs.clusterId, req.params.clusterId))
+    .get();
+
+  let channelIds = [];
+  try {
+    channelIds = JSON.parse(config?.channelsJson || "[]");
+  } catch {
+    channelIds = [];
+  }
+  return res.json({ enabled: Boolean(config?.enabled), channels: channelIds });
+}
+
+// PUT /api/k8s/insight/:clusterId/health-alerts: saves the health alert settings.
+export function saveHealthAlertConfig(req, res) {
+  const cluster = getClusterById(req.params.clusterId);
+  if (!cluster || cluster.kind !== "k8s") {
+    return res.status(404).json({ error: "Cluster not found." });
+  }
+
+  const { enabled, channels } = req.body || {};
+  const channelIds = Array.isArray(channels)
+    ? channels.map(Number).filter(Number.isInteger)
+    : [];
+  const values = {
+    enabled: Boolean(enabled),
+    channelsJson: JSON.stringify(channelIds),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const existingConfig = db
+    .select()
+    .from(k8sHealthAlertConfigs)
+    .where(eq(k8sHealthAlertConfigs.clusterId, cluster.id))
+    .get();
+  if (existingConfig) {
+    db.update(k8sHealthAlertConfigs)
+      .set(values)
+      .where(eq(k8sHealthAlertConfigs.clusterId, cluster.id))
+      .run();
+  } else {
+    db.insert(k8sHealthAlertConfigs)
+      .values({ clusterId: cluster.id, ...values })
+      .run();
+  }
+  return res.json({ ok: true });
 }
 
 // POST /api/k8s/insight/:clusterId/refresh

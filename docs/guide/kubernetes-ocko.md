@@ -105,6 +105,14 @@ existing role in place and grants the new API group without disturbing anything.
 
 ---
 
+### Run the script again after a CHOps upgrade
+
+Newer CHOps versions read more optional objects: nodes, pod metrics, and
+the operator namespace for operator logs. Run `chops-k8s-setup.sh` again
+with your previous options, and add `-o <operator namespace>` for operator
+logs. This operator usually runs in its own namespace. To find it, run
+`kubectl get pods -A | grep clickhouse-operator`.
+
 ## 4. Making ClickHouse reachable
 
 The same problem as AKOC, and one detail that makes it more work here.

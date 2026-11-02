@@ -160,10 +160,10 @@ export default function TrustedCas() {
           maxWidth: 700,
         }}
       >
-        Add your organisation's certificate authority here if ClickHouse uses
+        Add your organisation&apos;s certificate authority here if ClickHouse uses
         HTTPS with a certificate you issued yourself. Without it, CHOps cannot
-        verify the connection and reports "unable to verify the first
-        certificate". These are added to the authorities your system already
+        verify the connection and reports &quot;unable to verify the first
+        certificate&quot;. These are added to the authorities your system already
         trusts, so public certificates keep working.
       </p>
 

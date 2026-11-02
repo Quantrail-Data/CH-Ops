@@ -62,7 +62,7 @@ export default function AdvancedFilters({ table, value, onChange }) {
     if (keptColumns.length !== (value.columns || []).length) {
       saveAndNotify({ ...value, columns: keptColumns });
     }
-  }, [loading, columns]); // eslint-disable-line react-hooks/exhaustivedeps
+  }, [loading, columns]); // eslint-disable-line react-hooks/exhaustive-deps
   if (absent) return null;
   if (loading) {
     return (
