@@ -54,6 +54,7 @@ mock.module("../../src/backend/db/index.js", () => ({
   k8sHealthState: schema.k8sHealthState,
   k8sHealthAlertConfigs: schema.k8sHealthAlertConfigs,
   alertChannels: schema.alertChannels,
+  clusters:{},
 }));
 mock.module("../../src/backend/services/k8sHealth.js", () => ({
   runHealthChecks: async () => ({

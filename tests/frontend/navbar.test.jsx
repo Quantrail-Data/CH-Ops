@@ -22,6 +22,7 @@ vi.mock('../../src/frontend/App.jsx', () => ({
 
 vi.mock('../../src/frontend/utils/api.js', () => ({
   runQuery: (...args) => mockRunQuery(...args),
+  editorDisconnect: vi.fn(() => Promise.resolve()), 
 }));
 
 // Icon renders as a span that exposes its Tabler class, so we can assert which
