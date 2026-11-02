@@ -124,8 +124,8 @@ chmod +x scripts/chops-k8s-setup.sh
 ./scripts/chops-k8s-setup.sh
 ```
 
-It prints exactly what it is about to create and waits for you to type `y`.
-Read that list. Nothing is created before you confirm.
+The script prints exactly what it is about to create and waits for you to type
+`y`. Read that list, because the script creates nothing until you confirm.
 
 ### What it creates
 
@@ -133,19 +133,37 @@ Read that list. Nothing is created before you confirm.
 |---|---|
 | Namespace `chops` | A folder for these objects |
 | ServiceAccount `chops-reader` | The identity |
-| ClusterRole and binding | What it may do |
+| ClusterRole and binding `chops-reader` | What it may do. With `-n`, the script creates a Role and RoleBinding in each namespace instead |
+| Role and RoleBinding `chops-reader-operator` | Only with `-o`. Read access to the operator pod and its logs |
 | Secret `chops-reader-token` | The credential |
 
-The account may **read** installations, pods, pod logs, storage claims,
-services, events, endpoint slices, stateful sets, network policies and
-disruption budgets.
+The account may **read** these objects:
+
+- ClickHouse&reg; installations and Keeper installations, for AKOC and OCKO
+- Pods, pod logs, services, config maps, events and resource quotas
+- Persistent volume claims and endpoint slices
+- Stateful sets, network policies, ingresses and pod disruption budgets
+- Pod metrics (`metrics.k8s.io`), on clusters that have a metrics server
+- Namespaces, storage classes and nodes. These are cluster-wide objects, so
+  the account gets them only without `-n`
+- The operator pods and their logs in the operator namespace, only with `-o`
 
 It may **not** create, update, patch or delete anything, and it cannot read
 Secrets. Kubernetes enforces that, not CHOps.
 
+### Script options
+
+| Option | What it does |
+|---|---|
+| `-n NAMESPACE` | Gives read access in this namespace only. Repeat it for more namespaces. Without it, the account can read the whole cluster |
+| `-s NAMESPACE` | The namespace for the service account. The default is `chops` |
+| `-o NAMESPACE` | The namespace of the ClickHouse&reg; operator pod. Gives read access to the operator pod and its logs, so CHOps can show operator logs. Optional |
+| `-y` | Does not ask for confirmation |
+| `-h` | Shows the help text |
+
 ### What it prints
 
-Three values. Keep them on screen.
+The script prints three values. Keep them on screen.
 
 ```
 API address:
@@ -171,12 +189,14 @@ is no way to switch that off. **Token** proves who CHOps is.
 ```
 
 The trade-off: CHOps cannot list namespaces, so you type the name instead of
-choosing from a dropdown, and volume expansion checks become unavailable because
-storage classes are a cluster-wide object. Everything else is the same.
+choosing from a dropdown. Volume expansion checks show as unavailable, because
+storage classes are a cluster-wide object. Zone awareness shows as unknown,
+because nodes are also a cluster-wide object. Everything else is the same.
 
 ### Check the values before going further
 
-Ten seconds, and it saves an hour.
+Ten seconds, and it saves an hour. Save the CA certificate to `/tmp/ca.crt`
+and the token to `/tmp/token.txt`. Then run:
 
 ```bash
 curl --cacert /tmp/ca.crt \
@@ -187,17 +207,33 @@ curl --cacert /tmp/ca.crt \
 You want JSON containing `"kind":"ClickHouseInstallationList"`. If this fails,
 fix it here. Nothing later can work until it succeeds.
 
----
-
 ### Run the script again after a CHOps upgrade
 
-This CHOps version reads more optional objects: nodes (zone awareness),
-pod metrics (live resource usage), and the operator namespace (operator
-logs). A token from an older script keeps working. The new features show
-as unknown, and the Kubernetes page names the missing grants. To turn them
-on, run the script again with the options that you used before. Add
-`-o <operator namespace>` if you want operator logs. It is safe to run the
-script again: it changes each object in place, and the token stays the same.
+A new CHOps version can read more optional objects than the script of an
+older version allows. These features need grants that older scripts do not
+give:
+
+| Feature | Grant |
+|---|---|
+| Zone awareness | Read nodes (cluster-wide only) |
+| Live pod resource usage | Read pod metrics (`metrics.k8s.io`) |
+| Operator logs | Read the operator pod and its logs (`-o` only) |
+
+A token from an older script keeps working. Features without a grant show as
+unknown or unavailable. The **Kubernetes Insights** page shows the banner
+**Optional permissions are missing.** with the names of these features.
+
+To get the grants, do these steps after each CHOps upgrade:
+
+1. Run the script again with the options that you used before.
+2. Add `-o <operator namespace>` if you want operator logs.
+3. For operator logs, type the operator namespace in the connection. See
+   [Step 1 of 4: Connect](#step-1-of-4-connect).
+
+It is safe to run the script again: it applies each object in place, and the
+token stays the same.
+
+---
 
 ## 5. Step 2: make ClickHouse reachable
 
@@ -218,8 +254,8 @@ curl http://localhost:8123/ping
 
 You want `Ok.` Then use `localhost`, port `8123`, TLS disabled.
 
-Fine for trying this out. Not for anything real, because closing that terminal
-takes the cluster away.
+This is fine for trying things out, but not for anything real, because closing
+that terminal takes the cluster away.
 
 ### Option B: LoadBalancer service
 
@@ -268,8 +304,8 @@ A connection from CHOps is refused, and the refusal looks exactly like a wrong
 password, so you will spend twenty minutes checking a password that was always
 correct.
 
-Leave `clickhouse_operator` alone too. It belongs to the operator and is
-restricted to the operator's own pod.
+Leave `clickhouse_operator` alone too. It belongs to the operator, which
+restricts it to its own pod.
 
 ### Create one for CHOps
 
@@ -308,29 +344,49 @@ You want `1`.
 
 ## 7. Step 4: add the cluster
 
-**Cluster Management**, **Kubernetes** tab, **New Cluster**.
+Go to **Control panel**, **Cluster Management**. Select the **Kubernetes** tab,
+then **New Cluster**. Only administrators can add a cluster.
+
+If the **Kubernetes** tab is not there, the Kubernetes feature is turned off
+for this CHOps instance.
 
 ### Step 1 of 4: Connect
 
-Paste the whole block from [part 4](#4-step-1-create-a-read-only-account) into
-the large paste box. CHOps pulls out the three values itself.
+To use a connection that you saved before, select it in **Use an existing
+connection**. To add a new one, do these steps:
 
-Name the connection something you will recognise, then **Test connection**. You
-want `Kubernetes: Connected.` If a permission is missing, CHOps names the exact
-one.
+1. Type a **Connection name** that you will recognise.
+2. Paste the whole block from [part 4](#4-step-1-create-a-read-only-account)
+   into the box **Paste the output of chops-k8s-setup.sh**. CHOps fills in
+   **API address**, **CA certificate** and **Token**.
+3. Optional: type the **Operator namespace**. This is the namespace where the
+   operator pod runs. CHOps needs it to show operator logs. AKOC installs into
+   `kube-system` by default.
+4. Select **Test connection**. You want `Kubernetes: Connected.`
+5. Select **Continue**. CHOps saves the connection.
 
-### Step 2 of 4: Operator and installation
+**Probe** checks that CHOps can find the operator pod in the operator
+namespace. It works only after CHOps saves the connection. To use it, go back to
+step 1, select the saved connection, and select **Probe**. The token needs the
+`-o` grant for that namespace.
 
-Choose **Altinity&reg; Kubernetes Operator for ClickHouse&reg; (AKOC)**. When only one
-operator is installed CHOps pre-selects it from the test result, so usually you
-are confirming rather than choosing.
+With a token from `-n`, the test can fail because the token cannot list
+namespaces. This is expected. Select **Continue** and type the namespace in
+step 2.
 
-Pick a namespace, choose **Find installations**, and select yours from the
-table.
+### Step 2 of 4: Installation
+
+In **Operator**, choose **Altinity&reg; Kubernetes Operator for ClickHouse&reg;
+(AKOC)**.
+
+Choose or type a namespace and select **Find installations**. The table shows
+the name, status, version and number of hosts of each installation. Select
+yours.
 
 ### Step 3 of 4: ClickHouse address
 
-The address from [part 5](#5-step-2-make-clickhouse-reachable).
+Type the address from [part 5](#5-step-2-make-clickhouse-reachable) in
+**ClickHouse&reg; address**. The defaults are port 8443 and TLS **Enabled**.
 
 | Setup | Address | Port | TLS |
 |---|---|---|---|
@@ -339,23 +395,51 @@ The address from [part 5](#5-step-2-make-clickhouse-reachable).
 | LoadBalancer with TLS | the hostname | 8443 | Enabled |
 | Ingress | the hostname you configured | 443 | Enabled |
 
+#### Pod addressing
+
+Some pages, for example Current Queries, Merges, Parts and Replication, show
+data for each node, and for these CHOps must reach each pod directly.
+**Pod addressing** sets how CHOps reaches the pods:
+
+| Option | What CHOps does |
+|---|---|
+| **Auto-detect (recommended)** | Tries the internal address of each pod. If that fails, it looks for a NodePort or LoadBalancer service for each pod. If it finds none, it uses the address above |
+| **Always connect to pods directly** | Uses the internal pod addresses without a check. Use this if a network policy blocks the check but real traffic works |
+| **Always use the address above** | Sends every query to the address above. Pages for each node show one pod, which can change on each refresh |
+
+If CHOps runs outside the cluster, the internal pod addresses do not resolve.
+To get data for each node, give each pod its own service. **Auto-detect**
+shows an example for AKOC under **How to expose each pod so per-node data
+works**. The simplest option is to run CHOps inside the cluster.
+
+When CHOps cannot reach each pod, it asks you to confirm before it adds the
+cluster. Select **Import anyway** to continue. Cluster-wide queries in the SQL
+editor are not affected.
+
 ### Step 4 of 4: Credentials
 
-The user from [part 6](#6-step-3-create-a-clickhouse-user).
+Type the user from [part 6](#6-step-3-create-a-clickhouse-user) in
+**ClickHouse&reg; user** and its **Password**. **Display name** is the name of
+the cluster in CHOps. The default is the installation name.
 
-Entered **once for the whole installation**. Every host inherits them, which is
-what keeps things working when somebody scales the cluster and new hosts appear.
+You enter these **once for the whole installation**. Every host inherits them,
+which is what keeps things working when somebody scales the cluster and new hosts appear.
 
-CHOps tests the credentials before saving. If they do not work it says which
-half failed and asks whether to add the cluster anyway. Adding anyway is
+Select **Add cluster**. CHOps tests the credentials before it saves. If they do
+not work, the dialog **ClickHouse&reg; credentials did not work** opens. Select
+**Add anyway** or **Go back and fix**. Adding anyway is
 reasonable: the Kubernetes screens still work, which is what you need while
-diagnosing why ClickHouse&reg; will not answer.
+diagnosing why ClickHouse&reg; will not answer. The SQL editor, dashboards,
+alerts and backups do not work until you fix the credentials, which you do by
+editing the cluster.
 
 ### Confirm it worked
 
 Three checks, in order of how much they prove:
 
-1. The cluster appears with the right number of hosts.
+1. The cluster appears with the right number of hosts. Each host has the name
+   `<cluster>-<shard>-<replica>`. Here, `<cluster>` is the cluster name in the
+   installation, and shards and replicas count from 0.
 2. Open it and run `SELECT hostName(), version()`.
 3. Create an alert rule against it and open a dashboard. Neither feature knows
    Kubernetes exists, and both should work unchanged. That is the whole point of
@@ -406,8 +490,8 @@ If CHOps runs in a container, put them on the same Docker network:
 
 ### Self-managed Kubernetes
 
-Covers kubeadm, Rancher and OpenShift. The cleanest case, because you control
-the network.
+This covers kubeadm, Rancher and OpenShift, and it is the cleanest case because
+you control the network.
 
 ```bash
 kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
@@ -472,8 +556,8 @@ Internal load balancer annotation:
 gcloud container clusters describe YOUR-CLUSTER --zone YOUR-ZONE --format='value(endpoint)'
 ```
 
-Prefix with `https://`. GKE calls the restriction authorized networks; if
-configured, the CHOps address must be listed.
+Prefix with `https://`. GKE calls the restriction authorized networks. If they
+are configured, the list must include the CHOps address.
 
 GKE normally issues short-lived credentials through `gke-gcloud-auth-plugin`.
 CHOps uses a service account token instead, which does not expire and needs no
@@ -490,9 +574,9 @@ Internal load balancer annotation:
 The cluster runs in your cloud account and you have access to it, so follow
 whichever of EKS, AKS or GKE it runs on.
 
-Two differences: Altinity manages the operator, so do not change operator
-settings without talking to them; and the ClickHouse&reg; endpoint is already
-exposed, so use the address from the Altinity.Cloud&reg; console rather than
+There are two differences. Altinity manages the operator, so do not change
+operator settings without talking to them. And the ClickHouse&reg; endpoint is
+already exposed, so use the address from the Altinity.Cloud&reg; console rather than
 creating your own service.
 
 ---
@@ -529,8 +613,8 @@ Note `--raw`. Without it, kubectl hides the value.
 
 ### The certificate does not cover this address
 
-Different problem, easy to confuse with the one above. The certificate is fine;
-the address is not. Use exactly the address from your kubeconfig. On K3s this
+This is a different problem, and easy to confuse with the one above: the
+certificate is fine, but the address is not. Use exactly the address from your kubeconfig. On K3s this
 usually means the cluster was installed without `--tls-san`.
 
 ### The token was rejected
@@ -546,8 +630,11 @@ name instead.
 
 ### No installations found
 
-Three causes and CHOps tells you which: the operator is not installed, the
-operator does not watch that namespace, or your token cannot see it.
+There are three usual causes. The operator is not installed, the operator does
+not watch that namespace, or your token cannot see it. If the operator is not
+installed or the token cannot read the namespace, CHOps shows an error that
+says so. If the list is only empty, check which namespaces the operator
+watches.
 
 An installation the operator does not watch shows as unmanaged on the Reconcile
 screen. It exists and nothing is acting on it.
@@ -564,15 +651,15 @@ kubectl exec -n YOUR-NAMESPACE YOUR-POD -- \
 
 ### A host disappeared
 
-Two innocent explanations. A pod restarting during maintenance vanishes for a
+There are two innocent explanations. A pod restarting during maintenance vanishes for a
 minute or two, and CHOps waits for several missed refreshes before removing a
-host. Or the operator removed a host that failed to start after a scale-out,
+host. See [How the host list stays current](kubernetes-page.md#how-the-host-list-stays-current). Or the operator removed a host that failed to start after a scale-out,
 which is its default behaviour rather than somebody deleting your machine.
 
 ---
 
 ## What next
 
-Everything in CHOps now works against this cluster. The Kubernetes screens are
-new: see [The Kubernetes Page](kubernetes-page.md) for what each one shows and
-why it is worth looking at.
+Everything in CHOps works against this cluster. For the Kubernetes screens, see
+[The Kubernetes Page](kubernetes-page.md). It explains what each screen shows
+and why it is worth looking at.

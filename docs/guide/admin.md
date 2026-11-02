@@ -8,19 +8,19 @@ CHOps has its own user system to control who can log in to the dashboard and wha
 
 When someone logs in, CHOps checks the username and password against its own database first. If there is no match, it falls back to the super admin credentials from the `.env` file, unless `DISABLE_ENV_LOGIN=true` is set.
 
-Passwords are hashed with argon2id (a strong, one-way, memory-hard algorithm) before they are stored. Even if someone obtained the database file, they could not reverse a hash back into the original password. Older installations that stored SHA-256 hashes are transparently upgraded to argon2id the next time each user logs in.
+CHOps hashes passwords with argon2id (a strong, one-way, memory-hard algorithm) before it stores them. Even if someone obtained the database file, they could not reverse a hash back into the original password. On older installations that stored SHA-256 hashes, CHOps transparently upgrades each user's hash to argon2id the next time that user logs in.
 
 ### The four roles
 
-Every CHOps user holds exactly one of four roles. The roles form a strict order. Each role can do everything the role below it can do, and adds more.
+Every CHOps user holds exactly one of four roles, and the roles form a strict order: each role can do everything the role below it can do, and adds more.
 
-**Super Admin (level 3).** Full access to everything, including the actions no other role can perform: management of other super admins, and the App Data Backup of the CHOps database. Super admins are created from the `.env` file on first startup. After that, only another super admin can create one. A maximum of 3 super admins can exist at any time. Treat this role as being for initial setup, ownership, and emergency recovery.
+**Super Admin (level 3).** Full access to everything, including the actions no other role can perform: managing other super admins and running the App Data Backup of the CHOps database. CHOps creates the first super admins from the `.env` file on first startup, and these first accounts are default users. Nobody can delete a default user or reset its password from User Management. After that, only another super admin can create one. A maximum of 3 super admins can exist at any time. Treat this role as being for initial setup, ownership, and emergency recovery.
 
-**Admin (level 2).** The role for day-to-day administration. Admins can do almost everything a super admin can: manage clusters and nodes, storage profiles, alert rules and channels, notification channels, AI API keys, and other CHOps users. What they cannot do is act on super admins (create, change, or delete them) or reach the super-admin-only App Data Backup page.
+**Admin (level 2).** The role for day-to-day administration. Admins can do almost everything a super admin can: manage clusters and nodes, storage profiles, alert rules, notification channels, trusted CAs, App Config, AI API keys, and other CHOps users. They cannot act on users at or above their own level, so they cannot change, reset, or delete super admins or other admins. In the interface, they can create only editor and readonly users. They cannot open the App Data Backup page or the System Email tab, which are for super admins only.
 
-**Editor (level 1).** A working role for people who build and query but do not administer. Editors can use everything in the Overview, Tools, Logs, Monitoring, and Schema areas, run any query in the SQL Editor, and create, edit, and delete dashboards and charts. They can view alert rules but cannot create, edit, or delete them, and they have no access to the administration or cluster-management functions.
+**Editor (level 1).** A working role for people who build and query but do not administer. Editors can use everything in the Overview, SQL Tools, Logs, Monitoring, and Schema Tools areas. They can run queries in the SQL Editor. Write queries need their own ClickHouse&reg; credentials: on the cluster's shared connection, the server makes an editor's queries read-only. Editors can create, rename, and arrange dashboards, but they cannot delete dashboards or charts. The Chart Builder page is for admins only. They cannot manage alert rules, and they have no access to the administration or cluster-management functions.
 
-**Readonly (level 0).** View-only access, and the default role for every new user. Readonly users can browse the overview pages, view dashboards and charts, read logs and monitoring, and view alert rules. They can open the SQL Editor, but the server forces every query they run to be read-only, so a readonly user can `SELECT` but never write, alter, or drop. They cannot create, edit, or delete anything in CHOps.
+**Readonly (level 0).** View-only access, and the default role for every new user. Readonly users can browse the overview pages, view dashboards and charts, and read logs and monitoring. They can open the SQL Editor, but the server forces every query they run to be read-only, so a readonly user can `SELECT` but never write, alter, or drop. They cannot create, edit, or delete anything in CHOps.
 
 ### What each role can do
 
@@ -28,50 +28,61 @@ Every CHOps user holds exactly one of four roles. The roles form a strict order.
 |------------|:-----------:|:-----:|:------:|:--------:|
 | Log in; view overview, logs, monitoring, schema, and query tools | Yes | Yes | Yes | Yes |
 | Run queries in the SQL Editor | Yes | Yes | Yes | Read-only queries only |
-| View dashboards, charts, and alert rules | Yes | Yes | Yes | Yes |
-| Create, edit, or delete dashboards and charts | Yes | Yes | Yes | No |
+| View dashboards and charts | Yes | Yes | Yes | Yes |
+| Create, rename, or arrange dashboards | Yes | Yes | Yes | No |
+| Build or edit charts in the Chart Builder | Yes | Yes | No | No |
+| Delete dashboards and charts | Yes | Yes | No | No |
+| View alert rules on the Alert Rules page | Yes | Yes | No | No |
 | Create, edit, delete, or test alert rules and channels | Yes | Yes | No | No |
 | Manage clusters and nodes | Yes | Yes | No | No |
 | Manage storage profiles | Yes | Yes | No | No |
 | Manage notification channels | Yes | Yes | No | No |
+| Manage trusted CAs and App Config | Yes | Yes | No | No |
 | Manage AI (Qurioz) API keys | Yes | Yes | No | No |
 | Open the User Management page | Yes | Yes | No | No |
 | Create users | Yes (any role) | Yes (editor, readonly) | No | No |
-| Reset another user's password | Yes | Yes (users below you) | No | No |
+| Reset a password or make a new setup link | Yes (not default users) | Yes (users below you) | No | No |
 | Change a user's role | Yes (to admin, editor, or readonly) | Yes (editor, readonly) | No | No |
-| Delete a user | Yes (not super admins) | Yes (editor, readonly) | No | No |
+| Delete a user | Yes (not super admins or default users) | Yes (editor, readonly) | No | No |
+| System Email settings | Yes | No | No | No |
 | App Data Backup of the CHOps database | Yes | No | No | No |
-| Change your own password | Yes | Yes | Yes | Yes |
+| Change your own password with **Change My Password** | Yes | Yes | No | No |
+| Reset a forgotten password from the sign-in page | Yes | Yes | Yes | Yes |
 
 > Note on App Data Backup: the page is shown to super admins only. The backend endpoints behind it accept any admin-level caller, but through the interface it is a super-admin function.
 
 ### How access is actually enforced
 
-It helps to know where CHOps enforces permissions, because it enforces them on the server, not by a hide of menu items.
+It helps to know where CHOps enforces permissions, because it enforces them on the server, not by hiding menu items.
 
-- **The sidebar is the same for everyone.** All roles see every navigation entry, including the Admin section. Nothing is removed from the menu based on role.
-- **Privileged pages gate themselves.** When a user without the required role opens an administration page (User Management, Cluster Management, Notification Channels, AI API Keys), the page shows an "only available for administrators" message instead of the controls. App Data Backup shows an "only available for super administrators" message.
-- **The server is the final authority.** CHOps checks every write action again on the backend API, so a permission cannot be bypassed by a direct API call or an edit of the page. The rules below describe that server-side enforcement, which is the behavior you can rely on.
+- **The sidebar is the same for everyone.** All roles see every navigation entry, including the **Control panel** section. Nothing is removed from the menu based on role.
+- **Privileged pages gate themselves.** When a user without the required role opens an administration page, the page shows an "only available for administrators" message instead of the controls. This applies to User Management, Cluster Management, Storage Profiles, Notification Channels, Trusted CAs, App Config, AI API Keys, and Alert Rules. App Data Backup shows an "only available for superadministrators" message.
+- **The server is the final authority.** CHOps checks every write action again on the backend API, so nobody can bypass a permission with a direct API call or by editing the page. The rules below describe that server-side enforcement, which is the behavior you can rely on.
 
-For readers who work at the API level, the guards map to routes as follows. Viewing (all `GET` list endpoints) is open to any logged-in user. Only the write actions are restricted.
+For readers who work at the API level, the guards map to routes as follows. Most `GET` list endpoints are open to any logged-in user. The table shows the write actions and the `GET` endpoints that need a higher role.
 
 | Route | Method(s) | Minimum role |
 |-------|-----------|--------------|
-| `/api/users` | `GET` (list) | Any logged-in user (the page itself is admin-gated in the UI) |
+| `/api/users` | `GET` (list) | Admin |
 | `/api/users` | `POST` (create) | Admin |
-| `/api/users/:id` | `PUT` (email, role, password reset) | Self for own email; Admin for others, with hierarchy checks |
+| `/api/users/:id` | `PUT` (email, role, password reset) | Admin, with hierarchy checks |
 | `/api/users/:id` | `DELETE` | Admin, with hierarchy checks |
-| `/api/dashboards`, `/api/dashboards/charts` | `POST`/`PUT`/`DELETE` | Editor |
-| `/api/alerts/rules`, `/api/alerts/channels` | `POST`/`PUT`/`DELETE`, channel test | Admin |
+| `/api/users/regenerate` | `GET` (new setup link) | Admin, with hierarchy checks |
+| `/api/system-smtp` | all | Super admin |
+| `/api/dashboards`, `/api/dashboards/charts` | `POST`/`PUT` | Editor |
+| `/api/dashboards`, `/api/dashboards/charts` | `DELETE` | Admin |
+| `/api/alerts/rules`, `/api/alerts/channels` | `POST`/`PUT`/`DELETE`, rule test, channel test, templates | Admin |
 | `/api/cluster` | `POST`/`PUT`/`DELETE` | Admin |
+| `/api/storage` | profile test, update, delete | Admin |
+| `/api/trusted-cas`, `/api/app-config` | all | Admin |
 | `/api/app-backup` | `POST`/`GET`/`PUT` | Admin (surfaced only to super admins in the UI) |
-| `/api/qurioz/api-keys` | create/update/delete/select/read value | Admin |
+| `/api/qurioz/api-keys` | create/update/delete/select/check/read value | Admin |
 | `/api/settings/:key` for `clusters`, `cluster.nodes`, `backup_profiles` | write/delete/read | Admin |
 | `/api/query` | `POST` | Any logged-in user; the readonly role is forced to read-only queries |
 
 ### Rules for creating, changing, and deleting users
 
-These rules exist to stop anyone from a quiet escalation of their own privileges, and the server applies them on every request.
+These rules exist to stop anyone from quietly escalating their own privileges, and the server applies them on every request.
 
 **Creating a user.**
 
@@ -85,74 +96,97 @@ These rules exist to stop anyone from a quiet escalation of their own privileges
 - A super admin can change any admin, editor, or readonly user to admin, editor, or readonly.
 - An admin can change editor and readonly users, and only to editor or readonly.
 - Editors and readonly users cannot change anyone's role.
-- **A super admin cannot be created by a change of an existing user's role.** The only way to add a super admin is to create a brand-new user with that role, and only a super admin can do it. In other words, a promotion of an existing account to super admin is not possible. You create one from scratch instead.
+- **You cannot create a super admin by changing an existing user's role.** The only way to add a super admin is to create a brand-new user with that role, and only a super admin can do it. In other words, you cannot promote an existing account to super admin, so you create one from scratch instead.
 - No one can change a super admin's role, not even another super admin.
 
-**Resetting a password.** An admin or super admin can reset the password of a user below their own level. A reset generates a new one-time random password and requires the user to change it at their next login. Users change their own password through the change-password flow, which any logged-in user can use.
+**Resetting a password.** An admin can reset the password of a user below their own level. An admin cannot reset the password of a user at or above their own level, or make a setup link for that user. A super admin can reset the password of any user, including another super admin. Nobody can reset their own password this way, or the password of a default user. A reset removes the old password and makes a one-time setup link. See [Resetting a user's password](#resetting-a-users-password).
 
 **Deleting a user.**
 
 - You cannot delete yourself.
 - You cannot delete a user at your own level or above. In practice, an admin can delete editors and readonly users, and a super admin can also delete admins.
-- No one can delete a super admin, including another super admin. Remove a super admin by an edit of the `.env`-seeded accounts and the database directly during maintenance, if you truly need to.
+- No one can delete a super admin. A super admin cannot delete another super admin.
+- No one can delete a default user.
 - Editors and readonly users cannot delete anyone.
 
 ### Creating a new user
 
-1. Go to **Administration > User Management**.
+1. Go to **Control panel > User Management**.
 2. Click **New User**.
-3. Enter a username, an optional email address, and select a role.
-4. CHOps generates a strong random password automatically.
-5. The password is shown once. Copy it and pass it to the user securely.
-6. If SMTP email is configured, CHOps also emails the password to the user.
-7. The user must change this password on first login. Until they do, a still-valid token cannot reach any other part of CHOps.
+3. Enter a username, an email address, and select a role. The email address is required, and both the username and the email address must be unique.
+4. Click **Create User**.
+5. CHOps shows a one-time setup link in the **Password Setup Link** box. Click **Copy URL** and send the link to the user securely.
+6. If [System Email](#system-email) is configured, CHOps also sends the link to the email address of the user.
+7. The user opens the link and sets a password.
+
+CHOps does not make a password for the user. Nobody sees a password, and CHOps does not send one by email.
+
+The setup link expires after 30 minutes and works one time only. If the link expires before the user sets a password, click **Copy setup URL** (refresh icon) in the user's row, and CHOps makes a new link. This button works only for a user who has no password.
+
+The link starts with the address in the `FRONTEND_LINK` environment variable. If `FRONTEND_LINK` is not set, CHOps uses the address of the request that reached the server. Behind a proxy, that address can be wrong, so set `FRONTEND_LINK` to the address that your users open.
 
 ### The first login password change
 
-A newly created user, and any user whose password an administrator has reset, must set a new password before they can use CHOps. There is nothing to configure. CHOps sets the requirement automatically in both cases.
+New users, and users whose password an administrator reset, have no password. Nobody can sign in to that account until the user sets a password with the setup link. There is nothing to configure.
 
-**What the user sees.** After they sign in with the password they were given, they land on a change-password screen instead of the dashboard. Nothing else in CHOps is reachable until they complete it. A token issued at that point cannot reach any other page, so this is a real gate, not a redirect somebody could skip.
-
-The screen asks for three things:
+**What the user sees.** The setup link opens the **Set Your Password** page. The page asks for two things:
 
 | Field | Notes |
 |---|---|
-| Current password | The one they were given |
-| New password | At least 8 characters, at most 256 |
-| Confirm new password | Must match |
+| New Password | At least 8 characters, at most 256 |
+| Confirm Password | Must match |
 
-Each field has a show or hide control, which matters when someone types a generated password they cannot memorise.
+Each field has a show or hide control.
 
-**The new password must differ from the current one.** A re-entry of the generated password is rejected, because that would defeat the point.
-
-**After it succeeds** they go straight into CHOps. They are not asked to sign in again, because CHOps simply updates the session they already hold.
+**After it succeeds** the user goes straight into CHOps. They do not have to sign in again.
 
 ### Helping a user through it
 
-**They mistyped and got an error.** The message names the specific problem: passwords that do not match, too short, too long, or the same as the current one. Nothing is submitted until all four checks pass, so a failed attempt does not lock anything.
+**They mistyped and got an error.** The message names the problem: the passwords do not match, or the password is too short or too long. A failed attempt does not use up the link.
 
-**They lost the password before first login.** Reset it from User Management. That generates a new one and sets the requirement again, so they get the same screen with a working password.
+**The link does not work.** Either the link expired after 30 minutes or the user already used it. The page shows "Password setup link has expired." or "Invalid or expired password setup link." Click **Copy setup URL** in the user's row to make a new link.
 
-**They cannot get past the screen at all.** The current password field is the usual cause. It wants the password they were given, not the new one they are choosing. If SMTP is configured, CHOps emailed the original to them, so check there before a reset.
-
-**Nothing arrived by email.** SMTP may not be configured, in which case the password was shown once at creation and needs to be passed on securely. Reset the password if it was not captured.
+**Nothing arrived by email.** System Email may not be configured. Copy the link from User Management and send it to the user. A super admin sees the message "SMTP is not configured" on User Management when System Email is not configured.
 
 ### Resetting a user's password
 
-From **User Management**, an administrator can reset another user's password. CHOps generates a new strong password, emails it if SMTP is configured, and sets the first-login requirement again, so the user chooses their own password immediately afterwards.
+From **User Management**, an administrator can reset the password of another user:
 
-An administrator cannot reset their own password this way. Use the normal change-password route instead.
+1. Click **Reset Password** (key icon) in the user's row.
+2. CHOps removes the user's current password, so the old password stops working.
+3. CHOps shows a one-time setup link in the **Password Setup Link** box. Click **Copy URL** and send the link to the user.
+4. If System Email is configured, CHOps also sends the link to the user.
+5. The user opens the link and sets a new password.
+
+CHOps does not make, show, or send a password. The link expires after 30 minutes.
+
+An admin cannot reset the password of a user at or above their own level. CHOps shows "You cannot reset the password of a user at or above your level." A super admin can reset the password of any user except a default user.
+
+An administrator cannot reset their own password this way. Use **Change My Password** on the User Management page instead.
+
+### Forgotten password
+
+A user who forgets their password can reset it from the sign-in page. This needs [System Email](#system-email) and an email address on the account.
+
+1. On the sign-in page, click **Forget password ?**.
+2. Enter the email address of the account and click **Send Verification Code**.
+3. CHOps sends a 6-digit code to that address. The code is valid for 10 minutes.
+4. Enter the code and click **Verify**.
+5. Enter the new password two times and click **Change Password**. The password must have 8 to 256 characters.
+6. Sign in with the new password.
+
+The page shows the same message for every email address, so it does not reveal which addresses have an account. CHOps sends a code only when exactly one account has that email address. After 5 wrong codes, the code stops working. You can ask for a new code after 60 seconds.
 
 ### Where users are stored
 
-Users live in the `app_user` table in CHOps's SQLite database. The `role` column defaults to `readonly`, and `must_change_password` defaults to true, so a newly created account is always least-privileged and must set its own password before it does anything else. CHOps seeds the initial super admin accounts from the `.env` file the first time you run `bun run db:migrate`.
+Users live in the `app_user` table in CHOps's SQLite database. The `role` column defaults to `readonly`, and `must_change_password` defaults to true, so a new account has the lowest role and must set its own password before it does anything else. When the table has no users, CHOps adds the super admin accounts from the `.env` file (`SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and so on, up to 3). This happens in the database migration, which runs at server start and with `bun run db:migrate`.
 
 > The community edition records who can log in and what role they hold. If you need a full audit trail of what each user actually did (every DDL statement, every login, every configuration change, captured in a tamper-evident, searchable, exportable log for compliance), that is part of [CHOps Pro](chops-pro.md).
 
 ## System Email
 
-CHOps sends email for two things: the code that lets a user reset a forgotten
-password, and the message that tells a new user their account is ready.
+CHOps sends email for three things: the code that lets a user reset a forgotten
+password, the setup link for a new user, and the setup link after a password reset.
 
 To send email, CHOps needs an SMTP server. This page is where you give it one.
 Only a super admin can open it.
@@ -166,30 +200,28 @@ address.
 
 ### Setting it up
 
-1. Go to **Administration > User Management** and open the **System Email** tab.
-2. Fill in the server address, the port, and the address the email comes from.
-3. Fill in the user name and password, if your server needs them. Many internal
+1. Go to **Control panel > User Management** and open the **System Email** tab.
+   Only a super admin sees this tab.
+2. Fill in **SMTP host**, **Port**, and **From address**.
+3. Fill in **Username** and **Password**, if your server needs them. Many internal
    relays do not.
-4. Tick **Use TLS** if your server needs it. Port 465 usually does. Port 587
+4. Turn on **Use TLS** if your server needs it. Port 465 usually does. Port 587
    usually does not, because it starts without TLS and upgrades.
 5. Click **Test connection**. This checks that CHOps can reach the server and
    sign in. It sends nothing.
-6. Click **Send test email**. This sends a real message to your own address.
-   Do this one as well. A server can accept a sign in and still refuse to send.
-7. Click **Save**.
+6. Enter an address in **Send a test email to** and click **Send test email**.
+   This sends a real message. Do this one as well, because a server can accept a
+   sign in and still refuse to send.
+7. Click **Save**. CHOps tests the connection again before it saves. If the test
+   fails, CHOps saves nothing and shows the error.
 
 ### Where the settings come from
 
-CHOps looks in two places, in this order:
+CHOps uses the settings on this page. The **Currently using:** line above the
+form tells you if a configuration is in use.
 
-1. The settings on this page.
-2. The `SMTP_*` variables in the server environment.
-
-The page always wins. The line under the form tells you which one is in use, so
-you are never guessing.
-
-To go back to the environment settings, click **Delete**. This removes what you
-saved here. It does not change the environment.
+To remove the settings, click **Delete configuration**. CHOps then cannot send
+account email until you save new settings.
 
 ### If you are locked out
 
@@ -210,20 +242,24 @@ shows a saved password back to you, so an empty field means "no change", not
 
 ## Cluster Management
 
-CHOps supports up to 3 ClickHouse&reg; clusters, with a combined maximum of 18 nodes. Each cluster has a name and a list of nodes. The navbar shows a cluster dropdown (to switch clusters) and a node dropdown (to switch nodes within the active cluster). To manage clusters and nodes is an admin-level action.
+CHOps supports up to 3 ClickHouse&reg; clusters, with a combined maximum of 18 nodes in direct connection clusters. Each cluster has a name and a list of nodes. The navbar shows a cluster dropdown (to switch clusters) and a node dropdown (to switch nodes within the active cluster). Managing clusters and nodes is an admin-level action.
 
 > Do you manage more than a handful of clusters, or fleets spread across regions? [CHOps Pro](chops-pro.md) extends this with sidecar-agent-based fleet management: rolling-restart orchestration, cross-cluster schema synchronization, and centralized configuration management across an unlimited number of clusters.
 
 ### How to add a cluster
 
-1. Go to **Administration > Cluster Management** in the sidebar.
+1. Go to **Control panel > Cluster Management** in the sidebar.
 2. Click **New Cluster**.
-3. Enter a cluster name (for example "Production", "Staging", "Analytics"). Names must be unique.
-4. Add nodes with **Add Node** and fill in: Node Name, Host/IP, Port (default 8123), User, Password, and the HTTPS checkbox.
-5. Click **Test** next to each node to check the connection.
+3. Enter a **Cluster Name** (for example "Production", "Staging", "Analytics"). Names must be unique. CHOps ignores upper and lower case when it compares names.
+4. Add nodes with **Add Node** and fill in: Name, Host, Port (default 8123), User, Password, and the **HTTPS** checkbox.
+5. Click the test button (plug icon) next to each node to check the connection.
 6. Click **Create Cluster**. The navbar cluster dropdown updates automatically.
 
-To edit or delete a cluster, use the Edit and Delete buttons on the cluster card.
+To edit a cluster, click **Edit** on the cluster card. To delete a cluster, click the delete button (trash icon) on the card.
+
+When you add a cluster, CHOps adds the alert templates as rules for that cluster and leaves these rules off. See [Alert templates](alerting.md#alert-templates).
+
+If Kubernetes support is on, the page has two tabs: **Direct connection** and **Kubernetes**. See [Connect a Kubernetes cluster](kubernetes-connect.md).
 
 ### Switching clusters
 
@@ -232,22 +268,22 @@ Use the cluster dropdown in the navbar to switch between clusters. When you swit
 ### Limits
 
 - Maximum 3 clusters.
-- Maximum 18 total nodes across all clusters.
+- Maximum 18 total nodes across all direct connection clusters. Nodes of Kubernetes clusters do not count.
 - Node names must be unique within each cluster.
 
 ### Adding or removing nodes
 
-To add a new node to a cluster does not affect running alerts or backup schedules. They pick up the new node on their next tick. To remove a node is also safe: alerts and backups skip unreachable nodes silently.
+Adding a new node to a cluster does not affect running alerts or backup schedules. Alert rules that watch all nodes include the new node at their next run. If you remove a node that an alert rule selects by name, the rule reports an error. See [Choosing which nodes a rule watches](alerting.md#6-choosing-which-nodes-a-rule-watches).
 
 ### Where cluster config is stored
 
-CHOps saves cluster configuration in its SQLite database (in the `app_setting` table under key `clusters`). ClickHouse&reg; passwords are encrypted with AES-256-GCM before storage, and these credential-bearing settings are hidden from non-admin users and refused on non-admin writes. There are no ClickHouse&reg; settings in the `.env` file. If you upgrade from a single-cluster version, CHOps migrates the old configuration automatically on first startup.
+CHOps saves cluster configuration in its SQLite database (in the `app_setting` table under key `clusters`). CHOps encrypts ClickHouse&reg; passwords with AES-256-GCM before it stores them, hides these credential-bearing settings from non-admin users, and refuses writes to them from non-admins. There are no ClickHouse&reg; settings in the `.env` file. If you upgrade from a single-cluster version, CHOps migrates the old configuration automatically on first startup.
 
 ## Trusted CAs
 
 ### The problem this solves
 
-You turn on TLS for ClickHouse&reg;, tick **Secure** in CHOps, and get this:
+You turn on TLS for ClickHouse&reg;, tick **HTTPS** in CHOps, and get this:
 
 ```
 unable to verify the first certificate
@@ -288,7 +324,7 @@ by the same authority need one entry here, not ten.
 
 ### Adding one
 
-1. Go to **Administration > Trusted CAs**.
+1. Go to **Control panel > Trusted CAs**.
 2. Click **Add**.
 3. Give it a name you will recognise later, such as `Company internal CA`.
 4. Paste the whole certificate, including the `-----BEGIN CERTIFICATE-----` and
@@ -350,15 +386,28 @@ use it.
 
 ## Storage Profiles
 
-Shared S3-compatible storage configuration, used by both ClickHouse&reg; backups (Data Lifecycle) and App Data Backup. It supports Amazon S3, Google Cloud Storage, and Azure Blob. Any S3-compatible endpoint, such as MinIO, Wasabi, or Cloudflare R2, works too. To create or edit a profile is an admin-level action.
+Shared S3-compatible storage configuration, used by both ClickHouse&reg; backups (Data Lifecycle) and App Data Backup. The types are **Amazon S3**, **Google Cloud**, and **Azure Blob**. Any S3-compatible endpoint, such as MinIO, Wasabi, or Cloudflare R2, works with the Amazon S3 type. Creating, editing, testing, or deleting a profile is an admin-level action.
 
 ### Adding a storage profile
 
-1. Go to **Administration > Storage Profiles**.
+1. Go to **Control panel > Storage Profiles**.
 2. Click **New Profile**.
-3. Fill in: name, type (S3/GCS/Azure), bucket, endpoint (for a custom S3-compatible endpoint), region, access key ID, and secret key.
-4. Click **Test** to check that the connection reaches the bucket.
-5. Click **Save**.
+3. Fill in **Name**, **Type**, and **Bucket** (**Container** for Azure Blob).
+4. For Amazon S3, fill in **Endpoint** if you use an S3-compatible service. Leave it empty for Amazon S3.
+5. Fill in **Region** (not for Azure Blob), **Access Key ID**, and **Access Key (Secret)**.
+6. Click **Save**.
+
+Profile names must be unique.
+
+### Testing a storage profile
+
+Click **Test** on the profile card. CHOps runs a query with the ClickHouse&reg; `s3()` function on the active node, and the query reads a probe file in the bucket. "Connection OK" means that the node reached the bucket with the keys. If the test fails, the card shows the error, with the keys hidden.
+
+For an Azure Blob profile, the test checks only that the node answers. It does not check the container.
+
+### Editing a storage profile
+
+Click **Edit** to change the name, type, bucket, or region. You cannot change the endpoint, the access key ID, or the secret key. To change them, delete the profile and create a new one.
 
 Backup schedules reference storage profiles by name. If you rename or delete a profile that an active schedule uses, the schedule fails with a "profile not found" error.
 
@@ -368,37 +417,40 @@ Backs up CHOps's SQLite database (all settings, alert rules, channels, dashboard
 
 ### How it works
 
-1. CHOps creates a clean database snapshot with SQLite's built-in backup command (safe to run while the server runs).
-2. CHOps uploads the snapshot to S3 through ClickHouse&reg;'s `s3()` table function (this needs at least one cluster node configured).
-3. CHOps writes a JSON manifest alongside the backup with metadata: timestamp, app version, file size, and row counts per table.
+1. CHOps makes a clean database snapshot with SQLite `VACUUM INTO`. This is safe while the server runs.
+2. CHOps uploads the snapshot and the `crypto.salt` file to S3 through ClickHouse&reg;'s `s3()` table function. This needs at least one cluster node, and CHOps uses the first node of the first cluster.
+3. CHOps writes a JSON manifest next to the backup with metadata: timestamp, app version, file size, backup type, and row counts per table.
 
-S3 layout: `{bucket}/chops-app-backups/{timestamp}.db` and `{timestamp}.json`.
+S3 layout: `{bucket}/chops-app-backups/{timestamp}.db`, `{timestamp}.salt`, and `{timestamp}.json`. CHOps stores the files as base64 text.
 
 ### Manual backup
 
-Go to **Administration > App Data Backup**, select a storage profile, and click **Backup Now**.
+Go to **Control panel > App Data Backup**, select a storage profile, and click **Backup Now**.
+
+### Scheduled backup
+
+Under **Scheduled Backup**, select the **Storage Profile**, the **Frequency** (**Daily** or **Weekly**), the **Day** for weekly backups, and the **Hour (24h)**. Turn the switch to **Enabled** and click **Save Schedule**. The backup runs at the start of the selected hour, in the time zone of the server.
 
 ### Restore
 
-Restore is manual, because the server must be stopped. The App Data Backup page shows the instructions under "Restore Instructions". The steps are:
+Restore is manual, because you must stop the server first. Use these steps:
 
-1. Download the `.db` file from S3 (with `aws s3 cp` or any S3 client).
+1. Download the `.db` file and the `.salt` file of the same backup from S3 (with `aws s3 cp` or any S3 client).
 2. Stop the CHOps server.
 3. Remove `data/chops.db-wal` and `data/chops.db-shm`.
-4. Replace `data/chops.db` with the downloaded backup file.
-5. Restart the server.
+4. Decode the `.db` file from base64 (`base64 -d`) and replace `data/chops.db` with the result.
+5. Decode the `.salt` file from base64 (`base64 -d`) and save the result as `data/crypto.salt`. The result must be 32 bytes.
+6. Restart the server.
 
-The backup file is self-contained. All app state is inside the single `.db` file.
+Keep the same `ENCRYPTION_SECRET` as the original server. CHOps needs the secret and the salt to decrypt the stored credentials.
 
 
 ## App Config
 
-Limits on how CHOps behaves. Before this page, these were settings in a file on
-the server, and changing one meant a restart. Now you change them here and they
-apply at once.
+Limits on how CHOps behaves. A change applies at once, with no restart.
 
-Four tabs. Exports, Queries and Kubernetes are open to an admin. Security is for
-super admins only.
+The page has four tabs: Exports, Queries, Security, and Kubernetes. All tabs are
+open to admins and super admins.
 
 ### How a setting is found
 
@@ -431,31 +483,29 @@ otherwise.
 
 | Setting | What it does |
 | --- | --- |
-| Total export storage | All export files together. When this is reached, new exports are refused. |
-| Largest single export | One export is stopped when it passes this. |
+| Total export storage | All export files together. When it is reached, CHOps refuses new exports. |
+| Largest single export | CHOps stops an export when it passes this. |
 | Exports running at once | Across everybody. |
 | Exports per user | How many one person may run at the same time. |
 | Warn above | Shown to the user as a warning. It stops nothing. |
-| Delete idle files after | An export nobody downloads is cleaned up after this. |
+| Delete idle files after | CHOps cleans up an export that nobody downloads after this. |
 
 **Total export storage is bounded by the disk.** In Kubernetes that disk has a
-size set in the deployment. Set this above it and the pod is evicted when the
-disk fills, which is worse than an export being refused. Check the disk before
+size set in the deployment. Set this above it and Kubernetes evicts the pod when
+the disk fills, which is worse than CHOps refusing an export. Check the disk before
 you raise this.
 
 ### Queries
 
 | Setting | What it does |
 | --- | --- |
-| Maximum result size | A query that returns more than this to CHOps is stopped. Exports are not affected. |
-| Schema Studio sample rows | How many rows column statistics are worked out from. |
+| Maximum result size | CHOps stops a query that returns more than this to it. This does not affect exports. |
+| Schema Studio sample rows | How many rows CHOps uses to work out column statistics. |
 
 The result size limit protects CHOps, not ClickHouse&reg;. A query that returns
 a very large result can use all the memory CHOps has.
 
 ### Security
-
-Super admins only.
 
 | Setting | What it does |
 | --- | --- |
@@ -467,9 +517,9 @@ Super admins only.
 That is deliberate. A saved credential that outlives the login it belongs to is
 of no use to anybody, and is one more thing to steal.
 
-Each setting has a smallest and a largest value, shown under it. CHOps refuses
-anything outside that range. This is checked on the server, not only in the
-browser, so the range cannot be got around.
+Every setting, on all tabs, has a smallest and a largest value, shown under it,
+and CHOps refuses anything outside that range. The server checks this, not only
+the browser, so nobody can get around the range.
 
 ### Kubernetes
 

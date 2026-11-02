@@ -16,25 +16,29 @@ Count the matching rows
 Send the result to you
 ```
 
-In reality, ClickHouse&reg; runs many of these steps in parallel across several threads. This makes a tree-shaped pipeline with branches that fork and merge. The Processors Profile page renders the full pipeline as an interactive diagram, where you can see how long each step took and where the bottleneck is.
+In reality, ClickHouse&reg; runs many of these steps in parallel across several threads, which turns the chain into a tree-shaped pipeline with branches that fork and merge. The Processors Profile page renders the full pipeline as an interactive diagram, where you can see how long each step took and where the bottleneck is.
 
 ## How to Use It
 
 ### Step 1: Open the page
 
-Go to **Query Tools > Processors Profile** in the sidebar.
+Go to **SQL Tools > Processors Profile** in the sidebar.
+
+You can also click **Pipeline** in the SQL Editor after a run. The page then opens with that query loaded, shows its query ID in a banner, and leaves out the filter row.
 
 ### Step 2: Load queries
 
-At the top is a filter row with three controls: a **time range**, a **Query Kind** dropdown, and a **Type** dropdown. CHOps builds the Query Kind and Type options from what actually appears in your query log for the selected time range, so you choose from real values. By default the filter is the last hour, query kind **Select**, and type **QueryFinish**.
+At the top is a filter row with four controls: **Start time**, **End time**, **Query kind**, and **Type**. CHOps builds the **Query kind** and **Type** options from what actually appears in your query log for the selected time range, so you choose from real values. Each list also has **All**. By default the filter is the last hour, query kind **Select**, and type **QueryFinish**.
 
-Click **Apply** to load the matching queries into the dropdown below the filter. To reach an older query, widen the time range. To look at a different kind of statement, change the query kind.
+When you change **Start time**, CHOps sets **End time** to 24 hours after it. You can then change **End time**.
+
+Click **Apply** to load the matching queries into the dropdown below the filter. The dropdown shows at most the 300 most recent queries. Click **Reset** to go back to the default filter. To reach an older query, widen the time range, and to look at a different kind of statement, change the query kind.
 
 ### Step 3: Select a query
 
 Pick a query from the dropdown. Each entry shows the timestamp, user, duration, query ID, and a preview of the SQL.
 
-The pipeline diagram renders automatically. CHOps auto-selects the most recent query when you click Apply.
+The pipeline diagram renders automatically, and when you click Apply, CHOps selects the most recent query for you. Expand the query text above the diagram to read the full SQL.
 
 ### Step 4: Read the diagram
 
@@ -46,7 +50,7 @@ The diagram shows the execution pipeline, top to bottom:
   - White is fast.
   - Light orange is moderate.
   - Deep orange is slow (the bottleneck).
-- The **legend bar** in the top-left corner shows the color scale with real time values.
+- The **legend bar** above the diagram shows the color scale from "fast" to "slow".
 
 ### Step 5: Inspect a processor
 
@@ -71,8 +75,9 @@ For complex queries with many processors:
 
 - **Scroll wheel** to zoom in and out.
 - **Click and drag** the canvas to pan.
-- **MiniMap** (bottom-right corner) shows an overview of the full pipeline with heatmap colors. Click anywhere on it to jump to that area.
-- **Controls** (bottom-left corner) have zoom in, zoom out, and fit-to-view buttons.
+- **Controls** (bottom-left corner) have zoom in, zoom out, fit-to-view, and lock buttons. The lock button turns zoom and pan on or off.
+- **Reset** (above the diagram) puts the diagram back in its first layout.
+- **Fullscreen** (above the diagram) gives the diagram the full window.
 
 ## What the Colors Tell You
 
@@ -84,11 +89,11 @@ The heatmap makes bottlenecks visible at a glance. Here are common patterns.
 - `AggregatingTransform` means expensive aggregation. Consider a pre-aggregation with a materialized view.
 - `SortingTransform` means a heavy sort. Consider an ORDER BY key that matches your query.
 
-**Several orange nodes in a chain.** The pipeline has a sequential bottleneck. Data flows slowly through several stages. Check whether the upstream processor passes too many rows (look at Output rows in the detail panel).
+**Several orange nodes in a chain.** The pipeline has a sequential bottleneck, with data flowing slowly through several stages. Check whether the upstream processor passes too many rows (look at Output rows in the detail panel).
 
-**Orange "wait" values, low "elapsed."** A processor is fast but starved for input. The bottleneck is upstream. Look at the processor that feeds data into this one.
+**Orange "wait" values, low "elapsed."** A processor is fast but starved for input, so the bottleneck is upstream. Look at the processor that feeds data into this one.
 
-**Everything is roughly the same color.** The workload is spread evenly. There is no single bottleneck. To improve performance, reduce the overall data volume with better filtering, sampling, or fewer columns.
+**Everything is roughly the same color.** The workload is spread evenly and there is no single bottleneck. To improve performance, reduce the overall data volume with better filtering, sampling, or fewer columns.
 
 ## When the Diagram is Empty
 
@@ -113,7 +118,7 @@ This is on by default in ClickHouse&reg; 22.3 and later. On an older version, as
 
 ## How It Differs from Query Profiler
 
-CHOps has two profiling tools. They answer different questions.
+CHOps has two profiling tools, and they answer different questions.
 
 | | Query Profiler (flame graph) | Processors Profile (pipeline diagram) |
 |-|------------------------------|---------------------------------------|

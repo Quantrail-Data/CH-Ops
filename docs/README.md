@@ -4,7 +4,7 @@ CHOps is a web-based administration and monitoring dashboard for ClickHouse&reg;
 
 ## What CHOps does
 
-CHOps connects to your ClickHouse&reg; cluster through the HTTP interface. It gives these capabilities:
+CHOps connects to your ClickHouse&reg; cluster through the HTTP interface and gives you these capabilities:
 
 - Real-time cluster health monitoring with automatic refresh
 - Kubernetes insights for clusters that run under the Altinity&reg; Kubernetes Operator for ClickHouse&reg; (AKOC) or the official ClickHouse&reg; Kubernetes Operator (OCKO)
@@ -12,14 +12,15 @@ CHOps connects to your ClickHouse&reg; cluster through the HTTP interface. It gi
 - Deep query analysis: a flame-graph query profiler, a processors pipeline view, per-query metric timelines, and side-by-side query comparison
 - Table and part inspection with compression statistics
 - Merge, mutation, replication, and ingestion queue monitoring
-- A full SQL editor with autocomplete, syntax highlighting, and a database explorer
+- A full SQL editor with autocomplete, syntax highlighting, a database explorer, and saved queries for each user
 - Schema tools: a schema visualizer, a guided table designer (Schema Studio), data-skipping indexes, and projections
-- Qurioz, an assistant that changes natural language into SQL
+- Qurioz, an assistant that turns natural language into SQL
 - Log viewers for crash, error, text, and session logs, with datetime filters
 - Monitoring dashboards for queries, CPU, memory, disk, network, and more, with playback and a memory-allocator view
-- SQL-based alerts with cron schedules and email notifications
+- SQL-based alerts with cron schedules, a separate state for each node, and notifications by email, Slack, Google Chat, Microsoft Teams, or PagerDuty
 - Role-based access-control management with visual grant trees
 - Backup storage-profile configuration and data-lifecycle management
+- CHOps user management with four roles, one-time password setup links, and a system email server
 
 ## Requirements
 
@@ -40,13 +41,13 @@ bun run db:migrate
 bun run dev
 ```
 
-Open http://localhost:5173 in your browser. Sign in with the super-admin user name and password that you set in `.env`. Then add your ClickHouse&reg; cluster in **Administration > Cluster Management**.
+Open http://localhost:5173 in your browser. Sign in with the super-admin user name and password that you set in `.env`. Then add your ClickHouse&reg; cluster in **Control panel > Cluster Management**.
 
 The documentation is at http://localhost:5173/docs/ in development, and at http://localhost:3000/docs/ in production.
 
 ## License
 
-CHOps follows an open-core model. The community edition uses the **Apache License 2.0**. You can use, change, and self-host it free of charge. A separate **Pro edition** adds audit logging, scheduled email reports, extended alerting, multi-cluster fleet management, and scheduled archival to S3-compatible storage. The Pro edition uses a commercial license. See [ch-ops.io](https://ch-ops.io) for more data, and the `LICENSE` file for the full terms of the Apache License 2.0.
+CHOps follows an open-core model. The community edition uses the **Apache License 2.0**. You can use, change, and self-host it free of charge. A separate **Pro edition** adds audit logging, scheduled email reports, extended alerting, multi-cluster fleet management, and scheduled archival to S3-compatible storage, under a commercial license. See [ch-ops.io](https://ch-ops.io) for more information, and the `LICENSE` file for the full terms of the Apache License 2.0.
 
 Copyright &copy; 2026 Quantrail&trade; Data Private Limited.
 

@@ -2,7 +2,9 @@
 
 Indexes and projections are the two main tools ClickHouse&reg; gives you to make queries faster without a change to the query.
 
-This section shows what your tables already have. It creates, builds, and removes these structures through forms, not hand-written SQL. The exact statement appears before anything runs.
+This section shows what your tables already have, and lets you create, build and remove these structures through forms instead of hand-written SQL. You see the exact statement before anything runs.
+
+Open these pages from the **Schema Tools** section of the sidebar: **Data Skipping Indexes**, **Projections** and **Index Management**. Everyone can see indexes and projections, but only administrators can change them.
 
 ---
 
@@ -44,9 +46,11 @@ Also check that the query is actually slow. The [Query Profiler](query-profiler.
 
 ## Data Skipping Indexes
 
-This is a read-only view of every skipping index across all your databases, as an expandable tree: database, then table, then its indexes with the type and the expression each one covers.
+This is a read-only view of the skipping indexes. Choose a **Database**, and optionally a **Table**. CHOps shows the indexes as a tree: database, then table, then its indexes with the type and the expression each one covers. The **Database** list shows only databases that have skipping indexes.
 
-This is for inspection. Use it before you add anything, to see what is already there. Duplicate indexes on the same expression cost write performance and buy nothing.
+The chart has buttons to zoom in, zoom out, reset the zoom, and download it as a PNG image.
+
+This view is for inspection: use it before you add anything to see what is already there. Duplicate indexes on the same expression cost write performance and buy nothing.
 
 To create or remove one, use [Index Management](#index-management).
 
@@ -54,25 +58,25 @@ To create or remove one, use [Index Management](#index-management).
 
 ## Index Management
 
-There are three tabs: **Create**, **Materialize**, and **Drop**.
+There are three tabs: **Create**, **Materialize**, and **Drop**. Only administrators can use them.
 
 ### Create
 
-Pick the database, the table, and the column. Name the index, and choose its type and granularity.
+Pick the **Database**, the **Table**, and the **Column**. Type the **Index Name**, and choose the **Index Type** and **Granularity**. Then select **Create Index**. The lists show only MergeTree tables.
 
 CHOps reads the column list from the table, with each column's data type beside it, so you choose from what exists rather than type a name.
 
 Name it after what it does. `idx_user_id` is findable later. `idx1` is not.
 
-Some types reveal extra options once chosen, covered below. If a type needs no tuning, no extra fields appear.
+Some types show extra options once you choose them, as described below. `minmax` needs no tuning, so no extra fields appear.
 
 ### Materialize
 
-This builds the index for rows already in the table. See [section 6](#6-materializing), because this step is easy to miss and its absence is silent.
+This builds the index for rows already in the table. Choose the database, table, and index, then select **Materialize Index**. See [section 6](#6-materializing), because this step is easy to miss and its absence is silent.
 
 ### Drop
 
-This removes an index. Choose the database, table, and index.
+This removes an index. Choose the database, table, and index, then select **Drop Index**. CHOps does not ask for confirmation.
 
 A drop is quick and does not touch the data itself. If an index turned out not to help, remove it. Every index costs something on every insert.
 
@@ -98,15 +102,17 @@ Records the distinct values in each block, up to a limit. A query that filters f
 
 **Use for** columns with a limited number of distinct values: a status, a country, a category.
 
-**Not for** high-cardinality columns. Once a block goes above the set limit, the index stops helping for that block. So an index on a unique identifier is overhead with no benefit.
+**Not for** high-cardinality columns. Once a block goes above the set limit, the index stops helping for that block, so an index on a unique identifier is overhead with no benefit.
+
+Choose it and a **Set N (max distinct values)** field appears. This is the set limit.
 
 ### bloom_filter
 
-A probabilistic structure that answers "is this value definitely absent". It can say no with certainty and yes only probably. So a positive answer means ClickHouse&reg; reads the block to check.
+A probabilistic structure that answers "is this value definitely absent". It can say no with certainty but yes only probably, so a positive answer means ClickHouse&reg; reads the block to check.
 
 **Use for** equality filters on higher-cardinality columns, where `set` would be too large.
 
-Choose it and a **False Positive Rate** field appears. That is the trade. A lower rate means a larger index and fewer unnecessary reads. A higher rate means a smaller index that sometimes sends ClickHouse&reg; to check a block that does not match. The default is reasonable. Change it only with a measurement in hand.
+Choose it and a **False Positive Rate** field appears. That is the trade. A lower rate means a larger index and fewer unnecessary reads, while a higher rate means a smaller index that sometimes sends ClickHouse&reg; to check a block that does not match. The default is reasonable, so change it only with a measurement in hand.
 
 ### text
 
@@ -114,25 +120,27 @@ For a search within text, not an exact match. It splits the text into terms and 
 
 **Use for** log messages, descriptions, and any long text you search rather than compare.
 
-Choose it and **Text Index Parameters** appear. The tokenizer is the one that matters. It decides what counts as a term, and so what your queries can find. It has these options:
+Choose it and **Text Index Parameters** appear. The **Tokenizer** is the one that matters, because it decides what counts as a term and so what your queries can find. It has these options:
 
 - **splitByNonAlpha** (the default): splits on non-alphanumeric characters. Suits prose.
-- **splitByString**: splits on a separator you give. A **Separator** field appears. Suits structured strings such as paths.
+- **splitByString(S)**: splits on a separator you give. A **Separator** field appears. The default is a comma. Suits structured strings such as paths.
 - **asciiCJK**: suits CJK text.
-- **ngrams**: indexes character sequences of length N. An **N** field appears. Suits substring search.
-- **sparseGrams**: indexes variable-length grams. **Min Length**, **Max Length**, and a cutoff field appear.
+- **ngrams(N)**: indexes character sequences of length N. An **N** field appears. The default is 3. Suits substring search.
+- **sparseGrams(min, max, cutoff)**: indexes variable-length grams. **Min Length**, **Max Length**, and **Min Cutoff** fields appear.
 - **array**: treats an array column's elements as the terms.
+
+**Preprocessor (optional)** takes an expression that CHOps adds as the `preprocessor` parameter of the index.
 
 The other parameters are storage tuning:
 
-| Parameter | Controls |
+| Field | Controls |
 |---|---|
-| Dictionary block size | How the term dictionary is stored |
-| Dictionary frontcoding | Frontcoding compression for the dictionary |
-| Posting block size | How the occurrence lists are stored |
-| Posting codec | Compression for the occurrence lists |
+| Dict Block Size | How the term dictionary is stored |
+| Dict Frontcoding | Frontcoding compression for the dictionary |
+| Posting Block Size | How the occurrence lists are stored |
+| Posting Codec | Compression for the occurrence lists: default, `none` or `bitpacking` |
 
-The defaults are sensible. Leave them alone unless you measured a problem.
+When you leave a field empty, CHOps does not add it to the statement, and ClickHouse&reg; uses its default. The defaults are sensible, so leave them alone unless you have measured a problem.
 
 ---
 
@@ -150,17 +158,17 @@ This is one of the last things worth tuning. Type and expression matter far more
 
 ## 6. Materializing
 
-**To add an index does not index the data already in the table.**
+**Adding an index does not index the data already in the table.**
 
-An index applies from the moment it exists. Rows already there are not covered until you materialize it.
+An index applies from the moment it exists, but it does not cover the rows already there until you materialize it.
 
-This is the most common way an index appears not to work. It was created, queries did not get faster, and it was never built for the existing data.
+This is the most common way an index appears not to work. You created it, queries did not get faster, and nobody ever built it for the existing data.
 
 So after you create an index on a table that already holds rows, use the **Materialize** tab.
 
-You can limit the materialize to a single partition. On a large table, that is worth doing. It spreads the work rather than one long operation, and you can measure whether the index helps before you build the rest.
+The **Materialize** tab of Index Management builds the index for the whole table. It has no partition option. Materializing is a mutation, so you can watch it on [Merges & Mutations](merges-mutations.md).
 
-The same applies to projections, which have their own Materialize tab for the same reason.
+The same applies to projections, which have their own **Materialize** tab for the same reason. For projections, you can limit the work to one partition.
 
 ---
 
@@ -170,35 +178,35 @@ A projection is an alternate arrangement of a table's data, stored alongside it.
 
 There are two common shapes. A projection sorted differently from the table serves queries that filter on another column. A pre-aggregated projection that stores sums or counts by some grouping serves aggregate queries without a read of the rows.
 
-The area has five tabs.
+The area has five tabs: **View Projections**, **Add Projection**, **Drop Projection**, **Materialize** and **Clear**. Everyone can use **View Projections**. The other tabs are for administrators only.
 
 ### View Projections
 
-Every existing projection as an expandable tree: database, table, projection.
+Choose a **Database**, and optionally a **Table**. CHOps shows the projections as a tree: database, table, projection. The chart has buttons to zoom and to download it as a PNG image.
 
 ### Add Projection
 
-Choose the database and table, name the projection, and define what it contains: a select expression, and optional `GROUP BY` and `ORDER BY` clauses.
+Choose the database and a MergeTree table, type the **Projection Name**, and define what it contains: a **SELECT Expression**, and optional **GROUP BY** and **ORDER BY** clauses. **WITH SETTINGS (optional)** adds projection settings. Then select **Add Projection**.
 
-Options let you apply the change across a cluster, and skip the operation if the projection already exists.
+**ON CLUSTER** applies the change across a cluster. **IF NOT EXISTS** skips the operation if the projection already exists.
 
-**One thing to know: projections do not support `SELECT DISTINCT`.** If you include it, CHOps removes it from the generated statement, and the form says so as you type. This is a ClickHouse&reg; restriction, not a CHOps one.
+**One thing to know: projections do not support `SELECT DISTINCT`.** If the expression starts with `DISTINCT`, CHOps removes it from the generated statement. The placeholder of the expression field says so. This is a ClickHouse&reg; restriction, not a CHOps one.
 
 ### Drop Projection
 
-Removes a projection's definition and its data.
+Removes a projection's definition and its data. **IF EXISTS** skips the operation if the projection does not exist.
 
 ### Materialize Projection
 
-Builds the projection for rows already in the table.
+The **Materialize** tab builds the projection for rows already in the table.
 
-CHOps handles newly inserted data automatically. It does not handle existing data, for exactly the same reason as skipping indexes, and with the same silent failure mode.
+ClickHouse&reg; builds the projection for newly inserted data automatically, but not for existing data, for exactly the same reason as skipping indexes, and with the same silent failure mode.
 
-You can limit it to one partition.
+To limit it to one partition, type the partition in **IN PARTITION (optional)**. On a large table that is worth doing, because it spreads the work instead of running one long operation, and you can measure whether the projection helps before you build the rest.
 
 ### Clear Projection
 
-Empties a projection's data but keeps its definition.
+The **Clear** tab empties a projection's data but keeps its definition. You can also limit it to one partition with **IN PARTITION (optional)**.
 
 This helps when a projection has become inconsistent and you want to rebuild it: clear, then materialize. It is different from a drop, which removes the definition too.
 
@@ -224,13 +232,13 @@ There are three causes, in order of likelihood.
 
 ### The index made inserts slower
 
-This is expected. Every index is maintained on write. That is the trade.
+This is expected, because ClickHouse&reg; maintains every index on write. That is the trade.
 
 If the read benefit does not justify it, drop the index. One that does not help is worse than none.
 
 ### DISTINCT disappeared from my projection
 
-This is correct. ClickHouse&reg; projections do not support `SELECT DISTINCT`, so CHOps removes it rather than send a statement that will be rejected.
+This is correct. ClickHouse&reg; projections do not support `SELECT DISTINCT`, so CHOps removes it instead of sending a statement that the server will reject.
 
 Restructure with `GROUP BY` if you need distinct behavior.
 
@@ -244,11 +252,11 @@ Check that the projection's `GROUP BY` and `ORDER BY` match how the query aggreg
 
 This is expected on a large table, because it processes existing data.
 
-Use the partition option to do it in pieces. That also lets you check whether it helps before you commit to the whole table.
+For a projection, use **IN PARTITION** to do it in pieces. That also lets you check whether it helps before you commit to the whole table. You can watch the progress on [Merges & Mutations](merges-mutations.md).
 
-### I cannot see the Create tab
+### The Create tab is grayed out
 
-Index management needs admin. The read-only views stay available to everyone.
+Index management needs the admin role. The tabs show, but you cannot open them, and the page says `Index management is only available for administrators.` The read-only views, **Data Skipping Indexes** and **View Projections**, stay available to everyone.
 
 ---
 
