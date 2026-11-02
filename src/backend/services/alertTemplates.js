@@ -5,12 +5,13 @@
 
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db, alertRules, alertRuleChannels, appSettings } from "../db/index.js";
-import { alertEvents } from "../db/schema.js";
+import { alertEvents, alertRuleNodeStates } from "../db/schema.js";
 
-
+// Set after the one-time step that adds the template rules to clusters that existed before the upgrade.
 const EXISTING_CLUSTERS_DONE_KEY = "alerts.templates_added_to_existing_clusters";
 
-
+// Each template is one alert rule. The first SQL column is the value that CHOps compares with the threshold.
+// The second column, no_data_check, stops the query with a clear error when the data is missing.
 export const ALERT_TEMPLATES = [
   {
     id: "cpu-busy",
@@ -620,12 +621,13 @@ WHERE event_date >= toDate(now() - INTERVAL 5 MINUTE)
   },
 ];
 
-
+// The rule description: what the template checks, and how to tune it.
 function ruleDescription(template) {
   if (!template.tuning) return template.description;
   return `${template.description} Tuning: ${template.tuning}`;
 }
 
+// Adds each template as a disabled rule for one cluster. Skips the templates that the cluster already has.
 export function createTemplateRulesForCluster(clusterId) {
   const clusterRules = db
     .select()
@@ -657,7 +659,8 @@ export function createTemplateRulesForCluster(clusterId) {
   return createdCount;
 }
 
-
+// Runs when a cluster is deleted. Deletes its template rules that nobody changed.
+// Rules that an admin changed stay, so their work is not lost.
 export function removeTemplateRulesForCluster(clusterId) {
   const unchangedRules = db
     .select()
@@ -676,12 +679,16 @@ export function removeTemplateRulesForCluster(clusterId) {
       .where(eq(alertRuleChannels.alertRuleId, rule.id))
       .run();
     db.delete(alertEvents).where(eq(alertEvents.alertRuleId, rule.id)).run();
+    db.delete(alertRuleNodeStates)
+      .where(eq(alertRuleNodeStates.alertRuleId, rule.id))
+      .run();
     db.delete(alertRules).where(eq(alertRules.id, rule.id)).run();
   }
   return unchangedRules.length;
 }
 
-
+// Runs at each server start, but does its work only once: at the first start after the upgrade.
+// Clusters added later get their template rules when they are added.
 export function createTemplateRulesForExistingClusters(clusters) {
   const doneSetting = db
     .select()

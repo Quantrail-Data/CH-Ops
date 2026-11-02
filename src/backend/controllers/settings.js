@@ -10,7 +10,25 @@ const USER_WRITABLE = new Set(["query_bookmarks"]);
 
 const USER_READABLE = new Set(["query_bookmarks"]);
 
-const SERVER_ONLY_PREFIXES = ["jwt.", "smtp."];
+// "query_bookmarks:<user id>" is the stored key of the bookmarks of one user.
+// Only storedKey() makes this key. The API must not read or write it directly.
+const SERVER_ONLY_PREFIXES = ["jwt.", "smtp.", "query_bookmarks:"];
+
+const BOOKMARKS_KEY = "query_bookmarks";
+
+// Each user has their own bookmarks. The API key stays "query_bookmarks".
+// The stored key also has the user id.
+function storedKey(req, key) {
+  if (key !== BOOKMARKS_KEY) return key;
+  return `${BOOKMARKS_KEY}:${req.user?.userId}`;
+}
+
+// Bookmarks need a user. A request without a user id gets 403.
+function refuseBookmarksWithoutUser(req, res, key) {
+  if (key !== BOOKMARKS_KEY || req.user?.userId) return false;
+  res.status(403).json({ error: "Bookmarks need a user login." });
+  return true;
+}
 
 const ADMIN_WRITABLE = new Set([
   "backup_profiles",
@@ -39,8 +57,8 @@ function isBackupProfiler(req) {
 
   try {
     value = JSON.parse(req?.body?.value);
-  } catch (err) {
-    console.log("JSON parse is not accept the undefind value !", err?.message);
+  } catch {
+    // A value that is not valid JSON stays null.
   }
 
   if (!value) return {};
@@ -57,8 +75,7 @@ function isBackupProfiler(req) {
 
   try {
     oldValue = JSON?.parse(row?.value || "[]");
-  } catch (err) {
-    console.log("JSON parse is not accept the undefind value !", err?.message);
+  } catch {
     oldValue = [];
   }
 
@@ -136,11 +153,12 @@ export function getSetting(req, res) {
   if (!canReadSetting(req, req.params.key)) {
     return res.status(403).json({ error: "Not allowed to read this setting." });
   }
+  if (refuseBookmarksWithoutUser(req, res, req.params.key)) return;
 
   const row = db
     .select()
     .from(appSettings)
-    .where(eq(appSettings.key, req.params.key))
+    .where(eq(appSettings.key, storedKey(req, req.params.key)))
     .get();
   if (!row) return res.status(404).json({ error: "Not found" });
 
@@ -152,11 +170,13 @@ export function getSetting(req, res) {
 export function upsertSetting(req, res) {
   try {
     if (requireWriteAccess(req, res, req.params.key)) return;
+    if (refuseBookmarksWithoutUser(req, res, req.params.key)) return;
+    const key = storedKey(req, req.params.key);
 
     const existing = db
       .select()
       .from(appSettings)
-      .where(eq(appSettings.key, req.params.key))
+      .where(eq(appSettings.key, key))
       .get();
     if (existing) {
       const response = isBackupProfiler(req);
@@ -168,14 +188,14 @@ export function upsertSetting(req, res) {
         .where(eq(appSettings.id, existing.id))
         .run();
     } else {
-      const val = isBackupProfiler(req);
-      db.insert(appSettings).values(val).run();
+      const newRow = isBackupProfiler(req);
+      db.insert(appSettings).values({ ...newRow, key }).run();
     }
 
     const result = db
       .select()
       .from(appSettings)
-      .where(eq(appSettings.key, req.params.key))
+      .where(eq(appSettings.key, key))
       .get();
 
     if (!isBackupProfilerFind(req)) {
@@ -200,9 +220,10 @@ export function upsertSetting(req, res) {
 export function deleteSetting(req, res) {
   try {
     if (requireWriteAccess(req, res, req.params.key)) return;
+    if (refuseBookmarksWithoutUser(req, res, req.params.key)) return;
     const count = db
       .delete(appSettings)
-      .where(eq(appSettings.key, req.params.key))
+      .where(eq(appSettings.key, storedKey(req, req.params.key)))
       .run();
 
     res.json({ deleted: count.changes > 0 });
