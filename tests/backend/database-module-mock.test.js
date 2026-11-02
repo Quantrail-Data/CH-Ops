@@ -22,11 +22,14 @@ describe("databaseModuleMock", () => {
   });
 
   it("is the only mock of db/index.js in tests/db", () => {
-    const testFiles = new Glob("tests/db/*.test.js").scanSync();
-    for (const testFile of testFiles) {
+    const filesWithOwnMock = [];
+    for (const testFile of new Glob("tests/db/*.test.js").scanSync()) {
       const source = readFileSync(testFile, "utf8");
-      if (!source.includes("db/index.js")) continue;
-      expect(source).toContain("databaseModuleMock(db, sqlite)");
+      if (source.includes("db/index.js") && !source.includes("databaseModuleMock(db, sqlite)")) {
+        filesWithOwnMock.push(testFile);
+      }
     }
+    // A file in this list must use databaseModuleMock(db, sqlite) in place of its own mock.
+    expect(filesWithOwnMock.sort()).toEqual([]);
   });
 });

@@ -26,15 +26,7 @@ sqlite.exec(`
 
 const db = drizzle(sqlite, { schema });
 
-mock.module("../../src/backend/db/index.js", () => ({
-  db,
-  appSettings: schema.appSettings,
-  clusters: schema.clusters,
-  clusterNodes: schema.clusterNodes,
-  trustedCas: schema.trustedCas,
-  rawSqlite: sqlite,
-  alertChannels:{},
-}));
+mock.module("../../src/backend/db/index.js", () => databaseModuleMock(db, sqlite));
 
 const {
   signingKey,

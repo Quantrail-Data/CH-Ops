@@ -32,12 +32,7 @@ sqlite.exec(`
 `);
 const db = drizzle(sqlite, { schema });
 
-mock.module("../../src/backend/db/index.js", () => ({
-  db,
-  appSettings: schema.appSettings,
-  alertChannels: schema.alertChannels,
-  clusters:{},
-}));
+mock.module("../../src/backend/db/index.js", () => databaseModuleMock(db, sqlite));
 
 const { encryptLegacySecrets } = await import("../../src/backend/services/legacySecrets.js");
 
