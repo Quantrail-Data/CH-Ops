@@ -95,6 +95,7 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertRules: schema.alertRules,
   alertChannels: schema.alertChannels,
   alertRuleChannels: schema.alertRuleChannels,
+  clusters:{}
 }));
 mock.module("../../src/backend/services/clickhouse.js", () => ({
   executeQuery: async ({ port }) => {

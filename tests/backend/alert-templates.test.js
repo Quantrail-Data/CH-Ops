@@ -78,6 +78,8 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertRules: schema.alertRules,
   alertRuleChannels: schema.alertRuleChannels,
   appSettings: schema.appSettings,
+  alertChannels:{},
+  clusters:{},
 }));
 
 const {
