@@ -58,7 +58,7 @@ export default function UserManagement() {
 
   async function loadSmtp() {
     try {
-      const r = await apiFetch("/api/system-smtp");
+      const r = await apiFetch("/api/system-smtp", { cache: "no-store" });
       setSmtp(r);
       setSmtpForm({
         host: r.host,
@@ -76,7 +76,7 @@ export default function UserManagement() {
 
   async function checkSmtpconfigured() {
     try {
-      const r = await apiFetch("/api/system-smtp");
+      const r = await apiFetch("/api/system-smtp", { cache: "no-store" });
       setIsSmtpConfigured(r.configured);
     } catch (error) {
       setIsSmtpConfigured(false);
