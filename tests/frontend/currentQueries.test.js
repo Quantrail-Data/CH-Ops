@@ -10,7 +10,7 @@ import {
   ratio,
   num,
   truncate,
-} from "../../../src/frontend/utils/format.js";
+} from "../../src/frontend/utils/format.js";
 
 import {
   aggregateByUser,
@@ -40,7 +40,7 @@ import {
   SEARCH_DEBOUNCE_MS,
   SEARCH_FIELDS,
   totalRunning,
-} from "../../../src/frontend/components/queries/processesModel.js";
+} from "../../src/frontend/components/queries/processesModel.js";
 
 // As ClickHouse delivers it: 64-bit integers arrive as strings, so coerce first.
 function chRow(over = {}) {

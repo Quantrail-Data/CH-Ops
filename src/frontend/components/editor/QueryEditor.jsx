@@ -212,9 +212,9 @@ function AIKeyButton({ dbdetails, dataSelectionHandler, connectDatabaseID }) {
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           className="icon icon-tabler icons-tabler-outline icon-tabler-plug-connected"
         >
           <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -483,7 +483,6 @@ export default function QueryEditor({
     }
 
     setSql(created?.sql);
-    console.log(window.location.pathname + window.location.search);
     try {
       window.history.replaceState(null, "", "/#/editor/query");
     } catch {}
@@ -2927,12 +2926,6 @@ export default function QueryEditor({
                 alone. Taking "the remaining letters in lowercase" literally
                 would give "Ast" and "(json)", which reads as a mistake rather
                 than as a style. */}
-            onChange=
-            {(e) => {
-              const nextType = e.target.value;
-              setExplainType(nextType);
-              setExplainTicked(initialTicked(nextType, serverVersion));
-            }}
             <option value="GENERAL RUN">Select Explain</option>
             <option value="EXPLAIN">Explain</option>
             <option value="EXPLAIN SYNTAX">Explain syntax</option>

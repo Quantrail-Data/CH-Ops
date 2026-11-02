@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "../../src/backend/db/schema.js";
+import { databaseModuleMock } from "./databaseModuleMock.js";
 
 const sqlite = new Database(":memory:");
 sqlite.exec(`
@@ -20,14 +21,7 @@ sqlite.exec(`
 
 const db = drizzle(sqlite, { schema });
 
-mock.module("../../src/backend/db/index.js", () => ({
-  db,
-  appSettings: schema.appSettings,
-  clusters: schema.clusters,
-  clusterNodes: schema.clusterNodes,
-  trustedCas: schema.trustedCas,
-  rawSqlite: sqlite,
-}));
+mock.module("../../src/backend/db/index.js", () => databaseModuleMock(db, sqlite));
 
 const {
   getConfig,

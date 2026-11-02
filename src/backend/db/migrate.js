@@ -131,6 +131,17 @@ sqlite.exec(`
     CREATE INDEX IF NOT EXISTS idx_alert_event_rule ON
     alert_event(alert_rule_id, created_at
   );
+  CREATE TABLE IF NOT EXISTS alert_rule_node_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alert_rule_id INTEGER NOT NULL,
+    node_name TEXT NOT NULL,
+    firing INTEGER NOT NULL DEFAULT 0,
+    breach_run_count INTEGER NOT NULL DEFAULT 0,
+    last_value REAL,
+    last_error TEXT,
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE (alert_rule_id, node_name)
+  );
   CREATE TABLE IF NOT EXISTS dashboard (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -237,6 +248,23 @@ sqlite.exec(`
     fetched_at TEXT DEFAULT (datetime('now')),
     UNIQUE(cluster_id, node, database_name, table_name)
   );
+  CREATE TABLE IF NOT EXISTS k8s_health_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_id TEXT NOT NULL,
+    check_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    consecutive_fails INTEGER NOT NULL DEFAULT 0,
+    notified INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE (cluster_id, check_name)
+  );
+  CREATE TABLE IF NOT EXISTS k8s_health_alert_config (
+    cluster_id TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    channels_json TEXT NOT NULL DEFAULT '[]',
+    last_run_at TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Add columns that may be missing from earlier versions.
@@ -253,6 +281,7 @@ const migrations = [
   // row written by an older binary against a migrated database can still
   // arrive without it.
   "ALTER TABLE dashboard ADD COLUMN filters TEXT DEFAULT '{}'",
+  "ALTER TABLE k8s_connection ADD COLUMN operator_namespace TEXT",
   "ALTER TABLE cluster ADD COLUMN k8s_addressing TEXT",
   "ALTER TABLE alert_rule ADD COLUMN last_notified_at TEXT",
   "ALTER TABLE alert_rule ADD COLUMN last_state TEXT",
@@ -269,6 +298,9 @@ const migrations = [
   "ALTER TABLE alert_rule ADD COLUMN no_rows_means_breach INTEGER DEFAULT 0",
   "ALTER TABLE alert_rule ADD COLUMN template_id TEXT",
   "ALTER TABLE alert_rule ADD COLUMN template_edited INTEGER NOT NULL DEFAULT 0",
+  // Each user now has their own bookmarks ("query_bookmarks:<user id>").
+  // The old shared list has no owner, so this removes it.
+  "DELETE FROM app_setting WHERE key = 'query_bookmarks'",
 ];
 
 for (const sql of migrations) {

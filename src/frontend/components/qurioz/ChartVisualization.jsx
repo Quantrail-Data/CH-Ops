@@ -203,7 +203,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
       const config = { ...mapping, xLabel, yLabel, showLegend };
       try {
         if (editChart) {
-          await apiFetch(`/api/dashboards/charts/${editId}`, {
+          await apiFetch(`/api/dashboards/charts/${editChart.id}`, {
             method: "PUT",
             body: JSON.stringify({
               name: chartName || "Untitled",
