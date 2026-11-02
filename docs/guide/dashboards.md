@@ -10,6 +10,17 @@ This page covers the three parts, in the order you meet them:
 - **My Dashboards**, where you arrange charts.
 - **All Charts**, where you find and manage them later.
 
+### Who can do what
+
+| Action | Roles |
+|---|---|
+| View dashboards and charts | All roles |
+| Open the Chart Builder, and create or edit charts there | Admin and super admin |
+| Create, rename, and arrange dashboards | Editor, admin, and super admin |
+| Delete dashboards and charts | Admin and super admin |
+
+In the Chart Builder, other roles see the message "Chart building is only available for administrators."
+
 ---
 
 ## Contents
@@ -29,7 +40,7 @@ This page covers the three parts, in the order you meet them:
 
 ## 1. Before you start
 
-You need a working ClickHouse&reg; connection and a query in mind. If you are not sure what to query, the SQL Editor is a better place to experiment. You can see the raw results there without a chart type yet.
+You need a working ClickHouse&reg; connection and a query in mind. If you are not sure what to query, the SQL Editor is a better place to experiment, because you can see the raw results there before you choose a chart type.
 
 **A chart is a saved query plus a drawing instruction.** It stores your SQL, the chart type, which columns map to which part of the chart, and a name. It does not store data. Every time CHOps shows a chart, it runs the query again against the connection you have selected.
 
@@ -41,20 +52,18 @@ Two things follow from this. A chart is always current, never a stale snapshot. 
 
 Find it under **Custom Dashboards**, then **Chart Builder**.
 
-The workspace is four panels, stacked vertically. Each one collapses, so you can give room to the panel you work on.
+The workspace has two panels, stacked vertically. Each one collapses, so you can give room to the panel you work on.
 
-1. **SQL**, where you write the query.
-2. **Results**, the rows it returned.
-3. **Configuration**, the chart type and the column mapping.
-4. **Preview**, the chart as it will appear.
+1. **SQL & Results**, where you write the query, click **Run**, and see the rows it returned.
+2. **Config & Preview**, where you set the **Chart Type**, the **Subtype**, the **Chart Name**, and the column mapping, and see the chart as it will appear.
 
 The usual rhythm is to write a query, run it, look at the results to see your columns, then configure the chart and watch the preview.
 
 ### Writing the query
 
-You can run anything your connection allows. Keep the shape in mind. A chart needs columns that map onto its axes. A query that returns one row of forty columns is hard to draw. Forty rows of two columns is easy.
+You can run anything your connection allows. Keep the shape in mind, though, because a chart needs columns that map onto its axes. A query that returns one row of forty columns is hard to draw, while forty rows of two columns is easy.
 
-Aggregate in SQL, rather than expect the chart to do it. `GROUP BY` and `ORDER BY` in the query beat any amount of configuration afterward.
+Aggregate in SQL, rather than expecting the chart to do it. `GROUP BY` and `ORDER BY` in the query beat any amount of configuration afterward.
 
 ### If you are not sure how to write it
 
@@ -72,9 +81,9 @@ There are fifteen types. Several have subtypes that change the arrangement, not 
 |---|---|---|
 | Bar | Simple, Grouped, Stacked, Horizontal | Comparing categories |
 | Line | Simple, Multi, Area, Stacked Area | Anything over time |
-| Pie | Pie, Donut, Rose | Parts of a whole, few categories |
-| Scatter | Basic, Bubble | The relationship between two measures |
-| Boxplot | Simple, Multi | Distribution and outliers |
+| Pie | Pie, Donut, Rose / Nightingale | Parts of a whole, few categories |
+| Scatter | Basic Scatter, Bubble Chart | The relationship between two measures |
+| Box Plot | Simple Aggregate, Multi-Category | Distribution and outliers |
 | Heatmap | | Density across two dimensions |
 | Funnel | | Stages that narrow |
 | Gauge | | One number against a range |
@@ -98,9 +107,9 @@ There are fifteen types. Several have subtypes that change the arrangement, not 
 
 ### Subtypes need different columns
 
-A change of subtype often changes what the chart needs. A Simple Bar needs a category and a value. A Grouped Bar also needs a series column to group by.
+Changing the subtype often changes what the chart needs. A Simple Bar needs a category and a value. A Grouped Bar also needs a series column to group by.
 
-CHOps updates the mapping fields when you change subtype. It also checks that the columns you chose suit the type. This catches the common mistake of a text column mapped to a numeric axis, before you see a broken chart.
+CHOps updates the mapping fields when you change subtype and checks that the columns you chose suit the type. This catches the common mistake of mapping a text column to a numeric axis before you see a broken chart.
 
 ---
 
@@ -112,7 +121,7 @@ Once you choose a type, you tell CHOps which query column plays which role. The 
 
 Axis labels fill in from the chart type and your column names. You can override them.
 
-A legend appears on its own when a chart has more than one series. It stays away when it would only take up room.
+A legend appears on its own when a chart has more than one series, and stays away when it would only take up room.
 
 ### Gauge minimum and maximum
 
@@ -128,17 +137,20 @@ Every chart has a small toolbar to zoom into a region, reset the view, and save 
 
 ## 5. Saving a chart
 
-There are two options, and the difference matters.
+When the preview shows a chart, the **Save to Dashboard** panel appears.
 
-**Save the chart on its own.** It goes into All Charts and belongs to no dashboard. This suits a chart you reach for now and then, rather than one to display.
+1. Select the **Dashboard**. This field is required.
+2. Click **Save**.
 
-**Save it to a dashboard.** CHOps puts it in the next free slot, left to right, then onto the next row. So you do not think about position while you build. You can rearrange it later.
+CHOps puts the chart in the next free slot, left to right, then onto the next row, so you do not have to think about position while you build. You can rearrange it later.
+
+If no dashboard exists, the panel shows "Create a dashboard first in the Dashboards section." Create one under **My Dashboards** first.
+
+A chart belongs to one dashboard. A chart with no dashboard is one whose dashboard someone deleted, and it stays in All Charts.
 
 ### Editing a chart afterward
 
-Open it from All Charts and choose **Edit**. The Chart Builder reopens with everything as you left it: the SQL, the type, the subtype, the column mapping, the name, and the dashboard.
-
-A save updates the chart everywhere it appears. A chart on three dashboards is one chart, not three copies. So a fix in one place is a fix everywhere.
+Open it from All Charts and choose **Edit**. The Chart Builder reopens with everything as you left it: the SQL, the type, the subtype, the column mapping, the name, and the dashboard. Click **Update** to save the changes. To move the chart to another dashboard, select that dashboard before you click **Update**.
 
 ---
 
@@ -148,21 +160,23 @@ A dashboard is a named grid of charts.
 
 ### Creating one
 
-Give it a name and choose a column count from one to four. That sets how many charts sit side by side. The default is two.
+Give it a name and choose a **Columns** count from one to four. That sets how many charts sit side by side. The default is two.
 
 **One column** suits charts that need width, such as long time series. **Two** is the usual choice. **Three or four** suit small charts and KPI tiles, and get cramped on a laptop screen.
 
-The column count is a property of the dashboard. It appears beside the name in the list.
+The column count is a property of the dashboard and appears beside its name in the list.
 
 ### What a tile shows
 
-Each chart sits in a tile with its title, a button to view it full screen, and a button to remove it from the dashboard.
+Each chart sits in a tile with its title and a button to view it full screen. Admins also see a delete button (**Delete chart (admin only)**). This button deletes the chart, not only its place on the dashboard.
 
-To remove a chart from a dashboard does not delete the chart. It stays in All Charts and on any other dashboard that uses it.
+### Deleting a dashboard
+
+Only admins and super admins can delete a dashboard. CHOps asks "Delete this dashboard? Charts will be unassigned." CHOps does not delete the dashboard's charts. They stay in All Charts with no dashboard.
 
 ### Which connection charts run against
 
-Charts run against the connection you selected in the navbar. A dashboard is not tied to a cluster. So you can point the same dashboard at production, then at staging, by a change of connection.
+Charts run against the connection you selected in the navbar. A dashboard is not tied to a cluster, so you can point the same dashboard at production, then at staging, just by changing the connection.
 
 Remember this when a dashboard looks wrong. Check which cluster you are looking at before you investigate the query.
 
@@ -172,7 +186,7 @@ Remember this when a dashboard looks wrong. Check which cluster you are looking 
 
 Drag a chart to swap it with another. The layout updates on screen as you experiment.
 
-**Nothing is stored until you choose Save Layout.** That button appears once you move something. The arrangement is kept when you press it. If you navigate away without a save, the previous arrangement stays.
+**CHOps stores nothing until you choose Save Layout.** That button appears once you move something, and pressing it keeps the arrangement. If you navigate away without saving, the previous arrangement stays.
 
 This is deliberate. You can try three arrangements and keep the one you like, with no need for an undo.
 
@@ -184,13 +198,15 @@ Put the chart that answers "is anything wrong" at the top left, because that is 
 
 ## 8. All Charts
 
-This is one table of every chart, with its name, type, and the dashboard it belongs to.
+This is one table of every chart, with the columns **Name**, **Type**, **Dashboard**, and **Actions**.
 
-**Click a row** to preview the chart without you leaving the list. This is the fastest way to find out what a vaguely named chart shows.
+**Click a row** to preview the chart without leaving the list. This is the fastest way to find out what a vaguely named chart shows.
 
 **Edit** opens it in the Chart Builder with everything filled in.
 
-The dashboard column is the useful one when you tidy up. Charts with no dashboard are either deliberate standalone tools or leftovers from experiments.
+**Delete** removes the chart. Only admins and super admins can delete a chart.
+
+The dashboard column is the useful one when you tidy up. Charts with no dashboard come from deleted dashboards.
 
 ### Naming
 
@@ -208,11 +224,11 @@ Replace a literal with a typed placeholder:
 WHERE event_date >= today() - {days:UInt16}
 ```
 
-Put that chart on a dashboard, and a control appears above it. Change the value, press Apply, and every chart that uses `days` runs again. Charts that do not use it are left alone.
+Put that chart on a dashboard, and a control appears above it. Change the value, press Apply, and every chart that uses `days` runs again. CHOps leaves charts that do not use it alone.
 
 This turns a dashboard from a fixed report into something people use. One dashboard serves the last-day and the last-quarter question, instead of two.
 
-The syntax, the optional blocks that let a filter disappear when empty, the default values, and how to arrange the controls are covered in [Dashboard Filters](dashboard-filters.md).
+[Dashboard Filters](dashboard-filters.md) covers the syntax, the optional blocks that let a filter disappear when empty, the default values, and how to arrange the controls.
 
 ---
 
@@ -220,11 +236,11 @@ The syntax, the optional blocks that let a filter disappear when empty, the defa
 
 ### The preview is empty but the query returned rows
 
-This is almost always the column mapping. Check that the columns you selected for each role still exist in the results. This is the usual casualty of a change to the SQL after you map.
+This is almost always the column mapping. Check that the columns you selected for each role still exist in the results. This is the usual casualty of changing the SQL after you map.
 
 ### The chart looks wrong after a change of subtype
 
-Subtypes need different columns. A move from Simple Bar to Grouped Bar adds a series field that starts empty. Re-check the mapping after any subtype change.
+Subtypes need different columns. Moving from Simple Bar to Grouped Bar adds a series field that starts empty. Re-check the mapping after any subtype change.
 
 ### A gauge always reads full or empty
 
@@ -232,7 +248,7 @@ Its minimum and maximum are unset or wrong. They define the range the value sits
 
 ### A dashboard is slow
 
-Each chart runs its own query when it displays. So a dashboard is as slow as the sum of its charts.
+Each chart runs its own query when it displays, so a dashboard is as slow as the sum of its charts.
 
 Open the slow one in the Chart Builder and run it there to see the time. The usual causes are no date filter, a wide scan, or an aggregation that could happen in ClickHouse&reg; instead of over many returned rows.
 
@@ -240,15 +256,15 @@ The [Query Profiler](query-profiler.md) shows where the time went.
 
 ### My layout changes did not persist
 
-You did not press **Save Layout**. To drag alone changes the screen, not the stored arrangement.
+You did not press **Save Layout**. Dragging alone changes the screen, not the stored arrangement.
 
 ### A chart shows different numbers than a colleague sees
 
 You have a different connection selected, or different filter values. Check the cluster in the navbar first, then the filter bar.
 
-### I removed a chart from a dashboard and it is still in All Charts
+### I deleted a dashboard and its charts are still in All Charts
 
-This is correct. To remove from a dashboard unplaces the chart. It does not delete it. Delete it from All Charts if you want it gone everywhere.
+This is correct. Deleting a dashboard unassigns its charts rather than deleting them. Delete them from All Charts if you want them gone, or edit them and select another dashboard.
 
 ---
 

@@ -1,18 +1,18 @@
 # Tables and Parts
 
-ClickHouse&reg; stores every MergeTree table as a set of files on disk called parts. To understand parts explains a lot of ClickHouse&reg; behavior that otherwise looks arbitrary, including why you should batch inserts and why a table can suddenly refuse writes.
+ClickHouse&reg; stores every MergeTree table as a set of files on disk called parts. Understanding parts explains a lot of ClickHouse&reg; behavior that otherwise looks arbitrary, including why you should batch inserts and why a table can suddenly refuse writes.
 
-This page gives you two views: a health check on the parts themselves, and a breakdown of how much space each table uses.
+Open it from **Overview > Tables & Parts** in the sidebar. The page gives you two views on one screen: a health check on the parts themselves, and a breakdown of how much space each table uses.
 
 ---
 
 ## Contents
 
 1. [What a part is](#1-what-a-part-is)
-2. [The Parts tab](#the-parts-tab)
+2. [The parts summary](#the-parts-summary)
 3. [The four part states](#3-the-four-part-states)
 4. [Broken parts](#4-broken-parts)
-5. [The Table Sizes tab](#the-table-sizes-tab)
+5. [The Table Details table](#the-table-details-table)
 6. [Reading the compression numbers](#6-reading-the-compression-numbers)
 7. [What the part counts tell you](#7-what-the-part-counts-tell-you)
 8. [When something does not work](#8-when-something-does-not-work)
@@ -23,27 +23,31 @@ This page gives you two views: a health check on the parts themselves, and a bre
 
 Every insert into a MergeTree table creates a new part: a directory of files that holds those rows, sorted by the table's sort key.
 
-Parts are immutable. Nothing is written into an existing part. New data always becomes a new part.
+Parts are immutable: ClickHouse&reg; never writes into an existing part, so new data always becomes a new part.
 
-In the background, ClickHouse&reg; merges small parts into larger ones. That is where the engine name comes from, and it is why the number of parts goes down on its own, with nobody to do anything.
+In the background, ClickHouse&reg; merges small parts into larger ones. That is where the engine name comes from, and it is why the number of parts goes down on its own, without anybody doing anything.
 
 ### Why this matters in practice
 
 **Many small inserts create many small parts.** A thousand single-row inserts create a thousand parts, and ClickHouse&reg; then has to merge them all. This is why "batch your inserts" is the most repeated piece of ClickHouse&reg; advice.
 
-**Too many parts finally stops writes.** ClickHouse&reg; has a limit. When a table goes above it, inserts fail with a "too many parts" error. It is not gradual. Things work, then they do not.
+**Too many parts finally stops writes.** ClickHouse&reg; has a limit, and when a table goes above it, inserts fail with a "too many parts" error. It is not gradual: things work, then they do not.
 
 **Queries read every part that might match.** Fewer, larger parts mean less to open. This is why merges improve read performance as well as tidiness.
 
-The Parts tab is how you see this happen before it becomes a problem.
+The parts summary is how you see this happen before it becomes a problem.
 
 ---
 
-## The Parts tab
+## The parts summary
 
-This opens with summary cards that count your **active**, **inactive**, **detached**, and **broken** parts, read from `system.parts` and `system.detached_parts`.
+The page opens with four cards that count your parts: **Active Parts**, **Inactive Parts**, **Detached Parts**, and **Broken Parts**. CHOps reads them from `system.parts` and `system.detached_parts`.
 
-If there are any broken parts, an alert banner appears above a table that names the affected databases and tables and how many each has.
+If there are any broken parts, the section **Tables with Broken Parts (disk issues)** appears. Its chart, **Broken Parts by Table**, shows how many broken parts each table has.
+
+If there are any detached parts, the chart **Detached Parts by Table** shows how many detached parts each table has.
+
+Each chart shows at most 20 tables, with the most affected first.
 
 ---
 
@@ -64,7 +68,7 @@ The parts that make up your table right now. Every query reads from these.
 
 When ClickHouse&reg; merges several parts into one, the originals do not disappear at once. It marks them inactive and removes them a little later.
 
-**A number of inactive parts is normal and not a problem.** To see them means merging has been happening, which is what you want. They are cleaned up on their own.
+**A number of inactive parts is normal and not a problem.** Seeing them means merging has been happening, which is what you want, and ClickHouse&reg; cleans them up on its own.
 
 A count that keeps climbing and never falls is worth a look, because it suggests cleanup is not completing.
 
@@ -72,7 +76,7 @@ A count that keeps climbing and never falls is worth a look, because it suggests
 
 Parts moved out of the table's active set but kept on disk. This can happen because someone ran `DETACH PARTITION`, or because ClickHouse&reg; set a part aside during a restore or a consistency check.
 
-Detached parts still use disk. Queries do not read them, so they can be a quiet source of "the table is small but the disk is full".
+Detached parts still use disk, but queries do not read them, so they can be a quiet source of "the table is small but the disk is full".
 
 ### Broken
 
@@ -96,16 +100,16 @@ Data corruption, most often from disk problems. A checksum that did not match, a
 
 1. **Check the disk.** System logs and SMART data for the device that holds that table's data.
 2. **Check whether the data is elsewhere.** On a replicated table, another replica almost certainly holds a good copy, and ClickHouse&reg; can fetch it.
-3. **Look at the [Error Log](logs.md#error-log) and [Text Log](logs.md#text-log)** around the time it was detached. The server usually says why.
+3. **Look at the [Error Log](logs.md#error-log) and [Text Log](logs.md#text-log)** around the time the server detached it. The server usually says why.
 4. **Do not simply delete it** until you know the data exists elsewhere. A broken part is still evidence.
 
 On a replicated table, the usual fix is to drop the broken part and let replication fetch a clean copy. On a non-replicated table, the data in that part may be gone, which is when your [backups](backups.md) matter.
 
 ---
 
-## The Table Sizes tab
+## The Table Details table
 
-A sortable table of every MergeTree table, largest first by default.
+The **Table Details** table lists every table that has parts in `system.parts`, largest first by compressed size.
 
 | Column | Meaning |
 |---|---|
@@ -118,13 +122,13 @@ A sortable table of every MergeTree table, largest first by default.
 | active_parts, inactive_parts | Counts of each |
 | total_rows | Rows across all parts |
 
-### Sorting to answer a question
+### Reading the table to answer a question
 
 Largest first answers "what is using my disk", which is the usual question.
 
-Sort by **ratio** ascending to find tables that compress badly, which is where schema improvements pay off most.
+Look for a low **ratio** to find tables that compress badly, which is where schema improvements pay off most.
 
-Sort by **active_parts** descending to find tables that accumulate parts, which is where insert patterns need attention.
+Look for a high **active_parts** count to find tables that accumulate parts, which is where insert patterns need attention.
 
 ---
 
@@ -140,7 +144,7 @@ This is often the most interesting part of the page.
 
 **Types wider than the data needs.** A `String` that always holds one of five values should be `LowCardinality(String)` or an `Enum`. An `Int64` that holds numbers below a thousand should be `UInt16`.
 
-**A sort order that does not group similar values.** Compression works on adjacent data. If your `ORDER BY` scatters similar rows apart, they cannot compress against each other. To sort by a low-cardinality column before a high-cardinality one usually helps.
+**A sort order that does not group similar values.** Compression works on adjacent data. If your `ORDER BY` scatters similar rows apart, they cannot compress against each other. Sorting by a low-cardinality column before a high-cardinality one usually helps.
 
 **Genuinely random data.** Hashes, UUIDs, encrypted blobs, and compressed images do not compress, and nothing will make them. A ratio near 1x on a column of UUIDs is correct, not a problem.
 
@@ -158,9 +162,9 @@ The relationship between active and inactive parts is a diagnostic.
 
 **Few active, some inactive.** Healthy. Merging keeps up and cleans up.
 
-**Many active, few inactive.** Merges are not keeping up with inserts. This usually means inserts are too small and too frequent. Check [Merges & Mutations](merges-mutations.md) to see whether merges run or are stuck.
+**Many active, few inactive.** Merges are not keeping up with inserts, which usually means inserts are too small and too frequent. Check [Merges & Mutations](merges-mutations.md) to see whether merges run or are stuck.
 
-**Many inactive, not falling.** Merging happens but cleanup does not complete. This is less common. Check disk space, because cleanup needs somewhere to work.
+**Many inactive, not falling.** Merging happens but cleanup does not complete, which is less common. Check disk space, because cleanup needs somewhere to work.
 
 **Active climbing steadily.** This is the direction that ends in a "too many parts" error. Act before it arrives: batch your inserts, or check whether merges are blocked.
 
@@ -174,7 +178,7 @@ Those are rough figures. The number that matters is whether it is stable or clim
 
 ## 8. When something does not work
 
-### The broken parts banner appeared
+### The broken parts chart appeared
 
 Do not ignore it. See [section 4](#4-broken-parts). Check the disk first, because one broken part is often the first sign of a failing device.
 
@@ -184,19 +188,19 @@ Merging runs but cleanup is behind. Check free disk space, and check [Merges & M
 
 ### Compressed size is larger than I expect from total_rows
 
-There are three usual causes. Poor compression, covered in [section 6](#6-reading-the-compression-numbers). Many inactive parts that still use space. Or detached parts, which use disk but appear in no query.
+There are three usual causes: poor compression (see [section 6](#6-reading-the-compression-numbers)), many inactive parts that still use space, and detached parts, which use disk but appear in no query.
 
-### A table is missing from Table Sizes
+### A table is missing from Table Details
 
-The list covers MergeTree family tables. Log engines, `Memory` tables, dictionaries, and views are not part-based and do not appear.
+The list covers tables that have parts in `system.parts`, which means MergeTree family tables. Log engines, `Memory` tables, dictionaries, and views are not part-based and do not appear.
 
 ### total_rows looks wrong
 
-It counts rows across parts, which includes rows superseded but not yet merged away. On a `ReplacingMergeTree` or `CollapsingMergeTree`, that is legitimately higher than the logical row count, because the old versions still exist until they are merged.
+It counts rows across parts, which includes rows superseded but not yet merged away. On a `ReplacingMergeTree` or `CollapsingMergeTree`, that is legitimately higher than the logical row count, because the old versions still exist until ClickHouse&reg; merges them.
 
 ### Disk is full but the tables look small
 
-Check detached parts. They use space and appear in no query.
+Check detached parts, which use space and appear in no query.
 
 Also check inactive parts, and whether merges complete at all.
 

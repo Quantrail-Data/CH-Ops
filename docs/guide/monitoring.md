@@ -1,6 +1,6 @@
 # Monitoring Dashboards
 
-The monitoring dashboards give you a live, visual picture of how your cluster performs. There are many charts, grouped into tabs by subsystem, so you can look at one area at a time. CHOps runs the queries only for the tab you have open, and only when you ask it to. So this page does not put load on your ClickHouse&reg; cluster on its own.
+The monitoring dashboards give you a live, visual picture of how your cluster performs. CHOps groups the many charts into tabs by subsystem, so you can look at one area at a time. It runs the queries only for the tab you have open, and only when you ask it to, so this page does not put load on your ClickHouse&reg; cluster on its own.
 
 ---
 
@@ -23,7 +23,7 @@ Each tab collects the charts for one part of the system. Here is what each tab c
 | Background Pools | The merges and mutations pool, pool utilisation, active pool tasks, and the flush and distributed pools. |
 | Concurrency | Global threads (total against active), read-write lock activity, and preempted queries. |
 | Coordination | Keeper sessions and watches, and Keeper requests and outstanding requests. |
-| Network | Concurrent connections, network throughput, and packet drops. |
+| Network | Concurrent connections, network throughput, and packet drops. See [Network metric names](#network-metric-names). |
 | Disk & IO | Reads from disk and reads from the filesystem. |
 | Server Vitals | Uptime, database and table counts, and async metric jitter. |
 | Memory Drift | How ClickHouse&reg;'s view of memory compares to the kernel and to the allocator. |
@@ -33,14 +33,29 @@ Each tab collects the charts for one part of the system. Here is what each tab c
 
 A few controls at the top choose the period to look at and how detailed it is.
 
-- **Quick range buttons** jump to a common window, such as 1 hour, 24 hours, 7 days, or 30 days.
-- **Custom range** lets you set your own start and end times.
-- **Rounding** sets how finely CHOps groups the data over time. It adjusts automatically when you pick a quick range.
+- **Quick** buttons jump to a common window: **1h**, **6h**, **24h**, **48h**, **7d** or **30d**. The default is 24h.
+- **From** and **To** let you set your own start and end times.
+- **Rounding (s)** sets how finely CHOps groups the data over time, in seconds. The minimum is 5 and the default is 60. It changes when you pick a quick range: 10 for 1h, 30 for 6h, 60 for 24h, 300 for 48h, and 900 for 7d and 30d.
 - **Load Charts** runs the queries for the tab you are on.
+
+Each tab name shows the number of charts in it. Charts stay on the range that you loaded, and changing the range has no effect until you select **Load Charts** again. When you open a new tab, select **Load Charts** for that tab.
+
+If a chart query fails, that chart shows the error. The other charts still load, and a banner says how many charts failed.
 
 ### Where the data comes from
 
-The charts are built from ClickHouse&reg;'s own internal metric tables, the same ones the server uses to track itself. CHOps reads `system.metric_log` and `system.asynchronous_metric_log` through the `merge()` table function, so it covers every metric-log table at once. You do not need to know the queries to read the charts. It is worth knowing that everything you see comes straight from ClickHouse&reg;'s live metrics, so it reflects the real state of your cluster.
+CHOps builds the charts from ClickHouse&reg;'s own internal metric tables, the same ones the server uses to track itself. CHOps reads `system.metric_log` and `system.asynchronous_metric_log` through the `merge()` table function, so it covers every metric-log table at once. You do not need to know the queries to read the charts, but everything you see comes straight from ClickHouse&reg;'s live metrics, so it reflects the real state of your cluster.
+
+### Network metric names
+
+The **Network Throughput (bytes/s)** and **Network Packet Drops** charts read network metrics from `system.asynchronous_metric_log`. ClickHouse&reg; versions write these metrics in two forms:
+
+| ClickHouse&reg; version | Metric name | Interface |
+|---|---|---|
+| 26.8 and later | `NetworkReceiveBytes` | In the `key` column |
+| Earlier versions | `NetworkReceiveBytes_eth0` | In the metric name |
+
+The charts work with both forms. In each time bucket where the new form is present, CHOps uses only the new form, so it does not count a server that writes both forms twice.
 
 ---
 
@@ -99,7 +114,7 @@ Speed sets how fast the frames advance during playback.
 
 ### Timeline scrubber
 
-The horizontal slider lets you drag to any point in the timeline. The current timestamp and frame number appear above it. To drag the slider pauses playback.
+The horizontal slider lets you drag to any point in the timeline. The current timestamp and frame number appear above it. When you drag the slider, playback pauses.
 
 ### Inspection buttons
 
@@ -114,7 +129,7 @@ The [Inspection popups](#inspection-popups) section below explains these in deta
 
 ## Charts
 
-All 8 charts share one timeline. A **purple vertical line** moves across every chart at the same time, and shows the position of the current frame. This lets you correlate events. When CPU spiked, what happened to queries and logs at the same moment?
+All 8 charts share one timeline. A **purple vertical line** moves across every chart at the same time, and shows the position of the current frame. This lets you correlate events: when CPU spiked, what happened to queries and logs at the same moment?
 
 ### Hardware (3 charts)
 
@@ -150,7 +165,7 @@ A **stacked area chart** of log entries per step interval, from ClickHouse&reg;'
 | Critical | Red | A serious problem. |
 | Fatal | Dark red | The server is about to crash, or has crashed. |
 
-What to look for: a sudden spike in the red and orange area (Error, Critical, Fatal) goes together with something wrong. Use the **Error Logs** inspection button to see the actual messages.
+What to look for: a sudden spike in the red and orange area (Error, Critical, Fatal) points to something wrong. Use the **Error Logs** inspection button to see the actual messages.
 
 ### Data Parts (1 chart)
 
@@ -167,15 +182,15 @@ A **stacked area chart** of data part events, from `system.part_log`. ClickHouse
 | MovePart | Yellow | A part was moved between storage volumes or disks. |
 | RemovePart | Red | A part was removed (merged away, expired by TTL, or dropped). |
 
-What to look for: a burst of NewPart without matching MergeParts means parts accumulate faster than merges can process them. This can lead to "too many parts" errors. A burst of RemovePart after MergeParts is normal, because old parts are cleaned up after a merge.
+What to look for: a burst of NewPart without matching MergeParts means parts accumulate faster than merges can process them. This can lead to "too many parts" errors. A burst of RemovePart after MergeParts is normal, because ClickHouse&reg; cleans up old parts after a merge.
 
 ### Queries (3 charts)
 
 **Successful Queries by Kind.** A stacked area chart of successfully completed queries per step, grouped by kind (Select, Insert, Create, Alter, Drop, System, and so on). It shows the mix and volume of your workload over time.
 
-**Query Exceptions by Kind.** The same grouping, but for queries that threw exceptions (`ExceptionBeforeStart` or `ExceptionWhileProcessing`). A spike here means something fails. Use the **Failed Queries** inspection button to see the actual errors.
+**Query Exceptions by Kind.** The same grouping, but for queries that threw exceptions (`ExceptionBeforeStart` or `ExceptionWhileProcessing`). A spike here means something is failing. Use the **Failed Queries** inspection button to see the actual errors.
 
-**Rows Selected vs Inserted.** Two stacked areas: rows read by SELECT queries and rows written by INSERT queries, from `system.metric_log`. It shows the read/write ratio of your workload. A sudden drop in selected rows can mean queries fail (check the exceptions chart). A spike in inserted rows goes together with bulk load jobs.
+**Rows Selected vs Inserted.** Two stacked areas: rows read by SELECT queries and rows written by INSERT queries, from `system.metric_log`. It shows the read/write ratio of your workload. A sudden drop in selected rows can mean queries are failing (check the exceptions chart). A spike in inserted rows lines up with bulk load jobs.
 
 ---
 
@@ -195,7 +210,7 @@ The popup shows a table with three columns.
 | Query | The SQL text (first 500 characters). |
 | Exception | The error message ClickHouse&reg; returned. |
 
-The timestamp match uses `toStartOfInterval(event_time, INTERVAL {step} SECOND)`. This rounds each query's event time to the same step interval as the charts. So the popup shows exactly the queries that made up the exception count in that frame.
+The timestamp match uses `toStartOfInterval(event_time, INTERVAL {step} SECOND)`. This rounds each query's event time to the same step interval as the charts, so the popup shows exactly the queries that made up the exception count in that frame.
 
 ### Error Logs
 
@@ -211,7 +226,7 @@ The popup shows a table with three columns.
 
 ### How to read the popup tables
 
-- Text is truncated by default to one line per cell, with an ellipsis for long content.
+- CHOps truncates text by default to one line per cell, with an ellipsis for long content.
 - Click a row to expand it. The full text wraps and becomes visible.
 - Click the same row again to collapse it to one line.
 - The table scrolls vertically if there are many rows (up to 200).
@@ -263,7 +278,7 @@ The popup shows a table with three columns.
 
 1. Set the time range to when the errors started.
 2. Watch the **Data Parts** chart. Look for NewPart events (cyan) that grow without matching MergeParts events (blue).
-3. This means parts are made faster than merges can consolidate them.
+3. That means parts arrive faster than merges can consolidate them.
 4. Check the **Queries** chart. Is there a spike in INSERT queries?
 5. Check the **CPU** and **Memory** charts. Are merges starved of resources?
 6. Step to the frame where the gap between NewPart and MergeParts widens. Click **Error Logs** to see the actual "too many parts" messages.
