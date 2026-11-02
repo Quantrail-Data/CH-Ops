@@ -1,6 +1,6 @@
 # Alerting
 
-Alerting watches your cluster so you do not have to. You write a query that returns one number, set the value that counts as a problem, and choose how to be told. CHOps runs the query on a schedule and notifies you when the condition is met.
+Alerting watches your cluster so you do not have to. You write a query that returns one number, set the value that counts as a problem, and choose how you want to hear about it. CHOps runs the query on a schedule and notifies you when the condition is met.
 
 ---
 
@@ -30,7 +30,7 @@ An alert rule has four parts:
 3. **A schedule**, which decides how often to check.
 4. **Channels**, which decide who hears about it.
 
-Every minute, CHOps looks for rules that are due, runs their queries, compares the results, and notifies where the comparison is true.
+Every minute, CHOps looks for rules that are due and runs their queries on each node. It compares each node's result with the threshold and sends a notification when the list of nodes where the comparison is true changes.
 
 That is the whole model. The simplicity is the point. Anything you can express as "this number should stay below that" becomes an alert, with no new concepts.
 
@@ -38,15 +38,36 @@ That is the whole model. The simplicity is the point. Anything you can express a
 
 ## Alert Rules
 
-Find them under **Custom Alerts**, then **Alert Rules**.
+Find them under **Custom Alerts**, then **Alert Rules**. Only admins and super admins can see and change the rules on this page. Other roles see the message "Alert rules management is only available for administrators."
 
-To create one, you give a name and description, the query, the threshold and comparison, a severity, a schedule, the channels to notify, and, if you want, specific nodes.
+To create a rule, click **New Rule**. To start from a ready-made rule, click **New from template** (see [Alert templates](#alert-templates)). The form has these fields:
+
+| Field | What it does |
+|---|---|
+| Name | The name of the rule. It is also the start of each notification title. |
+| Severity | info, warning, or critical. The default is warning. |
+| Schedule (cron) | When the rule runs. The default is `*/5 * * * *`. |
+| Operator | The comparison. The default is greater than. |
+| Threshold | The value to compare with. |
+| Notify Interval | Minutes between "still firing" reminders. 0 sends no reminders. |
+| Breach Run Required | How many runs in a row must breach before a node fires. The default is 1. |
+| Enabled | Turns the rule on or off. |
+| noRowsMeansBreach | When on, a query that returns no rows counts as a breach. When off, no rows does not fire. |
+| SQL (single value) | The query. |
+| Description | Text that goes into the notification. |
+| Channels | The channels that get the notifications. Click a channel to select it. |
+| Cluster | The cluster the rule runs on. |
+| Target Nodes | The nodes the rule runs on. Empty means all nodes. |
+
+Click **Test** to run the query one time on each target node. The table shows the value of each node and "Would fire", "OK. Would not fire.", "No rows. Would not fire.", or the error. Test saves nothing and notifies nobody.
+
+Click **Create** (or **Update** when you edit) to save the rule.
 
 ---
 
 ## 2. Writing the query
 
-**The query must return exactly one value.** Not one column of many rows. Not one row of many columns. One number.
+**The query must return one number.** CHOps reads the first column of the first row and ignores all other columns and rows.
 
 ```sql
 SELECT count()
@@ -72,13 +93,18 @@ SELECT max(total) FROM (
 
 The second query answers "is any table above the limit" in a single value, which is what an alert needs.
 
+### No rows and values that are not numbers
+
+- If the query returns no rows, the node does not fire. Turn on **noRowsMeansBreach** to make no rows a breach.
+- If the first column is empty or is not a number, the run is a query error for that node. See [Query errors](#query-errors).
+
 ### The description is the message
 
 The person who gets the notification at three in the morning may not have written the rule. The description appears in the notification, so write it for them: what this means, and what to do about it. "Replication queue backing up, check Keeper connectivity" is more use than "queue check".
 
 ### There is no row limit
 
-Alert queries are not row-limited, because by definition they return one value. That also means a query that returns thousands of rows by mistake will do so. Check it in the SQL Editor before you save it as a rule.
+CHOps does not add a row limit to alert queries, though the **Maximum result size** setting on the App Config page still applies. Alert queries run read-only, and a run stops after 120 seconds. Use **Test** to check a query before you save it.
 
 ---
 
@@ -131,53 +157,115 @@ The schedule is a cron expression. The default is `*/5 * * * *`, which is every 
 | `0 9 * * *` | Daily at 09:00 |
 | `0 9 * * 1` | Mondays at 09:00 |
 
-CHOps validates the expression before it saves. It reports an error rather than accept something that will never run.
+CHOps supports only part of the cron syntax:
+
+- Use five fields: minute, hour, day of month, month, day of week.
+- In each field, use `*`, `*/n`, or a comma list of numbers, for example `0,30`.
+- CHOps does not support ranges such as `1-5`.
+- Day of week is 0 to 6, where 0 is Sunday. CHOps does not accept 7.
+- If you type four fields, the form adds `0` as the minute.
+
+Schedules use the server's time zone. CHOps checks the expression before it saves the rule, and if the expression is not valid, it shows an error and does not save the rule.
 
 ### Choosing a frequency
 
 Match it to how fast the problem develops and how fast you could react.
 
-A disk that fills over days does not need a check every minute. A replication queue that can back up in minutes does. To check a slow-moving condition often costs query time on your cluster and tells you nothing extra.
+A disk that fills over days does not need a check every minute. A replication queue that can back up in minutes does. Checking a slow-moving condition often costs query time on your cluster and tells you nothing extra.
 
 ---
 
 ## 6. Choosing which nodes a rule watches
 
-By default, a rule runs against every node, which is usually right.
+First select the **Cluster**, because a rule runs on the nodes of one cluster.
 
-Sometimes an alert makes sense only for certain nodes, perhaps one shard or one replica. Pick those, and CHOps checks only them.
+- Select a cluster to run the rule on the nodes of that cluster.
+- **All clusters (default)** runs the rule on the nodes of the first cluster in the cluster list. It does not run the rule on the other clusters.
 
-**Each node is checked separately.** If three nodes cross the threshold, you get three notifications, each with the node name and its value. This is deliberate. To know which node has the problem is most of the diagnosis.
+Then select the **Target Nodes**. Leave the list empty to run the rule on all nodes of the cluster, which is usually right. Sometimes an alert makes sense only for certain nodes, for example one shard or one replica. Select those nodes, and CHOps checks only them.
+
+CHOps identifies target nodes by node name. Node names are unique in a cluster, so two nodes with the same host address stay separate.
+
+**Each node has its own state.** CHOps compares each node's value with the threshold, and the rule then sends one message for all of its nodes, listing the firing nodes and each node's value. See [How and when rules run](#8-how-and-when-rules-run).
 
 ### As your cluster changes
 
-Rules keep up sensibly.
+Add a node, and each rule that watches all nodes includes it at the next run. Remove a node, and those rules stop checking it.
 
-Add a node, and any rule that watches all nodes includes it automatically. Remove one, and those rules stop the check on it.
+A rule with specific target nodes keeps them until you edit it. If no target node exists any more, the rule cannot run, and CHOps sends `<rule> - evaluation failed` with the error "No target nodes resolved for this rule".
 
-A rule aimed at specific nodes keeps its targets until you edit it. If every node it watched is removed, the rule pauses quietly, rather than an error.
+If a rule's cluster has no nodes, the rule does not run and sends nothing, and the rule card shows the **NO NODES** badge.
 
 ---
 
 ## 7. Managing rules
 
-The list shows each rule's name, severity, schedule, the channels it notifies, and a status that reads **FIRING** when its condition is currently met.
+Each rule card shows the name, severity, query, comparison, schedule, cluster, and target nodes. It also shows these badges:
 
-**Enable and disable** without a delete. This is what you want before planned maintenance: silence the alert that would otherwise fire while you work, then turn it back on.
+| Badge | Meaning |
+|---|---|
+| Enabled or Disabled | Whether the rule runs |
+| FIRING | One or more nodes fire now |
+| NO NODES | The cluster of the rule has no nodes |
+| NO CHANNELS | The rule has no channel, so it notifies nobody |
+| template | The rule comes from a template |
 
-To disable beats a delete, because a delete loses the query and the threshold you tuned.
+The line under the badges shows the last status, the last value, and the time of the last run. If a node had a query error, the line also shows the error.
 
-**Edit** to change anything. **Delete** to remove it.
+The buttons on each card are:
+
+- **Edit** (pencil icon) to change the rule.
+- **Disable** or **Enable** to turn the rule off or on. Use this before planned maintenance, then turn the rule on again.
+- **Delete** (trash icon) to remove the rule.
+- **History** (clock icon) to see the status changes of the rule. It shows the last 200 changes. CHOps deletes history entries after 90 days.
+
+When you turn off a rule that fires, CHOps first sends `<rule> - resolved`. If nodes of that rule also have query errors, CHOps also sends `<rule> - recovered`. So no PagerDuty incident stays open for a rule that is off.
+
+Disabling is better than deleting. A delete removes the query and the threshold you tuned, along with the rule's history and node states.
+
+### Alert templates
+
+CHOps has 31 ready-made rules in four groups: Resources, Storage and replication, Queries and inserts, and Keeper and cluster. They read the ClickHouse&reg; system tables.
+
+- When you add a cluster, CHOps adds each template as a rule for that cluster and leaves these rules off.
+- The list hides template rules that are off. Turn on **Show the template rules that are off** to see them.
+- Click **New from template** to make a new rule from a template. Search by name, group, or description, then select a template. The form opens with the template's values.
+- In a template rule's form, click **Reset to template** to put back the template's values.
+- When you delete a cluster, CHOps deletes its template rules that nobody changed. A template rule that you changed stays.
+
+The rule description includes tuning advice. Check the threshold against your own cluster before you turn a template rule on.
 
 ---
 
 ## 8. How and when rules run
 
-CHOps checks about once a minute and evaluates every enabled rule that is due.
+CHOps checks once a minute and runs every enabled rule that is due. Because it runs the due rules at the same time, many rules do not slow the cycle, and each rule runs on all its target nodes at the same time.
 
-CHOps evaluates rules in parallel, not one at a time, so many rules do not slow the cycle. When a rule fires, all of its notifications go out together.
+### Node states and messages
 
-If a node or a notification fails, CHOps skips it and carries on. One unreachable node does not hold up your other alerts.
+CHOps keeps a state for each node of a rule. A node fires when its value breaches the threshold for the number of runs in **Breach Run Required**.
+
+A rule sends one message for all its nodes. The message title tells you what changed:
+
+| Title | When CHOps sends it |
+|---|---|
+| `<rule>` | The first node starts to fire. No node fired before. |
+| `<rule> - nodes changed` | The list of firing nodes changes. The message lists the firing nodes, then `(new: ...; stopped: ...)`. |
+| `<rule> - still firing` | Nodes still fire and the **Notify Interval** has passed since the last message. |
+| `<rule> - resolved` | No node fires any more. |
+
+The node field of the message lists each firing node and its value, for example `node-1 = 95.5, node-2 = 97`.
+
+### Query errors
+
+A query error on a node does not change that node's breach state. Because CHOps does not know the value, it keeps the last state. Errors have their own messages:
+
+| Title | When CHOps sends it |
+|---|---|
+| `<rule> - evaluation failed` | The query fails on a node where it did not fail before. The message shows the error of each node. Severity is critical. |
+| `<rule> - recovered` | The query runs again without errors on all nodes. |
+
+An error on one node does not stop the breach messages of the other nodes. If a notification to one channel fails, CHOps still sends to the other channels.
 
 ### What that means in practice
 
@@ -185,35 +273,58 @@ A rule scheduled every five minutes runs on the minute boundary nearest its due 
 
 A rule with a slow query delays only itself.
 
+### PagerDuty incidents
+
+For PagerDuty, a breach opens an incident and `<rule> - resolved` closes it. A query error opens a separate incident, and `<rule> - recovered` closes it. The two incidents close separately.
+
 ---
 
 ## Alert Channels
 
-A channel is how a notification reaches you. Manage channels under **Custom Alerts**, then **Channels**, or under **Control Panel**, then **Notification Channels**. They are the same channels.
+A channel is how a notification reaches you. Manage channels under **Control panel**, then **Notification Channels**. Only admins and super admins can manage channels.
+
+There are five channel types:
+
+| Type | Fields |
+|---|---|
+| Email (SMTP) | SMTP Host, SMTP Port, SMTP User, SMTP Password, From, To (comma-sep) |
+| Slack | Bot Token, Channel ID |
+| Google Chat | Webhook URL |
+| Microsoft Teams | Webhook URL |
+| PagerDuty | Integration Key |
+
+A webhook URL must use HTTPS and cannot point to localhost or to a private network.
+
+### Testing a channel
+
+Click **Test** on the channel card to send a test message. If the message fails, CHOps shows "Test failed:" and the error. The card shows the result of the last test.
+
+### When a service refuses a message
+
+If a service refuses a notification, for example when a webhook answers with an HTTP error or Slack answers with an error, CHOps records an error for the channel. The channel card then shows **Last notification failed:** and the error.
 
 ### What every notification contains
 
-Enough to act without a login first:
+| Field | Email | Slack, Google Chat, Microsoft Teams | PagerDuty |
+|---|---|---|---|
+| Title with severity and rule name | Yes | Yes | Yes |
+| Description | Yes | Yes | Yes |
+| Value (breach messages) | Yes | Yes | Yes |
+| Error (evaluation failed messages) | Yes | Yes | Yes |
+| Threshold and comparison | Yes | No | No |
+| Schedule | Yes | No | No |
+| Cluster | Yes | Yes | Yes |
+| Node or nodes | Yes | Yes | Yes |
+| Time | Yes | Yes | Yes |
+| The SQL query of the rule | Yes | No | No |
 
-| Field | Included |
-|---|---|
-| Alert name | Yes |
-| Severity, color-coded | Yes |
-| Description | Yes |
-| Current value | Yes |
-| Threshold and comparison | Yes |
-| The alert's SQL query | Yes |
-| Schedule | Yes |
-| Cluster hostname or hostnames | Yes |
-| Timestamp | Yes |
-
-To include the query matters more than it looks. The person who reads it at three in the morning can see exactly what was measured, and can paste it into the SQL Editor to see the current value, without a hunt for the rule.
+The query in the email matters more than it looks. The person who reads it at three in the morning can see what the rule measured and paste it into the SQL Editor to see the current value.
 
 ### Email
 
-CHOps delivers alerts by email through your SMTP server. The message arrives formatted, with a header colored by severity, the details in a table, and the query in a readable block.
+CHOps sends alert email through the SMTP server of the channel. The message has a header colored by severity, the details in a table, and the query in a block.
 
-You provide your mail server details and the destination address. CHOps checks that the essential fields are filled in before it tries to send. So a missing setting produces an error at configuration time, not a silent failure at three in the morning.
+This SMTP server is not the System Email of CHOps, which sends account email only. See [System Email](admin.md#system-email).
 
 ### Sending to more than one place
 
@@ -223,7 +334,7 @@ A rule can notify several channels. A common arrangement is one channel to a tea
 
 ## 10. The alert marquee
 
-The alert marquee is a scrolling bar just below the navigation bar. It lists everything currently firing, with its severity, value, threshold, and time.
+The alert marquee is a scrolling bar just below the navigation bar. It lists each enabled rule that fires now, with its severity, value, threshold, cluster, nodes, and time, and updates every 30 seconds.
 
 It is on every page, so a firing alert is visible wherever you are, not only on the alerting page. Collapse it when you want it out of the way.
 
@@ -265,7 +376,7 @@ Greater than 0. A read-only replica usually means lost Keeper connectivity, and 
 SELECT min(free_space / total_space) * 100 FROM system.disks
 ```
 
-Less than 15. Note the comparison. The problem is a number that gets smaller.
+Less than 15. Note the comparison: the problem is a number that gets smaller.
 
 ### Too many parts
 
@@ -302,7 +413,9 @@ Greater than 0. A failing mutation retries without end and blocks the ones behin
 
 Check the comparison direction first. A disk space alert with "greater than" instead of "less than" is the most common version of this.
 
-Then run the query in the SQL Editor and look at what it returns. A query that returns multiple rows does not behave as expected.
+Then click **Test** in the rule form and look at each node's value. Remember that CHOps uses only the first column of the first row.
+
+Check **Breach Run Required**. If it is 3, a node must breach on three runs in a row before it fires.
 
 ### The rule fires constantly
 
@@ -312,19 +425,23 @@ If it fires correctly and constantly, that is a cluster problem, not an alerting
 
 ### It fires but no notification arrives
 
-Check that the rule has a channel attached. A rule with no channel evaluates and notifies nobody.
+Check that the rule has a channel. A rule with no channel shows **NO CHANNELS** and notifies nobody.
 
-Then check the channel configuration. For email, that is the SMTP details and the destination address.
+Then check the channel card. If it shows **Last notification failed:**, the error tells you why. Click **Test** on the channel to try again.
+
+A rule sends a message only when the list of firing nodes changes. If the same nodes still fire, set **Notify Interval** to get reminders.
 
 ### Several notifications for one problem
 
-This is expected when a rule watches several nodes and more than one crosses the threshold. CHOps checks each node separately and reports each one separately, with the node name.
+A rule sends one message for all its nodes, and you get a new one each time the list of firing nodes changes. A node that fires, stops, and fires again gives a new message each time.
 
-To get one notification, write a query that aggregates across nodes and aim the rule at a single node.
+Query errors have their own messages, so one run can send a breach message and an "evaluation failed" message.
 
 ### A rule stopped running after cluster changes
 
-If it was aimed at specific nodes and all of them were removed, it pauses rather than errors. Edit it and pick current nodes, or switch it to all nodes.
+If none of its target nodes exists any more, the rule sends `<rule> - evaluation failed`. Edit it and select current nodes, or clear the target nodes to use all nodes.
+
+If its cluster has no nodes, the rule does not run and the card shows **NO NODES**. Select another cluster.
 
 ### FIRING in the list but nothing in the marquee
 
@@ -347,4 +464,4 @@ See [CHOps Pro](chops-pro.md).
 - [SQL Editor](sql-editor.md) to develop and test an alert query
 - [Cluster Overview](cluster-overview.md) for the health picture alerts watch
 - [Logs](logs.md) to investigate what an alert told you about
-- [Notification Channels](admin.md) for the administrative view of channels
+- [Administration](admin.md) for the roles that can manage rules and channels

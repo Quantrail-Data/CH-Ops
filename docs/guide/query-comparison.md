@@ -2,7 +2,9 @@
 
 Query Comparison puts two read-only queries side by side, so you can see which performs better before you commit to a rewrite.
 
-The left pane holds what you have now. The right pane holds the version you are considering. You can estimate either, run either, or compare both on the same footing.
+The left pane, **Current query**, holds what you have now. The right pane, **Experimental query**, holds the version you are considering. You can estimate either, run either, or compare the estimates of both.
+
+To open it, go to **SQL Tools > SQL Editor** and select **Comparison** in the editor mode list at the left of the toolbar.
 
 ---
 
@@ -38,7 +40,7 @@ Typical moments:
 
 The [Query Profiler](query-profiler.md) answers "where does the time go in this one query". Use it when you know a query is slow and do not yet know why.
 
-[Query Metrics](query-metrics.md) answers "what is the cluster doing right now".
+[Query Metrics](query-metrics.md) answers "how did this one query use resources, second by second".
 
 Comparison is the one to reach for when you already have a candidate rewrite.
 
@@ -46,17 +48,29 @@ Comparison is the one to reach for when you already have a candidate rewrite.
 
 ## 2. Connecting
 
-Query Comparison runs under its own ClickHouse&reg; credentials, entered in a compact connect step at the top.
+Query Comparison runs under your ClickHouse&reg; credentials.
 
-This is separate from the main SQL Editor's connection on purpose. You can compare queries as one user while the editor is connected as another, which matters when you check how a query behaves for a specific account's permissions or settings profile.
+If the SQL Editor is already connected, Comparison mode uses the same connection, so you do not have to connect again.
 
-**Disconnect** when you are finished. There is also a full-screen mode, which is worth a use: two query panes and a metrics table want the room.
+If not, connect in the toolbar:
+
+1. Type your ClickHouse&reg; user in the **user** box.
+2. Type the password in the **password** box.
+3. Click **Go**, or press Enter in either box.
+
+CHOps checks the credentials with `SELECT 1` on the node selected in the navbar. If the check fails, the error appears next to the **Go** button.
+
+To disconnect, click the logout icon next to your user. Its tooltip is "Disconnect and clear credentials". This also clears the stored credentials of the SQL Editor and Qurioz.
+
+Click **Fullscreen** to give the two panes and the metrics table more room. Click **Exit Fullscreen** or press Escape to go back.
 
 ---
 
 ## 3. The two panes
 
-Each pane is an independent editor with its own actions. Nothing is shared between them except the connection.
+Each pane is an independent editor with its own **Estimate** and **Execute** buttons. They share nothing except the connection.
+
+The **Experimental query** pane also has the **DB Schema/Estimate** and **Generate SQL** buttons. They work as in the SQL Editor. See [Generating SQL with AI](sql-editor.md#generating-sql-with-ai).
 
 The editor uses the connected server's own keyword and function lists for highlighting, so it reflects the version you actually query, not a generic ClickHouse&reg; dialect.
 
@@ -78,17 +92,17 @@ An estimate is ClickHouse&reg; reasoning about what the query would have to read
 
 ### Execute
 
-Actually runs the query on the cluster and shows the results.
+Runs the query on the cluster and shows the results.
 
-The result table keeps the first N rows in view and tells you when output was truncated from a larger total, so you know you look at a sample rather than everything.
+The result table shows the first 100 rows. If the query returns more, a note says "Results truncated to the first 100 rows" with the total.
 
-**Execute really runs.** On a large query, that means real load on your cluster. Estimate first, and only execute when you need the real timing or want to see the rows.
+**Execute really runs.** On a large query, that means real load on your cluster. Estimate first, and execute only when you want to see the rows.
 
 ### Which to trust
 
 **Estimate for how much data a query must read.** That is what an index or a better filter changes, and it is stable whatever else the cluster does.
 
-**Execute for actual duration and memory.** Those depend on caches, concurrency, and hardware, so they are the truth about right now, not about the query in isolation.
+**Run in the SQL Editor for actual duration and memory.** Comparison mode does not show them, but the statistics bar of the SQL Editor does after each run. They depend on caches, concurrency, and hardware, so they tell you about now, not about the query alone.
 
 A rewrite that halves rows read is genuinely better. A rewrite that ran faster once may only have benefited from a warm cache.
 
@@ -96,17 +110,17 @@ A rewrite that halves rows read is genuinely better. A rewrite that ran faster o
 
 ## 5. Comparing both
 
-The **Compare** action estimates both queries together and shows a side-by-side metric comparison.
+The **Compare** button in the toolbar estimates both queries together. It shows the table **Comparison (Estimated)**, with the columns **Left (current)** and **Right (experimental)**. **Compare** is available when you are connected and both panes contain SQL.
 
-Because CHOps estimates both in the same operation, it judges them on the same footing: the same table statistics, the same moment, and no interference from one that ran first and warmed something.
+Because CHOps estimates both at the same time, it judges them on the same footing: the same table statistics, the same moment, and no interference from one that ran first and warmed something.
 
-This is the action to use for the actual decision. The individual Estimate and Execute buttons are for exploring one side.
+This is the action to use for the actual decision. The **Estimate** and **Execute** buttons of each pane are for exploring one side.
 
 ---
 
 ## 6. Reading the metrics
 
-There are ten metrics, in two groups.
+The **Comparison (Estimated)** table shows four metrics.
 
 ### From the estimate
 
@@ -125,24 +139,17 @@ There are ten metrics, in two groups.
 
 ### From execution
 
-| Metric | Means |
-|---|---|
-| Result rows | Rows returned |
-| Rows read | Rows actually read |
-| Data read | Bytes actually read |
-| Duration | Wall-clock time |
-| Memory (peak) | The highest memory the query used |
-| Rows written | Rows written, for queries that write |
+Comparison mode does not show execution metrics. To compare rows read, duration, and memory, run each query in the [SQL Editor](sql-editor.md) and read its statistics bar.
 
-**Rows read against result rows** is the most informative ratio here. To read ten million rows to return ten means the work is in finding them, and that is where an index or a better filter helps.
+**Rows read against rows returned** is the most informative ratio. If a query reads ten million rows to return ten, the work is in finding them, and that is where an index or a better filter helps.
 
-**Duration** is what people look at first and the least stable number on the page. It moves with cache state and cluster load. Use it to confirm a conclusion, not to reach one.
+**Duration** is the least stable number. It moves with cache state and cluster load. Use it to confirm a conclusion, not to reach one.
 
-**Memory (peak)** matters when a query is close to a limit. A rewrite that is slightly slower but uses much less memory is often the better choice on a busy cluster, because it is the one that will not fail under concurrency.
+**Peak memory** matters when a query is close to a limit. A rewrite that is slightly slower but uses much less memory is often the better choice on a busy cluster.
 
 ### What a good result looks like
 
-Fewer rows read, fewer parts touched, similar result rows. That combination means the rewrite finds the same answer by a smaller read, which holds up whatever the cluster does.
+Fewer rows read, fewer parts touched, the same result. That combination means the rewrite finds the same answer by a smaller read, which holds up whatever the cluster does.
 
 Be suspicious when result rows differ. See below.
 
@@ -152,7 +159,7 @@ Be suspicious when result rows differ. See below.
 
 Query Comparison accepts read-only queries only: `SELECT`, and its read-only relatives `WITH`, `SHOW`, `DESCRIBE`, `EXPLAIN`, and `EXISTS`. It blocks anything that writes.
 
-This is because Execute really runs the statement. A comparison tool that ran whatever you typed would be one careless paste away from a `DROP` on a production cluster.
+This is because Execute really runs the statement. A blocked statement shows "Comparison mode only supports read-only queries (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN, EXISTS). Other statements are blocked here for safety."
 
 To compare something that writes, compare the SELECT that produces the rows. That is where the cost is anyway.
 
@@ -162,17 +169,17 @@ To compare something that writes, compare the SELECT that produces the rows. Tha
 
 The tool makes this easy to get right, and easy to get wrong.
 
-**Compare the same result.** If the two queries return different rows, you are not comparing implementations. You are comparing questions. Check that result rows match before you believe anything else.
+**Compare the same result.** If the two queries return different rows, you are not comparing implementations. You are comparing questions. Execute both and check that the results match before you believe anything else.
 
 **Estimate before you execute.** It costs nothing and often decides the matter.
 
-**Do not trust a single execution.** The first run of either query may pay for cold caches. If duration is what you care about, run each a few times.
+**Do not trust a single execution.** The first run of either query may pay for cold caches. If duration is what you care about, run each a few times in the SQL Editor.
 
-**Watch for a cache advantage.** To execute A then B gives B whatever A warmed. If they touch the same data, that alone can make B look faster. Compare estimates to sidestep this entirely.
+**Watch for a cache advantage.** If you execute A and then B, B gets whatever A warmed. If they touch the same data, that alone can make B look faster. Compare estimates to sidestep this entirely.
 
 **Change one thing.** A rewrite that changes the join, the filter, and the aggregation tells you the combination is better without it telling you which part mattered.
 
-**Check it still uses your index.** After you add an index, compare the query before and after. If parts and marks touched do not drop, the index is not being used, and [Indexes and Projections](indexes.md) explains the usual reasons.
+**Check it still uses your index.** After you add an index, compare the query before and after. If parts and marks touched do not drop, the query is not using the index, and [Indexes and Projections](indexes.md) explains the usual reasons.
 
 ---
 
@@ -190,7 +197,7 @@ Common causes are a join changed from inner to left, a filter applied at a diffe
 
 ### The results table looks incomplete
 
-It keeps the first N rows in view and says when output was truncated from a larger total. That is the tool telling you it shows a sample.
+It shows the first 100 rows and says when the output was truncated from a larger total.
 
 For the full result, run the query in the [SQL Editor](sql-editor.md), which is built for work with results.
 
@@ -198,7 +205,7 @@ For the full result, run the query in the [SQL Editor](sql-editor.md), which is 
 
 This is normal. An estimate is based on table metadata. Execution is what actually happened.
 
-A large disagreement is itself informative. It usually means the data is distributed differently from what the metadata suggests. Recently inserted data that has not merged yet is a common cause.
+A large disagreement is itself informative, and it usually means the data is distributed differently from what the metadata suggests. Recently inserted data that has not merged yet is a common cause.
 
 ### Duration varies a lot between runs
 
@@ -206,7 +213,7 @@ Cache state and cluster load. Compare estimates instead, or run each query sever
 
 ### I cannot connect
 
-The connect step needs valid ClickHouse&reg; credentials, separate from the main editor's. If those work in the editor but not here, check that you enter them in full. This step does not inherit the editor's connection.
+The connect step needs valid ClickHouse&reg; credentials for the node selected in the navbar. Read the error next to the **Go** button. If the SQL Editor is connected, Comparison mode uses that connection. Disconnect and connect again to use a different user.
 
 ---
 
@@ -214,5 +221,5 @@ The connect step needs valid ClickHouse&reg; credentials, separate from the main
 
 - [SQL Editor](sql-editor.md) to write and run queries normally
 - [Query Profiler](query-profiler.md) for where the time goes inside one query
-- [Query Metrics](query-metrics.md) for what the cluster does now
+- [Query Metrics](query-metrics.md) for how one query used resources over time
 - [Indexes and Projections](indexes.md) when the answer is to read less

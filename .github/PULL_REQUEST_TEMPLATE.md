@@ -7,6 +7,7 @@ Closes #
 
 ## Checklist (reminder)
 - [ ] Unit tests added/updated
+- [ ] `bun run test`, `bun run lint`, and `bun run check:sensitive-logging` pass
 - [ ] Documentation updated
 - [ ] Linked work item above
 - [ ] Peer reviewed

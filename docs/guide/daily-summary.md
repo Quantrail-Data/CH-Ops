@@ -14,7 +14,7 @@ Go to **Overview > Daily Summary** in the sidebar.
 
 ### Pick a date
 
-The date picker defaults to yesterday. Click it to select any past date. Today is excluded, because the day is not yet complete and the metrics would mislead.
+The date picker defaults to yesterday. Click it to select any past date. The picker leaves out today, because the day is not yet complete and the metrics would mislead.
 
 Click **Refresh** to reload the data for the selected date.
 
@@ -26,21 +26,21 @@ This row answers: is the node processing efficiently, or is it short of resource
 
 ### CPU Capacity
 
-Shows two numbers side by side: **Median CPU** and **p99 CPU**, measured in cores. A dual-line sparkline below shows how CPU use varied through the 24-hour period.
+Shows two numbers side by side: **Median CPU** and **p99 CPU**, measured in cores. A dual-line sparkline below shows how CPU use varied through the 24-hour period, with one point for each 15 minutes.
 
 **How to read it:**
 
 | Pattern | What it means |
 |---------|---------------|
 | p99 is high, median is low | Healthy. Brief query spikes are normal. |
-| Both median and p99 are high | The node is under-provisioned. Consider more CPU or a move of some workloads. |
+| Both median and p99 are high | The node is under-provisioned. Consider more CPU or moving some workloads elsewhere. |
 | p99 and median are both near zero | The node was mostly idle that day. |
 
 The card border turns amber when p99 goes above 70% of available cores, and red above 90%.
 
 ### Memory Allocation
 
-Shows **p99 RAM** (the steady-state use) and **Peak RAM** (the single highest point). A horizontal bullet bar shows p99 use against total system memory. A thin marker shows where the peak landed.
+Shows **p99 RAM** (the steady-state use) and **Peak RAM** (the single highest point). A horizontal bullet bar shows p99 use against total system memory, with a thin marker where the peak landed.
 
 Below the bar, three values show the absolute numbers: p99 in bytes, peak in bytes, and total system RAM.
 
@@ -56,7 +56,7 @@ The card border turns amber above 75% peak, red above 90%.
 
 ### CPU and IO Wait
 
-Shows **Peak CPU Wait** and **Peak IO Wait** in seconds. A stacked area chart below shows how wait times varied across the day. CPU wait is stacked on top of IO wait.
+The card title is **CPU & IO Wait**. It shows **Peak CPU Wait** and **Peak IO Wait** in seconds. Each peak is the highest 15-minute average of the day. A stacked area chart below shows how wait times varied across the day, with CPU wait stacked on top of IO wait.
 
 **How to read it:**
 
@@ -78,13 +78,13 @@ This row answers: what kind of workload ran, and how well did the database handl
 
 Shows median and p99 query duration for **SELECT** and **INSERT** operations separately, plus the count of each. A horizontal bar chart compares the two.
 
-**Why they are separated:** if you mix SELECT and INSERT durations into one number, a handful of slow analytical SELECTs skews your understanding of real-time INSERT performance. To separate them gives an accurate read of both.
+**Why they are separated:** if you mix SELECT and INSERT durations into one number, a handful of slow analytical SELECTs skews your understanding of real-time INSERT performance. Separating them gives an accurate read of both.
 
 **How to read it:**
 
 | Pattern | What it means |
 |---------|---------------|
-| SELECT p99 is high, INSERT p99 is low | Analytical queries are slow but writes are healthy. Consider a tune of heavy SELECTs, or more indexes. |
+| SELECT p99 is high, INSERT p99 is low | Analytical queries are slow but writes are healthy. Consider tuning heavy SELECTs, or adding more indexes. |
 | INSERT p99 is high, SELECT p99 is low | The write path is under pressure. Check merge activity and part counts. |
 | Both are low | The workload fits the hardware. |
 
@@ -92,7 +92,7 @@ The card border turns amber when either p99 goes above 10 seconds, red above 30 
 
 ### Data Velocity
 
-Shows **Total Bytes Read** and **Total Bytes Written** for the day. A bar chart compares the two.
+Shows **Total Read** and **Total Written** bytes for the day, from finished queries in `system.query_log`. A bar chart compares the two.
 
 **How to read it:**
 
@@ -106,7 +106,7 @@ This row answers: who ran what, and what broke inside the system?
 
 ### Query Mix
 
-Shows a donut chart that breaks down all queries by type: SELECT, INSERT, ALTER, SHOW, CREATE, and others. The total query count is shown in the subtitle.
+Shows a donut chart that breaks down all queries by type: SELECT, INSERT, ALTER, SHOW, CREATE, and others. The subtitle shows the total query count.
 
 **How to read it:**
 
@@ -114,9 +114,9 @@ This card gives context to the resource use from Row 1. If memory spiked at 4 PM
 
 ### Errors and System Logs
 
-Shows two headline numbers: **Query Errors** (queries that failed with an exception) and **Critical / Fatal** (entries from ClickHouse&reg;'s internal `system.text_log` at Critical or Fatal severity).
+The card title is **Errors & System Logs**. It shows two headline numbers: **Query Errors** (queries that failed with an exception) and **Critical / Fatal** (entries from ClickHouse&reg;'s internal `system.text_log` at Critical or Fatal severity).
 
-Below the numbers, a table lists the top 5 most frequent error codes for the day, with a preview of the error message and the count. If no errors occurred, a green checkmark is shown instead.
+Below the numbers, a table lists the top 5 errors of the day by count, grouped by error code and message. It shows the error code, a preview of the message, and the count. If no errors occurred, a green checkmark and "No errors recorded for this date" show instead.
 
 **How to read it:**
 
@@ -146,13 +146,13 @@ When a value goes past a threshold, the left border of the card changes color. C
 
 ### "Everything looks green but the application was slow yesterday"
 
-Check the **Workload Profiles** card. The p99 duration might be within the 10-second threshold but still too slow for your application's SLA. The thresholds are general-purpose defaults. Your application might need tighter targets.
+Check the **Workload Profiles** card. The p99 duration might be within the 10-second threshold but still too slow for your application's SLA. The thresholds are general-purpose defaults, and your application might need tighter targets.
 
 Also check **Data Velocity**. A spike in bytes read with no matching increase in query count means individual queries scan more data than usual, perhaps because of a missing WHERE clause or a dropped index.
 
 ### "The CPU card is red but queries were fast"
 
-Check **CPU and IO Wait**. If CPU wait is high, too many queries compete for CPU time. Each individual query might finish quickly, but the CPU switches context constantly. Consider a lower `max_threads` per query, or spread queries across more nodes.
+Check **CPU and IO Wait**. If CPU wait is high, too many queries compete for CPU time. Each individual query might finish quickly, but the CPU switches context constantly. Consider lowering `max_threads` per query, or spreading queries across more nodes.
 
 ### "Memory peak hit 95% but p99 is only 40%"
 
@@ -189,14 +189,14 @@ Not all ClickHouse&reg; query errors are visible to applications. Background que
 There are three possible causes:
 
 1. **`system.metric_log` is not enabled.** This table is on by default since ClickHouse&reg; 21.8. On an older version, add `<metric_log><database>system</database><table>metric_log</table></metric_log>` to your server config.
-2. **The selected date has no data.** ClickHouse&reg; rotates system logs on their configured retention (`ttl` settings on the system log tables). Data older than the retention period is deleted automatically.
+2. **The selected date has no data.** ClickHouse&reg; rotates system logs on their configured retention (`ttl` settings on the system log tables) and deletes data older than the retention period automatically.
 3. **The ClickHouse&reg; user does not have access to system tables.** The user configured in CHOps's cluster settings needs SELECT permission on `system.metric_log`, `system.asynchronous_metric_log`, `system.query_log`, and `system.text_log`.
 
 ---
 
 ## Tips
 
-- **Start with yesterday.** Today's data is incomplete, which makes percentiles and totals mislead. The page defaults to yesterday for this reason.
+- **Start with yesterday.** Today's data is incomplete, which makes percentiles and totals misleading. The page defaults to yesterday for this reason.
 - **Compare days.** If yesterday's p99 CPU was 45% but last Monday it was 85%, something changed. Switch between dates to spot trends.
-- **Use errors as a starting point.** If the Error card shows failures, note the error codes, then go to **Query Tools > SQL Editor** and query `system.query_log` for the full exception text and the query that caused it.
+- **Use errors as a starting point.** If the Error card shows failures, note the error codes, then go to **SQL Tools > SQL Editor** and query `system.query_log` for the full exception text and the query that caused it.
 - **Check after deployments.** Run the Daily Summary the day after a schema change, an index change, or an application deployment. Compare workload profiles and data velocity against the previous day to catch regressions early.

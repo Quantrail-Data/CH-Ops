@@ -55,7 +55,7 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour may be
-reported to the maintainers at **chops@quantrail-data.com**. All complaints
+reported to the maintainers at **ch-ops@quantrail-data.com**. All complaints
 will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

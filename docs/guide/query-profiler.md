@@ -1,8 +1,8 @@
 # Query Profiler
 
-The Query Profiler makes interactive flame graphs. A flame graph shows where a query spent its time. It shows which internal functions ran, how long each one took, and where the slow parts are.
+The Query Profiler makes interactive flame graphs, which show where a query spent its time: which internal functions ran, how long each one took, and where the slow parts are.
 
-Go to **Tools > Query Profiler**.
+Go to **SQL Tools > Query Profiler**.
 
 ---
 
@@ -10,24 +10,26 @@ Go to **Tools > Query Profiler**.
 
 A flame graph is a picture of a program's call stack. It answers one question: where did the query spend its time?
 
-- The **bottom** bar is where execution starts. This is the entry point.
+- The **bottom** bar is the entry point, where execution starts.
 - Each **bar** is a function that ran during the query.
 - The **width** of a bar shows how much time or memory that function used. A wider bar means more time.
 - Bars **stacked on top** of each other show the call chain. Function A called function B, and function B called function C.
 - **Narrow tall stacks** mean the query had many parallel code paths. A **wide bar** means one function used most of the time.
 
-You do not need to know C++ or ClickHouse&reg; internals to read a flame graph. Look for the widest bars. Those are where the query spends the most time. If the widest bar has "Read" or "Disk" in its name, the query is IO-bound. If it has "Hash" or "Aggregate", the query does heavy computation.
+You do not need to know C++ or ClickHouse&reg; internals to read a flame graph. Look for the widest bars, since those are where the query spends the most time. If the widest bar has "Read" or "Disk" in its name, the query is IO-bound. If it has "Hash" or "Aggregate", the query does heavy computation.
 
 ---
 
 ## Getting started
 
-1. Set the **From** and **To** datetime fields to the range when you ran the query. The default is the last 1 hour.
-2. Click **Load Queries**.
-3. A list shows the queries that have profiling data. Each entry shows the query ID, a preview of the SQL, how long the query ran, and how many profiling samples CHOps collected.
-4. Click a query to see its full details. Click **Use This Query** to select it.
-5. Choose a **Trace Type**. Start with **CPU Time**.
+1. Set the **From** and **To** datetime fields to the range when you ran the query. The default is the last 1 hour, and the range can be at most 24 hours.
+2. Choose a **Trace Type**. The default is **CPU Time**. The list shows only queries that have samples of this type.
+3. Click **Load Queries**.
+4. A list shows the queries that have profiling data. Each entry shows the query ID, a preview of the SQL, how long the query ran, how many profiling samples CHOps collected, and when the first sample was taken. Use the search box to filter by query text or query ID.
+5. Click a query to see its full details. From there, click **Copy Query** to copy the SQL or **Use This Query** to select it.
 6. Click **Generate Flame Graph**.
+
+You can also open the Query Profiler from the **Flame Graph** button in the SQL Editor, and the query is then already selected.
 
 The flame graph appears below. Hover over a bar to see the function name and its share of total time. Click a bar to zoom into that part. Click **Reset zoom** in the toolbar to zoom out.
 
@@ -42,7 +44,7 @@ ClickHouse&reg; collects different kinds of profiling data. Each trace type answ
 | **All Types** | Show everything. | A good start for a general view. |
 | **CPU Time** | Where does the query use CPU? | The most common choice. Use it when a query is slow and you think computation is the cause. |
 | **Wall Clock (Real)** | Where does the query spend clock time, including waits? | Use it when a query is slow but CPU use is low. This shows time spent waiting for disk, network, or locks. |
-| **Memory (Watermark)** | What caused the largest memory allocations? | Use it when a query is killed for too much memory. |
+| **Memory (Watermark)** | What caused the largest memory allocations? | Use it when ClickHouse&reg; kills a query for using too much memory. |
 | **Memory (Sampled)** | What is the distribution of memory use? | Use it for a wider view of memory allocation. |
 | **Memory Peak** | What caused the peak memory use? | Use it to find the function at the memory high point. |
 | **Profile Events** | Which internal counters increased the most? | Advanced. It relates to specific ProfileEvent counters. |
@@ -55,7 +57,7 @@ Start with **CPU Time**. If the flame graph has a few wide bars, the query is CP
 
 ## Memory context filter
 
-For the **Memory (Watermark)** and **Memory Peak** trace types, an extra dropdown appears. It filters by which part of the system allocated the memory.
+For the **Memory (Watermark)** and **Memory Peak** trace types, an extra dropdown appears that filters by which part of the system allocated the memory.
 
 | Context | What it shows |
 |---------|-------------------|
@@ -71,13 +73,13 @@ Choose **Process (query)** to separate your query's memory use from background s
 
 ## How to read the flame graph
 
-**One very wide bar near the top.** One function controls the query. Read the function name. It tells you the slow part. For example:
+**One very wide bar near the top.** One function dominates the query, and its name tells you where the slow part is. For example:
 
 - `ReadBufferFromFileDescriptor`: the query reads from disk, so it is IO-bound. Add indexes or projections to read less data.
 - `HashTable::insert`: the query builds a hash table for GROUP BY or JOIN. Reduce the number of GROUP BY keys, or use a different JOIN algorithm.
 - `MergeTreeDataSelectExecutor`: the query scans MergeTree data. Check that the WHERE clause matches the table ORDER BY, so the query uses the index.
 
-**Many narrow towers.** The query calls many functions, and none controls it. This is normal for complex queries with JOINs, subqueries, and several aggregations. Look for the widest bar across all towers. That is still the biggest chance to improve the query.
+**Many narrow towers.** The query calls many functions, and none controls it. This is normal for complex queries with JOINs, subqueries, and several aggregations. Look for the widest bar across all towers, since that is still the biggest chance to improve the query.
 
 **Hex addresses such as `0x00007f109aa53b7b`.** These are system functions (libc, kernel) with no debug symbols. The named functions above them, such as `DB::MergeTreeDataSelectExecutor`, are ClickHouse&reg; code and are always readable. To turn the hex addresses into names, install the debug symbols on your ClickHouse&reg; server:
 
@@ -89,7 +91,7 @@ apt install clickhouse-common-static-dbg
 yum install clickhouse-common-static-dbg
 ```
 
-After you install them, new queries have full function names. CHOps cannot resolve old trace data.
+After you install them, new queries have full function names, but CHOps cannot resolve old trace data.
 
 ---
 
@@ -100,14 +102,14 @@ After you install them, new queries have full function names. CHOps cannot resol
 | See function details | Hover over a bar. |
 | Zoom into a part | Click a bar. That function fills the full width. |
 | Zoom out | Click **Reset zoom** in the toolbar. |
-| Download as an image | Click **Save** in the toolbar. |
+| Download as an image | Click the **Save PNG** icon in the toolbar. |
 | Full screen | Click **Full screen** in the toolbar. |
 
 ---
 
 ## How it works
 
-ClickHouse&reg; samples running queries about 1000 times per second. Each sample records the full call stack as an array of memory addresses. ClickHouse&reg; stores the samples in the `system.trace_log` table.
+ClickHouse&reg; samples running queries about 1000 times per second and stores the samples in the `system.trace_log` table. Each sample records the full call stack as an array of memory addresses.
 
 The **From** and **To** range and the **Trace Type** control which queries appear in the list. When you generate a flame graph, CHOps reads the samples for the selected query and runs this SQL:
 
@@ -133,9 +135,9 @@ What each part does:
 | `arrayReverse(...)` | Puts the root function first, at the bottom of the flame graph. |
 | `arrayStringConcat(..., ';')` | Joins the stack into one string, separated by semicolons. |
 | `GROUP BY stack` | Counts how many samples had each call chain. |
-| `allow_introspection_functions = 1` | A required setting. CHOps passes it. |
+| `allow_introspection_functions = 1` | A required setting, which CHOps passes for you. |
 
-CHOps parses the folded stacks into a tree. It renders the flame graph with ECharts.
+CHOps parses the folded stacks into a tree and renders the flame graph with ECharts.
 
 ---
 
@@ -145,7 +147,7 @@ CHOps parses the folded stacks into a tree. It renders the flame graph with ECha
 |-------------|-----|-------------|
 | `system.trace_log` enabled | ClickHouse&reg; stores the samples here. | Run `SELECT count() FROM system.trace_log`. An error means the table is off. |
 | `allow_introspection_functions` | Needed for `addressToSymbol` and `demangle`. | CHOps passes it. |
-| SELECT access on `system.trace_log` and `system.query_log` | The ClickHouse&reg; user needs read access. | `GRANT SELECT ON system.trace_log TO your_user`. |
+| SELECT access on `system.trace_log` and `system.query_log` | The ClickHouse&reg; user that CHOps uses for the node needs read access. | `GRANT SELECT ON system.trace_log TO your_user`. |
 | `clickhouse-common-static-dbg` (optional) | Turns hex addresses into function names. | `dpkg -l clickhouse-common-static-dbg` on Debian/Ubuntu. |
 
 ---
@@ -158,7 +160,8 @@ CHOps parses the folded stacks into a tree. It renders the flame graph with ECha
 | All bars show hex addresses | The debug symbols are not on the ClickHouse&reg; server. | Install `clickhouse-common-static-dbg`. |
 | The flame graph is flat, with no towers | The query used one code path. | Try the CPU or Real trace type on a query with parallelism, for example a large SELECT with many threads. |
 | No queries in the list | No queries have trace data in the time range. | Widen the time range, or run a query that lasts at least 100 ms. |
-| "More than 500 queries" warning | Many queries have trace data. | Narrow the time range, or use the search box to find one query. |
+| "More than 500 queries with trace data were found" | Many queries have trace data, and CHOps shows only the latest 500. | Narrow the time range, or use the search box to find one query. |
+| "Maximum interval is 24 hours. Narrow your range." | The range between **From** and **To** is longer than 24 hours. | Choose a shorter range. |
 
 ---
 
@@ -167,5 +170,5 @@ CHOps parses the folded stacks into a tree. It renders the flame graph with ECha
 - Short queries (under 100 ms) may have no trace samples. Run a heavier query to get a useful flame graph.
 - CPU against Real: if the CPU flame graph is narrow but Real is wide, the query waits on IO, locks, or network. Compare both to see if the cause is computation or waiting.
 - For a memory flame graph, use the **Process (query)** context to separate the query's own allocations from server activity.
-- Try **All Types** first for a combined view. Then narrow to one type when you know what to look for.
+- Try **All Types** first for a combined view, then narrow to one type when you know what to look for.
 - Compare before and after: make a flame graph before and after a change, such as a new index. The change in bar widths shows the effect.
