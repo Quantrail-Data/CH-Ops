@@ -1,6 +1,6 @@
 # Logs
 
-When something goes wrong on your cluster, the logs tell you what happened and when. CHOps gives you four viewers. Each one reads a different ClickHouse&reg; system table.
+When something goes wrong on your cluster, the logs tell you what happened and when. CHOps gives you four viewers, and each one reads a different ClickHouse&reg; system table.
 
 | Viewer | Table | Records |
 |---|---|---|
@@ -9,7 +9,7 @@ When something goes wrong on your cluster, the logs tell you what happened and w
 | [Text Log](#text-log) | `system.text_log` | The server's own running commentary |
 | [Session Log](#session-log) | `system.session_log` | Logins, logouts, and failed sign-ins |
 
-All four share the same two-tab layout, so when you learn one, you know the rest.
+All four share the same two-tab layout, **Overview** and **Search**, so when you learn one, you know the rest. Open them from the **Logs** section of the sidebar.
 
 ---
 
@@ -45,31 +45,35 @@ The difference between the Error Log and the Text Log catches people out. The Er
 
 ## 2. The Overview tab
 
-The Overview tab answers "when did this happen" before you read a single entry.
+The Overview tab answers "when did this happen" and "how much" before you read a single entry.
 
-### The heatmap
+### The time range
 
-A grid of dates against hours, shaded by how many events fell in each cell.
+Choose a range with the **Quick** buttons: **1h**, **6h**, **24h**, **48h**, **7d** or **30d**. The Crash Log also has **All**, which reads every crash on the server. Then select **Load**, because nothing loads until you do.
 
-Pick a range with the quick buttons, **1 hour**, **6 hours**, **24 hours**, **48 hours**, **7 days**, or **30 days**, then choose **Load Heatmap**.
+| Log | Default range |
+|---|---|
+| Crash Log | 30d |
+| Error Log | 7d |
+| Text Log | 24h |
+| Session Log | 7d |
 
-Deeper colors mean more events. The shading adapts to your data, so a pattern stays visible whether you had four events or forty thousand. This also means the color is relative. A dark cell in a quiet week may be fewer events than a pale cell in a busy one. Read the numbers when the difference matters.
+The Overview has no other filters. To filter by error type, level or user, use the [Search tab](#3-the-search-tab).
 
-You can download the heatmap or open it full screen, and it follows your light or dark theme.
+### The panels
 
-**What to look for.** A solid band means something ran continuously. A single dark cell means a burst worth investigating. A regular pattern at the same hour each day usually means a scheduled job.
+Each Overview starts with summary cards, such as the total count and the time of the last event. Below the cards, it shows charts and a table:
 
-### The panels below
+| Log | Panels |
+|---|---|
+| Crash Log | **Total Crashes**, **Distinct Signals**, **Crashed Versions**, **Last Crash**. Charts of crashes by signal and by version. The **Crash Incidents** table |
+| Error Log | **Total Errors**, **Error Types**, **Remote Share**, **Last Error**. **Local vs Remote**, **Top Error Types**, **Error Rate Over Time**. The **Top Errors** table |
+| Text Log | **Total Lines**, **Errors**, **Warnings**, **Loggers**, **Last Error**. **Log Volume by Level**, **Level Distribution**, **Noisiest Loggers (errors + warnings)**. The **Most Frequent Messages** table |
+| Session Log | See [The Overview is different here](#the-overview-is-different-here) |
 
-Depending on the log, the Overview also shows:
+**What to look for over time.** A steady level means something runs continuously. A single spike means a burst worth investigating. A regular pattern at the same hour each day usually means a scheduled job.
 
-- A breakdown by category: log level for the Text Log, error type for the Error Log.
-- Volume over time, so you can see whether activity climbs or settles.
-- The most frequent messages or top errors, so repeat offenders are obvious without a scroll.
-
-Where a panel cannot be filled, it says so, rather than show an empty box. That happens on older servers, or when a system table is not enabled.
-
-The Error Log and Text Log Overviews also let you filter by error type or log level, so you can heatmap one kind of event on its own.
+If CHOps cannot fill one panel, that panel shows the error and the other panels still load. This happens on older servers, or when a column does not exist. Charts follow your light or dark theme.
 
 ---
 
@@ -77,15 +81,26 @@ The Error Log and Text Log Overviews also let you filter by error type or log le
 
 This is where you read individual entries.
 
-**A start time and an end time are always required.** These tables grow large, and an unbounded scan on a busy cluster is slow enough to matter. To narrow the window is the single biggest thing you can do for speed.
+**The From and To dates are always required.** These tables grow large, and an unbounded scan on a busy cluster is slow enough to matter. A narrow window is the single biggest thing you can do for speed.
 
-**The row limit starts at 500** and you can raise it. Raise it when you are sure your filters are narrow. A large limit with loose filters returns a lot of rows you will not read.
+By default, **From** is 7 days ago and **To** is now. On the Text Log, **From** is 24 hours ago. **From** must be earlier than **To**. If it is not, CHOps shows a warning and resets the date.
 
-Beyond the time range, each log offers filters suited to what it records. Those are covered in each section below.
+**The row limit starts at 500**, and you can raise it once you are sure your filters are narrow. A large limit with loose filters returns a lot of rows you will not read.
+
+Beyond the time range, each log offers filters suited to what it records. Each section below covers them. Select **Search** to run the query, and the filters collapse. To show them again, select **Expand Filters**.
+
+### Extra columns and custom filters
+
+Every Search tab also has two advanced controls:
+
+- **Additional Result Columns** adds more columns of the system table to the result.
+- **Custom SQL Filters** adds your own conditions to the `WHERE` clause, for example `thread_id = 12345`. Join them with **AND** or **OR**. You can add up to 10 filters.
+
+CHOps keeps these choices in your browser for each log.
 
 ### Working efficiently
 
-Start wide in the Overview to find *when*, then switch to Search with a narrow window around that moment. To search a whole week to find a five-minute incident is slow, and it buries the thing you want.
+Start wide in the Overview to find *when*, then switch to Search with a narrow window around that moment. Searching a whole week for a five-minute incident is slow, and it buries the thing you want.
 
 ---
 
@@ -93,23 +108,23 @@ Start wide in the Overview to find *when*, then switch to Search with a narrow w
 
 **Table:** `system.crash_log`
 
-This is the most serious viewer. It records the times when a ClickHouse&reg; process crashed, which means it stopped rather than returned an error.
+This is the most serious viewer. It records each time a ClickHouse&reg; process crashed, meaning it stopped instead of returning an error.
 
 ### When to open it
 
 A server restarted and nobody restarted it. Queries failed with a connection error, not a SQL error. A node dropped out of the cluster and came back.
 
-An empty Crash Log is good news and the normal state on a healthy cluster.
+An empty Crash Log is good news and the normal state on a healthy cluster. ClickHouse&reg; creates `system.crash_log` only when a fatal error occurs. If the table does not exist, the Overview says so, and that simply means the server has recorded no crashes.
 
 ### What you can search
 
 | Filter | Use |
 |---|---|
-| Query | The statement that ran when it crashed |
-| Signal description | The operating system signal, such as a segmentation fault |
-| Trace text | The exception trace recorded at the time |
+| Query (text) | The statement that ran when it crashed |
+| Signal Description | The operating system signal, such as a segmentation fault |
+| Exception Trace | The exception trace recorded at the time |
 
-Together those answer what failed and why. The query is often the most useful. A crash that reproduces on one statement is far easier to act on than one that appears random.
+Together those answer what failed and why. The query is often the most useful, because a crash that reproduces on one statement is far easier to act on than one that appears random.
 
 ### Reading a crash entry
 
@@ -133,14 +148,16 @@ Queries are failing and you want to know how often and what kind. Or you want to
 
 | Filter | Use |
 |---|---|
-| Error type | Chosen from the error kinds that have occurred here |
-| Message text | Search within the messages |
+| Error Type (multi-select) | Chosen from the error kinds that have occurred here |
+| Error Message (text) | Search within the last error message of each type |
 
-The error type list is built from your data, not from every error ClickHouse&reg; can produce, so it is short and relevant.
+CHOps builds the error type list from your data, not from every error ClickHouse&reg; can produce, so it is short and relevant.
+
+The result shows the time, the error type, the last error message and the query id of that message.
 
 ### Reading it
 
-The Overview breakdown by type is usually more useful than individual entries. One error type that accounts for most of the volume tells you where to look. A flat spread of many types usually means something upstream, such as a client that retries.
+The Overview breakdown by type is usually more useful than individual entries. **Remote Share** is the part of the errors that came from other servers in a distributed query. One error type that accounts for most of the volume tells you where to look. A flat spread of many types usually means something upstream, such as a client that retries.
 
 Compare against the same period last week before you treat a count as a problem. Some errors are normal background noise on any busy cluster.
 
@@ -174,15 +191,18 @@ There are nine levels, from most to least severe:
 | Trace | Very verbose, usually per operation |
 | Test | Test-only messages, rarely seen |
 
-Entries are color-coded by level, so serious ones stand out without a read.
+CHOps color-codes entries by level, so serious ones stand out before you read them.
 
-**Start at Warning and above.** It is the level that catches real problems without it burying you. Drop to Debug or Trace only once you know roughly what you look for, because Trace on a busy server produces an enormous amount.
+**Start at Warning and above.** It is the level that catches real problems without burying you. Drop to Debug or Trace only once you know roughly what you are looking for, because Trace on a busy server produces an enormous amount.
 
 ### What you can search
 
-Filter by level, and search within the message text.
+| Filter | Use |
+|---|---|
+| Log Levels | The levels to show. At least one is required. By default, Fatal, Critical, Error and Warning are selected. **All** and **None** change all levels at once |
+| Message (text) | Search within the message text |
 
-To search for a table name is often the quickest route. The server names the table in most messages about it, so `my_table` finds merges, mutations, and errors about it in one pass.
+Searching for a table name is often the quickest route. The server names the table in most messages about it, so `my_table` finds merges, mutations, and errors about it in one pass.
 
 ---
 
@@ -198,23 +218,26 @@ Someone cannot connect and you want to know whether the server saw the attempt. 
 
 ### The Overview is different here
 
-There is no heatmap. Instead it summarises:
+It summarises access, not errors:
 
-- The split of successful logins, failed logins, and logouts.
-- The busiest users.
-- A breakdown by connection interface and by authentication type.
-- Login activity over time.
-- The most common failure reasons, each with the most recent user and client address.
+- Cards for **Total Events**, **Successful Logins**, **Failed Logins**, **Logouts**, **Distinct Users** and **Last Event**.
+- **Login Outcomes**: the split of successful logins, failed logins, and logouts.
+- **Top Users**: the busiest users.
+- **By Interface** and **By Auth Type**: a breakdown by connection interface and by authentication type.
+- **Login Activity Over Time**.
+- **Top Failure Reasons**: the most common failure reasons, each with the most recent user and client address.
 
 That last table is the one to read first when you investigate a failure. It tells you the reason, who, and from where, with no search.
+
+The Session Log reads the server that CHOps is connected to. It does not read the other replicas.
 
 ### What you can search
 
 | Filter | Use |
 |---|---|
-| Event type | `LoginSuccess`, `LoginFailure`, or `Logout` |
-| User | A specific account |
-| Failure reason | Search within the reason text |
+| Event Type (multi-select) | `LoginSuccess`, `LoginFailure`, or `Logout` |
+| User (text) | A specific account |
+| Failure Reason (text) | Search within the reason text |
 
 ### Reading a failed login
 
@@ -234,19 +257,19 @@ This is the normal case for the Crash Log, and a good outcome.
 
 ### The system table is not enabled
 
-`system.text_log` and `system.session_log` are both off by default in ClickHouse&reg;. Where a table does not exist, CHOps says so, rather than show an empty chart. So you can tell "nothing happened" from "nothing is being recorded".
+`system.text_log` and `system.session_log` are both off by default in ClickHouse&reg;. When `system.session_log` does not exist, the Session Log says so. When `system.text_log` does not exist, each Text Log panel shows the error from the server. That way you can tell "nothing happened" from "nothing is being recorded".
 
-To enable them is a server configuration change, not something CHOps can do. Your ClickHouse&reg; administrator adds the relevant `<text_log>` or `<session_log>` section to the server config and restarts.
+Enabling them is a server configuration change, not something CHOps can do. Your ClickHouse&reg; administrator adds the relevant `<text_log>` or `<session_log>` section to the server config and restarts.
 
-Do this before you need them. To enable `text_log` during an incident means it starts to record from that moment and tells you nothing about what already happened.
+Do this before you need them. If you enable `text_log` during an incident, it records from that moment only and tells you nothing about what already happened.
 
 ### The entries have aged out
 
-System log tables have a retention policy, often a few days or weeks. To look for something from last month may simply be to look past the end of the data.
+System log tables have a retention policy, often a few days or weeks. A search for something from last month can look past the end of the data.
 
 ### On ClickHouse Cloud
 
-Some of these tables behave differently or are unavailable on managed services. CHOps detects what your deployment supports and explains what is missing, rather than show a blank screen.
+Some of these tables behave differently or are unavailable on managed services. CHOps detects what your deployment supports and explains what is missing, rather than showing a blank screen.
 
 ---
 
@@ -254,25 +277,25 @@ Some of these tables behave differently or are unavailable on managed services. 
 
 ### A node restarted overnight
 
-1. **Crash Log**, Overview, 48 hours. Look for a dark cell.
+1. **Crash Log**, Overview, **48h**, **Load**. Look in **Crash Incidents** for an entry at that time.
 2. If there is one, switch to Search with a window around it and read the signal and trace.
 3. If the Crash Log is empty, the process did not crash. Something restarted it: an orchestrator, a package upgrade, or a person. Check the **Text Log** at Information level around that time for shutdown messages.
 
 ### Queries started failing this morning
 
-1. **Error Log**, Overview, 24 hours. The breakdown by type names the error.
+1. **Error Log**, Overview, **24h**, **Load**. **Top Error Types** names the error.
 2. If one type dominates, search it in the same window and read a few messages.
 3. If the Error Log is quiet, the failures are not reaching the server. Look at the **Session Log** for connection refusals instead.
 
 ### A user says they cannot log in
 
-1. **Session Log**, Overview. The failure reasons table names the reason, the user, and the address.
-2. If their attempt does not appear at all, the server never saw it. So the problem is between them and the server: address, port, firewall, or TLS.
+1. **Session Log**, Overview. **Top Failure Reasons** names the reason, the user, and the address.
+2. If their attempt does not appear at all, the server never saw it, so the problem is between them and the server: address, port, firewall, or TLS.
 3. If it appears as `LoginFailure` with an IP restriction reason, the account exists and refuses that address, which is a different fix from a wrong password.
 
 ### A table is not merging
 
-1. **Text Log**, Search, Warning and above, with the table name in the message filter.
+1. **Text Log**, Search, Warning and above, with the table name in **Message (text)**.
 2. If there is nothing there, drop to Debug for a narrow window. Merges are chatty at that level.
 3. Cross-check with [Merges & Mutations](merges-mutations.md), which reads the merge tables directly and is a better first stop for this question.
 

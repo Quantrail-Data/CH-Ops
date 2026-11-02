@@ -19,7 +19,7 @@ that means the schema may change without a deprecation cycle. We track the
 operator and will update to match, but a future operator release could need a
 CHOps update before it works again.
 
-This is not a statement about the operator's stability. It releases monthly,
+This is not a statement about the operator's stability. The operator releases monthly,
 enforces CRD compatibility in its own CI, and ships OLM and Helm packaging. The
 label is about the API contract, not the software.
 
@@ -70,11 +70,11 @@ The same three things as AKOC:
 - Network access from CHOps to the Kubernetes API
 - A ClickHouse&reg; endpoint CHOps can reach
 
-Plus one thing specific to OCKO. It requires **cert-manager**, because the
+OCKO also has one requirement of its own: **cert-manager**, because the
 operator registers admission webhooks that need certificates. If the operator
 pod sits in `ContainerCreating` and its events mention a missing `serving-cert`
-Secret, cert-manager is either absent or was still starting when the operator
-was installed.
+Secret, cert-manager is either absent or was still starting when you installed
+the operator.
 
 ```bash
 kubectl get pods -n cert-manager
@@ -94,24 +94,27 @@ The same script as AKOC, and it already grants what OCKO needs:
 
 It creates a read-only service account with permission to read
 `clickhouse.altinity.com` and `clickhouse.com` resources. One account covers
-both operators, so there is nothing extra to run if you use both.
+both operators, so there is nothing extra to run if you use both. For all
+options, see [Script options](kubernetes-connect.md#script-options).
 
 The script prints three values. Keep them for the next step.
 
 ### If you already ran it before OCKO support existed
 
-Re-run it. The RBAC rules are applied with `kubectl apply`, so this updates the
-existing role in place and grants the new API group without disturbing anything.
-
----
+Run it again. The script applies the RBAC rules with `kubectl apply`, which
+updates the existing role in place and adds the new API group. Nothing else
+changes.
 
 ### Run the script again after a CHOps upgrade
 
-Newer CHOps versions read more optional objects: nodes, pod metrics, and
-the operator namespace for operator logs. Run `chops-k8s-setup.sh` again
-with your previous options, and add `-o <operator namespace>` for operator
-logs. This operator usually runs in its own namespace. To find it, run
-`kubectl get pods -A | grep clickhouse-operator`.
+A new CHOps version can read more optional objects: nodes, pod metrics, and
+the operator pod for operator logs. Run `chops-k8s-setup.sh` again with your
+previous options, and add `-o <operator namespace>` for operator logs. This
+operator usually runs in its own namespace, which you can find with
+`kubectl get pods -A | grep clickhouse-operator`. For details, see
+[Run the script again after a CHOps upgrade](kubernetes-connect.md#run-the-script-again-after-a-chops-upgrade).
+
+---
 
 ## 4. Making ClickHouse reachable
 
@@ -161,33 +164,34 @@ than the operator.
 
 ## 5. Adding the cluster
 
-Cluster Management, **Kubernetes** tab, **New Cluster**.
+**Control panel**, **Cluster Management**, **Kubernetes** tab, **New Cluster**.
 
 ### Step 1: Connect
 
-Paste the block from the setup script. Choose **Test connection**.
-
-The result now tells you which operators it found. If both are installed, it
-says so.
+Paste the block from the setup script. Optional: type the **Operator
+namespace**, so CHOps can show the operator logs. Choose **Test connection**,
+then **Continue**.
 
 ### Step 2: Operator and installation
 
-**This step has an extra field for OCKO.**
+**This step needs a different choice for OCKO.**
 
-Choose **Official ClickHouse&reg; Kubernetes Operator (OCKO)** from the operator
-dropdown. If only one operator is installed, CHOps pre-selects it from the test
-result, so usually you are confirming rather than choosing.
+In **Operator**, choose **Official ClickHouse&reg; Kubernetes Operator (OCKO) -
+early access**. The default is AKOC.
 
 Then pick a namespace and choose **Find installations**. Your ClickHouseCluster
-resources appear with their shard count, host count and version.
+resources appear with their status, version and host count.
 
 ### Step 3: ClickHouse address
 
-The address from step 4 above. Port `8123`, TLS disabled for a port forward.
+Use the address from step 4 above. For a port forward, use port `8123` and TLS
+**Disabled**. The defaults are port 8443 and TLS **Enabled**. For **Pod
+addressing**, see
+[Pod addressing](kubernetes-connect.md#pod-addressing).
 
 ### Step 4: Credentials
 
-The `default` user has no password unless one was set, and unlike AKOC it is
+The `default` user has no password unless you set one, and unlike AKOC it is
 **not** restricted to the cluster's own pods. So `default` works from outside,
 which makes getting started easier and is worth changing before production.
 
@@ -198,13 +202,23 @@ than an inline value.
 
 ## 6. What differs from AKOC once connected
 
-Everything works. Four screens read differently, and one reads better.
+Everything works. Five screens read differently, and one reads better.
 
 ### Reconcile
 
 AKOC publishes lists of hosts that have finished creating tables and caught up
-on replication. OCKO reports the same information through Kubernetes conditions
-instead:
+on replication. OCKO does not, so the **Replica readiness** table does not
+appear. The **Current state** table shows these values:
+
+| Row | Value on OCKO |
+|---|---|
+| Status | The reason of the `Ready` condition, for example `AllShardsReady` |
+| Task | The update revision of the cluster |
+| Hosts | Ready replicas of the expected number of hosts |
+
+OCKO reports the rest of its state through Kubernetes conditions. CHOps shows
+only the reason of the `Ready` condition. To see all conditions, use
+`kubectl describe clickhousecluster YOUR-CLUSTER -n YOUR-NAMESPACE`:
 
 | Condition | Reason | Meaning |
 |---|---|---|
@@ -216,9 +230,6 @@ instead:
 | `SchemaInSync` | `DatabasesNotCreated` | Databases are still being created on new replicas |
 
 A scale is complete when all three read the first row of each pair.
-
-The Reconcile screen shows the conditions rather than the per-host table you
-would see for AKOC.
 
 ### Health
 
@@ -236,8 +247,8 @@ mode, so the warning never applies.
 
 *Data survives a scale-down* passes.
 
-OCKO does not delete persistent volume claims when a cluster is deleted, and
-reuses an existing claim when a cluster of the same name is recreated. AKOC
+OCKO does not delete persistent volume claims when you delete a cluster, and
+it reuses an existing claim when you recreate a cluster of the same name. AKOC
 deletes by default, so that check normally fails there and needs a deliberate
 change to pass.
 
@@ -249,10 +260,11 @@ automatically. AKOC creates none by default, so that check normally fails there.
 
 ### Configuration
 
-One panel rather than two. AKOC merges templates into a separate running form,
-so CHOps shows what was written beside what is running. OCKO has no template
-merging: what you wrote is what runs, so a comparison would always report no
-difference.
+The **Running** panel is empty. AKOC merges templates into a separate running
+form, so CHOps shows what you wrote beside what is running. OCKO has no
+template merging: what you wrote in the **Written** panel is what runs. The
+note that the two forms differ also shows on OCKO, but it does not point to a
+problem.
 
 ---
 

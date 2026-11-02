@@ -1,6 +1,6 @@
 # DDL & Readonly Tables
 
-The DDL & Readonly page answers two operational questions at a glance: are my schema changes propagating across the cluster, and are any replicas stuck in read-only mode? Both conditions are early warning signs of cluster trouble, so this page is worth a check after every schema migration and whenever replication feels slow.
+The DDL & Readonly page (**Overview**, then **DDL & Readonly**) answers two operational questions at a glance: are my schema changes propagating across the cluster, and are any replicas stuck in read-only mode? Both conditions are early warning signs of cluster trouble, so check this page after every schema migration and whenever replication feels slow.
 
 This page is read-only. It reads from `system.distributed_ddl_queue` and `system.replicas` and does not change anything.
 
@@ -12,7 +12,7 @@ When you run a schema change with the `ON CLUSTER` clause, for example `CREATE T
 
 This is how a single `ON CLUSTER` command keeps the schema consistent across dozens of nodes. The queue is visible in the `system.distributed_ddl_queue` table, and this page shows it.
 
-On a single-node setup with no distributed DDL configured, the queue is empty and the cards show zeros. That is normal, not an error.
+On a single-node setup with no distributed DDL configured, the queue is empty and the cards show zeros. If the node cannot read the queue at all, the page shows "DDL queue not available. This is normal for single-node setups without distributed_ddl_queue." That is normal, not an error.
 
 ---
 
@@ -24,7 +24,7 @@ The top of the page shows three cards that summarise the distributed DDL queue:
 |------|---------|
 | **DDL Queue Length** | The number of queued statements that have not yet run (status `Inactive`) |
 | **Median Processing Time** | The median time that finished statements took to run |
-| **Failed DDLs** | The number of statements that returned an exception on at least one host |
+| **Failed DDLs** | The number of queue entries with an exception. Each host of a statement has its own entry. |
 
 A non-zero **Failed DDLs** count is the one to watch. It means a schema change succeeded on some nodes but not others, which leaves the cluster in an inconsistent state until you intervene.
 
@@ -32,7 +32,7 @@ A non-zero **Failed DDLs** count is the one to watch. It means a schema change s
 
 ## DDL queue table
 
-Below the cards, a table lists the statements that have not finished, from `system.distributed_ddl_queue`:
+Below the cards, the **Slow / Pending DDLs** table lists the statements that have not finished, from `system.distributed_ddl_queue`:
 
 | Column | Description |
 |--------|-------------|
@@ -42,13 +42,13 @@ Below the cards, a table lists the statements that have not finished, from `syst
 | query_duration_seconds | How long it has taken so far, in seconds |
 | status | The current status, such as `Inactive` for a pending statement |
 
-The table shows only statements that are not `Finished`, so on a healthy cluster it is empty. When a change does not propagate cleanly, the statement stays here with a non-finished status. For the full per-host detail and the exception text, query `system.distributed_ddl_queue` in the [SQL Editor](sql-editor.md).
+The table shows only statements that are not `Finished`, so on a healthy cluster it is empty and shows "No slow or pending DDLs. All clear." When a change does not propagate cleanly, the statement stays here with a non-finished status. For the full per-host detail and the exception text, query `system.distributed_ddl_queue` in the [SQL Editor](sql-editor.md).
 
 ---
 
 ## Read-only tables
 
-A replicated table enters read-only mode when the node loses its connection to ClickHouse&reg; Keeper, or when the replica's metadata in Keeper is missing or inconsistent. In read-only mode, the table rejects writes (INSERTs, merges, mutations) but still serves reads. This is a protection. ClickHouse&reg; would rather refuse writes than risk a divergence from the other replicas.
+A replicated table enters read-only mode when the node loses its connection to ClickHouse&reg; Keeper, or when the replica's metadata in Keeper is missing or inconsistent. In read-only mode, the table rejects writes (INSERTs, merges, mutations) but still serves reads. This is a protection: ClickHouse&reg; would rather refuse writes than risk diverging from the other replicas.
 
 This page queries `system.replicas WHERE is_readonly = 1` and lists every affected table:
 
@@ -60,13 +60,13 @@ This page queries `system.replicas WHERE is_readonly = 1` and lists every affect
 | absolute_delay | How far behind this replica is, in seconds |
 | zookeeper_exception | The most recent Keeper error for the replica, if any |
 
-If the list is empty, all replicas are writable. The `zookeeper_exception` column is usually the fastest clue to why a table went read-only.
+If the list is empty, the page shows "No read-only tables. All replicas healthy." and all replicas are writable. The `zookeeper_exception` column is usually the fastest clue to why a table went read-only.
 
 ---
 
 ## Refresh
 
-The page refreshes on its own. The DDL queue updates every 10 seconds, and the read-only tables update every 30 seconds. So after you issue a schema change, you can watch it propagate without a manual refresh.
+The page refreshes on its own, updating the DDL queue every 10 seconds and the read-only tables every 30 seconds, so after you issue a schema change, you can watch it propagate without a manual refresh.
 
 ---
 
@@ -85,7 +85,7 @@ The page refreshes on its own. The DDL queue updates every 10 seconds, and the r
 
 ### "I ran an ALTER ON CLUSTER and one node never updated"
 
-Look at the DDL queue table and find your statement by its query text and cluster. A status that is not `Finished` means it is still pending or has stopped on some host. For the host and the exception text, query `system.distributed_ddl_queue` in the SQL Editor. Common causes are a node that was offline when the statement was issued, a disk-full condition, or a lock held by a long-running merge. Once you resolve the underlying issue, re-issue the statement. ClickHouse&reg; is idempotent for most DDL when you use `IF NOT EXISTS` and `IF EXISTS` guards.
+Look at the DDL queue table and find your statement by its query text and cluster. A status that is not `Finished` means it is still pending or has stopped on some host. For the host and the exception text, query `system.distributed_ddl_queue` in the SQL Editor. Common causes are a node that was offline when you issued the statement, a disk-full condition, or a lock held by a long-running merge. Once you resolve the underlying issue, re-issue the statement. ClickHouse&reg; is idempotent for most DDL when you use `IF NOT EXISTS` and `IF EXISTS` guards.
 
 ### "A table suddenly went read-only"
 
@@ -99,4 +99,4 @@ If statements pile up and never reach `Finished`, a node may be unable to reach 
 
 ## Single-node setups
 
-If you run a single ClickHouse&reg; node with no cluster definition, distributed DDL is not used, and `system.distributed_ddl_queue` is empty. The status cards show zeros and the queue table is empty. This is expected. Read-only detection still works, because `system.replicas` is populated whenever you use replicated table engines, even on a single node pointed at Keeper.
+If you run a single ClickHouse&reg; node with no cluster definition, you are not using distributed DDL, and `system.distributed_ddl_queue` is empty. The status cards show zeros and the queue table is empty, or the page shows "DDL queue not available". This is expected. Read-only detection still works, because ClickHouse&reg; populates `system.replicas` whenever you use replicated table engines, even on a single node pointed at Keeper.

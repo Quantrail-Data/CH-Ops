@@ -24,7 +24,7 @@ sudo chmod 644 /etc/rancher/k3s/k3s.yaml
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 ```
 
-To avoid a retype of that in every new terminal:
+To avoid retyping that in every new terminal:
 
 ```bash
 echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc
@@ -148,7 +148,7 @@ demo   1          2       InProgress   10s
 demo   1          2       Completed    75s
 ```
 
-Press Ctrl-C when it says `Completed`. That usually takes a minute or two, most of which is a pull of the ClickHouse&reg; image the first time.
+Press Ctrl-C when it says `Completed`. That usually takes a minute or two, most of which is pulling the ClickHouse&reg; image the first time.
 
 If it stays `InProgress` for more than five minutes, jump to Troubleshooting at the end.
 
@@ -218,6 +218,16 @@ chi-demo-main-0-0-0    26.3.1.1
 CHOps needs ClickHouse&reg; 26.3 or newer. The version shown here comes from whatever image the Altinity&reg; operator pulled, and your build number will differ. If the reported version is older than 26.3, pin a 26.3-or-newer ClickHouse&reg; image in the installation before you connect CHOps.
 
 If both of those work, you are ready to point CHOps at it.
+
+### Make the Kubernetes account for CHOps
+
+To test the Kubernetes tab and the Kubernetes Insights screens, CHOps also needs read access to the Kubernetes API. Run the setup script from the CHOps repository:
+
+```bash
+bash scripts/chops-k8s-setup.sh -o kube-system
+```
+
+The `-o kube-system` option gives read access to the operator pod and its logs. The operator bundle in Step 2 runs in `kube-system`. The script prints the API address, the CA certificate, and the token. Paste them in **Control panel > Cluster Management**, on the **Kubernetes** tab. See [Connecting a Kubernetes Cluster](../guide/kubernetes-connect.md).
 
 **Connection details for CHOps:**
 
@@ -415,7 +425,7 @@ Wait a minute, then repeat Step 3.
 
 Worth knowing, so you do not chase them as bugs.
 
-**Volume expansion.** K3s provisions storage with local-path, which does not support a growth of a volume. CHOps will correctly report that volumes cannot be expanded. If you want to exercise that path, install Longhorn (or a current release):
+**Volume expansion.** K3s provisions storage with local-path, which does not support growing a volume. CHOps will correctly report that volumes cannot be expanded. If you want to exercise that path, install Longhorn (or a current release):
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/deploy/longhorn.yaml
@@ -423,7 +433,7 @@ kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/depl
 
 Then set `storageClassName: longhorn` in the volume claim template and recreate the installation.
 
-**Pagination.** Four pods is nowhere near the 500-item page size, so a bug in the handling of the continuation cursor cannot show up here. That test needs 600 dummy pods created deliberately, and it is described in the implementation guide.
+**Pagination.** CHOps reads Kubernetes lists in pages of 500 items. Two or three pods do not fill one page, so a bug in how CHOps handles the continuation cursor cannot show up here. That test needs more than 500 objects of one kind, for example 600 small pods.
 
 ---
 
