@@ -23,9 +23,9 @@ If CHOps saves you time, please star this repository. It helps.
 
 CHOps is for the people who run ClickHouse&reg; themselves: data platform teams, DBAs, and the DevOps engineer who inherited the cluster. CHOps brings the daily work of operating ClickHouse&reg; into one browser UI. You find a slow query, stop a runaway, check replication, watch merges, or review access with a click, not a command.
 
-ClickHouse® includes basic tools, such as the Play UI, a simple dashboard, and clickhouse-client. These are useful, but they are not enough to operate a cluster. You still write queries against the right system table, on the right node, and you must know which table that is. CHOps brings this work into one UI. Then cluster operations are no longer the job of one or two specialists. The whole team can do them.
+ClickHouse® includes basic tools, such as the Play UI, a simple dashboard, and clickhouse-client. They are useful, but they are not enough to operate a cluster: you still write queries against the right system table, on the right node, and you have to know which table that is. CHOps brings this work into one UI, so cluster operations stop being the job of one or two specialists and the whole team can do them.
 
-Point CHOps at your cluster. It reads everything it needs over HTTP. You install nothing on your ClickHouse&reg; servers.
+Point CHOps at your cluster and it reads everything it needs over HTTP, so you install nothing on your ClickHouse&reg; servers.
 
 **What it does**
 
@@ -36,7 +36,7 @@ Point CHOps at your cluster. It reads everything it needs over HTTP. You install
 - Saves queries with their parameter defaults. Tomorrow's check is one click.
 - Exports results in 22 formats, such as CSV, JSON, Parquet, and ORC. Compression is optional.
 - Builds charts and dashboards from your own queries. Filters drive every chart at once.
-- Sends email alerts when a threshold you define is crossed.
+- Sends alerts when a threshold you define is crossed. Alerts go to email, Slack, Google Chat, Microsoft Teams, or PagerDuty.
 - Runs BACKUP and RESTORE against S3-compatible storage. It lists what you already have.
 - Manages ClickHouse&reg; users, roles, and grants on one screen.
 - Reads clusters that run under a Kubernetes operator and keeps the host list current.
@@ -45,9 +45,9 @@ The [Feature Overview](#feature-overview) covers all of it in more detail.
 
 **Why use it**
 
-- It answers in seconds. You do not need to know where ClickHouse&reg; keeps the data.
-- It gives one place for the whole cluster, not one session per node.
-- It runs as a single binary or a container that you host. Your credentials and query history stay with you.
+- Answers come in seconds, and you do not need to know where ClickHouse&reg; keeps the data.
+- You get one place for the whole cluster, not one session per node.
+- It runs as a single binary or a container that you host, so your credentials and query history stay with you.
 - It is free and open source under the Apache License 2.0.
 - It does not replace `clickhouse-client`. The SQL editor is there when you want to write queries yourself.
 
@@ -62,41 +62,41 @@ The [Feature Overview](#feature-overview) covers all of it in more detail.
 | Kubernetes with no operator | Direct connection | no |
 | ClickHouse® Cloud, Altinity.Cloud®, other managed services | Direct connection | no |
 
-Clusters that run under a Kubernetes operator get more than a connection. You pick the installation instead of typing host names. The list stays correct as the cluster scales up or down. You also get eight extra screens for pods, storage, networking, and events. See [ClickHouse® Running in Kubernetes](#clickhouse-running-in-kubernetes).
+Clusters that run under a Kubernetes operator get more than a connection. You pick the installation instead of typing host names, and the host list stays correct as the cluster scales up or down. You also get ten extra screens for health, topology, storage, networking, events, logs, and more. See [ClickHouse® Running in Kubernetes](#clickhouse-running-in-kubernetes).
 
-CHOps stores its own configuration (alerts, dashboards, users, cluster definitions, and so on) in a small SQLite file on disk. It does not touch your ClickHouse&reg; data or schema. It changes data only when you run a query that does so.
+CHOps stores its own configuration (alerts, dashboards, users, cluster definitions, and so on) in a small SQLite file on disk. It does not touch your ClickHouse&reg; data or schema, and it changes data only when you run a query that does so.
 
-CHOps is built on [Bun](https://bun.sh), with a React frontend and an Express backend. It compiles to a single self-contained binary with no runtime dependencies. To deploy, you copy one file to a server.
+CHOps is built on [Bun](https://bun.sh), with a React frontend and an Express backend. It compiles to a single self-contained binary with no runtime dependencies, so deploying means copying one file to a server.
 
 ---
 
 ## Feature Overview
 
-CHOps groups its features into ten sidebar sections. Each item below is a page or a toolset. The [full documentation](https://ch-ops.io/docs) covers every feature in depth. This list is short.
+CHOps groups its features into ten sidebar sections. Each item below is a page or a toolset. The list here is short, and the [full documentation](https://ch-ops.io/docs) covers every feature in depth.
 
-A global page search is available everywhere. Open it from the navbar Search button, the floating bubble, or Ctrl/Cmd+K. Then type a page name, a feature, a heading, or on-page text to jump straight there.
+A global page search is available everywhere. Open it from the navbar Search button, the floating bubble, or Ctrl/Cmd+K, then type a page name, a feature, a heading, or on-page text to jump straight there.
 
-**Overview**: cluster health. A live query monitor with sortable columns, per-user memory and read-volume charts, a detail popup for any running query, and bulk kill by selection. Query analytics and log. Tables and parts inspection. Merges and mutations. The distributed DDL queue. Kubernetes Insights for clusters under the Altinity&reg; or the official ClickHouse&reg; operator.
+**Overview**: cluster health and a daily summary, plus a live query monitor with sortable columns, per-user memory and read-volume charts, a detail popup for any running query, and bulk kill by selection. This section also covers query analytics and the query log, tables and parts inspection, merges and mutations, replication and ingestion queues, the distributed DDL queue and read-only replicas, and Kubernetes Insights for clusters under the Altinity&reg; or the official ClickHouse&reg; operator.
 
-**Tools**: the SQL editor is a full IDE. It has tabbed queries, schema-aware autocomplete, typed query parameters, and a configurable row ceiling. Every EXPLAIN type is a toggle (indexes, projections, distributed, sorting, actions, analyzer passes), so you do not have to remember the syntax. Save a query and it keeps its parameter defaults, ready to rerun. You can export and share saved queries. A cost estimate shows what a query will read before you run it. Comparison mode puts two runs side by side with their metrics. The export wizard writes results in 22 formats, with optional gzip, zstd, or zip. It runs in the background, so a large extract does not block the browser.
+**SQL Tools**: the SQL editor is a full IDE, with tabbed queries, schema-aware autocomplete, typed query parameters, and a configurable row ceiling. Every EXPLAIN type is a toggle (indexes, projections, distributed, sorting, actions, analyzer passes), so you do not have to remember the syntax. Save a query and it keeps its parameter defaults, ready to rerun. Each user has their own saved queries, which you can export and share. A cost estimate shows what a query will read before you run it. Comparison mode puts two runs side by side with their metrics. The export wizard writes results in 22 formats, with optional gzip, zstd, zip, or tar.gz compression, and it runs in the background so a large extract does not block the browser.
 
-Tools also has an interactive flame-graph query profiler, a per-second query metrics timeline, Schema Studio for guided table creation, and Qurioz, an AI assistant that turns plain-English questions into ClickHouse&reg; SQL.
+SQL Tools also has an interactive flame-graph query profiler, a processors profile view, a per-second query metrics timeline, Schema Studio for guided table creation, and Qurioz, an AI assistant that turns plain-English questions into ClickHouse&reg; SQL.
 
 **Custom Dashboards**: a chart builder with 10 or more chart types, configurable grid dashboards, and a chart browser. Every chart has an HTML control toolbar (zoom, save as PNG, and full screen). Add a parameter to a chart's SQL and it becomes a dashboard filter by itself. The filter is shared with every chart that uses the same name, so one control updates them all.
 
-**Indexes**: data-skipping index visualization, projection management, and secondary index creation.
+**Schema Tools**: a schema visualizer, data-skipping indexes, projection management, and index management.
 
-**Logs**: crash, error, and text log viewers with calendar heatmaps and filtered search.
+**Logs**: crash, error, text, and session log viewers with calendar heatmaps and filtered search.
 
-**Monitoring**: many system charts, plus a DVR-style playback mode to replay historical metrics frame by frame.
+**Monitoring**: many system charts, a DVR-style playback mode to replay historical metrics frame by frame, and a memory allocator view.
 
-**Alerting**: SQL-based alert rules with threshold evaluation, an email notification channel, and a live firing-alert marquee.
+**Custom Alerts**: SQL-based alert rules with threshold evaluation and a live firing-alert marquee. A rule keeps a separate state for each node. Notification channels send to email, Slack, Google Chat, Microsoft Teams, or PagerDuty.
 
-**Access Control**: ClickHouse&reg; user and role management, grant visualization, and settings-profile editing.
+**DB RBAC**: ClickHouse&reg; user and role management, grant visualization, and settings-profile editing.
 
 **Backups**: BACKUP and RESTORE to S3-compatible storage, backup discovery, and storage profile management.
 
-**Administration**: CHOps user management with four roles, multi-cluster configuration, application-data backup, and AI provider key management.
+**Control panel**: CHOps user management with four roles, system email settings, multi-cluster configuration, storage profiles, notification channels, trusted certificate authorities, runtime settings (App Config), application-data backup, and AI provider key management.
 
 ---
 
@@ -104,19 +104,19 @@ Tools also has an interactive flame-graph query profiler, a per-second query met
 
 The fastest way to run CHOps is the Docker image, Docker Compose, or a prebuilt binary. You do not need Bun or a build step.
 
-You need a ClickHouse&reg; server that you can reach over the network. You need its host name, its HTTP port (usually 8123), and its credentials. Confirm the server is reachable:
+You need a ClickHouse&reg; server that you can reach over the network, along with its host name, its HTTP port (usually 8123), and its credentials. Confirm the server is reachable:
 
 ```bash
 curl http://your-clickhouse-host:8123/ping
 # Should print: Ok.
 ```
 
-CHOps needs a session secret and one super-admin account. The `ENCRYPTION_SECRET` must be 32 characters or more. Make one with `openssl rand -hex 32`.
+CHOps needs an encryption secret and one super-admin account. The `ENCRYPTION_SECRET` must be 32 characters or more. Make one with `openssl rand -hex 32`.
 
 ### Run with Docker
 
 ```bash
-# 1. Make a session secret.
+# 1. Make an encryption secret.
 export ENCRYPTION_SECRET=$(openssl rand -hex 32)
 
 # 2. Start the container.
@@ -135,7 +135,7 @@ The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:l
 
 ### Run with Docker Compose
 
-Make a file named `docker-compose.yml`. Put this content in it. Change the session secret and the admin password first.
+Make a file named `docker-compose.yml` with the content below. Change the encryption secret and the admin password first.
 
 ```yaml
 services:
@@ -178,18 +178,20 @@ ENCRYPTION_SECRET=$(openssl rand -hex 32) \
 ./chops-linux-x64
 ```
 
-The binary makes `data/chops.db` in its working directory at startup.
+At startup, the binary makes `data/chops.db` and `data/crypto.salt` in its working directory. Keep both files, because stored passwords need the salt file and the same `ENCRYPTION_SECRET`.
 
 ### Required configuration
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `ENCRYPTION_SECRET` | Yes | Signs sessions and derives the encryption key. Use 32 characters or more. Keep it. Do not change it later, or stored ClickHouse&reg; passwords become unreadable. |
+| `ENCRYPTION_SECRET` | Yes | Derives the key that encrypts stored passwords and keys. Use 32 characters or more. Keep it, and do not change it later, or stored ClickHouse&reg; passwords become unreadable. |
 | `SUPER_ADMIN_1` | Yes | The first admin user name. |
 | `SUPER_ADMIN_1_PASSWORD` | Yes | The first admin password. Change it. |
 | `SUPER_ADMIN_1_EMAIL` | Yes | The first admin email. |
 
-Everything else is optional. The `SMTP_*` values drive alert emails and the password reset code. Leave them blank and both features stay off. The docs list all variables: https://ch-ops.io/docs/getting-started/configuration
+Everything else is optional. The docs list all variables: https://ch-ops.io/docs/getting-started/configuration
+
+CHOps sends account emails (setup links and password reset codes) through the system email server. A super admin sets it in **Control panel > User Management > System Email**. Set `FRONTEND_LINK` to the address that users open, so that setup links point to the right place.
 
 ### Update to a new version
 
@@ -266,15 +268,15 @@ SUPER_ADMIN_1_EMAIL=you@example.com
 ENCRYPTION_SECRET=paste_a_random_string_here
 ```
 
-Make the session secret with `openssl rand -hex 32`. It must be 32 characters or more. Keep it private. Do not change it later, or stored ClickHouse&reg; passwords become unreadable.
+Make the encryption secret with `openssl rand -hex 32`. It must be 32 characters or more. Keep it private and do not change it later, or stored ClickHouse&reg; passwords become unreadable.
 
-**5. Run the database migration** to make CHOps's internal SQLite tables:
+**5. Optional: run the database migration** to make CHOps's internal SQLite tables. The server also runs it at each start.
 
 ```bash
 bun run db:migrate
 ```
 
-You should see "Database migration complete." This makes `data/chops.db`. The file keeps its original name for backward compatibility.
+You should see "Database migration complete." The migration makes `data/chops.db`.
 
 ### Start in development
 
@@ -297,7 +299,7 @@ Open `http://localhost:3000`.
 
 ### Build your own Docker image
 
-The repository has a `Dockerfile` and a `docker-compose.yml` for a local build. The build does not need a `.env` file. The repository compose reads run-time settings from `.env` through `env_file`, so make a `.env` with the four required variables first.
+The repository has a `Dockerfile` and a `docker-compose.yml` for a local build. The build itself does not need a `.env` file, but the repository compose reads run-time settings from `.env` through `env_file`, so make a `.env` with the four required variables first.
 
 Build and run with Compose:
 
@@ -305,7 +307,7 @@ Build and run with Compose:
 docker compose up -d --build
 ```
 
-Rebuild after you pull new code with the same command. Stop with `docker compose down`. Your data stays in the `chops-data` volume.
+Run the same command to rebuild after you pull new code, and `docker compose down` to stop. Your data stays in the `chops-data` volume.
 
 Or build and run by hand:
 
@@ -320,7 +322,7 @@ docker run -d --name chops -p 3000:3000 \
   chops:latest
 ```
 
-Open `http://localhost:3000`. A `VITE_*` change needs a rebuild, because those values are compiled into the frontend. Everything else takes effect on the next restart.
+Open `http://localhost:3000`. A `VITE_*` change needs a rebuild, because the build compiles those values into the frontend. Everything else takes effect on the next restart.
 
 ### Build a standalone binary
 
@@ -336,13 +338,13 @@ bun run build:binary:mac        # produces chops-darwin-arm64
 bun run build:binary:windows    # produces chops-windows-x64.exe
 ```
 
-During the build, `vite build` compiles the React frontend into `dist/`. Then `bun build --compile` bundles the backend, all dependencies, and `dist/` into one binary. Run the binary with the same variables shown in [Run a prebuilt binary](#run-a-prebuilt-binary).
+During the build, `vite build` compiles the React frontend into `dist/`, `bun run embed` writes `dist/` and `docs/` into `src/backend/embeddedAssets.js`, and `bun build --compile` bundles the backend, all dependencies, and the embedded files into one binary. Run the binary with the same variables shown in [Run a prebuilt binary](#run-a-prebuilt-binary).
 
 ---
 
 ## Logging In
 
-Open CHOps in your browser. Sign in with the `SUPER_ADMIN_1` user name and password. You land on the Cluster Overview page.
+Open CHOps in your browser. Sign in with the `SUPER_ADMIN_1` user name and password. You land on the Home page.
 
 ---
 
@@ -350,10 +352,11 @@ Open CHOps in your browser. Sign in with the `SUPER_ADMIN_1` user name and passw
 
 After you log in, CHOps does not yet know where your ClickHouse&reg; server is. Point it there:
 
-1. Go to **Administration > Cluster Management**.
-2. Click **Add Node**. Fill in the node name (a unique friendly label), host or IP, port (usually 8123, the HTTP port, not the native 9000), user, and password. Check **HTTPS** if your server uses TLS.
-3. Click **Test** to verify. On success you see the ClickHouse&reg; version and uptime.
-4. Click **Save**.
+1. Go to **Control panel > Cluster Management**.
+2. On the **Direct connection** tab, click **New Cluster**. Type a cluster name.
+3. Click **Add Node**. Fill in the node name (a unique friendly label), host or IP, port (usually 8123, the HTTP port, not the native 9000), user, and password. Check **HTTPS** if your server uses TLS.
+4. Click the test button (plug icon) next to the node. On success you see the ClickHouse&reg; version and uptime.
+5. Click **Create Cluster**.
 
 The navigation bar updates at once with no re-login. You can configure up to 3 clusters, with a combined maximum of 18 nodes. Switch between them from the dropdown in the top bar.
 
@@ -361,30 +364,30 @@ The navigation bar updates at once with no re-login. You can configure up to 3 c
 
 If your ClickHouse&reg; runs in Kubernetes under an operator, use the **Kubernetes** tab instead of entering hosts by hand. CHOps reads the host list from the installation and keeps it current as the cluster scales.
 
-Both ClickHouse&reg; Kubernetes operators are supported:
+CHOps supports both ClickHouse&reg; Kubernetes operators:
 
 | Operator | Abbreviation | CRD group | Status |
 |---|---|---|---|
 | Altinity® Kubernetes Operator for ClickHouse® | AKOC | `clickhouse.altinity.com` | Supported |
 | Official ClickHouse® Kubernetes Operator | OCKO | `clickhouse.com` | Early access |
 
-OCKO support is new. The two operators describe a cluster differently. CHOps handles each on its own terms and does not treat them as interchangeable. The Kubernetes screens look and behave the same whichever one you run.
+OCKO support is new. The two operators describe a cluster differently, so CHOps handles each on its own terms rather than treating them as interchangeable. The Kubernetes screens look and behave the same whichever one you run.
 
-OCKO is early access because its custom resources are at `v1alpha1`. Under Kubernetes convention, that means the schema may change with no deprecation cycle. CHOps discovers the served API version and does not hardcode it. So a version promotion needs no change, but a renamed field would.
+OCKO is early access because its custom resources are at `v1alpha1`. By Kubernetes convention, that means the schema may change with no deprecation cycle. CHOps discovers the served API version instead of hardcoding it, so a version promotion needs no change, but a renamed field would.
 
-CHOps runs outside your Kubernetes cluster. It makes two separate connections. One goes to the Kubernetes API to read the shape of the cluster. The other goes to ClickHouse&reg; to run queries. The second connection needs an address that is reachable from outside the cluster, because internal Kubernetes addresses do not resolve from there. That is the step people miss.
+CHOps runs outside your Kubernetes cluster and makes two separate connections: one to the Kubernetes API to read the shape of the cluster, and one to ClickHouse&reg; to run queries. The second connection needs an address that is reachable from outside the cluster, because internal Kubernetes addresses do not resolve from there. That is the step people miss.
 
-`scripts/chops-k8s-setup.sh` makes a read-only service account for both operators. It prints the three values the wizard asks for.
+`scripts/chops-k8s-setup.sh` makes a read-only service account for both operators and prints the three values the wizard asks for: the API address, the CA certificate, and the token. The account can read nodes and pod metrics when the cluster allows it. Add `-o <namespace>` to give read access to the operator pod and its logs in that namespace.
 
 Full instructions:
 
 - [Connecting a Kubernetes Cluster](docs/guide/kubernetes-connect.md) for AKOC
 - [Connecting a Cluster Managed by OCKO](docs/guide/kubernetes-ocko.md)
-- [The Kubernetes Page](docs/guide/kubernetes-page.md) for the eight insight screens
+- [The Kubernetes Page](docs/guide/kubernetes-page.md) for the ten insight screens
 
 Kubernetes support is on by default. Set `app_setting['k8s.enabled']` to `false` to hide the tab.
 
-Managed services such as ClickHouse&reg; Cloud and hosted Altinity.Cloud&reg; do not use this path. They expose a database endpoint and no Kubernetes API. Add them under **Direct connection**, which gives everything except the Kubernetes screens.
+Managed services such as ClickHouse&reg; Cloud and hosted Altinity.Cloud&reg; do not use this path, because they expose a database endpoint and no Kubernetes API. Add them under **Direct connection**, which gives everything except the Kubernetes screens.
 
 ### Setting Up a Dedicated ClickHouse® User
  
@@ -412,7 +415,7 @@ ALTER USER chops SETTINGS allow_introspection_functions = 1;
 SHOW GRANTS FOR chops;
 ```
 
-A complete grant script with comments ships at [`clickhouse-user-setup.sql`](clickhouse-user-setup.sql) in the project root.
+The same script ships as [`clickhouse-user-setup.sql`](clickhouse-user-setup.sql) in the project root.
 
 ---
 
@@ -435,19 +438,23 @@ Role changes follow a strict order. Super admins can change admins, editors, and
 
 CHOps ships with several hardening measures. Here is what each does and why it matters.
 
-**Password hashing (Argon2id)**: CHOps hashes account passwords with Argon2id before storage. Argon2id is a memory-hard algorithm and the current industry recommendation. Even with the SQLite file in hand, an attacker cannot reverse the hash. Older SHA-256 hashes upgrade on each user's next login.
+**Password hashing (Argon2id)**: CHOps hashes account passwords with Argon2id before storage. Argon2id is a memory-hard algorithm and the current industry recommendation. Even with the SQLite file in hand, an attacker cannot reverse the hash. CHOps upgrades older SHA-256 hashes when each user next logs in.
 
-**Encrypted credentials**: CHOps encrypts ClickHouse&reg; connection passwords with AES-256-GCM before it writes them to SQLite. The key comes from `ENCRYPTION_SECRET`, so the database file alone is not enough to read them. Legacy plaintext values keep working and are encrypted on the next save.
+**Encrypted credentials**: CHOps encrypts ClickHouse&reg; connection passwords, the system email password, notification channel secrets, storage profile keys, and AI provider keys with AES-256-GCM before it writes them to SQLite. The key comes from `ENCRYPTION_SECRET` and `data/crypto.salt`, so the database file alone is not enough to read them. At each start, CHOps encrypts any secret that is still in plain text.
 
-**Login protection**: After 5 failed attempts for the same user name within 15 minutes, CHOps locks that account for a time. Error messages stay vague ("Invalid credentials.") so an attacker cannot find valid user names.
+**Login protection**: After 5 failed attempts for the same user name within 15 minutes, CHOps locks that account for a time. An admin can change both values in **Control panel > App Config**. Error messages stay vague ("Invalid credentials.") so an attacker cannot find valid user names.
 
-**Session tokens**: Sessions use JWTs that expire after 2 hours. Each token carries a unique revocable ID. If you delete a user, their session ends at once, because every request re-reads the account. A role change is not immediate. The role travels in the token, so a demotion takes effect on the next login or when the token expires. Force a logout if you need it sooner. Revocations are held in memory, so a server restart clears the list.
+**Session tokens**: Sessions use JWTs that expire after 2 hours by default, and an admin can change the session length in **Control panel > App Config**. CHOps makes its own signing keys, changes them every day, and stores them encrypted in its database. Each token carries a unique revocable ID. CHOps reads the account again on every request, so if you delete a user, their session ends at once, and a role change takes effect on the next request. CHOps holds revocations in memory, so a server restart clears the list.
 
 **Disabling `.env` login**: By default, the `.env` super admin credentials work as a permanent login fallback. This is convenient for setup, but it acts as a backdoor. To close it after setup, set `DISABLE_ENV_LOGIN=true`. The `.env` credentials then seed the initial migration only.
 
+**Password reset by an admin**: CHOps removes the old password and makes a one-time setup link that is valid for 30 minutes. The admin sees the link and can send it to the user, and if the system email is set, the user also gets the link by email. CHOps never puts a password in an email. The user can also ask for a reset code on the login page, but that needs the system email.
+
 **HTTP security headers**: Every response carries a Content Security Policy, Strict Transport Security, clickjacking protection, and MIME-sniffing prevention.
 
-**Request size limits**: SQL sent to `/api/query` and `/api/export` is capped at 512KB. Other endpoints allow up to 2MB.
+**Request size limits**: CHOps caps SQL sent to `/api/query` and `/api/export` at 512KB, and other endpoints allow up to 2MB.
+
+**One instance per database**: Run only one CHOps process for one database. CHOps keeps reset codes, login failure counts, rate limits, and the alert scheduler in the memory of its process. Two instances on one database give wrong limits and duplicate alerts.
 
 **Reverse proxy**: Rate limiting is per client IP. Behind a proxy (such as the Caddy setup below), set `TRUST_PROXY` to the number of proxies in front of CHOps, or every client shares one bucket. Leave it unset when CHOps is exposed directly, so `X-Forwarded-For` cannot be spoofed.
 
@@ -455,24 +462,27 @@ CHOps ships with several hardening measures. Here is what each does and why it m
 
 ## Running Tests
 
-CHOps has an automated test suite for the backend and the frontend. The tests need no running ClickHouse&reg; server, no S3 bucket, and no external service. They test the application code in isolation with mocks and static analysis.
+CHOps has an automated test suite for the backend and the frontend. The tests need no running ClickHouse&reg; server, no S3 bucket, and no external service, because they use mocks, static analysis, and a fake ClickHouse&reg; server.
 
 ```bash
-# Everything (backend then frontend), about 15 to 20 seconds
+# Everything (backend then frontend)
 bun run test
 
-# Backend suites (Bun test runner)
-bun test tests/backend
-bun test tests/isolated
-bun test tests/no-mocks
+# Backend suites only (Bun test runner)
+bun run test:backend
+
+# One backend folder
+bun test tests/security
 
 # Frontend only (Vitest)
-npx vitest run tests/frontend
+bunx vitest run tests/frontend
 ```
 
-`tests/no-mocks` holds suites written without any module mocking, so they run under Bun's test runner, not Vitest. The split is deliberate. `vi.mock` works through Vite's transform pipeline, which Bun's loader does not run. So the call becomes a no-op and the real module loads instead. A few frontend suites that need mocking are excluded from the Bun run for the same reason. They are documented in `vite.config.js`.
+The backend suites are in `tests/backend`, `tests/isolated`, `tests/no-mocks`, `tests/db`, `tests/net`, and `tests/security`. `bun run test:backend` runs each file in `tests/backend` in its own process (`scripts/test-each-file.mjs`), so a module mock in one file cannot change another file. The suites in `tests/security` start the real server and need `data/crypto.salt` in the repository root. Run `bun run dev:backend` one time to make it.
 
-Backend tests cover password hashing, JWT handling, AES-256-GCM encryption, rate limiting, security headers, alert scheduling, SQL formatting, the Drizzle schema, environment parsing, and the four-tier RBAC system. Frontend tests cover route definitions, chart types, the plugin architecture, heatmap color scales, tree-chart utilities, scrollbar behavior, and UI contracts.
+The frontend suites run under Vitest, not under Bun's test runner, because `vi.mock` needs Vite's transform pipeline and Bun's loader does not run it. Do not start Vitest with `bun --bun`, or the mocks do nothing.
+
+Backend tests cover password hashing, JWT handling, AES-256-GCM encryption, rate limiting, security headers, alert scheduling, SQL formatting, the Drizzle schema, environment parsing, the four-tier RBAC system, and the role check on every API route. Frontend tests cover route definitions, chart types, the plugin architecture, heatmap color scales, tree-chart utilities, scrollbar behavior, and UI contracts.
 
 Coverage runs are available too:
 
@@ -482,19 +492,21 @@ bun run test:backend:coverage      # backend only
 bun run test:frontend:coverage     # frontend only
 ```
 
-Most frontend tests are static analysis. They read source files as strings to verify structure, so runtime line coverage is low by design.
+Only the frontend run writes a coverage report (to `coverage/frontend`). The backend coverage script runs the same suites as `bun run test:backend`.
+
+Most frontend tests are static analysis: they read source files as strings to verify structure, so runtime line coverage is low by design.
 
 ---
 
 ## Backing Up CHOps's Database
 
-CHOps uses SQLite in WAL (Write-Ahead Logging) mode. Do not copy `chops.db` while the server runs, because the WAL file may hold data not yet flushed to the main file. Use the built-in command instead. It is safe during operation:
+CHOps uses SQLite in WAL (Write-Ahead Logging) mode. Do not copy `chops.db` while the server runs, because the WAL file may hold data not yet flushed to the main file. Use the built-in command instead, which is safe while the server runs:
 
 ```bash
 bun run db:backup
 ```
 
-This writes a self-contained file to `data/backups/` with SQLite's `VACUUM INTO`. To restore, stop the server, replace `data/chops.db` with the backup (delete any `-wal` and `-shm` files), and restart.
+This writes two files to `data/backups/`: a database copy made with SQLite's `VACUUM INTO` (`chops-<timestamp>.db`), and a copy of the encryption salt (`chops-<timestamp>.salt`). To restore, stop the server. Replace `data/chops.db` with the database copy and delete any `-wal` and `-shm` files. Replace `data/crypto.salt` with the salt copy. Start the server with the same `ENCRYPTION_SECRET`.
 
 ---
 
@@ -547,7 +559,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 ## Troubleshooting
 
-**Cannot connect to ClickHouse&reg;**: In Administration > Cluster Management, verify host, port, user, and password. Then click Test. Make sure the HTTP port (8123) is open, not the native protocol port (9000).
+**Cannot connect to ClickHouse&reg;**: In Control panel > Cluster Management, verify host, port, user, and password. Then test the node again. Make sure the HTTP port (8123) is open, not the native protocol port (9000).
 
 **"Frontend not built" error**: Run `bun run build` before you start the server.
 
@@ -555,7 +567,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 **Backup listing shows "Unable to connect"**: Verify the S3 endpoint and credentials in Storage Profiles. The error message separates authentication, connectivity, and bucket problems.
 
-**Empty monitoring charts**: Click "Load Charts" after you select a time range. Charts load only for the active tab. If charts fail instead of staying empty, check the `chops` user has `GRANT merge ON *.*` (see [Setting Up a Dedicated ClickHouse User](#setting-up-a-dedicated-clickhouse-user)).
+**Empty monitoring charts**: Click "Load Charts" after you select a time range. Charts load only for the active tab. If charts fail instead of staying empty, check the grants of the `chops` user (see [Setting Up a Dedicated ClickHouse User](#setting-up-a-dedicated-clickhouse-user)).
 
 **Read-only queries fail with "Cannot modify ... setting in readonly mode" (code 164)**: CHOps sends `readonly=1` with a result-size ceiling on read-only requests. If the ClickHouse user's own profile already pins `readonly` to 1 or 2, the two collide. Run `bun run check:readonly -- --host <host> --user <user> --password <pw>` to confirm and get the exact fix.
 
@@ -565,9 +577,9 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 **Binary crashes on startup**: Make sure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET` are set. The binary needs them, just like the dev server.
 
-**Container starts then restarts in a loop**: Check `docker logs chops`. A missing `SUPER_ADMIN_1_EMAIL`, or a `ENCRYPTION_SECRET` shorter than 32 characters, exits on startup. Both report which value is wrong.
+**Container starts then restarts in a loop**: Check `docker logs chops`. CHOps exits on startup if `SUPER_ADMIN_1_EMAIL` is missing or `ENCRYPTION_SECRET` is shorter than 32 characters, and the message names the value that is wrong.
 
-**Password reset emails never arrive**: Set the `SMTP_*` values in `.env` and restart. Without them, CHOps cannot send the reset code.
+**Password reset emails never arrive**: A super admin must set the email server in **Control panel > User Management > System Email**. Use **Send test email** there to check it. Without it, CHOps cannot send the reset code.
 
 ---
 
@@ -575,7 +587,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 Pull requests are open. Bug reports and feature requests are always welcome.
 
-- **Code.** Fork the repository, make your change, and open a pull request. Your first pull request asks you to sign our [Contributor License Agreement](CLA.md). This is a one-time step that takes a single comment. You keep the copyright. The CLA lets us ship your work in the open core and in the commercial Pro edition.
+- **Code.** Fork the repository, make your change, and open a pull request. Your first pull request asks you to sign our [Contributor License Agreement](CLA.md), a one-time step that takes a single comment. You keep the copyright, and the CLA lets us ship your work in the open core and in the commercial Pro edition.
 - **Bug reports.** Open an issue with your CHOps version (from `version.json`), your ClickHouse&reg; database version, and clear steps to reproduce.
 - **Feature requests.** Open an issue that describes the problem you want solved. Tell us the use case, not just the proposed solution, so we can find the best fit.
 
@@ -610,7 +622,7 @@ CHOps follows an **open-core model**. The core (Community) edition is open sourc
 
 **Community (core) uses the Apache License 2.0.** You can use, study, change, and redistribute it, also in commercial and closed-source products. Keep the license and the copyright notices. The full terms are in [`LICENSE`](LICENSE).
 
-**Pro is commercial only.** The Pro features are not part of this repository and do not use the Apache License 2.0. They are distributed separately under a commercial license.
+**Pro is commercial only.** The Pro features are not part of this repository and do not use the Apache License 2.0. We distribute them separately under a commercial license.
 
 For Pro, visit [ch-ops.io](https://ch-ops.io) or contact Quantrail&trade; Data.
 

@@ -1,18 +1,18 @@
 # Installation
 
-CHOps installs in three ways. Use the one that fits you.
+There are three ways to install CHOps. Use the one that fits you.
 
-- **Docker** is the fastest way to a running instance. It needs no Bun on the host. You pull a published image and run it.
+- **Docker** is the fastest way to a running instance. You pull a published image and run it, with no Bun needed on the host.
 - **A prebuilt binary** is one file with no runtime dependencies. It is good for a server or to hand to a teammate.
 - **From source with Bun** is for development or to run the latest code.
 
-Every method needs the same four values. Every method uses the same first-login and connection steps. Read "Before you begin" and "Required configuration" first. Then go to the method you want.
+Every method needs the same four values and uses the same first-login and connection steps. Read "Before you begin" and "Required configuration" first, then go to the method you want.
 
 ---
 
 ## Before you begin
 
-You need a reachable ClickHouse&reg; server for all methods. You need Bun for the source and binary methods. You need Docker for the Docker method.
+Every method needs a reachable ClickHouse&reg; server. You need Bun for the source method and to build a binary, but a prebuilt binary runs without it. The Docker method needs Docker.
 
 **1. A reachable ClickHouse&reg; server.** CHOps talks to ClickHouse&reg; over its HTTP interface. The default HTTP port is **8123**, not the native port 9000. Confirm the server is reachable from the machine that runs CHOps:
 
@@ -22,10 +22,10 @@ curl http://your-clickhouse-host:8123/ping
 
 If it prints `Ok.`, the server is reachable.
 
-**2. Bun 1.3.13 (source and binary methods only).** Bun is the JavaScript runtime CHOps is built on. Install the tested version:
+**2. Bun 1.4.2 (source and binary build methods only).** Bun is the JavaScript runtime CHOps is built on. Install the tested version:
 
 ```bash
-curl -fsSL https://bun.com/install | bash -s "bun-v1.3.13"
+curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
 ```
 
 Close and reopen your terminal. Then check the version:
@@ -40,7 +40,7 @@ bun --version
 
 ## Required configuration
 
-CHOps checks its environment at startup. It exits at once if a required value is missing. Four values are required in every method:
+CHOps checks its environment at startup and exits at once if a required value is missing. Four values are required in every method:
 
 | Variable | Purpose |
 |----------|---------|
@@ -60,13 +60,13 @@ ENCRYPTION_SECRET=paste_output_of_openssl_rand_hex_32_here
 
 > Do not change `ENCRYPTION_SECRET` after the first run. It is the encryption key for every stored ClickHouse&reg; password. If you change it, those saved credentials become unreadable, and you must enter them again.
 
-The [Configuration](getting-started/configuration.md) page lists every variable.
+The [Configuration](configuration.md) page lists every variable.
 
 ---
 
 ## Method A: Run with Docker
 
-The image is published to two registries. Both are public. Pull the image and run it. You do not build anything.
+We publish the image to two public registries. Pull the image and run it, with nothing to build.
 
 ```bash
 docker run -d --name chops -p 3000:3000 \
@@ -75,23 +75,23 @@ docker run -d --name chops -p 3000:3000 \
   -e SUPER_ADMIN_1_PASSWORD=change_me_to_a_strong_password \
   -e SUPER_ADMIN_1_EMAIL=you@example.com \
   -v chops-data:/app/data \
-  quantrailadmin1/ch-ops:0.2.0
+  quantrailadmin1/ch-ops:latest
 ```
 
-Then open **http://localhost:3000**. The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:0.2.0`. The `latest` tag is available on both registries.
+Then open **http://localhost:3000**. The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:latest`. Both registries also have a tag for each release version.
 
-The container runs as a non-root user. It serves a health check at `/api/health`. It keeps the SQLite database in the `chops-data` volume across restarts.
+The container runs as a non-root user, serves a health check at `/api/health`, and keeps the SQLite database in the `chops-data` volume across restarts.
 
 ---
 
 ## Method B: Run with Docker Compose
 
-Make a file named `docker-compose.yml`. Put this content in it. Change the session secret and the admin password first.
+Make a file named `docker-compose.yml` with the content below. Change the encryption secret and the admin password first.
 
 ```yaml
 services:
   chops:
-    image: quantrailadmin1/ch-ops:0.2.0
+    image: quantrailadmin1/ch-ops:latest
     container_name: chops
     restart: unless-stopped
     ports:
@@ -131,7 +131,7 @@ ENCRYPTION_SECRET=$(openssl rand -hex 32) \
 ./chops-linux-x64
 ```
 
-The binary makes `data/chops.db` in its working directory at startup.
+The binary makes `data/chops.db` and `data/crypto.salt` in its working directory at startup.
 
 ---
 
@@ -157,7 +157,7 @@ Copy the example and edit it:
 cp .env.example .env
 ```
 
-Set the four required values from the [Required configuration](#required-configuration) section. The example file ships with `DISABLE_ENV_LOGIN=true`. This turns off the `.env` password fallback, so only accounts in the app database can log in. This is safe from the start, because the first super admin is seeded into the app database on the first run (see Step 3). To keep the `.env` fallback during setup, set `DISABLE_ENV_LOGIN=false`.
+Set the four required values from the [Required configuration](#required-configuration) section. The example file ships with `DISABLE_ENV_LOGIN=true`, which turns off the `.env` password fallback so only accounts in the app database can log in. That is safe from the start, because CHOps seeds the first super admin into the app database on the first run (see Step 3). To keep the `.env` fallback during setup, set `DISABLE_ENV_LOGIN=false`.
 
 ### Step 3: Set up the database
 
@@ -167,11 +167,11 @@ CHOps stores its own settings in a small SQLite database. Make it:
 bun run db:migrate
 ```
 
-You see a message that confirms the migration. This makes `data/chops.db` and seeds your `SUPER_ADMIN_1` account. The server also runs this migration at startup, so this step is optional. It makes the first run cleaner.
+You see "Database migration complete." The migration makes `data/chops.db` and seeds your `SUPER_ADMIN_1` account. The server also runs this migration at each start, so this step is optional.
 
 ### Step 4: Start CHOps
 
-Development mode rebuilds on code changes. It runs the backend API on port 3000 and the Vite frontend on port 5173:
+Development mode rebuilds on code changes and runs the backend API on port 3000 and the Vite frontend on port 5173:
 
 ```bash
 bun run dev
@@ -194,7 +194,7 @@ Open **http://localhost:3000**. The `bun run build` step is required. Without it
 
 Build only if you change the code, or make your own image or binary.
 
-**Build a Docker image.** The build does not need a `.env` file. The repository `docker-compose.yml` builds the image and reads run-time settings from `.env` through `env_file`, so make a `.env` with the four required variables first, then:
+**Build a Docker image.** The build itself does not need a `.env` file, but the repository `docker-compose.yml` builds the image and reads run-time settings from `.env` through `env_file`, so make a `.env` with the four required variables first, then:
 
 ```bash
 docker compose up -d --build
@@ -243,11 +243,12 @@ The SQL Editor and Schema Studio use each person's own ClickHouse&reg; credentia
 ## First login and connecting to ClickHouse®
 
 1. Open CHOps in your browser. The port is 5173 in development, or 3000 in every other method.
-2. Log in with the `SUPER_ADMIN_1` user name and password. You land on the Cluster Overview page.
-3. CHOps does not yet know where your ClickHouse&reg; server is. Go to **Administration > Cluster Management**.
-4. Click **Add Node**. Enter a unique node name, the host or IP, the port (usually 8123, the HTTP port), the user (for example the `chops` user), and the password. Check **HTTPS** if your server uses TLS.
-5. Click **Test** to verify. On success you see the ClickHouse&reg; version and uptime.
-6. Click **Save**. The navigation bar updates at once with no re-login.
+2. Log in with the `SUPER_ADMIN_1` user name and password. You land on the Home page.
+3. CHOps does not yet know where your ClickHouse&reg; server is. Go to **Control panel > Cluster Management**.
+4. On the **Direct connection** tab, click **New Cluster**. Type a cluster name.
+5. Click **Add Node**. Enter a unique node name, the host or IP, the port (usually 8123, the HTTP port), the user (for example the `chops` user), and the password. Check **HTTPS** if your server uses TLS.
+6. Click the test button (plug icon) next to the node. On success you see the ClickHouse&reg; version and uptime.
+7. Click **Create Cluster**. The navigation bar updates at once with no re-login.
 
 You can configure up to 3 clusters, with a combined maximum of 18 nodes. Switch between them from the top bar. CHOps encrypts cluster passwords with AES-256-GCM before it stores them.
 
@@ -269,7 +270,9 @@ You can configure up to 3 clusters, with a combined maximum of 18 nodes. Switch 
 
 ## Where your data lives
 
-CHOps keeps all of its state in a SQLite database at `data/chops.db`. It also writes the WAL files (`data/chops.db-wal` and `data/chops.db-shm`) and a per-install `data/crypto.salt` for credential encryption. Back up the whole `data/` directory to keep users, clusters, alerts, dashboards, and saved credentials. Under Docker, this directory is the `chops-data` volume at `/app/data`. For an automated off-site copy, see App Data Backup under [Administration](../guide/admin.md#app-data-backup).
+CHOps keeps all of its state in a SQLite database at `data/chops.db`. It also writes the WAL files (`data/chops.db-wal` and `data/chops.db-shm`) and a per-install `data/crypto.salt` for credential encryption. Stored passwords need the salt file and the same `ENCRYPTION_SECRET`. Back up the whole `data/` directory to keep users, clusters, alerts, dashboards, and saved credentials. Stop CHOps before you copy the files, or use `bun run db:backup`. Under Docker, this directory is the `chops-data` volume at `/app/data`. For an automated off-site copy, see App Data Backup under [Administration](../guide/admin.md#app-data-backup).
+
+Run only one CHOps process for one `data/` directory. Two processes on one database give wrong login limits and duplicate alerts.
 
 ---
 
@@ -293,6 +296,6 @@ CHOps keeps all of its state in a SQLite database at `data/chops.db`. It also wr
 
 ## Next steps
 
-- [Configuration](getting-started/configuration.md) for every environment variable and the in-app connection bar.
-- [Production deployment](deployment/production.md) to run behind Caddy with systemd.
-- [Building a Binary](development/binary-build.md) to distribute a single executable.
+- [Configuration](configuration.md) for every environment variable and the in-app connection bar.
+- [Production deployment](../deployment/production.md) to run behind Caddy with systemd.
+- [Building a Binary](../development/binary-build.md) to distribute a single executable.

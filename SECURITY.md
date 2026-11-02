@@ -9,11 +9,11 @@ your behalf. We take reports about it seriously.
 
 Report privately through GitHub's
 [Report a vulnerability](https://github.com/Quantrail-Data/CH-Ops/security/advisories/new)
-form, or email **chops@quantrail-data.com**.
+form, or email **ch-ops@quantrail-data.com**.
 
 Please include:
 
-- The CHOps version and how it was deployed (binary, Docker, source)
+- The CHOps version and how you deployed it (binary, Docker, source)
 - What an attacker can do, and what access they need to start
 - Steps to reproduce, ideally with a minimal proof of concept
 - Anything you think we would get wrong about the impact
@@ -35,14 +35,14 @@ We ask for 90 days before public disclosure, or until a fix ships, whichever
 comes first. If we cannot fix something in that window we will say so and agree a
 date with you rather than ask for open-ended silence.
 
-You will be credited in the advisory unless you would rather not be.
+We will credit you in the advisory unless you would rather we did not.
 
 We do not currently run a paid bug bounty.
 
 ## Scope
 
 **In scope:** the code in this repository, and the binaries and container images
-published from it.
+we publish from it.
 
 **Out of scope:**
 
@@ -65,16 +65,26 @@ findings:
   passwords, the system email password, and AI provider keys. It cannot be
   changed: a new value makes all of those unreadable, and they cannot be
   recovered. It was called `SESSION_SECRET` in earlier versions.
-- Login tokens are signed with keys CHOps makes itself and changes every day.
-  Those keys are in the CHOps database, not in a file, and nobody sets them. Two
-  are kept at a time, so a daily change signs nobody out.
-- The list of signed-out tokens is held in memory. A restart forgets it, and
+- CHOps signs login tokens with keys it makes itself and changes every day.
+  It keeps those keys in its database, not in a file, and nobody sets them.
+  CHOps keeps two at a time, so the daily change signs nobody out.
+- CHOps holds the list of signed-out tokens in memory. A restart forgets it, and
   those tokens work again until they run out on their own, which is at most one
   session length.
 - Rate limiting keys on `req.ip`. Behind a reverse proxy you must set
   `TRUST_PROXY` to the number of proxies in front of CHOps, or every client
   shares one bucket. We do not trust `X-Forwarded-For` by default because a
   spoofed header would otherwise defeat the limiter entirely.
+- An admin password reset does not make a new password. Instead, it makes a
+  one-time link, valid for 30 minutes, that sets a password. Anyone who has
+  the link can use it, so send it on a trusted channel. CHOps uses
+  `FRONTEND_LINK` as the address in the link. When it is not set, CHOps uses
+  the address of the admin's request, so set `FRONTEND_LINK` behind a proxy.
+- CHOps holds password reset codes, login failure counts, and rate limits in
+  the memory of one process. Run only one CHOps process for one database.
+- `data/crypto.salt` and `ENCRYPTION_SECRET` together make the encryption key.
+  Anyone with both, and with `data/chops.db`, can read the stored passwords.
+  Protect the `data/` directory and its backups.
 - CHOps expects to run on a trusted network or behind your own authenticating
   proxy. It is an administration console for a database.
 
