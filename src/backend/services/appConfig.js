@@ -105,6 +105,21 @@ export const CONFIG = {
     min: 500,
     max: 30000,
   },
+
+  // SQL cannot read these two ClickHouse server options, so an admin sets them here
+  // when the server configuration differs from the ClickHouse default.
+  'rbac.defaultProfileName': {
+    env: null,
+    type: 'text',
+    def: 'default',
+    maxLength: 128,
+  },
+  'rbac.settingsConstraintsReplacePrevious': {
+    env: null,
+    def: 1,
+    min: 0,
+    max: 1,
+  },
 };
 
 
@@ -137,9 +152,12 @@ function loadAll() {
 
     let value = spec.def;
     if (raw !== null && raw !== '') {
-      const n = parseInt(raw, 10);
-
-      if (Number.isInteger(n) && n >= spec.min && n <= spec.max) value = n;
+      if (spec.type === 'text') {
+        value = raw;
+      } else {
+        const n = parseInt(raw, 10);
+        if (Number.isInteger(n) && n >= spec.min && n <= spec.max) value = n;
+      }
     }
 
     out[key] = { value, source };
@@ -160,22 +178,34 @@ export function getConfigWithSources() {
   return cache;
 }
 
-export function setConfig(key, value) {
-  const spec = CONFIG[key];
-  if (!spec) throw new Error(`Unknown setting: ${key}`);
+// Checks a new value and returns it as the text to store.
+function valueToStore(spec, value) {
+  if (spec.type === 'text') {
+    const text = String(value ?? '').trim();
+    if (text === '') throw new Error('Value must not be empty.');
+    if (text.length > spec.maxLength) throw new Error(`Value must be at most ${spec.maxLength} characters.`);
+    return text;
+  }
 
   const n = parseInt(value, 10);
   if (!Number.isInteger(n)) throw new Error('Value must be a whole number.');
   if (n < spec.min || n > spec.max) {
     throw new Error(`Value must be between ${spec.min} and ${spec.max}.`);
   }
+  return String(n);
+}
+
+export function setConfig(key, value) {
+  const spec = CONFIG[key];
+  if (!spec) throw new Error(`Unknown setting: ${key}`);
+  const storedValue = valueToStore(spec, value);
 
   const existing = db.select().from(appSettings).where(eq(appSettings.key, key)).get();
   if (existing) {
-    db.update(appSettings).set({ value: String(n), category: CATEGORY })
+    db.update(appSettings).set({ value: storedValue, category: CATEGORY })
       .where(eq(appSettings.id, existing.id)).run();
   } else {
-    db.insert(appSettings).values({ key, value: String(n), category: CATEGORY }).run();
+    db.insert(appSettings).values({ key, value: storedValue, category: CATEGORY }).run();
   }
 
   cache = null;

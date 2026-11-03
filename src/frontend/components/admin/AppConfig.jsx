@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import Select from "../common/Select.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
@@ -17,6 +18,7 @@ const TABS = [
   { id: "query", label: "Queries" },
   { id: "security", label: "Security" },
   { id: "k8s", label: "Kubernetes" },
+  { id: "rbac", label: "DB RBAC" },
 ];
 
 const FIELDS = {
@@ -113,7 +115,39 @@ const FIELDS = {
     scale: 1000,
     help: "How long CHOps waits when checking whether a pod is reachable on its own address.",
   },
+
+  "rbac.defaultProfileName": {
+    label: "ClickHouse default profile",
+    kind: "text",
+    help: "The default_profile of the ClickHouse servers. View Grants > Settings starts with this profile. Change it only when your servers use another name.",
+  },
+  "rbac.settingsConstraintsReplacePrevious": {
+    label: "A constraint replaces the previous one",
+    kind: "onOff",
+    help: "The ClickHouse server option settings_constraints_replace_previous. It is on by default in ClickHouse.",
+  },
 };
+
+// The text in the input box for a stored value.
+function valueAsText(row, field) {
+  if (field.kind === "text" || field.kind === "onOff") return String(row.value);
+  return String(row.value / field.scale);
+}
+
+// The value to send to the server for the text in the input box.
+function valueToSave(typed, field) {
+  if (field.kind === "text") return typed;
+  if (field.kind === "onOff") return Number(typed);
+  return Math.round(Number(typed) * field.scale);
+}
+
+// The line under the help text, with the source and the allowed values.
+function rangeText(row, field) {
+  if (field.kind === "text") return `default "${row.default}"`;
+  if (field.kind === "onOff") return `default ${row.default === 1 ? "on" : "off"}`;
+  const unit = field.unit ? ` ${field.unit}` : "";
+  return `${Math.round(row.min / field.scale)} to ${Math.round(row.max / field.scale)}${unit}`;
+}
 
 export default function AppConfig() {
   const toast = useToast();
@@ -152,11 +186,10 @@ export default function AppConfig() {
 
     setBusy(row.key);
     try {
-      const raw = Math.round(Number(typed) * field.scale);
       setRows(
         await apiFetch("/api/app-config", {
           method: "PUT",
-          body: JSON.stringify({ key: row.key, value: raw }),
+          body: JSON.stringify({ key: row.key, value: valueToSave(typed, field) }),
         }),
       );
       setEdits((p) => ({ ...p, [row.key]: undefined }));
@@ -261,7 +294,7 @@ export default function AppConfig() {
           .map((row, i) => {
             const field = FIELDS[row.key];
             if (!field) return null;
-            const shown = edits[row.key] ?? String(row.value / field.scale);
+            const shown = edits[row.key] ?? valueAsText(row, field);
             const dirty = edits[row.key] !== undefined;
 
             return (
@@ -295,22 +328,35 @@ export default function AppConfig() {
                   >
                     {sourceText(row)}
                     {" \u00b7 "}
-                    {Math.round(row.min / field.scale)} to{" "}
-                    {Math.round(row.max / field.scale)}
-                    {field.unit ? ` ${field.unit}` : ""}
+                    {rangeText(row, field)}
                   </div>
                 </div>
 
                 <div className="appconfig-controls">
-                  <input
-                    className="form-input"
-                    type="number"
-                    style={{ width: 110, textAlign: "right" }}
-                    value={shown}
-                    onChange={(e) =>
-                      setEdits((p) => ({ ...p, [row.key]: e.target.value }))
-                    }
-                  />
+                  {field.kind === "onOff" ? (
+                    <Select
+                      className="form-select"
+                      style={{ width: 110 }}
+                      value={shown}
+                      onChange={(event) =>
+                        setEdits((previous) => ({ ...previous, [row.key]: event.target.value }))
+                      }
+                    >
+                      <option value="1">On</option>
+                      <option value="0">Off</option>
+                    </Select>
+                  ) : (
+                    <input
+                      className="form-input"
+                      type={field.kind === "text" ? "text" : "number"}
+                      maxLength={field.kind === "text" ? row.maxLength : undefined}
+                      style={{ width: field.kind === "text" ? 180 : 110, textAlign: field.kind === "text" ? "left" : "right" }}
+                      value={shown}
+                      onChange={(event) =>
+                        setEdits((previous) => ({ ...previous, [row.key]: event.target.value }))
+                      }
+                    />
+                  )}
                   <span
                     style={{
                       fontSize: 12,

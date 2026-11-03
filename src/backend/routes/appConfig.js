@@ -4,11 +4,12 @@
 
 import { Router } from 'express';
 import { requireAdmin } from '../controllers/users.js';
-import { getAppConfig, putAppConfig, deleteAppConfig } from '../controllers/appConfig.js';
+import { getAppConfig, putAppConfig, deleteAppConfig, getRbacSettingsConfig } from '../controllers/appConfig.js';
 
 const router = Router();
 
 router.get('/', requireAdmin, getAppConfig);
+router.get('/rbac-settings', getRbacSettingsConfig);
 router.put('/', requireAdmin, putAppConfig);
 router.delete('/:key', requireAdmin, deleteAppConfig);
 

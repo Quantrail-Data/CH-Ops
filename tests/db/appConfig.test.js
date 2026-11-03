@@ -129,3 +129,27 @@ describe("safety", () => {
     `);
   });
 });
+
+describe("text settings", () => {
+  it("uses the built-in default profile name", () => {
+    expect(getConfig("rbac.defaultProfileName")).toBe("default");
+  });
+
+  it("stores a new profile name without the spaces around it", () => {
+    setConfig("rbac.defaultProfileName", "  company_default ");
+    expect(getConfig("rbac.defaultProfileName")).toBe("company_default");
+    expect(getConfigWithSources()["rbac.defaultProfileName"].source).toBe("setting");
+  });
+
+  it("refuses an empty name and a name that is too long", () => {
+    expect(() => setConfig("rbac.defaultProfileName", "  ")).toThrow(/empty/);
+    expect(() => setConfig("rbac.defaultProfileName", "x".repeat(129))).toThrow(/at most 128/);
+  });
+
+  it("keeps the on and off setting to 0 or 1", () => {
+    expect(getConfig("rbac.settingsConstraintsReplacePrevious")).toBe(1);
+    setConfig("rbac.settingsConstraintsReplacePrevious", 0);
+    expect(getConfig("rbac.settingsConstraintsReplacePrevious")).toBe(0);
+    expect(() => setConfig("rbac.settingsConstraintsReplacePrevious", 2)).toThrow(/between 0 and 1/);
+  });
+});
