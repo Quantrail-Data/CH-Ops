@@ -1065,7 +1065,7 @@ export default function RbacProfiles() {
       "SELECT name FROM system.settings_profiles ORDER BY name",
     );
     detailsQ.execute(
-      "SELECT profile_name, setting_name, value, min, max, readonly, inherit_profile FROM system.settings_profile_elements ORDER BY profile_name, setting_name",
+      "SELECT profile_name, setting_name, value, min, max, writability, inherit_profile FROM system.settings_profile_elements WHERE profile_name IS NOT NULL ORDER BY profile_name, index",
     );
   }
   useEffect(load, []);
@@ -1142,6 +1142,12 @@ function ProfileList({ profilesQ, detailsQ }) {
         emptyMessage="No profiles."
         variant="single"
       />
+      {detailsQ.error && (
+        <div className="alert-banner warning" style={{ marginTop: 12 }}>
+          <Icon className="ti ti-alert-triangle"></Icon>
+          <span>The profile settings could not be read: {detailsQ.error}</span>
+        </div>
+      )}
       {detailsQ.data?.length > 0 && (
         <>
           <h3 style={{ fontSize: "15px", margin: "16px 0 8px" }}>
@@ -1155,7 +1161,7 @@ function ProfileList({ profilesQ, detailsQ }) {
               "value",
               "min",
               "max",
-              "readonly",
+              "writability",
               "inherit_profile",
             ]}
             variant="fixed"
