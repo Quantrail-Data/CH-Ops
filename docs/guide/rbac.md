@@ -81,11 +81,12 @@ You can still turn it off for the rare case when a change is meant for one node.
 
 ## View Grants
 
-This is a read-only view of who has what. It has three tabs:
+This is a read-only view of who has what. It has four tabs:
 
 - **User Grants**: select a user in the **User** list. A tree shows the user, a **Roles** branch with each granted role and its privileges, and a **Direct Grants** branch with the privileges granted to the user directly. A partial revoke shows in red. Use the toolbar to zoom, download the tree as an image, or show it full screen.
 - **Role Grants**: select a role to see the same kind of tree for that role.
 - **Full Overview**: three tables, **Users**, **Roles**, and **All Grants**, with every grant on the server.
+- **Settings**: the settings that apply to a user or a role, and where each one comes from. See [Settings of a user or a role](#settings-of-a-user-or-a-role).
 
 ### How to use it
 
@@ -100,6 +101,34 @@ This is a read-only view of who has what. It has three tabs:
 A privilege granted at the database level covers every table in the database, including tables made later. This is convenient, and it is also how people get more access than intended.
 
 A privilege granted through a role appears under that role in the **Roles** branch, not under **Direct Grants**. If a user seems to have fewer privileges than they clearly do, check their roles.
+
+### Settings of a user or a role
+
+A user rarely gets all of their settings from one place. Some come from the default profile of the server, some from profiles assigned with a `TO` clause, some from roles, and some from the user itself. The **Settings** tab puts these together the way ClickHouse&reg; does, so you can see what applies in the end.
+
+1. Choose **User** or **Role**, then the name.
+2. For a user, choose **All granted roles** or **Default roles only (as at login)**. A new session starts with the default roles. `SET ROLE` can turn on the other granted roles later.
+3. Type in **Search settings** to find one setting.
+
+The tab has three parts:
+
+- **Effective settings**: one row for each setting, with the value, the min and max, the writability, the source of the value, and how many earlier values it overrides. Point at a setting name to see its description and its built-in default. Point at the override count to see the earlier values and where they came from.
+- **Sources, in the order ClickHouse applies them**: the default profile, the profiles with a `TO` clause, the roles (with the path that reaches each one), and the user. A later source overrides an earlier one.
+- **Rows of system.settings_profile_elements**: the raw rows that belong to the user or the role. This is what you set with `CREATE USER ... SETTINGS` or `ALTER ROLE ... SETTINGS`.
+
+Writability tells you what the user can do with a setting:
+
+| Writability | Meaning |
+| --- | --- |
+| `WRITABLE` | The user can change the setting, within min and max. |
+| `CONST` | The user cannot change the setting. |
+| `CHANGEABLE_IN_READONLY` | The user can change the setting within min and max, even with `readonly = 1`. |
+
+A warning icon next to a source means that two profiles with a `TO` clause, or two roles that do not reach each other, set the same setting. ClickHouse merges them in the order of their internal ids, so the value that wins can differ from the one shown.
+
+ClickHouse does not show the `default_profile` of the server or the option `settings_constraints_replace_previous` in any system table. CHOps uses the ClickHouse defaults (`default`, and on). If your servers use other values, an admin can set them in **Control panel > App Config > DB RBAC**.
+
+The view shows the settings at login. It does not include settings that a client sends with a connection or a query, or a `SET` in a session. ClickHouse still checks those against the constraints shown here.
 
 ---
 

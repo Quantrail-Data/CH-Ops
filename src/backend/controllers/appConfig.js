@@ -2,7 +2,7 @@
 // Contributors - Kathirmoorthy, Kathirdhasan, Praveen, Sanjeev Kumar G
 // Copyright (C) 2026 Quantrail Data pvt Ltd
 
-import { CONFIG, getConfigWithSources, setConfig, resetConfig } from '../services/appConfig.js';
+import { CONFIG, getConfig, getConfigWithSources, setConfig, resetConfig } from '../services/appConfig.js';
 import { log } from '../services/logger.js';
 
 export function getAppConfig(req, res) {
@@ -11,15 +11,26 @@ export function getAppConfig(req, res) {
 
   const out = Object.entries(CONFIG).map(([key, spec]) => ({
     key,
+    type: spec.type || 'number',
     value: resolved[key].value,
     source: resolved[key].source,
     default: spec.def,
     min: spec.min,
     max: spec.max,
+    maxLength: spec.maxLength,
     env: spec.env || null,
   }));
 
   res.json(out);
+}
+
+// The two values the Settings tab of View Grants needs. Every logged-in user can read
+// them, because that tab is open to every role.
+export function getRbacSettingsConfig(req, res) {
+  res.json({
+    defaultProfileName: getConfig('rbac.defaultProfileName'),
+    settingsConstraintsReplacePrevious: getConfig('rbac.settingsConstraintsReplacePrevious') === 1,
+  });
 }
 
 export async function putAppConfig(req, res) {

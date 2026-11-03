@@ -126,7 +126,7 @@ export default function Select({
         disabled={disabled}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onMenuKeyDown}
-        title={type === "chat" && Title()}
+        title={type === "chat" ? Title() : undefined}
       >
         <span className={`cui-select-value ${isEmpty && placeholder ? "is-placeholder" : ""}`}>
           {type === "chat" ? value : current ? current.label : (placeholder || (current?.label ?? ""))}

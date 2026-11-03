@@ -177,7 +177,7 @@ All dates and times in CHOps use the 24-hour format, for example `2026-05-13 14:
 
 ## Settings on the App Config page
 
-The **Control panel > App Config** page holds fifteen settings. An admin changes
+The **Control panel > App Config** page holds seventeen settings. An admin changes
 them there, and they apply at once with no restart.
 
 Seven of these settings also have an environment variable. CHOps uses the
@@ -193,9 +193,9 @@ variable when nothing is set on the page.
 | `EXPORT_IDLE_TTL_MS` | App Config, Exports |
 | `MAX_RESULT_BYTES` | App Config, Queries |
 
-The other eight settings have no environment variable: the Schema Studio
-sample rows, the two lockout rules, the session length, and the four Kubernetes
-timings.
+The other ten settings have no environment variable: the Schema Studio
+sample rows, the two lockout rules, the session length, the four Kubernetes
+timings, and the two DB RBAC settings.
 
 **These settings are on the server only**:
 
