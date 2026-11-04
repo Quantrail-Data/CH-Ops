@@ -75,6 +75,7 @@ const EXPECTED_GUARDS = {
   "PUT dashboards.js /:id": "requireEditor",
   "DELETE dashboards.js /:id": "requireAdmin",
   "GET dashboards.js /:id/charts": "none",
+  "GET dashboards.js /:dashId/charts/:chartName":"none",
   "GET dashboards.js /charts": "none",
   "POST dashboards.js /charts": "requireEditor",
   "PUT dashboards.js /charts/:id": "requireEditor",
