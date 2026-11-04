@@ -198,6 +198,7 @@ export function createOckoProvider(client, { version } = {}) {
         restartCount: container?.restartCount ?? 0,
         lastTerminationReason: container?.lastState?.terminated?.reason ?? null,
         lastTerminationExitCode: container?.lastState?.terminated?.exitCode ?? null,
+        waitingReason: container?.state?.waiting?.reason ?? null,
 
         image: container?.image ?? null,
         node: pod.spec?.nodeName ?? null,
@@ -357,6 +358,14 @@ export function createOckoProvider(client, { version } = {}) {
     };
   }
 
+  // The StatefulSets of the cluster, for the rollout view.
+  // They are named from the instance, as the events are.
+  async function getStatefulSets(namespace, clusterName) {
+    const statefulSets = await client.listAll(corePaths.statefulSets(namespace));
+    const prefix = `${instanceOf(clusterName)}-`;
+    return statefulSets.filter((s) => (s.metadata?.name ?? '').startsWith(prefix));
+  }
+
   async function getEvents(namespace, clusterName) {
     const events = await client.listAll(corePaths.events(namespace));
     // Objects created by this operator are named from the instance, so a name prefix is a reliable match here.
@@ -490,6 +499,7 @@ export function createOckoProvider(client, { version } = {}) {
     getStorage,
     getNetwork,
     getEvents,
+    getStatefulSets,
     streamLogs,
     getNodeZones,
     getOperatorPod,

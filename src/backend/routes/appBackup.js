@@ -2,22 +2,21 @@
 //
 // All endpoints require superadmin access. POST /create triggers
 // a manual backup to the specified storage profile. GET /list
-// lists existing backups from S3. GET/PUT /config manages the
+// lists existing backups from the storage. GET/PUT /config manages the
 // scheduled backup configuration (enabled, profile, frequency, hour).
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from "express";
-import { requireAdmin } from "../controllers/users.js";
+import { requireSuperAdminOnly } from "../controllers/users.js";
 import { createAppBackup, listAppBackups } from "../services/appBackup.js";
 import { eq } from "drizzle-orm";
 import { db, appSettings } from "../db/index.js";
-import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
 
 const router = Router();
 
 // Create a manual backup now
-router.post("/create", requireAdmin, async (req, res) => {
+router.post("/create", requireSuperAdminOnly, async (req, res) => {
 
   try {
     const { profileName } = req.body;
@@ -33,7 +32,7 @@ router.post("/create", requireAdmin, async (req, res) => {
 });
 
 // List existing backups for a profile
-router.get("/list", requireAdmin, async (req, res) => {
+router.get("/list", requireSuperAdminOnly, async (req, res) => {
   try {
     const profileName = req.query.profile;
     if (!profileName)
@@ -46,7 +45,7 @@ router.get("/list", requireAdmin, async (req, res) => {
 });
 
 // Get scheduled backup config
-router.get("/config", requireAdmin, (req, res) => {
+router.get("/config", requireSuperAdminOnly, (req, res) => {
   const row = db
     .select()
     .from(appSettings)
@@ -68,7 +67,7 @@ router.get("/config", requireAdmin, (req, res) => {
 });
 
 // Save scheduled backup config
-router.put("/config", requireAdmin, (req, res) => {
+router.put("/config", requireSuperAdminOnly, (req, res) => {
   try {
     const config = {
       enabled: !!req.body.enabled,

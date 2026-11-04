@@ -6,6 +6,11 @@ import { eq } from 'drizzle-orm';
 import { appUsers, db } from '../db/index.js';
 import { verify } from '../services/jwt.js';
 
+// Tokens from before the token_version column have no version. They count as version 0.
+export function tokenVersionMatches(payload, user) {
+  return (payload.tokenVersion ?? 0) === (user.tokenVersion ?? 0);
+}
+
 export function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing authorization' });
@@ -34,6 +39,11 @@ export function authMiddleware(req, res, next) {
 if (!found || found.username !== payload.username) {
 return res.status(401).json({ error: 'Invalid or expired token' });
 }
+
+  // A password reset adds 1 to the token version of the user. This ends all older tokens.
+  if (!tokenVersionMatches(payload, found)) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
 
   // Server-side enforcement of the forced password-change gate: the frontend
   // blocks navigation on this flag, but a still-valid JWT issued before the

@@ -9,7 +9,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Fuse from "fuse.js";
 import Icon from "../common/Icon.jsx";
 import { SEARCH_ENTRIES, SECTION_ICONS } from "../../utils/searchCatalog.js";

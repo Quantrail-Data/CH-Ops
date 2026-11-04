@@ -62,7 +62,7 @@ The [Feature Overview](#feature-overview) covers all of it in more detail.
 | Kubernetes with no operator | Direct connection | no |
 | ClickHouse® Cloud, Altinity.Cloud®, other managed services | Direct connection | no |
 
-Clusters that run under a Kubernetes operator get more than a connection. You pick the installation instead of typing host names, and the host list stays correct as the cluster scales up or down. You also get ten extra screens for health, topology, storage, networking, events, logs, and more. See [ClickHouse® Running in Kubernetes](#clickhouse-running-in-kubernetes).
+Clusters that run under a Kubernetes operator get more than a connection. You pick the installation instead of typing host names, and the host list stays correct as the cluster scales up or down. You also get eleven extra screens for health, topology, storage, networking, events, logs, and more. See [ClickHouse® Running in Kubernetes](#clickhouse-running-in-kubernetes).
 
 CHOps stores its own configuration (alerts, dashboards, users, cluster definitions, and so on) in a small SQLite file on disk. It does not touch your ClickHouse&reg; data or schema, and it changes data only when you run a query that does so.
 
@@ -94,7 +94,7 @@ SQL Tools also has an interactive flame-graph query profiler, a processors profi
 
 **DB RBAC**: ClickHouse&reg; user and role management, grant visualization, and settings-profile editing.
 
-**Backups**: BACKUP and RESTORE to S3-compatible storage, backup discovery, and storage profile management.
+**Backups**: BACKUP and RESTORE to S3-compatible, Google Cloud, or Azure Blob storage, backup discovery, and storage profile management.
 
 **Control panel**: CHOps user management with four roles, system email settings, multi-cluster configuration, storage profiles, notification channels, trusted certificate authorities, runtime settings (App Config), application-data backup, and AI provider key management.
 
@@ -104,7 +104,7 @@ SQL Tools also has an interactive flame-graph query profiler, a processors profi
 
 The fastest way to run CHOps is the Docker image, Docker Compose, or a prebuilt binary. You do not need Bun or a build step.
 
-You need a ClickHouse&reg; server that you can reach over the network, along with its host name, its HTTP port (usually 8123), and its credentials. Confirm the server is reachable:
+You need a ClickHouse&reg; server that you can reach over the network, along with its host name, its HTTP port (usually 8123), and its credentials. Tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested. Confirm the server is reachable:
 
 ```bash
 curl http://your-clickhouse-host:8123/ping
@@ -383,7 +383,7 @@ Full instructions:
 
 - [Connecting a Kubernetes Cluster](docs/guide/kubernetes-connect.md) for AKOC
 - [Connecting a Cluster Managed by OCKO](docs/guide/kubernetes-ocko.md)
-- [The Kubernetes Page](docs/guide/kubernetes-page.md) for the ten insight screens
+- [The Kubernetes Page](docs/guide/kubernetes-page.md) for the eleven insight screens
 
 Kubernetes support is on by default. Set `app_setting['k8s.enabled']` to `false` to hide the tab.
 
@@ -426,9 +426,9 @@ CHOps has four application roles. They are separate from ClickHouse&reg;'s own u
 | Role | Capabilities |
 | --- | --- |
 | **Super Admin** | Full access. Can be seeded from `.env` for first-time setup or recovery, or created in the UI. Maximum of 3. |
-| **Admin** | Same access as super admin but UI-created only. Cannot change or delete super admins. |
-| **Editor** | All sections except user and cluster management. Can build dashboards and charts and use the SQL editor. Cannot manage alerts, backups, indexes, projections, or users. |
-| **Readonly** | View-only across overview, SQL editor, dashboards, logs, monitoring, and alerts. Cannot create, edit, or delete anything. |
+| **Admin** | Day-to-day administration: clusters, storage profiles, alert rules and channels, trusted CAs, App Config, AI API keys, and editor and readonly users. UI-created only. Cannot open System Email or App Data Backup, and cannot change or delete super admins or other admins. |
+| **Editor** | All sections except user and cluster management. Can create and arrange dashboards and use the SQL editor. The Chart Builder page is for admins. Cannot manage alerts, backups, indexes, projections, or users. |
+| **Readonly** | View-only across overview, dashboards, logs, and monitoring. Can run read-only queries in the SQL editor and sees the alert marquee, but cannot open Alert Rules. Cannot create, edit, or delete anything. |
 
 Role changes follow a strict order. Super admins can change admins, editors, and readonly users. Admins can change editors and readonly users. Nobody can change a super admin's role.
 
@@ -444,7 +444,7 @@ CHOps ships with several hardening measures. Here is what each does and why it m
 
 **Login protection**: After 5 failed attempts for the same user name within 15 minutes, CHOps locks that account for a time. An admin can change both values in **Control panel > App Config**. Error messages stay vague ("Invalid credentials.") so an attacker cannot find valid user names.
 
-**Session tokens**: Sessions use JWTs that expire after 2 hours by default, and an admin can change the session length in **Control panel > App Config**. CHOps makes its own signing keys, changes them every day, and stores them encrypted in its database. Each token carries a unique revocable ID. CHOps reads the account again on every request, so if you delete a user, their session ends at once, and a role change takes effect on the next request. CHOps holds revocations in memory, so a server restart clears the list.
+**Session tokens**: Sessions use JWTs that expire after 2 hours by default, and an admin can change the session length in **Control panel > App Config**. CHOps makes its own signing keys, changes them every day, and stores them encrypted in its database. Each token carries a unique revocable ID. CHOps reads the account again on every request, so if you delete a user, their session ends at once, and a role change takes effect on the next request. A password reset, a new setup link, a forgotten-password reset, and a change of your own password end all sessions of that user. When you change your own password, this includes the session you used, so you sign in again. CHOps holds revocations in memory, so a server restart clears the list.
 
 **Disabling `.env` login**: By default, the `.env` super admin credentials work as a permanent login fallback. This is convenient for setup, but it acts as a backdoor. To close it after setup, set `DISABLE_ENV_LOGIN=true`. The `.env` credentials then seed the initial migration only.
 
@@ -456,7 +456,7 @@ CHOps ships with several hardening measures. Here is what each does and why it m
 
 **One instance per database**: Run only one CHOps process for one database. CHOps keeps reset codes, login failure counts, rate limits, and the alert scheduler in the memory of its process. Two instances on one database give wrong limits and duplicate alerts.
 
-**Reverse proxy**: Rate limiting is per client IP. Behind a proxy (such as the Caddy setup below), set `TRUST_PROXY` to the number of proxies in front of CHOps, or every client shares one bucket. Leave it unset when CHOps is exposed directly, so `X-Forwarded-For` cannot be spoofed.
+**Reverse proxy**: Rate limiting is per client IP. Each limit counts only its own requests. Two limits count per CHOps user instead: connect attempts (10 a minute, shared by all the connect and connection-test routes) and AI SQL generation (60 a minute). Behind a proxy (such as the Caddy setup below), set `TRUST_PROXY` to the number of proxies in front of CHOps, or every client shares one bucket. Leave it unset when CHOps is exposed directly, so `X-Forwarded-For` cannot be spoofed.
 
 ---
 
@@ -492,7 +492,7 @@ bun run test:backend:coverage      # backend only
 bun run test:frontend:coverage     # frontend only
 ```
 
-Only the frontend run writes a coverage report (to `coverage/frontend`). The backend coverage script runs the same suites as `bun run test:backend`.
+The backend coverage script runs the same suites as `bun run test:backend` and writes one lcov report for each run to `coverage/backend/parts/`. The frontend run writes its report to `coverage/frontend`. `scripts/coverage-report.mjs` merges the reports into one summary.
 
 Most frontend tests are static analysis: they read source files as strings to verify structure, so runtime line coverage is low by design.
 
@@ -618,7 +618,7 @@ CHOps follows an **open-core model**. The core (Community) edition is open sourc
 | Edition | License | What it includes |
 | --------------- | --------------------------- | ---------------- |
 | **Community (core)** | **Apache License 2.0** | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, and more. |
-| **Pro** | **Commercial only** | Advanced operational features on top of the core: scheduled archival to S3-compatible storage, extended alerting, audit logging, scheduled email reports, multi-cluster fleet management via sidecar agents, and priority support. |
+| **Pro** | **Commercial only** | Operational features on top of the core: Scheduled Archival, scheduled backups with retention, Remote Admin through a sidecar, an Audit Log of actions in CHOps, sign-ins and refused access (not of SQL), SSO with OpenID Connect, and scheduled email reports that send the result of a SQL query. |
 
 **Community (core) uses the Apache License 2.0.** You can use, study, change, and redistribute it, also in commercial and closed-source products. Keep the license and the copyright notices. The full terms are in [`LICENSE`](LICENSE).
 

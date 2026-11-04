@@ -2,7 +2,7 @@
 // Author: Kathir Moorthy, Praveen kumar, kathirdhasan
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import { useToast } from "../layout/Toast.jsx";

@@ -7,7 +7,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 export default function ConfirmModal({
   title,

@@ -226,19 +226,29 @@ export async function updateChatMessage(
 
   if (!existingMessage) return null;
 
+  // A field that the PATCH does not send keeps its stored value.
+  const sentOrStored = (field) =>
+    field in message ? (message[field] ?? null) : existingMessage[field];
+
+  // A new AI response replaces an old error, unless the PATCH sends an error.
+  let errorCode = sentOrStored("errorCode");
+  if (!("errorCode" in message) && "responseText" in message) {
+    errorCode = null;
+  }
+
   activeDb
     .update(aiChatMessage)
     .set({
       instruction: message.instruction ?? existingMessage.instruction,
       sql: message.sql ? message.sql : existingMessage?.sql,
-      responseText: message.responseText ?? null,
-      ddlSnapshot: message.ddlSnapshot ?? null,
-      ddlTruncated: message.ddlTruncated ?? false,
-      tokensEstimated: message.tokensEstimated ?? null,
-      provider: message.provider ?? null,
-      model: message.model ?? null,
-      errorCode: message.errorCode ?? null,
-    }) 
+      responseText: sentOrStored("responseText"),
+      ddlSnapshot: sentOrStored("ddlSnapshot"),
+      ddlTruncated: sentOrStored("ddlTruncated") ?? false,
+      tokensEstimated: sentOrStored("tokensEstimated"),
+      provider: sentOrStored("provider"),
+      model: sentOrStored("model"),
+      errorCode,
+    })
     .where(
       and(eq(aiChatMessage.id, messageId), eq(aiChatMessage.chatId, chat.id)),
     )
@@ -266,7 +276,7 @@ export async function insertError(
   ddlSnapshot = null,
   provider = null,
   model = null,
-  ddlFailures = null,
+  _ddlFailures = null,
 ) {
   const errorCode = JSON.stringify({
     errorCode: error?.code,

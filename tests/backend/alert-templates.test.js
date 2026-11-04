@@ -146,6 +146,27 @@ describe("template catalog", () => {
   });
 });
 
+describe("network errors template", () => {
+  const networkTemplate = () =>
+    ALERT_TEMPLATES.find((template) => template.id === "network-errors");
+
+  it("does not count an error twice when ClickHouse logs both metric name forms", () => {
+    const sql = networkTemplate().sql;
+    // A prefix with no underscore also matches the new name, so each error counts twice.
+    expect(sql).not.toContain("startsWith(metric, 'NetworkReceiveErrors')");
+    expect(sql).not.toContain("startsWith(metric, 'NetworkSendErrors')");
+    expect(sql).toContain(
+      "if(countIf(metric IN ('NetworkReceiveErrors', 'NetworkSendErrors')) > 0,",
+    );
+  });
+
+  it("still counts the old per-interface names before ClickHouse 26.8", () => {
+    const sql = networkTemplate().sql;
+    expect(sql).toContain("startsWith(metric, 'NetworkReceiveErrors_')");
+    expect(sql).toContain("startsWith(metric, 'NetworkSendErrors_')");
+  });
+});
+
 describe("createTemplateRulesForCluster", () => {
   it("adds every template as a rule that is off", () => {
     const createdCount = createTemplateRulesForCluster("cluster_a");

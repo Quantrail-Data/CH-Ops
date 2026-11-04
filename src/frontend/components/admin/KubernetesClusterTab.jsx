@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Four step wizard that imports a ClickHouse® installation from Kubernetes.
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import ConfirmDialog from "../editor/ConfirmDialog.jsx";
@@ -159,6 +159,7 @@ export default function KubernetesClusterTab({ onImported }) {
     apiFetch("/api/k8s/operators")
       .then((r) => setOperators(r.operators || []))
       .catch(() => setOperators([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   // Shows the stored operator namespace of the selected connection.

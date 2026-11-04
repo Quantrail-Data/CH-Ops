@@ -20,12 +20,9 @@ const CHANNEL_SECRET_FIELD = {
   pagerduty: "routing_key",
 };
 
-// The backup profile fields that are encrypted. The same rule as saving a profile in controllers/settings.js.
-function backupProfileSecretFields(profile) {
-  return profile?.type === "s3"
-    ? ["endpoint", "accessKeyId", "accessKey"]
-    : ["accessKeyId", "accessKey"];
-}
+// The backup profile fields that are encrypted, for every storage type.
+// The same rule as saving a profile in controllers/settings.js.
+const BACKUP_PROFILE_SECRET_FIELDS = ["endpoint", "accessKeyId", "accessKey"];
 
 // Returns the value encrypted, or null when it is empty or already encrypted.
 // decrypt() also reads values stored by the oldest versions without the "v1:" tag.
@@ -78,7 +75,7 @@ export function encryptBackupProfileSecrets() {
 
   let changedCount = 0;
   for (const profile of profiles) {
-    for (const field of backupProfileSecretFields(profile)) {
+    for (const field of BACKUP_PROFILE_SECRET_FIELDS) {
       const encryptedValue = encryptedOrNull(profile[field]);
       if (!encryptedValue) continue;
       profile[field] = encryptedValue;

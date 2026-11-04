@@ -2,7 +2,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import ParamInput from "../common/ParamInput.jsx";
 import { labelFor, isHidden, orderFilters, hasValue }

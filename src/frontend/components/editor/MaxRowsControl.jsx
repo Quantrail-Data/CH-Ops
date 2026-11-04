@@ -2,7 +2,6 @@
 // MaxRowsControl.jsx - how many rows the editor asks the server for.
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
-import React from "react";
 
 export const MAX_ROWS_KEY = "chops_max_rows";
 export const MAX_ROWS_DEFAULT = 5000;

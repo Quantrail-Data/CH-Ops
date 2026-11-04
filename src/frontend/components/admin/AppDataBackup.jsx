@@ -1,15 +1,14 @@
-// App Data Backup - backs up the CHOps SQLite database to S3-compatible storage.
+// App Data Backup - backs up the CHOps SQLite database to S3, GCS or Azure Blob storage.
 // Uses the same storage profiles configured in Administration > Storage Profiles.
 // Supports manual backup, scheduled auto-backup, and lists existing backups.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const DAYS = [
   "Sunday",
   "Monday",
@@ -25,7 +24,6 @@ export default function AppDataBackup() {
   const toast = useToast();
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
-  const myLevel = ROLE_LEVEL[myRole] || 0;
   const isSuperAdmin = myRole === "superadmin";
   const [profiles, setProfiles] = useState([]);
   const [selectedProfile, setSelectedProfile] = useState("");
@@ -86,6 +84,7 @@ export default function AppDataBackup() {
     } else {
       setLoaded(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
   useEffect(() => {
     if (selectedProfile) loadBackups(selectedProfile);
@@ -198,7 +197,7 @@ export default function AppDataBackup() {
               }}
             >
               Creates a WAL-safe snapshot of the CHOps database and uploads it
-              to S3. Safe to run while the app is running.
+              to the storage profile. Safe to run while the app is running.
             </p>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
               <div className="form-group">
@@ -557,7 +556,7 @@ export default function AppDataBackup() {
   </p>
 
   <p style={{ fontWeight: 700, marginBottom: 6 }}>
-    1. Download the database and crypto salt from S3
+    1. Download the database and crypto salt from the storage
   </p>
   <pre style={{
     background: 'var(--bg-sunken)',
@@ -569,12 +568,18 @@ export default function AppDataBackup() {
     overflowX: 'auto'
   }}>
 {`# Replace BACKUP_ID, bucket, and endpoint with your values
-aws s3 cp s3://YOUR_BUCKET/chops-app-backups/BACKUP_ID.db ./chops-restore.db \\
+aws s3 cp s3://YOUR_BUCKET/chops-app-backups/BACKUP_ID.db ./chops-restore.db.b64 \\
   --endpoint-url YOUR_ENDPOINT
 
 # Download the matching salt file saved with this backup
-aws s3 cp s3://YOUR_BUCKET/chops-app-backups/BACKUP_ID.crypto.salt ./crypto.salt \\
-  --endpoint-url YOUR_ENDPOINT`}
+aws s3 cp s3://YOUR_BUCKET/chops-app-backups/BACKUP_ID.salt ./crypto.salt.b64 \\
+  --endpoint-url YOUR_ENDPOINT
+
+# For Azure Blob storage, download the same two files with the Azure CLI
+az storage blob download --account-name YOUR_ACCOUNT --container-name YOUR_CONTAINER \\
+  --name chops-app-backups/BACKUP_ID.db --file ./chops-restore.db.b64
+az storage blob download --account-name YOUR_ACCOUNT --container-name YOUR_CONTAINER \\
+  --name chops-app-backups/BACKUP_ID.salt --file ./crypto.salt.b64`}
   </pre>
 
   <p style={{ fontWeight: 700, marginBottom: 6 }}>
@@ -612,11 +617,11 @@ sudo systemctl stop chops
 {`# Remove stale SQLite WAL/SHM files
 rm -f data/chops.db-wal data/chops.db-shm
 
-# Decode only if the downloaded backup is base64-encoded text
-base64 -d chops-restore.db > chops_decoded.db
+# The backup stores the database as base64 text. Decode it.
+base64 -d ./chops-restore.db.b64 > ./chops-restore.db
 
 # Replace the database
-cp chops_decoded.db data/chops.db`}
+cp ./chops-restore.db data/chops.db`}
   </pre>
 
   <p style={{ fontWeight: 700, marginBottom: 6 }}>
@@ -634,7 +639,10 @@ cp chops_decoded.db data/chops.db`}
 {`# Ensure the data directory exists
 mkdir -p data
 
-# Validate that the salt is exactly 32 bytes
+# The backup stores the salt as base64 text. Decode it.
+base64 -d ./crypto.salt.b64 > ./crypto.salt
+
+# Validate that the decoded salt is exactly 32 bytes
 test "$(wc -c < ./crypto.salt)" -eq 32 || {
   echo "Invalid crypto.salt file; restore aborted"
   exit 1

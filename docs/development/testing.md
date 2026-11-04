@@ -105,7 +105,7 @@ bun run test:coverage
 
 This runs the backend coverage first, then the frontend coverage.
 
-**Backend coverage**: the `test:backend:coverage` script runs the same suites as `test:backend`. It does not write a coverage report.
+**Backend coverage**: the `test:backend:coverage` script (`scripts/test-backend-coverage.mjs`) runs the same suites as `test:backend`, in the same processes. Each run writes its own lcov report to `coverage/backend/parts/`. `scripts/coverage-report.mjs` merges these reports with the frontend report into one summary.
 
 ```bash
 bun run test:backend:coverage

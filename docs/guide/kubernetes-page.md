@@ -1,6 +1,6 @@
 # The Kubernetes Page
 
-When you connect a Kubernetes cluster, CHOps shows ten tabs about it under **Overview**, **Kubernetes Insights**. This page explains what each tab is for, what the numbers mean, and which readings should worry you.
+When you connect a Kubernetes cluster, CHOps shows eleven tabs about it under **Overview**, **Kubernetes Insights**. This page explains what each tab is for, what the numbers mean, and which readings should worry you.
 
 It assumes little Kubernetes knowledge and explains terms on first use.
 
@@ -27,7 +27,9 @@ CHOps holds both, and the screens worth your time are the ones that join them:
 
 If more than one Kubernetes cluster exists, CHOps shows the cluster you selected in the navbar if it is a Kubernetes cluster, and otherwise the first Kubernetes cluster. A line under the title shows the installation, its namespace and the operator.
 
-The tabs are **Health**, **Topology**, **Reconcile**, **Keeper**, **Storage**, **Resources**, **Network**, **Configuration**, **Events** and **Logs**. **Refresh** reads the host list again. See [How the host list stays current](#how-the-host-list-stays-current).
+The tabs are **Health**, **Topology**, **Reconcile**, **Rollout**, **Keeper**, **Storage**, **Resources**, **Network**, **Configuration**, **Events** and **Logs**. **Refresh** reads the host list again and reloads the open tab. See [How the host list stays current](#how-the-host-list-stays-current).
+
+Each tab shows `read at HH:MM:SS`, the time of its last good read. If a read fails, the tab shows a red banner, "Could not read this tab.", with the error and a **Retry** button. On the **Logs** tab, the banner also shows when CHOps cannot read the pod list.
 
 Cluster Management handles configuration, and this page handles monitoring.
 
@@ -150,6 +152,28 @@ A scale is complete when all three read those reasons. CHOps shows only the `Rea
 **This installation is stopped.** The operator removed the pods and services and kept the volumes. When you start it again, it comes up with its data.
 
 **The operator is not reachable.** Queries keep working and nothing you change is applied.
+
+---
+
+## Rollout
+
+Whether the StatefulSets of the installation finished their last change. A StatefulSet is the Kubernetes object that runs a group of ClickHouse&reg; pods.
+
+| Column | Meaning |
+|---|---|
+| Name | The StatefulSet |
+| Desired | The number of replicas the StatefulSet asks for |
+| Current | The number of pods that exist |
+| Ready | The number of pods that are ready |
+| Updated | The number of pods that run the newest revision |
+| Revision | The revision the pods run, or `old to new` while a change rolls out |
+| Status | `complete`, `in progress` or `stuck` |
+
+A rollout is **complete** when the desired, current, ready and updated counts are equal, all pods run one revision, and the controller has seen the latest change. Otherwise it is **in progress**.
+
+It is **stuck** when a pod of the StatefulSet is not ready and waits for a reason that does not go away without a change, such as `CrashLoopBackOff`, `ImagePullBackOff`, `ErrImagePull` or `CreateContainerConfigError`, or when the pod is not ready and has restarted. A red banner then names the pod and the reason. Fix the pod, and the rollout continues.
+
+On AKOC, CHOps finds the StatefulSets by the labels of the installation. On OCKO, CHOps finds them by the name prefix `<cluster>-clickhouse-`. We did not test the OCKO match on a live OCKO cluster yet.
 
 ---
 
@@ -310,7 +334,7 @@ A counter reads `12 of 1000 lines match` whenever a filter is active, so nobody 
 
 **It refreshes** every fifteen minutes in the background, and when you press **Refresh**. Fifteen minutes is deliberate: the set of hosts changes only when somebody scales the cluster, which is a decision a person makes. To change the interval, go to **Control panel**, **App Config**, and set **Refresh the host list every**.
 
-**A host that disappears is not deleted immediately.** CHOps removes it only after three consecutive refreshes miss it, roughly forty-five minutes, because pods restart during upgrades and a node drain takes a while. To change the number, set **Missed refreshes before removing a host** in **App Config**. If the cluster is unreachable entirely, CHOps keeps the previous list and shows the last refresh time.
+**A host that disappears is not deleted immediately.** CHOps removes it only when no refresh has seen it for the refresh interval times the number of missed refreshes, because pods restart during upgrades and a node drain takes a while. With the defaults, that is 15 minutes times 3, so about forty-five minutes. To change the number, set **Missed refreshes before removing a host** in **App Config**. The change applies at the next refresh, with no restart. If the cluster is unreachable entirely, CHOps keeps the previous list and shows the last refresh time.
 
 ---
 

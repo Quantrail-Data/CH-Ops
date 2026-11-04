@@ -497,7 +497,7 @@ The work happens on the CHOps server, not in your browser. CHOps runs your query
 
 **Step 3** shows progress while CHOps writes the file, then a **Download** button. While the export runs, **Run in background** closes the wizard and leaves the export running.
 
-**An export outlives the page.** The job runs on the server, so you can close the tab, shut the laptop, or lose your connection, and it carries on. When you come back and open Export again, CHOps returns you to the progress view for that job. If the export finished while you were away, the download button is waiting.
+**An export outlives the page.** The job runs on the server, so you can close the tab, shut the laptop, or lose your connection, and it carries on. When you come back and open Export again, CHOps returns you to the progress view for that job. If the export finished while you were away, the download button is waiting. Logging out is different: it cancels the exports that still run in that session. A finished export file stays until it expires.
 
 If you close the wizard while an export runs, CHOps asks whether you want to cancel it or leave it going. Leaving it going is a real option: reopen Export and you are back at it.
 
@@ -570,7 +570,7 @@ They need a query ID from ClickHouse&reg;. If the query was very fast, or the ru
 Make sure an administrator added an active AI API key (see [AI API Keys](ai-api-keys.md)). Make sure you chose tables with **DB Schema/Estimate**, as described under [Generating SQL with AI](#generating-sql-with-ai). Also note that Generate SQL replaces what is in the editor, so open a new tab first if you want to keep it.
 
 **"A banner says queries can land on different replicas."**
-On a Kubernetes cluster, CHOps checks whether the load balancer keeps your session on one replica. If it does not, temporary tables and statements that depend on one server do not work reliably. Ask your platform team to enable session affinity on the load balancer.
+On a Kubernetes cluster, CHOps checks whether the load balancer keeps your session on one replica. If it does not, temporary tables and statements that depend on one server do not work reliably. Ask your platform team to enable session affinity on the load balancer. Editors, admins and super admins see this banner. Readonly users do not.
 
 **"Ctrl+F opened my browser's search instead of the editor's."**
 Click into the SQL first. The editor receives the shortcut only when your cursor is in it.

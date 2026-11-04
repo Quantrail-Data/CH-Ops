@@ -26,19 +26,39 @@ describe("account emails", () => {
   it("links the setup button of a new account to the setup link", async () => {
     await sendNotification(EMAIL, {
       name: "CHOps Account Created",
-      description: "Username: alice\nRole: editor",
+      description: "Your CHOps account has been created.",
+      account: { username: "alice", role: "editor" },
       setPasswordUrl: LINK,
     });
-    expect(sentMails.at(-1).html).toContain(`href="${LINK}"`);
+    const html = sentMails.at(-1).html;
+    expect(html).toContain(`href="${LINK}"`);
+    expect(html).toContain("Hi, alice");
+    expect(html).toContain("editor");
+  });
+
+  it("takes the account from the account field, not from the description text", async () => {
+    await sendNotification(EMAIL, {
+      name: "CHOps Account Created",
+      description: "Username: mallory\nRole: superadmin",
+      account: { username: "alice", role: "editor" },
+      setPasswordUrl: LINK,
+    });
+    const html = sentMails.at(-1).html;
+    expect(html).toContain("Hi, alice");
+    expect(html).not.toContain("Hi, mallory");
+    expect(html).not.toContain("superadmin");
   });
 
   it("sends a link, and no password, for a password reset", async () => {
     await sendNotification(EMAIL, {
       name: "CHOps Password Reset",
-      description: "Your CHOps password was reset by an administrator.\n\nUsername: alice\nRole: editor",
+      description: "Your CHOps password was reset by an administrator.",
+      account: { username: "alice", role: "editor" },
       setPasswordUrl: LINK,
     });
     const html = sentMails.at(-1).html;
+    expect(html).toContain("Hi, alice");
+    expect(sentMails.at(-1).subject).toBe("[CHOps] Password Reset for alice");
     expect(html).toContain(`href="${LINK}"`);
     expect(html).toContain("Set a New Password");
     expect(html).not.toContain('id="password"');

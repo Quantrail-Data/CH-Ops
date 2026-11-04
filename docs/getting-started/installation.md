@@ -14,7 +14,7 @@ Every method needs the same four values and uses the same first-login and connec
 
 Every method needs a reachable ClickHouse&reg; server. You need Bun for the source method and to build a binary, but a prebuilt binary runs without it. The Docker method needs Docker.
 
-**1. A reachable ClickHouse&reg; server.** CHOps talks to ClickHouse&reg; over its HTTP interface. The default HTTP port is **8123**, not the native port 9000. Confirm the server is reachable from the machine that runs CHOps:
+**1. A reachable ClickHouse&reg; server.** Tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested. CHOps talks to ClickHouse&reg; over its HTTP interface. The default HTTP port is **8123**, not the native port 9000. Confirm the server is reachable from the machine that runs CHOps:
 
 ```bash
 curl http://your-clickhouse-host:8123/ping
@@ -222,19 +222,26 @@ bun run build:binary:windows  # chops-windows-x64.exe
 
 For anything beyond local testing, do not connect CHOps as the ClickHouse&reg; `default` user. Make a dedicated user and a role. Grant only the privileges CHOps needs.
 
-The project ships a complete, role-based grant script at [`clickhouse-user-setup.sql`](https://github.com/Quantrail-Data/CH-Ops/blob/main/clickhouse-user-setup.sql). Run it as a ClickHouse&reg; admin and change the password. The base grants are:
+The project ships a complete, role-based grant script at [`clickhouse-user-setup.sql`](https://github.com/Quantrail-Data/CH-Ops/blob/main/clickhouse-user-setup.sql). Run it as a ClickHouse&reg; admin and change the password. The script makes the role `chops_admin` with these grants, and gives the role to the user `chops`:
 
 ```sql
-GRANT SELECT ON *.* TO chops_admin;   -- read system tables and user data
-GRANT SHOW ON *.* TO chops_admin;     -- SHOW DATABASES, SHOW CREATE TABLE, and so on
+GRANT SELECT ON *.* TO chops_admin;             -- read system tables and user data
+GRANT SHOW ON *.* TO chops_admin;               -- SHOW DATABASES, SHOW CREATE TABLE, and so on
+GRANT KILL QUERY ON *.* TO chops_admin;         -- stop a running query
+GRANT INTROSPECTION ON *.* TO chops_admin;      -- the query profiler
+GRANT BACKUP ON *.* TO chops_admin;             -- BACKUP and RESTORE
+GRANT ACCESS MANAGEMENT ON *.* TO chops_admin;  -- the DB RBAC screens
+GRANT ALTER INDEX ON *.* TO chops_admin;        -- index management
+GRANT ALTER PROJECTION ON *.* TO chops_admin;   -- projection management
 ```
 
 Notes:
 
+- `SELECT` and `SHOW` are the base. The other grants are for one feature each. You can remove the grant of a feature that you do not use.
 - The monitoring charts use the `merge()` table function on system tables. It needs only `SELECT`, so no extra grant is required.
-- The query profiler needs `GRANT INTROSPECTION` and `ALTER USER chops SETTINGS allow_introspection_functions = 1`. The server must also have `system.trace_log` enabled.
-- Add feature grants only if you use the feature: `KILL QUERY`, `BACKUP` and `S3` for backups and archival, `REMOTE` for cluster-wide views, `ACCESS MANAGEMENT` for the Access Control screens, and `ALTER INDEX` and `ALTER PROJECTION` for index management.
-- `ACCESS MANAGEMENT` is powerful. A user with it can make a new superuser. Add it only if you use the CHOps Access Control screens.
+- The query profiler needs `INTROSPECTION` and `allow_introspection_functions = 1`, which the script sets for the user. The server must also have `system.trace_log` enabled.
+- `ACCESS MANAGEMENT` is powerful. A user with it can make a new superuser. Remove it if you do not use the DB RBAC screens.
+- The script does not grant `S3` or `REMOTE`. If your server checks these grants for table functions, add `S3` for the storage features (`s3()`) and `REMOTE` for the cluster-wide views of Kubernetes Insights (`clusterAllReplicas()`).
 
 The SQL Editor and Schema Studio use each person's own ClickHouse&reg; credentials, entered at connect time. This account does not affect them.
 

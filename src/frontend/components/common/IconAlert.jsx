@@ -1,5 +1,3 @@
-import Icon from "./Icon";
-
 function IconAlert({ type, width, color }) {
   if (
     type?.toLowerCase() === "microsoft teams" ||

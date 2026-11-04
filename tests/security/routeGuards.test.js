@@ -51,10 +51,10 @@ const EXPECTED_GUARDS = {
   "POST apiKeys.js /select": "requireAdmin",
   "POST apiKeys.js /check": "requireAdmin",
   "POST apiKeys.js /ollama/models": "requireAdmin",
-  "GET appBackup.js /list": "requireAdmin",
-  "GET appBackup.js /config": "requireAdmin",
-  "POST appBackup.js /create": "requireAdmin",
-  "PUT appBackup.js /config": "requireAdmin",
+  "GET appBackup.js /list": "requireSuperAdminOnly",
+  "GET appBackup.js /config": "requireSuperAdminOnly",
+  "POST appBackup.js /create": "requireSuperAdminOnly",
+  "PUT appBackup.js /config": "requireSuperAdminOnly",
   "GET appConfig.js /": "requireAdmin",
   "GET appConfig.js /rbac-settings": "none",
   "PUT appConfig.js /": "requireAdmin",
@@ -112,11 +112,12 @@ const EXPECTED_GUARDS = {
   "GET k8s.js /insight/:clusterId/resources": "requireAdmin",
   "GET k8s.js /insight/:clusterId/network": "requireAdmin",
   "GET k8s.js /insight/:clusterId/events": "requireAdmin",
+  "GET k8s.js /insight/:clusterId/rollout": "requireAdmin",
   "GET k8s.js /insight/:clusterId/logs/:pod": "requireAdmin",
   "GET k8s.js /insight/:clusterId/operator-pod": "requireAdmin",
   "GET k8s.js /insight/:clusterId/health": "requireAdmin",
   "GET k8s.js /insight/:clusterId/keeper": "requireAdmin",
-  "GET k8s.js /insight/:clusterId/rbac-context": "requireAdmin",
+  "GET k8s.js /insight/:clusterId/rbac-context": "requireEditor",
   "GET k8s.js /insight/:clusterId/permissions": "requireAdmin",
   "GET k8s.js /insight/:clusterId/health-alerts": "requireAdmin",
   "PUT k8s.js /insight/:clusterId/health-alerts": "requireAdmin",
@@ -258,6 +259,7 @@ describe("Part 2: admin-only routes refuse readonly and editor users", () => {
     ["DELETE", "/api/storage/profiles/delete/1001"],
     ["GET", "/api/k8s/insight/any-cluster/topology"],
     ["GET", "/api/k8s/insight/any-cluster/config"],
+    ["GET", "/api/k8s/insight/any-cluster/rollout"],
     ["GET", "/api/k8s/insight/any-cluster/logs/any-pod"],
     ["GET", "/api/users"],
     ["GET", "/api/users/regenerate?userId=1"],
@@ -339,5 +341,26 @@ describe("Part 2: admin-only routes refuse readonly and editor users", () => {
       );
       expect(result.status).not.toBe(403);
     }
+  });
+
+  const APP_BACKUP_CALLS = [
+    ["GET", "/api/app-backup/list?profile=p1"],
+    ["GET", "/api/app-backup/config"],
+    ["PUT", "/api/app-backup/config"],
+    ["POST", "/api/app-backup/create"],
+  ];
+
+  it("refuses every app backup call from an admin", async () => {
+    const results = [];
+    for (const [method, url] of APP_BACKUP_CALLS) {
+      const result = await app.api("admin", method, url, method === "GET" ? undefined : {});
+      results.push(`${method} ${url} ${result.status}`);
+    }
+    expect(results).toEqual(APP_BACKUP_CALLS.map(([method, url]) => `${method} ${url} 403`));
+  });
+
+  it("lets a superadmin read the app backup schedule", async () => {
+    const result = await app.api("superadmin", "GET", "/api/app-backup/config");
+    expect(result.status).toBe(200);
   });
 });

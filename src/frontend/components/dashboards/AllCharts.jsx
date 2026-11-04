@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
 import { findParameters, hasValue } from '../../../shared/sqlParams.js';
@@ -73,7 +73,9 @@ export default function AllCharts({ onEdit }) {
       const deduped = Array.from(byId.values());
       setCharts(deduped);
       setDashboards(d);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
   }
   useEffect(() => { load(); }, []);
 
@@ -181,6 +183,7 @@ export default function AllCharts({ onEdit }) {
       setHasPreviewInstance(false);
     }
     buildChart();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [theme, showLegend]);
 
   function buildChart() {
@@ -223,7 +226,6 @@ export default function AllCharts({ onEdit }) {
       const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || selected?.chartType === 'bar' || selected?.chartType === 'line' || selected?.chartType === 'scatter' || selected?.chartType === 'heatmap' || selected?.chartType === 'candlestick' || selected?.chartType === 'boxplot');
 
       const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
-      const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
 
       const tooltipWidth = previewTools.fullscreen ? 420 : (isSmallScreen ? 220 : 300);
       const tooltipMaxHeight = previewTools.fullscreen ? 320 : 240;
@@ -426,16 +428,6 @@ export default function AllCharts({ onEdit }) {
         if (!isSmallScreen && funnelCount > 16) return false;
         return true;
       })();
-
-      const splitLineStyle = usesCartesianGrid ? {
-        show: true,
-        lineStyle: {
-          color: gridLineColor,
-          width: 1,
-          type: 'solid',
-          opacity: 1,
-        },
-      } : undefined;
 
       const chartOption = {
         ...baseOption,
@@ -853,8 +845,6 @@ export default function AllCharts({ onEdit }) {
 
         chartOption.series = baseOption.series.map((s) => {
           if (s.type !== 'pie') return s;
-          const defaultBaseRadius = selected?.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
-          const baseRadius = s.radius || defaultBaseRadius;
           const finalRadius = previewTools.fullscreen
             ? (selected?.chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
             : isSmallScreen
@@ -1137,7 +1127,9 @@ export default function AllCharts({ onEdit }) {
       previewInst.current.setOption(chartOption, true);
       setHasPreviewInstance(true);
       setTimeout(() => previewInst.current?.resize(), 50);
-    } catch { }
+    } catch {
+      // The preview cannot show this option. Keep the old preview.
+    }
   }
 
   useEffect(() => {
@@ -1150,6 +1142,7 @@ export default function AllCharts({ onEdit }) {
       return;
     }
     buildChart();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [previewOpt, previewTools.fullscreen, isDarkColor, hasLegend, selected, showLegend, isSmallScreen]);
 
   useEffect(() => () => { if (previewRef.current) disposeChart(previewRef.current); }, []);
@@ -1161,7 +1154,7 @@ export default function AllCharts({ onEdit }) {
       setSelected(null); 
       setPreviewOpt(null); 
       await load(); 
-    } catch (e) { /* preserve behavior and don't throw */ } 
+    } catch { /* preserve behavior and don't throw */ } 
     finally { setDel(null); } 
   }
 
@@ -1174,13 +1167,19 @@ export default function AllCharts({ onEdit }) {
       if (!stored) return;
       try {
         previewInst.current.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
-      } catch {}
+      } catch {
+        // The chart is already gone. Keep the current view.
+      }
       try {
         previewInst.current.dispatchAction({ type: isSunburstNow ? 'sunburstRootToNode' : 'treemapRootToNode' });
-      } catch {}
+      } catch {
+        // The chart is already gone. Keep the current view.
+      }
       try {
         previewInst.current.resize();
-      } catch {}
+      } catch {
+        // The chart is already gone. Skip the resize.
+      }
       return;
     }
     previewTools.zoomReset();
@@ -1251,7 +1250,8 @@ export default function AllCharts({ onEdit }) {
           offscreenInst.dispatchAction({
             type: isSunburstNow ? "sunburstRootToNode" : "treemapRootToNode",
           });
-        } catch (e) {
+        } catch {
+          // The chart is already gone. Keep the current view.
         }
       }
 
@@ -1266,7 +1266,7 @@ export default function AllCharts({ onEdit }) {
             backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
             excludeComponents: ["toolbox"],
           });
-        } catch (e) {
+        } catch {
           dataURL = null;
         }
 
@@ -1278,7 +1278,8 @@ export default function AllCharts({ onEdit }) {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-          } catch (e) {
+          } catch {
+            // The download failed. Do not stop the page.
           }
         }
 
@@ -1286,13 +1287,15 @@ export default function AllCharts({ onEdit }) {
           if (offscreenInst && !offscreenInst.isDisposed?.()) {
             offscreenInst.dispose();
           }
-        } catch (e) {
+        } catch {
+          // The chart is already gone.
         }
         try {
           if (container && container.parentNode) {
             container.parentNode.removeChild(container);
           }
-        } catch (e) {
+        } catch {
+          // The container is already gone.
         }
       };
 
@@ -1301,18 +1304,20 @@ export default function AllCharts({ onEdit }) {
           setTimeout(finish, 150);
         });
       });
-    } catch (e) {
+    } catch {
       try {
         if (offscreenInst && !offscreenInst.isDisposed?.()) {
           offscreenInst.dispose();
         }
-      } catch (err) {
+      } catch {
+        // The chart is already gone.
       }
       try {
         if (container && container.parentNode) {
           container.parentNode.removeChild(container);
         }
-      } catch (err) {
+      } catch {
+        // The container is already gone.
       }
       previewTools.save();
     }

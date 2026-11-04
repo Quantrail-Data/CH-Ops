@@ -2,7 +2,7 @@
 // ConfirmDialog.jsx - a confirmation that looks like the rest of the app.
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Icon from "../common/Icon.jsx";
 
 export default function ConfirmDialog({

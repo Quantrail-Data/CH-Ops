@@ -2,11 +2,12 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Configures and manages storage tier profiles.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useAuth } from "../../App.jsx";
+import { isMissingFileError } from "../../../shared/backupSql.js";
 
 const AlerteditComponent = () => {
   return (
@@ -68,6 +69,7 @@ export default function StorageProfiles() {
     if (isAdmins()) {
       load();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   function update(k, v) {
@@ -204,11 +206,7 @@ export default function StorageProfiles() {
       if (p.accessKey) msg = msg.split(p.accessKey).join("***");
       if (p.accessKeyId) msg = msg.split(p.accessKeyId).join("***");
       // "not found" or "no such key" means bucket is reachable
-      if (
-        msg.includes("not found") ||
-        msg.includes("NoSuchKey") ||
-        msg.includes("404")
-      ) {
+      if (isMissingFileError(msg)) {
         setTestResult((prev) => ({
           ...prev,
           [p.id]: {
@@ -598,14 +596,18 @@ export default function StorageProfiles() {
               marginBottom: 14,
             }}
           >
-            {form.type === "s3" && (
+            {(form.type === "s3" || form.type === "azure") && (
               <div className="form-group">
                 <label className="form-label">Endpoint</label>
                 <input
                   className="form-input input-read-disabled"
                   value={form?.endpoint}
                   onChange={(e) => update("endpoint", e.target.value)}
-                  placeholder="https://s3.amazonaws.com"
+                  placeholder={
+                    form.type === "azure"
+                      ? "https://ACCOUNT.blob.core.windows.net (optional)"
+                      : "https://s3.amazonaws.com"
+                  }
                   readOnly={editing}
                   // disabled={editing}
                   onClick={() => showMessageAlertContainer()}
@@ -623,10 +625,14 @@ export default function StorageProfiles() {
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">Access Key ID *</label>
+              <label className="form-label">
+                {form.type === "azure"
+                  ? "Account Name (not needed with a connection string)"
+                  : "Access Key ID *"}
+              </label>
               <input
                 className="form-input input-read-disabled"
-                required
+                required={form.type !== "azure"}
                 value={form?.accessKeyId}
                 onChange={(e) => update("accessKeyId", e.target.value)}
                 readOnly={editing}
@@ -635,7 +641,11 @@ export default function StorageProfiles() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Access Key (Secret) *</label>
+              <label className="form-label">
+                {form.type === "azure"
+                  ? "Account Key or Connection String *"
+                  : "Access Key (Secret) *"}
+              </label>
 
               <div className="" style={{ width: "100%", position: "relative" }}>
                 <input

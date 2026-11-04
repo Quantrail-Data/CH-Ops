@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Iterates through and renders conversational message threads, markdown text, and embedded code blocks.
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import quriozImage from "../../assets/qurioz.png";
 import DataTable from "../layout/DataTable";
@@ -10,11 +10,7 @@ import SQLQueryEditorComponent from "./SQLQueryEditorComponent";
 import { AnimatePresence, motion } from "motion/react";
 import ChartVisualization from "./ChartVisualization";
 import { useToast } from "../layout/Toast";
-import { apiFetch } from "../../utils/api";
-import {  useAuth } from "../../App";
 import AILoaderComponent from "./AILoaderComponent";
-
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 function ChatRenderComponent({
   chatMessage,
@@ -24,12 +20,6 @@ function ChatRenderComponent({
   ReFormQuestionSQLGenerating,
   replaceChat
 }) {
-  const { auth } = useAuth();
-  const myRole = auth?.role || "readonly";
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
-
-  const [showDownloadOption, setShowDownloadingOption] = useState(false);
   const [showQuestionOption, setShowQuestionOption] = useState(false);
   const [isEditable, setIsEditable] = useState(false);
   const [editMessage, setEditMessage] = useState(null);
@@ -49,11 +39,6 @@ function ChatRenderComponent({
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, [editMessage]);
-
-  const downloadingFilesDataOptionSetting = [
-    { id: 1, title: "JSON", icon: "ti-file-code-2" },
-    { id: 2, title: "CSV", icon: "ti-file-spreadsheet" },
-  ];
 
   const editHandler = () => {
     setEditMessage(chatMessage?.userQuestion);
@@ -88,44 +73,6 @@ function ChatRenderComponent({
   };
 
   const isTablePresent = (message) => message?.tableData?.length > 0;
-
-  const downloadDatatable = async (format) => {
-    try {
-      const response = await apiFetch(
-        "/api/table/download/multiple/file",
-        {
-          method: "POST",
-          body: {
-            data: chatMessage?.tableData,
-            tablename: "datatable",
-            type: format?.toLowerCase(),
-          },
-          Accept: format === "JSON" ? "application/json" : "text/csv",
-        },
-        true,
-      );
-
-      let url = null;
-
-      if (format?.toLowerCase() === "csv") {
-        url = window.URL.createObjectURL(new Blob([response]));
-      } else if (format?.toLowerCase() === "json") {
-        const blob = new Blob([response], { type: "application/json" });
-        url = window.URL.createObjectURL(blob);
-      }
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Datatable.${format?.toLowerCase()}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setShowDownloadingOption(false);
-      toast.success(`Successfully ${format?.toUpperCase()} file downloaded `);
-    } catch {
-      toast.error(`Failed to ${format?.toUpperCase()} download `);
-    }
-  };
 
   const retryHandler = async () => {
     setRetryLoading(true);

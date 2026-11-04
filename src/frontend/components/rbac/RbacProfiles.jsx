@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Configures security policies, row-level filters, and global restriction profiles for RBAC enforcement.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
@@ -1068,6 +1068,7 @@ export default function RbacProfiles() {
       "SELECT profile_name, setting_name, value, min, max, writability, inherit_profile FROM system.settings_profile_elements WHERE profile_name IS NOT NULL ORDER BY profile_name, index",
     );
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(load, []);
 
   const tabs = [
@@ -1197,6 +1198,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
     clustersQ.execute(
       "SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster",
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   const isAlter = action === "alter";
@@ -1242,6 +1244,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
     }
 
     isAlter && getAlterTableSettingProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [profileName, onCluster]);
 
   function buildSql() {

@@ -2,7 +2,7 @@
 // ShareDialog.jsx - hand someone the query you are looking at.
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { buildShareUrl, LINK_WARN_CHARS } from "../../utils/shareLink.js";
 

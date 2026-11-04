@@ -1,9 +1,6 @@
-// aiRouteHelpers.js — shared by every routes/ai*.js file
+// aiRouteHelpers.js: shared by every routes/ai*.js file
 import { CRED_CONTEXTS } from "../services/chCredStore.js";
 
-
-// The default credential context, and the only other one a caller may ask for.
-const VALID_CONTEXTS = new Set(Object.values(CRED_CONTEXTS));
 
 export function resolveContext() {
   

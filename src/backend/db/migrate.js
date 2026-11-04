@@ -4,7 +4,7 @@
 
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import * as schema from "./schema.js";
@@ -44,7 +44,8 @@ created_at TEXT DEFAULT (datetime('now')),
 updated_at TEXT DEFAULT (datetime('now')),
 init_user INTEGER NOT NULL DEFAULT 0,
 password_setup_token_hash TEXT DEFAULT NULL,
-password_setup_token_expires_at TEXT DEFAULT NULL`;
+password_setup_token_expires_at TEXT DEFAULT NULL,
+token_version INTEGER NOT NULL DEFAULT 0`;
 // An older version rebuilt app_user on every start. If one of those runs was
 // stopped half way, the users can be left in app_user_new. Put them back first.
 function recoverInterruptedAppUserRebuild() {
@@ -287,6 +288,7 @@ const migrations = [
   "ALTER TABLE alert_rule ADD COLUMN last_state TEXT",
   "ALTER TABLE app_user ADD COLUMN password_setup_token_hash TEXT DEFAULT NULL",
   "ALTER TABLE app_user ADD COLUMN password_setup_token_expires_at TEXT DEFAULT NULL",
+  "ALTER TABLE app_user ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0",
 
   "ALTER TABLE alert_channel ADD COLUMN last_send_at TEXT",
   "ALTER TABLE alert_channel ADD COLUMN last_send_ok INTEGER",
@@ -306,7 +308,9 @@ const migrations = [
 for (const sql of migrations) {
   try {
     sqlite.exec(sql);
-  } catch (err) {}
+  } catch {
+    // The change is already in the database. Go to the next one.
+  }
 }
 // Older databases have password_hash NOT NULL, which SQLite cannot changein
 // place. Rebuild app_user once; after that the column is optional and this skips.
@@ -315,7 +319,7 @@ function rebuildAppUserIfPasswordRequired() {
   const passwordColumn = columns.find((c) => c.name === "password_hash");
   if (!passwordColumn || passwordColumn.notnull === 0) return;
   const copiedColumns =
-    "id, username, password_hash, role, email, must_change_password, last_login_at, created_at, updated_at, init_user,password_setup_token_hash, password_setup_token_expires_at";
+    "id, username, password_hash, role, email, must_change_password, last_login_at, created_at, updated_at, init_user,password_setup_token_hash, password_setup_token_expires_at, token_version";
   // All or nothing: on any error the old table stays exactly as it was.
   const rebuild = sqlite.transaction(() => {
     sqlite.exec(`CREATE TABLE app_user_new (${APP_USER_COLUMNS})`);

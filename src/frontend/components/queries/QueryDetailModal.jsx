@@ -6,7 +6,7 @@
 
 // Heavy columns are fetched here: processes, then query_log, then the preview.
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";

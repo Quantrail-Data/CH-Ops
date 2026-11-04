@@ -6,8 +6,7 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    # The whole file, not a hand-listed subset. Enumerating dropped 21 vars
-    # including every SMTP_* one and SUPER_ADMIN_1_EMAIL, which loadEnv requires.
+    # Read the whole .env file, so that no variable is left out.
     env_file:
       - .env
     environment:

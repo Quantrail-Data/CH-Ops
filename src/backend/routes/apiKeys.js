@@ -202,7 +202,8 @@ router.get("/active", (req, res) => {
     // Only the AI provider name/model is needed client-side to show connection
     // status; the decrypted key itself is used exclusively server-side (see
     // SQLGenerationService) and must never reach the browser.
-    const { key, ...safeKey } = activeKey;
+    const safeKey = { ...activeKey };
+    delete safeKey.key;
     res.json({ apiKey: safeKey });
   } catch (err) {
     res.status(500).json({ error: err.message });

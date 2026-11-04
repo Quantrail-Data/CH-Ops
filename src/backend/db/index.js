@@ -28,8 +28,8 @@ try {
 
 // Add columns from newer versions. Safe to run every time - SQLite throws  if the column already exists.
 
-try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN nodes TEXT"); } catch {}
-try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN cluster_id TEXT"); } catch {}
+try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN nodes TEXT"); } catch { /* The column exists. */ }
+try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN cluster_id TEXT"); } catch { /* The column exists. */ }
 try { sqlite.exec("ALTER TABLE k8s_connection ADD COLUMN operator_namespace TEXT"); } catch { /* The column exists. */ }
 
 export const db = drizzle(sqlite, { schema });

@@ -51,8 +51,6 @@ export function loadEnv() {
     port: parseInt(process.env.PORT || '3000', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
     disableEnvLogin: process.env.DISABLE_ENV_LOGIN === 'true',
-    // Mirrors DISABLE_ENV_LOGIN. Stops the SMTP_* fallback once the settings page is configured
-    disableEnvSmtp: process.env.DISABLE_ENV_SMTP === 'true',
     frontendLink:process.env.FRONTEND_LINK,
     version: {
       clickhouseVersion: process?.env?.CLICKHOUSEVERSION,
