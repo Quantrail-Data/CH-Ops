@@ -239,6 +239,8 @@ function RateChart({ rows, from, to, rounding }) {
 
   // (Re)build the chart whenever the data (series) changes.
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = containerRef.current;
     if (!containerRef.current) return;
     const chart = initChart(containerRef.current);
     chartRef.current = chart;
@@ -271,8 +273,7 @@ function RateChart({ rows, from, to, rounding }) {
       series,
     }, true);
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-    return () => { disposeChart(containerRef.current); chartRef.current = null; };
+    return () => { disposeChart(chartEl); chartRef.current = null; };
   }, [series, names, from, to]);
 
   // Apply show/hide selection without resetting zoom (merge setOption).

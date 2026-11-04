@@ -20,6 +20,11 @@ import { useToast } from "../layout/Toast.jsx";
 import { useSearchParams } from "react-router-dom";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useConnection } from "../../App.jsx";
+import {
+  buildQueryListSql,
+  buildFlameGraphSql,
+  supportsMemoryContext,
+} from "../../utils/profilerSql.js";
 
 // Trace types
 
@@ -99,10 +104,6 @@ function toLocalDatetime(date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function toChDatetime(val) {
-  return val.replace("T", " ") + ":00";
-}
-
 function validateRange(from, to) {
   if (!from || !to) return "Select both From and To datetimes.";
   const fromMs = new Date(from).getTime();
@@ -120,76 +121,11 @@ function isMemoryTraceType(traceType) {
   return t?.usesSize || false;
 }
 
-// Check if memory_context filter applies
-function supportsMemoryContext(traceType) {
-  return traceType === "Memory" || traceType === "MemoryPeak";
-}
-
-// sql build query
-
-function buildQueryListSql(from, to, traceType) {
-  const chFrom = toChDatetime(from);
-  const chTo = toChDatetime(to);
-
-  let traceFilter = "";
-  if (traceType) {
-    traceFilter = `\n  AND t.trace_type = '${traceType}'`;
-  }
-
-  return `
-SELECT
-  t.query_id,
-  min(t.event_time) AS first_seen,
-  count() AS sample_count,
-  substring(coalesce(q.query, ''), 1, 300) AS query_preview,
-  q.query_duration_ms
-FROM system.trace_log AS t
-JOIN (
-  SELECT query_id, query, query_duration_ms
-  FROM system.query_log
-  WHERE type = 'QueryFinish'
-    AND event_date >= toDate('${chFrom}') - 1
-  ORDER BY event_time DESC
-  LIMIT 1 BY query_id
-) AS q USING (query_id)
-WHERE t.query_id != ''
-  AND t.event_time >= '${chFrom}'
-  AND t.event_time <= '${chTo}'${traceFilter}
-GROUP BY t.query_id, q.query, q.query_duration_ms
-ORDER BY first_seen DESC
-LIMIT 500`.trim();
-}
-
 function buildFullQuerySql(queryId) {
   const safeId = queryId.replace(/'/g, "\\'");
   return `SELECT formatQuery(query) as query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 
-function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const chFrom = toChDatetime(from);
-  const chTo = toChDatetime(to);
-  const safeId = queryId.replace(/'/g, "\\'");
-
-  let traceFilter = "";
-  if (traceType) {
-    traceFilter = `\n  AND trace_type = '${traceType}'`;
-  }
-
-  let contextFilter = "";
-  if (memoryContext && supportsMemoryContext(traceType)) {
-    contextFilter = `\n  AND memory_context = '${memoryContext}'`;
-  }
-  return `
-SELECT
-  arrayStringConcat(
-    arrayReverse(arrayMap(x -> demangle(addressToSymbol(x)), trace)),
-    ';'
-  ) AS stack,
-  count() AS samples
-FROM system.trace_log
-WHERE query_id = '${safeId}'
-GROUP BY stack`.trim();
-}
 // flamegraph parser
 
 function parseFlameGraphRows(rows) {

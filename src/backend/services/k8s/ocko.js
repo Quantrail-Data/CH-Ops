@@ -441,14 +441,24 @@ export function createOckoProvider(client, { version } = {}) {
     return usageByPod;
   }
 
-  // The label of the OCKO operator pod. Confirm it on a live OCKO cluster before release.
-  const OPERATOR_POD_SELECTOR = 'app.kubernetes.io/name=clickhouse-operator';
+  // Labels of the OCKO operator pod, tried in this order. The first is the label of the
+  // Helm chart. The others cover an install from the plain manifests.
+  // Not yet checked on a live OCKO cluster.
+  const OPERATOR_POD_SELECTORS = [
+    'app.kubernetes.io/name=clickhouse-operator',
+    'app=clickhouse-operator',
+    'control-plane=controller-manager',
+  ];
 
   // Finds the operator pod, to read its logs. Prefers a pod that is Running.
   async function getOperatorPod(operatorNamespace) {
-    const operatorPods = await client.listAll(corePaths.pods(operatorNamespace), {
-      query: { labelSelector: OPERATOR_POD_SELECTOR },
-    });
+    let operatorPods = [];
+    for (const labelSelector of OPERATOR_POD_SELECTORS) {
+      operatorPods = await client.listAll(corePaths.pods(operatorNamespace), {
+        query: { labelSelector },
+      });
+      if (operatorPods.length > 0) break;
+    }
     const runningPod = operatorPods.find((pod) => pod.status?.phase === 'Running');
     const operatorPod = runningPod ?? operatorPods[0];
     if (!operatorPod) return null;
