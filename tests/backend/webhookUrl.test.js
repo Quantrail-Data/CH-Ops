@@ -89,11 +89,15 @@ describe("validateWebhookUrl", () => {
     ).rejects.toThrow("private networks, link-local or special addresses");
   });
 
-  it("accepts a host name that resolves only to public addresses", async () => {
+  it("accepts a host name that resolves only to public addresses and returns the first one", async () => {
     const lookupAddresses = answerWith(["52.96.0.1", "2603:1036::1"]);
     await expect(
       validateWebhookUrl("https://hook.example.com/x", { lookupAddresses }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe("52.96.0.1");
+  });
+
+  it("returns a public IP address in the URL as the checked address", async () => {
+    await expect(validateWebhookUrl("https://52.96.0.1/x")).resolves.toBe("52.96.0.1");
   });
 
   it("refuses a host name that does not resolve before a send", async () => {
@@ -114,7 +118,7 @@ describe("validateWebhookUrl", () => {
         lookupAddresses,
         allowUnresolvedName: true,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBeNull();
   });
 
   it("refuses a URL that is not HTTPS", async () => {

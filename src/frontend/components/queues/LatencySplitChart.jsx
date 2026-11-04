@@ -87,9 +87,10 @@ export default function LatencySplitChart({ latency }) {
   }, [latency, hasAny]);
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = elRef.current;
     return () => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-      if (elRef.current) disposeChart(elRef.current);
+      disposeChart(chartEl);
       chartRef.current = null;
     };
   }, []);

@@ -1076,9 +1076,7 @@ async function resetPassword(id,initUser) {
             <strong>
               {smtp?.source === "database"
                 ? "the configuration below"
-                : smtp?.source === "environment"
-                  ? "SMTP_HOST from the server environment"
-                  : "nothing. Password reset and credential emails are unavailable."}
+                : "nothing. Password reset and credential emails are unavailable."}
             </strong>
           </div>
 
@@ -1345,15 +1343,9 @@ async function resetPassword(id,initUser) {
             </strong>
 
             <p style={{ margin: "0 0 8px" }}>
-              Delete the configuration above to fall back to the SMTP_* values
-              in the server environment. This takes effect immediately, with no
-              restart.
-            </p>
-
-            <p style={{ margin: "0 0 8px" }}>
-              With nothing configured here, CHOps uses SMTP_HOST, SMTP_PORT,
-              SMTP_USER, SMTP_PASS and SMTP_FROM from the environment. Set
-              DISABLE_ENV_SMTP=true to stop that once this page is configured.
+              Delete the configuration above to stop the system email. CHOps
+              then sends no setup links or reset codes. This takes effect at
+              once, with no restart.
             </p>
 
             <p style={{ margin: 0 }}>
