@@ -301,6 +301,9 @@ const migrations = [
   // Each user now has their own bookmarks ("query_bookmarks:<user id>").
   // The old shared list has no owner, so this removes it.
   "DELETE FROM app_setting WHERE key = 'query_bookmarks'",
+  
+  "ALTER TABLE ai_chat_message ADD COLUMN chart_name TEXT",
+  "ALTER TABLE ai_chat_message ADD COLUMN dash_id TEXT",
 ];
 
 for (const sql of migrations) {
