@@ -56,6 +56,7 @@ const EXPECTED_GUARDS = {
   "POST appBackup.js /create": "requireAdmin",
   "PUT appBackup.js /config": "requireAdmin",
   "GET appConfig.js /": "requireAdmin",
+  "GET appConfig.js /rbac-settings": "none",
   "PUT appConfig.js /": "requireAdmin",
   "DELETE appConfig.js /:key": "requireAdmin",
   "POST auth.js /": "none",
@@ -317,6 +318,14 @@ describe("Part 2: admin-only routes refuse readonly and editor users", () => {
         );
         expect(result.status).not.toBe(200);
       }
+    }
+  });
+
+  it("lets every role read the two settings of the View Grants Settings tab", async () => {
+    for (const role of ["readonly", "editor", "admin"]) {
+      const result = await app.api(role, "GET", "/api/app-config/rbac-settings");
+      expect(result.status).toBe(200);
+      expect(result.json).toEqual({ defaultProfileName: "default", settingsConstraintsReplacePrevious: true });
     }
   });
 

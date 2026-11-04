@@ -537,3 +537,15 @@ list that are gone. Three is a reasonable start.
 **Changing the refresh interval restarts the timer.** Every other setting here
 applies to the next thing that uses it. This one has to replace a running timer,
 so CHOps does that when you save.
+
+### DB RBAC
+
+| Setting | What it does |
+| --- | --- |
+| ClickHouse default profile | The `default_profile` of your ClickHouse&reg; servers. **View Grants > Settings** starts with this profile. |
+| A constraint replaces the previous one | The ClickHouse option `settings_constraints_replace_previous`, as **On** or **Off**. |
+
+ClickHouse keeps both values in its server configuration, and no system table
+shows them. CHOps uses the ClickHouse defaults, `default` and **On**. Change them
+only when your servers use other values. The profile name is text, from 1 to
+128 characters, so it has no smallest and largest value like the other settings.
