@@ -9,29 +9,29 @@ function read(f) {
   return fs.readFileSync(f, "utf8");
 }
 
+// The server writes the manifest. The shared helper builds it.
 describe("Backups: Manifest Fields", () => {
+  const shared = read("src/shared/backupSql.js");
+
   it("manual manifest has backup_type manual", () => {
-    expect(read("src/frontend/components/backups/DataLifecycle.jsx")).toContain(
-      'backup_type: "manual"',
-    );
+    expect(shared).toContain('backup_type: "manual"');
   });
 
   it("manual manifest stores display name and s3 path", () => {
-    const code = read("src/frontend/components/backups/DataLifecycle.jsx");
-    expect(code).toContain('display_name: backupId.split("/").pop()');
-    expect(code).toContain("s3_path:");
+    expect(shared).toContain('display_name: backupId.split("/").pop()');
+    expect(shared).toContain("s3_path:");
   });
 
   it("manual manifest stores scope, database and tables fields", () => {
-    const code = read("src/frontend/components/backups/DataLifecycle.jsx");
-    expect(code).toContain("scope,");
-    expect(code).toContain("database: db || null");
-    expect(code).toContain("tables: tbl || null");
+    expect(shared).toContain("scope: clean.scope,");
+    expect(shared).toContain("database: clean.database || null");
+    expect(shared).toContain("tables: clean.table || null");
   });
 });
 
 describe("Backups: S3 Directory Layout", () => {
   const dl = read("src/frontend/components/backups/DataLifecycle.jsx");
+  const shared = read("src/shared/backupSql.js");
 
   it("manual backups use manual/ prefix", () => {
     expect(dl).toContain("manual/TABLE/");
@@ -43,16 +43,17 @@ describe("Backups: S3 Directory Layout", () => {
   });
 
   it("manifest path uses backups/<backupId>/manifest.json", () => {
-    expect(dl).toContain("const manifestKey = `backups/${backupId}/manifest.json`;");
+    expect(shared).toContain("${backupFolder(manifest.backup_id)}manifest.json");
   });
 
-  it("backup destinations write under /backups/<path>/", () => {
-    expect(dl).toContain("/backups/${path}/");
+  it("backup destinations write under backups/<path>/", () => {
+    expect(shared).toContain("return `backups/${backupId}/`;");
   });
 });
 
 describe("Backups: S3 Glob Compatibility", () => {
   const code = read("src/frontend/components/backups/DataLifecycle.jsx");
+  const shared = read("src/shared/backupSql.js");
 
   it("no ** globs (ClickHouse® compat)", () => {
     expect(code).not.toContain("/**/");
@@ -86,26 +87,27 @@ describe("Backups: S3 Glob Compatibility", () => {
     expect(code).toContain('msg.includes("CANNOT_EXTRACT_TABLE")');
   });
 
-  it("uses S3 scan query with RawBLOB manifest reads", () => {
-    expect(code).toContain("SELECT _path, data FROM s3(");
-    expect(code).toContain("'RawBLOB'");
-    expect(code).toContain("'data String'");
-    expect(code).toContain("LIMIT 500");
+  it("uses a scan query with RawBLOB manifest reads", () => {
+    expect(shared).toContain("SELECT _path, data FROM ${rawBlobFunction(");
+    expect(shared).toContain("'RawBLOB'");
+    expect(shared).toContain("'data String'");
+    expect(shared).toContain("LIMIT 500");
   });
 
-  it("writes manifests through INSERT INTO FUNCTION s3", () => {
-    expect(code).toContain("INSERT INTO FUNCTION s3(");
-    expect(code).toContain("VALUES ('${escSql(manifestJson)}')");
+  it("writes manifests through INSERT INTO FUNCTION", () => {
+    expect(shared).toContain("INSERT INTO FUNCTION ${rawBlobFunction(storage, filePath)} VALUES (${sqlString(text)})");
   });
 
-  it("uses escaped access key id and secret key in S3 read/write queries", () => {
-    expect(code).toContain("<accessKeyId>");
-    expect(code).toContain("<accessKey>");
+  it("sends fields and never SQL from the page", () => {
+    expect(code).toContain("backup_sp: true");
+    expect(code).toContain("backup: fields");
+    expect(code).not.toContain("-//-");
+    expect(code).not.toContain("<accessKey>");
   });
 
-  it("redacts the S3 secret key in preview SQL", () => {
-    expect(code).toContain("'***'");
-    expect(code).toContain("buildDestDisplay");
+  it("masks the secret key in preview SQL", () => {
+    expect(shared).toContain('export const MASK = "***";');
+    expect(code).toContain("previewStorage(selProfile)");
   });
 });
 
@@ -133,36 +135,36 @@ describe("Backups: Backup Discovery", () => {
     expect(code).toContain('if (scope === "all")');
     expect(code).toContain('} else if (scope === "database") {');
     expect(code).toContain('} else if (scope === "table") {');
-    expect(code).toContain("${base}/manual/ALL/*/manifest.json");
-    expect(code).toContain("${base}/manual/DATABASE/*/*/manifest.json");
-    expect(code).toContain("${base}/manual/TABLE/*/*/*/manifest.json");
+    expect(code).toContain("`manual/ALL/*/manifest.json`");
+    expect(code).toContain("`manual/DATABASE/*/*/manifest.json`");
+    expect(code).toContain("`manual/TABLE/*/*/*/manifest.json`");
   });
 
   it("available backups tab scans manual backup paths and legacy fallback paths", () => {
-    expect(code).toContain("patterns.push(`${base}/manual/*/manifest.json`);");
-    expect(code).toContain("patterns.push(`${base}/manual/*/*/manifest.json`);");
-    expect(code).toContain("patterns.push(`${base}/manual/*/*/*/manifest.json`);");
-    expect(code).toContain("patterns.push(`${base}/manual/*/*/*/*/manifest.json`);");
-    expect(code).toContain("patterns.push(`${base}/ALL/*/manifest.json`);");
-    expect(code).toContain("patterns.push(`${base}/DATABASE/*/*/manifest.json`);");
-    expect(code).toContain("patterns.push(`${base}/TABLE/*/*/manifest.json`);");
+    expect(code).toContain("patterns.push(`manual/*/manifest.json`);");
+    expect(code).toContain("patterns.push(`manual/*/*/manifest.json`);");
+    expect(code).toContain("patterns.push(`manual/*/*/*/manifest.json`);");
+    expect(code).toContain("patterns.push(`manual/*/*/*/*/manifest.json`);");
+    expect(code).toContain("patterns.push(`ALL/*/manifest.json`);");
+    expect(code).toContain("patterns.push(`DATABASE/*/*/manifest.json`);");
+    expect(code).toContain("patterns.push(`TABLE/*/*/manifest.json`);");
   });
 });
 
 describe("Backups: SQL Generation", () => {
   const code = read("src/frontend/components/backups/DataLifecycle.jsx");
+  const shared = read("src/shared/backupSql.js");
 
   it("builds BACKUP and RESTORE SQL", () => {
     expect(code).toContain('const [action, setAction] = useState("backup")');
-    expect(code).toContain('if (action === "backup")');
-    expect(code).toContain('parts.push("TO")');
-    expect(code).toContain('parts.push("FROM")');
+    expect(code).toContain("buildBackupSql(clean, previewStorage(selProfile), backupId)");
+    expect(shared).toContain('clean.action === "backup" ? "TO" : "FROM"');
   });
 
   it("supports ALL, DATABASE and TABLE scopes", () => {
-    expect(code).toContain('parts.push("ALL")');
-    expect(code).toContain("parts.push(`DATABASE ${db}`)");
-    expect(code).toContain("parts.push(`TABLE ${db}.${tbl}`)");
+    expect(shared).toContain('else parts.push("ALL")');
+    expect(shared).toContain("parts.push(`DATABASE ${clean.database}`)");
+    expect(shared).toContain("parts.push(`TABLE ${clean.database}.${clean.table}`)");
   });
 
   it("supports EXCEPT TABLES and EXCEPT DATABASES", () => {
@@ -172,12 +174,12 @@ describe("Backups: SQL Generation", () => {
 
   it("supports ON CLUSTER and ASYNC", () => {
     expect(code).toContain("ON CLUSTER");
-    expect(code).toContain('if (isAsync) parts.push("ASYNC")');
+    expect(shared).toContain('if (clean.isAsync) parts.push("ASYNC")');
   });
 
   it("supports SETTINGS clause", () => {
     expect(code).toContain("SETTINGS");
-    expect(code).toContain("settingsStr.trim()");
+    expect(code).toContain("settings: settingsStr");
   });
 
   it("renders SQL preview", () => {
@@ -234,15 +236,22 @@ describe("Backups: Access Control", () => {
 
 describe("Backups: Storage Profile Handling", () => {
   const code = read("src/frontend/components/backups/DataLifecycle.jsx");
+  const shared = read("src/shared/backupSql.js");
 
   it("supports GCS storage profiles", () => {
-    expect(code).toContain('if (profile.type === "gcs")');
-    expect(code).toContain("https://storage.googleapis.com/${profile.bucket}");
+    expect(shared).toContain('if (profile.type === "gcs")');
+    expect(shared).toContain('"https://storage.googleapis.com"');
   });
 
   it("supports S3-compatible storage profiles", () => {
-    expect(code).toContain('profile.endpoint || "https://s3.amazonaws.com"');
-    expect(code).toContain("${profile.bucket}");
+    expect(shared).toContain('profile.endpoint || "https://s3.amazonaws.com"');
+    expect(shared).toContain("${profile.bucket}");
+  });
+
+  it("supports Azure Blob storage profiles", () => {
+    expect(shared).toContain('if (profile.type === "azure")');
+    expect(shared).toContain("AzureBlobStorage(");
+    expect(shared).toContain("azureBlobStorage(");
   });
 
   it("shows notice when no storage profiles are configured", () => {

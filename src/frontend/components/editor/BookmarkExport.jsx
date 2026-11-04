@@ -3,7 +3,7 @@
 // Contributors - Kathirdhasan, Praveen kumar, Kathir Moorthy
 
 
-import React, { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import {
   FORMATS,

@@ -12,7 +12,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -22,7 +22,6 @@ import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import ChartCard from "../layout/ChartCard.jsx";
 import { useConnection } from "../../App.jsx";
-import EmptyState from "../queues/EmptyState.jsx";
 import AdvancedFilters from "./AdvancedFilters.jsx";
 import { buildWhere, extraColumns, loadAdvState } from "../../utils/advancedFilters.js";
 
@@ -668,6 +667,7 @@ function CrashLogSearch({ sidebar, unavailable }) {
 
   useEffect(() => {
     if (error) toast.error(error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [error]);
 
   async function handleSearch(e) {

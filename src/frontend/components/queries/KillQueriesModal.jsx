@@ -6,7 +6,7 @@
 
 // The kill response says nothing, so success comes from re-reading processes.
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { runQuery } from "../../utils/api.js";
 import {

@@ -41,7 +41,6 @@ import {
   shapeStats,
 } from "../services/studioSource.js";
 import { completeDdl, getAiStatus } from "../services/studioAi.js";
-import { error } from "node:console";
 
 const router = express.Router();
 
@@ -116,7 +115,8 @@ router.post("/connect", async (req, res) => {
       context: CRED_CONTEXTS.SCHEMA_STUDIO,
       appUser: req.user.username,
       clusterId,
-      node: target.host,
+      // Store the node name. Two nodes can share one host, but names are unique.
+      node: target.name,
       port: port || target.port || 8123,
       chUser: user,
       password: password ?? "",

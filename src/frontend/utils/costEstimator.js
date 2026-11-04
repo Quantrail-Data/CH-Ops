@@ -246,6 +246,8 @@ export async function lookupMemoryUsage(queryId, creds) {
     if (r.rows?.[0]?.memory_usage != null) {
       return parseInt(r.rows[0].memory_usage, 10);
     }
-  } catch {}
+  } catch {
+    // The memory value is optional.
+  }
   return null;
 }

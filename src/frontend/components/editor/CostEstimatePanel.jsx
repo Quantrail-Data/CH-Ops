@@ -2,7 +2,6 @@
 // @ author: Sanjeev Kumar G
 // Renders the interactive cost estimation dashboard for projecting infrastructure and storage expenses.
 
-import React from 'react';
 import Icon from "../common/Icon.jsx";
 import { fmtBytes, fmtRows } from '../../utils/costEstimator.js';
 

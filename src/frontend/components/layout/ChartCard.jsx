@@ -8,7 +8,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
 
@@ -23,7 +23,9 @@ export default function ChartCard({ title, option, height = 280, loading = false
     if (!containerRef.current) return;
     chartRef.current = initChart(containerRef.current);
     if (option) { chartRef.current.setOption(withZoomable({ ...option, toolbox: { show: false } }), true); setTimeout(() => chartRef.current?.resize(), 50); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
     return () => { disposeChart(containerRef.current); chartRef.current = null; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   useEffect(() => {

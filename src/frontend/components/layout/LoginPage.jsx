@@ -109,7 +109,6 @@ const OTP_Component = ({ setFormStatus }) => {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [timer, setTimer] = useState(30);
   const [min, setMin] = useState(9);
   const [sec, setSec] = useState(59);
   const [status, setStatus] = useState(true);
@@ -135,6 +134,7 @@ const OTP_Component = ({ setFormStatus }) => {
     }, 1000);
 
     return () => clearInterval(timers);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [sec, min]);
 
   const OPT_verifyHandle = async (e) => {
@@ -155,7 +155,7 @@ const OTP_Component = ({ setFormStatus }) => {
         sessionStorage.setItem("otp-reset-token", res.resetToken);
         setFormStatus("forget-change");
       }
-    } catch (err) {
+    } catch {
       setError(
         "Unable to verify the OTP. It may be invalid, or a server error occurred. Please try again.",
       );
@@ -598,13 +598,6 @@ export default function LoginPage() {
     img_20,
   ];
   const leftImages = theme !== "dark" ? darkThemeImages : lightThemeImages;
-  var settings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-  };
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -644,7 +637,7 @@ export default function LoginPage() {
         setFormStatus("forget-otp");
         Toast?.success("OTP generated!");
       }
-    } catch (err) {
+    } catch {
       setError(
         "Invalid user. No account is associated with this email address",
       );

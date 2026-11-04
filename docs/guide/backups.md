@@ -1,6 +1,6 @@
 # Backups
 
-CHOps backs up ClickHouse&reg; databases to S3-compatible storage and restores them through a guided interface, not hand-written commands. You always see the exact statement, with the credentials masked, before it runs.
+CHOps backs up ClickHouse&reg; databases to S3-compatible, Google Cloud, or Azure Blob storage and restores them through a guided interface, not hand-written commands. You always see the statement, with the credentials masked, before it runs.
 
 This page assumes you have not done a ClickHouse&reg; backup before.
 
@@ -30,6 +30,8 @@ Understand this before you take a backup. It explains several things that look o
 
 ClickHouse&reg; has a `BACKUP` statement. You run it against the server, you name a destination, and the **server** writes the data there. CHOps does not copy anything itself. It builds the statement, sends it, and reports the result.
 
+The page sends only the values of the form to the CHOps server. The CHOps server checks them, builds the `BACKUP` or `RESTORE` statement, and adds the storage keys. The keys never reach your browser.
+
 There are three consequences.
 
 **The server needs access to the destination.** If your ClickHouse&reg; servers cannot reach the S3 bucket, the backup fails, whatever CHOps can reach. This is the most common first-time failure.
@@ -56,9 +58,7 @@ Test the profile before you rely on it:
 2. Click **Test** on the profile card.
 3. Read the result on the card. "Connection OK" means that the node reached the bucket with the keys of the profile.
 
-The test runs a query with the ClickHouse&reg; `s3()` function on the active node, so it checks the path that backups use, from the server to the bucket. Another node on a different network can still fail. If the test fails, the card shows the error, with the keys hidden.
-
-For an Azure Blob profile, the test checks only that the node answers. It does not check the container.
+The test runs a query on the active node that reads a probe file, with the ClickHouse&reg; `s3()` function, or `azureBlobStorage()` for Azure Blob. So it checks the path that backups use, from the server to the bucket or container. Another node on a different network can still fail. A missing probe file counts as reachable. A wrong key, a missing bucket or container, or a network error counts as a failure, and the card shows the error, with the keys hidden.
 
 ---
 
@@ -67,17 +67,17 @@ For an Azure Blob profile, the test checks only that the node answers. It does n
 Go to **Backups**, then **Data Lifecycle**, then the **Manual Backup** tab.
 
 1. **Set Action to BACKUP.**
-2. **Choose a Scope.** ALL, DATABASE, or TABLE. For DATABASE and TABLE, select the **Database** and the **Table**.
+2. **Choose a Scope.** ALL, DATABASE, or TABLE. For DATABASE and TABLE, select the **Database** and the **Table**. Database and table names must be simple names: letters, digits, and underscores, not starting with a digit.
 3. **Choose a Storage Profile.** This sets where the backup goes.
 4. **Set any options** you need. The defaults are reasonable for a first backup.
 5. **Read the preview.** The complete statement appears as you make choices, with the credentials masked.
 6. **Click Execute BACKUP.**
 
-CHOps writes the backup to `backups/manual/<scope>/...` in the bucket. Next to the backup, it writes a `manifest.json` file with the scope, the time, and the backup type. The backup lists use these manifest files.
+CHOps writes the backup to `backups/manual/<scope>/...` in the bucket. The CHOps server makes the backup ID, for example `manual/ALL/MANUAL_ALL__2026_01_01_10_00_00`, from the scope and the time. Next to the backup, it writes a `manifest.json` file with the scope, the time, and the backup type. The backup lists use these manifest files.
 
 ### Read the preview
 
-Read the preview. It is not decoration but the exact statement that CHOps sends, and your last chance to notice that the scope is wrong or that the destination is the test bucket.
+Read the preview. It is not decoration. It is the statement that CHOps sends, with the keys masked, and your last chance to notice that the scope is wrong or that the destination is the test bucket. The CHOps server builds the real statement from the same values, so the clauses are the same.
 
 If you are learning ClickHouse&reg; backups, the preview is also the fastest way to learn the syntax. Change an option and watch which clause appears.
 
@@ -91,7 +91,7 @@ If you are learning ClickHouse&reg; backups, the preview is also the fastest way
 | DATABASE | `BACKUP DATABASE x` | One application's data. |
 | TABLE | `BACKUP TABLE x.y` | Before a risky change to one table. |
 
-**Exclusions** let you take a broad scope and leave things out. Use **EXCEPT TABLES** (for example `db.table1, db.table2`). With the ALL scope, you can also use **EXCEPT DATABASES**. This is usually better than listing every database you want. Skip anything you can rebuild: staging copies, data you can recompute, and scratch tables.
+**Exclusions** let you take a broad scope and leave things out. Use **EXCEPT TABLES** (for example `db.table1, db.table2`) with the ALL or DATABASE scope. With the ALL scope, you can also use **EXCEPT DATABASES**. Each name in these lists must be a simple name, as above. This is usually better than listing every database you want. Skip anything you can rebuild: staging copies, data you can recompute, and scratch tables.
 
 ### A note on scope and time
 
@@ -109,27 +109,32 @@ Use it for anything large. Without it, the request stays open until the backup f
 
 ### Apply across a cluster
 
-Select a cluster in **ON CLUSTER**, which lists the clusters from `system.clusters`. This adds `ON CLUSTER`, so the statement runs on every node, not only the node you connected to.
+Select a cluster in **ON CLUSTER**, which lists the clusters from `system.clusters`. This adds `ON CLUSTER`, so the statement runs on every node, not only the node you connected to. A cluster name can have letters, digits, underscores, dots, and dashes.
 
 You need it for a distributed setup. On a single server it changes nothing.
 
 ### Extra settings
 
-The **SETTINGS** field is a free-text field for ClickHouse&reg; backup settings. The three you are most likely to want are:
+The **SETTINGS** field takes ClickHouse&reg; backup settings as `name = value` pairs, split by commas. A value must be a number, a word, or a quoted text with letters, digits, dots, colons, dashes, and underscores. CHOps refuses anything else. Two settings you are likely to want are:
 
 | Setting | Does |
 |---|---|
-| `base_backup` | Makes this backup incremental against an earlier backup. |
 | `compression_method` | For example `'lz4'`. It trades CPU for size. |
-| `s3_storage_class` | The S3 class to write to, for cost. |
+| `compression_level` | For example `3`. |
 
-Write them as you would in SQL:
+For example:
 
 ```
-base_backup = S3('https://bucket.s3.amazonaws.com/full-2026-07-01'), compression_method = 'lz4'
+compression_method = 'lz4', compression_level = 3
 ```
 
 These pass through to ClickHouse&reg;. For anything not listed here, the ClickHouse&reg; documentation is the authority.
+
+Do not put `base_backup` in SETTINGS. CHOps refuses it there. Use the **BASE BACKUP** field instead.
+
+### Incremental backups
+
+The **BASE BACKUP** field takes the backup ID of an earlier backup, for example `manual/ALL/MANUAL_ALL__2026_01_01_02_00_00`. CHOps then adds `base_backup` with the location of that backup in the same storage profile, so the new backup is incremental. The field is only for a backup, not for a restore. See [Full and incremental](#8-full-and-incremental).
 
 ---
 
@@ -164,7 +169,7 @@ Choose a **Storage Profile** and click **Scan S3**. For each backup you see:
 | Created | When you took it. |
 | Backup Type | FULL, or INC for incremental. |
 
-CHOps marks a backup as INC when its SETTINGS contain `base_backup`. The list shows only backups that have a CHOps manifest file. A backup that you made outside CHOps does not show.
+CHOps marks a backup as INC when you made it with a **BASE BACKUP**. The list shows only backups that have a CHOps manifest file. A backup that you made outside CHOps does not show.
 
 **Scan from time to time, even when nothing is wrong.** This is how you find out that a schedule stopped three weeks ago, instead of finding out at the worst time.
 
@@ -174,7 +179,7 @@ CHOps marks a backup as INC when its SETTINGS contain `base_backup`. The list sh
 
 A **full** backup has everything in its scope.
 
-An **incremental** backup has only what changed since an earlier backup. You name the earlier backup with `base_backup`.
+An **incremental** backup has only what changed since an earlier backup. You name the earlier backup in the **BASE BACKUP** field.
 
 Incrementals are smaller and faster. The trade is that restoring one needs its base, and the base of its base, all the way back to a full. If you break that chain, everything after it is unusable.
 
@@ -200,7 +205,11 @@ Until then, a scheduled job outside CHOps that calls the same statements works w
 
 ### The backup fails at once with an access error
 
-The server cannot reach the bucket. CHOps shows one of these messages: "S3 access denied. Check your storage profile credentials.", "S3 bucket not found. Verify the bucket name in your storage profile.", or "Cannot reach S3 endpoint. Check the endpoint URL in your storage profile." Because the server writes the backup, not CHOps, a profile that passed the test on one node can still fail on another node.
+The server cannot reach the bucket. CHOps shows one of these messages, followed by the details: "Storage access denied. Check your storage profile credentials.", "Bucket or container not found. Verify the name in your storage profile.", or "Cannot reach the storage endpoint. Check the endpoint in your storage profile." CHOps removes the storage keys from the details. Because the server writes the backup, not CHOps, a profile that passed the test on one node can still fail on another node.
+
+### CHOps refuses the request before it runs
+
+CHOps checks the form values before it builds the statement. The error names the value that is not valid, for example a database name with a dash, a setting that is not a `name = value` pair, or `base_backup` in SETTINGS. Correct the value and click **Execute BACKUP** or **Execute RESTORE** again.
 
 Check that your ClickHouse&reg; nodes have network access to S3, and that the credentials in the profile are ones the server can use. On a cloud deployment, this often means a role attached to the instances, not keys.
 

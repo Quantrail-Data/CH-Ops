@@ -644,7 +644,7 @@ docker inspect --format='{{.State.Health.Status}}' chops
 
 The repository has example manifests in its root folder: `configmap.yaml`, `statefulset.yaml`, `service.yaml`, and `ingress.yaml`. They run one CHOps pod with a persistent disk for `/app/data`.
 
-1. Put the image in a registry that your cluster can pull from. Then set the `image:` field in `statefulset.yaml`. You can use a published image, for example `quantrailadmin1/ch-ops:latest`.
+1. Put the image in a registry that your cluster can pull from. Then set the `image:` field in `statefulset.yaml`. The manifest names the published image `quantrailadmin1/ch-ops:<version>`, with the version of this release from `version.json` (for example `quantrailadmin1/ch-ops:1.4.0`). The tag must match the CHOps release that you deploy.
 2. Make a Secret named `chops-secrets` with the four required values:
 
    ```bash

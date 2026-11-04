@@ -124,6 +124,22 @@ describe("app_user migration", () => {
       ]);
     });
   });
+  it("adds token_version with 0 to an existing table and keeps the value on a restart", () => {
+    seedOldDatabase();
+    runMigration();
+    withDatabase((database) => {
+      const versions = database.query("SELECT token_version FROM app_user ORDER BY id").all();
+      expect(versions).toEqual([{ token_version: 0 }, { token_version: 0 }]);
+      database.exec("UPDATE app_user SET token_version = 3 WHERE username = 'alice'");
+    });
+    runMigration();
+    withDatabase((database) => {
+      const alice = database
+        .query("SELECT token_version FROM app_user WHERE username = 'alice'")
+        .get();
+      expect(alice.token_version).toBe(3);
+    });
+  });
   it("keeps a pending password setup link across a restart", () => {
     seedOldDatabase();
     runMigration();

@@ -2,7 +2,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState } from "react";
+import { useState } from "react";
 import QueryEditor from "./QueryEditor.jsx";
 import ComparisonView from "./ComparisonView.jsx";
 import "./comparison.css";

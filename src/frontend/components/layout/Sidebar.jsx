@@ -2,7 +2,7 @@
 // Sidebar.jsx - main navigation sidebar with collapsible sections
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { useLocation } from "react-router-dom";
 import {useTheme} from "../../App.jsx"
@@ -227,6 +227,7 @@ export default function Sidebar({
     }
   }
 
+  // eslint-disable-next-line no-unused-vars -- tests/frontend/sidebar-routing.test.js checks this signature.
   function navigateTo(itemId, sectionId) {
     onNavigate(itemId);
   }

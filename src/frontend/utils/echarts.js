@@ -172,7 +172,8 @@ export function initChart(el) {
   if (existing) {
     try {
       existing.dispose();
-    } catch (e) {
+    } catch {
+      // The chart is already gone.
     }
   }
   const chart = echarts.init(el, getThemeName(), { renderer: "canvas" });
@@ -184,7 +185,8 @@ export function initChart(el) {
   if (el._ro) {
     try {
       el._ro.disconnect();
-    } catch (e) {
+    } catch {
+      // The observer is already disconnected.
     }
   }
   const ro = new ResizeObserver(() => {
@@ -192,7 +194,8 @@ export function initChart(el) {
       if (!el || !el.isConnected || !el.parentNode) return;
       if (!chart || chart.isDisposed?.()) return;
       chart.resize();
-    } catch (e) {
+    } catch {
+      // The chart is already gone. Skip the resize.
     }
   });
   ro.observe(el);
@@ -205,7 +208,8 @@ export function disposeChart(el) {
   if (el._ro) {
     try {
       el._ro.disconnect();
-    } catch (e) {
+    } catch {
+      // The observer is already disconnected.
     }
     el._ro = null;
   }
@@ -215,7 +219,8 @@ export function disposeChart(el) {
     if (inst.getDom && inst.getDom() !== el) return;
     if (inst.isDisposed && inst.isDisposed()) return;
     inst.dispose();
-  } catch (e) {
+  } catch {
+    // The chart is already gone.
   }
 }
 

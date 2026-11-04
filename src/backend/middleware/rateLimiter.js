@@ -5,6 +5,9 @@ const stores = new Map();
 
 const IDLE_EVICT_MS = 15 * 60 * 1000;
 
+// Each limiter gets its own number, so two limiters on one route do not share counts.
+let limiterCount = 0;
+
 const sweeper = setInterval(() => {
   const now = Date.now();
   for (const [key, hits] of stores) {
@@ -20,10 +23,15 @@ export function rateLimiter(
   windowSeconds = 60,
   keyFn = null
 ) {
+  limiterCount += 1;
+  const limiterName = 'limiter' + limiterCount;
+
+  // A custom keyFn gives its own key. Limiters with the same keyFn key share
+  // one count on purpose, for example "connect:<user>" on several routes.
   return (req, res, next) => {
     const key = keyFn
       ? keyFn(req)
-      : req.ip + ':' + req.baseUrl;
+      : limiterName + ':' + req.ip + ':' + req.baseUrl;
 
     const now = Date.now();
     const windowMs = windowSeconds * 1000;

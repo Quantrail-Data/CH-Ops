@@ -102,6 +102,6 @@ export async function killExportQuery({ host, port, secure, user, password, quer
       ...(caBundle ? { tls: { ca: caBundle } } : {}),
     });
   } catch {
-    
+    // The query is already finished.
   }
 }

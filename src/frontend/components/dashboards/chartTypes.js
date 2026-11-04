@@ -447,11 +447,6 @@ export function validateColumnType(data, colName, expect) {
     if (!allNumeric)
       return `Column "${colName}" should be numeric but contains non-numeric values`;
   }
-  if (expect === "string") {
-    const allString = sample.every(
-      (v) => typeof v === "string" || isNaN(parseFloat(v)),
-    );
-  }
   return null;
 }
 

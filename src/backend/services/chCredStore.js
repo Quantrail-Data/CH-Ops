@@ -18,7 +18,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import { eq, and, lt ,inArray} from 'drizzle-orm';
+import { eq, and, lt } from 'drizzle-orm';
 import { db as defaultDb } from '../db/index.js';
 import { chCredSession } from '../db/schema.js';
 import { encrypt, decrypt } from './crypto.js';

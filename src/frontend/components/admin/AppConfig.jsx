@@ -2,7 +2,7 @@
 // Contributors - Kathirmoorthy, Kathirdhasan, Praveen, Sanjeev Kumar G
 // Copyright (C) 2026 Quantrail Data pvt Ltd
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -167,6 +167,7 @@ export default function AppConfig() {
     } else {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   async function load() {

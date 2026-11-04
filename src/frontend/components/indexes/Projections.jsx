@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Component for mapping, projecting, and transforming raw database records into custom UI views.
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -12,7 +12,7 @@ import { treeSize, treeSeries } from "../../utils/treeChart.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
-import { useTheme, useAuth } from "../../App.jsx";
+import { useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
@@ -79,6 +79,7 @@ function useMergeTreeDbs() {
     q.execute(
       "SELECT DISTINCT database FROM system.tables WHERE engine LIKE '%MergeTree%' ORDER BY database",
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   return q;
 }
@@ -90,6 +91,7 @@ function useMergeTreeTables(db) {
       q.execute(
         `SELECT name FROM system.tables WHERE database='${db}' AND engine LIKE '%MergeTree%' ORDER BY name`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db]);
   return q;
 }
@@ -100,6 +102,7 @@ function useClusters() {
     q.execute(
       "SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster",
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   return q;
 }
@@ -111,6 +114,7 @@ function useExistingProjections(db, tbl) {
       q.execute(
         `SELECT name FROM system.projections WHERE database='${db}' AND table='${tbl}' ORDER BY name`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db, tbl]);
   return q;
 }
@@ -122,6 +126,7 @@ function useColumns(db, tbl) {
       q.execute(
         `SELECT name, type FROM system.columns WHERE database='${db}' AND table='${tbl}' ORDER BY position`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db, tbl]);
   return q;
 }
@@ -209,17 +214,18 @@ function ViewProjections() {
     projQ = useQuery();
   const chartRef = useRef(null),
     chartInst = useRef(null);
-  const { theme } = useTheme();
   useEffect(() => {
     dbsQ.execute(
       "SELECT DISTINCT database FROM system.projections ORDER BY database",
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   useEffect(() => {
     if (db)
       tblsQ.execute(
         `SELECT DISTINCT table FROM system.projections WHERE database='${db}' ORDER BY table`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db]);
   useEffect(() => {
     if (db) {
@@ -228,6 +234,7 @@ function ViewProjections() {
         `SELECT database, table, name, type, sorting_key, query FROM system.projections WHERE database='${db}'${w} ORDER BY table, name`,
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db, tbl]);
 
   const buildTree = useCallback(() => {
@@ -280,6 +287,7 @@ function ViewProjections() {
       true,
     );
     chartInst.current.resize();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- themeKey is here on purpose. It rebuilds the chart when the theme changes.
   }, [buildTree, themeKey, zoom]);
 
   useEffect(() => {
@@ -315,7 +323,9 @@ function ViewProjections() {
         chartInst.current.setOption({ series: [updatedSeries] }, true);
         chartInst.current.resize();
       }
-    } catch (e) {}
+    } catch {
+      // The chart is already gone. Skip the resize.
+    }
     const bg = isDark ? "#000000" : "#ffffff";
     const url = chartInst.current.getDataURL({
       type: "png",

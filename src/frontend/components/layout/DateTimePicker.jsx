@@ -6,7 +6,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import Select from "../common/Select.jsx";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));

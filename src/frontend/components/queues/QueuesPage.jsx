@@ -5,7 +5,7 @@
 // S3 Queue, Azure Queue, Distribution Queue, Replication Queue. Each tab is
 // isolated in its own ErrorBoundary so a failure in one never blanks the rest.
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Icon from "../common/Icon.jsx";
 import IngestionTab from "./IngestionTab.jsx";
 import DistReplTab from "./DistReplTab.jsx";

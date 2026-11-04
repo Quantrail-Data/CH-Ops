@@ -11,7 +11,7 @@ process.env.EXPORT_DIR ||= path.join(os.tmpdir(), "chops-export-jobs-test");
 
 const {
   initExportStorage, safeFileName, createJob, getJob, describeJob,
-  cancelJob, cancelJobsForUser, issueTicket, redeemTicket, exportConfig,
+  cancelJob, cancelJobsForUser, cancelJobsForJti, issueTicket, redeemTicket, exportConfig,
 } = await import("../../src/backend/services/exportJobs.js");
 
 const cfg = exportConfig();
@@ -177,6 +177,22 @@ describe("cancelling", () => {
     cancelJobsForUser("kathir");
     expect(getJob(mine.id, "kathir")).toBeNull();
     expect(getJob(theirs.id, "other")).toBeTruthy();
+  });
+
+  test("revoking a session cancels its running jobs and keeps its finished files", () => {
+    const running = makeJob({ username: "kathir", jti: "session-1" });
+    const finished = makeJob({ username: "kathir", jti: "session-1" });
+    finished.state = "ready";
+    finished.creds = null;
+    const otherSession = makeJob({ username: "kathir", jti: "session-2" });
+
+    cancelJobsForJti("session-1");
+
+    expect(getJob(running.id, "kathir")).toBeNull();
+    expect(fs.existsSync(running.dir)).toBe(false);
+    expect(getJob(finished.id, "kathir")).toBeTruthy();
+    expect(fs.existsSync(finished.dir)).toBe(true);
+    expect(getJob(otherSession.id, "kathir")).toBeTruthy();
   });
 });
 

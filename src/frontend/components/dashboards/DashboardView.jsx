@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main container component that layout and renders all dashboard widgets and analytics charts.
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import Select from "../common/Select.jsx";
@@ -141,7 +141,7 @@ export default function DashboardView({sidebar}) {
   // every chart on it.
   const loadedDashRef = useRef(null);
   const [transitioning, setTransitioning] = useState(false);
-  const [transitionPhase, setTransitionPhase] = useState('idle'); // 'idle' | 'exiting' | 'entering'
+  const [, setTransitionPhase] = useState('idle'); // 'idle' | 'exiting' | 'entering'
   const transitionTimerRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -179,7 +179,7 @@ export default function DashboardView({sidebar}) {
     [params.conflicts],
   );
 
-  async function loadDashboards() { try { setDashboards(await apiFetch('/api/dashboards')); } catch { } }
+  async function loadDashboards() { try { setDashboards(await apiFetch('/api/dashboards')); } catch { /* Keep the current data when the request fails. */ } }
   useEffect(() => { loadDashboards(); }, []);
 
   const renderChart = useCallback((chart, data, error) => {
@@ -332,6 +332,7 @@ export default function DashboardView({sidebar}) {
       await loadCharts(d.id, values, discovered, fetched);
     })();
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [urlDashId, dashboards]); 
 
   useEffect(() => {
@@ -690,7 +691,7 @@ export default function DashboardView({sidebar}) {
   );
 }
 
-function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, showLegends, legendSupportedTypes, highlighted = false, filterNames = [], setShowLegends }) {
+function ChartTile({ chart, onDelete, cols, setFss, isAdmin, canEdit, showLegends, legendSupportedTypes, highlighted = false, filterNames = [], setShowLegends }) {
   const ref = useRef(null);
   const inst = useRef(null);
   const [fs, setFs] = useState(false);
@@ -739,14 +740,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const supportsLegend = legendSupportedTypes.includes(chart.chartSubtype) || needsLegend(chart.chartType, chart.chartSubtype);
 
-  function getContainerHeight() {
-    if (fs) return "calc(100vh - 32px)";
-    if (chart?.chartOption?._table) return isSmallScreen ? "420px" : "360px";
-    const isBar = ['simple_bar', 'grouped_bar', 'stacked_bar'].includes(chart.chartSubtype) || chart.chartType === 'bar';
-    if (isSmallScreen) return isBar ? "460px" : "520px";
-    return isBar ? "520px" : "580px";
-  }
-
   function getChartHeight() {
     if (fs) return "calc(100vh - 120px)";
     if (chart?.chartOption?._table) return isSmallScreen ? "320px" : "300px";
@@ -777,7 +770,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const usesCartesianGrid = !isPieChart && !isFunnelChart && !isSunburstChart && !isRadar && !isGraph && !isSankeyChart && !isTreemapChart && !isGaugeChart && (isBarChart || isLineChart || isHeatmap || isScatterLike || isCandlestick || isBoxplot || chart.chartType === 'bar' || chart.chartType === 'line' || chart.chartType === 'scatter' || chart.chartType === 'heatmap' || chart.chartType === 'candlestick' || chart.chartType === 'boxplot');
 
   const gridLineColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.22)';
-  const gridLineColorSubtle = theme === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)';
 
   const tooltipWidth = fs ? 420 : (isSmallScreen ? 220 : 300);
   const tooltipMaxHeight = fs ? 320 : 240;
@@ -976,6 +968,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     return count;
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const opt = {
     ...chart.chartOption,
     responsive: true,
@@ -994,8 +987,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
     legend: resolvedLegend,
     xAxis: Array.isArray(chart?.chartOption?.xAxis)
       ? chart.chartOption.xAxis.map((axis) => {
-          const isXCat = axis?.type === 'category' || (!axis?.type && isVerticalBar);
-          const isXVal = axis?.type === 'value' && isHorizontalBar;
           return {
             ...axis,
             type: isVerticalBar || isHeatmap ? 'category' : axis?.type,
@@ -1390,8 +1381,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   }
 
   const pieSubtypes = ['pie', 'donut', 'rose', 'nested_pie'];
-  const isPie = Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype));
-  const lineDataLength = Array.isArray(opt.series) && opt.series.some((s) => s.data?.length > 200);
 
   if (Array.isArray(opt.series) && (opt.series.some(s => s.type === 'pie') || pieSubtypes.includes(chart.chartSubtype))) {
     const pieSeries = opt.series.filter(s => s.type === 'pie');
@@ -1400,8 +1389,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
     opt.series = (opt.series || []).map((s) => {
       if (s.type !== 'pie') return s;
-      const defaultBaseRadius = chart.chartSubtype === 'pie' ? ['0%', '64%'] : ['40%', '64%'];
-      const baseRadius = s.radius || defaultBaseRadius;
       const finalRadius = fs
         ? (chart.chartSubtype === 'pie' ? ['0%', '72%'] : ['40%', '72%'])
         : isSmallScreen
@@ -1478,7 +1465,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             lines.push(`${p.seriesName}: ${value}${pct ? ' (' + pct + ')' : ''}`);
           }
           return lines.join('<br/>');
-        } catch (e) {
+        } catch {
           return '';
         }
       }
@@ -1499,7 +1486,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             lines.push(`${p.seriesName}: ${value}`);
           }
           return lines.join('<br/>');
-        } catch (e) {
+        } catch {
           return '';
         }
       }
@@ -1656,11 +1643,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
   const isSunBurstVisualmap = Object.keys(opt?.visualMap || {})?.length > 0;
 
   if (isSunBurst) {
-    let sunburstNodeCount = 0;
     opt.series = opt.series.map((s) => {
       if (s.type !== "sunburst") return s;
       const nodeCount = Array.isArray(s.data) ? s.data.reduce((a, n) => a + countSunburstNodes(n), 0) : countSunburstNodes(s.data);
-      sunburstNodeCount += nodeCount;
       const hideSunburst = nodeCount > 15;
       return {
         ...s,
@@ -1750,7 +1735,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       if (inst.current) {
         try {
           disposeChart(ref.current);
-        } catch {}
+        } catch {
+          // The chart is already gone.
+        }
 
         inst.current = null;
       }
@@ -1766,7 +1753,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       if (inst.current) {
         try {
           disposeChart(host);
-        } catch {}
+        } catch {
+          // The chart is already gone.
+        }
 
         inst.current = null;
       }
@@ -1793,7 +1782,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         ) {
           try {
             inst.current.resize();
-          } catch {}
+          } catch {
+            // The chart is already gone. Skip the resize.
+          }
         }
       }, 50);
     } catch {
@@ -1811,7 +1802,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       if (host) {
         try {
           disposeChart(host);
-        } catch {}
+        } catch {
+          // The chart is already gone.
+        }
       }
 
       inst.current = null;
@@ -1876,7 +1869,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
         if (inst.current && !inst.current.isDisposed?.()) {
           inst.current.clear();
         }
-      } catch {}
+      } catch {
+        // The chart is already gone.
+      }
 
       restoreTimerRef.current = requestAnimationFrame(() => {
         restoreTimerRef.current = null;
@@ -1908,11 +1903,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
                 : 'treemapRootToNode',
               targetNode: null,
             });
-          } catch {}
+          } catch {
+            // The chart is already gone. Keep the current view.
+          }
 
           try {
             restoredInstance.resize();
-          } catch {}
+          } catch {
+            // The chart is already gone. Skip the resize.
+          }
 
           setHasChartInstance(true);
         } catch {
@@ -1956,7 +1955,9 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
       });
 
       inst.current.resize();
-    } catch {}
+    } catch {
+      // The chart is already gone. Skip the resize.
+    }
   }
 
   function sanitizeFilename(name) {
@@ -2020,7 +2021,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           offscreenInst.dispatchAction({
             type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode",
           });
-        } catch (e) {
+        } catch {
+          // The chart is already gone. Keep the current view.
         }
       }
 
@@ -2035,7 +2037,7 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
             excludeComponents: ["toolbox"],
           });
-        } catch (e) {
+        } catch {
           dataURL = null;
         }
 
@@ -2047,7 +2049,8 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-          } catch (e) {
+          } catch {
+            // The download failed. Do not stop the page.
           }
         }
 
@@ -2055,13 +2058,15 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           if (offscreenInst && !offscreenInst.isDisposed?.()) {
             offscreenInst.dispose();
           }
-        } catch (e) {
+        } catch {
+          // The chart is already gone.
         }
         try {
           if (container && container.parentNode) {
             container.parentNode.removeChild(container);
           }
-        } catch (e) {
+        } catch {
+          // The container is already gone.
         }
       };
 
@@ -2070,18 +2075,20 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           setTimeout(finish, 150);
         });
       });
-    } catch (e) {
+    } catch {
       try {
         if (offscreenInst && !offscreenInst.isDisposed?.()) {
           offscreenInst.dispose();
         }
-      } catch (err) {
+      } catch {
+        // The chart is already gone.
       }
       try {
         if (container && container.parentNode) {
           container.parentNode.removeChild(container);
         }
-      } catch (err) {
+      } catch {
+        // The container is already gone.
       }
       savePng(inst.current, chart.name);
     }
@@ -2160,8 +2167,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
 
   const tableScrollMaxHeight = fs ? 'calc(100vh - 240px)' : (isSmallScreen ? 300 : 360);
 
-  const isKpi = !!opt?._kpi;
-  const kpiMinHeight = isSmallScreen ? 180 : 240;
   const errorMinHeight = isSmallScreen ? 160 : 220;
 
   const tileContent = (

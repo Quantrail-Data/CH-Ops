@@ -13,7 +13,6 @@
 //
 // Any icon name that was not bundled into the sprite renders as a neutral inline
 // SVG placeholder, so icons are always SVG and fully local (no webfont).
-import React from "react";
 import { ICON_NAMES } from "../../assets/iconSprite.js";
 
 // Derive the icon token (e.g. "bucket", "database-filled") from an explicit

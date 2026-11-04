@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Creates, modifies, and maps fine-grained permission sets to system-wide RBAC roles.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
@@ -42,6 +42,7 @@ function useDbList() {
   const q = useQuery();
   useEffect(() => {
     q.execute("SELECT name FROM system.databases ORDER BY name");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   return q;
 }
@@ -52,6 +53,7 @@ function useTableList(db) {
       q.execute(
         `SELECT name FROM system.tables WHERE database='${db}' ORDER BY name`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db]);
   return q;
 }
@@ -82,6 +84,7 @@ export default function RbacRoles() {
       "SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster",
     );
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(load, []);
 
   const roles = (rolesQ.data || []).map((r) => r.name);

@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Dynamically renders configured data visualizations, charts, and metrics from query results.
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import {
@@ -28,7 +28,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,upda
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
 
-  const [columns, setColumns] = useState(
+  const [columns] = useState(
     data?.length > 0 ? Object.keys(data[0]) : [],
   );
   const [chartType, setChartType] = useState("bar");
@@ -42,7 +42,6 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,upda
     chatMessage?.chart?.chartOption || null,
   );
   const [validationErrors, setValidationErrors] = useState({});
-  const [topOpen, setTopOpen] = useState(true);
   const [dashboards,setDashboards] = useState([])
   const [selDashboard, setSelDashboard] = useState("");
   const previewRef = useRef(null);
@@ -109,6 +108,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,upda
 
   fetchChartData();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load the saved chart only when the message points to another chart, not when the legend toggles.
 }, [chatMessage?.dashId, chatMessage?.chartName]); 
 
   useEffect(() => {
@@ -131,6 +131,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,upda
   const subtypeInfo = typeInfo?.subtypes.find(
     (s) => s.subtype === chartSubtype,
   );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || false;
 
@@ -141,6 +142,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,upda
       setYLabel(d.yLabel);
       setShowLegend(needsLegend(chartType, chartSubtype));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [chartType, chartSubtype]);
 
   useEffect(() => {
@@ -175,6 +177,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,upda
         showLegend,
       }),
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [
     data,
     mapping,
@@ -211,7 +214,6 @@ useEffect(() => {
       previewInst.current?.dispose();
       previewInst.current = initChart(element);
     }
-
     previewInst.current.setOption(
       withZoomable({
         ...chartOption,
@@ -243,6 +245,7 @@ useEffect(() => {
   } catch (err) {
     setChartOption({ _error: true, message: err.message });
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the chart option changes, as before.
 }, [chartOption]);
 
 
