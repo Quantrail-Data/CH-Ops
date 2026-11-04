@@ -227,6 +227,7 @@ export async function updateChatMessage(
   if (!existingMessage) return null;
 
   // A field that the PATCH does not send keeps its stored value.
+  // This also covers a chart update, which sends only chartName and dashId.
   const sentOrStored = (field) =>
     field in message ? (message[field] ?? null) : existingMessage[field];
 
@@ -248,6 +249,8 @@ export async function updateChatMessage(
       provider: sentOrStored("provider"),
       model: sentOrStored("model"),
       errorCode,
+      chartName: sentOrStored("chartName"),
+      dashId: sentOrStored("dashId"),
     })
     .where(
       and(eq(aiChatMessage.id, messageId), eq(aiChatMessage.chatId, chat.id)),

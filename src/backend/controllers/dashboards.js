@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Custom dashboards and charts: CRUD over the dashboard and chart tables.
 
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 import { db, dashboards, charts } from "../db/index.js";
 
 // JSON column handling
@@ -127,12 +127,33 @@ export function getDashboardCharts(req, res) {
   res.json(rows.map(outChart));
 }
 
+
+export function getchart(req, res) {
+  const chartName = req.params.chartName; 
+  const dashId = req.params.dashId;
+
+  const chart = db
+    .select()
+    .from(charts)
+    .where(
+      and(
+        eq(charts.dashboardId, dashId), 
+        eq(charts.name, chartName)
+      )
+    )
+    .all();
+
+  res.json(outChart(chart));
+}
+
+
 // Charts
 
 export function listCharts(req, res) {
   const rows = db.select().from(charts).orderBy(desc(charts.createdAt)).all();
   res.json(rows.map(outChart));
 }
+
 
 export function createChart(req, res) {
   const {
@@ -148,6 +169,10 @@ export function createChart(req, res) {
   try {
     if (!name || !sqlQuery || !chartType || !chartSubtype)
       return res.status(400).json({ error: "Missing required fields" });
+    const existingChart = db.select().from(charts).where(and(eq(charts.name, name),eq(charts.dashboardId, dashboardId))).get();
+    if (existingChart) {
+      return res.status(400).json({ error: "A chart with this name already exists" });
+    }
     const row = db
       .insert(charts)
       .values({
@@ -162,7 +187,7 @@ export function createChart(req, res) {
       })
       .returning()
       .get();
-    // Parsed on the way out, like every other chart response.
+
     res.status(201).json(outChart(row));
   } catch (error) {
     res.status(500).json({ error: error.message || "Internal server error" });
@@ -172,6 +197,18 @@ export function createChart(req, res) {
 export function updateChart(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
+    
+    if (req.body.name !== undefined) {
+      const nameConflict = db
+        .select()
+        .from(charts)
+        .where(and(eq(charts.name, req.body.name), ne(charts.id, id)))
+        .get();
+        
+      if (nameConflict) {
+        return res.status(400).json({ error: "A chart with this name already exists" });
+      }
+    }
     const updates = {};
     for (const k of [
       "name",

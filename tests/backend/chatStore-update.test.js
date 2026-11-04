@@ -34,6 +34,8 @@ function makeDatabase() {
       provider TEXT,
       model TEXT,
       error_code TEXT,
+      chart_name TEXT,
+      dash_id TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
@@ -116,5 +118,18 @@ describe("updateChatMessage", () => {
     expect(updated.responseText).toBe("New answer.");
     expect(updated.provider).toBe("GEMINI");
     expect(updated.errorCode).toBeNull();
+  });
+
+  it("keeps the AI response when a chart update sends only chartName and dashId", async () => {
+    const { chat, message } = await makeFullMessage();
+    const updated = await ChatStore.updateChatMessage("tester", chat.id, message.id, {
+      isUpdateChart: true,
+      chartName: "orders_by_day",
+      dashId: 7,
+    });
+    expect(updated.chartName).toBe("orders_by_day");
+    expect(String(updated.dashId)).toBe("7");
+    expect(updated.responseText).toBe(message.responseText);
+    expect(updated.provider).toBe(message.provider);
   });
 });

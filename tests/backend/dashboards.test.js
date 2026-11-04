@@ -113,8 +113,6 @@ mock.module("../../src/backend/db/index.js", () => ({
   k8sConnections: {},
 }));
 
-
-
 const {
   createDashboard,
   listDashboards,
@@ -472,10 +470,22 @@ describe("Chart Controllers", () => {
       }),
     }));
 
+    let selectCallCount = 0;
+
     dbMock.select = mock(() => ({
       from: () => ({
         where: () => ({
-          get: () => fakeRow,
+          get: () => {
+            selectCallCount++;
+
+            // First SELECT: duplicate name check
+            if (selectCallCount === 1) {
+              return undefined;
+            }
+
+            // Second SELECT: fetch updated chart
+            return fakeRow;
+          },
         }),
       }),
     }));
@@ -518,10 +528,18 @@ describe("Chart Controllers", () => {
       }),
     }));
 
+    let selectCallCount = 0;
+
     dbMock.select = mock(() => ({
       from: () => ({
         where: () => ({
-          get: () => fakeRow,
+          get: () => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              return undefined;
+            }
+            return fakeRow;
+          },
         }),
       }),
     }));
@@ -537,10 +555,17 @@ describe("Chart Controllers", () => {
     const { req, res } = mockReqRes(
       {
         name: "Fail Chart",
-        audit: {},
       },
       { id: "1" },
     );
+
+    dbMock.select = mock(() => ({
+      from: () => ({
+        where: () => ({
+          get: () => undefined,
+        }),
+      }),
+    }));
 
     dbMock.update = mock(() => ({
       set: () => ({
@@ -555,7 +580,9 @@ describe("Chart Controllers", () => {
     updateChart(req, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.jsonData).toEqual({ error: "DB failure" });
+    expect(res.jsonData).toEqual({
+      error: "DB failure",
+    });
   });
 
   it("delete chart", () => {
@@ -565,19 +592,19 @@ describe("Chart Controllers", () => {
       config: '{"theme":"light"}',
     });
 
-    const { req, res} = mockReqRes(
-      {},{
-        id:1,
-      }
-    )
+    const { req, res } = mockReqRes(
+      {},
+      {
+        id: 1,
+      },
+    );
 
-    deleteChart(req,res);
+    deleteChart(req, res);
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonData).toEqual({
-    deleted: true,
-  })
-
+      deleted: true,
+    });
   });
 
   it("should return 500 error", () => {
@@ -587,17 +614,17 @@ describe("Chart Controllers", () => {
       config: '{"theme":"light"}',
     });
 
-    const { req, res} = mockReqRes(
-      {},{
-        id:1,
-      }
-    )
+    const { req, res } = mockReqRes(
+      {},
+      {
+        id: 1,
+      },
+    );
 
     dbMock.delete = mock(() => false);
 
-    deleteChart(req,res);
+    deleteChart(req, res);
 
     expect(res.statusCode).toBe(500);
-
   });
 });

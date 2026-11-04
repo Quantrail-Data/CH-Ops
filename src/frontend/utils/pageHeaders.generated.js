@@ -644,6 +644,7 @@ export const PAGE_TEXT = {
     "Max",
     "Preview",
     "Map columns to see preview.",
+    "Show Legend",
     "Get Tables",
     "Generate DDL & Estimate"
   ],
@@ -1423,6 +1424,7 @@ export const PAGE_TEXT = {
     "Max",
     "Preview",
     "Map columns to see preview.",
+    "Show Legend",
     "Get Tables",
     "Generate DDL & Estimate"
   ],

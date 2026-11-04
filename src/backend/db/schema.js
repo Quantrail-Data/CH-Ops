@@ -242,6 +242,8 @@ export const aiChatMessage = sqliteTable("ai_chat_message", {
   model: text("model"),
   errorCode: text("error_code"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
+  chartName:text("chart_name"),
+  dashId:integer("dash_id")
 });
 
 // qurioz ai_ddl_cache table
