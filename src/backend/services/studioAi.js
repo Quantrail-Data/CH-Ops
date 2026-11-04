@@ -9,7 +9,6 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import { GoogleGenAI } from '@google/genai';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { apiKeys } from '../db/schema.js';

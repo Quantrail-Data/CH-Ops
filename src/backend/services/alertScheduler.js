@@ -30,28 +30,10 @@ import {
   decideRuleNotifications,
   ruleStatus,
 } from "./alertNodeStates.js";
+import { cronMatches, validateCronExpression } from "../../shared/cron.js";
 
-function cronMatches(expr, date) {
-  const parts = expr.trim().split(/\s+/);
-  if (parts.length < 5) return false;
-  const fields = [
-    date.getMinutes(),
-    date.getHours(),
-    date.getDate(),
-    date.getMonth() + 1,
-    date.getDay(),
-  ];
-  for (let i = 0; i < 5; i++) {
-    const spec = parts[i];
-    if (spec === "*") continue;
-    if (spec.startsWith("*/")) {
-      if (fields[i] % parseInt(spec.slice(2), 10) !== 0) return false;
-      continue;
-    }
-    if (!spec.split(",").map(Number).includes(fields[i])) return false;
-  }
-  return true;
-}
+// The controller imports the cron check from this file.
+export { validateCronExpression };
 
 // Also used by the rule test endpoint in controllers/alerts.js.
 export function evalThreshold(value, operator, threshold) {
@@ -456,14 +438,72 @@ function recordSendResult(channelId, ok, errorMessage) {
       })
       .where(eq(alertChannels.id, channelId))
       .run();
-  } catch {}
+  } catch {
+    // Saving the channel status is optional.
+  }
+}
+
+// After a pause, the scheduler checks at most this many missed minutes.
+export const MAX_MISSED_MINUTES = 10;
+
+function startOfMinute(date) {
+  const minute = new Date(date);
+  minute.setSeconds(0, 0);
+  return minute;
+}
+
+// The minutes after lastCheckedMinute, up to and including the minute of now.
+// The first check, or a check after a clock change back, gives only the minute of now.
+// Exported for the tests.
+export function minutesToCheck(lastCheckedMinute, now) {
+  const currentMinute = startOfMinute(now);
+  if (!lastCheckedMinute || lastCheckedMinute >= currentMinute) {
+    return [currentMinute];
+  }
+  const minutes = [];
+  let minute = new Date(currentMinute);
+  while (minute > lastCheckedMinute && minutes.length < MAX_MISSED_MINUTES) {
+    minutes.unshift(minute);
+    minute = new Date(minute.getTime() - 60000);
+  }
+  return minutes;
+}
+
+// True when the schedule of the rule matches one of the minutes, and the rule
+// did not run in or after that minute. A due rule runs one time, also when
+// it matches more than one minute.
+// Exported for the tests.
+export function isRuleDue(rule, minutes) {
+  const lastRun = rule.lastRunAt ? new Date(rule.lastRunAt) : null;
+  return minutes.some(
+    (minute) =>
+      cronMatches(rule.schedule, minute) && (!lastRun || lastRun < minute),
+  );
+}
+
+// The ids of the rules that run now.
+const runningRuleIds = new Set();
+
+// Runs the task of a rule, but not when an earlier run of the same rule did not end.
+// Returns false when it did not start the task.
+// Exported for the tests.
+export async function runWithoutOverlap(ruleId, task) {
+  if (runningRuleIds.has(ruleId)) return false;
+  runningRuleIds.add(ruleId);
+  try {
+    await task();
+  } finally {
+    runningRuleIds.delete(ruleId);
+  }
+  return true;
 }
 
 let interval = null;
 
-export function startScheduler(env) {
+export function startScheduler(_env) {
   if (interval) return;
   let lastPruneDay = null;
+  let lastCheckedMinute = null;
 
   async function tick() {
     const now = new Date();
@@ -478,7 +518,9 @@ export function startScheduler(env) {
       try {
         db.run(sql`DELETE FROM alert_event WHERE created_at <
 datetime('now', '-90 days')`);
-      } catch {}
+      } catch {
+        // Try the cleanup again on the next run.
+      }
     }
     let rules;
     try {
@@ -491,20 +533,13 @@ datetime('now', '-90 days')`);
       return;
     }
 
-    // Keep only the rules that are due and that did not run in this minute.
-    const dueRules = rules.filter((rule) => {
-      if (!cronMatches(rule.schedule, now)) return false;
-      if (rule.lastRunAt) {
-        const last = new Date(rule.lastRunAt);
-        if (
-          last.getMinutes() === now.getMinutes() &&
-          last.getHours() === now.getHours() &&
-          last.getDate() === now.getDate()
-        )
-          return false;
-      }
-      return true;
-    });
+    const minutes = minutesToCheck(lastCheckedMinute, now);
+    lastCheckedMinute = minutes[minutes.length - 1];
+
+    // A rule that still runs from an earlier tick does not start again.
+    const dueRules = rules.filter(
+      (rule) => !runningRuleIds.has(rule.id) && isRuleDue(rule, minutes),
+    );
 
     if (dueRules.length === 0) return;
 
@@ -513,7 +548,7 @@ datetime('now', '-90 days')`);
       dueRules.map((rule) => {
         const ruleNodes = getClusterNodes(rule.clusterId || null);
         if (ruleNodes.length === 0) return Promise.resolve();
-        return evaluateRule(rule, ruleNodes, now);
+        return runWithoutOverlap(rule.id, () => evaluateRule(rule, ruleNodes, now));
       }),
     );
   }
@@ -524,7 +559,7 @@ datetime('now', '-90 days')`);
 }
 
 
-// Runs before a rule is turned off. It sends "resolved" for a breach,
+// Runs when a rule is turned off. It sends "resolved" for a breach,
 // and "recovered" for query errors.
 // So no PagerDuty incident stays open for a rule that is off.
 export async function notifyBeforeRuleDisabled(ruleId) {
@@ -554,8 +589,7 @@ export async function notifyBeforeRuleDisabled(ruleId) {
   }
   if (notifications.length === 0) return;
 
-  await notify(rule, new Date(), notifications, new Map());
-
+  // Reset the state first. The caller does not wait for the sends.
   db.update(alertRules)
     .set({
       lastState: "ok",
@@ -564,37 +598,6 @@ export async function notifyBeforeRuleDisabled(ruleId) {
     })
     .where(eq(alertRules.id, ruleId))
     .run();
-}
 
-// The grammar cronMatches() supports: *, */n, and comma lists. No ranges.
-export function validateCronExpression(expr) {
-  const parts = String(expr || "")
-    .trim()
-    .split(/\s+/);
-  if (parts.length !== 5) return "Cron must have 5 fields";
-  const ranges = [
-    [0, 59],
-    [0, 23],
-    [1, 31],
-    [1, 12],
-    // getDay() gives 0 (Sunday) to 6. 7 never matches, so the check refuses it.
-    [0, 6],
-  ];
-  const names = ["minute", "hour", "day-of-month", "month", "day-of-week"];
-  for (let i = 0; i < 5; i++) {
-    const p = parts[i];
-    if (p === "*") continue;
-    if (p.startsWith("*/")) {
-      const n = parseInt(p.slice(2), 10);
-      if (!Number.isInteger(n) || n < 1)
-        return `Invalid step in ${names[i]}: ${p}`;
-      continue;
-    }
-    for (const v of p.split(",")) {
-      const n = Number(v);
-      if (!Number.isInteger(n) || n < ranges[i][0] || n > ranges[i][1])
-        return `CRON ERROR : ${names[i]} must be a number from ${ranges[i][0]} to ${ranges[i][1]}, or a comma list of numbers: ${v}`;
-    }
-  }
-  return null;
+  await notify(rule, new Date(), notifications, new Map());
 }

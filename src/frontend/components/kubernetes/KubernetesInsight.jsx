@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Contributors -> Kathir Moorthy, Kathirdhasan
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import MultiSelect from "../common/MultiSelect.jsx";
@@ -30,6 +30,7 @@ const TABS = [
   { id: "health", label: "Health" },
   { id: "topology", label: "Topology" },
   { id: "reconcile", label: "Reconcile" },
+  { id: "rollout", label: "Rollout" },
   { id: "keeper", label: "Keeper" },
   { id: "storage", label: "Storage" },
   { id: "resources", label: "Resources" },
@@ -72,6 +73,40 @@ function Banner({ tone = "info", children }) {
     >
       {children}
     </div>
+  );
+}
+
+// The time of the last good read, in the same form as the Logs tab.
+export function ReadAtLine({ fetchedAt }) {
+  if (!fetchedAt) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "flex-end",
+        fontSize: 12,
+        ...muted,
+        marginBottom: 6,
+      }}
+    >
+      <span>read at {fetchedAt.toLocaleTimeString()}</span>
+    </div>
+  );
+}
+
+// Shown in the tab when the last read failed.
+export function LoadError({ message, onRetry, busy }) {
+  return (
+    <Banner tone="bad">
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ flex: "1 1 260px" }}>
+          <strong>Could not read this tab.</strong> {message}
+        </span>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onRetry} disabled={busy}>
+          <Icon className="ti ti-refresh" /> Retry
+        </button>
+      </div>
+    </Banner>
   );
 }
 
@@ -505,6 +540,71 @@ function ReconcileTab({ data }) {
           </ul>
         </Panel>
       )}
+    </div>
+  );
+}
+
+// Rollout
+
+function describeRevision(row) {
+  if (!row.updateRevision || row.currentRevision === row.updateRevision) {
+    return row.currentRevision ?? "-";
+  }
+  return `${row.currentRevision ?? "-"} to ${row.updateRevision}`;
+}
+
+export function RolloutTab({ data }) {
+  if (!data) return null;
+  const rows = data.statefulSets || [];
+  const stuckRows = rows.filter((row) => row.status === "stuck");
+
+  return (
+    <div>
+      {stuckRows.length > 0 && (
+        <Banner tone="bad">
+          <strong>A rollout is stuck.</strong>{" "}
+          {stuckRows.map((row) => row.stuckReason).join("; ")}. Fix the pod to
+          let the rollout continue.
+        </Banner>
+      )}
+
+      <Panel
+        title="StatefulSets"
+        subtitle="A rollout is complete when the desired, current, ready and updated counts are equal and all pods run one revision."
+      >
+        {rows.length === 0 ? (
+          <div style={{ fontSize: 13, ...muted }}>
+            No StatefulSets were found for this installation.
+          </div>
+        ) : (
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Desired</th>
+                <th>Current</th>
+                <th>Ready</th>
+                <th>Updated</th>
+                <th>Revision</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.name}>
+                  <td>{row.name}</td>
+                  <td>{row.desired}</td>
+                  <td>{row.current}</td>
+                  <td>{row.ready}</td>
+                  <td>{row.updated}</td>
+                  <td>{describeRevision(row)}</td>
+                  <td>{row.status === "stuck" ? <strong>stuck</strong> : row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Panel>
     </div>
   );
 }
@@ -1071,6 +1171,7 @@ function LogsTab({ clusterId, hosts, initialPod }) {
   const [raw, setRaw] = useState("");
   const [busy, setBusy] = useState(false);
   const [fetchedAt, setFetchedAt] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   // Line count and time range persist, because somebody who wants 5000 lines wants them every time.
   const [lineCount, setLineCount] = useState(readLineCount);
@@ -1155,7 +1256,9 @@ function changeSince(v) {
         ),
       );
       setFetchedAt(new Date());
+      setLoadError(null);
     } catch (e) {
+      setLoadError(e.message);
       toast.error("Could not read logs: " + e.message);
     }
     setBusy(false);
@@ -1171,6 +1274,8 @@ function changeSince(v) {
 
   return (
     <div>
+      {loadError && <LoadError message={loadError} onRetry={load} busy={busy} />}
+
       {crashing && !previous && (
         <Banner tone="info">
           This pod has restarted. Turn on <strong>previous container</strong> to
@@ -1235,7 +1340,7 @@ function changeSince(v) {
           <LineCountControl value={lineCount} onChange={changeLineCount} disabled={busy} />
         </div>
 
-        <div className="btn btn-secondary" onClick={(e) => setPrevious(!previous)} style={{ height:"2.5rem" }}><ToggleSwitch checked={previous} label="Previous container"  onChange={(e) => setPrevious(e.target.checked)} btnContainer = {true}/></div>
+        <div className="btn btn-secondary" onClick={() => setPrevious(!previous)} style={{ height:"2.5rem" }}><ToggleSwitch checked={previous} label="Previous container"  onChange={(e) => setPrevious(e.target.checked)} btnContainer = {true}/></div>
 
         <button
           className="btn btn-secondary"
@@ -1391,6 +1496,11 @@ export default function KubernetesInsight({ cluster }) {
   const [permissions, setPermissions] = useState(null);
   const [busy, setBusy] = useState(false);
   const [logsPod, setLogsPod] = useState(null);
+  // Per tab: the time of the last good read, and the message of the last failed read.
+  const [fetchedAt, setFetchedAt] = useState({});
+  const [loadErrors, setLoadErrors] = useState({});
+  // Refresh increments this, so the open tab reads again.
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const load = useCallback(
     async (which) => {
@@ -1398,7 +1508,10 @@ export default function KubernetesInsight({ cluster }) {
       try {
         const r = await apiFetch(`/api/k8s/insight/${cluster.id}/${which}`);
         setData((p) => ({ ...p, [which]: r }));
+        setFetchedAt((p) => ({ ...p, [which]: new Date() }));
+        setLoadErrors((p) => ({ ...p, [which]: null }));
       } catch (e) {
+        setLoadErrors((p) => ({ ...p, [which]: e.message }));
         toast.error(e.message);
       }
       setBusy(false);
@@ -1411,7 +1524,8 @@ export default function KubernetesInsight({ cluster }) {
     // Logs and the event-to-log links need the pod list from topology.
     if ((tab === "logs" || tab === "events") && !data.topology) load("topology");
     // `data` is deliberately not a dependency: including it would refetch on every state
-  }, [tab, load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
+  }, [tab, load, refreshCount]);
 
   useEffect(() => {
     apiFetch(`/api/k8s/insight/${cluster.id}/permissions`)
@@ -1433,6 +1547,9 @@ export default function KubernetesInsight({ cluster }) {
         body: {},
       });
       setData({});
+      setFetchedAt({});
+      setLoadErrors({});
+      setRefreshCount((count) => count + 1);
       toast.success("Refreshed.");
     } catch (e) {
       toast.error(e.message);
@@ -1487,11 +1604,25 @@ export default function KubernetesInsight({ cluster }) {
 
       {busy && <div style={{ ...muted, fontSize: 13 }}>Loading...</div>}
 
+      {/* Logs shows its own read time and error. It needs the pod list from topology. */}
+      {tab !== "logs" && loadErrors[tab] && (
+        <LoadError message={loadErrors[tab]} onRetry={() => load(tab)} busy={busy} />
+      )}
+      {tab === "logs" && loadErrors.topology && (
+        <LoadError
+          message={`The pod list could not be read. ${loadErrors.topology}`}
+          onRetry={() => load("topology")}
+          busy={busy}
+        />
+      )}
+      {tab !== "logs" && <ReadAtLine fetchedAt={fetchedAt[tab]} />}
+
       {tab === "health" && (
         <HealthTab data={data.health} clusterName={cluster.name} clusterId={cluster.id} />
       )}
       {tab === "topology" && <TopologyTab data={data.topology} />}
       {tab === "reconcile" && <ReconcileTab data={data.reconcile} />}
+      {tab === "rollout" && <RolloutTab data={data.rollout} />}
       {tab === "keeper" && <KeeperTab data={data.keeper} />}
       {tab === "storage" && <StorageTab data={data.storage} />}
       {tab === "resources" && <ResourcesTab data={data.resources} />}

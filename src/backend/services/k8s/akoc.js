@@ -190,6 +190,7 @@ export function createAkocProvider(client) {
         // The single most useful field when a pod is crash-looping
         lastTerminationReason: container?.lastState?.terminated?.reason ?? null,
         lastTerminationExitCode: container?.lastState?.terminated?.exitCode ?? null,
+        waitingReason: container?.state?.waiting?.reason ?? null,
 
         image: container?.image ?? null,
         node: pod.spec?.nodeName ?? null,
@@ -365,6 +366,13 @@ export function createAkocProvider(client) {
 
   // Events and logs
 
+  // The StatefulSets of the installation, for the rollout view.
+  async function getStatefulSets(namespace, installation) {
+    return client.listAll(paths.statefulSets(namespace), {
+      query: { labelSelector: selectors.ownedByInstallation(installation) },
+    });
+  }
+
   async function getEvents(namespace, installation) {
     const events = await client.listAll(paths.events(namespace));
     // Events do not carry the operator's labels
@@ -503,6 +511,7 @@ export function createAkocProvider(client) {
     getStorage,
     getNetwork,
     getEvents,
+    getStatefulSets,
     streamLogs,
     getNodeZones,
     getOperatorPod,

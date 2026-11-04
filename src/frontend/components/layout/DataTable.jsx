@@ -3,12 +3,11 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, {
+import {
   useState,
   useEffect,
   useRef,
   useMemo,
-  useCallback,
 } from "react";
 import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -389,10 +388,8 @@ export default function DataTable({
     return () => document.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
-  const renderRow = useCallback((row, ri) => row, []);
-
   // Primitive cell click: preserve existing behavior (toggle wrap + copy/toast).
-  function handlePrimitiveClick(cellKey, value) {
+  function handlePrimitiveClick(cellKey) {
     setExpandedCells((prev) => {
       const n = new Set(prev);
       n.has(cellKey) ? n.delete(cellKey) : n.add(cellKey);
@@ -611,7 +608,7 @@ export default function DataTable({
                     className={`${expandedCells.has(key) ? "expanded" : ""} ${
                       selectedCell === key ? "cell-selected" : ""
                     }`}
-                    onClick={() => handlePrimitiveClick(key, val)}
+                    onClick={() => handlePrimitiveClick(key)}
                     onDoubleClick={() => {
                       typeof onCellClick === "function" && onCellClick(val);
                     }}

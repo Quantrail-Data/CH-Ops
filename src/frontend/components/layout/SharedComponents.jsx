@@ -7,7 +7,6 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React from 'react';
 import Icon from "../common/Icon.jsx";
 
 export function SqlPreview({ sql }) {

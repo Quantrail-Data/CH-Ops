@@ -148,8 +148,9 @@ The account may **read** these objects:
   the account gets them only without `-n`
 - The operator pods and their logs in the operator namespace, only with `-o`
 
-It may **not** create, update, patch or delete anything, and it cannot read
-Secrets. Kubernetes enforces that, not CHOps.
+It may **not** create, update, patch or delete anything, except a
+SelfSubjectRulesReview, which only asks Kubernetes what the token may do. It
+cannot read Secrets. Kubernetes enforces that, not CHOps.
 
 ### Script options
 
@@ -370,9 +371,11 @@ namespace. It works only after CHOps saves the connection. To use it, go back to
 step 1, select the saved connection, and select **Probe**. The token needs the
 `-o` grant for that namespace.
 
-With a token from `-n`, the test can fail because the token cannot list
-namespaces. This is expected. Select **Continue** and type the namespace in
-step 2.
+With a token from `-n`, the test in this step can fail because the token
+cannot list namespaces. This is expected. Select **Continue** and type the
+namespace in step 2. When a namespace is already set, for example when you come
+back to this step, the test passes and shows "Connected. This token cannot list
+namespaces, so you will need to type the namespace name."
 
 ### Step 2 of 4: Installation
 

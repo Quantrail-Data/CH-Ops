@@ -12,7 +12,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -272,6 +272,7 @@ function ScrollBarChart({ title, rows, labelKey, valueKey, rowHeight = 32, viewH
     chartRef.current = chart;
     chart.setOption(scrollBarOption(rows, labelKey, valueKey), true);
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
     return () => { disposeChart(containerRef.current); chartRef.current = null; };
   }, [rows, labelKey, valueKey, innerHeight]);
 
@@ -354,6 +355,7 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
       series,
     }, true);
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
     return () => { disposeChart(containerRef.current); chartRef.current = null; };
   }, [series, names, from, to]);
 
@@ -457,7 +459,9 @@ function PlainChartCard({ title, option, height = 320 }) {
       chart.setOption(withZoomable({ ...option, toolbox: { show: false } }), true);
       setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
     return () => { disposeChart(containerRef.current); chartRef.current = null; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
   useEffect(() => {
     if (!chartRef.current || !option) return;
@@ -550,6 +554,7 @@ function TextLogOverview({unavailable}) {
 
   const trend = useMemo(
     () => buildLevelSeries(data.trend, rng.from, rng.to, rng.r),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- themeKey is here on purpose. It rebuilds the chart when the theme changes.
     [data.trend, rng.from, rng.to, rng.r, themeKey],
   );
 
@@ -690,6 +695,7 @@ function TextLogSearch({unavailable}) {
 
   useEffect(() => {
     if (q.error) toast.error(q.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [q.error]);
 
   function toggleLevel(lv) {

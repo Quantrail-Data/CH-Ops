@@ -2,7 +2,6 @@
 // Contributors - Kathirmoorthy, Kathirdhasan, Praveen
 // Copyright (C) 2026 Quantrail Data pvt Ltd
 
-import React from "react";
 import Icon from "../common/Icon.jsx";
 import {
   parseAnalyzeSummary,

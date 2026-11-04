@@ -292,7 +292,7 @@ describe("Alert Rules: schedule check", () => {
     await typeSchedule("0 9 * * 7");
     expect(
       screen.getByText(
-        "day-of-week must be a number from 0 to 6, or a comma list of numbers: 7",
+        "CRON ERROR : day-of-week must be a number from 0 to 6, or a comma list of numbers: 7",
       ),
     ).toBeInTheDocument();
   });

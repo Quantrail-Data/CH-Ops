@@ -6,13 +6,13 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 let embeddedAssets = null;
 try {
   const mod = await import("./embeddedAssets.js");
   embeddedAssets = mod.default;
-} catch {}
+} catch {
+  // No embedded assets in development. Serve files from disk.
+}
 
 // let RD_SERVICE = null;
 // try {
@@ -56,7 +56,6 @@ import exportRoute, { downloadRouter } from "./routes/export.js";
 import {
   initExportStorage,
   startExportSweeper,
-  cancelJobsForUser,
   cancelJobsForJti,
 } from "./services/exportJobs.js";
 import ForgetRouter from "./routes/forgetPassword.js";
@@ -86,18 +85,18 @@ try {
 }
 
 initCrypto(env.encryptionSecret);
-// Secrets that older versions stored in plain text are encrypted in place.
-encryptLegacySecrets();
-encryptStoredSigningKeys();
 
-const { encryptionSecret: _dropEncryptionSecret, ...envForRequests } = env;
+const envForRequests = { ...env };
+delete envForRequests.encryptionSecret;
 env = envForRequests;
 
 onRevoke(clearCredSessionByJti);
 onRevoke((jti) => {
   try {
     cancelJobsForJti(jti);
-  } catch {}
+  } catch {
+    // The export is already finished or gone.
+  }
 });
 
 pruneExpired();
@@ -111,7 +110,9 @@ try {
   if (generated.APP_VERSION) appVersion.version = generated.APP_VERSION;
   if (generated.VERSION_INFO)
     appVersion = { ...generated.VERSION_INFO, ...appVersion };
-} catch {}
+} catch {
+  // No generated version file. Keep the default version.
+}
 
 try {
   await import("./db/migrate.js");
@@ -124,6 +125,11 @@ try {
 }
 
 log.info("Database ready (Drizzle ORM + bun:sqlite)");
+
+// Secrets that older versions stored in plain text are encrypted in place.
+// This runs after the migration, because the migration makes the tables.
+encryptLegacySecrets();
+encryptStoredSigningKeys();
 
 import { assertDatabaseReadable } from "./db/index.js";
 import { migrateClusterData, getAllClusters } from "./services/clusterUtils.js";

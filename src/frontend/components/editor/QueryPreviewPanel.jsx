@@ -2,7 +2,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { materialize } from "../../../shared/sqlParams.js";
 import SqlEditor from "./SqlEditor.jsx";
 

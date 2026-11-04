@@ -14,7 +14,6 @@ import Icon from "../common/Icon.jsx";
 import {
   ReactFlow,
   Controls,
-  MiniMap,
   Background,
   Handle,
   Position,
@@ -36,7 +35,6 @@ import {
   formatBytes,
   formatNum,
   formatDuration,
-  DEFAULT_WHERE,
   DEFAULT_KIND,
   DEFAULT_TYPE,
   defaultTimeRange,
@@ -333,6 +331,7 @@ function ProcessorsProfileInner() {
   }, []);
 
   // Load pipeline for selected query
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const loadPipeline = async (queryId) => {
     const gen = ++generationRef.current;
     const isStale = () => gen !== generationRef.current || !mountedRef.current;
@@ -348,7 +347,9 @@ function ProcessorsProfileInner() {
       if (qidFromUrl) {
         try {
           await runQuery("SYSTEM FLUSH LOGS");
-        } catch {}
+        } catch {
+          // Flushing the logs is optional.
+        }
       }
       // Step 1: Fetch query text
       const textResult = await runQuery(buildQueryTextSql(queryId));
@@ -366,7 +367,9 @@ function ProcessorsProfileInner() {
       // Step 2: Flush logs (best-effort, non-fatal)
       try {
         await runQuery("SYSTEM FLUSH LOGS");
-      } catch {}
+      } catch {
+        // Flushing the logs is optional.
+      }
       if (isStale()) return;
 
       // Step 3: EXPLAIN PIPELINE graph

@@ -15,8 +15,7 @@ import { getConfig } from './appConfig.js';
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
 
 // A host must be absent from this many consecutive successful refreshes before it is removed.
-
-const MISSES_BEFORE_REMOVAL = getConfig('k8s.missesBeforeRemoval') ?? 3;
+const DEFAULT_MISSES_BEFORE_REMOVAL = 3;
 
 // Retries when the version check fails, meaning somebody wrote in between.
 const MAX_VERSION_RETRIES = 3;
@@ -116,7 +115,7 @@ export async function refreshOne(cluster) {
     return result;
   }
 
-  const removed = pruneMissingHosts(cluster.id);
+  const removed = pruneMissingHosts(cluster.id, getConfig('k8s.syncIntervalMs') ?? DEFAULT_INTERVAL_MS);
 
   const result = {
     clusterId: cluster.id,
@@ -131,14 +130,16 @@ export async function refreshOne(cluster) {
 }
 
 // Remove hosts that have been absent from several consecutive refreshes.
+// The setting is read on each call, so a change on App Config needs no restart.
 export function pruneMissingHosts(clusterId, intervalMs = DEFAULT_INTERVAL_MS) {
-  const cutoff = new Date(Date.now() - MISSES_BEFORE_REMOVAL * intervalMs).toISOString();
+  const missesBeforeRemoval = getConfig('k8s.missesBeforeRemoval') ?? DEFAULT_MISSES_BEFORE_REMOVAL;
+  const cutoff = new Date(Date.now() - missesBeforeRemoval * intervalMs).toISOString();
   const stale = findStaleNodes(clusterId, cutoff);
   if (!stale.length) return 0;
 
   removeNodes(clusterId, stale.map((n) => n.id));
   log?.info?.(
-    `k8s sync: removed ${stale.length} host(s) from ${clusterId} after ${getConfig('k8s.missesBeforeRemoval')} missed refreshes`,
+    `k8s sync: removed ${stale.length} host(s) from ${clusterId} after ${missesBeforeRemoval} missed refreshes`,
   );
   return stale.length;
 }

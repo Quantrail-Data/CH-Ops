@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Real-time monitoring dashboard for tracking heap allocation, memory leaks, and buffer pool consumption.
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import ChartCard from "../layout/ChartCard.jsx";
@@ -39,13 +39,6 @@ const ml = (field) =>
   `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(${field}) FROM merge('system', '^metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
 const aml = (metric, agg = "avg") =>
   `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-// Per-hostname variants
-const mlh = (field) =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, avg(${field}) FROM merge('system', '^metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to GROUP BY t, hostname ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-const amlh = (metric, agg = "avg") =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY t, hostname ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-const amlhAll = (metric, agg = "avg") =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY ALL ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
 
 export const TABS = [
   {
@@ -559,8 +552,6 @@ export const TABS = [
   },
 ];
 
-const ALL_CHARTS = TABS.flatMap((t) => t.charts);
-
 // ECharts renders to canvas and does NOT understand CSS custom properties:
 // passing "var(--text-primary)" as a colour yields black in every theme. So we
 // resolve CSS variables to their concrete computed value at option-build time.
@@ -771,7 +762,6 @@ export default function MonitoringDashboards() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [fetchErrors, setFetchErrors] = useState(0);
-  const [error, setError] = useState("");
   const [results, setResults] = useState({});
   const [activeTab, setActiveTab] = useState(routeTab);
   const [loadedTabs, setLoadedTabs] = useState(new Set());
@@ -798,6 +788,7 @@ export default function MonitoringDashboards() {
     if (routeTab !== activeTab && TABS.some((t) => t.id === routeTab)) {
       setActiveTab(routeTab);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [routeTab]);
 
   // Watch for light/dark theme changes and force charts to re-read colours.

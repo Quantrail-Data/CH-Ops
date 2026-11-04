@@ -125,7 +125,9 @@ export async function executeQuery({
   try {
     const summaryHeader = res.headers.get("X-ClickHouse-Summary");
     if (summaryHeader) stats = JSON.parse(summaryHeader);
-  } catch {}
+  } catch {
+    // The summary header is optional.
+  }
 
   // The query ID assigned by ClickHouse for this execution.
   // Frontend uses this to link to profiling tools (flame graph, pipeline, metrics).

@@ -2,7 +2,6 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React from "react";
 import Select from "./Select.jsx";
 import { isTemporal, isNumeric, enumMembers } from "../../../shared/sqlParams.js";
 

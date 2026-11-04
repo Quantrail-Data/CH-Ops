@@ -4,6 +4,7 @@ import { appSettings } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { decrypt, encrypt } from "../services/crypto";
 import { requireAdmin } from "../controllers/users.js";
+import { storageFromProfile, connectionTestSql } from "../../shared/backupSql.js";
 
 const router = Router();
 
@@ -14,6 +15,8 @@ function sqlText(value) {
 
 // The query that the Test button runs. One "/" joins the endpoint and the bucket.
 export function testingSQLQueryCMD(profile) {
+  // An Azure test reads a file from the container. "Not found" means the container is reachable.
+  if (profile.type === "azure") return connectionTestSql(storageFromProfile(profile));
   if (profile.type !== "s3" && profile.type !== "gcs") return "SELECT 1";
   let endpoint = "https://storage.googleapis.com";
   if (profile.type === "s3") {

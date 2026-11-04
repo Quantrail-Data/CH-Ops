@@ -69,7 +69,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     setMaxRowsState(v);
     try {
       localStorage.setItem(MAX_ROWS_KEY, String(v));
-    } catch {}
+    } catch {
+      // The browser can block storage. Continue without it.
+    }
   }
 
   const [chartType, setChartType] = useState("bar");
@@ -183,6 +185,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
   const subtypeInfo = typeInfo?.subtypes.find(
     (s) => s.subtype === chartSubtype,
   );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || false;
   const hasMultipleSubtypes = (typeInfo?.subtypes?.length || 0) > 1;
@@ -203,6 +206,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       setYLabel(d.yLabel);
       setShowLegend(shouldShowLegend);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [chartType, chartSubtype, shouldShowLegend]);
 
   async function runSql() {
@@ -308,7 +312,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     if (el) {
       try {
         disposeChart(el);
-      } catch (e) {
+      } catch {
+        // The chart is already gone.
       }
     }
   };
@@ -343,6 +348,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     } catch (err) {
       setChartOption({ _error: true, message: err?.message || String(err) });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [
     data,
     mapping,
@@ -373,7 +379,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       if (el) {
         try {
           disposeChart(el);
-        } catch (e) {
+        } catch {
+          // The chart is already gone.
         }
       }
       return;
@@ -410,7 +417,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             if (!(instance.isDisposed && instance.isDisposed())) {
               instance.dispose();
             }
-          } catch (e) {
+          } catch {
+            // The chart is already gone.
           }
         }
         try {
@@ -715,6 +723,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         const tooltipMaxHeight = previewTools.fullscreen ? 320 : 240;
         const tooltipExtraCss = `max-height: ${tooltipMaxHeight}px; overflow: auto; -webkit-overflow-scrolling: touch; width: ${tooltipWidth}px; pointer-events: auto;`;
 
+        // eslint-disable-next-line no-unused-vars -- tests/frontend/chart-builder-preview.test.js checks this code text.
         const splitLineStyle = {
           show: true,
           lineStyle: {
@@ -725,6 +734,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           },
         };
 
+        // eslint-disable-next-line no-unused-vars -- tests/frontend/chart-builder-preview.test.js checks this code text.
         const splitLineStyleSubtle = {
           show: true,
           lineStyle: {
@@ -1484,7 +1494,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           if (previewInst.current && !previewInst.current.isDisposed?.()) {
             try {
               previewInst.current.resize();
-            } catch (e) {
+            } catch {
+              // The chart is already gone. Skip the resize.
             }
           }
         }, 50);
@@ -1499,6 +1510,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
         initTimerRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [chartOption, previewTools.fullscreen, isSmallScreen, showLegend, theme, shouldShowLegend]);
 
   useEffect(() => {
@@ -1513,7 +1525,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       if (previewInst.current && !previewInst.current.isDisposed?.()) {
         try {
           previewInst.current.resize();
-        } catch (e) {
+        } catch {
+          // The chart is already gone. Skip the resize.
         }
       }
     }, 150);
@@ -1617,10 +1630,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 )
             );
           }
-        } catch {}
+        } catch {
+          // Removing the old copies is optional.
+        }
 
         toast.success("Chart updated.");
-        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
+        try { window.dispatchEvent(new Event('charts:changed')); } catch { /* The refresh event is optional. */ }
       } else {
         const dash = dashboards.find((d) => d.id === dashId);
         const cols = dash?.columns || 2;
@@ -1651,7 +1666,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           }),
         });
         toast.success("Chart saved to dashboard.");
-        try { window.dispatchEvent(new Event('charts:changed')); } catch {}
+        try { window.dispatchEvent(new Event('charts:changed')); } catch { /* The refresh event is optional. */ }
       }
     } catch (e) {
       toast.error(e.message);
@@ -1673,17 +1688,6 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     if (onEditDone) onEditDone();
   }
 
-  function isNumericColumn(columnName) {
-    if (!data || data.length === 0) return true;
-    return data.every(
-      (row) =>
-        !isNaN(row[columnName]) &&
-        row[columnName] !== null &&
-        row[columnName] !== "" &&
-        typeof row[columnName] !== "boolean",
-    );
-  }
-
   function changeType(t) {
     setChartType(t);
     const f = CHART_TYPES.find((x) => x.type === t)?.subtypes[0];
@@ -1692,6 +1696,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     setEditId(null);
   }
 
+  // eslint-disable-next-line no-unused-vars -- tests/frontend/chart-builder-preview.test.js checks this code text.
   function zoomIn() {
     if (previewInst.current && !previewInst.current.isDisposed?.()) {
       previewInst.current.dispatchAction({
@@ -1729,6 +1734,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
     }
   }
 
+  // eslint-disable-next-line no-unused-vars -- tests/frontend/chart-builder-preview.test.js checks this code text.
   function zoomOut() {
     if (previewInst.current && !previewInst.current.isDisposed?.()) {
       const option = previewInst.current.getOption();
@@ -1766,15 +1772,18 @@ export default function ChartBuilder({ editChart, onEditDone }) {
       if (!stored) return;
       try {
         inst.setOption(stored, { notMerge: false, lazyUpdate: false, silent: false });
-      } catch (e) {
+      } catch {
+        // The chart is already gone. Keep the current view.
       }
       try {
         inst.dispatchAction({ type: isSunburstNow ? "sunburstRootToNode" : "treemapRootToNode" });
-      } catch (e) {
+      } catch {
+        // The chart is already gone. Keep the current view.
       }
       try {
         inst.resize();
-      } catch (e) {
+      } catch {
+        // The chart is already gone. Skip the resize.
       }
       return;
     }
@@ -1854,7 +1863,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           offscreenInst.dispatchAction({
             type: isSunburstNow ? "sunburstRootToNode" : "treemapRootToNode",
           });
-        } catch (e) {
+        } catch {
+          // The chart is already gone. Keep the current view.
         }
       }
 
@@ -1869,7 +1879,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
             excludeComponents: ["toolbox"],
           });
-        } catch (e) {
+        } catch {
           dataURL = null;
         }
 
@@ -1881,7 +1891,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-          } catch (e) {
+          } catch {
+            // The download failed. Do not stop the page.
           }
         }
 
@@ -1889,13 +1900,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           if (offscreenInst && !offscreenInst.isDisposed?.()) {
             offscreenInst.dispose();
           }
-        } catch (e) {
+        } catch {
+          // The chart is already gone.
         }
         try {
           if (container && container.parentNode) {
             container.parentNode.removeChild(container);
           }
-        } catch (e) {
+        } catch {
+          // The container is already gone.
         }
       };
 
@@ -1904,18 +1917,20 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           setTimeout(finish, 150);
         });
       });
-    } catch (e) {
+    } catch {
       try {
         if (offscreenInst && !offscreenInst.isDisposed?.()) {
           offscreenInst.dispose();
         }
-      } catch (err) {
+      } catch {
+        // The chart is already gone.
       }
       try {
         if (container && container.parentNode) {
           container.parentNode.removeChild(container);
         }
-      } catch (err) {
+      } catch {
+        // The container is already gone.
       }
       previewTools.save();
     }

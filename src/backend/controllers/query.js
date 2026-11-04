@@ -3,7 +3,6 @@
 // Proxies frontend queries to ClickHouse with multi-cluster routing and SSRF protection via node whitelist validation.
 
 import {
-  getClusterNodes,
   resolveTargetNode as resolveNodeFromConfig,
 } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
@@ -15,6 +14,18 @@ import { decrypt } from "../services/crypto.js";
 import { db } from "../db/index.js";
 import { appSettings } from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import {
+  storageFromProfile,
+  checkBackupRequest,
+  checkScanPattern,
+  buildBackupSql,
+  makeBackupId,
+  backupTimestamp,
+  makeManifest,
+  manifestInsertSql,
+  manifestScanSql,
+  hideSecrets,
+} from "../../shared/backupSql.js";
 // Settings the client may set on a query.
 //
 // This is an allowlist, not a passthrough: setting names become URL parameters
@@ -50,39 +61,98 @@ function onlyKnownSettings(input) {
   return clean;
 }
 
-function escSql(str) {
-  return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+function readStorageProfiles() {
+  const row = db
+    .select()
+    .from(appSettings)
+    .where(eq(appSettings.key, "backup_profiles"))
+    .get();
+  try {
+    const profiles = JSON.parse(row?.value || "[]");
+    return Array.isArray(profiles) ? profiles : [];
+  } catch {
+    return [];
+  }
 }
 
-function SetterDecryptValueSP(sql, profile) {
-  if (profile?.type === "s3") {
-    let sqlConvert = (
-      sql
-        ?.replace("<endpoint>", escSql(decrypt(profile?.endpoint)))
-        ?.replace("<bucket>", profile?.bucket) + "/"
-    )
-      ?.replace("<accessKeyId>", escSql(decrypt(profile?.accessKeyId)))
-      ?.replace("<accessKey>", escSql(decrypt(profile?.accessKey)))
-      ?.replace("500/", "500")
-      ?.replace(")/", ")");
+function decryptStorageProfile(profile) {
+  return {
+    ...profile,
+    endpoint: decrypt(profile.endpoint),
+    accessKeyId: decrypt(profile.accessKeyId),
+    accessKey: decrypt(profile.accessKey),
+  };
+}
 
-    return sqlConvert;
-  } else if (profile?.type === "gcs") {
-    let sqlConvert = sql
-      ?.replace("<accessKeyId>", escSql(decrypt(profile?.accessKeyId)))
-      ?.replace("<accessKey>", escSql(decrypt(profile?.accessKey)));
-    return sqlConvert;
+// Finds a storage profile by ID and decrypts its keys.
+function findStorageProfile(profileId) {
+  const profile = readStorageProfiles().find((item) => item?.id === Number(profileId));
+  if (!profile) return null;
+  return decryptStorageProfile(profile);
+}
+
+// Removes the keys of all storage profiles from an error message.
+// The storage Test button sends SQL with keys in it, so ClickHouse can show them in an error.
+function hideStorageProfileSecrets(message) {
+  let hidden = message;
+  for (const profile of readStorageProfiles()) {
+    try {
+      hidden = hideSecrets(hidden, storageFromProfile(decryptStorageProfile(profile)));
+    } catch {
+      // A profile that cannot be decrypted has no keys to hide.
+    }
   }
-  let sqlConvert = (
-    sql
-      ?.replace("<endpoint>", "https://s3.amazonaws.com/")
-      ?.replace("<bucket>", profile?.container) + "/"
-  )
-    ?.replace("<accessKeyId>", escSql(decrypt(profile?.accessKeyId)))
-    ?.replace("<accessKey>", escSql(decrypt(profile?.accessKey)))
-    ?.replace("500/", "500")
-    ?.replace(")/", ")");
-  return sqlConvert;
+  return hideSecrets(hidden, {});
+}
+
+// Runs a backup page request. The browser sends fields, never SQL. The server
+// builds the SQL and adds the storage keys, so no other SQL can see the keys.
+async function runBackupRequest(request, connection, res) {
+  if (!request || typeof request !== "object") {
+    return res.status(400).json({ error: "Send the backup request as fields, not as SQL." });
+  }
+  let profile;
+  try {
+    profile = findStorageProfile(request.profileId);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  if (!profile) return res.status(404).json({ error: "Storage profile not found." });
+  const storage = storageFromProfile(profile);
+
+  let sql;
+  let clean = null;
+  let backupId = null;
+  try {
+    if (request.action === "list") {
+      sql = manifestScanSql(storage, checkScanPattern(request.pattern));
+    } else {
+      clean = checkBackupRequest(request);
+      backupId =
+        clean.action === "backup"
+          ? makeBackupId(clean.scope, clean.database, clean.table, backupTimestamp())
+          : clean.backupId;
+      sql = buildBackupSql(clean, storage, backupId);
+    }
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  try {
+    const result = await executeQuery({ ...connection, sql });
+    if (clean?.action === "backup") {
+      result.backup_id = backupId;
+      try {
+        const manifest = makeManifest(clean, backupId, storage);
+        await executeQuery({ ...connection, sql: manifestInsertSql(storage, manifest) });
+      } catch (err) {
+        result.manifest_error = hideSecrets(err.message, storage);
+      }
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: hideSecrets(err.message, storage) });
+  }
 }
 
 export async function runQuery(req, res) {
@@ -102,7 +172,7 @@ export async function runQuery(req, res) {
   } = req.body;
 
   let { readOnly } = req.body;
-  if (!sql) return res.status(400).json({ error: "Missing SQL" });
+  if (!sql && !backup_sp) return res.status(400).json({ error: "Missing SQL" });
 
   const role = req.user?.role;
   const isAdmin = role === "admin" || role === "superadmin";
@@ -159,6 +229,20 @@ export async function runQuery(req, res) {
     resolvedPassword = password ?? targetNode.password ?? "";
   }
 
+  if (backup_sp) {
+    return runBackupRequest(
+      req.body.backup,
+      {
+        host: targetNode.host,
+        port: targetNode.port || 8123,
+        secure: !!targetNode.secure,
+        user: resolvedUser,
+        password: resolvedPassword,
+      },
+      res,
+    );
+  }
+
   try {
     // Parameters are deliberately SELECT-only. A parameterized INSERT or DDL
     // statement is not materialized here: its placeholders reach ClickHouse
@@ -168,30 +252,7 @@ export async function runQuery(req, res) {
     // wanted, this gate is the thing to widen, and the two paths should be
     // brought back into agreement at the same time.
 
-    let backup_SQL = null;
-    if (backup_sp) {
-      const [id, sqlQ] = String(sql || "").split("-//-");
-      const value = db
-        .select()
-        .from(appSettings)
-        .where(eq(appSettings?.key, "backup_profiles"))
-        .get();
-      const convertData =
-        typeof value?.value === "string"
-          ? JSON.parse(value?.value)
-          : value?.value;
-
-      const find = convertData.filter((_v) => _v?.id === Number(id));
-
-      if (find?.length === 0) {
-        return res.json({ status: true });
-      }
-
-      const convertedSQL = SetterDecryptValueSP(sqlQ, find[0]);
-      backup_SQL = convertedSQL;
-    }
-
-    const kw = leadingKeyword(sp ? decrypt(sql) : backup_sp ? backup_SQL : sql);
+    const kw = leadingKeyword(sp ? decrypt(sql) : sql);
     const rowReturning = [
       "SELECT",
       "WITH",
@@ -202,7 +263,7 @@ export async function runQuery(req, res) {
       "EXISTS",
     ].includes(kw);
 
-    let finalSql = sp ? decrypt(sql) : backup_sp ? backup_SQL : sql;
+    let finalSql = sp ? decrypt(sql) : sql;
 
     if (readOnly && !isReadOnlySql(finalSql)) {
       return res.status(400).json({
@@ -215,7 +276,7 @@ export async function runQuery(req, res) {
     if (rowReturning) {
       try {
         const m = materialize(
-          sp ? decrypt(sql) : backup_sp ? backup_SQL : sql,
+          sp ? decrypt(sql) : sql,
           params || {},
         );
         finalSql = m.sql;
@@ -254,7 +315,8 @@ export async function runQuery(req, res) {
 
     res.json(result);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    const message = sp ? hideStorageProfileSecrets(err.message) : err.message;
+    res.status(400).json({ error: message });
   }
 }
 

@@ -13,7 +13,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 // Anchor the panel to the control, flipping above it when there is little room
@@ -59,6 +59,7 @@ export default function SelectMenu({overwriteStyle=false,
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [open, anchorRef, onRequestClose]);
 
   if (!open || !style) return null;

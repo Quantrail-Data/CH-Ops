@@ -9,7 +9,11 @@ import {
   alertChannels,
   alertRuleChannels,
 } from "../db/index.js";
-import { testChannel as testChannelService } from "../services/notifier.js";
+import {
+  testChannel as testChannelService,
+  validateWebhookUrl,
+  CHANNEL_TYPES,
+} from "../services/notifier.js";
 import {
   notifyBeforeRuleDisabled,
   validateCronExpression,
@@ -21,6 +25,7 @@ import { ALERT_TEMPLATES } from "../services/alertTemplates.js";
 import { alertEvents, alertRuleNodeStates } from "../db/schema.js";
 import { selectRuleNodes } from "../services/alertNodeStates.js";
 import { decrypt, encrypt } from "../services/crypto.js";
+import { log } from "../services/logger.js";
 
 const _DEFAULTPASSWORDVALUE = "*"?.repeat(15);
 
@@ -313,7 +318,6 @@ function requestChangesRule(currentRule, body, currentChannelIds) {
 export async function updateRule(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
-    const { schedule } = req?.body || {};
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ error: "Invalid alert rule ID" });
     }
@@ -364,13 +368,10 @@ export async function updateRule(req, res) {
       }
     }
 
-    if (
+    const turnsOffFiringRule =
       req.body.enabled === false &&
       currentRule.enabled &&
-      currentRule.lastState === "firing"
-    ) {
-      await notifyBeforeRuleDisabled(id);
-    }
+      currentRule.lastState === "firing";
 
     if (req.body.enabled !== undefined) {
       updates.enabled = req.body.enabled;
@@ -403,6 +404,16 @@ export async function updateRule(req, res) {
           })
           .run();
       }
+    }
+
+    // The "resolved" and "recovered" messages go out in the background. The answer does not wait for them.
+    if (turnsOffFiringRule) {
+      notifyBeforeRuleDisabled(id).catch((error) =>
+        log.error("Alert rule off: notification failed", {
+          ruleId: id,
+          error: error.message,
+        }),
+      );
     }
 
     const rule = db
@@ -537,7 +548,37 @@ export function listChannels(req, res) {
   );
 }
 
-export function createChannel(req, res) {
+function unknownTypeError(type) {
+  return `Unknown channel type: ${type}. Use one of: ${CHANNEL_TYPES.join(", ")}.`;
+}
+
+function parseConfig(config) {
+  if (!config) return {};
+  try {
+    return typeof config === "string" ? JSON.parse(config) : config;
+  } catch {
+    return {};
+  }
+}
+
+// Checks the webhook URL of a Google Chat or Teams channel before it is saved.
+// A masked URL is the stored URL, so it is not checked again here. The send checks it.
+async function checkChannelWebhook(type, config) {
+  if (type !== "google_chat" && type !== "teams") return;
+  const webhookUrl = parseConfig(config).webhook_url;
+  if (webhookUrl === undefined || webhookUrl === _DEFAULTPASSWORDVALUE) return;
+  await validateWebhookUrl(webhookUrl, { allowUnresolvedName: true });
+}
+
+export async function createChannel(req, res) {
+  if (!CHANNEL_TYPES.includes(req.body?.type)) {
+    return res.status(400).json({ error: unknownTypeError(req.body?.type) });
+  }
+  try {
+    await checkChannelWebhook(req.body.type, req.body.config);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
   try {
     const _encryptValue = EncryptValuesChannels(req);
     const result = db
@@ -556,7 +597,10 @@ export function createChannel(req, res) {
   }
 }
 
-export function updateChannel(req, res) {
+export async function updateChannel(req, res) {
+  if (req.body?.type !== undefined && !CHANNEL_TYPES.includes(req.body.type)) {
+    return res.status(400).json({ error: unknownTypeError(req.body.type) });
+  }
   try {
     const id = parseInt(req.params.id, 10);
     const existing = db
@@ -565,6 +609,14 @@ export function updateChannel(req, res) {
       .where(eq(alertChannels.id, id))
       .get();
     if (!existing) return res.status(404).json({ error: "Not found" });
+
+    if (req.body.config !== undefined) {
+      try {
+        await checkChannelWebhook(req.body.type ?? existing.type, req.body.config);
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
+    }
 
     const updates = {};
     if (req.body.name !== undefined) updates.name = req.body.name;
@@ -649,7 +701,9 @@ export async function testChannel(req, res) {
           })
           .where(eq(alertChannels.id, id))
           .run();
-      } catch {}
+      } catch {
+        // Saving the channel status is optional.
+      }
     }
     res.json({ ok: false, error: err.message });
   }

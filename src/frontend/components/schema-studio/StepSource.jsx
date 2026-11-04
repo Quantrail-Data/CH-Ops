@@ -8,7 +8,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import { inferFromFile, inferFromObject } from "../../utils/studioApi.js";

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/index";
 import { appUsers } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { issueOTP, verifyOTP, redeemResetToken } from "../services/OTPservice";
 import { log } from "../services/logger.js";
 import { loadEnv } from "../utils/env";
@@ -10,7 +10,8 @@ import { resolveSystemSmtp } from "../services/systemSmtp.js";
 
 const router = Router();
 
-const env = loadEnv();
+// Stop at startup when a required env value is missing.
+loadEnv();
 
 const GENERIC = {
   success: true,
@@ -87,7 +88,7 @@ router.post("/otp/verify", (req, res) => {
 router.post("/change/password", async (req, res) => {
   try {
     const { resetToken, password } = req.body || {};
-    if (!resetToken || !password)
+    if (!resetToken || !password || typeof password !== "string")
       return res.status(400).json({
         success: false,
         message: "Reset token and password are required.",
@@ -115,9 +116,13 @@ router.post("/change/password", async (req, res) => {
     const newHash = await hashPassword(password);
 
     // By primary key. The old query was WHERE email = ?, which rewrites every
-    // row sharing that address.
+    // row sharing that address. A new token version ends all old sessions.
     db.update(appUsers)
-      .set({ passwordHash: newHash, mustChangePassword: false })
+      .set({
+        passwordHash: newHash,
+        mustChangePassword: false,
+        tokenVersion: sql`${appUsers.tokenVersion} + 1`,
+      })
       .where(eq(appUsers.id, userId))
       .run();
 

@@ -21,7 +21,8 @@ sqlite.exec(`CREATE TABLE app_user (
   created_at TEXT,
   updated_at TEXT,
   password_setup_token_hash TEXT,
-  password_setup_token_expires_at TEXT
+  password_setup_token_expires_at TEXT,
+  token_version INTEGER NOT NULL DEFAULT 0
 );`);
 const testDb = drizzle(sqlite, { schema });
 

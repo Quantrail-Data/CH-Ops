@@ -262,7 +262,8 @@ export function useQueryTabs() {
         return (next[idx] || next[idx - 1] || next[0]).id;
       });
       setRuntimeAll((r) => {
-        const { [id]: _gone, ...rest } = r;
+        const rest = { ...r };
+        delete rest[id];
         return rest;
       });
       return next;

@@ -2,7 +2,7 @@
 // Shared ON CLUSTER guidance and session affinity warning for the RBAC screens.
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useConnection } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 

@@ -2,7 +2,7 @@
 // Contributors - Praveen kumar, Kathir Moorthy, Kathirdhasan
 // Inline SQL editor embedded within the chat interface for modifying and executing AI-generated queries.
 
-import React, { useState } from "react";
+import { useState } from "react";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -19,7 +19,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
   // const { replaceChat } = useQuriozChatContext();
   const [isLoading, setIsLoading] = useState(false);
   const [isCopy, setIsCopy] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
+  const [isRunning] = useState(false);
 
   const {theme} = useTheme()
 
@@ -94,7 +94,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
             }),
       };
 
-      const res = await apiFetch(
+      await apiFetch(
         `/api/ai/chats/${editingSql?.chatId}/messages/${editingSql?.messageId}`,
         {
           method: "PATCH",

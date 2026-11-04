@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Tracks, coordinates, and executes distributed DDL queries across multiple cluster nodes simultaneously.
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import Icon from "../common/Icon.jsx";
 import { useQuery } from '../../hooks/useQuery.js';
 import { StatCard } from '../layout/SharedComponents.jsx';
@@ -29,6 +29,7 @@ export default function DistributedDDL() {
       ddlFailedQ.execute("SELECT count() AS cnt FROM system.distributed_ddl_queue WHERE exception_text!=''"),
       ddlSlowQ.execute("SELECT cluster, query, query_create_time, query_duration_ms/1000 AS query_duration_seconds, status FROM system.distributed_ddl_queue WHERE status!='Finished' ORDER BY status"),
     ]).finally(() => { ddlRefreshing.current = false; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   const loadReadonly = useCallback(() => {
@@ -37,6 +38,7 @@ export default function DistributedDDL() {
     readonlyQ.execute("SELECT database, table, is_readonly, absolute_delay, zookeeper_exception FROM system.replicas WHERE is_readonly=1")
       .catch(() => {})
       .finally(() => { roRefreshing.current = false; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export default function DistributedDDL() {
     const ddlInterval = setInterval(loadDDL, 10000);
     const roInterval = setInterval(loadReadonly, 30000);
     return () => { clearInterval(ddlInterval); clearInterval(roInterval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   const medianVal = ddlMedianQ.data?.[0]?.val;

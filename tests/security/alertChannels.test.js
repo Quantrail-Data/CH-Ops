@@ -299,3 +299,33 @@ describe("editing a channel (C4)", () => {
     expect(result.status).toBe(404);
   });
 });
+describe("checks when a channel is saved (O5, O6)", () => {
+  it("refuses an unknown channel type on create and on update", async () => {
+    const created = await app.api("superadmin", "POST", "/api/alerts/channels", {
+      name: "unknown-type",
+      type: "sms",
+      config: {},
+    });
+    expect(created.status).toBe(400);
+    const updated = await app.api("superadmin", "PUT", `/api/alerts/channels/${channelIds.slack}`, {
+      type: "sms",
+    });
+    expect(updated.status).toBe(400);
+  });
+
+  it("refuses a webhook URL on a loopback or private address", async () => {
+    for (const webhookUrl of ["https://[::1]/hook", "https://10.0.0.5/hook", "https://100.64.0.1/hook"]) {
+      const created = await app.api("superadmin", "POST", "/api/alerts/channels", {
+        name: "private-webhook",
+        type: "teams",
+        config: { webhook_url: webhookUrl },
+      });
+      expect([webhookUrl, created.status]).toEqual([webhookUrl, 400]);
+    }
+    const updated = await app.api("superadmin", "PUT", `/api/alerts/channels/${channelIds.teams}`, {
+      type: "teams",
+      config: { webhook_url: "https://[fd00::1]/hook" },
+    });
+    expect(updated.status).toBe(400);
+  });
+});

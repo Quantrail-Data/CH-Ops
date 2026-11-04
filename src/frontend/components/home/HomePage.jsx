@@ -1,6 +1,5 @@
 // HomePage.jsx - Landing page after login. Each card opens one part of theapp.
 // Copyright (C) 2026 Quantrail Data Private Limited
-import React from "react";
 import { Link } from "react-router-dom";
 import Icon from "../common/Icon.jsx";
 import { useAuth } from "../../App.jsx";

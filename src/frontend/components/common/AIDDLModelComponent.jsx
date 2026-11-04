@@ -23,7 +23,6 @@ function AIDDLModelComponent({
     isDisableSelectDb,
     isSelectTable,
     selectDBGenerateID,
-    responseBodyStructTableDatabase,
 }) {
 
     const {theme} = useTheme()

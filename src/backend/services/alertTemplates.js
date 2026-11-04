@@ -212,8 +212,13 @@ WHERE event_date >= toDate(now() - INTERVAL 5 MINUTE)
     unit: "errors",
     severity: "warning",
     schedule: "*/5 * * * *",
+    // From 26.8 the metric is 'NetworkReceiveErrors' with the interface in the key column.
+    // Before 26.8 it is 'NetworkReceiveErrors_eth0'. ClickHouse can log both forms at once,
+    // so the query counts the new form when it exists, and else the old form.
     sql: `SELECT
-  sumIf(value, startsWith(metric, 'NetworkReceiveErrors') OR startsWith(metric, 'NetworkSendErrors')) AS network_errors,
+  if(countIf(metric IN ('NetworkReceiveErrors', 'NetworkSendErrors')) > 0,
+    sumIf(value, metric IN ('NetworkReceiveErrors', 'NetworkSendErrors')),
+    sumIf(value, startsWith(metric, 'NetworkReceiveErrors_') OR startsWith(metric, 'NetworkSendErrors_'))) AS network_errors,
   throwIf(count() = 0 OR isNull(network_errors) OR NOT isFinite(toFloat64(network_errors)),
     'Cannot compute network_errors: no rows in system.asynchronous_metric_log for the last 5 minutes.') AS no_data_check
 FROM system.asynchronous_metric_log

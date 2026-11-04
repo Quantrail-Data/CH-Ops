@@ -86,8 +86,6 @@ export default function ChartToolbar({
   onZoomReset,
   onSave,
   onToggleFullscreen,
-  onToggleLegend,
-  legendVisible = false,
   style,
   isWantFeature = {
     zoomFun: true,
