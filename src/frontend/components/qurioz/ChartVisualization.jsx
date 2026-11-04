@@ -102,7 +102,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,upda
         setChartId(chartData?.id)
 
       } catch (error) {
-        console.error("Failed to fetch chart data:", error);
+        console.error("Failed to fetch chart data:", error.message);
       }
     }
   };
