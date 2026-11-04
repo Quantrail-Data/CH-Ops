@@ -242,6 +242,8 @@ function MiniChart({ option, height = 360, fs, onReady }) {
   const chartRef = useRef(null);
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = ref.current;
     if (!ref.current) return;
     chartRef.current = initChart(ref.current);
     if (option) {
@@ -264,8 +266,7 @@ function MiniChart({ option, height = 360, fs, onReady }) {
     return () => {
       clearTimeout(timer);
       if (onReady) onReady(null);
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-      disposeChart(ref.current);
+      disposeChart(chartEl);
       chartRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.

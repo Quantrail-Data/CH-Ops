@@ -875,6 +875,8 @@ export default function QueryEditor({
 
   // Render ECharts tree when graphData changes
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = graphRef.current;
     if (!graphRef.current || !graphData || graphData._json) {
       if (graphInst.current) {
         disposeChart(graphRef.current);
@@ -1048,9 +1050,8 @@ export default function QueryEditor({
       console.error("Graph render error:", err.message);
     }
     return () => {
-      if (graphRef.current && graphInst.current) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-        disposeChart(graphRef.current);
+      if (chartEl && graphInst.current) {
+        disposeChart(chartEl);
         graphInst.current = null;
       }
     };
@@ -1732,8 +1733,7 @@ export default function QueryEditor({
         lastRunMetaRef.current = { written: 0 };
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
-    [editorConnected, editorCreds, activeTab, setRuntime, toast],
+    [editorConnected, editorCreds, activeTab, setRuntime, toast, serverVersion],
   );
   doRunRef.current = doRun;
 

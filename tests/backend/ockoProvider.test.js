@@ -540,3 +540,50 @@ describe("isUnmanaged", () => {
     ).toBe(false);
   });
 });
+
+describe("getOperatorPod", () => {
+  // A client that answers the pod list only for one label selector.
+  function clientWithOperatorLabel(wantedSelector) {
+    const askedSelectors = [];
+    const operatorPod = {
+      metadata: { name: "clickhouse-operator-abc", namespace: "ops" },
+      spec: { containers: [{ name: "manager" }] },
+      status: { phase: "Running" },
+    };
+    const client = {
+      listAll: async (path, options) => {
+        const selector = options?.query?.labelSelector;
+        askedSelectors.push(selector);
+        return selector === wantedSelector ? [operatorPod] : [];
+      },
+      listPage: async () => ({ items: [] }),
+      get: async () => ({}),
+      post: async () => ({}),
+      stream: async () => null,
+    };
+    return { client, askedSelectors };
+  }
+
+  it("finds the operator with the Helm chart label", async () => {
+    const { client, askedSelectors } = clientWithOperatorLabel("app.kubernetes.io/name=clickhouse-operator");
+    const pod = await createOckoProvider(client).getOperatorPod("ops");
+    expect(pod).toEqual({ podName: "clickhouse-operator-abc", namespace: "ops", container: "manager" });
+    expect(askedSelectors).toEqual(["app.kubernetes.io/name=clickhouse-operator"]);
+  });
+
+  it("tries the other labels when the Helm chart label finds no pod", async () => {
+    const { client, askedSelectors } = clientWithOperatorLabel("control-plane=controller-manager");
+    const pod = await createOckoProvider(client).getOperatorPod("ops");
+    expect(pod?.podName).toBe("clickhouse-operator-abc");
+    expect(askedSelectors).toEqual([
+      "app.kubernetes.io/name=clickhouse-operator",
+      "app=clickhouse-operator",
+      "control-plane=controller-manager",
+    ]);
+  });
+
+  it("gives null when no label finds a pod", async () => {
+    const { client } = clientWithOperatorLabel("none");
+    expect(await createOckoProvider(client).getOperatorPod("ops")).toBeNull();
+  });
+});

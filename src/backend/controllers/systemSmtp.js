@@ -111,6 +111,6 @@ export async function putSystemSmtp(req, res) {
 
 export function removeSystemSmtp(req, res) {
   deleteSystemSmtp();
-  log.info('System SMTP settings deleted, falling back to the environment');
+  log.info('System SMTP settings deleted');
   return getSystemSmtp(req, res);
 }

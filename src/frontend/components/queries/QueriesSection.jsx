@@ -421,6 +421,8 @@ function ScatterChart({ rows, title, note }) {
   const [loadingText, setLoadingText] = useState(false);
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = elRef.current;
     if (!elRef.current) return;
     chartRef.current = initChart(elRef.current);
     chartRef.current.setOption(withZoomable({ ...scatterOption(rows), toolbox: { show: false } }), true);
@@ -435,8 +437,7 @@ function ScatterChart({ rows, title, note }) {
     setTimeout(() => chartRef.current?.resize(), 50);
     return () => {
       window.removeEventListener("resize", onResize);
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-      disposeChart(elRef.current);
+      disposeChart(chartEl);
       chartRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
