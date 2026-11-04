@@ -204,7 +204,6 @@ export function updateChart(req, res) {
         .from(charts)
         .where(and(eq(charts.name, req.body.name), ne(charts.id, id)))
         .get();
-        console.log(nameConflict)
         
       if (nameConflict) {
         return res.status(400).json({ error: "A chart with this name already exists" });
