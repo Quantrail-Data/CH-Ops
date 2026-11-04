@@ -205,6 +205,7 @@ export async function updateChatMessage(
   messageId,
   message = {},
 ) {
+
   const chat = activeDb
     .select()
     .from(aiChat)
@@ -225,6 +226,28 @@ export async function updateChatMessage(
     .get();
 
   if (!existingMessage) return null;
+
+  if(message?.isUpdateChart){
+    activeDb
+    .update(aiChatMessage)
+    .set({
+      instruction:  existingMessage.instruction,
+      sql:  existingMessage?.sql,
+      responseText: existingMessage.responseText ?? null,
+      ddlSnapshot: existingMessage.ddlSnapshot ?? null,
+      ddlTruncated: existingMessage.ddlTruncated ?? false,
+      tokensEstimated: existingMessage.tokensEstimated ?? null,
+      provider: existingMessage.provider ?? null,
+      model: existingMessage.model ?? null,
+      errorCode: existingMessage.errorCode ?? null,
+      chartName:message?.chartName ?? null,
+      dashId:message?.dashId ?? null,
+    }) 
+    .where(
+      and(eq(aiChatMessage.id, messageId), eq(aiChatMessage.chatId, chat.id)),
+    )
+    .run();
+  }
 
   activeDb
     .update(aiChatMessage)

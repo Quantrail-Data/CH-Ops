@@ -78,6 +78,8 @@ const createHisMsgArr = async (messages = [], RunSqlQueryhandler) => {
           },
           error: error,
           aiError: aiError,
+          dashId:chat?.dashId ?? null,
+          chartName:chat?.chartName ?? null
         },
       ];
     }),
@@ -763,7 +765,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
 
   const loadDbs = () =>
     new Promise((res, rej) => {
-      if (!editorCreds) rej([]);
+      if (editorCreds.length !==0 ) rej([]);
       apiFetch("/api/ai/databases", { method: "GET" })
         .then((resp) => {
           res(resp?.databases);
@@ -864,6 +866,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   };
 
   const RunSqlQueryhandler = async (sql) => {
+    if(!editorConnected){
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
     try {
       if (sql) {
         const connectionOption = {
@@ -1464,6 +1470,27 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     setGenTables(setter);
   }
 
+  async function updateChart(chartName,dashId,chatId,messageId) {
+    try {
+
+      const response = await apiFetch(`/api/ai/chats/${chatId}/messages/${messageId}`
+        ,{
+          method:"PATCH",
+          body: {
+          isUpdateChart:true,
+          chartName,
+          dashId
+        },
+        }
+
+      )
+      console.log(response)
+      
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
   async function DeleteDatabaseDDLHandler(db) {
     setDBLoading({
       flag: true,
@@ -1782,11 +1809,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 <ChatRenderComponent
                   chatMessage={message}
                   key={message?.id}
-                  ToggelChart={ToggelChartHandler}
+                  ToggleChart={ToggelChartHandler}
                   RunSqlQueryhandler={RunSqlQueryhandler}
                   index={index}
                   ReFormQuestionSQLGenerating={ReFormQuestionSQLGenerating}
                   replaceChat={replaceChat}
+                  updateChart={updateChart}
                 />
               );
             })}
