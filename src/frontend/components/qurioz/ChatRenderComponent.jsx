@@ -18,11 +18,12 @@ const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
 function ChatRenderComponent({
   chatMessage,
-  ToggelChart,
+  ToggleChart,
   RunSqlQueryhandler,
   index,
   ReFormQuestionSQLGenerating,
-  replaceChat
+  replaceChat,
+  updateChart,
 }) {
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
@@ -511,7 +512,7 @@ function ChatRenderComponent({
                           ? "View the visualization"
                           : "Unable to display the chart as the data table is empty."
                       }
-                      onClick={() => ToggelChart(chatMessage)}
+                      onClick={() => ToggleChart(chatMessage)}
                       style={{ gap: "10px" }}
                       disabled={chatMessage?.tableData?.length === 0}
                     >
@@ -539,6 +540,8 @@ function ChatRenderComponent({
                           data={chatMessage?.tableData}
                           chatMessage={chatMessage}
                           replaceChat={replaceChat}
+                          updateChart={updateChart}
+                          ToggleChart={ToggleChart}
                         />
                       </motion.div>
                     )}
