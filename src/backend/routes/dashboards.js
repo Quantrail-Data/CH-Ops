@@ -9,7 +9,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { Router } from 'express';
 import { requireAdmin, requireEditor } from '../controllers/users.js';
-import { listDashboards, createDashboard, updateDashboard, deleteDashboard, getDashboardCharts, listCharts, createChart, updateChart, deleteChart } from '../controllers/dashboards.js';
+import { listDashboards, createDashboard, updateDashboard, deleteDashboard, getDashboardCharts, listCharts, createChart, updateChart, deleteChart, getchart } from '../controllers/dashboards.js';
 
 // Editors may create and edit; only admins may delete. Deleting a dashboard
 // detaches every chart on it and deleting a chart is unrecoverable, so those
@@ -22,6 +22,7 @@ router.post('/', requireEditor, createDashboard);
 router.put('/:id', requireEditor, updateDashboard);
 router.delete('/:id', requireAdmin, deleteDashboard);
 router.get('/:id/charts', getDashboardCharts);
+router.get('/:dashId/charts/:chartName', getchart);
 router.get('/charts', listCharts);
 router.post('/charts', requireEditor, createChart);
 router.put('/charts/:id', requireEditor, updateChart);
