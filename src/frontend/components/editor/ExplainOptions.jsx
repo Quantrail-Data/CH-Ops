@@ -2,7 +2,7 @@
 // Contributors - Kathirmoorthy, Kathirdhasan, Praveen
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { basicOptionsFor, advancedOptionsFor } from "./explainOptions.js";
 
 function Checkbox({ option, ticked, onToggle }) {

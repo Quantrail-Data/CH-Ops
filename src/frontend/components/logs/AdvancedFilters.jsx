@@ -1,6 +1,6 @@
 // AdvancedFilters.jsx - Extra columns and custom SQL filters for log search.
 // Copyright (C) 2026 Quantrail Data Private Limited
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import MultiSelect from "../common/MultiSelect.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";

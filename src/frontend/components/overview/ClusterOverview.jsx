@@ -3,7 +3,7 @@
 // High-level monitoring dashboard displaying the real-time status, health, and utilization of all cluster nodes.
 
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from '../../hooks/useQuery.js';
@@ -197,6 +197,7 @@ export default function ClusterOverview() {
     connections.execute(
       "SELECT metric, value FROM system.metrics WHERE metric LIKE '%Connection' ORDER BY value DESC"
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   /* Auto-refresh */

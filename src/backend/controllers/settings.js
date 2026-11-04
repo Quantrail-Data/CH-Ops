@@ -30,17 +30,14 @@ function refuseBookmarksWithoutUser(req, res, key) {
   return true;
 }
 
+// The cluster keys (clusters, cluster.nodes, clusters.storage) are not here.
+// Cluster changes go through /api/cluster, which checks them.
 const ADMIN_WRITABLE = new Set([
   "backup_profiles",
-  "clusters",
-  "cluster.nodes",
-  "clusters.storage",
   "app_backup_config",
   "k8s.enabled",
   "backup.exclude_k8s_credentials",
 ]);
-
-const PROTECTED_KEYS = ADMIN_WRITABLE;
 
 const creatingStar = () => "*"?.repeat(15);
 
@@ -83,13 +80,7 @@ function isBackupProfiler(req) {
     ?.filter((_v) => _v?.id === currentId)
     ?.map((_v) => {
       if (_v?.id === currentId) {
-        if (_v?.type !== "s3") {
-          return {
-            ..._v,
-            accessKey: encrypt(_v?.accessKey),
-            accessKeyId: encrypt(_v?.accessKeyId),
-          };
-        }
+        // Encrypt the endpoint for every storage type. An Azure endpoint can hold the account name.
         return {
           ..._v,
           endpoint: encrypt(_v?.endpoint),

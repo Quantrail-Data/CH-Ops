@@ -2,16 +2,15 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useEffect, useRef, useState, useCallback, memo } from "react";
+import { useEffect, useRef, useState, useCallback, memo } from "react";
 import { format } from "sql-formatter";
-import Select from "../common/Select.jsx";
 import SqlEditor from "./SqlEditor.jsx";
 import ComparisonMetrics from "./ComparisonMetrics.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
 import ModeSelect from "./ModeSelect.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import Icon from "../common/Icon.jsx";
-import { useConnection, useTheme } from "../../App.jsx";
+import { useConnection } from "../../App.jsx";
 import {
   runEditorQuery,
   editorConnectionStatus,
@@ -22,7 +21,6 @@ import {
   executeOne,
   loadAcWords,
 } from "../../utils/queryCompare.js";
-import { runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { apiFetch } from "../../utils/api.js";
 import AIDDLButton from "../common/AIDDLButton.jsx";
@@ -130,10 +128,8 @@ const ComparePane = memo(function ComparePane({
   estimate,
   exec,
   connected,
-  selectDb,
   selectedClusterId,
   nodeName,
-  AIdbsInfo,
   setShowDBModel,
   genTables
 }) {
@@ -145,7 +141,6 @@ const ComparePane = memo(function ComparePane({
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
 
   const [index, setIndex] = useState(0);
-  const toast = useToast();
 
   const [apikey, setApiKey] = useState({
     status: false,
@@ -153,7 +148,7 @@ const ComparePane = memo(function ComparePane({
     serviceName: null,
     model: null,
   });
-  const [apikeys, setApikeys] = useState([]);
+  const [, setApikeys] = useState([]);
 
   useEffect(() => {
     const fetchAPIKEY_Details = async () => {
@@ -167,7 +162,7 @@ const ComparePane = memo(function ComparePane({
           serviceName: apiKey?.name || null,
           model: apiKey?.model || null,
         });
-      } catch (err) {
+      } catch {
         setApiKey({
           status: false,
           id: null,
@@ -366,9 +361,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     selectedNode,
     port,
     selectedClusterId,
-    connected,
-    clusters,
-    clusterName,
     user,
     nodeName,
   } = useConnection();
@@ -785,11 +777,13 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
         isAllowForRequest: true,
       })) || [],
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Kept on purpose. Removing it would change when this runs.
   }, [mode]);
 
   useEffect(() => {
     if (!editorConnected) return;
     loadDbs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [editorConnected, selectedClusterId, selectedNode, mode]);
 
   async function selectHandler(event) {
@@ -867,7 +861,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
         setSelectDb(null);
         setAIDatabase_id(null);
       }
-    } catch (err) {
+    } catch {
       toast?.error(`Failed to load database ID. Please retry.`);
     }
   }
@@ -907,7 +901,9 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
   async function handleDisconnect() {
     try {
       await editorDisconnect();
-    } catch {}
+    } catch {
+      // Ignore a failed disconnect.
+    }
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");

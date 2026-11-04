@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Dynamically renders configured data visualizations, charts, and metrics from query results.
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import {
@@ -18,16 +18,17 @@ import DataTable from "../layout/DataTable";
 import {  useAuth } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
-function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
+function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,updateChart,ToggleChart }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
 
-  const [columns, setColumns] = useState(
+  const [columns] = useState(
     data?.length > 0 ? Object.keys(data[0]) : [],
   );
   const [chartType, setChartType] = useState("bar");
@@ -41,12 +42,12 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
     chatMessage?.chart?.chartOption || null,
   );
   const [validationErrors, setValidationErrors] = useState({});
-  const [topOpen, setTopOpen] = useState(true);
   const [dashboards,setDashboards] = useState([])
   const [selDashboard, setSelDashboard] = useState("");
   const previewRef = useRef(null);
   const previewInst = useRef(null);
   const tools = useChartTools(() => previewInst.current, { filename: "chart" });
+  const [chartId,setChartId] = useState(null)
 
   // const { replaceChat } = useQuriozChatContext();
   
@@ -57,11 +58,58 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
 
   const toast = useToast();
 
-    useEffect(() => {
+      useEffect(() => {
       apiFetch("/api/dashboards")
         .then(setDashboards)
         .catch(() => {});
     }, []);
+
+    useEffect(() => {
+  
+  const fetchChartData = async () => {
+  
+    if (chatMessage?.dashId && chatMessage?.chartName) {
+      try {
+        const response = await apiFetch(`/api/dashboards/${chatMessage?.dashId}/charts/${chatMessage?.chartName}`);
+        const chartData = response?.["0"];
+        if (!chartData) {
+          return;
+        }
+
+        let parsedConfig = {};
+        if (chartData.config) {
+          try {
+            parsedConfig = typeof chartData.config === "string" 
+              ? JSON.parse(chartData.config) 
+              : chartData.config;
+          } catch (e) {
+            console.error( e.message);
+          }
+        }
+
+        const { xLabel, yLabel, legend = showLegend, category, value } = parsedConfig;
+
+        const mapping = { category, value };
+        setChartName(chartData.name);
+        setXLabel(xLabel);
+        setYLabel(yLabel);
+        setShowLegend(legend);
+        setChartSubtype(chartData.chartSubtype);
+        setChartType(chartData.chartType)
+        setMapping(mapping)
+        setSelDashboard(Number(chatMessage?.dashId || chartData?.dashboardId))
+        setChartId(chartData?.id)
+
+      } catch (error) {
+        console.error("Failed to fetch chart data:", error.message);
+      }
+    }
+  };
+
+  fetchChartData();
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load the saved chart only when the message points to another chart, not when the legend toggles.
+}, [chatMessage?.dashId, chatMessage?.chartName]); 
 
   useEffect(() => {
     if (editChart) {
@@ -83,6 +131,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
   const subtypeInfo = typeInfo?.subtypes.find(
     (s) => s.subtype === chartSubtype,
   );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || false;
 
@@ -93,6 +142,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
       setYLabel(d.yLabel);
       setShowLegend(needsLegend(chartType, chartSubtype));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [chartType, chartSubtype]);
 
   useEffect(() => {
@@ -127,6 +177,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
         showLegend,
       }),
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [
     data,
     mapping,
@@ -138,46 +189,65 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
     showLegend,
   ]);
 
-  useEffect(() => {
-    if (!previewRef.current) return;
-    if (
-      !chartOption ||
-      chartOption._kpi ||
-      chartOption._table ||
-      chartOption._error
-    ) {
-      if (previewInst.current) {
-        previewInst.current = null;
-      }
-      return;
-    }
-    try {
-      if (!previewInst.current)
-        previewInst.current = initChart(previewRef.current);
-      previewInst.current.setOption(withZoomable({...chartOption, toolbox: { show: false }, grid: {
-      ...chartOption?.grid,
-      top: 'center',
-      left: 'center',
-      width:"80%",
-      height:"80%"
-    },}), true);
-      const updatedMessage = {
-        ...chatMessage,
-        chart: {
-          ...chatMessage?.chart,
 
-          chartOption: {
-            ...chartOption,
-            
-          },
-        },
-      };
-      replaceChat(updatedMessage);
-      setTimeout(() => previewInst.current?.resize(), 50);
-    } catch (err) {
-      setChartOption({ _error: true, message: err.message });
+useEffect(() => {
+  const element = previewRef.current;
+
+  if (!element) return;
+
+  if (
+    !chartOption ||
+    chartOption._kpi ||
+    chartOption._table ||
+    chartOption._error
+  ) {
+    previewInst.current?.clear();
+    return;
+  }
+
+  try {
+    if (
+      !previewInst.current ||
+      previewInst.current.isDisposed?.() ||
+      previewInst.current.getDom() !== element
+    ) {
+      previewInst.current?.dispose();
+      previewInst.current = initChart(element);
     }
-  }, [chartOption]);
+    previewInst.current.setOption(
+      withZoomable({
+        ...chartOption,
+        toolbox: { show: false },
+        grid: {
+          ...chartOption?.grid,
+          top: "center",
+          left: "center",
+          width: "80%",
+          height: "80%",
+        },
+      }),
+      true
+    );
+    requestAnimationFrame(() => {
+      previewInst.current?.resize();
+    });
+
+    const updatedMessage = {
+      ...chatMessage,
+      chart: {
+        ...chatMessage?.chart,
+        chartOption: { ...chartOption },
+      },
+    };
+
+    replaceChat(updatedMessage);
+
+  } catch (err) {
+    setChartOption({ _error: true, message: err.message });
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the chart option changes, as before.
+}, [chartOption]);
+
 
   useEffect(() => {
     setTimeout(() => previewInst.current?.resize(), 150);
@@ -202,8 +272,8 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
       const dashId = parseInt(selDashboard, 10);
       const config = { ...mapping, xLabel, yLabel, showLegend };
       try {
-        if (editChart) {
-          await apiFetch(`/api/dashboards/charts/${editChart.id}`, {
+        if (chartId) {
+          await apiFetch(`/api/dashboards/charts/${chartId}`, {
             method: "PUT",
             body: JSON.stringify({
               name: chartName || "Untitled",
@@ -214,6 +284,7 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
               config,
             }),
           });
+          ToggleChart(chatMessage)
           toast.success("Chart updated.");
         } else {
           const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
@@ -244,22 +315,19 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
               config,
             }),
           });
+
+          const updatedMessage = {
+            ...chatMessage,
+              chartName,dashId
+          };
+          updateChart(chartName,dashId,chatMessage?.chatId,chatMessage?.messageId)
+          // replaceChat(updatedMessage);
+          ToggleChart(updatedMessage)
           toast.success("Chart saved to dashboard.");
         }
       } catch (e) {
         toast.error(e.message);
-      } finally {
-        setChartType("bar");
-        setChartSubtype("simple_bar");
-        setChartName("");
-        setMapping({});
-        setXLabel("");
-        setYLabel("");
-        setShowLegend(true);
-        setChartOption(null);
-        previewRef.current = null;
-        previewInst.current = null;
-      }
+      } 
     }
 
       function SeperateNumericColumns(column) {
@@ -458,23 +526,9 @@ function ChartVisualization({ editChart, data = [], chatMessage,replaceChat }) {
                 </div>
               </div>
             )}
-            <label
-              style={{
-                display: "flex",
-                gap: 6,
-                cursor: "pointer",
-                fontSize: "14px",
-                marginBottom: 12,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showLegend}
-                onChange={(e) => setShowLegend(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
-              />{" "}
-              Show Legend
-            </label>
+           <div style={{ display:"flex",alignItems:"center"}}>
+             <ToggleSwitch checked={showLegend} onChange={(e) => setShowLegend(e.target.checked)} label="Show Legend"/>
+           </div>
             {chartType === "gauge" && (
               <div
                 style={{

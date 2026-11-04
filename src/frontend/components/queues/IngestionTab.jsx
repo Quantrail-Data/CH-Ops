@@ -2,7 +2,7 @@
 // IngestionTab.jsx
 // Tab 1: S3Queue / AzureQueue ingestion monitoring (history data).
 
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import QueueCards from "./QueueCards.jsx";

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 // Contributors -> kathir Moorthy
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { db, appSettings, clusters as clusterTable, clusterNodes, rawSqlite } from '../db/index.js';
 import { encrypt, decrypt } from './crypto.js';
 import { getStorageMode, STORAGE_TABLES } from '../db/migrateClusters.js';
@@ -133,19 +133,30 @@ function saveClustersToTables(clusters) {
       }
 
       if (existingIds.has(cluster.id)) {
-        db.update(clusterTable).set(values).where(eq(clusterTable.id, cluster.id)).run();
+        // A new version makes a background refresh that read the old one retry.
+        db.update(clusterTable)
+          .set({ ...values, version: sql`${clusterTable.version} + 1` })
+          .where(eq(clusterTable.id, cluster.id))
+          .run();
       } else {
         db.insert(clusterTable).values({ id: cluster.id, version: 1, ...values }).run();
       }
 
+      // A node with the same host and port keeps its lastSeenAt.
+      // Otherwise a save makes every missing host look fresh, and the prune never removes it.
+      const storedNodes = db.select().from(clusterNodes).where(eq(clusterNodes.clusterId, cluster.id)).all();
+      const lastSeenByAddress = new Map(storedNodes.map(n => [`${n.host}:${n.port}`, n.lastSeenAt]));
+      const now = new Date().toISOString();
+
       // Replace the node set wholesale, mirroring what the blob did.
       db.delete(clusterNodes).where(eq(clusterNodes.clusterId, cluster.id)).run();
       for (const n of cluster.nodes || []) {
+        const port = n.port || 8123;
         db.insert(clusterNodes).values({
           clusterId: cluster.id,
           name: n.name || '',
           host: n.host,
-          port: n.port || 8123,
+          port,
           user: n.user || null,
           passwordEnc: n.password !== undefined ? encrypt(n.password || '') : null,
           secure: !!n.secure,
@@ -153,7 +164,7 @@ function saveClustersToTables(clusters) {
           shard: n.shard ?? null,
           replica: n.replica ?? null,
           podName: n.podName ?? null,
-          lastSeenAt: new Date().toISOString(),
+          lastSeenAt: lastSeenByAddress.get(`${n.host}:${port}`) || now,
         }).run();
       }
     }
@@ -361,7 +372,9 @@ export function migrateClusterData() {
     // Store using the new format (passwords are already encrypted in old format)
     const value = JSON.stringify([cluster]);
     db.insert(appSettings).values({ key: 'clusters', value, category: 'cluster' }).run();
-  } catch {}
+  } catch {
+    // The old setting is not valid. Keep it as it is.
+  }
 }
 
 // SSRF protection: only hosts in the configured cluster are reachable.

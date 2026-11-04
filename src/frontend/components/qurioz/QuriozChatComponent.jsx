@@ -46,7 +46,7 @@ const createHisMsgArr = async (messages = [], RunSqlQueryhandler) => {
           if (QueryResult.success) {
             tablesData = QueryResult?.rows || [];
           }
-        } catch (err) {
+        } catch {
           tablesData = [];
         }
       }
@@ -78,6 +78,8 @@ const createHisMsgArr = async (messages = [], RunSqlQueryhandler) => {
           },
           error: error,
           aiError: aiError,
+          dashId:chat?.dashId ?? null,
+          chartName:chat?.chartName ?? null
         },
       ];
     }),
@@ -145,6 +147,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
     if (!isOpen) return;
 
     loadHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [isOpen]);
 
   useEffect(() => {
@@ -236,7 +239,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
     }
   };
 
-  const handleTitleKeyDown = (event, chatId) => {
+  const handleTitleKeyDown = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       event.currentTarget.blur();
@@ -533,7 +536,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                         onChange={(event) => setTitle(event.target.value)}
                         onBlur={() => saveTitle(chat.id)}
                         onKeyDown={(event) =>
-                          handleTitleKeyDown(event, chat.id)
+                          handleTitleKeyDown(event)
                         }
                         onClick={(event) => event.stopPropagation()}
                       />
@@ -618,15 +621,12 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
   );
 }
 
-function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
+function QuriozChatComponent({ ScrollBottomAuto }) {
   const {
-    clusters,
-    clusterName,
     selectedClusterId,
     user,
     password,
     port,
-    connected,
     selectedNode,
     nodeName,
   } = useConnection();
@@ -637,9 +637,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   const editorCredsRef = useRef(null);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState({ status: false, message: null });
   const [showConfrirmDelete, setShowConfrimDelete] = useState(false);
-  const [dbs, setDbs] = useState([]);
+  const [, setDbs] = useState([]);
   const [genTables, setGenTables] = useState({});
   const [estimateScore, setEstimateScore] = useState(null);
   const [apikey, setApiKey] = useState({
@@ -649,7 +648,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     model: null,
   });
   const [apikeys, setApikeys] = useState([]);
-  const [showdbs, setShowdbs] = useState(false);
   const [showDBModel, setShowDBModel] = useState(false);
   const [newSelection, setNewSelection] = useState([]);
   const [isNewSelectAll, setIsNewSelectAll] = useState(false);
@@ -664,9 +662,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   const [connUser, setConnUser] = useState("");
   const [connPassword, setConnPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
-  const [connError, setConnError] = useState(null);
+  const [, setConnError] = useState(null);
   const [isViewFlag, setIsViewFlag] = useState(false);
-  const [chatSession, setChatSession] = useState([]);
+  const [chatSession] = useState([]);
   const [quriozMessage, setQuriozMessage] = useState([]); // chat messages store state
 
   const editorConnected = !!editorCreds;
@@ -710,9 +708,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           );
           setQuriozMessage(messageHis);
         }
-      } catch (error) {}
+      } catch {
+        // Keep the current data when the request fails.
+      }
     };
     loadMessage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [session_id]);
 
   useEffect(() => {
@@ -749,7 +750,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           serviceName: apiKey?.name || null,
           model: apiKey?.model || null,
         });
-      } catch (err) {
+      } catch {
         setApiKey({
           status: false,
           id: null,
@@ -781,11 +782,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             isAllowForRequest: true,
           })) || [],
         );
-      } catch (err) {
+      } catch {
         setNewSelection([]);
       }
     }
     initSetup();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [editorCreds]);
 
   useEffect(() => {
@@ -812,7 +814,7 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     const candidate = { user: connUser.trim(), password: connPassword };
     try {
       // await editorConnect(candidate);
-      const connectCred = await apiFetch("/api/ai/connect", {
+      await apiFetch("/api/ai/connect", {
         method: "POST",
         body: JSON.stringify({
           clusterId: selectedClusterId,
@@ -835,7 +837,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   async function handleDisconnect() {
     try {
       await apiFetch("/api/ai/connect", { method: "DELETE" });
-    } catch {}
+    } catch {
+      // Ignore a failed disconnect.
+    }
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");
@@ -855,6 +859,10 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   };
 
   const RunSqlQueryhandler = async (sql) => {
+    if(!editorConnected){
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
     try {
       if (sql) {
         const connectionOption = {
@@ -1456,6 +1464,27 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     setGenTables(setter);
   }
 
+  async function updateChart(chartName,dashId,chatId,messageId) {
+    try {
+
+      const response = await apiFetch(`/api/ai/chats/${chatId}/messages/${messageId}`
+        ,{
+          method:"PATCH",
+          body: {
+          isUpdateChart:true,
+          chartName,
+          dashId
+        },
+        }
+
+      )
+      console.log(response)
+      
+    } catch (error) {
+      console.log(error.message)
+    }
+  }
+
   async function DeleteDatabaseDDLHandler(db) {
     setDBLoading({
       flag: true,
@@ -1774,11 +1803,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
                 <ChatRenderComponent
                   chatMessage={message}
                   key={message?.id}
-                  ToggelChart={ToggelChartHandler}
+                  ToggleChart={ToggelChartHandler}
                   RunSqlQueryhandler={RunSqlQueryhandler}
                   index={index}
                   ReFormQuestionSQLGenerating={ReFormQuestionSQLGenerating}
                   replaceChat={replaceChat}
+                  updateChart={updateChart}
                 />
               );
             })}

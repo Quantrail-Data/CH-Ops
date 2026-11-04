@@ -210,7 +210,6 @@ function parseDistributedTarget(createQuery) {
   if (!createQuery || typeof createQuery !== "string")
     return { db: "", table: "" };
 
-  const onClusterMatch = createQuery.match(/ON\s+CLUSTER\s+['"`]?(\w+)['"`]?/i);
   const engineMatch = createQuery.match(
     /ENGINE\s*=\s*Distributed\s*\(\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*,\s*['"`]?(\w+)['"`]?\s*(?:,|[\s)])/i,
   );
@@ -325,14 +324,18 @@ export async function fetchSchemaData() {
     dictsRes = await runQuery(
       `SELECT database, name, source FROM system.dictionaries WHERE status IN ('LOADED','NOT_LOADED','LOADING')`,
     );
-  } catch {}
+  } catch {
+    // Older servers do not have this table.
+  }
 
   let refreshesRes = { rows: [] };
   try {
     refreshesRes = await runQuery(
       `SELECT database, view, status, last_success_time, next_refresh_time, exception FROM system.view_refreshes`,
     );
-  } catch {}
+  } catch {
+    // Older servers do not have this table.
+  }
 
   const columnsByTable = new Map();
   for (const c of columnsRes.rows) {

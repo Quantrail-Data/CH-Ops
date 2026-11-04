@@ -8,7 +8,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Icon from "../common/Icon.jsx";
 import { useQuery } from '../../hooks/useQuery.js';
 import DataTable from '../layout/DataTable.jsx';

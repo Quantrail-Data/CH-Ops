@@ -36,7 +36,7 @@ function removeFiles(job) {
   try {
     fs.rmSync(job.dir, { recursive: true, force: true });
   } catch {
-  
+    // The file is already gone.
   }
 }
 
@@ -255,11 +255,14 @@ export function cancelJobsForUser(username) {
 
 // Called when a token is revoked, which is what logging out does. A running
 // export holds decrypted ClickHouse credentials for its whole life, so it
-// should not outlive the session that started it.
+// should not outlive the session that started it. A finished file has no
+// credentials, so it stays until it expires, as usual.
 export function cancelJobsForJti(jti) {
   if (!jti) return;
   for (const job of [...jobs.values()]) {
-    if (job.jti === jti) cancelJob(job.id, job.userId);
+    if (job.jti === jti && job.state === "running") {
+      cancelJob(job.id, job.userId);
+    }
   }
 }
 

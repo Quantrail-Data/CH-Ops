@@ -17,7 +17,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, {
+import {
   useState,
   useEffect,
   useCallback,
@@ -502,6 +502,7 @@ function RateChart({ rows, from, to, rounding }) {
     );
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
       disposeChart(containerRef.current);
       chartRef.current = null;
     };
@@ -756,12 +757,6 @@ function SessionLogOverview({ unavailable }) {
     });
     return () => obs.disconnect();
   }, []);
-
-  function applyDuration(d) {
-    setDuration(d);
-    setFrom(fmtAgo(RANGE_HOURS[d] || 168));
-    setTo(fmtNow());
-  }
 
   const load = useCallback(
     async (override = {}) => {
@@ -1211,6 +1206,7 @@ function SessionLogSearch({ unavailable }) {
 
   useEffect(() => {
     if (q.error) toast.error(q.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [q.error]);
 
   useEffect(() => {

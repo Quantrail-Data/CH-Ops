@@ -8,12 +8,10 @@ import {
   saveConnection,
   deleteConnection,
   providerFor,
-  readInstallationHosts,
   readInstallationAddresses,
   testConnection as runConnectionTest,
   OPERATORS,
   ADDRESSING,
-  RESOLUTION,
 } from "../services/k8sConnections.js";
 import {
   getAllClusters,

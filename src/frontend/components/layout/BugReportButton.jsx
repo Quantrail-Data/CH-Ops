@@ -1,7 +1,7 @@
 // BugReportButton.jsx - Floating button that opens the GitHub issues page.
 // The user can drag it anywhere. The position is saved in localStorage.
 // Copyright (C) 2026 Quantrail Data Private Limited
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import ConfirmModal from "./ConfirmModal.jsx";
 const ISSUES_URL = "https://github.com/Quantrail-Data/CH-Ops/issues";

@@ -40,6 +40,8 @@ That is the whole model. The simplicity is the point. Anything you can express a
 
 Find them under **Custom Alerts**, then **Alert Rules**. Only admins and super admins can see and change the rules on this page. Other roles see the message "Alert rules management is only available for administrators."
 
+While the browser tab is visible, the page loads the rules and channels again every 30 seconds, so the status of each rule stays current. A form that you are editing stays as it is.
+
 To create a rule, click **New Rule**. To start from a ready-made rule, click **New from template** (see [Alert templates](#alert-templates)). The form has these fields:
 
 | Field | What it does |
@@ -159,13 +161,13 @@ The schedule is a cron expression. The default is `*/5 * * * *`, which is every 
 
 CHOps supports only part of the cron syntax:
 
-- Use five fields: minute, hour, day of month, month, day of week.
+- Use exactly five fields: minute, hour, day of month, month, day of week.
 - In each field, use `*`, `*/n`, or a comma list of numbers, for example `0,30`.
 - CHOps does not support ranges such as `1-5`.
 - Day of week is 0 to 6, where 0 is Sunday. CHOps does not accept 7.
-- If you type four fields, the form adds `0` as the minute.
+- CHOps refuses any other text in a field, for example `*/5x` or `5,`.
 
-Schedules use the server's time zone. CHOps checks the expression before it saves the rule, and if the expression is not valid, it shows an error and does not save the rule.
+Schedules use the server's time zone. The form and the server use the same check. If the expression is not valid, the form shows an error, and the server does not save the rule.
 
 ### Choosing a frequency
 
@@ -180,7 +182,9 @@ A disk that fills over days does not need a check every minute. A replication qu
 First select the **Cluster**, because a rule runs on the nodes of one cluster.
 
 - Select a cluster to run the rule on the nodes of that cluster.
-- **All clusters (default)** runs the rule on the nodes of the first cluster in the cluster list. It does not run the rule on the other clusters.
+- **All clusters (default)** runs the rule on the nodes of the first cluster in the cluster list. It does not run the rule on the other clusters. The messages of the rule show the cluster as `No cluster set (first cluster used: <name>)`.
+
+If you delete the cluster of a rule, its messages show `Unknown cluster (<id>)`.
 
 Then select the **Target Nodes**. Leave the list empty to run the rule on all nodes of the cluster, which is usually right. Sometimes an alert makes sense only for certain nodes, for example one shard or one replica. Select those nodes, and CHOps checks only them.
 
@@ -219,7 +223,7 @@ The buttons on each card are:
 - **Delete** (trash icon) to remove the rule.
 - **History** (clock icon) to see the status changes of the rule. It shows the last 200 changes. CHOps deletes history entries after 90 days.
 
-When you turn off a rule that fires, CHOps first sends `<rule> - resolved`. If nodes of that rule also have query errors, CHOps also sends `<rule> - recovered`. So no PagerDuty incident stays open for a rule that is off.
+When you turn off a rule that fires, CHOps sends `<rule> - resolved`. If nodes of that rule also have query errors, CHOps also sends `<rule> - recovered`. So no PagerDuty incident stays open for a rule that is off. The rule turns off at once. CHOps sends these messages in the background, so a slow channel does not delay the page.
 
 Disabling is better than deleting. A delete removes the query and the threshold you tuned, along with the rule's history and node states.
 
@@ -235,11 +239,15 @@ CHOps has 31 ready-made rules in four groups: Resources, Storage and replication
 
 The rule description includes tuning advice. Check the threshold against your own cluster before you turn a template rule on.
 
+The **Network errors** template works before and after the ClickHouse&reg; 26.8 change to the network metric names. From 26.8, the metric is `NetworkReceiveErrors` with the interface in the `key` column. Before 26.8, the interface is in the name, for example `NetworkReceiveErrors_eth0`. The template counts the new form when the server writes it, and the old form otherwise, so a server that writes both forms is not counted twice. See [Network metric names](monitoring.md#network-metric-names).
+
 ---
 
 ## 8. How and when rules run
 
 CHOps checks once a minute and runs every enabled rule that is due. Because it runs the due rules at the same time, many rules do not slow the cycle, and each rule runs on all its target nodes at the same time.
+
+A rule runs one time for each due minute. If the check was late, for example because the server was busy or paused, the next check also looks at the minutes it missed, up to 10 minutes back. A rule that was due in one or more of those minutes runs one time, not one time for each minute. A rule that still runs from an earlier check does not start again.
 
 ### Node states and messages
 
@@ -293,7 +301,12 @@ There are five channel types:
 | Microsoft Teams | Webhook URL |
 | PagerDuty | Integration Key |
 
-A webhook URL must use HTTPS and cannot point to localhost or to a private network.
+A webhook URL (Google Chat and Microsoft Teams) must use HTTPS. It cannot point to localhost or to a private, CGNAT, link-local, unique local (ULA), IPv4-mapped, multicast, or other special address. CHOps checks the address in the URL and every address that its host name resolves to. It checks when you save the channel, and again before each send.
+
+- You can save a channel whose host name does not resolve now. The send and the **Test** button refuse it until the name resolves.
+- CHOps does not follow redirects. A webhook that answers with a redirect counts as a failed send.
+
+CHOps refuses an unknown channel type with an error.
 
 ### Testing a channel
 
@@ -445,7 +458,7 @@ If its cluster has no nodes, the rule does not run and the card shows **NO NODES
 
 ### FIRING in the list but nothing in the marquee
 
-The list status and the marquee both reflect the current state, so they should agree. If they disagree, refresh the page. The marquee updates on its own schedule.
+The list status and the marquee both reflect the current state, so they should agree. The list and the marquee each load again every 30 seconds, so they can disagree for a short time. If they still disagree, refresh the page.
 
 ---
 
@@ -453,9 +466,7 @@ The list status and the marquee both reflect the current state, so they should a
 
 The community edition evaluates fixed-threshold rules, which is what this page describes.
 
-CHOps Pro adds anomaly detection that learns normal behavior and flags deviations without a fixed number, alert dependencies that suppress downstream noise when a root cause fires, and scheduled digest emails that summarise what is firing.
-
-See [CHOps Pro](chops-pro.md).
+For a regular summary that does not need a threshold, the scheduled email reports of [CHOps Pro](chops-pro.md) run a SQL query on a schedule and send the result by email.
 
 ---
 

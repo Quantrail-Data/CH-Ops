@@ -72,13 +72,17 @@ try {
 } catch (err) {
   try {
     db?.close();
-  } catch {}
+  } catch {
+    // The database is already closed.
+  }
 
   // Avoid leaving a partial backup that could be mistaken for a complete one.
   for (const file of [backupPath, saltBackupPath]) {
     try {
       fs.rmSync(file, { force: true });
-    } catch {}
+    } catch {
+      // The file is already gone.
+    }
   }
 
   console.error(`Backup failed: ${err.message}`);

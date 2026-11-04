@@ -4,7 +4,7 @@
 
 // Separate from DataTable, which twenty pages use. Same CSS classes, so they match.
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Icon from "../common/Icon.jsx";
 
@@ -60,6 +60,7 @@ export default function SortableDataTable({
     overscan: 12,
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const virtualRows = virtualize ? virtualizer.getVirtualItems() : [];
   const unmeasured = virtualize && virtualRows.length === 0 && rows.length > 0;
   const padTop = virtualRows.length ? virtualRows[0].start : 0;

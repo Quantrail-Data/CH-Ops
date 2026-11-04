@@ -10,7 +10,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { getGlobalConnection } from "../../utils/api.js";
 import { connect, connectionStatus, disconnect } from "../../utils/studioApi.js";

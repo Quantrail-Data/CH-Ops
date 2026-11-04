@@ -290,4 +290,13 @@ describe("evaluateRule", () => {
     const recovery = sentMessages.find((message) => message.kind === "recovery");
     expect(recovery.id).toBe("5-evaluation");
   });
+
+  it("resets the rule state before the closing messages are sent", async () => {
+    await runWith(95, 10, 0);
+    expect(readRule().lastStatus).toBe("firing");
+    // The controller does not wait for the sends, so the state must be correct at once.
+    const sends = notifyBeforeRuleDisabled(5);
+    expect(readRule().lastStatus).toBe("ok");
+    await sends;
+  });
 });

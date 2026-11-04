@@ -7,7 +7,6 @@
 //
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React from "react";
 import Icon from "../common/Icon.jsx";
 // The per-type control now lives in common/ so the dashboard filter bar can
 // use exactly the same inputs.

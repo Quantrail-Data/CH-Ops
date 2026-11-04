@@ -113,6 +113,20 @@ describe("settings writes", () => {
     }
   });
 
+  it("refuses the cluster keys to every role, including admin and superadmin", async () => {
+    for (const role of ROLES) {
+      for (const key of ["clusters", "cluster.nodes", "clusters.storage"]) {
+        const write = await app.api(role, "PUT", `/api/settings/${key}`, {
+          value: "blob",
+          category: "cluster",
+        });
+        expect(write.status).toBe(403);
+        const remove = await app.api(role, "DELETE", `/api/settings/${key}`);
+        expect(remove.status).toBe(403);
+      }
+    }
+  });
+
   it("refuses the JWT keys to every role", async () => {
     for (const role of ROLES) {
       const write = await app.api(

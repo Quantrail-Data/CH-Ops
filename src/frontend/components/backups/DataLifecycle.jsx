@@ -3,10 +3,17 @@
 // Manages data retention policies and handles system backup and restoration procedures.
 
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
-import { runQuery, apiFetch } from "../../utils/api.js";
+import { runQuery, apiFetch, getGlobalConnection } from "../../utils/api.js";
+import {
+  previewStorage,
+  checkBackupRequest,
+  buildBackupSql,
+  makeBackupId,
+  backupTimestamp,
+} from "../../../shared/backupSql.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
@@ -14,25 +21,19 @@ import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
-const pad = (n) => String(n).padStart(2, "0");
-function backupTimestamp() {
-  const d = new Date();
-  return `${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}_${pad(d.getMinutes())}_${pad(d.getSeconds())}`;
-}
-function escSql(str) {
-  return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
-// ClickHouse often echoes the failing query verbatim in its error message,
-// and these queries embed the storage profile's raw S3 secret key - strip
-// known secret values before the message reaches a log or a toast.
-function redactSecrets(text, ...secrets) {
-  if (typeof text !== "string") return text;
-  let redacted = text;
-  for (const secret of secrets) {
-    if (secret) redacted = redacted.split(secret).join("***");
-  }
-  return redacted;
+// Sends a backup page request as fields. The server builds the SQL and adds
+// the storage keys. It also removes the keys from error messages.
+function sendBackupRequest(fields) {
+  const conn = getGlobalConnection();
+  return apiFetch("/api/query", {
+    method: "POST",
+    body: JSON.stringify({
+      backup_sp: true,
+      backup: fields,
+      node: conn.nodeName,
+      clusterId: conn.clusterId,
+    }),
+  });
 }
 
 export default function DataLifecycle() {
@@ -145,32 +146,17 @@ export default function DataLifecycle() {
   );
 }
 
-function getS3Base(profile) {
-  if (!profile) return null;
-  if (profile.type === "gcs")
-    return {
-      endpoint: `https://storage.googleapis.com/${profile.bucket}`,
-      accessKeyId: profile.accessKeyId,
-      accessKey: profile.accessKey,
-      id:profile?.id,
-      type:"gcs"
-    };
-  return {
-    endpoint: `${profile.endpoint || "https://s3.amazonaws.com"}<bucket>`,
-    accessKeyId: profile.accessKeyId,
-    accessKey: profile.accessKey,
-    id:profile?.id,
-    type:"aws"
-  };
-}
-
-async function scanS3Manifests(s3, patterns) {
+// Each pattern is a path under backups/ that ends with manifest.json.
+async function scanS3Manifests(profile, patterns) {
   const allRows = [];
   const errors = [];
   for (const pattern of patterns) {
     try {
-  const sql = `${s3?.id}-//-SELECT _path, data FROM s3('${pattern}', '<accessKeyId>', '<accessKey>', 'RawBLOB', 'data String') LIMIT 500`;
-      const r = await runQuery(sql,{},false,true);
+      const r = await sendBackupRequest({
+        action: "list",
+        profileId: profile.id,
+        pattern,
+      });
       if (r.rows?.length) allRows.push(...r.rows);
     } catch (err) {
       const msg = err.message || "";
@@ -184,7 +170,7 @@ async function scanS3Manifests(s3, patterns) {
         msg.includes("TABLE_IS_READ_ONLY") ||
         msg.includes("CANNOT_EXTRACT_TABLE");
       if (!isExpectedEmpty) {
-        const shortPattern = pattern.split("/backups/")[1] || pattern;
+        const shortPattern = pattern;
         if (
           msg.includes("Unable to connect") ||
           msg.includes("Couldn't connect") ||
@@ -238,10 +224,6 @@ async function scanS3Manifests(s3, patterns) {
 }
 
 function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
-  const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
   const [result , setResult] =useState(null)
   const [action, setAction] = useState("backup");
@@ -254,6 +236,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   const [onCluster, setOnCluster] = useState("");
   const [profile, setProfile] = useState("");
   const [settingsStr, setSettingsStr] = useState("");
+  const [baseBackup, setBaseBackup] = useState("");
   const [selectedBackup, setSelectedBackup] = useState("");
   const [availableBackups, setAvailableBackups] = useState([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
@@ -268,144 +251,69 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         .then((r) => setTables((r.rows || []).map((r) => r.name)))
         .catch(() => setTables([]));
     else setTables([]);
-  }, [db, scope]);
+  }, [db, scope, setTables]);
 
   const selProfile = profiles.find((p) => p.name === profile);
-  const s3 = getS3Base(selProfile);
 
-  function buildBackupId() {
-    const ts = backupTimestamp();
-
-    if (scope === "table" && db && tbl) {
-      return `manual/TABLE/${db}.${tbl}/MANUAL_${db}.${tbl}__${ts}`;
-    }
-
-    if (scope === "database" && db) {
-      return `manual/DATABASE/${db}/MANUAL_${db}__${ts}`;
-    }
-
-    return `manual/ALL/MANUAL_ALL__${ts}`;
+  // The request fields. The page sends only the fields that fit the action and scope.
+  function requestFields() {
+    const isBackup = action === "backup";
+    return {
+      action,
+      scope,
+      database: scope === "all" ? "" : db,
+      table: scope === "table" ? tbl : "",
+      profileId: selProfile?.id,
+      onCluster,
+      async: isAsync,
+      exceptTables: isBackup && scope !== "table" ? exceptTables : "",
+      exceptDatabases: isBackup && scope === "all" ? exceptDatabases : "",
+      baseBackup: isBackup ? baseBackup : "",
+      backupId: isBackup ? "" : selectedBackup,
+      settings: settingsStr,
+    };
   }
 
-  function buildDestDisplay(path) {
-    if (!s3) return "'-- select profile --'";
-
-    return `S3('<endpoint><bucket>/backups/${path}/', '<accessKeyId>', '***')`;
-  }
-
-  function buildDestReal(path) {
-    if (!s3) return "'-- select profile --'";
-
-    return `S3(
-    '<endpoint><bucket>/backups/${path}/',
-    '<accessKeyId>',
-    '<accessKey>'
-  )`;
-  }
-
-  function buildSqlParts(destFn) {
-    const parts = [action.toUpperCase()];
-
-    if (action === "backup") {
-      if (scope === "table" && db && tbl) {
-        parts.push(`TABLE ${db}.${tbl}`);
-      } else if (scope === "database" && db) {
-        parts.push(`DATABASE ${db}`);
-      } else {
-        parts.push("ALL");
-      }
-
-      if (exceptTables.trim()) {
-        parts.push(`EXCEPT TABLES ${exceptTables.trim()}`);
-      }
-
-      if (exceptDatabases.trim() && scope === "all") {
-        parts.push(`EXCEPT DATABASES ${exceptDatabases.trim()}`);
-      }
-
-      if (onCluster) {
-        parts.push(`ON CLUSTER '${onCluster}'`);
-      }
-
-      parts.push("TO");
-      parts.push(destFn(buildBackupId()));
-    } else {
-      if (scope === "table" && db && tbl) {
-        parts.push(`TABLE ${db}.${tbl}`);
-      } else if (scope === "database" && db) {
-        parts.push(`DATABASE ${db}`);
-      } else {
-        parts.push("ALL");
-      }
-
-      if (onCluster) {
-        parts.push(`ON CLUSTER '${onCluster}'`);
-      }
-
-      parts.push("FROM");
-
-      parts.push(
-        selectedBackup ? destFn(selectedBackup) : "'-- select backup --'",
-      );
-    }
-
-    if (settingsStr.trim()) {
-      parts.push(`SETTINGS ${settingsStr.trim()}`);
-    }
-
-    if (isAsync) parts.push("ASYNC");
-
-    return parts.join(" ");
-  }
-
+  // The preview uses the same fields and the same builder as the server, with masked keys.
   function buildSql() {
-    return buildSqlParts(buildDestDisplay);
-  }
-
-  function buildRealSql() {
-    return buildSqlParts(buildDestReal);
+    if (!selProfile) return "-- Select a storage profile.";
+    if (action === "restore" && !selectedBackup) return "-- Select a backup.";
+    try {
+      const clean = checkBackupRequest(requestFields());
+      const backupId =
+        action === "backup"
+          ? makeBackupId(clean.scope, clean.database, clean.table, backupTimestamp())
+          : clean.backupId;
+      return buildBackupSql(clean, previewStorage(selProfile), backupId);
+    } catch (err) {
+      return `-- ${err.message}`;
+    }
   }
 
   async function execute() {
-    const backupId = buildBackupId();
-
     try {
       setExecuting(true);
 
-      const sql = `${s3?.id}-//-${buildRealSql()}`;
-
-      await runQuery(sql,{},false,true);
-      setResult({
-        ok: true,
-        msg: `${action.toUpperCase()} executed successfully.`,
-      });
-
-      if (action === "backup" && s3) {
-        try {
-          await writeManifest(backupId);
-        } catch (err) {
-          const manifestMsg = redactSecrets(
-            err.message,
-            s3.accessKey,
-            s3.accessKeyId,
-          );
-          console.error("Manifest write failed:", manifestMsg);
-
-          setResult({ok:false, msg:`Backup completed, but manifest write failed: ${manifestMsg}`})
-        }
+      const response = await sendBackupRequest(requestFields());
+      if (response?.manifest_error) {
+        console.error("Manifest write failed:", response.manifest_error);
+        setResult({ok:false, msg:`Backup completed, but manifest write failed: ${response.manifest_error}`})
+      } else {
+        setResult({
+          ok: true,
+          msg: `${action.toUpperCase()} executed successfully.`,
+        });
       }
     } catch (err) {
-      const msg =
-        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId) ||
-        "Unknown error";
+      const msg = err.message || "Unknown error";
       console.error(`${action.toUpperCase()} failed:`, msg);
 
       if (msg.includes("Access Denied") || msg.includes("403")) {
-        setResult({ok:false, msg:`S3 access denied. Check your storage profile credentials. Details: ${msg}`})
-      } else if (msg.includes("NoSuchBucket") || msg.includes("bucket")) {
-        setResult({ok:false, msg:`S3 bucket not found. Verify the bucket name in your storage profile. Details: ${msg}`})
+        setResult({ok:false, msg:`Storage access denied. Check your storage profile credentials. Details: ${msg}`})
+      } else if (msg.includes("NoSuchBucket") || msg.includes("bucket") || msg.includes("ContainerNotFound")) {
+        setResult({ok:false, msg:`Bucket or container not found. Verify the name in your storage profile. Details: ${msg}`})
       } else if (msg.includes("connect") || msg.includes("ECONNREFUSED")) {
-        setResult({ok:false, msg:`Cannot reach S3 endpoint. Check the endpoint URL in your storage profile. Details: ${msg}`})
+        setResult({ok:false, msg:`Cannot reach the storage endpoint. Check the endpoint in your storage profile. Details: ${msg}`})
       } else {
         setResult({ok:false, msg:`${action.toUpperCase()} failed: ${msg}`})
       }
@@ -415,6 +323,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       setTbl("");
       setExceptDatabases("");
       setExceptTables("");
+      setBaseBackup("");
       setOnCluster("");
       setIsAsync(false);
       setProfile("");
@@ -424,33 +333,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     }
   }
 
-  async function writeManifest(backupId) {
-    const manifest = {
-      backup_id: backupId,
-      display_name: backupId.split("/").pop(),
-      backup_type: "manual",
-      scope,
-      database: db || null,
-      tables: tbl || null,
-      is_incremental: settingsStr.includes("base_backup"),
-      created_at: new Date().toISOString(),
-      s3_path: `<endpoint><bucket>/backups/${backupId}/`,
-    };
-
-    const manifestJson = JSON.stringify(manifest);
-
-    const manifestKey = `backups/${backupId}/manifest.json`;
-
-    await runQuery(
-      `${s3?.id}-//-INSERT INTO FUNCTION s3('<endpoint><bucket>/${manifestKey}', '<accessKeyId>', '<accessKey>', 'RawBLOB', 'data String') VALUES ('${escSql(manifestJson)}')`,
-      {},
-      false,
-      true,
-    );
-  }
-
  async function listBackups() {
-    if (!s3) {
+    if (!selProfile) {
       toast.warning("Select a storage profile first.");
       return;
     }
@@ -459,56 +343,54 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     setAvailableBackups([]);
     setScanErrors([]);
 
-    const base = s3?.type === "gcs" ? s3?.endpoint : `<endpoint><bucket>/backups`;
-
     let patterns = [];
 
     if (scope === "all") {
       patterns = [
-        `${base}/manual/ALL/*/manifest.json`,
-        `${base}/manual/DATABASE/*/manifest.json`,
-        `${base}/manual/DATABASE/*/*/manifest.json`,
-        `${base}/manual/TABLE/*/*/manifest.json`,
-        `${base}/manual/TABLE/*/*/*/manifest.json`,
+        `manual/ALL/*/manifest.json`,
+        `manual/DATABASE/*/manifest.json`,
+        `manual/DATABASE/*/*/manifest.json`,
+        `manual/TABLE/*/*/manifest.json`,
+        `manual/TABLE/*/*/*/manifest.json`,
       ];
     } else if (scope === "database") {
       if (db) {
         patterns = [
-          `${base}/manual/DATABASE/${db}/manifest.json`,
-          `${base}/manual/DATABASE/${db}/*/manifest.json`,
-          `${base}/manual/TABLE/${db}.*/manifest.json`,
-          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
+          `manual/DATABASE/${db}/manifest.json`,
+          `manual/DATABASE/${db}/*/manifest.json`,
+          `manual/TABLE/${db}.*/manifest.json`,
+          `manual/TABLE/${db}.*/*/*/manifest.json`,
         ];
       } else {
         patterns = [
-          `${base}/manual/DATABASE/*/manifest.json`,
-          `${base}/manual/DATABASE/*/*/manifest.json`,
-          `${base}/manual/TABLE/*/manifest.json`,
-          `${base}/manual/TABLE/*/*/manifest.json`,
+          `manual/DATABASE/*/manifest.json`,
+          `manual/DATABASE/*/*/manifest.json`,
+          `manual/TABLE/*/manifest.json`,
+          `manual/TABLE/*/*/manifest.json`,
         ];
       }
     } else if (scope === "table") {
       if (db && tbl) {
         patterns = [
-          `${base}/manual/TABLE/${db}.${tbl}/manifest.json`,
-          `${base}/manual/TABLE/${db}.${tbl}/*/manifest.json`,
+          `manual/TABLE/${db}.${tbl}/manifest.json`,
+          `manual/TABLE/${db}.${tbl}/*/manifest.json`,
         ];
       } else if (db) {
         patterns = [
-          `${base}/manual/TABLE/${db}.*/manifest.json`,
-          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
+          `manual/TABLE/${db}.*/manifest.json`,
+          `manual/TABLE/${db}.*/*/*/manifest.json`,
         ];
       } else {
         patterns = [
-          `${base}/manual/TABLE/*/manifest.json`,
-          `${base}/manual/TABLE/*/*/manifest.json`,
-          `${base}/manual/TABLE/*/*/*/manifest.json`,
+          `manual/TABLE/*/manifest.json`,
+          `manual/TABLE/*/*/manifest.json`,
+          `manual/TABLE/*/*/*/manifest.json`,
         ];
       }
     }
 
     try {
-      const { backups, errors } = await scanS3Manifests(s3, patterns);
+      const { backups, errors } = await scanS3Manifests(selProfile, patterns);
 
       const filtered = backups;
 
@@ -528,7 +410,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
 
       if (!filtered.length && !errors.length) {
         toast.info(
-          `No ${scope === "all" ? "" : scope + " "}backups found in S3.`,
+          `No ${scope === "all" ? "" : scope + " "}backups found in the storage.`,
         );
       } else if (!filtered.length && errors.length) {
         toast.warning("Scan completed with errors. No matching backups found.");
@@ -540,10 +422,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         );
       }
     } catch (err) {
-      console.error(
-        "Backup scan failed:",
-        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId),
-      );
+      console.error("Backup scan failed:", err.message);
       toast.error("Failed to scan backups.");
     } finally {
       setLoadingBackups(false);
@@ -680,20 +559,22 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       {action === "backup" && (
         <div style={{ marginBottom: 20 }}>
           <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
-            <Icon className="ti ti-filter"></Icon> Exceptions
+            <Icon className="ti ti-filter"></Icon> Exceptions and Base Backup
           </h4>
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
           >
-            <div className="form-group">
-              <label className="form-label">EXCEPT TABLES</label>
-              <input
-                className="form-input"
-                value={exceptTables}
-                onChange={(e) => setExceptTables(e.target.value)}
-                placeholder="db.table1, db.table2"
-              />
-            </div>
+            {scope !== "table" && (
+              <div className="form-group">
+                <label className="form-label">EXCEPT TABLES</label>
+                <input
+                  className="form-input"
+                  value={exceptTables}
+                  onChange={(e) => setExceptTables(e.target.value)}
+                  placeholder="db.table1, db.table2"
+                />
+              </div>
+            )}
             {scope === "all" && (
               <div className="form-group">
                 <label className="form-label">EXCEPT DATABASES</label>
@@ -704,6 +585,18 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 />
               </div>
             )}
+            <div className="form-group">
+              <label className="form-label">BASE BACKUP</label>
+              <input
+                className="form-input"
+                value={baseBackup}
+                onChange={(e) => setBaseBackup(e.target.value)}
+                placeholder="manual/ALL/MANUAL_ALL__2026_01_01_02_00_00"
+              />
+              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                Backup ID of an earlier backup. Set it for an incremental backup.
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -774,10 +667,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           className="form-input"
           value={settingsStr}
           onChange={(e) => setSettingsStr(e.target.value)}
-          placeholder="base_backup = ..., compression_method = 'lz4'"
+          placeholder="compression_method = 'lz4', compression_level = 3"
         />
         <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-          base_backup, compression_method, s3_storage_class
+          Use name = value pairs, split by commas. A value is a number, a word or a quoted text. Set base_backup in the BASE BACKUP field.
         </span>
       </div>
       <SqlPreview sql={buildSql()} />
@@ -829,14 +722,13 @@ function AvailableBackupsTab({ profiles }) {
   const [profile, setProfile] = useState("");
   const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState("all");
+  const [filter] = useState("all");
   const [scanErrors, setScanErrors] = useState([]);
 
   const selProfile = profiles.find((p) => p.name === profile);
-  const s3 = getS3Base(selProfile);
 
    async function loadBackups() {
-    if (!s3) {
+    if (!selProfile) {
       toast.warning("Select a storage profile first.");
       return;
     }
@@ -844,24 +736,23 @@ function AvailableBackupsTab({ profiles }) {
     setBackups([]);
     setScanErrors([]);
 
-    const base = s3?.type === "gcs" ? s3?.endpoint : `<endpoint><bucket>/backups`;
     const patterns = [];
     if (filter === "all" || filter === "manual") {
-      patterns.push(`${base}/manual/*/manifest.json`);
-      patterns.push(`${base}/manual/*/*/manifest.json`);
-      patterns.push(`${base}/manual/*/*/*/manifest.json`);
-      patterns.push(`${base}/manual/*/*/*/*/manifest.json`);
-      patterns.push(`${base}/ALL/*/manifest.json`);
-      patterns.push(`${base}/DATABASE/*/*/manifest.json`);
-      patterns.push(`${base}/TABLE/*/*/manifest.json`);
+      patterns.push(`manual/*/manifest.json`);
+      patterns.push(`manual/*/*/manifest.json`);
+      patterns.push(`manual/*/*/*/manifest.json`);
+      patterns.push(`manual/*/*/*/*/manifest.json`);
+      patterns.push(`ALL/*/manifest.json`);
+      patterns.push(`DATABASE/*/*/manifest.json`);
+      patterns.push(`TABLE/*/*/manifest.json`);
     }
 
-    const { backups: found, errors } = await scanS3Manifests(s3, patterns);
+    const { backups: found, errors } = await scanS3Manifests(selProfile, patterns);
     setBackups(found);
     setScanErrors(errors);
     if (!found.length && !errors.length)
       toast.info(
-        "No backups found. The S3 bucket may be empty or the profile credentials may be incorrect.",
+        "No backups found. The bucket or container may be empty or the profile credentials may be incorrect.",
       );
     else if (!found.length && errors.length)
       toast.warning(

@@ -8,14 +8,13 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { runQuery } from "../../utils/api.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import ChartToolbar, {
   useChartTools,
-  savePng,
 } from "../common/ChartToolbar.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useSearchParams } from "react-router-dom";
@@ -606,6 +605,7 @@ export default function QueryProfiler() {
         traceType,
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [themeKey]);
 
   useEffect(() => {
@@ -678,7 +678,9 @@ export default function QueryProfiler() {
     try {
       const result = await runQuery(buildFullQuerySql(query.query_id));
       if (result.rows?.[0]?.query) setPopupQueryText(result.rows[0].query);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
     setPopupTextLoading(false);
   }, []);
 

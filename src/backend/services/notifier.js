@@ -2,11 +2,62 @@
 // Sends rich notifications to configured channels (email only for now).
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+import dns from "node:dns";
+import net from "node:net";
 import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
 import { OTP_TTL_MS } from "./OTPservice.js";
 
-function validateWebhookUrl(url) {
+// The channel types that sendNotification knows.
+export const CHANNEL_TYPES = ["email", "slack", "google_chat", "teams", "pagerduty"];
+
+// Address ranges that a webhook must not reach: this server, private networks and special ranges.
+const BLOCKED_ADDRESS_RANGES = [
+  ["0.0.0.0", 8, "ipv4"], // "This network", with the unspecified address 0.0.0.0
+  ["10.0.0.0", 8, "ipv4"], // Private
+  ["100.64.0.0", 10, "ipv4"], // Carrier-grade NAT (CGNAT)
+  ["127.0.0.0", 8, "ipv4"], // Loopback
+  ["169.254.0.0", 16, "ipv4"], // Link-local, with cloud metadata 169.254.169.254
+  ["172.16.0.0", 12, "ipv4"], // Private
+  ["192.168.0.0", 16, "ipv4"], // Private
+  ["224.0.0.0", 4, "ipv4"], // Multicast
+  ["240.0.0.0", 4, "ipv4"], // Reserved, with the broadcast address 255.255.255.255
+  ["::", 128, "ipv6"], // Unspecified
+  ["::1", 128, "ipv6"], // Loopback
+  ["::ffff:0:0", 96, "ipv6"], // IPv4-mapped IPv6
+  ["fc00::", 7, "ipv6"], // Unique local (ULA)
+  ["fe80::", 10, "ipv6"], // Link-local
+  ["ff00::", 8, "ipv6"], // Multicast
+];
+
+// One list for each family. In Bun, one shared list matches IPv4 addresses against the IPv4-mapped range.
+const blockedIpv4 = new net.BlockList();
+const blockedIpv6 = new net.BlockList();
+for (const [address, prefix, family] of BLOCKED_ADDRESS_RANGES) {
+  const list = family === "ipv4" ? blockedIpv4 : blockedIpv6;
+  list.addSubnet(address, prefix, family);
+}
+
+// True when a webhook must not send to this address. A text that is not an IP address is blocked too.
+export function isBlockedAddress(address) {
+  const family = net.isIP(address);
+  if (family === 4) return blockedIpv4.check(address, "ipv4");
+  if (family === 6) return blockedIpv6.check(address, "ipv6");
+  return true;
+}
+
+async function lookupAllAddresses(hostName) {
+  const results = await dns.promises.lookup(hostName, { all: true });
+  return results.map((result) => result.address);
+}
+
+// Refuses a webhook URL that is not HTTPS, or whose host is, or resolves to, a blocked address.
+// allowUnresolvedName lets a host name that does not resolve now pass. The channel form uses it.
+// The send does not use it, so the send checks the name again.
+export async function validateWebhookUrl(
+  url,
+  { lookupAddresses = lookupAllAddresses, allowUnresolvedName = false } = {},
+) {
   if (!url || typeof url !== "string")
     throw new Error("Webhook URL is required.");
   let parsed;
@@ -17,40 +68,59 @@ function validateWebhookUrl(url) {
   }
   if (parsed.protocol !== "https:")
     throw new Error("Webhook URL must use HTTPS.");
-  const host = parsed.hostname.toLowerCase();
-  // Block localhost
-  if (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "0.0.0.0"
-  ) {
+
+  // An IPv6 host name has brackets, for example "[::1]". A trailing dot is allowed in DNS names.
+  const host = parsed.hostname
+    .toLowerCase()
+    .replace(/^\[(.*)\]$/, "$1")
+    .replace(/\.$/, "");
+  if (host === "localhost" || host.endsWith(".localhost")) {
     throw new Error("Webhook URL cannot point to localhost.");
   }
-  // Block private IP ranges, link-local, metadata
-  const parts = host.split(".").map(Number);
-  if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
-    if (parts[0] === 10)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 192 && parts[1] === 168)
-      throw new Error("Webhook URL cannot point to private networks.");
-    if (parts[0] === 169 && parts[1] === 254)
-      throw new Error("Webhook URL cannot point to link-local addresses.");
+  if (net.isIP(host)) {
+    if (isBlockedAddress(host)) {
+      throw new Error(
+        `Webhook URL cannot point to localhost, private networks, link-local or special addresses: ${host}`,
+      );
+    }
+    return;
+  }
+
+  let addresses = [];
+  try {
+    addresses = await lookupAddresses(host);
+  } catch {
+    addresses = [];
+  }
+  if (addresses.length === 0) {
+    if (allowUnresolvedName) return;
+    throw new Error(`Webhook host name does not resolve: ${host}`);
+  }
+  const blockedAddress = addresses.find(isBlockedAddress);
+  if (blockedAddress) {
+    throw new Error(
+      `Webhook URL cannot point to localhost, private networks, link-local or special addresses: ${host} resolves to ${blockedAddress}`,
+    );
   }
 }
 
+// The cluster name in a message. A rule with no cluster runs on the first cluster,
+// and the message says so.
 function getClusterInfo(alert) {
   const clusters = getAllClusters();
   if (!clusters.length) return { clusterName: "No cluster", nodes: "-" };
 
-  // Find the cluster this alert is assigned to, or fall back to first
-  const cluster =
-    (alert?.clusterId
-      ? clusters.find((c) => c.id === alert.clusterId)
-      : null) || clusters[0];
-  const clusterName = cluster.name || "Default";
+  let cluster;
+  let clusterName;
+  if (alert?.clusterId) {
+    cluster = clusters.find((c) => c.id === alert.clusterId);
+    clusterName = cluster
+      ? cluster.name || "Default"
+      : `Unknown cluster (${alert.clusterId})`;
+  } else {
+    cluster = clusters[0];
+    clusterName = `No cluster set (first cluster used: ${cluster.name || "Default"})`;
+  }
 
   // If the alert targets specific nodes, show those
   let targetNodes = [];
@@ -60,12 +130,14 @@ function getClusterInfo(alert) {
         typeof alert.nodes === "string" ? JSON.parse(alert.nodes) : alert.nodes;
       if (Array.isArray(parsed) && parsed.length > 0) targetNodes = parsed;
     }
-  } catch {}
+  } catch {
+    // Keep the default nodes.
+  }
 
   if (targetNodes.length) {
     return { clusterName, nodes: targetNodes.join(", ") };
   }
-  const allNodes = (cluster.nodes || []).map((n) => n.host);
+  const allNodes = (cluster?.nodes || []).map((n) => n.host);
   return { clusterName, nodes: allNodes.join(", ") || "all nodes" };
 }
 
@@ -90,6 +162,8 @@ function formatDetails(alert) {
     error: alert.error || null,
     // The one-time link of the account and password reset emails.
     setPasswordUrl: alert.setPasswordUrl || "",
+    // The account of the account and password reset emails: { username, role }.
+    account: alert.account || null,
   };
 }
 
@@ -100,35 +174,6 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-function extractAccountDetails(description) {
-  const text = String(description || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 2000);
-
-  const usernameMatch = text.match(
-    /Username:\s*([^\s]+)(?:\s+(?:New\s+)?Password:)?/i,
-  );
-  const passwordMatch = text.match(/(?:New\s+)?Password:\s*([^\s]+)\s+Role:/i);
-  const roleMatch = text.match(/Role:\s*([a-z]+)/i);
-  const noteMatch = text.match(
-    /(Please change your password on first login\.?)/i,
-  );
-
-  return {
-    intro: text.split(/Username:/i)[0].trim(),
-    username: usernameMatch ? usernameMatch[1].trim() : "",
-    password: passwordMatch ? passwordMatch[1].trim() : "",
-    role: roleMatch ? roleMatch[1].trim() : "",
-    note: noteMatch ? noteMatch[1].trim() : "",
-  };
-}
-
-function extractFirstName(name) {
-  if (typeof name !== "string" || !name.trim()) return "User";
-  return name.split(" ")[0];
 }
 
 export const sendOTPEmail = async (email, otp, channelConfig) => {
@@ -197,7 +242,16 @@ export const sendOTPEmail = async (email, otp, channelConfig) => {
 
 // Throws when a notification service refuses the message, so the failure shows in the channel status.
 // Slack answers 200 also when it refuses a message, with ok: false in the body.
+// A redirect is a failure too. The send does not follow it, because it can lead to a private address.
 async function throwIfRefused(response, serviceName) {
+  const isRedirect =
+    response.type === "opaqueredirect" ||
+    (response.status >= 300 && response.status < 400);
+  if (isRedirect) {
+    throw new Error(
+      `${serviceName} answered with a redirect (HTTP ${response.status}). CHOps does not follow redirects.`,
+    );
+  }
   if (!response.ok) {
     throw new Error(`${serviceName} refused the message: HTTP ${response.status}`);
   }
@@ -245,15 +299,9 @@ export async function sendNotification(channelConfig, alert) {
     const preColor = "#ffffff";
     const tableTextColor = "#0b1220";
     const severityTextColor = d.severity === "WARNING" ? "#1a1a2e" : "#fff";
-    const mutedTextColor = "#64748b";
 
-    const accountDetails = isAccountEmail
-      ? extractAccountDetails(d.description)
-      : null;
-
-    const passwordResetDetails = isPasswordResetEmail
-      ? extractAccountDetails(d.description)
-      : null;
+    const accountDetails = isAccountEmail ? d.account : null;
+    const passwordResetDetails = isPasswordResetEmail ? d.account : null;
 
     const descriptionHtml =
       d.description !== "-"
@@ -603,6 +651,7 @@ export async function sendNotification(channelConfig, alert) {
       throw new Error("Slack channel_id is not configured");
     const slackResponse = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
+      redirect: "manual",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.bot_token}`,
@@ -665,23 +714,21 @@ export async function sendNotification(channelConfig, alert) {
   } else if (config.type === "google_chat") {
     if (!config.webhook_url)
       throw new Error("Google Chat webhook_url is not configured");
-    validateWebhookUrl(config.webhook_url);
+    await validateWebhookUrl(config.webhook_url);
     let statusText = "";
-    let statusIcon = "DESCRIPTION";
 
     if (d.kind === "failure") {
       statusText = `<font color="#FF0000"><b>Error:</b> ${d.error || "Evaluation failed"}</font>`;
-      statusIcon = "CONFIRMATION_NUMBER_MONOCHROME";
     } else if (d.kind === "recovery") {
       statusText =
         '<font color="#16a34a"><b>Status:</b>Recovered - evaluation succeeded again</font>';
-      statusIcon = "STAR";
     } else {
       statusText = `<b>Value:</b> ${String(d.value)}`;
     }
 
     const googleChatResponse = await fetch(config.webhook_url, {
       method: "POST",
+      redirect: "manual",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cardsV2: [
@@ -738,9 +785,10 @@ export async function sendNotification(channelConfig, alert) {
   } else if (config.type === "teams") {
     if (!config.webhook_url)
       throw new Error("Microsoft Teams webhook_url is not configured");
-    validateWebhookUrl(config.webhook_url);
+    await validateWebhookUrl(config.webhook_url);
     const teamsResponse = await fetch(config.webhook_url, {
       method: "POST",
+      redirect: "manual",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         "@type": "MessageCard",
@@ -790,6 +838,7 @@ export async function sendNotification(channelConfig, alert) {
 
     const pagerDutyResponse = await fetch("https://events.pagerduty.com/v2/enqueue", {
       method: "POST",
+      redirect: "manual",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         routing_key: config.routing_key,
@@ -823,6 +872,8 @@ export async function sendNotification(channelConfig, alert) {
       }),
     });
     await throwIfRefused(pagerDutyResponse, "PagerDuty");
+  } else {
+    throw new Error(`Unknown channel type: ${config.type}`);
   }
 }
 

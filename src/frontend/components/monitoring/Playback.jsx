@@ -5,7 +5,7 @@
 
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
-import React, {
+import {
   useState,
   useRef,
   useEffect,
@@ -915,12 +915,6 @@ function buildChartOption(chart, rows, frameT) {
 
 // INSPECTION POPUP COMPONENT
 
-const LOG_LEVEL_COLORS = {
-  Error: "#ef4444",
-  Critical: "#dc2626",
-  Fatal: "#991b1b",
-};
-
 function InspectionPopup({
   type,
   rows,
@@ -929,7 +923,7 @@ function InspectionPopup({
   onClose,
   frameTimestamp,
 }) {
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [, setExpandedRow] = useState(null);
 
   useEffect(() => {
     setExpandedRow(null);
@@ -1208,7 +1202,7 @@ export default function Playback() {
         const result = await runQuery(sql);
         if (fetchIdRef.current !== thisId || !mountedRef.current) return;
         results[chart.key] = result.rows || [];
-      } catch (err) {
+      } catch {
         if (fetchIdRef.current !== thisId || !mountedRef.current) return;
         results[chart.key] = [];
         errors.push(chart.label);
@@ -1430,6 +1424,7 @@ export default function Playback() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [dataReady, frameIndex, playing, allTimes.length]);
 
   return (

@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Text input field with message submission, history scrolling, and AI command triggers.
 
-import React, { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import "../../styles/global.css";
 import { AnimatePresence, motion } from "motion/react";

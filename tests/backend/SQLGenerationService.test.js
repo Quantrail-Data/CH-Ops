@@ -330,7 +330,9 @@ describe("generateSql - chat persistence", () => {
       provider TEXT,
       model TEXT,
       error_code TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      chart_name TEXT,
+      dash_id TEXT
     )
   `);
   ChatStore.__setDb(drizzle(sqlite, { schema }));

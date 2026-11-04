@@ -180,6 +180,8 @@ export const appUsers = sqliteTable("app_user", {
   passwordSetupTokenExpiresAt: text("password_setup_token_expires_at").default(
     null,
   ),
+  // Each login token holds this number. A password reset adds 1, so all older tokens stop working.
+  tokenVersion: integer("token_version").notNull().default(0),
 });
 
 // API Keys for Qurioz AI
@@ -240,6 +242,8 @@ export const aiChatMessage = sqliteTable("ai_chat_message", {
   model: text("model"),
   errorCode: text("error_code"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
+  chartName:text("chart_name"),
+  dashId:integer("dash_id")
 });
 
 // qurioz ai_ddl_cache table

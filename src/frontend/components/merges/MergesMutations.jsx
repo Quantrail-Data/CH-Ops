@@ -7,12 +7,11 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
 import { StatCard } from "../layout/SharedComponents.jsx";
 import DataTable from "../layout/DataTable.jsx";
-import { Section } from "../overview/OverviewCards.jsx";
 
 export default function MergesMutations() {
   const mq = useQuery(),
@@ -28,6 +27,7 @@ export default function MergesMutations() {
     // rq.execute(
     //   "SELECT database, table, replica_name, node_name, type, toString(create_time) AS create_time FROM system.replication_queue LIMIT 100",
     // );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   useEffect(() => {
     load();

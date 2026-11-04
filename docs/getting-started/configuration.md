@@ -140,7 +140,7 @@ These describe the running build, and the build pipeline normally fills them in.
 
 | Variable | What it does |
 |----------|--------------|
-| `CLICKHOUSEVERSION` | The ClickHouse&reg; release CHOps is built and tested against (for example, `26.3`). |
+| `CLICKHOUSEVERSION` | The ClickHouse&reg; releases CHOps is tested against (for example, `26.3 LTS, 26.8 LTS`, as in `version.json`). Tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested. |
 | `MAJOR` | Application major version. |
 | `MINOR` | Application minor version. |
 | `PATCH` | Application patch version. |

@@ -10,7 +10,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { keyList, joinKey } from "../../utils/ddlCompose.js";
 

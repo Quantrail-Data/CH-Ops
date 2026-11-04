@@ -201,3 +201,32 @@ describe("kubernetes node addresses", () => {
     expect(byName["main-1-0"].shard).toBe(1);
   });
 });
+
+describe("saving an existing cluster", () => {
+  it("increases the version, so a background refresh that read the old version retries", () => {
+    saveClusters([k8sCluster()]);
+    const before = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+
+    saveClusters([before]);
+
+    const after = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    expect(after.version).toBe(before.version + 1);
+  });
+
+  it("keeps the lastSeenAt of a node that did not change", () => {
+    saveClusters([k8sCluster()]);
+    const oldTime = "2020-01-01T00:00:00.000Z";
+    sqlite.exec(`UPDATE cluster_node SET last_seen_at = '${oldTime}'`);
+
+    const loaded = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    loaded.nodes.push({ name: "main-2-0", host: "chi-demo-main-2-0.akoc-demo.svc.cluster.local", port: 8123 });
+    saveClusters([loaded]);
+
+    const lastSeenByName = Object.fromEntries(
+      sqlite.query("SELECT name, last_seen_at FROM cluster_node").all().map((row) => [row.name, row.last_seen_at]),
+    );
+    expect(lastSeenByName["main-0-0"]).toBe(oldTime);
+    expect(lastSeenByName["main-1-0"]).toBe(oldTime);
+    expect(lastSeenByName["main-2-0"] > oldTime).toBe(true);
+  });
+});

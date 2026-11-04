@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Displays an audit trail of active database privileges and explicit permission grants for a specific identity.
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from 'react-router-dom';
@@ -150,10 +150,10 @@ function UserTree() {
     const inst = chartInst.current;
     chartInst.current = null;
     if (inst) {
-      try { inst.clear(); } catch (e) {}
-      try { inst.dispose(); } catch (e) {}
+      try { inst.clear(); } catch { /* The chart is already gone. */ }
+      try { inst.dispose(); } catch { /* The chart is already gone. */ }
     } else if (el) {
-      try { disposeChart(el); } catch (e) {}
+      try { disposeChart(el); } catch { /* The chart is already gone. */ }
     }
   }
 
@@ -164,6 +164,7 @@ function UserTree() {
       FROM system.users
       ORDER BY name
     `);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   // load ALL grants + ALL role grants
@@ -192,6 +193,7 @@ function UserTree() {
         granted_role_name
       FROM system.role_grants
     `);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [sel]);
 
   // render chart
@@ -303,8 +305,8 @@ function UserTree() {
     return () => {
       if (chartInst.current === inst) {
         chartInst.current = null;
-        try { inst.clear(); } catch (e) {}
-        try { inst.dispose(); } catch (e) {}
+        try { inst.clear(); } catch { /* The chart is already gone. */ }
+        try { inst.dispose(); } catch { /* The chart is already gone. */ }
       }
     };
 
@@ -540,10 +542,10 @@ function RoleTree() {
     const inst = chartInst.current;
     chartInst.current = null;
     if (inst) {
-      try { inst.clear(); } catch (e) {}
-      try { inst.dispose(); } catch (e) {}
+      try { inst.clear(); } catch { /* The chart is already gone. */ }
+      try { inst.dispose(); } catch { /* The chart is already gone. */ }
     } else if (el) {
-      try { disposeChart(el); } catch (e) {}
+      try { disposeChart(el); } catch { /* The chart is already gone. */ }
     }
   }
 
@@ -554,6 +556,7 @@ function RoleTree() {
       FROM system.roles
       ORDER BY name
     `);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   // load all grants + role hierarchy
@@ -581,6 +584,7 @@ function RoleTree() {
       FROM system.role_grants
     `);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [sel]);
 
   // render chart
@@ -638,8 +642,8 @@ function RoleTree() {
     return () => {
       if (chartInst.current === inst) {
         chartInst.current = null;
-        try { inst.clear(); } catch (e) {}
-        try { inst.dispose(); } catch (e) {}
+        try { inst.clear(); } catch { /* The chart is already gone. */ }
+        try { inst.dispose(); } catch { /* The chart is already gone. */ }
       }
     };
 
@@ -894,6 +898,7 @@ function FullOverview() {
       ORDER BY user_name, role_name
     `);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   return (

@@ -215,7 +215,7 @@ curl "http://localhost:8123/?user=chops&password=chops-test-password" \
 chi-demo-main-0-0-0    26.3.1.1
 ```
 
-CHOps needs ClickHouse&reg; 26.3 or newer. The version shown here comes from whatever image the Altinity&reg; operator pulled, and your build number will differ. If the reported version is older than 26.3, pin a 26.3-or-newer ClickHouse&reg; image in the installation before you connect CHOps.
+CHOps is tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested. The version shown here comes from whatever image the Altinity&reg; operator pulled, and your build number will differ. To test on a tested version, pin a 26.3 LTS or 26.8 LTS ClickHouse&reg; image in the installation before you connect CHOps.
 
 If both of those work, you are ready to point CHOps at it.
 

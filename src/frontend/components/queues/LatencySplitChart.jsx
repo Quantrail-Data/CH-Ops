@@ -3,7 +3,7 @@
 // Where does ingestion time go? Fetch (object storage) vs Process (ClickHouse)
 // vs Commit (Keeper), at p50 and p95. Unavailable stages are labeled, not zeroed.
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Icon from "../common/Icon.jsx";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
@@ -88,6 +88,7 @@ export default function LatencySplitChart({ latency }) {
 
   useEffect(() => {
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
       if (elRef.current) disposeChart(elRef.current);
       chartRef.current = null;
     };

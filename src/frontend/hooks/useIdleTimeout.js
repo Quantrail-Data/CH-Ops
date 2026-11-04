@@ -54,7 +54,7 @@ function writeLastActivity(ts) {
   try {
     localStorage.setItem(IDLE_ACTIVITY_KEY, String(ts));
   } catch {
-    
+    // The browser can block storage. Continue without it.
   }
 }
 

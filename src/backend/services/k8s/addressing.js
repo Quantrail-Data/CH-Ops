@@ -180,7 +180,7 @@ export async function resolveNodeAddresses({
   try {
     perPod = await findPerPodServices(client, namespace);
   } catch {
-
+    // Per-pod services are optional.
   }
 
   const allCovered =

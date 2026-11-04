@@ -9,7 +9,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { runQuery } from "../../utils/api.js";
 import Icon from "../common/Icon.jsx";
 import { BEHAVIORS, defaultZkPath, SHARDING_PRESETS } from "../../utils/engineModel.js";
