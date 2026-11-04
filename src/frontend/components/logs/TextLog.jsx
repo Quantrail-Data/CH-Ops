@@ -267,13 +267,14 @@ function ScrollBarChart({ title, rows, labelKey, valueKey, rowHeight = 32, viewH
   const innerHeight = Math.max(viewHeight - 6, rows.length * rowHeight);
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = containerRef.current;
     if (!containerRef.current) return;
     const chart = initChart(containerRef.current);
     chartRef.current = chart;
     chart.setOption(scrollBarOption(rows, labelKey, valueKey), true);
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-    return () => { disposeChart(containerRef.current); chartRef.current = null; };
+    return () => { disposeChart(chartEl); chartRef.current = null; };
   }, [rows, labelKey, valueKey, innerHeight]);
 
   return (
@@ -325,6 +326,8 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
   const saTools = useChartTools(() => chartRef.current, { filename: title });
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = containerRef.current;
     if (!containerRef.current) return;
     const chart = initChart(containerRef.current);
     chartRef.current = chart;
@@ -355,8 +358,7 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
       series,
     }, true);
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-    return () => { disposeChart(containerRef.current); chartRef.current = null; };
+    return () => { disposeChart(chartEl); chartRef.current = null; };
   }, [series, names, from, to]);
 
   useEffect(() => {
@@ -452,6 +454,8 @@ function PlainChartCard({ title, option, height = 320 }) {
 
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = containerRef.current;
     if (!containerRef.current) return;
     const chart = initChart(containerRef.current);
     chartRef.current = chart;
@@ -459,8 +463,7 @@ function PlainChartCard({ title, option, height = 320 }) {
       chart.setOption(withZoomable({ ...option, toolbox: { show: false } }), true);
       setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-    return () => { disposeChart(containerRef.current); chartRef.current = null; };
+    return () => { disposeChart(chartEl); chartRef.current = null; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
   useEffect(() => {
