@@ -72,6 +72,7 @@ export function withSystemAuthorities(pem) {
       parts.push(readFileSync(process.env.NODE_EXTRA_CA_CERTS, 'utf8'));
     }
   } catch {
+    // The extra CA file is optional.
   }
   return parts.join('\n');
 }

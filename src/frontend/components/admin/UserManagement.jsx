@@ -3,11 +3,10 @@
 // password resets, user creation, and deletion.
 // Admin and superadmin can manage users. Editor and readonly can only view.
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
-import DataTable from "../layout/DataTable.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
@@ -78,7 +77,7 @@ export default function UserManagement() {
     try {
       const r = await apiFetch("/api/system-smtp", { cache: "no-store" });
       setIsSmtpConfigured(r.configured);
-    } catch (error) {
+    } catch {
       setIsSmtpConfigured(false);
     }
   }
@@ -87,6 +86,7 @@ export default function UserManagement() {
     // Only a superadmin may read the SMTP settings, and only a superadmin sees the result.
     if (myLevel !== ROLE_LEVEL.superadmin) return;
     checkSmtpconfigured();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [tab]);
 
   async function testConnection() {
@@ -205,6 +205,7 @@ export default function UserManagement() {
     }else{
       setLoaded(true)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   function creatableRoles() {
@@ -355,7 +356,7 @@ async function resetPassword(id,initUser) {
       await navigator.clipboard.writeText(setupURL);
       setSetupURLCopied(true);
       toast.success("Setup URL copied to clipboard");
-    } catch (error) {
+    } catch {
       toast.error("Unable to copy URL. Please copy it manually.");
     }
   };

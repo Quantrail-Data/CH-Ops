@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Custom dashboards and charts: CRUD over the dashboard and chart tables.
 
-import { eq, desc, and, ne, name } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 import { db, dashboards, charts } from "../db/index.js";
 
 // JSON column handling

@@ -1,6 +1,6 @@
 {
-  "version": "1.3.3",
+  "version": "1.4.0",
   "codename": "chops",
-  "clickhouseVersion": "26.8",
-  "clickhouseCompat": "<=26.8"
+  "clickhouseVersion": "26.3 LTS, 26.8 LTS",
+  "clickhouseCompat": "Older and newer versions should work, but they are not tested."
 }

@@ -260,8 +260,9 @@ describe("Services: App Data Backup", () => {
   it("uses VACUUM INTO for WAL-safe snapshot", () => {
     expect(code).toContain("VACUUM INTO");
   });
-  it("uploads via ClickHouse® S3 function", () => {
-    expect(code).toContain("s3('");
+  it("uploads via the ClickHouse® s3 or azureBlobStorage function", () => {
+    expect(code).toContain("insertFileSql(storage, fileKey, base64)");
+    expect(read("src/shared/backupSql.js")).toContain("s3(${sqlString(");
   });
   it("writes manifest JSON alongside backup", () => {
     expect(code).toContain("manifestKey = `chops-app-backups/");
@@ -287,7 +288,8 @@ describe("Routes: App Backup", () => {
     expect(code).toContain('router.put("/config"');
   });
   it("requires superadmin for all routes", () => {
-    expect(code).toContain("requireAdmin");
+    expect(code).toContain("requireSuperAdminOnly");
+    expect(code).not.toContain("requireAdmin");
   });
 });
 

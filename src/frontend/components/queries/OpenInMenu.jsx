@@ -4,7 +4,7 @@
 
 // Moved out of QueriesSection.jsx unchanged. Importing it back would be a cycle.
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../common/Icon.jsx";
 

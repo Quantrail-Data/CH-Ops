@@ -8,7 +8,6 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React from "react";
 import Select from "../common/Select.jsx";
 
 export default function ModeSelect({ mode = "regular", onChange }) {

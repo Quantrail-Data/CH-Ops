@@ -11,8 +11,16 @@ const RESET_TOKENS = new Map();
 
 export const OTP_TTL_MS = 10 * 60 * 1000; // code is valid for 10 minutes
 const RESET_TOKEN_TTL_MS = 5 * 60 * 1000; // token is valid for 5 minutes
-const MAX_ATTEMPTS = 5; // wrong guesses before lockout
+const MAX_ATTEMPTS = 5; // wrong guesses for one code
 const OTP_REISSUE_COOLDOWN_MS = 60 * 1000;
+
+// These limits are per account and stay when a code is deleted or replaced.
+export const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const MAX_CODES_PER_WINDOW = 5;
+export const MAX_WRONG_GUESSES_PER_WINDOW = 10;
+
+// user id -> { lastIssuedAt, codeTimes: [], wrongGuessTimes: [] }
+const ACCOUNT_LIMITS = new Map();
 
 const sha256 = (v) => createHash("sha256").update(String(v)).digest("hex");
 
@@ -22,31 +30,54 @@ function generateOTP() {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
+// Returns the limit record of the account, without times older than the window.
+function accountLimits(userId) {
+  let limits = ACCOUNT_LIMITS.get(userId);
+  if (!limits) {
+    limits = { lastIssuedAt: 0, codeTimes: [], wrongGuessTimes: [] };
+    ACCOUNT_LIMITS.set(userId, limits);
+  }
+  const windowStart = Date.now() - LIMIT_WINDOW_MS;
+  limits.codeTimes = limits.codeTimes.filter((time) => time > windowStart);
+  limits.wrongGuessTimes = limits.wrongGuessTimes.filter(
+    (time) => time > windowStart,
+  );
+  return limits;
+}
+
+function isLockedOut(limits) {
+  return limits.wrongGuessTimes.length >= MAX_WRONG_GUESSES_PER_WINDOW;
+}
+
 // Returns the plaintext code once, so the caller can email it. Only the hash is
 // kept, so the live codes are never sitting in memory in readable form.
+// Returns null when a limit stops a new code.
 export function issueOTP(userId) {
-  const existing = OTP_STORE.get(userId);
-  if (
-    existing &&
-    existing.issuedAt &&
-    Date.now() - existing.issuedAt < OTP_REISSUE_COOLDOWN_MS
-  ) {
-    return null;
-  }
+  const limits = accountLimits(userId);
+  if (Date.now() - limits.lastIssuedAt < OTP_REISSUE_COOLDOWN_MS) return null;
+  if (limits.codeTimes.length >= MAX_CODES_PER_WINDOW) return null;
+  if (isLockedOut(limits)) return null;
 
   const otp = generateOTP();
   OTP_STORE.set(userId, {
     otpHash: sha256(otp),
     expiresAt: Date.now() + OTP_TTL_MS,
-    issuedAt: Date.now(),
     attempts: 0,
   });
+  limits.lastIssuedAt = Date.now();
+  limits.codeTimes.push(Date.now());
   return otp;
 }
 
 export function verifyOTP(userId, submitted) {
   const rec = OTP_STORE.get(userId);
   if (!rec || !rec.otpHash) return { ok: false };
+
+  const limits = accountLimits(userId);
+  if (isLockedOut(limits)) {
+    OTP_STORE.delete(userId);
+    return { ok: false };
+  }
 
   // The expiry check the old code meant to do but never ran.
   if (Date.now() > rec.expiresAt) {
@@ -65,7 +96,10 @@ export function verifyOTP(userId, submitted) {
   // differ. A normal === can leak information through how long it takes.
   const a = Buffer.from(sha256(submitted));
   const b = Buffer.from(rec.otpHash);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return { ok: false };
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    limits.wrongGuessTimes.push(Date.now());
+    return { ok: false };
+  }
 
   // Correct code. Consume it, then hand back proof this step happened.
   rec.otpHash = null;
@@ -98,5 +132,12 @@ const sweeper = setInterval(() => {
   for (const [k, v] of OTP_STORE) if (now > v.expiresAt) OTP_STORE.delete(k);
   for (const [k, v] of RESET_TOKENS)
     if (now > v.expiresAt) RESET_TOKENS.delete(k);
+  for (const userId of ACCOUNT_LIMITS.keys()) {
+    const limits = accountLimits(userId);
+    const isIdle = now - limits.lastIssuedAt > LIMIT_WINDOW_MS;
+    if (isIdle && !limits.codeTimes.length && !limits.wrongGuessTimes.length) {
+      ACCOUNT_LIMITS.delete(userId);
+    }
+  }
 }, 60 * 1000);
 sweeper.unref?.();

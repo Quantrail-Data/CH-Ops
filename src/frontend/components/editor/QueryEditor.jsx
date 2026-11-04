@@ -2,7 +2,7 @@
 // Contributors -> Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Interactive SQL editor featuring syntax highlighting, query execution, and schema auto-completion.
 
-import React, {
+import {
   useEffect,
   useRef,
   useState,
@@ -39,14 +39,14 @@ import MaxRowsControl, {
   clampMaxRows,
   readMaxRows,
 } from "./MaxRowsControl.jsx";
-import { readShareFromHash, shareTabName } from "../../utils/shareLink.js";
+import { readShareFromHash } from "../../utils/shareLink.js";
 import "./exportWizard.css";
 import { isDataQuery, analyzeSql } from "../../../shared/sqlClassify.js";
 import { normalizeForExport } from "../../../shared/sqlExport.js";
 import { findParameters, hasValue } from "../../../shared/sqlParams.js";
 import ParamStrip from "./ParamStrip.jsx";
 import QueryTabs from "./QueryTabs.jsx";
-import { nextTabName, useQueryTabs } from "./useQueryTabs.js";
+import { useQueryTabs } from "./useQueryTabs.js";
 import SqlEditor from "./SqlEditor.jsx";
 import { buildCompletionOptions, loadFunctionRows } from "./sqlEditorSetup.js";
 import {
@@ -56,7 +56,7 @@ import {
 } from "../../utils/costEstimator.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { treeSizeTB } from "../../utils/treeChart.js";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
@@ -65,16 +65,12 @@ import {
   composeStatement,
   settingsFor,
   isVersion267OrLater,
-  initialTicked,
 } from "./explainOptions.js";
 
 import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
 import AIDDLButton from "../common/AIDDLButton.jsx";
 import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
-
-// VITE_SELECTEDAID_DBS=aiselectedid
-const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS ?? "aiselectedid";
 
 const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
@@ -97,7 +93,9 @@ const ACTIVE_EXPORT_KEY = "chops_active_export";
 function forgetExport() {
   try {
     localStorage.removeItem(ACTIVE_EXPORT_KEY);
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
 function getEditorHeight() {
@@ -140,96 +138,6 @@ function responseBodyStructTableDatabase(genTables) {
   return result ? result : [];
 }
 
-function AIKeyButton({ dbdetails, dataSelectionHandler, connectDatabaseID }) {
-  const [isLoading, setIsLoading] = useState(false);
-
-  if (!dbdetails) return null;
-  const { dbName, id, isSelected } = dbdetails;
-
-  const connecthandler = async (db) => {
-    setIsLoading(true);
-    await connectDatabaseID(db);
-    setIsLoading(false);
-  };
-
-  if (dbName && id) {
-    return (
-      <button
-        className={`btn btn-primary`}
-        style={{
-          // marginTop: "5px",/
-          padding: "3px",
-          borderRadius: "5px",
-          backgroundColor: !isSelected ? "#e0d4ffba" : undefined,
-          color: !isSelected ? "#4e4e4eba" : undefined,
-        }}
-        title={!isSelected ? "Select" : "Deselect"}
-        onClick={() => {
-          dataSelectionHandler && dataSelectionHandler(dbName);
-        }}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className="icon icon-tabler icons-tabler-filled icon-tabler-bolt"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path d="M13 2l.018 .001l.016 .001l.083 .005l.011 .002h.011l.038 .009l.052 .008l.016 .006l.011 .001l.029 .011l.052 .014l.019 .009l.015 .004l.028 .014l.04 .017l.021 .012l.022 .01l.023 .015l.031 .017l.034 .024l.018 .011l.013 .012l.024 .017l.038 .034l.022 .017l.008 .01l.014 .012l.036 .041l.026 .027l.006 .009c.12 .147 .196 .322 .218 .513l.001 .012l.002 .041l.004 .064v6h5a1 1 0 0 1 .868 1.497l-.06 .091l-8 11c-.568 .783 -1.808 .38 -1.808 -.588v-6h-5a1 1 0 0 1 -.868 -1.497l.06 -.091l8 -11l.01 -.013l.018 -.024l.033 -.038l.018 -.022l.009 -.008l.013 -.014l.04 -.036l.028 -.026l.008 -.006a1 1 0 0 1 .402 -.199l.011 -.001l.027 -.005l.074 -.013l.011 -.001l.041 -.002z" />
-        </svg>
-      </button>
-    );
-  }
-  return (
-    <button
-      className="btn btn-primary"
-      style={{
-        // marginTop: "5px",
-        padding: "3px",
-        borderRadius: "5px",
-        backgroundColor: "#3a2055fd",
-      }}
-      title="Generate database ID"
-      onClick={() => connecthandler(dbName)}
-    >
-      {isLoading ? (
-        <div
-          className="loading-spinner"
-          style={{
-            width: "12px",
-            height: "12px",
-            borderColor: "gray",
-            borderTopColor: "white",
-          }}
-        ></div>
-      ) : (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="icon icon-tabler icons-tabler-outline icon-tabler-plug-connected"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path d="M7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1 -5 -5l1.5 -1.5" />
-          <path d="M17 12l-5 -5l1.5 -1.5a3.536 3.536 0 1 1 5 5l-1.5 1.5" />
-          <path d="M3 21l2.5 -2.5" />
-          <path d="M18.5 5.5l2.5 -2.5" />
-          <path d="M10 11l-2 2" />
-          <path d="M13 14l-2 2" />
-        </svg>
-      )}
-    </button>
-  );
-}
-
 function getHistory() {
   try {
     return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
@@ -244,13 +152,17 @@ function addHistory(entry) {
   if (h.length > HISTORY_MAX) h.length = HISTORY_MAX;
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
 function clearHistory() {
   try {
     localStorage.removeItem(HISTORY_KEY);
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
 // To delete the single history, instead of clear all.
@@ -261,7 +173,9 @@ function deleteHistory(id) {
   h.splice(index, 1);
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
 // Export helpers - trigger browser download from in-memory data function
@@ -335,15 +249,10 @@ export default function QueryEditor({
   onModeChange,
 }) {
   const toast = useToast();
-  const navigate = useNavigate();
   const {
     selectedClusterId,
     selectedNode,
-    connected,
     port,
-    clusters,
-    clusterName,
-    user,
     nodeName,
     serverVersion,
   } = useConnection();
@@ -360,7 +269,6 @@ export default function QueryEditor({
     activeTab,
     runtime,
     activeRuntime,
-    runningTabs,
     canAddTab,
     updateTab,
     setRuntime,
@@ -375,6 +283,7 @@ export default function QueryEditor({
         sql: typeof v === "function" ? v(sql) : v,
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Kept on purpose. Removing it would change when this runs.
     [activeId, sql, updateTab, tabs],
   );
 
@@ -403,17 +312,12 @@ export default function QueryEditor({
   );
   const setResult = useCallback((v) => rt({ result: v }), [rt]);
   const setResultCols = useCallback((v) => rt({ resultCols: v }), [rt]);
-  const setError = useCallback((v) => rt({ error: v }), [rt]);
   const setSuccessMsg = useCallback((v) => rt({ successMsg: v }), [rt]);
   const setQueryStats = useCallback((v) => rt({ queryStats: v }), [rt]);
   const setMemoryUsage = useCallback((v) => rt({ memoryUsage: v }), [rt]);
   const setLastQueryId = useCallback((v) => rt({ lastQueryId: v }), [rt]);
   const setFeatureQueryId = useCallback((v) => rt({ featureQueryId: v }), [rt]);
-  const setEstimateResult = useCallback((v) => rt({ estimateResult: v }), [rt]);
-  const setEstimating = useCallback((v) => rt({ estimating: v }), [rt]);
   const setGraphData = useCallback((v) => rt({ graphData: v }), [rt]);
-  const setGraphTitle = useCallback((v) => rt({ graphTitle: v }), [rt]);
-  const setRunning = useCallback((v) => rt({ running: v }), [rt]);
 
   const paramValues = activeTab.params;
 
@@ -485,7 +389,10 @@ export default function QueryEditor({
     setSql(created?.sql);
     try {
       window.history.replaceState(null, "", "/#/editor/query");
-    } catch {}
+    } catch {
+      // The URL change is optional.
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   const setParamValue = useCallback(
@@ -518,7 +425,7 @@ export default function QueryEditor({
   const [connUser, setConnUser] = useState("");
   const [connPassword, setConnPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
-  const [connError, setConnError] = useState(null);
+  const [, setConnError] = useState(null);
   // The editor is a CodeMirror view now, reached through an imperative handle
   // rather than three DOM refs.
   const editorRef = useRef(null);
@@ -552,7 +459,7 @@ export default function QueryEditor({
     serviceName: null,
     model: null,
   });
-  const [apikeys, setApikeys] = useState([]);
+  const [, setApikeys] = useState([]);
 
   useEffect(() => {
     const fetchAPIKEY_Details = async () => {
@@ -566,7 +473,7 @@ export default function QueryEditor({
           serviceName: apiKey?.name || null,
           model: apiKey?.model || null,
         });
-      } catch (err) {
+      } catch {
         setApiKey({
           status: false,
           id: null,
@@ -928,7 +835,9 @@ export default function QueryEditor({
     setMaxRowsState(v);
     try {
       localStorage.setItem(MAX_ROWS_KEY, String(v));
-    } catch {}
+    } catch {
+      // The browser can block storage. Continue without it.
+    }
   }, []);
   const [dbs, setDbs] = useState([]);
   const [selectedDb, setSelectedDb] = useState(null);
@@ -942,16 +851,10 @@ export default function QueryEditor({
   const [showGraphSqlModal, setShowGraphSqlModal] = useState(false);
   const graphRef = useRef(null);
   const graphInst = useRef(null);
-  const [selectedAIDB, setSelectedAIDB] = useState(null);
-  const [selectedAIDBID, setSelectedAIDBID] = useState(null);
-  const [isAILoading, setIsAILoading] = useState(false);
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
-  const [aiError, setAIError] = useState(null);
-
-  const [AIdbsInfo, setAIdbsInfo] = useState([]);
 
   // default cred password view flag
   const [isViewFlag, setIsViewFlag] = useState(false);
@@ -967,6 +870,7 @@ export default function QueryEditor({
     }, 2000);
 
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   // Render ECharts tree when graphData changes
@@ -1145,6 +1049,7 @@ export default function QueryEditor({
     }
     return () => {
       if (graphRef.current && graphInst.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
         disposeChart(graphRef.current);
         graphInst.current = null;
       }
@@ -1216,6 +1121,7 @@ export default function QueryEditor({
       setLastQueryId(qidFromUrl);
       setFeatureQueryId(qidFromUrl);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [qidFromUrl]);
 
   // The effect that used to run a query whenever ExplainOptionSelector changed
@@ -1255,7 +1161,9 @@ export default function QueryEditor({
   async function handleDisconnect() {
     try {
       await editorDisconnect();
-    } catch {}
+    } catch {
+      // Ignore a failed disconnect.
+    }
     setEditorCreds(null);
     setConnUser("");
     setConnPassword("");
@@ -1396,6 +1304,7 @@ export default function QueryEditor({
     if (!editorConnected) return;
     loadDbs();
     loadAutocomplete();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [editorConnected, selectedClusterId, selectedNode]);
 
   useEffect(() => {
@@ -1512,6 +1421,7 @@ export default function QueryEditor({
     }
     // Ask, and remember which tab the answer is for.
     setRunConfirm({ id, names: busy.map((t) => t.name).join(", ") });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   const doRun = useCallback(
@@ -1760,7 +1670,9 @@ export default function QueryEditor({
                 setGraphData({ _json: true, data: parsed });
                 setRunning(false);
                 return;
-              } catch {}
+              } catch {
+                // Not JSON. Continue with the normal result.
+              }
             }
           }
           setResult(r.rows);
@@ -1820,6 +1732,7 @@ export default function QueryEditor({
         lastRunMetaRef.current = { written: 0 };
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
     [editorConnected, editorCreds, activeTab, setRuntime, toast],
   );
   doRunRef.current = doRun;
@@ -1870,7 +1783,20 @@ export default function QueryEditor({
         setEstimating(false);
       }
     },
-    [editorConnected, editorCreds, activeTab, setRuntime],
+    [
+      editorConnected,
+      editorCreds,
+      activeTab,
+      setRuntime,
+      setResult,
+      setResultCols,
+      setSuccessMsg,
+      setGraphData,
+      setQueryStats,
+      setLastQueryId,
+      setFeatureQueryId,
+      setMemoryUsage,
+    ],
   );
 
   // The history effect that used to live here is gone.
@@ -1903,7 +1829,9 @@ export default function QueryEditor({
       });
       setBookmarks(updated);
       setBookmarkName("");
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
   }
 
   /* Write the whole bookmark list. */
@@ -1935,7 +1863,9 @@ export default function QueryEditor({
         }),
       });
       setBookmarks(updated);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
   }
 
   // Insert at the caret through the editor's own transaction, so it is ONE
@@ -2021,17 +1951,6 @@ export default function QueryEditor({
   }
 
   
-
-  function SelectedDBNames() {
-    if (!AIdbsInfo) return "";
-    return AIdbsInfo?.filter((_v) => _v?.isSelected)
-      ?.map((_v) => _v?.dbName)
-      ?.join(", ");
-  }
-
-  function MultipleDBSelected() {
-    return AIdbsInfo?.filter((_v) => _v?.isSelected)?.length > 0;
-  }
 
   function IsSelectedAiID() {
       const result = responseBodyStructTableDatabase(genTables);
@@ -2605,7 +2524,9 @@ export default function QueryEditor({
                   EDITOR_HEIGHT_KEY,
                   String(EDITOR_HEIGHT_DEFAULT),
                 );
-              } catch {}
+              } catch {
+                // The browser can block storage. Continue without it.
+              }
             }}
             onMouseDown={(e) => {
               e.preventDefault();
@@ -2637,7 +2558,9 @@ export default function QueryEditor({
                 setEditorHeight((h) => {
                   try {
                     localStorage.setItem(EDITOR_HEIGHT_KEY, String(h));
-                  } catch {}
+                  } catch {
+                    // The browser can block storage. Continue without it.
+                  }
                   return h;
                 });
               };
@@ -3861,7 +3784,9 @@ export default function QueryEditor({
           setMaxRowsState(v);
           try {
             localStorage.setItem(MAX_ROWS_KEY, String(v));
-          } catch {}
+          } catch {
+            // The browser can block storage. Continue without it.
+          }
         }}
       />
 

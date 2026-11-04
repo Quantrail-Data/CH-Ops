@@ -39,13 +39,17 @@ function rememberExport(job, fileName) {
       ACTIVE_EXPORT_KEY,
       JSON.stringify({ jobId: job.jobId, fileName, startedAt: Date.now() }),
     );
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
 function forgetExport() {
   try {
     localStorage.removeItem(ACTIVE_EXPORT_KEY);
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
 function recallExport() {
@@ -274,7 +278,9 @@ export default function ExportWizard({ sql, username, onClose }) {
       if (stop) {
         try {
           await cancelExport(job.jobId);
-        } catch {}
+        } catch {
+          // The export is already finished or gone.
+        }
         forgetExport();
       }
     }

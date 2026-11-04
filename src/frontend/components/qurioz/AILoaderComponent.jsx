@@ -4,7 +4,7 @@
 
 
 import { AnimatePresence, motion } from "motion/react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "../../App";
 
 const LOADING_PHRASES = [

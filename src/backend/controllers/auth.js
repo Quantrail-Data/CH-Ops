@@ -5,11 +5,12 @@
 // upgrades, brute-force lockouts, and .env-based superadmin recovery.
 
 import { timingSafeEqual } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { create, verify, revokeToken } from "../services/jwt.js";
 import { loadEnv } from "../utils/env.js";
 import { getConfig } from "../services/appConfig.js";
+import { tokenVersionMatches } from "../middleware/auth.js";
 
 async function hashPassword(pw) {
   return Bun.password.hash(pw, {
@@ -145,6 +146,7 @@ export async function login(req, res) {
         username: user.username,
         role: user.role,
         userId: user.id,
+        tokenVersion: user.tokenVersion,
       }),
     });
   }
@@ -206,6 +208,7 @@ export async function login(req, res) {
               username: row.username,
               role: row.role,
               userId: row.id,
+              tokenVersion: row.tokenVersion,
             }),
           });
         }
@@ -271,7 +274,7 @@ export async function changePassword(req, res) {
       .get();
 
     // Use a generic response for a missing user or an incorrect password.
-    if (!user) {
+    if (!user || !tokenVersionMatches(payload, user)) {
       return res.status(401).json({ error: "Invalid current password." });
     }
 
@@ -286,6 +289,8 @@ export async function changePassword(req, res) {
         passwordHash: newHash,
         mustChangePassword: false,
         updatedAt: new Date().toISOString(),
+        // This ends all sessions of the user, also the current one.
+        tokenVersion: sql`${appUsers.tokenVersion} + 1`,
       })
       .where(eq(appUsers.id, user.id))
       .run();

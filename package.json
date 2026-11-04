@@ -22,7 +22,7 @@
     "test": "bun run test:backend && vitest run tests/frontend",
     "test:backend": "bun scripts/test-each-file.mjs tests/backend && bun test tests/isolated && bun test tests/no-mocks && bun test tests/db && bun test tests/net && bun test tests/security",
     "test:coverage": "bun run test:backend:coverage && bun run test:frontend:coverage",
-    "test:backend:coverage": "bun scripts/test-each-file.mjs tests/backend && bun test tests/isolated && bun test tests/no-mocks && bun test tests/db && bun test tests/net && bun test tests/security",
+    "test:backend:coverage": "bun scripts/test-backend-coverage.mjs",
     "test:frontend:coverage": "vitest run tests/frontend --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",

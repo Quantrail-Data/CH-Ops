@@ -2,9 +2,8 @@
 // Overview entry point that picks a cluster and renders the Kubernetes screens.
 // Contributors -> Kathir Moorthy
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Icon from "../common/Icon.jsx";
-import Select from "../common/Select.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useConnection } from "../../App.jsx";
@@ -22,6 +21,7 @@ export default function KubernetesInsightPage() {
       .then((r) => setClusters((Array.isArray(r) ? r : []).filter((c) => c.kind === "k8s")))
       .catch((e) => toast.error("Failed to load clusters: " + e.message))
       .finally(() => setLoaded(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, []);
 
   // Follow the cluster picked in the navbar when it is one of ours

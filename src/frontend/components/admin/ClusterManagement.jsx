@@ -2,7 +2,7 @@
 // ClusterManagement.jsx - multi-cluster management page
 // Contributors -> Praveen kumar, kathir Moorthy
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
@@ -239,6 +239,7 @@ export default function ClusterManagement() {
   }
   useEffect(() => {
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   function addNode() {

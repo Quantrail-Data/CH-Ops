@@ -2,7 +2,7 @@
 // Block diagram of every configured cluster, laid out one column per shard and one row per replica.
 // Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,

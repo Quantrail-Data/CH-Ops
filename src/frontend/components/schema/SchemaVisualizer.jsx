@@ -5,7 +5,7 @@
 
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
-import React, {
+import {
   useState,
   useEffect,
   useRef,
@@ -17,7 +17,6 @@ import {
   ReactFlowProvider,
   useReactFlow,
   Controls,
-  MiniMap,
   MarkerType,
   useNodesState,
   useEdgesState,
@@ -30,10 +29,8 @@ import {
   getEdgeColors,
   fmtBytes,
   fmtRows,
-  formatLoadValue,
   loadIntensity,
   loadColour,
-  loadBadgeTextColor,
 } from "../../utils/schemaParser.js";
 import { layoutGraph } from "../../utils/schemaLayout.js";
 import SchemaNode from "./SchemaNode.jsx";
@@ -43,7 +40,7 @@ const nodeTypes = { schemaNode: SchemaNode };
 
 function SchemaFlow() {
   const { fitView } = useReactFlow();
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState("");
   const [graphData, setGraphData] = useState(null);
@@ -340,6 +337,8 @@ function SchemaFlow() {
     debouncedSearch,
     showColumns,
     themeVersion,
+    setRfNodes,
+    setRfEdges,
   ]);
 
   // Derived values.

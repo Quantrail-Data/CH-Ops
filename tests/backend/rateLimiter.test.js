@@ -77,6 +77,33 @@ describe('Rate Limiter', () => {
     expect(calls).toBe(2);
   });
 
+  it('gives each limiter its own count on the same route', () => {
+    // server.js mounts more than one limiter on /api/ai. Each one must count a request once.
+    const firstLimiter = rateLimiter(2, 60);
+    const secondLimiter = rateLimiter(2, 60);
+    let calls = 0;
+    const res = { setHeader: () => {}, status: () => ({ json: () => {} }) };
+    for (let i = 0; i < 2; i++) {
+      firstLimiter(mockReq('9.9.9.9', '/api/ai'), res, () => calls++);
+      secondLimiter(mockReq('9.9.9.9', '/api/ai'), res, () => calls++);
+    }
+    expect(calls).toBe(4);
+  });
+
+  it('shares one count between limiters with the same custom key', () => {
+    // routes/query.js and routes/editor.js both use "connect:<user>" on purpose.
+    const keyFn = (req) => `connect:${req.user.username}`;
+    const queryLimiter = rateLimiter(2, 60, keyFn);
+    const editorLimiter = rateLimiter(2, 60, keyFn);
+    let statusCode = null;
+    const res = { setHeader: () => {}, status: (c) => { statusCode = c; return { json: () => {} }; } };
+    const req = { ip: '10.0.0.1', baseUrl: '', user: { username: 'alice' } };
+    queryLimiter(req, res, () => {});
+    editorLimiter(req, res, () => {});
+    editorLimiter(req, res, () => {});
+    expect(statusCode).toBe(429);
+  });
+
   it('sets rate limit headers', () => {
     const mw = rateLimiter(10, 60);
     const headers = {};

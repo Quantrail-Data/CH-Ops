@@ -11,7 +11,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '../../hooks/useQuery.js';
@@ -271,6 +271,7 @@ function RateChart({ rows, from, to, rounding }) {
       series,
     }, true);
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
     return () => { disposeChart(containerRef.current); chartRef.current = null; };
   }, [series, names, from, to]);
 
@@ -539,8 +540,11 @@ function ErrorLogSearch() {
   const q = useQuery();
   const errorsQ = useQuery();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { errorsQ.execute('SELECT DISTINCT error FROM system.error_log ORDER BY error'); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   useEffect(() => { if (q.error) toast.error(q.error); }, [q.error]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   useEffect(() => { if (errorsQ.error) toast.error(errorsQ.error); }, [errorsQ.error]);
 
   function toggleError(err) { setSelectedErrors(prev => prev.includes(err) ? prev.filter(e => e !== err) : [...prev, err]); }

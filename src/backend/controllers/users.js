@@ -3,11 +3,9 @@
 // Implements 4-tier RBAC user management, restricting hierarchical role modifications and credential updates by access level.
 
 import crypto from "crypto";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { sendNotification } from "../services/notifier.js";
-import { revokeToken } from "../services/jwt.js";
-import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
 import { resolveSystemSmtp } from "../services/systemSmtp.js";
 import { loadEnv } from "../utils/env.js";
 import { create } from "../services/jwt.js";
@@ -52,6 +50,21 @@ function canManageUser(callerRole, targetRole) {
   return (ROLE_LEVEL[targetRole] || 0) < (ROLE_LEVEL[callerRole] || 0);
 }
 
+// Returns only the fields of a user that the API can show.
+// It never returns the password hash, the setup token hash or the token version.
+export function toPublicUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    email: user.email,
+    mustChangePassword: user.mustChangePassword,
+    initUser: user.initUser,
+    lastLoginAt: user.lastLoginAt,
+    createdAt: user.createdAt,
+  };
+}
+
 const SETUP_LINK_MINUTES = 30;
 
 // Returns the address of the CHOps page. This is FRONTEND_LINK when it is set.
@@ -68,6 +81,7 @@ function setupLink(req, setupToken) {
 
 // Removes the password of a user and makes a one-time link to set a new one.
 // The link holds a random token. Only its hash is stored. Returns the link.
+// It also ends all sessions of the user.
 function startPasswordSetup(req, userId) {
   const setupToken = crypto.randomBytes(32).toString("hex");
   const setupTokenHash = crypto
@@ -81,6 +95,7 @@ function startPasswordSetup(req, userId) {
       mustChangePassword: true,
       passwordSetupTokenHash: setupTokenHash,
       passwordSetupTokenExpiresAt: expiresAt.toISOString(),
+      tokenVersion: sql`${appUsers.tokenVersion} + 1`,
     })
     .where(eq(appUsers.id, userId))
     .run();
@@ -116,20 +131,11 @@ export function requireEditor(req, res, next) {
 
 export function listUsers(req, res) {
   const users = db
-    .select({
-      id: appUsers.id,
-      username: appUsers.username,
-      role: appUsers.role,
-      email: appUsers.email,
-      mustChangePassword: appUsers.mustChangePassword,
-      initUser: appUsers.initUser,
-      lastLoginAt: appUsers.lastLoginAt,
-      createdAt: appUsers.createdAt,
-    })
+    .select()
     .from(appUsers)
     .orderBy(desc(appUsers.createdAt))
     .all();
-  res.json(users);
+  res.json(users.map(toPublicUser));
 }
 
 export async function createUser(req, res) {
@@ -225,6 +231,7 @@ export async function createUser(req, res) {
           smtp_port: smtp.port,
           smtp_user: smtp.user,
           smtp_pass: smtp.pass,
+          smtp_secure: smtp.secure,
           from: smtp.from,
           to: email,
         };
@@ -234,8 +241,6 @@ export async function createUser(req, res) {
           severity: "info",
           description:
             `Your CHOps account has been created.\n\n` +
-            `Username: ${username}\n` +
-            `Role: ${newRole}\n\n` +
             `Set your password using the link below:\n` +
             `${setPasswordUrl}\n\n` +
             `This link will expire in 30 minutes and can only be used once.`,
@@ -246,13 +251,14 @@ export async function createUser(req, res) {
           lastValue: 0,
           lastRunAt: new Date().toISOString(),
           setPasswordUrl: setPasswordUrl,
+          account: { username: user.username, role: user.role },
         }).catch(() => {});
       }
-    } catch {}
+    } catch {
+      // The notice email is optional.
+    }
 
-    const { passwordHash, passwordSetupTokenHash, ...safeUser } = user;
-
-    return res.status(201).json({ ...safeUser, setPasswordUrl });
+    return res.status(201).json({ ...toPublicUser(user), setPasswordUrl });
   } catch (error) {
     res.status(500).json(error.message);
   }
@@ -341,13 +347,14 @@ export async function updateUser(req, res) {
               smtp_port: smtp.port,
               smtp_user: smtp.user,
               smtp_pass: smtp.pass,
+              smtp_secure: smtp.secure,
               from: smtp.from,
               to: target.email,
             },
             {
               name: "CHOps Password Reset",
               severity: "info",
-              description: `Your CHOps password was reset by an administrator.\n\nUsername: ${target.username}\nRole: ${target.role}`,
+              description: "Your CHOps password was reset by an administrator.",
               sql: "",
               schedule: "",
               operator: "eq",
@@ -355,6 +362,7 @@ export async function updateUser(req, res) {
               lastValue: 0,
               lastRunAt: new Date().toISOString(),
               setPasswordUrl,
+              account: { username: target.username, role: target.role },
             },
           );
         } catch (emailError) {
@@ -457,6 +465,8 @@ export async function setPassword(req, res) {
     }
 
     const passwordHash = await hashPassword(password);
+    // A new version ends all older sessions of the user. The new token below gets this version.
+    const newTokenVersion = (user.tokenVersion || 0) + 1;
 
     db.update(appUsers)
       .set({
@@ -464,6 +474,7 @@ export async function setPassword(req, res) {
         mustChangePassword: false,
         passwordSetupTokenHash: null,
         passwordSetupTokenExpiresAt: null,
+        tokenVersion: newTokenVersion,
       })
       .where(eq(appUsers.id, user.id))
       .run();
@@ -478,6 +489,7 @@ export async function setPassword(req, res) {
           username: user.username,
           role: user.role,
           userId: user.id,
+          tokenVersion: newTokenVersion,
         }),
       },
     });

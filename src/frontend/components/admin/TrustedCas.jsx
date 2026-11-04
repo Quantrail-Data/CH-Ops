@@ -1,7 +1,7 @@
 // TrustedCas.jsx - manage the certificate authorities CHOps trusts.
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
@@ -28,6 +28,7 @@ export default function TrustedCas() {
     } else {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   async function load() {

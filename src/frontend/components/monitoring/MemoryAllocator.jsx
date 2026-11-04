@@ -2,7 +2,7 @@
 // @ author: Sanjeev Kumar G ,Kathir Moorthy
 // Interface for monitoring heap memory allocation, tracking buffer pools, and tuning garbage collection thresholds.
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { runQuery } from "../../utils/api.js";
@@ -255,9 +255,11 @@ function MiniChart({
     const t = setTimeout(() => chartRef.current?.resize(), 100);
     return () => {
       clearTimeout(t);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
       disposeChart(ref.current);
       chartRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   useEffect(() => {

@@ -248,14 +248,14 @@ This approach is version-agnostic and works across all ClickHouse&reg; versions,
 
 | Requirement | Why | How to Check |
 |-------------|-----|-------------|
-| ClickHouse&reg; 26.3 LTS or newer | CHOps's minimum supported version | `SELECT version()` |
+| A supported ClickHouse&reg; version | Tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested. | `SELECT version()` |
 | `query_metric_log` enabled | ClickHouse&reg; stores the metric snapshots here (on by default on 26.3) | `SELECT count() FROM system.query_metric_log`. An error means the table is off |
 | Query duration over about 1 second | ClickHouse&reg; samples once per second by default | Run a longer query if you see "no metric data found" |
 | SELECT access on `system.query_metric_log` and `system.query_log` | The ClickHouse&reg; user that CHOps uses for the node needs read access | `GRANT SELECT ON system.query_metric_log TO your_user` |
 
 #### Enabling query_metric_log
 
-On ClickHouse&reg; 26.3 LTS (CHOps's minimum supported version), `query_metric_log` is on by default. If the table does not exist, or you want to adjust the collection interval, use the `query_metric_log_interval` **session setting**:
+On ClickHouse&reg; 26.3 LTS and 26.8 LTS, the versions that we test CHOps on, `query_metric_log` is on by default. If the table does not exist, or you want to adjust the collection interval, use the `query_metric_log_interval` **session setting**:
 
 ```sql
 -- Check whether it is on (default 1000ms)

@@ -3,7 +3,7 @@
 // @author: Sanjeev Kumar G
 // Aggregates and displays the daily performance, resource consumption, and health metrics for the entire cluster.
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import ChartToolbar, { savePng, useChartTools } from "../common/ChartToolbar.jsx";
 import { runQuery } from "../../utils/api.js";
@@ -264,9 +264,11 @@ function MiniChart({ option, height = 360, fs, onReady }) {
     return () => {
       clearTimeout(timer);
       if (onReady) onReady(null);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
       disposeChart(ref.current);
       chartRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   useEffect(() => {
@@ -519,7 +521,7 @@ export default function DailySummary() {
       ];
 
       const responses = await Promise.allSettled(
-        queries.map(([key, sql]) => runQuery(buildSql(sql, date))),
+        queries.map(([, sql]) => runQuery(buildSql(sql, date))),
       );
 
       queries.forEach(([key], i) => {

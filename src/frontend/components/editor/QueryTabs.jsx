@@ -2,7 +2,7 @@
 // QueryTabs.jsx - the SQL Editor's tab strip.
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 
 /* Has this tab produced anything? */

@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Manages system user accounts, assigns security roles, and tracks authentication states.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
@@ -12,8 +12,7 @@ import DataTable from "../layout/DataTable.jsx";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
-import { useAuth, useConnection } from "../../App.jsx";
-import { apiFetch } from "../../utils/api.js";
+import { useAuth } from "../../App.jsx";
 import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -49,6 +48,7 @@ function useDbList() {
   const q = useQuery();
   useEffect(() => {
     q.execute("SELECT name FROM system.databases ORDER BY name");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   return q;
 }
@@ -59,6 +59,7 @@ function useTableList(db) {
       q.execute(
         `SELECT name FROM system.tables WHERE database='${db}' ORDER BY name`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db]);
   return q;
 }
@@ -96,6 +97,7 @@ export default function RbacUsers() {
       "SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster",
     );
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(load, []);
 
   const users = (usersQ.data || []).map((r) => r.name);
@@ -842,7 +844,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
   );
 }
 
-function GrantRevoke({ users, roles, clusters, setResult, rbac }) {
+function GrantRevoke({ users, clusters, setResult, rbac }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;

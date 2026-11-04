@@ -1,7 +1,7 @@
 import express from "express";
 import { rateLimiter } from "../middleware/rateLimiter.js";
 import { generateSql } from "../servicesAI/SQLGenerationService.js";
-import { normaliseTables, resolveContext, fail } from "./aiRouteHelpers.js";
+import { normaliseTables, resolveContext } from "./aiRouteHelpers.js";
 import { TITLE_MAX_CHARS } from "../servicesAI/constants.js";
 import * as ChatStore from "../servicesAI/chatStore.js";
 import { getActiveApiKey } from "../services/apiKeys.js";

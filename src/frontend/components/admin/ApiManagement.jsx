@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import {
@@ -20,7 +20,7 @@ export default function ApiManagement() {
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedKeyId, setSelectedKeyId] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [, setIsEditing] = useState(false);
   const [editingKey, setEditingKey] = useState(null);
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,6 +49,7 @@ export default function ApiManagement() {
   // Thus the listener has its own effect.
   useEffect(() => {
     loadApiKeys();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   useEffect(() => {
@@ -86,7 +87,9 @@ export default function ApiManagement() {
             : null;
           if (stored === "dark") return true;
           if (stored === "light") return false;
-        } catch (e) {}
+        } catch {
+          // The browser can block storage. Continue without it.
+        }
       }
       if (typeof window !== "undefined" && window.matchMedia) {
         return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -174,39 +177,9 @@ export default function ApiManagement() {
           apiKeyName: null,
         });
       }
-    } catch (err) {
+    } catch {
       console.log("Failed to update global API key");
     }
-  }
-
-  function validateApiKey(keyValue) {
-    if (isOllama) {
-      try {
-        const url = new URL(keyValue.trim());
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
-    } else if (keyValue.startsWith("sk-")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else if (keyValue.startsWith("AIza")) {
-      return keyValue.length >= 35 && keyValue.length <= 200;
-    } else if (keyValue.startsWith("xai-")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else if (keyValue.startsWith("hf_")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    }
-  }
-
-  function getApiTypeMessage(keyValue) {
-    if (isOllama) return "Ollama base URL";
-    if (keyValue.startsWith("sk-")) return "OpenAI API key";
-    if (keyValue.startsWith("AIza")) return "Google Gemini API key";
-    if (keyValue.startsWith("xai-")) return "X.AI API key";
-    if (keyValue.startsWith("hf_")) return "Hugging Face API key";
-    return "Generic API key";
   }
 
   function isDuplicateName(name, excludeId = null) {
@@ -215,21 +188,6 @@ export default function ApiManagement() {
         key.name.toLowerCase() === name.trim().toLowerCase() &&
         key.id !== excludeId,
     );
-  }
-
-  async function checkDuplicateValue(value, excludeId = null) {
-    try {
-      const response = await apiFetch("/api/qurioz/api-keys/with-values");
-      if (response && response.apiKeys) {
-        const duplicate = response.apiKeys.some(
-          (key) => key.key === value.trim() && key.id !== excludeId,
-        );
-        return duplicate;
-      }
-    } catch {
-      // The duplicate check is only a help. If it fails, the save continues.
-    }
-    return false;
   }
 
   async function saveApiKey(e) {
@@ -416,35 +374,6 @@ export default function ApiManagement() {
     setShowKey(false);
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
-  }
-
-  function maskApiKey(key) {
-    if (!key) return "";
-    if (key.startsWith("AIza")) {
-      if (key.length <= 40) {
-        return (
-          key.substring(0, 10) +
-          "••••••••••••••••••••" +
-          key.substring(key.length - 6)
-        );
-      }
-      return (
-        key.substring(0, 10) +
-        "•••••••••••••••••••••••••••" +
-        key.substring(key.length - 6)
-      );
-    }
-    if (key.startsWith("sk-")) {
-      return (
-        key.substring(0, 8) +
-        "•••••••••••••••••••••••••••" +
-        key.substring(key.length - 4)
-      );
-    }
-    if (key.length <= 30) {
-      return "•".repeat(20);
-    }
-    return "•".repeat(30);
   }
 
   if (loading) {

@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Interface for creating, configuring, and optimizing database table indexes to improve query performance.
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from 'react-router-dom';
@@ -83,8 +83,11 @@ function CreateForm() {
   const toast = useToast()
 
   const dbsQ = useQuery(), tblsQ = useQuery(), colsQ = useQuery();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { dbsQ.execute("SELECT DISTINCT database FROM system.tables WHERE engine LIKE '%MergeTree%' ORDER BY database"); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { if (db) tblsQ.execute(`SELECT name FROM system.tables WHERE database='${db}' AND engine LIKE '%MergeTree%' ORDER BY name`); }, [db]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { if (db && tbl) colsQ.execute(`SELECT name, type FROM system.columns WHERE database='${db}' AND table='${tbl}' ORDER BY position`); }, [db, tbl]);
 
   function buildSql() {
@@ -443,8 +446,11 @@ function MaterializeForm() {
   const [result, setResult] = useState(null);
 
   const dbsQ = useQuery(), tblsQ = useQuery(), idxQ = useQuery();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { dbsQ.execute('SELECT DISTINCT database FROM system.data_skipping_indices ORDER BY database'); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { if (db) tblsQ.execute(`SELECT DISTINCT table FROM system.data_skipping_indices WHERE database='${db}' ORDER BY table`); }, [db]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { if (db && tbl) idxQ.execute(`SELECT name FROM system.data_skipping_indices WHERE database='${db}' AND table='${tbl}' ORDER BY name`); }, [db, tbl]);
 
   const sql = db && tbl && idxName ? `ALTER TABLE ${db}.${tbl} MATERIALIZE INDEX ${idxName}` : '';
@@ -545,8 +551,11 @@ function DropForm() {
   useEffect(() => {
     dropDbsQ.execute('SELECT DISTINCT database FROM system.data_skipping_indices ORDER BY database');
     clustersQ.execute("SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { if (dropDb) dropTblsQ.execute(`SELECT DISTINCT table FROM system.data_skipping_indices WHERE database='${dropDb}' ORDER BY table`); }, [dropDb]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(() => { if (dropDb && dropTbl) dropIdxsQ.execute(`SELECT name FROM system.data_skipping_indices WHERE database='${dropDb}' AND table='${dropTbl}' ORDER BY name`); }, [dropDb, dropTbl]);
 
   function buildDropSql() {

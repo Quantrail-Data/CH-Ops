@@ -10,7 +10,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Icon from "./Icon.jsx";
 import SelectMenu from "./SelectMenu.jsx";
 import "./select.css";

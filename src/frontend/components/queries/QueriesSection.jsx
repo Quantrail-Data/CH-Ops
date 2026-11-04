@@ -7,7 +7,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -435,9 +435,11 @@ function ScatterChart({ rows, title, note }) {
     setTimeout(() => chartRef.current?.resize(), 50);
     return () => {
       window.removeEventListener("resize", onResize);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
       disposeChart(elRef.current);
       chartRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   useEffect(() => {
@@ -591,7 +593,6 @@ function QueryAnalytics() {
   const [slowData, setSlowData] = useState(null);
   const [memIntData, setMemIntData] = useState(null);
   const [scatterData, setScatterData] = useState(null);
-  const navigate = useNavigate();
   const toast = useToast();
 
   useEffect(() => {
@@ -888,7 +889,7 @@ function QueryAnalytics() {
   );
 }
 
-function QueryLogSearch({ sidebar }) {
+function QueryLogSearch() {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(24));
   const [to, setTo] = useState(fmtNow());
@@ -921,10 +922,12 @@ function QueryLogSearch({ sidebar }) {
     usersQ.execute(
       "SELECT DISTINCT initial_user FROM system.query_log WHERE initial_user!='' ORDER BY initial_user",
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   useEffect(() => {
     if (searchQ.error) toast.error(searchQ.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [searchQ.error]);
 
   function handleSearch(e) {
@@ -987,13 +990,6 @@ function QueryLogSearch({ sidebar }) {
     { k: "result_bytes", l: "Result Bytes" },
     { k: "memory_usage", l: "Memory" },
   ];
-
-  const widthStyle = {
-    width: `${(window?.innerWidth - (sidebar ? 250 : 1200)) / (sidebar ? 8 : 5)}px`,
-  };
-  const widthStyle_2 = {
-    width: `${(window?.innerWidth - (sidebar ? 450 : 900)) / (sidebar ? 4 : 3)}px `,
-  };
 
   return (
     <div>

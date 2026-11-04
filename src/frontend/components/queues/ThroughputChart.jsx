@@ -3,7 +3,7 @@
 // Ingestion throughput over time. Stacked bars (processed/failed) + rows line.
 // Uses the shared ECharts wrapper so it matches the rest of CHOps.
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Icon from "../common/Icon.jsx";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
@@ -101,6 +101,7 @@ export default function ThroughputChart({ points }) {
 
   useEffect(() => {
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
       if (elRef.current) disposeChart(elRef.current);
       chartRef.current = null;
     };

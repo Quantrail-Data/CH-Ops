@@ -81,10 +81,11 @@ describe("encryptLegacySecrets", () => {
     expect(channelConfig("pagerduty").routing_key).toBe(encrypted);
   });
 
-  it("encrypts the keys of backup profiles, and the endpoint of an S3 profile", () => {
+  it("encrypts the keys and the endpoint of every backup profile type", () => {
     const profiles = [
       { id: "1", type: "s3", endpoint: "https://s3.example.com", accessKeyId: "AKIA1", accessKey: "secret1", bucket: "b" },
       { id: "2", type: "gcs", endpoint: "https://storage.googleapis.com", accessKeyId: "GOOG1", accessKey: "secret2" },
+      { id: "3", type: "azure", endpoint: "https://myaccount.blob.core.windows.net", accessKeyId: "myaccount", accessKey: "secret3" },
     ];
     sqlite
       .query("INSERT INTO app_setting (key, value, category) VALUES ('backup_profiles', ?, 'backup')")
@@ -92,11 +93,14 @@ describe("encryptLegacySecrets", () => {
 
     encryptLegacySecrets();
 
-    const [s3Profile, gcsProfile] = backupProfiles();
+    const [s3Profile, gcsProfile, azureProfile] = backupProfiles();
     expect(decrypt(s3Profile.endpoint)).toBe("https://s3.example.com");
     expect(s3Profile.accessKey.startsWith("v1:")).toBe(true);
     expect(decrypt(s3Profile.accessKeyId)).toBe("AKIA1");
-    expect(gcsProfile.endpoint).toBe("https://storage.googleapis.com");
+    expect(gcsProfile.endpoint.startsWith("v1:")).toBe(true);
+    expect(decrypt(gcsProfile.endpoint)).toBe("https://storage.googleapis.com");
+    expect(azureProfile.endpoint.startsWith("v1:")).toBe(true);
+    expect(decrypt(azureProfile.endpoint)).toBe("https://myaccount.blob.core.windows.net");
     expect(decrypt(gcsProfile.accessKey)).toBe("secret2");
     expect(s3Profile.bucket).toBe("b");
   });

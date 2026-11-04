@@ -8,7 +8,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useState, useCallback, useRef, useEffect, createContext, useContext } from 'react';
+import { useState, useCallback, useRef, useEffect, createContext, useContext } from 'react';
 import Icon from "../common/Icon.jsx";
 
 // The default is a working no-op rather than null.
