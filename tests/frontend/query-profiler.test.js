@@ -4,6 +4,12 @@
 
 
 import { describe, it, expect } from 'vitest';
+import {
+  toChDatetime,
+  supportsMemoryContext,
+  buildQueryListSql,
+  buildFlameGraphSql,
+} from '../../src/frontend/utils/profilerSql.js';
 
 
 
@@ -35,11 +41,6 @@ function toLocalDatetime(date) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function toChDatetime(val) {
-  const s = val.replace('T', ' ');
-  return /\d{2}:\d{2}:\d{2}/.test(s) ? s : s + ':00';
-}
-
 function validateRange(from, to) {
   const f = new Date(from).getTime();
   const t = new Date(to).getTime();
@@ -52,39 +53,6 @@ function validateRange(from, to) {
 
 function isMemoryTraceType(traceType) {
   return traceType === 'Memory' || traceType === 'MemoryPeak';
-}
-
-function supportsMemoryContext(traceType) {
-  return traceType === 'Memory' || traceType === 'MemoryPeak' || traceType === 'MemorySample';
-}
-
-function buildQueryListSql(from, to) {
-  return `SELECT query_id, any(query) AS query_preview, count() AS sample_count,
-  min(event_time) AS first_seen, max(event_time) AS last_seen
-FROM system.trace_log
-WHERE event_time >= '${toChDatetime(from)}' AND event_time <= '${toChDatetime(to)}'
-GROUP BY query_id
-ORDER BY sample_count DESC
-LIMIT 500`;
-}
-
-function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const safeId = queryId.replace(/'/g, "\\'");
-  const conditions = [
-    `query_id = '${safeId}'`,
-    `event_time >= '${toChDatetime(from)}'`,
-    `event_time <= '${toChDatetime(to)}'`,
-  ];
-  if (traceType) conditions.push(`trace_type = '${traceType}'`);
-  if (memoryContext && isMemoryTraceType(traceType)) {
-    conditions.push(`memory_context = '${memoryContext}'`);
-  }
-  return `SELECT arrayStringConcat(arrayReverse(arrayMap(x -> demangle(addressToSymbol(x)), trace)), ';') AS stack, count() AS samples
-FROM system.trace_log
-WHERE ${conditions.join(' AND ')}
-GROUP BY stack
-ORDER BY samples DESC
-SETTINGS allow_introspection_functions = 1`;
 }
 
 function parseFlameGraphLines(lines) {
@@ -158,10 +126,10 @@ describe('Memory Context', () => {
     expect(isMemoryTraceType('MemorySample')).toBe(false);
   });
 
-  it('supportsMemoryContext includes MemorySample', () => {
+  it('supportsMemoryContext is true for Memory and MemoryPeak only', () => {
     expect(supportsMemoryContext('Memory')).toBe(true);
     expect(supportsMemoryContext('MemoryPeak')).toBe(true);
-    expect(supportsMemoryContext('MemorySample')).toBe(true);
+    expect(supportsMemoryContext('MemorySample')).toBe(false);
     expect(supportsMemoryContext('CPU')).toBe(false);
   });
 });
@@ -215,58 +183,66 @@ describe('validateRange', () => {
 
 describe('buildQueryListSql', () => {
   it('includes FROM and TO in WHERE clause', () => {
-    const sql = buildQueryListSql('2026-05-26 10:00:00', '2026-05-26 11:00:00');
+    const sql = buildQueryListSql('2026-05-26T10:00', '2026-05-26T11:00');
     expect(sql).toContain("'2026-05-26 10:00:00'");
     expect(sql).toContain("'2026-05-26 11:00:00'");
   });
 
   it('queries system.trace_log', () => {
-    const sql = buildQueryListSql('2026-05-26 10:00:00', '2026-05-26 11:00:00');
+    const sql = buildQueryListSql('2026-05-26T10:00', '2026-05-26T11:00');
     expect(sql).toContain('system.trace_log');
   });
 
   it('limits to 500 rows', () => {
-    const sql = buildQueryListSql('2026-05-26 10:00:00', '2026-05-26 11:00:00');
+    const sql = buildQueryListSql('2026-05-26T10:00', '2026-05-26T11:00');
     expect(sql).toContain('LIMIT 500');
   });
 });
 
 describe('buildFlameGraphSql', () => {
   it('includes demangle(addressToSymbol()) and arrayReverse', () => {
-    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00' });
+    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26T10:00', to: '2026-05-26T11:00' });
     expect(sql).toContain('demangle(addressToSymbol(x))');
     expect(sql).toContain('arrayReverse');
   });
 
-  it('includes allow_introspection_functions = 1', () => {
-    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00' });
-    expect(sql).toContain('allow_introspection_functions = 1');
+  // The page sends allow_introspection_functions as a query setting, not in the SQL.
+  it('uses the time range of the page', () => {
+    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26T10:00', to: '2026-05-26T11:00' });
+    expect(sql).toContain("event_time >= '2026-05-26 10:00:00'");
+    expect(sql).toContain("event_time <= '2026-05-26 11:00:00'");
+    expect(sql).toContain("event_date >= toDate('2026-05-26 10:00:00')");
   });
 
   it('filters by trace_type when specified', () => {
-    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00' });
+    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26T10:00', to: '2026-05-26T11:00' });
     expect(sql).toContain("trace_type = 'CPU'");
   });
 
   it('omits trace_type filter for All Types (empty string)', () => {
-    const sql = buildFlameGraphSql({ traceType: '', queryId: 'abc', from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00' });
+    const sql = buildFlameGraphSql({ traceType: '', queryId: 'abc', from: '2026-05-26T10:00', to: '2026-05-26T11:00' });
     expect(sql).not.toContain('trace_type');
   });
 
   it('includes memory_context for Memory type', () => {
-    const sql = buildFlameGraphSql({ traceType: 'Memory', queryId: 'abc', from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00', memoryContext: 'Process' });
+    const sql = buildFlameGraphSql({ traceType: 'Memory', queryId: 'abc', from: '2026-05-26T10:00', to: '2026-05-26T11:00', memoryContext: 'Process' });
     expect(sql).toContain("memory_context = 'Process'");
   });
 
   it('omits memory_context for CPU type even if provided', () => {
-    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00', memoryContext: 'Process' });
+    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: 'abc', from: '2026-05-26T10:00', to: '2026-05-26T11:00', memoryContext: 'Process' });
     expect(sql).not.toContain('memory_context');
   });
 
   it('escapes single quotes in queryId', () => {
-    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: "abc'def", from: '2026-05-26 10:00:00', to: '2026-05-26 11:00:00' });
+    const sql = buildFlameGraphSql({ traceType: 'CPU', queryId: "abc'def", from: '2026-05-26T10:00', to: '2026-05-26T11:00' });
     expect(sql).toContain("abc\\'def");
     expect(sql).not.toContain("abc'def'");
+  });
+
+  it('escapes single quotes in the memory context', () => {
+    const sql = buildFlameGraphSql({ traceType: 'Memory', queryId: 'abc', from: '2026-05-26T10:00', to: '2026-05-26T11:00', memoryContext: "x' OR 1=1 --" });
+    expect(sql).toContain("memory_context = 'x\\' OR 1=1 --'");
   });
 });
 

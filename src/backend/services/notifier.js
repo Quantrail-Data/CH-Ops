@@ -7,6 +7,7 @@ import net from "node:net";
 import nodemailer from "nodemailer";
 import { getAllClusters } from "./clusterUtils.js";
 import { OTP_TTL_MS } from "./OTPservice.js";
+import { postJsonToAddress } from "./webhookPost.js";
 
 // The channel types that sendNotification knows.
 export const CHANNEL_TYPES = ["email", "slack", "google_chat", "teams", "pagerduty"];
@@ -52,8 +53,9 @@ async function lookupAllAddresses(hostName) {
 }
 
 // Refuses a webhook URL that is not HTTPS, or whose host is, or resolves to, a blocked address.
-// allowUnresolvedName lets a host name that does not resolve now pass. The channel form uses it.
-// The send does not use it, so the send checks the name again.
+// Returns the checked IP address. The send connects to this address (see webhookPost.js).
+// allowUnresolvedName lets a host name that does not resolve now pass, and returns null.
+// The channel form uses it. The send does not use it, so the send checks the name again.
 export async function validateWebhookUrl(
   url,
   { lookupAddresses = lookupAllAddresses, allowUnresolvedName = false } = {},
@@ -83,7 +85,7 @@ export async function validateWebhookUrl(
         `Webhook URL cannot point to localhost, private networks, link-local or special addresses: ${host}`,
       );
     }
-    return;
+    return host;
   }
 
   let addresses = [];
@@ -93,7 +95,7 @@ export async function validateWebhookUrl(
     addresses = [];
   }
   if (addresses.length === 0) {
-    if (allowUnresolvedName) return;
+    if (allowUnresolvedName) return null;
     throw new Error(`Webhook host name does not resolve: ${host}`);
   }
   const blockedAddress = addresses.find(isBlockedAddress);
@@ -102,6 +104,7 @@ export async function validateWebhookUrl(
       `Webhook URL cannot point to localhost, private networks, link-local or special addresses: ${host} resolves to ${blockedAddress}`,
     );
   }
+  return addresses[0];
 }
 
 // The cluster name in a message. A rule with no cluster runs on the first cluster,
@@ -714,7 +717,7 @@ export async function sendNotification(channelConfig, alert) {
   } else if (config.type === "google_chat") {
     if (!config.webhook_url)
       throw new Error("Google Chat webhook_url is not configured");
-    await validateWebhookUrl(config.webhook_url);
+    const checkedAddress = await validateWebhookUrl(config.webhook_url);
     let statusText = "";
 
     if (d.kind === "failure") {
@@ -726,11 +729,7 @@ export async function sendNotification(channelConfig, alert) {
       statusText = `<b>Value:</b> ${String(d.value)}`;
     }
 
-    const googleChatResponse = await fetch(config.webhook_url, {
-      method: "POST",
-      redirect: "manual",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const googleChatResponse = await postJsonToAddress(config.webhook_url, checkedAddress, {
         cardsV2: [
           {
             cardId: "alertCard",
@@ -779,18 +778,13 @@ export async function sendNotification(channelConfig, alert) {
             },
           },
         ],
-      }),
-    });
+      });
     await throwIfRefused(googleChatResponse, "Google Chat");
   } else if (config.type === "teams") {
     if (!config.webhook_url)
       throw new Error("Microsoft Teams webhook_url is not configured");
-    await validateWebhookUrl(config.webhook_url);
-    const teamsResponse = await fetch(config.webhook_url, {
-      method: "POST",
-      redirect: "manual",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const checkedAddress = await validateWebhookUrl(config.webhook_url);
+    const teamsResponse = await postJsonToAddress(config.webhook_url, checkedAddress, {
         "@type": "MessageCard",
         summary: `${d.severity}: ${d.name}`,
         themeColor:
@@ -829,8 +823,7 @@ export async function sendNotification(channelConfig, alert) {
             ],
           },
         ],
-      }),
-    });
+      });
     await throwIfRefused(teamsResponse, "Microsoft Teams");
   } else if (config.type === "pagerduty") {
     if (!config.routing_key)
