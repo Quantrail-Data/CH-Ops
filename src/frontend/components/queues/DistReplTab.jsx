@@ -5,7 +5,7 @@
 // by the `view` prop ("replication" | "distribution"). No stored history;
 // refreshes on a timer with a delta-since-last-refresh.
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import DataTable from "../layout/DataTable.jsx";
 import QueueCards from "./QueueCards.jsx";
 import RankedBar from "./RankedBar.jsx";

@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Configures data-skipping indexes (e.g., MinMax, Bloom filters) to bypass irrelevant blocks during queries.
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -25,12 +25,14 @@ export default function SecondaryIndexes() {
     dbsQ.execute(
       "SELECT DISTINCT database FROM system.data_skipping_indices ORDER BY database",
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   useEffect(() => {
     if (db)
       tblsQ.execute(
         `SELECT DISTINCT table FROM system.data_skipping_indices WHERE database='${db}' ORDER BY table`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db]);
   useEffect(() => {
     if (db) {
@@ -39,6 +41,7 @@ export default function SecondaryIndexes() {
         `SELECT database, table, name, type_full, granularity, expr FROM system.data_skipping_indices WHERE database='${db}'${w} ORDER BY table, name`,
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db, tbl]);
 
   const buildTree = useCallback(() => {
@@ -86,6 +89,7 @@ export default function SecondaryIndexes() {
       true,
     );
     chartInst.current.resize();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- themeKey is here on purpose. It rebuilds the chart when the theme changes.
   }, [buildTree, themeKey, zoom]);
 
   useEffect(() => {

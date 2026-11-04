@@ -2,13 +2,12 @@
 // The live section of the Cluster Overview page.
 // Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import { runQuery } from "../../utils/api.js";
 import { buildChartOption } from "../dashboards/chartTypes.js";
 import { ChartCard, KpiStrip, HealthStrip, GaugeGroup, Section, MetricDescriptions } from "./OverviewCards.jsx";
-import { fmtBytes } from "../../utils/costEstimator.js";
 import {
   METRIC_KEYS,
   ASYNC_KEYS,
@@ -28,7 +27,6 @@ import {
   stamp,
   detectRestart,
   rate,
-  rateOfSum,
   pairRatio,
   pairRatioOfSums,
   threadEquivalents,
@@ -518,7 +516,6 @@ export function useLiveOverview() {
   ]);
 
   const failingChecks = healthChips.filter((c) => c.value > 0).length;
-  const ageSeconds = lastAt ? Math.round((Date.now() - lastAt) / 1000) : null;
 
   return {
     live, setLive, interval, setIntervalSeconds,

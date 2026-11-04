@@ -5,7 +5,8 @@ metadata:
   labels:
     app: chops
 spec:
-  # Exactly one. Not a placeholder, not a starting point. See the note below.
+  # Exactly one. Do not raise it. See
+  # docs/deployment/production.md#run-one-chops-instance-only.
   replicas: 1
   serviceName: chops
   selector:
@@ -16,7 +17,7 @@ spec:
       labels:
         app: chops
     spec:
-      # Uncomment if you pushed to a private registry in Step 2.1.
+      # Uncomment if you pull the image from a private registry.
       # imagePullSecrets:
       #   - name: regcred
 
@@ -27,7 +28,8 @@ spec:
 
       containers:
         - name: chops
-          image: chops:26.3-0.1.6
+          # The tag must match the CHOps release that you deploy.
+          image: quantrailadmin1/ch-ops:1.3.3
           # IfNotPresent means "use the local copy if it exists". Required when
           # you loaded the image with kind/minikube rather than pushing it.
           imagePullPolicy: IfNotPresent
@@ -52,8 +54,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
 
-          # "Is it ready for users?" This is the endpoint added in Part 1.
-          # Without Part 1 this would always say yes, even with no database.
+          # "Is it ready for users?" /api/ready also checks the database.
           readinessProbe:
             httpGet:
               path: /api/ready

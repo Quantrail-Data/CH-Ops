@@ -8,7 +8,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useConnection } from "../../App.jsx";
@@ -30,7 +30,9 @@ export default function AlertMarquee() {
         if (mounted && Array.isArray(d)) {
           setAlerts(d);
         }
-      } catch {}
+      } catch {
+        // Keep the current data when the request fails.
+      }
     }
     poll();
     const timer = setInterval(poll, 30000);

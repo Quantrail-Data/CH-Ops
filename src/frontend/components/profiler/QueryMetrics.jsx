@@ -9,7 +9,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import Icon from "../common/Icon.jsx";
-import React, {
+import {
   useState,
   useRef,
   useEffect,
@@ -434,21 +434,6 @@ function discoverActiveColumns(rows) {
 const MAX_ACTIVE_COLUMNS = 100;
 const MAX_SERIES_PER_CHART = 4;
 
-function buildMetricsSql(queryId, columns) {
-  const safeId = queryId.replace(/'/g, "\\'");
-  const safeCols = columns
-    .slice(0, MAX_ACTIVE_COLUMNS)
-    .map((c) => "`" + c.replace(/`/g, "``") + "`")
-    .join(", ");
-  return `
-SELECT
-  event_time_microseconds,
-  ${safeCols}
-FROM system.query_metric_log
-WHERE query_id = '${safeId}'
-ORDER BY event_time_microseconds`.trim();
-}
-
 // Fetch full query text
 function buildFullQuerySql(queryId) {
   const safeId = queryId.replace(/'/g, "\\'");
@@ -755,6 +740,7 @@ export default function QueryMetrics() {
         return g;
       }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- themeKey is here on purpose. It rebuilds the chart when the theme changes.
   }, [groupedCharts, themeKey]);
 
   useEffect(() => {

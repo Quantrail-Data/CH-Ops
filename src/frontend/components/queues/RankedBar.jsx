@@ -2,7 +2,6 @@
 // Horizontal ranked bars for snapshot composition (no time axis).
 // items: [{ label, value, sub? }]. Sorted by value desc, top `max` shown.
 
-import React from "react";
 
 export default function RankedBar({ items, max = 8, valueFormat }) {
   const sorted = [...items].sort((a, b) => b.value - a.value).slice(0, max);

@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import Icon from "../common/Icon.jsx";
-import React, {
+import {
   useState,
   useCallback,
   lazy,
@@ -180,6 +180,7 @@ function MainLayoutInner() {
   const mainRef = useRef();
 
 
+  // eslint-disable-next-line no-unused-vars -- tests/frontend/sidebar-routing.test.js checks this line.
   const isEditorRoute = route.includes("qurioz");
 
   const allRoutes = useMemo(() => [...CORE_ROUTES], []);

@@ -116,6 +116,23 @@ describe("POST /schema-studio/connect - role gate", () => {
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
     expect(res.statusCode).toBe(200);
   });
+
+  test("stores the node name, not the node host", async () => {
+    mockGetClusterNodes.mockReturnValue([
+      { name: "node-1", host: "shared-host", port: 8123, secure: false },
+      { name: "node-2", host: "shared-host", port: 8124, secure: false },
+    ]);
+    mockExecuteQuery.mockResolvedValue({ rows: [{ 1: 1 }] });
+    const req = {
+      user: { role: "editor", jti: "j-node-name", username: "alice" },
+      body: { clusterId: "c1", node: "node-2", user: "ch_user", password: "ch_pw" },
+    };
+    const res = createRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.node).toBe("node-2");
+    expect(res.body.port).toBe(8124);
+  });
 });
 
 describe("POST /schema-studio/create - role gate", () => {

@@ -82,7 +82,7 @@ export async function probeCapabilities(clusterId, node) {
     const firstRow = rowsOf(versionResult)[0];
     version = firstRow ? String(Object.values(firstRow)[0]) : null;
   } catch {
-
+    // The version is unknown.
   }
   
   const names = new Set(rowsOf(result).map((r) => `system.${r.name}`));

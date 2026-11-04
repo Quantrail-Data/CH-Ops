@@ -4,7 +4,7 @@
 
 // Split out of QueriesSection.jsx. 
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import ChartCard from "../layout/ChartCard.jsx";

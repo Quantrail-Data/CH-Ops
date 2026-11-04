@@ -7,7 +7,7 @@ import { useAuth, useTheme } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 
 export default function SetupPassword({token}) {
-  const { auth, login, logout } = useAuth();
+  const { login, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

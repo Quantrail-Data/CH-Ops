@@ -32,7 +32,7 @@ export async function getActiveApiKey() {
       return response.apiKey;
     }
     return null;
-  } catch (err) {
+  } catch {
     console.log('No active API key found');
     return null;
   }

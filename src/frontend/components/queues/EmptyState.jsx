@@ -2,7 +2,6 @@
 // EmptyState.jsx
 // Friendly placeholder when a queue type is not in use on this server.
 
-import React from "react";
 import Icon from "../common/Icon.jsx";
 
 export default function EmptyState({ icon = "ti-inbox", title, children }) {

@@ -10,7 +10,7 @@ data:
   DB_PATH: "/app/data/chops.db"
 
   # Where export files are written. Deliberately NOT on the persistent disk.
-  # See Step 2.5 for why.
+  # See docs/deployment/production.md#kubernetes-deployment.
   EXPORT_DIR: "/app/exports"
 
   # Total size all export files may occupy. Must stay below the 8Gi limit set on

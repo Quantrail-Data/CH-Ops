@@ -25,7 +25,7 @@ CHOps connects to your ClickHouse&reg; cluster through the HTTP interface and gi
 ## Requirements
 
 - Bun 1.4.2. We test CHOps with this version.
-- A ClickHouse&reg; cluster, version 26.3 or newer, that you can reach over HTTP (port 8123 by default)
+- A ClickHouse&reg; cluster that you can reach over HTTP (port 8123 by default). Tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested.
 - A modern web browser (Chrome, Firefox, Safari, or Edge)
 
 ## Quick start
@@ -47,7 +47,7 @@ The documentation is at http://localhost:5173/docs/ in development, and at http:
 
 ## License
 
-CHOps follows an open-core model. The community edition uses the **Apache License 2.0**. You can use, change, and self-host it free of charge. A separate **Pro edition** adds audit logging, scheduled email reports, extended alerting, multi-cluster fleet management, and scheduled archival to S3-compatible storage, under a commercial license. See [ch-ops.io](https://ch-ops.io) for more information, and the `LICENSE` file for the full terms of the Apache License 2.0.
+CHOps follows an open-core model. The community edition uses the **Apache License 2.0**. You can use, change, and self-host it free of charge. A separate **Pro edition** adds Scheduled Archival, scheduled backups with retention, Remote Admin through a sidecar, an Audit Log, SSO with OpenID Connect, and scheduled email reports, under a commercial license. See [CHOps Pro](guide/chops-pro.md) and [ch-ops.io](https://ch-ops.io) for more information, and the `LICENSE` file for the full terms of the Apache License 2.0.
 
 Copyright &copy; 2026 Quantrail&trade; Data Private Limited.
 

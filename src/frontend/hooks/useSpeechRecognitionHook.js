@@ -103,11 +103,13 @@ function useSpeechRecognitionHook(onTranscript) {
                     RecongnitionRef.current.onerror = null;
                     try {
                         RecongnitionRef.current.stop();
-                    } catch (e) {
+                    } catch {
+                      // Speech recognition is already stopped.
                     }
                     RecongnitionRef.current = null;
                 }
-            } catch (e) {
+            } catch {
+              // Speech recognition is already stopped.
             }
         }
     }, [onTranscript]);

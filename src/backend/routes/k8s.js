@@ -27,6 +27,7 @@ import {
   getResources,
   getNetwork,
   getEvents,
+  getRollout,
   getLogs,
   getOperatorPodInfo,
   getHealth,
@@ -37,7 +38,7 @@ import {
   getRbacContext,
   refreshNow,
 } from "../controllers/k8sInsight.js";
-import { requireAdmin } from "../controllers/users.js";
+import { requireAdmin, requireEditor } from "../controllers/users.js";
 
 const router = Router();
 
@@ -77,6 +78,7 @@ router.get("/insight/:clusterId/storage", requireAdmin, getStorage);
 router.get("/insight/:clusterId/resources", requireAdmin, getResources);
 router.get("/insight/:clusterId/network", requireAdmin, getNetwork);
 router.get("/insight/:clusterId/events", requireAdmin, getEvents);
+router.get("/insight/:clusterId/rollout", requireAdmin, getRollout);
 router.get("/insight/:clusterId/logs/:pod", requireAdmin, getLogs);
 router.get(
   "/insight/:clusterId/operator-pod",
@@ -85,7 +87,8 @@ router.get(
 );
 router.get("/insight/:clusterId/health", requireAdmin, getHealth);
 router.get("/insight/:clusterId/keeper", requireAdmin, getKeeper);
-router.get("/insight/:clusterId/rbac-context", requireAdmin, getRbacContext);
+// Editors need the session affinity warning in the SQL editor. The handler gives them only that part.
+router.get("/insight/:clusterId/rbac-context", requireEditor, getRbacContext);
 router.get("/insight/:clusterId/permissions", requireAdmin, getPermissions);
 router.get(
   "/insight/:clusterId/health-alerts",

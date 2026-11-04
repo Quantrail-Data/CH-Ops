@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Configures and displays the delivery channels (e.g., Email, Slack) for system alerts.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -79,7 +79,9 @@ export default function NotificationChannels() {
     try {
       const r = await apiFetch("/api/alerts/channels");
       setChannels(Array.isArray(r) ? r : []);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
     setLoaded(true);
   }
   useEffect(() => {

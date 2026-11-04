@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main application entry point managing global state, theme providers, and top-level routing layouts.
 
-import React, { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import {
   setGlobalConnection,
   getActiveApiKey,
@@ -55,15 +55,6 @@ const NO_CONNECTION = Object.freeze({
   switchCluster: () => {},
 });
 
-const NO_QURIOZ_CHAT = Object.freeze({
-  replaceChat: () => {},
-  quriozMessage: [],
-  insertMessage: () => {},
-  deleteAllChatMessage: () => {},
-  isNewChat: false,
-  QURIOZLENGTH: 0,
-});
-
 export const AuthContext = createContext(NO_AUTH);
 export function useAuth() {
   return useContext(AuthContext) ?? NO_AUTH;
@@ -98,7 +89,7 @@ export default function App() {
           apiKeyName: activeKey.name,
         });
       }
-    } catch (err) {
+    } catch {
       console.error("No active API key found");
     }
   }
@@ -250,6 +241,7 @@ export default function App() {
   useEffect(() => {
     if (!auth) return;
     loadConfig(auth.token);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [auth]);
 
   // Switch active cluster

@@ -2,7 +2,7 @@
 // Card primitives for the Cluster Overview live section.
 // Contributors -> Kathir Moorthy, Praveen Kumar and Kathirdhasan
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import InfoTip from "../common/InfoTip.jsx";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
@@ -489,7 +489,7 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
 
 // Every percentage on the page in one card.
 
-export function GaugeGroup({ title, subtitle, items, columns = 5 }) {
+export function GaugeGroup({ title, subtitle, items }) {
   const dark = useIsDark();
   const shown = items.filter((i) => i.show !== false);
   if (!shown.length) return null;

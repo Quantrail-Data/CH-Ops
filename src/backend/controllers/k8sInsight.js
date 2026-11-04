@@ -23,6 +23,11 @@ import { getLastResult, refreshOne } from "../services/k8sSync.js";
 import { buildDiskForecast } from "../services/k8s/diskForecast.js";
 import { buildZoneRisks } from "../services/k8s/zoneRisks.js";
 import { parseMemoryQuantity } from "../services/k8s/quantity.js";
+import { summarizeStatefulSet } from "../services/k8s/rollout.js";
+
+function isAdminRole(role) {
+  return role === "admin" || role === "superadmin";
+}
 
 function fail(res, err) {
   const isK8s = typeof err?.code === "string" && err.code.startsWith("K8S_");
@@ -587,6 +592,24 @@ export async function getNetwork(req, res) {
   }
 }
 
+// GET /api/k8s/insight/:clusterId/rollout: replicas, revision and rollout status of each StatefulSet.
+export async function getRollout(req, res) {
+  try {
+    const { provider, ns, name } = resolve(req.params.clusterId);
+    const [statefulSets, hosts] = await Promise.all([
+      provider.getStatefulSets(ns, name),
+      provider.getHosts(ns, name),
+    ]);
+    const rows = statefulSets
+      .map((statefulSet) => summarizeStatefulSet(statefulSet, hosts))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return res.json({ statefulSets: rows });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return fail(res, err);
+  }
+}
+
 // GET /api/k8s/insight/:clusterId/events
 export async function getEvents(req, res) {
   try {
@@ -783,7 +806,16 @@ export async function getRbacContext(req, res) {
   try {
     const context = await rbacContext(req.params.clusterId);
     if (!context) return res.status(404).json({ error: "Cluster not found." });
-    return res.json(context);
+    if (isAdminRole(req.user?.role)) return res.json(context);
+
+    // An editor sees only whether the endpoint keeps a session on one replica.
+    // The user list and the pod names are for admins.
+    return res.json({
+      sessionAffinity: {
+        checked: context.sessionAffinity.checked,
+        sticky: context.sessionAffinity.sticky,
+      },
+    });
   } catch (error) {
     return res
       .status(500)

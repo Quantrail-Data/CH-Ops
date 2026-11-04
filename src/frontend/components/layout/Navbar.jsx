@@ -9,7 +9,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
@@ -42,17 +42,15 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     selectedClusterId,
     nodes,
     selectedNode,
-    user,
     connected,
     error,
-    clusterName,
     nodeName,
     setConnection,
     testConnection,
     reloadConfig,
     switchCluster,
   } = useConnection();
-  const [connecting, setConnecting] = useState(false);
+  const [, setConnecting] = useState(false);
 
   const [fontScale, setFontScale] = useState(() =>
     parseFloat(localStorage.getItem("chops_fontscale") || "100"),
@@ -78,6 +76,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
 
   useEffect(() => {
     document.documentElement.style.fontSize = (fontScale / 100) * 16 + "px";
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   // Close dropdown on outside click
@@ -182,13 +181,6 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
       setConnecting(false);
     }
     await editorDisconnect();
-  }
-
-  async function handleConnect() {
-    setConnecting(true);
-    const node = nodes.find((n) => n.host === selectedNode) || nodes[0];
-    await testConnection(selectedNode || node?.host, user, node?.port);
-    setConnecting(false);
   }
 
   function handleRefresh() {

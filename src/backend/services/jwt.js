@@ -71,6 +71,8 @@ export function revokeToken(jti) {
   for (const fn of revokeHooks) {
     try {
       fn(jti);
-    } catch {}
+    } catch {
+      // One failed hook must not stop the others.
+    }
   }
 }

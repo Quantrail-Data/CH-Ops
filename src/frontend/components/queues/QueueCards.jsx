@@ -4,7 +4,6 @@
 // state: 'ok' | 'warn' | 'bad' | 'neutral' (controls the accent color)
 // delta: optional "+18" style change-since-refresh string.
 
-import React from "react";
 
 export default function QueueCards({ cards }) {
   return (

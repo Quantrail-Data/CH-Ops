@@ -2,7 +2,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Manages and renders the configuration rules for triggering system notification alerts.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
@@ -12,6 +12,7 @@ import IconAlert from "../common/IconAlert.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import { validateCronExpression } from "../../../shared/cron.js";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
@@ -23,6 +24,9 @@ const OPS = [
   { k: "eq", l: "equal to" },
   { k: "neq", l: "not equal to" },
 ];
+
+// The page loads the rules again at this interval while the browser tab is visible.
+export const RULES_REFRESH_MS = 30000;
 
 // Rules choose nodes by name. Nodes of one Kubernetes cluster can share one host.
 function nodeName(node) {
@@ -70,51 +74,24 @@ export default function AlertRules() {
     useState(false);
   const [testResults, setTestResults] = useState(null);
 
-  function normalizeCron(expr) {
-    const parts = expr.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 4) return `0 ${parts.join(" ")}`;
-    return expr.trim();
-  }
-
+  // The same cron check as the server. An empty text means the schedule is valid.
   function validateCron(expr) {
-    const parts = expr.trim().split(/\s+/).filter(Boolean);
-    if (parts.length !== 4 && parts.length !== 5)
-      return "Cron must have 4 or 5 fields";
-    const normalized = parts.length === 4 ? ["0", ...parts] : parts;
-    const ranges = [
-      [0, 59],
-      [0, 23],
-      [1, 31],
-      [1, 12],
-      [0, 6],
-    ];
-    const names = ["minute", "hour", "day-of-month", "month", "day-of-week"];
-    for (let i = 0; i < 5; i++) {
-      const p = normalized[i];
-      if (p === "*") continue;
-      if (p.startsWith("*/")) {
-        const n = parseInt(p.slice(2));
-        if (isNaN(n) || n < 1) return `Invalid step in ${names[i]}: ${p}`;
-        continue;
-      }
-      for (const value of p.split(",")) {
-        const number = Number(value);
-        if (!Number.isInteger(number) || number < ranges[i][0] || number > ranges[i][1])
-          return `${names[i]} must be a number from ${ranges[i][0]} to ${ranges[i][1]}, or a comma list of numbers: ${value}`;
-      }
-    }
-    return "";
+    return validateCronExpression(expr) || "";
   }
 
   async function load() {
     try {
       const r = await apiFetch("/api/alerts/rules");
       setRules(Array.isArray(r) ? r : []);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
     try {
       const c = await apiFetch("/api/alerts/channels");
       setChannels(Array.isArray(c) ? c : []);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
     setLoaded(true);
   }
 
@@ -141,12 +118,31 @@ export default function AlertRules() {
       .catch(() => setTemplates([]));
   }, [isAdmin]);
 
+  // Load again every 30 seconds while the tab is visible, and at once when it shows again.
+  // load() changes only the lists, so a form that the user edits stays as it is.
   useEffect(() => {
-    function onVisible() {
-      if (document.visibilityState === "visible") load();
+    let timer = null;
+    function startTimer() {
+      if (!timer) timer = setInterval(load, RULES_REFRESH_MS);
     }
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    function stopTimer() {
+      clearInterval(timer);
+      timer = null;
+    }
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        load();
+        startTimer();
+      } else {
+        stopTimer();
+      }
+    }
+    if (document.visibilityState === "visible") startTimer();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stopTimer();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   function resetForm() {
@@ -240,7 +236,7 @@ export default function AlertRules() {
         return;
       }
 
-      const normalizedSchedule = normalizeCron(f.schedule);
+      const normalizedSchedule = f.schedule.trim();
       const cronValidationError = validateCron(normalizedSchedule);
       if (cronValidationError) {
         setCronError(cronValidationError);
@@ -249,7 +245,7 @@ export default function AlertRules() {
       }
 
 
-      const checkQuery = await runQuery(f.sql, { noRowLimit: true });
+      await runQuery(f.sql, { noRowLimit: true });
       const payload = {
         ...f,
         schedule: normalizedSchedule,
@@ -488,9 +484,9 @@ export default function AlertRules() {
                   setCronError(validateCron(e.target.value));
                 }}
                 onBlur={(e) => {
-                  const normalized = normalizeCron(e.target.value);
-                  setF((p) => ({ ...p, schedule: normalized }));
-                  setCronError(validateCron(normalized));
+                  const trimmed = e.target.value.trim();
+                  setF((p) => ({ ...p, schedule: trimmed }));
+                  setCronError(validateCron(trimmed));
                 }}
                 style={cronError ? { borderColor: "var(--color-danger)" } : {}}
               />

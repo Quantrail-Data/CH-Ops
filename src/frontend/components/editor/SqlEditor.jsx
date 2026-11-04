@@ -3,7 +3,7 @@
 // Contributors - Praveen kumar, Kathir Moorthy, Kathirdhasan
 
 
-import React, {
+import {
   forwardRef,
   useCallback,
   useEffect,
@@ -118,6 +118,7 @@ const SqlEditor = forwardRef(function SqlEditor(
         onEscape: onEscape ? () => escapeRef.current?.() : undefined,
       }),
     // Deliberately excludes completions, dialectData and the callbacks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
     [variant, languageCompartment, themeCompartment],
   );
 
