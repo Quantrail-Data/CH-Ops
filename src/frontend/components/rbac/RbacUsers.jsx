@@ -161,8 +161,8 @@ export default function RbacUsers() {
               {operatorOwned.includes("clickhouse_operator") && (
                 <>
                   {" "}
-                  <strong>clickhouse_operator</strong> is the operator's own
-                  account, restricted to the operator's pod, and cannot connect
+                  <strong>clickhouse_operator</strong> is the operator&apos;s own
+                  account, restricted to the operator&apos;s pod, and cannot connect
                   from CHOps.
                 </>
               )}

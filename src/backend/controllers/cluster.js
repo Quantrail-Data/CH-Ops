@@ -99,6 +99,7 @@ export async function createCluster(req, res) {
 
     saveClusters(clusters);
 
+    // The cluster is saved. A template problem must not fail the request.
     try {
       createTemplateRulesForCluster(newCluster.id);
     } catch (error) {

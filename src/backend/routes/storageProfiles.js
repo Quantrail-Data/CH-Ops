@@ -7,15 +7,20 @@ import { requireAdmin } from "../controllers/users.js";
 
 const router = Router();
 
-function testingSQLQueryCMD(p) {
-  let testSql;
-  if (p.type === "s3")
-    testSql = `SELECT 1 FROM s3('${p.endpoint || "https://s3.amazonaws.com"}${p.bucket}/test_connection_probe', '${p.accessKeyId}', '${p.accessKey}', 'csv') LIMIT 0`;
-  else if (p.type === "gcs")
-    testSql = `SELECT 1 FROM s3('https://storage.googleapis.com/${p.bucket}/test_connection_probe', '${p.accessKeyId}', '${p.accessKey}', 'csv') LIMIT 0`;
-  else testSql = `SELECT 1`;
+// Escapes a value for a ClickHouse string literal. A quote in a key must not end the string.
+function sqlText(value) {
+  return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
 
-  return testSql;
+// The query that the Test button runs. One "/" joins the endpoint and the bucket.
+export function testingSQLQueryCMD(profile) {
+  if (profile.type !== "s3" && profile.type !== "gcs") return "SELECT 1";
+  let endpoint = "https://storage.googleapis.com";
+  if (profile.type === "s3") {
+    endpoint = (profile.endpoint || "https://s3.amazonaws.com").replace(/\/+$/, "");
+  }
+  const probeUrl = `${endpoint}/${profile.bucket}/test_connection_probe`;
+  return `SELECT 1 FROM s3('${sqlText(probeUrl)}', '${sqlText(profile.accessKeyId)}', '${sqlText(profile.accessKey)}', 'csv') LIMIT 0`;
 }
 
 router.get("/testing/:id", requireAdmin, (req, res, next) => {

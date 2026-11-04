@@ -4,21 +4,21 @@
 
 The Schema Visualizer displays a visual map of your ClickHouse&reg; database schema. Every table, materialized view, dictionary, and distributed table appears as a card on the canvas. Lines between cards show how data flows between them.
 
-This page is read-only. It does not create, modify, or delete any tables.
+Open it from **Schema Tools > Schema Visualizer** in the sidebar. This page is read-only and does not create, modify, or delete any tables.
 
 ---
 
 ## Getting Started
 
-The Schema Visualizer does not draw anything until you tell it what to look at. This is deliberate. To render an entire production schema at once is slow and overwhelming, so the page starts focused and lets you expand from there.
+The Schema Visualizer does not draw anything until you tell it what to look at. This is deliberate: rendering an entire production schema at once is slow and overwhelming, so the page starts focused and lets you expand from there.
 
-1. When the page loads, you see a single database dropdown and an empty canvas with the prompt "Select a database to begin."
-2. Select a database. A second dropdown appears. It lists every table, view, materialized view, and dictionary in that database, sorted alphabetically, with its engine kind in parentheses (for example, "events (mt)" or "events_mv (mv)").
-3. Select a table. The page does a breadth-first traversal from that table, follows every relationship in both directions, and draws only the connected subgraph. The view auto-fits to frame the result.
+1. When the page loads, you see a single database dropdown ("Select database...") and an empty canvas with the prompt "Select a database to begin".
+2. Select a database. A second dropdown ("Select table...") appears, with the prompt "Select a table to visualize its relationships". It lists every table, view, materialized view, and dictionary in that database, sorted alphabetically, with its engine kind in parentheses (for example, "events (mt)" or "events_mv (mv)").
+3. Select a table. The page does a breadth-first traversal from that table, follows every relationship in both directions, and draws only the connected subgraph. The view auto-fits to frame the result. The other controls (search, **Columns**, load period, **Re-layout**, and **Fit**) appear once the page draws the graph, and the controls bar then shows the number of nodes and edges, for example "12 nodes, 14 edges".
 
 This focused approach answers the most common question directly: "what is connected to this table, and how does data flow through it?"
 
-To reset, set the table dropdown back to "Select a table", or the database dropdown back to "Select a database." The canvas clears.
+To reset, set the table dropdown back to "Select table...", or the database dropdown back to "Select database...", and the canvas clears.
 
 ---
 
@@ -26,7 +26,7 @@ To reset, set the table dropdown back to "Select a table", or the database dropd
 
 ### Top-to-Bottom Flow
 
-The graph flows from top to bottom. Parent tables (sources) appear at the top, materialized views and other dependent objects sit below them, and target tables land at the bottom. A multi-stage pipeline cascades down the canvas: source table, then the MV that reads it, then the target table the MV writes to, then any further MVs that read that target, and so on. To follow the arrows downward traces the path data takes through your schema.
+The graph flows from top to bottom. Parent tables (sources) appear at the top, materialized views and other dependent objects sit below them, and target tables land at the bottom. A multi-stage pipeline cascades down the canvas: source table, then the MV that reads it, then the target table the MV writes to, then any further MVs that read that target, and so on. Following the arrows downward traces the path data takes through your schema.
 
 ### Relationships Cross Database Boundaries
 
@@ -43,21 +43,21 @@ Each card is one ClickHouse&reg; table (or view, MV, dictionary, and so on). A c
 - A row count chip with the approximate number of rows (for example, "1.2M"). Hover to see exact rows and bytes.
 - A heatmap badge (only on MVs when the heatmap is on) with the INSERT load metric value.
 
-**Column list (toggleable):** shows up to 14 columns with their names and types. Key columns (part of the primary key or sorting key) are shown in red bold text. Columns with default expressions are shown in green. If the table has more than 14 columns, a "... N more" message appears at the bottom.
+**Column list (toggleable):** shows up to 14 columns with their names and types. Key columns (part of the primary key or sorting key) appear in red bold text, and columns with default expressions appear in green. If the table has more than 14 columns, a "... N more" message appears at the bottom.
 
 #### Node Colors
 
 | Header Color | Engine Type | What It Is |
 |-------------|------------|------------|
 | **Green** | MergeTree family | The main ClickHouse&reg; storage engine. Includes MergeTree, ReplacingMergeTree, AggregatingMergeTree, SummingMergeTree, CollapsingMergeTree, VersionedCollapsingMergeTree, and others. |
-| **Lilac / Purple** | MaterializedView | A continuously-updating query. When data is inserted into the source table, the MV runs its query and writes results to a target table. |
+| **Lilac / Purple** | MaterializedView | A continuously-updating query. When you insert data into the source table, the MV runs its query and writes results to a target table. |
 | **Pink** | Refreshable MaterializedView | A materialized view that runs on a schedule (cron), not on every INSERT. Introduced in ClickHouse&reg; 23.x. |
 | **Blue** | Dictionary | An in-memory key-value lookup table. Typically loaded from another ClickHouse&reg; table, PostgreSQL, MySQL, HTTP, or a file. |
 | **Amber / Orange** | Distributed | A virtual table that routes queries and INSERTs to shards across a cluster. Points to a local table on each shard node. |
 | **Light Gray** | View | A saved query (SELECT statement). Does not store data. Evaluated on every read. |
 | **Warm Gray** | Other | Any engine not in the categories above (Memory, Buffer, Null, File, URL, Join, Set, and so on). |
 
-The palette is tuned separately for dark and light themes, so the colors stay vivid and readable on both backgrounds. When you toggle the theme, the node colors, edge colors, and minimap update automatically within the same session.
+CHOps tunes the palette separately for dark and light themes, so the colors stay vivid and readable on both backgrounds. When you toggle the theme, the node colors and edge colors update automatically within the same session. A legend under the controls bar shows the node colors and edge colors.
 
 #### Edge Lines
 
@@ -78,15 +78,15 @@ Each line ends with a filled triangular arrowhead at the target (child) node, wh
 
 #### Search
 
-Type a table name or column name. After a brief delay (200ms), non-matching nodes and their edges dim to near-invisible. Matching column names inside nodes are highlighted with a yellow background.
+Type a table name or column name in the **Search table or column...** box. After a brief delay (200ms), non-matching nodes and their edges dim to near-invisible, and the page highlights matching column names inside nodes.
 
-The search matches against the full qualified name (database.table) and all column names. It is case-insensitive.
+The case-insensitive search matches against the full qualified name (database.table) and all column names.
 
 #### Database and Table Dropdowns
 
-The first dropdown lists all databases with table counts in parentheses. To select one reveals the second dropdown, which lists the tables in that database, sorted alphabetically, with their engine kind. To select a table draws its connected subgraph (see [Getting Started](#getting-started)).
+The first dropdown lists all databases with table counts in parentheses. Selecting one reveals the second dropdown, which lists the tables in that database, sorted alphabetically, with their engine kind. Selecting a table draws its connected subgraph (see [Getting Started](#getting-started)).
 
-These two dropdowns are the main way to navigate. Rather than scroll a giant graph, you pick a starting table and the page shows exactly its connected component, however many databases it spans.
+These two dropdowns are the main way to navigate. Rather than scrolling a giant graph, you pick a starting table and the page shows exactly its connected component, however many databases it spans.
 
 #### Columns Toggle
 
@@ -103,9 +103,9 @@ The heatmap shows how much work each materialized view did during a time window.
 | **Last 7 days** | Shows activity from the last week. This is the default. |
 | **Last 30 days** | Shows activity from the last month. |
 
-When the heatmap is on, MV nodes that processed INSERTs during the window get a colored badge in their header. The badge color ranges from cool blue (low activity) through green and amber to hot red (highest activity among all MVs). Edge lines from MVs to their target tables are also colored and thickened in proportion.
+When the heatmap is on, MV nodes that processed INSERTs during the window get a colored badge in their header. The badge color ranges from cool blue (low activity) through green and amber to hot red (highest activity among all MVs). The page also colors and thickens the edge lines from MVs to their target tables in proportion.
 
-The status line at the bottom of the controls bar shows the result: "INSERT load: 5 MVs over 7d", or "No INSERT load data for last 7d" if `system.query_views_log` is empty or disabled.
+If `system.query_views_log` has no data for the window, no MV gets a badge.
 
 #### Metric Dropdown
 
@@ -113,7 +113,7 @@ When the heatmap is on, this dropdown selects which metric the colors represent:
 
 | Metric | What It Measures |
 |--------|-----------------|
-| **Duration** | Total milliseconds the MV spent to process INSERTs. Good for finding slow MVs. |
+| **Duration** | Total milliseconds the MV spent processing INSERTs. Good for finding slow MVs. |
 | **Rows written** | Total rows written to the target table. Good for finding high-volume pipelines. |
 | **Bytes written** | Total bytes written. Good for finding large data movers. |
 | **Rows read** | Total rows read from the source table. |
@@ -129,7 +129,7 @@ Recomputes positions for every visible node with the layout algorithm, then fits
 
 #### Fit
 
-Zooms and scrolls so all visible nodes fit in the viewport, without a move of any node. Fit moves the camera, not the nodes. If you dragged a node into a corner, Fit zooms out to include it where it sits.
+Zooms and scrolls so all visible nodes fit in the viewport, without moving any node. Fit moves the camera, not the nodes. If you dragged a node into a corner, Fit zooms out to include it where it sits.
 
 #### Zoom Controls (bottom-left corner)
 
@@ -139,7 +139,7 @@ Zooms and scrolls so all visible nodes fit in the viewport, without a move of an
 | **-** | Zoom out (see more of the canvas) |
 | **Fit icon** | Auto-zoom and scroll to fit all visible nodes in the viewport |
 
-You can also zoom with the mouse wheel or a trackpad pinch, and pan with a drag of the canvas background. A minimap in the bottom-right corner shows the whole graph with a viewport rectangle. Click it to jump to any area.
+You can also zoom with the mouse wheel or a trackpad pinch, and pan by dragging the canvas background.
 
 ---
 
@@ -158,9 +158,9 @@ Click the same node again, click the background, or press **Escape** to deselect
 
 #### Dragging
 
-Click and drag a node to move it. Connected edges follow in real time. When you release, the layout snaps to the new position. Other nodes stay where they are.
+Click and drag a node to move it. Connected edges follow in real time. When you release, the layout snaps to the new position, and other nodes stay where they are.
 
-A drag does not trigger a click. The click event is suppressed when the drag distance goes above 4 pixels.
+A drag does not trigger a click, because the page suppresses the click event when the drag distance goes above 4 pixels.
 
 #### Sidebar Details
 
@@ -172,11 +172,11 @@ The sidebar shows everything known about the selected table:
 | **Partition by** | The partition key expression |
 | **Order by** | The sorting key (ORDER BY from the CREATE statement) |
 | **Primary key** | The primary key (shown only if different from the sorting key) |
-| **Rows / Bytes** | The current row count and storage size |
+| **Rows**, **Bytes** | The current row count and storage size |
 | **Comment** | The table comment (if set) |
 | **Dict source** | The dictionary source definition (for dictionary tables) |
-| **Reads from** | A clickable list of tables this node reads from. Click to navigate. |
-| **Writes to** | A clickable list of tables this node writes to, or is depended on by. Click to navigate. |
+| **Reads from (N)** | A clickable list of tables this node reads from. Click to navigate. |
+| **Writes to (N)** | A clickable list of tables this node writes to, or is depended on by. Click to navigate. |
 | **CREATE Statement** | The complete CREATE TABLE/VIEW/DICTIONARY statement |
 
 ---
@@ -203,7 +203,7 @@ The sidebar shows everything known about the selected table:
 
 1. Type the column name (for example, "user_id") in the search box.
 2. All tables that contain that column stay visible. Others dim.
-3. Inside each visible table, the matching column row has a yellow background.
+3. Inside each visible table, the page highlights the matching column row.
 4. Scroll through the results to see which tables share the column.
 
 #### "The graph is too large and I cannot find my table"
@@ -216,7 +216,7 @@ The sidebar shows everything known about the selected table:
 #### "I have a table and want to know what depends on it"
 
 1. Click the table node.
-2. The sidebar shows "Writes to / depended on by" with clickable links.
+2. The sidebar shows "Writes to" with clickable links.
 3. Each listed table is a materialized view, dictionary, or distributed table that references your table.
 4. Click any entry to navigate to it and see its dependencies in turn.
 
@@ -236,28 +236,26 @@ This means `system.query_views_log` has no entries for the selected time window.
 - `query_views_log` is disabled in the ClickHouse&reg; server config (check the `log_query_views` setting).
 - The ClickHouse&reg; user configured in CHOps does not have SELECT permission on `system.query_views_log`.
 
-The status line at the bottom of the controls shows "No INSERT load data for last Nd" to confirm this.
-
 #### "I selected a table but only one node appeared"
 
 If a table has no tracked dependencies, its connected subgraph is just the table itself, so a single node renders. This is normal for standalone fact tables, staging tables, and utility tables. It can also happen when:
 
-- The MV or dependency was created after the schema was last loaded. Refresh the browser page to re-fetch the schema.
+- Someone created the MV or dependency after the page last loaded the schema. Refresh the browser page to re-fetch the schema.
 - The dependency runs through a table function (for example, `remote()` or `url()`), which ClickHouse&reg; does not track in the `system.tables.dependencies_*` arrays.
-- The related table lives in a system database, which is filtered out by design.
+- The related table lives in a system database, which the page filters out by design.
 
 ---
 
 ## Tips
 
-- **The Columns toggle is your complexity dial.** Turn columns off for a bird's-eye view. Turn them on to inspect specific tables. This is the fastest way to move between overview and detail.
-- **The heatmap answers "is this MV worth optimizing?"** If one MV has 10x the duration of all others, that is where to focus performance work. If you decide between MV-A and MV-B, the heatmap gives you data.
+- **The Columns toggle is your complexity dial.** Turn columns off for a bird's-eye view and on to inspect specific tables. It is the fastest way to move between overview and detail.
+- **The heatmap answers "is this MV worth optimizing?"** If one MV has 10x the duration of all others, that is where to focus performance work. If you are deciding between MV-A and MV-B, the heatmap gives you data.
 - **Cross-database edges** mean cross-database materialized views or distributed table mappings. These are common in sharded and multi-tenant setups. Because the traversal crosses database boundaries automatically, you see the full pipeline even when it spans several databases.
 - **A single node is not a bug.** If a table shows just one card, that table has no tracked dependencies. Standalone fact tables, staging tables, and utility tables commonly behave this way.
 - **Refreshable MVs (pink nodes)** run on a schedule, not on every INSERT. Their heatmap load may show bursty patterns that match the refresh interval, rather than continuous activity.
 - **The row count chip** in the node header shows approximate current rows. Hover over it to see the exact count and byte size. This updates when the page loads, not in real time.
-- **Key columns** (red bold text in the column list) are part of the primary key or sorting key. They decide how ClickHouse&reg; stores and queries the data. They are the most important columns for query performance.
-- **Default columns** (green text) have a DEFAULT, MATERIALIZED, or ALIAS expression. They are computed automatically and may not appear in INSERT statements.
+- **Key columns** (red bold text in the column list) are part of the primary key or sorting key. They decide how ClickHouse&reg; stores and queries the data, which makes them the most important columns for query performance.
+- **Default columns** (green text) have a DEFAULT, MATERIALIZED, or ALIAS expression. ClickHouse&reg; computes them automatically, and they may not appear in INSERT statements.
 
 ---
 
@@ -266,6 +264,6 @@ If a table has no tracked dependencies, its connected subgraph is just the table
 | Element | Font | Purpose |
 |---------|------|---------|
 | Table names, column names, engine labels | Red Hat Mono (`--font-code`) | Monospace for identifiers and code |
-| Row counts, byte sizes, heatmap values | Red Hat Mono (`--font-chart`) | Tabular numbers for metrics |
-| Section labels, control labels, legend text | Plus Jakarta Sans (`--font-ui`) | UI text (inherited from body) |
+| Row counts, byte sizes, heatmap values | B612 (`--font-chart`) | Numbers for metrics |
+| Section labels, control labels, legend text | Jakarta Sans (`--font-ui`) | UI text (inherited from body) |
 | CREATE statement in sidebar | Red Hat Mono (`--font-code`) | Code block |

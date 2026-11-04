@@ -1395,7 +1395,7 @@ export function buildChartOption(
 
     if (chartType === "kpi")  {
       if (Array.isArray(data) && data.length > 1) {
-        {console.log(data.length); return {_kpi: true,isArray:true,message:"The KPI card does not support arrays."}}
+        return { _kpi: true, isArray: true, message: "The KPI card does not support arrays." };
       }
       return {
         _kpi: true,

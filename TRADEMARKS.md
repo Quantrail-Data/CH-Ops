@@ -23,7 +23,7 @@ CHOps is not affiliated with, endorsed by, or sponsored by any of them. These
 names appear here only to identify the software CHOps works with, which is
 nominative use and the only reason they appear at all.
 
-CHOps&reg; and Quantrail&trade; are marks of Quantrail Data Private Limited.
+CHOps&trade; and Quantrail&trade; are marks of Quantrail Data Private Limited.
 
 ---
 

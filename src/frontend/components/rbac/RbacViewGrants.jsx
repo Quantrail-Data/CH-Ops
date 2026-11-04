@@ -10,6 +10,7 @@ import { useQuery } from '../../hooks/useQuery.js';
 import { initChart, disposeChart } from '../../utils/echarts.js';
 import { treeSize, treeSeries } from '../../utils/treeChart.js';
 import DataTable from '../layout/DataTable.jsx';
+import SettingsView from './SettingsView.jsx';
 
 export default function RbacViewGrants() {
   const { tab: routeTab = 'users' } = useParams();
@@ -52,11 +53,20 @@ export default function RbacViewGrants() {
           <Icon className="ti ti-list"></Icon>
           Full Overview
         </div>
+
+        <div
+          className={`tab-item ${routeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => handleTabChange('settings')}
+        >
+          <Icon className="ti ti-adjustments"></Icon>
+          Settings
+        </div>
       </div>
 
       {routeTab === 'users' && <UserTree />}
       {routeTab === 'roles' && <RoleTree />}
       {routeTab === 'overview' && <FullOverview />}
+      {routeTab === 'settings' && <SettingsView />}
     </div>
   );
 }

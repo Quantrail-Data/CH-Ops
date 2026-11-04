@@ -47,7 +47,7 @@ const amlh = (metric, agg = "avg") =>
 const amlhAll = (metric, agg = "avg") =>
   `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY ALL ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
 
-const TABS = [
+export const TABS = [
   {
     id: "queries",
     label: "Queries",
@@ -418,15 +418,18 @@ const TABS = [
         label: "Concurrent connections",
         sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, max(CurrentMetric_TCPConnection) AS TCP, max(CurrentMetric_MySQLConnection) AS MySQL, max(CurrentMetric_HTTPConnection) AS HTTP, max(CurrentMetric_InterserverConnection) AS Interserver FROM merge('system', '^metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
       },
+      // ClickHouse 26.8 and later log "NetworkReceiveBytes" with the interface in the key column.
+      // Older versions log "NetworkReceiveBytes_eth0". A bucket with the new name uses only the new rows.
+      // Thus the chart does not count a server two times when it logs both forms.
       {
         key: "net_bytes",
         label: "Network Throughput (bytes/s)",
-        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, sumIf(value, startsWith(metric, 'NetworkReceiveBytes_')) AS Receive, sumIf(value, startsWith(metric, 'NetworkSendBytes_')) AS Send FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (startsWith(metric, 'NetworkReceiveBytes_') OR startsWith(metric, 'NetworkSendBytes_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
+        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, if(countIf(metric = 'NetworkReceiveBytes') > 0, sumIf(value, metric = 'NetworkReceiveBytes'), sumIf(value, startsWith(metric, 'NetworkReceiveBytes_'))) AS Receive, if(countIf(metric = 'NetworkSendBytes') > 0, sumIf(value, metric = 'NetworkSendBytes'), sumIf(value, startsWith(metric, 'NetworkSendBytes_'))) AS Send FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (metric IN ('NetworkReceiveBytes', 'NetworkSendBytes') OR startsWith(metric, 'NetworkReceiveBytes_') OR startsWith(metric, 'NetworkSendBytes_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
       },
       {
         key: "net_drops",
         label: "Network Packet Drops",
-        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, sumIf(value, startsWith(metric, 'NetworkReceiveDrop_')) AS "Receive Drops", sumIf(value, startsWith(metric, 'NetworkSendDrop_')) AS "Send Drops" FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (startsWith(metric, 'NetworkReceiveDrop_') OR startsWith(metric, 'NetworkSendDrop_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
+        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, if(countIf(metric = 'NetworkReceiveDrop') > 0, sumIf(value, metric = 'NetworkReceiveDrop'), sumIf(value, startsWith(metric, 'NetworkReceiveDrop_'))) AS "Receive Drops", if(countIf(metric = 'NetworkSendDrop') > 0, sumIf(value, metric = 'NetworkSendDrop'), sumIf(value, startsWith(metric, 'NetworkSendDrop_'))) AS "Send Drops" FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (metric IN ('NetworkReceiveDrop', 'NetworkSendDrop') OR startsWith(metric, 'NetworkReceiveDrop_') OR startsWith(metric, 'NetworkSendDrop_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
       },
     ],
   },

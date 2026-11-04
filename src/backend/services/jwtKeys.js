@@ -5,6 +5,8 @@
 import { randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
 import { db, appSettings } from "../db/index.js";
+import { encrypt, decrypt } from "./crypto.js";
+import { log } from "./logger.js";
 
 const CATEGORY = "jwt";
 
@@ -41,30 +43,46 @@ function writeRow(key, value) {
   }
 }
 
+// The database keeps the keys encrypted with ENCRYPTION_SECRET. Older versions stored plain text.
+// decrypt() returns a plain value as it is, and load() then encrypts it in place.
+function isStoredPlain(storedValue) {
+  return Boolean(storedValue) && !storedValue.startsWith("v1:");
+}
+
 function load() {
   if (cache) return cache;
 
   let current = null;
   let previous = null;
   let rotatedAt = 0;
+  let storedPlain = false;
 
   try {
-    current = readRow(KEY_CURRENT);
-    previous = readRow(KEY_PREVIOUS) || null;
+    const storedCurrent = readRow(KEY_CURRENT);
+    const storedPrevious = readRow(KEY_PREVIOUS);
+    storedPlain = isStoredPlain(storedCurrent) || isStoredPlain(storedPrevious);
+    current = storedCurrent ? decrypt(storedCurrent) : null;
+    previous = storedPrevious ? decrypt(storedPrevious) : null;
     rotatedAt = Number(readRow(KEY_ROTATED_AT)) || 0;
-  } catch {}
+  } catch (error) {
+    log.error("JWT signing keys could not be read", { error: error.message });
+  }
 
   cache = { current, previous, rotatedAt };
+  if (storedPlain) save(cache);
   return cache;
 }
 
 function save(keys) {
   cache = keys;
   try {
-    writeRow(KEY_CURRENT, keys.current);
-    writeRow(KEY_PREVIOUS, keys.previous || "");
+    writeRow(KEY_CURRENT, encrypt(keys.current));
+    writeRow(KEY_PREVIOUS, keys.previous ? encrypt(keys.previous) : "");
     writeRow(KEY_ROTATED_AT, String(keys.rotatedAt));
-  } catch {}
+  } catch (error) {
+    // Without a stored key, each restart signs out all users. The log must show this problem.
+    log.error("JWT signing keys could not be saved", { error: error.message });
+  }
 }
 
 function keys() {
@@ -112,4 +130,10 @@ export function signEverybodyOut() {
 
 export function invalidateKeyCache() {
   cache = null;
+}
+
+// The server calls this at start. It encrypts the plain text keys of an older version at once.
+export function encryptStoredSigningKeys() {
+  cache = null;
+  load();
 }

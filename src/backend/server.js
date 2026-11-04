@@ -23,9 +23,12 @@ try {
 // }
 
 import { log } from "./services/logger.js";
+import { handleRequestError } from "./middleware/errorHandler.js";
 
 import { loadEnv } from "./utils/env.js";
 import { initCrypto } from "./services/crypto.js";
+import { encryptLegacySecrets } from "./services/legacySecrets.js";
+import { encryptStoredSigningKeys } from "./services/jwtKeys.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { rateLimiter } from "./middleware/rateLimiter.js";
 import { securityHeaders } from "./middleware/securityHeaders.js";
@@ -83,6 +86,9 @@ try {
 }
 
 initCrypto(env.encryptionSecret);
+// Secrets that older versions stored in plain text are encrypted in place.
+encryptLegacySecrets();
+encryptStoredSigningKeys();
 
 const { encryptionSecret: _dropEncryptionSecret, ...envForRequests } = env;
 env = envForRequests;
@@ -287,16 +293,7 @@ if (embeddedAssets && embeddedAssets.has("dist/index.html")) {
 }
 
 // Global error handler
-app.use((err, req, res, next) => {
-  log.error("Unhandled request error", {
-    error: err.message,
-    path: req.path,
-    method: req.method,
-  });
-  res
-    .status(err?.statusCode || 500)
-    .json({ error: err?.message || "Internal server error" });
-});
+app.use(handleRequestError);
 
 // Start services
 initExportStorage();

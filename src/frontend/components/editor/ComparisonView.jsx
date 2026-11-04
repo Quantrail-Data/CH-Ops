@@ -897,7 +897,6 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
     try {
       await runEditorQuery("SELECT 1", candidate);
       setEditorCreds(candidate);
-      initSetup();
     } catch (e) {
       setConnError(e.message);
     } finally {

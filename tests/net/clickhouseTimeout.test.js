@@ -41,7 +41,6 @@ describe("executeQuery timeout", () => {
       }),
     ).rejects.toThrow(/timed out/i);
 
-    console.log(Date.now() - started)
     expect(Date.now() - started).toBeLessThan(3000);
   });
 
