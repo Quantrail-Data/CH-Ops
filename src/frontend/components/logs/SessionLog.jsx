@@ -458,6 +458,8 @@ function RateChart({ rows, from, to, rounding }) {
   );
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = containerRef.current;
     if (!containerRef.current) return;
     const chart = initChart(containerRef.current);
     chartRef.current = chart;
@@ -502,8 +504,7 @@ function RateChart({ rows, from, to, rounding }) {
     );
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
     return () => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- Copying the ref here would change which element the cleanup sees.
-      disposeChart(containerRef.current);
+      disposeChart(chartEl);
       chartRef.current = null;
     };
   }, [series, names, from, to]);

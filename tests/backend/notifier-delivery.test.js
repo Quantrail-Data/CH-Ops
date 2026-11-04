@@ -13,6 +13,20 @@ mock.module("node:dns", () => ({
   default: { promises: { lookup: async () => [{ address: "52.96.0.1", family: 4 }] } },
 }));
 
+// Google Chat and Teams send through webhookPost.js, to the checked address.
+let webhookAnswer = { status: 200, body: {} };
+let webhookRequests = [];
+mock.module("../../src/backend/services/webhookPost.js", () => ({
+  postJsonToAddress: async (url, address, body) => {
+    webhookRequests.push({ url, address, body });
+    return {
+      status: webhookAnswer.status,
+      ok: webhookAnswer.status >= 200 && webhookAnswer.status < 300,
+      json: async () => webhookAnswer.body,
+    };
+  },
+}));
+
 const { sendNotification } = await import(
   "../../src/backend/services/notifier.js"
 );
@@ -21,15 +35,18 @@ const ORIGINAL_FETCH = global.fetch;
 afterEach(() => {
   global.fetch = ORIGINAL_FETCH;
   clusterList = [];
+  webhookRequests = [];
 });
 
-// Makes fetch answer with one fixed status and body, and keeps each request.
+// Makes fetch and the webhook send answer with one fixed status and body.
+// Returns the fetch requests. The webhook requests are in webhookRequests.
 function answerEveryRequestWith(status, body, headers = {}) {
   const requests = [];
   global.fetch = async (url, options) => {
     requests.push({ url, redirect: options.redirect, body: JSON.parse(options.body) });
     return new Response(JSON.stringify(body), { status, headers });
   };
+  webhookAnswer = { status, body };
   return requests;
 }
 
@@ -82,8 +99,6 @@ const GOOGLE_CHAT = { type: "google_chat", webhook_url: "https://chat.googleapis
 describe("redirects", () => {
   for (const [label, channel] of [
     ["Slack", SLACK],
-    ["Google Chat", GOOGLE_CHAT],
-    ["Microsoft Teams", TEAMS],
     ["PagerDuty", PAGERDUTY],
   ]) {
     it(`does not follow a redirect from ${label}`, async () => {
@@ -95,16 +110,45 @@ describe("redirects", () => {
       expect(requests[0].redirect).toBe("manual");
     });
   }
+
+  // webhookPost.js never follows a redirect. tests/net/webhookPost.test.js checks that.
+  for (const [label, channel] of [
+    ["Google Chat", GOOGLE_CHAT],
+    ["Microsoft Teams", TEAMS],
+  ]) {
+    it(`gives an error when ${label} answers with a redirect`, async () => {
+      answerEveryRequestWith(302, {});
+      await expect(sendNotification(channel, ALERT)).rejects.toThrow(
+        `${label} answered with a redirect (HTTP 302)`,
+      );
+      expect(webhookRequests.length).toBe(1);
+    });
+  }
+});
+
+describe("DNS rebinding", () => {
+  for (const [label, channel] of [
+    ["Google Chat", GOOGLE_CHAT],
+    ["Microsoft Teams", TEAMS],
+  ]) {
+    it(`sends ${label} to the address that the check accepted`, async () => {
+      answerEveryRequestWith(200, {});
+      await sendNotification(channel, ALERT);
+      expect(webhookRequests).toHaveLength(1);
+      expect(webhookRequests[0].url).toBe(channel.webhook_url);
+      expect(webhookRequests[0].address).toBe("52.96.0.1");
+    });
+  }
 });
 
 describe("webhook check before each send", () => {
   it("refuses a Teams webhook on a private address and sends nothing", async () => {
-    const requests = answerEveryRequestWith(200, {});
+    answerEveryRequestWith(200, {});
     const privateTeams = { type: "teams", webhook_url: "https://[fd00::1]/hook" };
     await expect(sendNotification(privateTeams, ALERT)).rejects.toThrow(
       "private networks, link-local or special addresses",
     );
-    expect(requests.length).toBe(0);
+    expect(webhookRequests.length).toBe(0);
   });
 });
 
