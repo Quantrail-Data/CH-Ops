@@ -109,6 +109,9 @@ async function fillAndVerify({
 describe('ApiManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps the queued mockResolvedValueOnce answers.
+    // If a test ends early, the next test gets the answers that remain.
+    mockApiFetch.mockReset();
     setupMatchMedia(false, true);
     setTheme({});
 
@@ -327,7 +330,7 @@ describe('ApiManagement', () => {
     
     mockApiFetch
       .mockResolvedValueOnce({
-        apiKeys: [{ id: 7, name: 'OPEN AI', model: 'GPT-5.4 mini', createdAt: new Date().toISOString() }],
+        apiKeys: [{ id: 7, name: 'Main key', provider: 'OPEN AI', model: 'GPT-5.4 mini', createdAt: new Date().toISOString() }],
         selectedKeyId: 7,
       }) // load
       .mockResolvedValueOnce({ keyValue: 'sk-original-1234567890123' }) // fetch key value on edit
@@ -337,12 +340,12 @@ describe('ApiManagement', () => {
 
     render(<ApiManagement />);
     await waitUntilLoaded();
-    await screen.findByText('OPEN AI');
+    await screen.findByText('Main key');
 
     fireEvent.click(screen.getByTitle('Edit key'));
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('OPEN AI')).toBeTruthy();
+      expect(screen.getByDisplayValue('Main key')).toBeTruthy();
       expect(screen.getByDisplayValue('GPT-5.4 mini')).toBeTruthy();
       expect(screen.getByDisplayValue('sk-original-1234567890123')).toBeTruthy();
     });
@@ -356,12 +359,6 @@ describe('ApiManagement', () => {
 
     await waitFor(() => {
       expect(mockToast.success).toHaveBeenCalledWith('API key verified successfully. You can now update it.');
-    });
-
-    // editKey() does not populate the "Name" field, so it must be filled before updating,
-    // otherwise saveApiKey's "Please enter an API key name" check blocks the update.
-    fireEvent.change(screen.getByPlaceholderText(/Enter the name/i), {
-      target: { value: 'OPEN AI' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Update Key/i }));
@@ -529,21 +526,21 @@ describe('ApiManagement', () => {
   });
 
   it('shows max keys state and hides add button', async () => {
-    // Add button is only hidden once apiKeys.length reaches 4 (component checks `< 4`).
+    // The server allows 5 keys (MAX_API_KEYS). At 5, the Add button is hidden.
     mockApiFetch.mockResolvedValueOnce({
-      apiKeys: [
-        { id: 1, name: 'K1', model: 'm1', createdAt: new Date().toISOString() },
-        { id: 2, name: 'K2', model: 'm2', createdAt: new Date().toISOString() },
-        { id: 3, name: 'K3', model: 'm3', createdAt: new Date().toISOString() },
-        { id: 4, name: 'K4', model: 'm4', createdAt: new Date().toISOString() },
-      ],
+      apiKeys: [1, 2, 3, 4, 5].map((id) => ({
+        id,
+        name: `K${id}`,
+        model: `m${id}`,
+        createdAt: new Date().toISOString(),
+      })),
       selectedKeyId: 1,
     });
 
     render(<ApiManagement />);
     await waitUntilLoaded();
 
-    expect(screen.getByText('Saved API Keys (4/3)')).toBeTruthy();
+    expect(await screen.findByText('Saved API Keys (5/5)')).toBeTruthy();
     expect(screen.queryByText('Add API Key')).toBeNull();
   });
 

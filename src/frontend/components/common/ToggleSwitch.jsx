@@ -33,7 +33,7 @@ export default function ToggleSwitch({
             onChange={onChange}
             style={{ accentColor: "var(--accent)" }}
           />{" "}
-          <span class="slider"></span>
+          <span className="slider"></span>
         </label>
         {label}
          {info && <small

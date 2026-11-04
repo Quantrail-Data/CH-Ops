@@ -763,18 +763,12 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     fetchAPIKEY_Details();
   }, []);
 
-  const loadDbs = () =>
-    new Promise((res, rej) => {
-      if (editorCreds.length !==0 ) rej([]);
-      apiFetch("/api/ai/databases", { method: "GET" })
-        .then((resp) => {
-          res(resp?.databases);
-        })
-        .catch((err) => {
-          console.error(err.message);
-          rej([]);
-        });
-    });
+  // Without a ClickHouse connection there is no session, and the request gets a 401.
+  async function loadDbs() {
+    if (!editorCreds) return [];
+    const response = await apiFetch("/api/ai/databases", { method: "GET" });
+    return response?.databases || [];
+  }
 
   useEffect(() => {
     async function initSetup() {
@@ -849,9 +843,6 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     setConnPassword("");
     setConnError(null);
     setDbs([]);
-    setSelectedDb(null);
-    setTables([]);
-    setAcWords([]);
   }
 
   const ToggelChartHandler = (message) => {
@@ -1205,23 +1196,24 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   };
 
-  async function SelectAIProvider(e) {
-    const llm_provider = e?.target?.value;
-    const { id } = apikeys?.find((val_) => val_?.name === llm_provider);
+  async function SelectAIProvider(event) {
+    const llm_provider = event?.target?.value;
+    const selectedKey = apikeys?.find((keyItem) => keyItem?.name === llm_provider);
+    if (!selectedKey) return;
+    const { id } = selectedKey;
 
     try {
-      const res = await apiFetch(`/api/qurioz/api-keys/select`, {
+      const response = await apiFetch(`/api/qurioz/api-keys/select`, {
         method: "POST",
         body: JSON.stringify({ keyId: id }),
       });
-      // console.log(res)
       setApiKey({
         status: true,
-        id: res?.id,
-        serviceName: res?.name,
-        model: res?.model,
+        id: response?.id,
+        serviceName: response?.name,
+        model: response?.model,
       });
-      toast?.success(`${res?.name} selected successfully.`);
+      toast?.success(`${response?.name} selected successfully.`);
     } catch (err) {
       setApiKey({ status: false, id: null, serviceName: null });
       toast?.error(err?.message);

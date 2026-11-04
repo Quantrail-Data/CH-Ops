@@ -18,6 +18,7 @@ import DataTable from "../layout/DataTable";
 import {  useAuth } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -522,23 +523,9 @@ useEffect(() => {
                 </div>
               </div>
             )}
-            <label
-              style={{
-                display: "flex",
-                gap: 6,
-                cursor: "pointer",
-                fontSize: "14px",
-                marginBottom: 12,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showLegend}
-                onChange={(e) => setShowLegend(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
-              />{" "}
-              Show Legend
-            </label>
+           <div style={{ display:"flex",alignItems:"center"}}>
+             <ToggleSwitch checked={showLegend} onChange={(e) => setShowLegend(e.target.checked)} label="Show Legend"/>
+           </div>
             {chartType === "gauge" && (
               <div
                 style={{

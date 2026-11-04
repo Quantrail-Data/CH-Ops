@@ -1670,7 +1670,6 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit, s
           {
             label: {
               position: "outside",
-              rotate: "tangential",
               distance: fs ? 20 : 10,
               rotate: 0,
               show: !hideSunburst,

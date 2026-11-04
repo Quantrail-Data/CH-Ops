@@ -56,6 +56,7 @@ const EXPECTED_GUARDS = {
   "POST appBackup.js /create": "requireAdmin",
   "PUT appBackup.js /config": "requireAdmin",
   "GET appConfig.js /": "requireAdmin",
+  "GET appConfig.js /rbac-settings": "none",
   "PUT appConfig.js /": "requireAdmin",
   "DELETE appConfig.js /:key": "requireAdmin",
   "POST auth.js /": "none",
@@ -96,6 +97,7 @@ const EXPECTED_GUARDS = {
   "PUT k8s.js /connections/:id": "requireAdmin",
   "DELETE k8s.js /connections/:id": "requireAdmin",
   "POST k8s.js /test": "requireAdmin",
+  "POST k8s.js /operator-probe": "requireAdmin",
   "GET k8s.js /connections/:id/namespaces": "requireAdmin",
   "GET k8s.js /connections/:id/installations": "requireAdmin",
   "GET k8s.js /connections/:id/installations/:name": "requireAdmin",
@@ -107,12 +109,17 @@ const EXPECTED_GUARDS = {
   "GET k8s.js /insight/:clusterId/reconcile": "requireAdmin",
   "GET k8s.js /insight/:clusterId/config": "requireAdmin",
   "GET k8s.js /insight/:clusterId/storage": "requireAdmin",
+  "GET k8s.js /insight/:clusterId/resources": "requireAdmin",
   "GET k8s.js /insight/:clusterId/network": "requireAdmin",
   "GET k8s.js /insight/:clusterId/events": "requireAdmin",
   "GET k8s.js /insight/:clusterId/logs/:pod": "requireAdmin",
+  "GET k8s.js /insight/:clusterId/operator-pod": "requireAdmin",
   "GET k8s.js /insight/:clusterId/health": "requireAdmin",
   "GET k8s.js /insight/:clusterId/keeper": "requireAdmin",
   "GET k8s.js /insight/:clusterId/rbac-context": "requireAdmin",
+  "GET k8s.js /insight/:clusterId/permissions": "requireAdmin",
+  "GET k8s.js /insight/:clusterId/health-alerts": "requireAdmin",
+  "PUT k8s.js /insight/:clusterId/health-alerts": "requireAdmin",
   "POST k8s.js /insight/:clusterId/refresh": "requireAdmin",
   "POST query.js /": "none",
   "POST query.js /test-connection": "none",
@@ -311,6 +318,14 @@ describe("Part 2: admin-only routes refuse readonly and editor users", () => {
         );
         expect(result.status).not.toBe(200);
       }
+    }
+  });
+
+  it("lets every role read the two settings of the View Grants Settings tab", async () => {
+    for (const role of ["readonly", "editor", "admin"]) {
+      const result = await app.api(role, "GET", "/api/app-config/rbac-settings");
+      expect(result.status).toBe(200);
+      expect(result.json).toEqual({ defaultProfileName: "default", settingsConstraintsReplacePrevious: true });
     }
   });
 
