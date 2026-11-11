@@ -85,6 +85,26 @@ function clearFailures(username) {
   loginAttempts.delete(username.toLowerCase().trim());
 }
 
+function loadUserForToken(payload) {
+  if (
+    !payload ||
+    typeof payload.userId !== "number" ||
+    typeof payload.username !== "string"
+  ) {
+    return null;
+  }
+
+  const found = db
+    .select()
+    .from(appUsers)
+    .where(eq(appUsers.id, payload.userId))
+    .get();
+
+  if (!found || found.username !== payload.username) return null;
+
+  return found;
+}
+
 export async function login(req, res) {
   const { username, password } = req.body || {};
 
@@ -229,6 +249,10 @@ export async function logout(req, res) {
   if (authHeader?.startsWith("Bearer ")) {
     try {
       const payload = verify(authHeader.slice(7));
+      const found = loadUserForToken(payload);
+      if (!found) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
 
       if (payload?.jti) {
         revokeToken(payload.jti);
@@ -267,19 +291,26 @@ export async function changePassword(req, res) {
         .json({ error: "Password must be at least 8 characters." });
     }
 
-    const user = db
-      .select()
-      .from(appUsers)
-      .where(eq(appUsers.username, payload.username))
-      .get();
+    const found = loadUserForToken(payload);
 
-    // Use a generic response for a missing user or an incorrect password.
-    if (!user || !tokenVersionMatches(payload, user)) {
+    if (!found || !tokenVersionMatches(payload, found)) {
       return res.status(401).json({ error: "Invalid current password." });
     }
 
-    if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+    const user = db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.id, found.id))
+      .get();
+
+    if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
       return res.status(401).json({ error: "Invalid current password." });
+    }
+
+    if (currentPassword === newPassword) {
+      return res
+        .status(400)
+        .json({ error: "New password must be different from the current one." });
     }
 
     const newHash = await hashPassword(newPassword);
