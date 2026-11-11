@@ -2,7 +2,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Manages and renders the configuration rules for triggering system notification alerts.
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
@@ -12,7 +12,6 @@ import IconAlert from "../common/IconAlert.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
-import { validateCronExpression } from "../../../shared/cron.js";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
@@ -24,9 +23,6 @@ const OPS = [
   { k: "eq", l: "equal to" },
   { k: "neq", l: "not equal to" },
 ];
-
-// The page loads the rules again at this interval while the browser tab is visible.
-export const RULES_REFRESH_MS = 30000;
 
 // Rules choose nodes by name. Nodes of one Kubernetes cluster can share one host.
 function nodeName(node) {
@@ -48,6 +44,8 @@ export default function AlertRules() {
   const [del, setDel] = useState(null);
   const [result, setResult] = useState(null);
   const [cronError, setCronError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshTimerRef = useRef(null);
   const [f, setF] = useState({
     name: "",
     description: "",
@@ -74,24 +72,51 @@ export default function AlertRules() {
     useState(false);
   const [testResults, setTestResults] = useState(null);
 
-  // The same cron check as the server. An empty text means the schedule is valid.
+  function normalizeCron(expr) {
+    const parts = expr.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 4) return `0 ${parts.join(" ")}`;
+    return expr.trim();
+  }
+
   function validateCron(expr) {
-    return validateCronExpression(expr) || "";
+    const parts = expr.trim().split(/\s+/).filter(Boolean);
+    if (parts.length !== 4 && parts.length !== 5)
+      return "Cron must have 4 or 5 fields";
+    const normalized = parts.length === 4 ? ["0", ...parts] : parts;
+    const ranges = [
+      [0, 59],
+      [0, 23],
+      [1, 31],
+      [1, 12],
+      [0, 6],
+    ];
+    const names = ["minute", "hour", "day-of-month", "month", "day-of-week"];
+    for (let i = 0; i < 5; i++) {
+      const p = normalized[i];
+      if (p === "*") continue;
+      if (p.startsWith("*/")) {
+        const n = parseInt(p.slice(2));
+        if (isNaN(n) || n < 1) return `Invalid step in ${names[i]}: ${p}`;
+        continue;
+      }
+      for (const value of p.split(",")) {
+        const number = Number(value);
+        if (!Number.isInteger(number) || number < ranges[i][0] || number > ranges[i][1])
+          return `${names[i]} must be a number from ${ranges[i][0]} to ${ranges[i][1]}, or a comma list of numbers: ${value}`;
+      }
+    }
+    return "";
   }
 
   async function load() {
     try {
       const r = await apiFetch("/api/alerts/rules");
       setRules(Array.isArray(r) ? r : []);
-    } catch {
-      // Keep the current data when the request fails.
-    }
+    } catch {}
     try {
       const c = await apiFetch("/api/alerts/channels");
       setChannels(Array.isArray(c) ? c : []);
-    } catch {
-      // Keep the current data when the request fails.
-    }
+    } catch {}
     setLoaded(true);
   }
 
@@ -118,32 +143,57 @@ export default function AlertRules() {
       .catch(() => setTemplates([]));
   }, [isAdmin]);
 
-  // Load again every 30 seconds while the tab is visible, and at once when it shows again.
-  // load() changes only the lists, so a form that the user edits stays as it is.
   useEffect(() => {
-    let timer = null;
-    function startTimer() {
-      if (!timer) timer = setInterval(load, RULES_REFRESH_MS);
+    function onVisible() {
+      if (document.visibilityState === "visible") load();
     }
-    function stopTimer() {
-      clearInterval(timer);
-      timer = null;
-    }
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") {
-        load();
-        startTimer();
-      } else {
-        stopTimer();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (event.key === "Escape") {
+        if (showTemplatePicker) {
+          setShowTemplatePicker(false);
+          setTemplateSearch("");
+        } else if (history) {
+          setHistory(null);
+        }
       }
     }
-    if (document.visibilityState === "visible") startTimer();
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showTemplatePicker, history]);
+
+  useEffect(() => {
     return () => {
-      stopTimer();
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
     };
   }, []);
+
+  function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    load().finally(() => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = setTimeout(() => {
+        setRefreshing(false);
+        refreshTimerRef.current = null;
+      }, 600);
+    });
+  }
 
   function resetForm() {
     setF({
@@ -236,7 +286,7 @@ export default function AlertRules() {
         return;
       }
 
-      const normalizedSchedule = f.schedule.trim();
+      const normalizedSchedule = normalizeCron(f.schedule);
       const cronValidationError = validateCron(normalizedSchedule);
       if (cronValidationError) {
         setCronError(cronValidationError);
@@ -245,7 +295,7 @@ export default function AlertRules() {
       }
 
 
-      await runQuery(f.sql, { noRowLimit: true });
+      const checkQuery = await runQuery(f.sql, { noRowLimit: true });
       const payload = {
         ...f,
         schedule: normalizedSchedule,
@@ -382,6 +432,12 @@ export default function AlertRules() {
     ? rules
     : rules.filter((rule) => !(rule.templateId && !rule.enabled));
 
+  const filteredTemplates = templates.filter((template) =>
+    `${template.name} ${template.category} ${template.description}`
+      .toLowerCase()
+      .includes(templateSearch.toLowerCase()),
+  );
+
   function isChannelSelected(chID) {
     return f?.channel_ids?.some((id) => id === chID);
   }
@@ -392,9 +448,111 @@ export default function AlertRules() {
         <h2 className="section-title">
           <Icon className="ti ti-bell-ringing"></Icon> Alert Rules
         </h2>
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button className="btn btn-secondary btn-sm" onClick={load}>
-            <Icon className="ti ti-refresh"></Icon>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
+          {isAdmin && templateRulesThatAreOff.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "6px 14px",
+                borderRadius: 999,
+                background:
+                  "linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(168,85,247,0.08) 50%, rgba(59,130,246,0.10) 100%)",
+                border: "1px solid rgba(99,102,241,0.20)",
+                boxShadow: "0 2px 10px rgba(99,102,241,0.08)",
+                marginRight: 4,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 24,
+                  height: 24,
+                  borderRadius: 7,
+                  background: showTemplateRulesThatAreOff
+                    ? "var(--accent)"
+                    : "rgba(99,102,241,0.14)",
+                  color: showTemplateRulesThatAreOff ? "#fff" : "var(--accent)",
+                  flexShrink: 0,
+                  transition: "background 0.2s ease, color 0.2s ease",
+                }}
+              >
+                <Icon
+                  className={
+                    showTemplateRulesThatAreOff ? "ti ti-eye" : "ti ti-eye-off"
+                  }
+                  style={{ fontSize: 14 }}
+                />
+              </div>
+              <ToggleSwitch
+                checked={showTemplateRulesThatAreOff}
+                onChange={(e) =>
+                  setShowTemplateRulesThatAreOff(e.target.checked)
+                }
+                label={
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      letterSpacing: "0.01em",
+                      color: showTemplateRulesThatAreOff
+                        ? "var(--text-primary)"
+                        : "var(--text-secondary)",
+                      transition: "color 0.2s ease",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Show template rules that are off
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 20,
+                        height: 18,
+                        padding: "0 6px",
+                        borderRadius: 999,
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        background: showTemplateRulesThatAreOff
+                          ? "var(--accent)"
+                          : "rgba(99,102,241,0.14)",
+                        color: showTemplateRulesThatAreOff
+                          ? "#fff"
+                          : "var(--accent)",
+                        transition:
+                          "background 0.2s ease, color 0.2s ease",
+                      }}
+                    >
+                      {templateRulesThatAreOff.length}
+                    </span>
+                  </span>
+                }
+                btnContainer
+              />
+            </div>
+          )}
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            title="Refresh"
+            style={refreshing ? { opacity: 0.6, cursor: "progress" } : {}}
+          >
+            <Icon
+              className="ti ti-refresh"
+              style={
+                refreshing
+                  ? { display: "inline-block", animation: "spin 0.6s linear" }
+                  : {}
+              }
+            ></Icon>
           </button>
           <button
             className="btn btn-secondary btn-sm"
@@ -484,9 +642,9 @@ export default function AlertRules() {
                   setCronError(validateCron(e.target.value));
                 }}
                 onBlur={(e) => {
-                  const trimmed = e.target.value.trim();
-                  setF((p) => ({ ...p, schedule: trimmed }));
-                  setCronError(validateCron(trimmed));
+                  const normalized = normalizeCron(e.target.value);
+                  setF((p) => ({ ...p, schedule: normalized }));
+                  setCronError(validateCron(normalized));
                 }}
                 style={cronError ? { borderColor: "var(--color-danger)" } : {}}
               />
@@ -849,13 +1007,6 @@ export default function AlertRules() {
           )}
         </div>
       )}
-      {isAdmin && templateRulesThatAreOff.length > 0 && (
-        <ToggleSwitch
-          checked={showTemplateRulesThatAreOff}
-          onChange={(e) => setShowTemplateRulesThatAreOff(e.target.checked)}
-          label={`Show the template rules that are off (${templateRulesThatAreOff.length})`}
-        />
-      )}
       {!loaded ? (
         <div className="empty-state">
           <p>Loading...</p>
@@ -1143,7 +1294,12 @@ export default function AlertRules() {
         <div className="modal-overlay">
           <div
             className="modal-box"
-            style={{ maxWidth: 800, maxHeight: "40rem", padding: "2px" }}
+            style={{
+              maxWidth: 800,
+              maxHeight: "min(40rem, 90vh)",
+              padding: "2px",
+              overflowY: "auto",
+            }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", margin:"1rem"}}>
               <h2 className="section-title" style={{fontSize:"18px"}}>
@@ -1160,16 +1316,35 @@ export default function AlertRules() {
       )}
 
       {showTemplatePicker && isAdmin && (
-        <div className="modal-overlay">
+        <div
+          className="modal-overlay"
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "24px 16px",
+            overflowY: "auto",
+          }}
+        >
           <div
             className="modal-box"
-            style={{ maxWidth: 800, maxHeight: "40rem", overflowY: "auto" }}
+            style={{
+              maxWidth: "min(800px, 100%)",
+              width: "100%",
+              height: "min(40rem, calc(100vh - 48px))",
+              maxHeight: "calc(100vh - 48px)",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              margin: "0 auto",
+            }}
           >
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 marginBottom: 12,
+                flexShrink: 0,
               }}
             >
               <h2 className="section-title" style={{ fontSize: "18px" }}>
@@ -1177,7 +1352,10 @@ export default function AlertRules() {
               </h2>
               <button
                 className="btn btn-ghost btn-sm"
-                onClick={() => setShowTemplatePicker(false)}
+                onClick={() => {
+                  setShowTemplatePicker(false);
+                  setTemplateSearch("");
+                }}
               >
                 <Icon className="ti ti-x" />
               </button>
@@ -1187,54 +1365,77 @@ export default function AlertRules() {
               placeholder="Search templates"
               value={templateSearch}
               onChange={(e) => setTemplateSearch(e.target.value)}
-              style={{ marginBottom: 12 }}
+              style={{ marginBottom: 12, flexShrink: 0 }}
             />
-            {templates
-              .filter((template) =>
-                `${template.name} ${template.category} ${template.description}`
-                  .toLowerCase()
-                  .includes(templateSearch.toLowerCase()),
-              )
-              .map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  className="card"
-                  onClick={() => startFromTemplate(template)}
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+              {filteredTemplates.length === 0 ? (
+                <div
                   style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: 12,
-                    marginBottom: 8,
-                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    color: "var(--text-muted)",
+                    fontSize: "14px",
+                    gap: 8,
                   }}
                 >
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <strong>{template.name}</strong>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {template.category}
+                  <Icon
+                    className="ti ti-list-search"
+                    style={{ fontSize: 36, opacity: 0.4 }}
+                  />
+                  <span>No Alert Templates Available</span>
+                  {templateSearch && (
+                    <span style={{ fontSize: "12px", opacity: 0.7 }}>
+                      No templates match &ldquo;{templateSearch}&rdquo;
                     </span>
-                  </div>
-                  <div
+                  )}
+                </div>
+              ) : (
+                filteredTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className="card"
+                    onClick={() => startFromTemplate(template)}
                     style={{
-                      fontSize: 13,
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: 12,
+                      marginBottom: 8,
+                      cursor: "pointer",
                       color: "var(--text-muted)",
-                      marginTop: 4,
                     }}
                   >
-                    {template.description}
-                  </div>
-                  <div style={{ fontSize: 12, marginTop: 4 }}>
-                    Fires when the value is{" "}
-                    {template.operator === "gt" ? "above" : "below"}{" "}
-                    {withUnit(template.threshold, template.unit)}. Severity:{" "}
-                    {template.severity}.
-                  </div>
-                </button>
-              ))}
+                    <div
+                      style={{ display: "flex", justifyContent: "space-between" }}
+                    >
+                      <strong>{template.name}</strong>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        {template.category}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: "var(--text-muted)",
+                        marginTop: 4,
+                      }}
+                    >
+                      {template.description}
+                    </div>
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      Fires when the value is{" "}
+                      {template.operator === "gt" ? "above" : "below"}{" "}
+                      {withUnit(template.threshold, template.unit)}. Severity:{" "}
+                      {template.severity}.
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
