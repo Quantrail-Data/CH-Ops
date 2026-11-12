@@ -12,6 +12,7 @@ import IconAlert from "../common/IconAlert.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
@@ -29,7 +30,7 @@ function nodeName(node) {
   return node.name || node.host;
 }
 
-export default function AlertRules() {
+export default function AlertRules({mainRef}) {
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -71,6 +72,11 @@ export default function AlertRules() {
   const [showTemplateRulesThatAreOff, setShowTemplateRulesThatAreOff] =
     useState(false);
   const [testResults, setTestResults] = useState(null);
+  
+
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
 
   function normalizeCron(expr) {
     const parts = expr.trim().split(/\s+/).filter(Boolean);
@@ -1017,7 +1023,7 @@ export default function AlertRules() {
           <p>Alert rules management is only available for administrators.</p>
         </div>
       ) : visibleRules.length === 0 ? (
-        <div className="empty-state" style={{height:"50vh" }} >
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           <Icon className="ti ti-bell-plus" style={{ fontSize: 36 }}></Icon>
           <p>No rules yet. Click New Rule.</p>
         </div>

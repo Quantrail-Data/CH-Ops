@@ -8,6 +8,7 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useAuth } from "../../App.jsx";
 import { isMissingFileError } from "../../../shared/backupSql.js";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
 
 const AlerteditComponent = () => {
   return (
@@ -22,7 +23,7 @@ const AlerteditComponent = () => {
   );
 };
 
-export default function StorageProfiles() {
+export default function StorageProfiles({mainRef}) {
   const [profiles, setProfiles] = useState([]);
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -56,6 +57,10 @@ export default function StorageProfiles() {
       }, 4000);
     }
   };
+
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
 
   async function load() {
     try {
@@ -693,7 +698,7 @@ export default function StorageProfiles() {
         </form>
       )}
       {profiles.length === 0 ? (
-        <div className="empty-state">
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           <Icon className="ti ti-cloud"></Icon>
           <p>No storage profiles configured.</p>
         </div>

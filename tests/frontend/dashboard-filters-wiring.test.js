@@ -55,7 +55,7 @@ describe("regressions found in review", () => {
     // loadCharts. Without the prefetched argument that was two identical
     // requests on every dashboard selection.
     expect(view).toContain("async function loadCharts(dashId, values, params, prefetched)");
-    expect(view).toContain("prefetched || await apiFetch");
+    expect(view).toContain("prefetched || (await apiFetch");
     expect(view).toContain("loadCharts(d.id, values, discovered, fetched)");
   });
 
@@ -69,9 +69,9 @@ describe("regressions found in review", () => {
 
   it("handles guarded return branch after loadedDashRef match", () => {
     expect(view).toContain("if (transitioning)");
-    expect(view).toContain("setTransitionPhase('entering')");
+    expect(view).toContain("setTransitionPhase(\"entering\")");
     expect(view).toContain("setTransitioning(false)");
-    expect(view).toContain("setTransitionPhase('idle')");
+    expect(view).toContain("setTransitionPhase(\"idle\")");
   });
 
   it("clears the rerunning flag explicitly", () => {
@@ -138,7 +138,7 @@ describe("URL state", () => {
   it("namespaces filter values so a parameter cannot collide with it", () => {
     // A parameter may legitimately be named `d`.
     expect(view).toContain("FILTER_PREFIX");
-    expect(view).toContain("'f.'");
+    expect(view).toContain("\"f.\"");
   });
 
   it("writes filter values only on Apply", () => {
@@ -274,7 +274,7 @@ describe("dashboard full screen", () => {
 
   it("leaves on Escape and re-measures the charts", () => {
     expect(view).toMatch(/pageFs[\s\S]{0,300}Escape/);
-    expect(view).toMatch(/new Event\('resize'\)/);
+    expect(view).toMatch(/new Event\(\"resize\"\)/);
   });
 
   it("layers below a tile full screen and below the modal", () => {
@@ -308,9 +308,9 @@ describe("transitions and legends", () => {
   it("keeps transition lifecycle guards", () => {
     expect(view).toContain("transitionTimerRef");
     expect(view).toContain("setTransitioning(true)");
-    expect(view).toContain("setTransitionPhase('exiting')");
-    expect(view).toContain("setTransitionPhase('entering')");
-    expect(view).toContain("setTransitionPhase('idle')");
+    expect(view).toContain("setTransitionPhase(\"exiting\")");
+    expect(view).toContain("setTransitionPhase(\"entering\")");
+    expect(view).toContain("setTransitionPhase(\"idle\")");
   });
 
   it("supports global legend toggle on eligible chart types", () => {
