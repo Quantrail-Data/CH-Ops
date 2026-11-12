@@ -473,7 +473,7 @@ export default function KubernetesClusterTab({ onImported }) {
           )}
 
           <div className="form-group">
-            <label className="form-label">Operator namespace</label>
+            <label className="form-label" style={{marginTop:"1rem"}}>Operator namespace</label>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 className="form-input"
@@ -521,7 +521,7 @@ export default function KubernetesClusterTab({ onImported }) {
       {step === 2 && (
         <div>
           <div className="form-group">
-            <label className="form-label">Operator *</label>
+            <label className="form-label" >Operator *</label>
             <Select
               className="form-select"
               value={operator}
@@ -562,7 +562,7 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Namespace *</label>
+            <label className="form-label" style={{marginTop:"1rem"}}>Namespace *</label>
             {namespaceSource === "restricted" || !namespaces.length ? (
               <input
                 className="form-input"
