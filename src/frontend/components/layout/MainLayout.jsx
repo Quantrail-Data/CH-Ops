@@ -235,6 +235,7 @@ function MainLayoutInner() {
                           key={refreshKey}
                           sidebar={sidebarCollapsed}
                           ScrollBottomAuto={ScrollBottomAuto}
+                          mainRef={mainRef}
                         />
                       }
                     />

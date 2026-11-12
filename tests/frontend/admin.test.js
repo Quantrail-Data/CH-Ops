@@ -25,7 +25,7 @@ describe('ClusterManagement: Validation', () => {
 describe('DDL & Readonly', () => {
   const code = read('src/frontend/components/overview/DistributedDDL.jsx');
   it('Promise.allSettled for single-node compat', () => { expect(code).toContain('Promise.allSettled'); });
-  it('fallback 0 values', () => { expect(code).toContain("?? '0'"); });
+  it('fallback 0 values', () => { expect(code).toContain("?? \"0\""); });
   it('info banner for single-node', () => { expect(code).toContain('single-node'); });
   it('is_readonly=1 query', () => { expect(code).toContain('is_readonly=1'); });
   it('fixed variant for tables', () => { expect(code).toContain('variant="fixed"'); });
