@@ -8,6 +8,7 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
 
 const DAYS = [
   "Sunday",
@@ -20,7 +21,7 @@ const DAYS = [
 ];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-export default function AppDataBackup() {
+export default function AppDataBackup({mainRef}) {
   const toast = useToast();
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
@@ -32,6 +33,10 @@ export default function AppDataBackup() {
   const [backing, setBacking] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
   const [loaded, setLoaded] = useState(false);
+
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
 
   const [config, setConfig] = useState({
     enabled: false,
@@ -455,7 +460,7 @@ export default function AppDataBackup() {
                 <div className="loading-spinner"></div> Loading...
               </div>
             ) : backups.length === 0 ? (
-              <div className="empty-state" style={{ padding: 24 }}>
+              <div className="empty-state" style={{ padding: 24,height:`${memoHeightAppMain}px`}}>
                 <Icon className="ti ti-database"></Icon>
                 <p>No backups found for this profile.</p>
               </div>

@@ -7,8 +7,9 @@ import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useAuth } from "../../App.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
 
-export default function TrustedCas() {
+export default function TrustedCas({mainRef}) {
   const toast = useToast();
   const [cas, setCas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,11 @@ export default function TrustedCas() {
   const { auth } = useAuth();
 
   const isAdmins = () => auth?.role !== "readonly" && auth?.role !== "editor";
+
+
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
 
   useEffect(() => {
     if (isAdmins()) {
@@ -118,7 +124,7 @@ export default function TrustedCas() {
             administrators.
           </span>
         </div>
-        <div className="empty-state" style={{height:"50vh" }}>
+        <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           <Icon className="ti ti-lock"></Icon>
           <p>
             <span>
@@ -169,7 +175,7 @@ export default function TrustedCas() {
       </p>
 
       {!cas.length && (
-        <div className="empty-state" style={{ padding: 40 ,height:"60vh"}}>
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           No certificate authorities added. CHOps uses the system list only.
         </div>
       )}

@@ -25,6 +25,7 @@ import { useConnection } from "../../App.jsx";
 import AdvancedFilters from "./AdvancedFilters.jsx";
 import { buildWhere, extraColumns, loadAdvState } from "../../utils/advancedFilters.js";
 
+
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
   const d = new Date(Date.now() - h * 3600000);
@@ -252,19 +253,11 @@ function SectionError({ title, message }) {
         {title}
       </div>
       <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 8,
-          color: "var(--color-danger)",
-          fontSize: "13px",
-          lineHeight: 1.5,
-          wordBreak: "break-word",
-        }}
+        className="alert-banner danger"
       >
         <Icon
           className="ti ti-alert-circle"
-          style={{ flexShrink: 0, marginTop: 2 }}
+          style={{ flexShrink: 0, marginTop: 1 }}
         ></Icon>
         <span>{message}</span>
       </div>
