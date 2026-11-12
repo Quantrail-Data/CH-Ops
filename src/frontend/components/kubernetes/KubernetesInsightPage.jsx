@@ -8,8 +8,10 @@ import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useConnection } from "../../App.jsx";
 import KubernetesInsight from "./KubernetesInsight.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
 
-export default function KubernetesInsightPage() {
+
+export default function KubernetesInsightPage({mainRef}) {
   const toast = useToast();
   const { selectedClusterId } = useConnection() || {};
   const [clusters, setClusters] = useState([]);
@@ -33,6 +35,10 @@ export default function KubernetesInsightPage() {
 
   const cluster = clusters.find((c) => c.id === chosen);
 
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
+
   if (!loaded) {
     return (
       <div className="page-content">
@@ -49,7 +55,7 @@ export default function KubernetesInsightPage() {
             <Icon className="ti ti-topology-star-3"></Icon> Kubernetes Insights
           </h2>
         </div>
-        <div className="empty-state">
+        <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           <Icon className="ti ti-topology-star-3"></Icon>
           <p>
             No Kubernetes clusters yet. Add one under Cluster Management, on the

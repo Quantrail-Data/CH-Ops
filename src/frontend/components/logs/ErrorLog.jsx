@@ -211,7 +211,7 @@ function SectionError({ title, message }) {
   return (
     <div className="card" style={{ padding: 16, minHeight: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{title}</div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: 'var(--color-danger)', fontSize: '13px', lineHeight: 1.5, wordBreak: 'break-word' }}>
+      <div className='alert-banner danger'>
         <Icon className="ti ti-alert-circle" style={{ flexShrink: 0, marginTop: 2 }}></Icon>
         <span>{message}</span>
       </div>
