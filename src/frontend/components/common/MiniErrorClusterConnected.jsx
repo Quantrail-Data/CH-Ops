@@ -1,9 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import imageSrc from "../../assets/co.png";
-import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight";
 import { useTheme } from "../../App";
 
-function MiniErrorClusterConnected({ title, message, mainRef }) {
+function MiniErrorClusterConnected({ title, message }) {
  
   const navigate = useNavigate();
   const navigateCluster = () => {
