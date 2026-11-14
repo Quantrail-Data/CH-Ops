@@ -16,6 +16,9 @@ import ClusterTopology from './ClusterTopology.jsx';
 import { Section } from './OverviewCards.jsx';
 import { SERIES_COLORS } from './overviewChart.js';
 import LiveOverview, { useLiveOverview, LiveControlBar, MachineGauges } from './LiveOverview.jsx';
+import ErrorClusterConnected from '../common/ErrorClusterConnected.jsx';
+
+
 
 const SLOW_REFRESH_MS = 30000;
 
@@ -120,7 +123,7 @@ function renderPie(instRef, elRef, title, segments) {
 
 /*  ClusterOverview                                                   */
 
-export default function ClusterOverview() {
+export default function ClusterOverview({mainRef}) {
 
   const liveState = useLiveOverview();
 
@@ -296,6 +299,7 @@ const unavailableMessage = getUnavailableMessage();
 
   return (
     <div className="page-content">
+      {liveState?.isNotConnectedClusterNode() ? <ErrorClusterConnected mainRef={mainRef} title={"No Cluster Connected"} message={"Connect a ClickHouse cluster to view nodes, queries, and real-time performance metrics"} /> :<>
       <LiveControlBar nodeName={selectedNodeName} live={liveState} />
 
       <Section id="node-cards" icon="ti-topology-star" title="Node Overview">
@@ -542,6 +546,7 @@ const unavailableMessage = getUnavailableMessage();
         loading={clusters.loading}
         selectedHost={selectedHost}
       />
+      </>}
     </div>
   );
 }

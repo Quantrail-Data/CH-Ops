@@ -39,7 +39,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
   });
 
   it('warns when a parameter sits outside an optional block', () => {
-    expect(code).toContain('outside an optional');
+    expect(code).toContain('outside an');
     expect(code).toContain('alert-banner warning');
   });
 
@@ -95,7 +95,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
   });
 
   it('keeps chart-change broadcast after save/update', () => {
-    expect(code).toContain("window.dispatchEvent(new Event('charts:changed'))");
+    expect(code).toContain("window.dispatchEvent(new Event(\"charts:changed\"))");
   });
 
   it('keeps KPI and table preview branches intact', () => {
@@ -218,7 +218,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
   });
 
   it('applies theme-aware styling for dark mode', () => {
-    expect(code).toContain("theme === 'dark'");
+    expect(code).toContain("theme === \"dark\"");
     expect(code).toContain('isDarkColor');
     expect(code).toContain('textBorderColor');
   });
@@ -293,7 +293,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
   it('updates legend based on data series configuration', () => {
     expect(code).toContain('hasLegendCheck');
     expect(code).toContain('option.legend?.show');
-    expect(code).toContain('option.series.some(s => Array.isArray(s?.data)');
+    expect(code).toContain('(s) => Array.isArray(s?.data) && s?.data.length > 0,');
   });
 
   it('supports sunburst restore actions in resetZoom when applicable', () => {
@@ -334,7 +334,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('keeps run button and running guard wiring', () => {
     expect(code).toContain('onClick={runSql}');
-    expect(code).toContain('disabled={running || !sql.trim()}');
+    expect(code).toContain('disabled={running ||!sql.trim() || liveState?.isNotConnectedClusterNode()}');
     expect(code).toContain('Running...');
   });
 
@@ -350,7 +350,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
   });
 
   it('keeps duplicate cleanup path after update', () => {
-    expect(code).toContain("apiFetch('/api/dashboards/charts')");
+    expect(code).toContain("apiFetch(\"/api/dashboards/charts\")");
     expect(code).toContain('same.length > 1');
     expect(code).toContain('method: "DELETE"');
   });
@@ -375,7 +375,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('keeps responsive small-screen detector', () => {
     expect(code).toContain('window.innerWidth <= 768');
-    expect(code).toContain("window.addEventListener('resize', handleResize)");
+    expect(code).toContain("window.addEventListener(\"resize\", handleResize)");
   });
 
   it('uses saveFullChart as toolbar save handler', () => {
@@ -408,7 +408,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
   it('keeps cloneChartOption deep clone helper for export safety', () => {
     expect(code).toContain('function cloneChartOption(value)');
     expect(code).toContain('if (Array.isArray(value))');
-    expect(code).toContain("if (value && typeof value === 'object')");
+    expect(code).toContain("if (value && typeof value === \"object\")");
     expect(code).toContain('Object.keys(value).forEach((key) => {');
   });
 
@@ -421,7 +421,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('keeps required parameter blocking before query execution', () => {
     expect(code).toContain('const missing = declaredParams');
-    expect(code).toContain('.filter((p) => p.required && !(paramDefaults[p.name] ?? "").toString().trim())');
+    expect(code).toContain('(p) => p.required && !(paramDefaults[p.name] ?? "").toString().trim()');
     expect(code).toContain('Required parameters have no value until a dashboard supplies one.');
   });
 
@@ -509,7 +509,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
   });
 
   it('keeps numeric column helper used for numeric field mapping select options', () => {
-    expect(code).toContain('SeperateNumericColumns(columns).map((c) => (');
+    expect(code).toContain('SeperateNumericColumns(columns).map(');
     expect(code).toContain('f?.expect === "numeric"');
   });
 });

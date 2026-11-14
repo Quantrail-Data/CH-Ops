@@ -73,7 +73,7 @@ vi.mock("../../src/frontend/components/overview/ClusterTopology.jsx", () => ({
 
 vi.mock("../../src/frontend/components/overview/LiveOverview.jsx", () => ({
   default: () => <div data-testid="live" />,
-  useLiveOverview: () => ({ live: true, interval: 5, loaded: false }),
+  useLiveOverview: () => ({ live: true, interval: 5, loaded: false,isNotConnectedClusterNode :() => false }),
   LiveControlBar: ({ nodeName }) => <div data-testid="live-bar" data-node={nodeName} />,
   MachineGauges: () => <div data-testid="machine-gauges" />,
 }));

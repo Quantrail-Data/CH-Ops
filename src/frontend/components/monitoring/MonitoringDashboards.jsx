@@ -10,6 +10,7 @@ import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
 import { runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -777,7 +778,10 @@ export default function MonitoringDashboards() {
   // Per-chart error messages, keyed by chart key. A failing query shows its
   // exception inside that one chart's slot instead of failing the whole tab.
   const [chartErrors, setChartErrors] = useState({});
+
   const refreshRef = useRef(0);
+  const liveState = useLiveOverview();
+
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
@@ -1246,9 +1250,10 @@ export default function MonitoringDashboards() {
             />
           </div>
           <button
+           title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
             className="btn btn-primary"
             onClick={loadAllCurrentTab}
-            disabled={loading}
+            disabled={loading || liveState?.isNotConnectedClusterNode()}
             style={{ minWidth: 140 }}
           >
             <Icon className="ti ti-player-play"></Icon>{" "}

@@ -3,14 +3,7 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import Icon from "../common/Icon.jsx";
-import {
-  useState,
-  useCallback,
-  lazy,
-  Suspense,
-  useMemo,
-  useRef,
-} from "react";
+import { useState, useCallback, lazy, Suspense, useMemo, useRef } from "react";
 import {
   HashRouter,
   Routes,
@@ -27,6 +20,8 @@ import { ToastProvider } from "./Toast.jsx";
 import AlertMarquee from "./AlertMarquee.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { BREADCRUMB_MAP } from "../../utils/routeMeta.js";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import MiniErrorClusterConnected from "../common/MiniErrorClusterConnected.jsx";
 
 // Core lazy-loaded page components
 const ClusterOverview = lazy(() => import("../overview/ClusterOverview.jsx"));
@@ -51,7 +46,9 @@ const MonitoringDashboards = lazy(
 const Playback = lazy(() => import("../monitoring/Playback.jsx"));
 const MemoryAllocator = lazy(() => import("../monitoring/MemoryAllocator.jsx"));
 const AlertRules = lazy(() => import("../alerting/AlertRules.jsx"));
-const NotificationChannels = lazy(() => import("../admin/NotificationChannels.jsx"),);
+const NotificationChannels = lazy(
+  () => import("../admin/NotificationChannels.jsx"),
+);
 const TrustedCas = lazy(() => import("../admin/TrustedCas.jsx"));
 const AppConfig = lazy(() => import("../admin/AppConfig.jsx"));
 const RbacViewGrants = lazy(() => import("../rbac/RbacViewGrants.jsx"));
@@ -76,11 +73,10 @@ const QuriozChatComponent = lazy(
 );
 const QueuesPage = lazy(() => import("../queues/QueuesPage.jsx"));
 const SchemaStudio = lazy(() => import("../schema-studio/SchemaStudio.jsx"));
-const KubernetesInsightPage = lazy(() =>
-  import("../kubernetes/KubernetesInsightPage.jsx"),
+const KubernetesInsightPage = lazy(
+  () => import("../kubernetes/KubernetesInsightPage.jsx"),
 );
 const HomePage = lazy(() => import("../home/HomePage.jsx"));
-
 
 const CORE_ROUTES = [
   ["home", HomePage],
@@ -127,7 +123,6 @@ const CORE_ROUTES = [
   ["/qurioz", QuriozChatComponent],
   ["/qurioz/:session_id?", QuriozChatComponent],
 ];
-
 
 function Breadcrumb({ route }) {
   const crumbs = BREADCRUMB_MAP[route];
@@ -179,9 +174,14 @@ function MainLayoutInner() {
 
   const mainRef = useRef();
 
+  const livestate = useLiveOverview();
 
   // eslint-disable-next-line no-unused-vars -- tests/frontend/sidebar-routing.test.js checks this line.
   const isEditorRoute = route.includes("qurioz");
+
+  const isClusterConfig = route?.includes("cluster");
+
+  const isAdminConfig = route?.includes("admin");
 
   const allRoutes = useMemo(() => [...CORE_ROUTES], []);
 
@@ -196,10 +196,9 @@ function MainLayoutInner() {
 
   function ScrollBottomAuto() {
     mainRef?.current?.scrollTo({
-      top: mainRef?.current?.scrollHeight ,
+      top: mainRef?.current?.scrollHeight,
       behavior: "smooth",
     });
-
   }
 
   const fallback = (
@@ -211,7 +210,10 @@ function MainLayoutInner() {
   return (
     <ToastProvider>
       <div className="app-shell">
-        <Navbar onRefresh={handleRefresh} onOpenSearch={() => setSearchOpen(true)} />
+        <Navbar
+          onRefresh={handleRefresh}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
         <AlertMarquee />
         <div className="app-body">
           <Sidebar
@@ -221,7 +223,11 @@ function MainLayoutInner() {
             forceCollapsed={false}
             onToggle={() => setSidebarCollapsed((v) => !v)}
           />
-          <main className="app-main" ref={mainRef} style={route === "editor/query" ? {padding:"0px"} : {}}>
+          <main
+            className="app-main"
+            ref={mainRef}
+            style={route === "editor/query" ? { padding: "0px" } : {}}
+          >
             <Breadcrumb route={route} />
             <ErrorBoundary>
               <Suspense fallback={fallback}>
@@ -265,22 +271,26 @@ function MainLayoutInner() {
                       />
                     }
                   />
-                  <Route
-                    path="/"
-                    element={<Navigate to="/home" replace />}
-                  />
+                  <Route path="/" element={<Navigate to="/home" replace />} />
                   {/* Channels moved to Administration. Keep old links working. */}
                   <Route
                     path="alerting/channels"
                     element={<Navigate to="/admin/channels" replace />}
                   />
-                  <Route
-                    path="*"
-                    element={<Navigate to="/home" replace />}
-                  />
+                  <Route path="*" element={<Navigate to="/home" replace />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>
+            {livestate?.isNotConnectedClusterNode() &&
+              !isClusterConfig &&
+              !isAdminConfig && (
+                <MiniErrorClusterConnected
+                  title={"No Cluster Connected"}
+                  message={
+                    "Connect a ClickHouse cluster to view nodes, queries, and real-time performance metrics"
+                  }
+                />
+              )}
           </main>
         </div>
         <div
@@ -299,7 +309,7 @@ function MainLayoutInner() {
           onClose={() => setSearchOpen(false)}
           onNavigate={handleNavigate}
         />
-        <BugReportButton/>
+        <BugReportButton />
       </div>
     </ToastProvider>
   );
