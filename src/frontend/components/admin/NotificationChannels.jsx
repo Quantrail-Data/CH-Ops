@@ -8,6 +8,8 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useAuth } from "../../App.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const TYPES = [
@@ -56,7 +58,7 @@ const LABELS = {
   routing_key: "Integration Key",
 };
 
-export default function NotificationChannels() {
+export default function NotificationChannels({mainRef}) {
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -74,6 +76,10 @@ export default function NotificationChannels() {
     enabled: true,
   });
   const [showKey, setShowKey] = useState(false);
+
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
 
   async function load() {
     try {
@@ -344,7 +350,7 @@ export default function NotificationChannels() {
         </div>
       )}
       {channels.length === 0 ? (
-        <div className="empty-state">
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           <Icon className="ti ti-mail-forward" style={{ fontSize: 36 }}></Icon>
           <p>No channels yet.</p>
         </div>

@@ -455,6 +455,12 @@ export async function setPassword(req, res) {
       });
     }
 
+    if (user.passwordHash) {
+      return res.status(400).json({
+        error: "This account already has a password.",
+      });
+    }
+
     if (
       !user.passwordSetupTokenExpiresAt ||
       new Date(user.passwordSetupTokenExpiresAt).getTime() < Date.now()
