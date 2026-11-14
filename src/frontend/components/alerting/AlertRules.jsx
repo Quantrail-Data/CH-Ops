@@ -5,7 +5,7 @@
 import  { useEffect, useState, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
-import { apiFetch, runQuery } from "../../utils/api.js";
+import { apiFetch } from "../../utils/api.js";
 import { useConnection, useAuth } from "../../App.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import IconAlert from "../common/IconAlert.jsx";

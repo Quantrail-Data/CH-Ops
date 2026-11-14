@@ -79,8 +79,8 @@ function ErrorClusterConnected({ title, message, mainRef }) {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              strokeLineCap="round"
-              strokeLineJoin="round"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               className="icon icon-tabler icons-tabler-outline icon-tabler-plus"
             >
               <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -110,8 +110,8 @@ function ErrorClusterConnected({ title, message, mainRef }) {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              strokeLineCap="round"
-              strokeLineJoin="round"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               className="icon icon-tabler icons-tabler-outline icon-tabler-article"
             >
               <path stroke="none" d="M0 0h24v24H0z" fill="none" />
