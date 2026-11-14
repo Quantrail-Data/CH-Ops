@@ -11,6 +11,7 @@ import { useAuth } from "../../App.jsx";
 import KubernetesClusterTab from "./KubernetesClusterTab.jsx";
 import ConfirmDialog from "../editor/ConfirmDialog.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js"; 
 
 const MAX_CLUSTERS = 3;
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
@@ -185,7 +186,7 @@ function NodeClusterComponent({
   );
 }
 
-export default function ClusterManagement() {
+export default function ClusterManagement({mainRef}) {
   const toast = useToast();
   const { reloadConfig, features } = useConnection();
   // Absent means on, mirroring the backend. Only an explicit false hides the
@@ -218,6 +219,10 @@ export default function ClusterManagement() {
 
 
   const [deleting, setDeleting] = useState(null);
+
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
 
   // Each tab shows only its own kind. A cluster imported from an installation
   // has no business appearing under Direct connection, where its nodes are not
@@ -672,12 +677,12 @@ function startEditK8s(cluster) {
       )}
 
       {k8sEnabled && tab === "k8s" && !showK8sWizard && k8sClusters.length === 0 ? (
-        <div className="empty-state">
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           <Icon className="ti ti-topology-star-3"></Icon>
           <p>Add a cluster. Click New Cluster to import one from an installation.</p>
         </div>
       ) : (!k8sEnabled || tab === "direct") && directClusters.length === 0 && !showForm ? (
-        <div className="empty-state">
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
           <Icon className="ti ti-network"></Icon>
           <p>No clusters configured. Click New Cluster to get started.</p>
         </div>

@@ -18,6 +18,7 @@ import { SqlPreview } from "../layout/SharedComponents.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -36,7 +37,7 @@ function sendBackupRequest(fields) {
   });
 }
 
-export default function DataLifecycle() {
+export default function DataLifecycle({mainRef}) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -141,7 +142,7 @@ export default function DataLifecycle() {
           clusters={clusters}
         />
       )}
-      {tab === "browse" && <AvailableBackupsTab profiles={profiles} />}
+      {tab === "browse" && <AvailableBackupsTab profiles={profiles} mainRef={mainRef} />}
     </div>
   );
 }
@@ -717,7 +718,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   );
 }
 
-function AvailableBackupsTab({ profiles }) {
+function AvailableBackupsTab({ profiles,mainRef }) {
   const toast = useToast();
   const [profile, setProfile] = useState("");
   const [backups, setBackups] = useState([]);
@@ -726,6 +727,9 @@ function AvailableBackupsTab({ profiles }) {
   const [scanErrors, setScanErrors] = useState([]);
 
   const selProfile = profiles.find((p) => p.name === profile);
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(500,mainRef)
+
 
    async function loadBackups() {
     if (!selProfile) {
@@ -866,7 +870,7 @@ function AvailableBackupsTab({ profiles }) {
         </div>
       ) : (
         !loading && (
-          <div className="empty-state">
+           <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
             <Icon className="ti ti-cloud-off"></Icon>
             <p>Select a profile and click Scan S3 to discover backups.</p>
           </div>
