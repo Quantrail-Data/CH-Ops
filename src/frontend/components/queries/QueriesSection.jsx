@@ -23,6 +23,7 @@ import OpenInMenu from "./OpenInMenu.jsx";
 import CurrentQueries from "./CurrentQueries.jsx";
 import AdvancedFilters from "../logs/AdvancedFilters.jsx";
 import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 // Result names of the fixed SELECT in QueryLogSearch. The SQL dedupe uses this.
 const QUERY_LOG_SELECT_NAMES = [
@@ -518,6 +519,8 @@ export default function QueriesSection({ sidebar }) {
   const { tab: routeTab = "current" } = useParams();
   const navigate = useNavigate();
 
+  const liveState = useLiveOverview()
+
   const handleTabChange = (newTab) => {
     navigate(`/overview/queries/${newTab}`, { replace: true });
   };
@@ -544,9 +547,9 @@ export default function QueriesSection({ sidebar }) {
           </div>
         ))}
       </div>
-      {routeTab === "current" && <CurrentQueries />}
-      {routeTab === "analytics" && <QueryAnalytics />}
-      {routeTab === "search" && <QueryLogSearch sidebar={sidebar} />}
+      {routeTab === "current" && <CurrentQueries isCN={liveState?.isNotConnectedClusterNode} />}
+      {routeTab === "analytics" && <QueryAnalytics isCN={liveState?.isNotConnectedClusterNode} />}
+      {routeTab === "search" && <QueryLogSearch isCN={liveState?.isNotConnectedClusterNode} sidebar={sidebar} />}
     </div>
   );
 }
@@ -580,7 +583,7 @@ function MetricCard({ label, value, danger }) {
   );
 }
 
-function QueryAnalytics() {
+function QueryAnalytics({isCN}) {
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());
   const [duration, setDuration] = useState("7d");
@@ -740,9 +743,10 @@ function QueryAnalytics() {
           </Select>
         </div>
         <button
+        title={isCN() ? "No cluster nodes configured" : ""}
           className="btn btn-primary"
           onClick={runAnalytics}
-          disabled={loading}
+          disabled={loading || isCN()}
         >
           {loading ? (
             <>
@@ -890,7 +894,7 @@ function QueryAnalytics() {
   );
 }
 
-function QueryLogSearch() {
+function QueryLogSearch({isCN}) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(24));
   const [to, setTo] = useState(fmtNow());
@@ -1256,9 +1260,10 @@ function QueryLogSearch() {
           }}
         >
           <button
+           title={isCN() ? "No cluster nodes configured" : ""}
             className="btn btn-primary"
             type="submit"
-            disabled={searchQ.loading}
+            disabled={searchQ.loading || isCN()}
             style={{
               width: "100%",
               minHeight: "40px",

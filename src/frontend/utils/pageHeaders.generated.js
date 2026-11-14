@@ -149,7 +149,9 @@ export const PAGE_TEXT = {
     "No clusters are configured on this server.",
     "Server restarted, rates resuming",
     "Reading system tables...",
-    "Value:"
+    "Value:",
+    "Add Cluster",
+    "View Documentation"
   ],
   "overview/summary": [
     "Daily Summary",
@@ -283,7 +285,10 @@ export const PAGE_TEXT = {
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "overview/parts": [
     "Loading...",
@@ -764,7 +769,10 @@ export const PAGE_TEXT = {
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "logs/error": [
     "Overview",
@@ -794,7 +802,10 @@ export const PAGE_TEXT = {
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "logs/text": [
     "Overview",
@@ -823,7 +834,10 @@ export const PAGE_TEXT = {
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "logs/session": [
     "Overview",
@@ -855,12 +869,18 @@ export const PAGE_TEXT = {
     "Additional Result Columns",
     "AND",
     "Add filter",
-    "Add columns to the result..."
+    "Add columns to the result...",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "monitoring/dashboards": [
     "Quick",
     "Rounding (s)",
-    "From"
+    "From",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "monitoring/playback": [
     "User",
@@ -874,7 +894,10 @@ export const PAGE_TEXT = {
     "Select a time range and click",
     "Fetch Data",
     "to start.",
-    "From"
+    "From",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "monitoring/allocator": [
     "Loading memory allocator stats...",
@@ -930,7 +953,10 @@ export const PAGE_TEXT = {
     "Memory Efficiency",
     "Virtual Memory",
     "Reclaimable",
-    "Bookkeeping"
+    "Bookkeeping",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "alerting/rules": [
     "Show template rules that are off",
@@ -1058,7 +1084,10 @@ export const PAGE_TEXT = {
     "Type the profile name",
     "to confirm:",
     "default",
-    "var1, var2"
+    "var1, var2",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "indexes/visualizer": [
     "Failed to load schema",
@@ -1081,7 +1110,10 @@ export const PAGE_TEXT = {
     "Fit",
     "CREATE Statement",
     "All connected tables across databases will be shown",
-    "Search table or column..."
+    "Search table or column...",
+    "Server restarted, rates resuming",
+    "Reading system tables...",
+    "Value:"
   ],
   "indexes/secondary": [
     "Loading...",
@@ -1465,7 +1497,9 @@ export const PAGE_TEXT = {
     "Max rows",
     "Fewer rows",
     "Maximum rows to return",
-    "More rows"
+    "More rows",
+    "Server restarted, rates resuming",
+    "Reading system tables..."
   ],
   "custom/charts": [
     "Legend",

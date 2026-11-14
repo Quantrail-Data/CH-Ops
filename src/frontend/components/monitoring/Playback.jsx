@@ -17,7 +17,7 @@ import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
 import { runQuery } from "../../utils/api.js";
 import DataTable from "../layout/DataTable.jsx";
-
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 // HELPERS
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -1154,6 +1154,8 @@ export default function Playback() {
   const popupFetchRef = useRef(0);
   const mountedRef = useRef(true);
 
+  const liveState = useLiveOverview()
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -1484,9 +1486,10 @@ export default function Playback() {
           </div>
           <div className="form-group" style={{paddingBottom:"4px"}}>
             <button
+             title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
               className="btn btn-primary"
               onClick={handleFetch}
-              disabled={fetchLoading}
+              disabled={fetchLoading || liveState?.isNotConnectedClusterNode()}
               style={{ height: 36, minWidth: 140 }}
             >
               {fetchLoading ? (

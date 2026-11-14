@@ -17,13 +17,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  useMemo,
-} from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -34,11 +28,25 @@ import { useToast } from "../layout/Toast.jsx";
 import ChartCard from "../layout/ChartCard.jsx";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import AdvancedFilters from "./AdvancedFilters.jsx";
-import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
+import {
+  buildWhere,
+  extraColumns,
+  extraSelectSql,
+  loadAdvState,
+} from "../../utils/advancedFilters.js";
 // Result names of the fixed SELECT. client_address is an alias.
-const SESSION_LOG_COLS = ["event_time", "type", "user", "auth_type","interface", "client_address", "failure_reason"];
+const SESSION_LOG_COLS = [
+  "event_time",
+  "type",
+  "user",
+  "auth_type",
+  "interface",
+  "client_address",
+  "failure_reason",
+];
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { useConnection } from "../../App.jsx";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -750,6 +758,8 @@ function SessionLogOverview({ unavailable }) {
   // re-resolves axis/legend colours (ECharts captures them once at init).
   const [themeKey, setThemeKey] = useState(0);
 
+  const liveState = useLiveOverview();
+
   useEffect(() => {
     const obs = new MutationObserver(() => setThemeKey((k) => k + 1));
     obs.observe(document.documentElement, {
@@ -962,10 +972,15 @@ function SessionLogOverview({ unavailable }) {
           </div>
         </div>
         <button
+          title={
+            liveState?.isNotConnectedClusterNode()
+              ? "No cluster nodes configured"
+              : ""
+          }
           className="btn btn-primary btn-sm"
           style={{ padding: "8px 14px" }}
           onClick={() => load()}
-          disabled={loading}
+          disabled={loading || liveState?.isNotConnectedClusterNode()}
         >
           {loading ? (
             <>
@@ -984,7 +999,7 @@ function SessionLogOverview({ unavailable }) {
           <span className="loading-spinner"></span>
         </div>
       ) : !loaded ? (
-        <div className="empty-state" style={{height:"50vh" }}>
+        <div className="empty-state" style={{ height: "50vh" }}>
           <Icon
             className="ti ti-player-play"
             style={{ color: "#fb923c" }}
@@ -1204,10 +1219,11 @@ function SessionLogSearch({ unavailable }) {
   const [adv, setAdv] = useState(() => loadAdvState("session_log"));
   const extras = extraColumns(SESSION_LOG_COLS, adv.columns);
   const q = useQuery();
+  const liveState = useLiveOverview();
 
   useEffect(() => {
     if (q.error) toast.error(q.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [q.error]);
 
   useEffect(() => {
@@ -1252,14 +1268,14 @@ function SessionLogSearch({ unavailable }) {
     setSubmitted(true);
     const where = buildWhere(conds, adv.filters);
     await q.execute(
-    `SELECT event_time, type, user, auth_type, interface,
+      `SELECT event_time, type, user, auth_type, interface,
     toString(client_address) AS client_address,
     failure_reason${extraSelectSql(SESSION_LOG_COLS, adv.columns)} FROM
     system.session_log WHERE ${where} ORDER BY event_time DESC LIMIT
     ${rowLimit}`,
-     { readOnly: true },
- );
- }
+      { readOnly: true },
+    );
+  }
 
   // handle the Date change so From never exceeds To (mirrors the other logs).
   const handleDateOnChange = (date, label) => {
@@ -1385,7 +1401,7 @@ function SessionLogSearch({ unavailable }) {
                       style={{
                         display: "flex",
                         gap: 4,
-                        alignItems:"center",
+                        alignItems: "center",
                         fontSize: "13px",
                         cursor: "pointer",
                         padding: "2px 6px",
@@ -1430,16 +1446,20 @@ function SessionLogSearch({ unavailable }) {
               }}
             >
               <div className="form-group">
-              <label className="form-label">Failure Reason (text)</label>
-              <input
-                className="form-input"
-                value={reasonText}
-                onChange={(e) => setReasonText(e.target.value)}
-                placeholder="partial..."
-              />
+                <label className="form-label">Failure Reason (text)</label>
+                <input
+                  className="form-input"
+                  value={reasonText}
+                  onChange={(e) => setReasonText(e.target.value)}
+                  placeholder="partial..."
+                />
               </div>
             </div>
-            <AdvancedFilters table="session_log" value={adv} onChange={setAdv} />
+            <AdvancedFilters
+              table="session_log"
+              value={adv}
+              onChange={setAdv}
+            />
             <div
               style={{
                 display: "flex",
@@ -1461,9 +1481,18 @@ function SessionLogSearch({ unavailable }) {
                 />
               </div>
               <button
+                title={
+                  liveState?.isNotConnectedClusterNode()
+                    ? "No cluster nodes configured"
+                    : ""
+                }
                 className="btn btn-primary"
                 type="submit"
-                disabled={q.loading || !probeDone}
+                disabled={
+                  q.loading ||
+                  !probeDone ||
+                  liveState?.isNotConnectedClusterNode()
+                }
               >
                 {q.loading ? (
                   <>

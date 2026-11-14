@@ -2,16 +2,9 @@
 // author -> (kathir Moorthy,  Sanjeev Kumar G)
 // Interactive diagram that visualizes database tables, column relationships, and foreign key mappings.
 
-
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -35,6 +28,7 @@ import {
 import { layoutGraph } from "../../utils/schemaLayout.js";
 import SchemaNode from "./SchemaNode.jsx";
 import { useTheme } from "../../App.jsx";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 const nodeTypes = { schemaNode: SchemaNode };
 
@@ -63,7 +57,9 @@ function SchemaFlow() {
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
   const mountedRef = useRef(true);
   const adjRef = useRef({ incoming: new Map(), outgoing: new Map() });
-  const { theme } = useTheme()
+  const { theme } = useTheme();
+
+  const liveState = useLiveOverview();
 
   // heatmap interactive button boolean
   const [isInteractive, setIsInteractive] = useState(true);
@@ -389,11 +385,11 @@ function SchemaFlow() {
     setTimeout(() => fitView({ padding: 0.15 }), 150);
   }, [graphData, visibleKeys, showColumns, fitView]);
 
-      function isDark() {
-    return theme === "dark"
+  function isDark() {
+    return theme === "dark";
   }
 
-  if (error)
+  if (error && !liveState?.isNotConnectedClusterNode())
     return (
       <div style={{ padding: 20 }}>
         <div className="alert-banner danger" style={{ margin: 0 }}>
@@ -407,6 +403,21 @@ function SchemaFlow() {
         </div>
       </div>
     );
+  if (liveState?.isNotConnectedClusterNode()) {
+    return (
+      <div style={{ padding: 20 }}>
+        <div className="alert-banner info" style={{ margin: 0 }}>
+          <Icon className="ti ti-alert-circle" />
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              Failed to load schema
+            </div>
+            <div style={{ fontSize: "13px" }}>{error}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!graphData)
     return (
       <div
@@ -453,7 +464,12 @@ function SchemaFlow() {
           <Select
             className="form-select"
             value={tableFilter}
-            onChange={(e) => {setTableFilter(e.target.value); setSelectedKey((prev) => (prev === e.target.value ? null : e.target.value));}}
+            onChange={(e) => {
+              setTableFilter(e.target.value);
+              setSelectedKey((prev) =>
+                prev === e.target.value ? null : e.target.value,
+              );
+            }}
             style={{
               width: 240,
               fontFamily: "var(--font-code)",
@@ -637,7 +653,9 @@ function SchemaFlow() {
               top: 0,
               bottom: 0,
               width: 380,
-              background:isDark() ? 'rgba(11, 19, 35,0.96)' : 'rgba(244, 245, 247,0.96)',
+              background: isDark()
+                ? "rgba(11, 19, 35,0.96)"
+                : "rgba(244, 245, 247,0.96)",
               borderLeft: "3px solid var(--accent)",
               padding: "16px 20px",
               overflowY: "auto",
@@ -688,7 +706,7 @@ function SchemaFlow() {
                   height: 24,
                 }}
               >
-                <Icon className="ti ti-x" style={{ fontSize: '19px' }} />
+                <Icon className="ti ti-x" style={{ fontSize: "19px" }} />
               </button>
             </div>
             <table
@@ -885,7 +903,7 @@ function SchemaFlow() {
             )}
           </aside>
         )}
-        
+
         {!graphDrawn ? (
           <div
             style={{
@@ -965,9 +983,7 @@ function SchemaFlow() {
             >
               <Controls
                 showInteractive={true}
-                onInteractiveChange={(newStatus) =>
-                  setIsInteractive(newStatus)
-                }
+                onInteractiveChange={(newStatus) => setIsInteractive(newStatus)}
                 style={{
                   background: "var(--bg-card)",
                   border: "1px solid var(--border-default)",

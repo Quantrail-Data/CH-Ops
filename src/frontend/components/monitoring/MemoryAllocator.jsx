@@ -30,6 +30,7 @@ import {
 } from "../../utils/jemallocParser.js";
 
 import { useToast } from "../layout/Toast.jsx";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 // Theme Colors (ECharts does not resolve CSS custom properties)
 
@@ -362,6 +363,8 @@ export default function MemoryAllocator() {
 
   const toast = useToast();
 
+  const liveState = useLiveOverview()
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -535,7 +538,7 @@ export default function MemoryAllocator() {
     );
   }
 
-  if (error) {
+  if (error && !liveState?.isNotConnectedClusterNode() ) {
     return (
       <div style={{ padding: 20 }}>
         <div className="alert-banner danger" style={{ margin: 0 }}>
@@ -549,6 +552,22 @@ export default function MemoryAllocator() {
         </div>
       </div>
     );
+  }
+
+  if (liveState?.isNotConnectedClusterNode()) {
+    return (
+       <div style={{ padding: 20 }}>
+        <div className="alert-banner info" style={{ margin: 0 }}>
+          <Icon className="ti ti-alert-circle" />
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              Failed to load jemalloc stats
+            </div>
+            <div style={{ fontSize: "13px" }}>{error}</div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!overview) return null;
