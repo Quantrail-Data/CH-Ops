@@ -650,7 +650,7 @@ async function runQueryProbe() {
   return new Set((res.rows || []).map((r) => r.name).filter(Boolean));
 }
 
-function CrashLogSearch({ sidebar, unavailable,isCN }) {
+function CrashLogSearch({ sidebar, unavailable }) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());

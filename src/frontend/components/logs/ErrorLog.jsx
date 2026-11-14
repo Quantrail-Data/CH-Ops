@@ -1034,15 +1034,16 @@ function ErrorLogSearch() {
       "SELECT DISTINCT error FROM system.error_log ORDER BY error",
     );
   }, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
-  useEffect(() => {
+  
+  // // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
+  // useEffect(() => {
 
-    if (q.error && !liveState?.isNotConnectedClusterNode()) toast.error(q.error);
-  }, [q.error]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
-  useEffect(() => {
-    if (errorsQ.error && !liveState?.isNotConnectedClusterNode()) toast.error(errorsQ.error);
-  }, [errorsQ.error]);
+  //   if (q.error && !liveState?.isNotConnectedClusterNode()) toast.error(q.error);
+  // }, []);
+  // // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
+  // useEffect(() => {
+  //   if (errorsQ.error && !liveState?.isNotConnectedClusterNode()) toast.error(errorsQ.error);
+  // }, []);
 
   function toggleError(err) {
     setSelectedErrors((prev) =>

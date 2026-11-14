@@ -2,7 +2,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Manages and renders the configuration rules for triggering system notification alerts.
 
-import React, { useEffect, useState, useRef } from "react";
+import  { useEffect, useState, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
@@ -301,7 +301,7 @@ export default function AlertRules({mainRef}) {
       }
 
 
-      const checkQuery = await runQuery(f.sql, { noRowLimit: true });
+      // const checkQuery = await runQuery(f.sql, { noRowLimit: true });
       const payload = {
         ...f,
         schedule: normalizedSchedule,

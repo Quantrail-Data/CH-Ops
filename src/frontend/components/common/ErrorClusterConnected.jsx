@@ -4,7 +4,7 @@ import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight";
 import { useTheme } from "../../App";
 
 
-function ErrorClusterConnected({ title, message, action, mainRef }) {
+function ErrorClusterConnected({ title, message, mainRef }) {
   const { memoHeightAppMain } = useEmptyContainerHeight(
     mainRef?.current?.clientHeight,
     mainRef,
@@ -79,7 +79,7 @@ function ErrorClusterConnected({ title, message, action, mainRef }) {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              strokeLinecap="round"
+              strokeLineCap="round"
               strokeLineJoin="round"
               className="icon icon-tabler icons-tabler-outline icon-tabler-plus"
             >
@@ -110,8 +110,8 @@ function ErrorClusterConnected({ title, message, action, mainRef }) {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              strokeLineCap="round"
+              strokeLineJoin="round"
               className="icon icon-tabler icons-tabler-outline icon-tabler-article"
             >
               <path stroke="none" d="M0 0h24v24H0z" fill="none" />

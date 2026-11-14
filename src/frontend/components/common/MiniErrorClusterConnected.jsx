@@ -3,11 +3,8 @@ import imageSrc from "../../assets/co.png";
 import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight";
 import { useTheme } from "../../App";
 
-function MiniErrorClusterConnected({ title, message, action, mainRef }) {
-  const { memoHeightAppMain } = useEmptyContainerHeight(
-    mainRef?.current?.clientHeight,
-    mainRef,
-  );
+function MiniErrorClusterConnected({ title, message, mainRef }) {
+ 
   const navigate = useNavigate();
   const navigateCluster = () => {
     navigate("/admin/cluster");
