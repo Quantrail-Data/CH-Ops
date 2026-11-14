@@ -24,6 +24,7 @@ import ChartCard from "../layout/ChartCard.jsx";
 import { useConnection } from "../../App.jsx";
 import AdvancedFilters from "./AdvancedFilters.jsx";
 import { buildWhere, extraColumns, loadAdvState } from "../../utils/advancedFilters.js";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -232,6 +233,9 @@ function Stat({ label, value, icon, color, small }) {
 }
 
 function SectionError({ title, message }) {
+
+ 
+
   return (
     <div
       className="card"
@@ -252,7 +256,7 @@ function SectionError({ title, message }) {
       >
         {title}
       </div>
-      <div
+      { <div
         className="alert-banner danger"
       >
         <Icon
@@ -260,7 +264,7 @@ function SectionError({ title, message }) {
           style={{ flexShrink: 0, marginTop: 1 }}
         ></Icon>
         <span>{message}</span>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -282,6 +286,9 @@ function CrashLogOverview({ unavailable }) {
   });
   const [errs, setErrs] = useState({});
   const [themeKey, setThemeKey] = useState(0);
+  const liveState = useLiveOverview();
+
+
 
   useEffect(() => {
     const obs = new MutationObserver(() => setThemeKey((k) => k + 1));
@@ -478,10 +485,11 @@ function CrashLogOverview({ unavailable }) {
           </div>
         </div>
         <button
+          title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
           className="btn btn-primary btn-sm"
           style={{ padding: "8px 14px" }}
           onClick={load}
-          disabled={loading}
+          disabled={loading || liveState?.isNotConnectedClusterNode()}
         >
           {loading ? (
             <>
@@ -657,6 +665,8 @@ function CrashLogSearch({ sidebar, unavailable }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const liveState =  useLiveOverview()
 
   useEffect(() => {
     if (error) toast.error(error);
@@ -928,9 +938,10 @@ function CrashLogSearch({ sidebar, unavailable }) {
                 }}
               >
                 <button
+                title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
                   className="btn btn-primary"
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || liveState?.isNotConnectedClusterNode()}
                 >
                   {loading ? (
                     <>

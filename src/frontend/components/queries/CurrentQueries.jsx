@@ -107,7 +107,7 @@ function MetricCard({ label, value, hint }) {
   );
 }
 
-export default function CurrentQueries() {
+export default function CurrentQueries({isCN}) {
   const { auth } = useAuth();
   const isAdmin = (ROLE_LEVEL[auth?.role || "readonly"] || 0) >= ROLE_LEVEL.admin;
 
@@ -368,7 +368,7 @@ export default function CurrentQueries() {
 
   return (
     <div>
-      {error && (
+      {(error && !isCN()) && (
         <div className="alert-banner danger" style={{ marginBottom: 12 }}>
           <Icon className="ti ti-alert-triangle" />
           <span>{error}</span>
