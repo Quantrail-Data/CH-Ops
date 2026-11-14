@@ -16,6 +16,7 @@ import AlertBanner from "../layout/AlertBanner.jsx";
 import { useAuth } from "../../App.jsx";
 import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
 import { useToast } from "../layout/Toast.jsx";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -1056,6 +1057,8 @@ export default function RbacProfiles() {
     }
   };
 
+  
+
   const profilesQ = useQuery(),
     detailsQ = useQuery();
   const [result, setResult] = useState(null);
@@ -1135,6 +1138,7 @@ export default function RbacProfiles() {
 }
 
 function ProfileList({ profilesQ, detailsQ }) {
+  const liveState = useLiveOverview()
   return (
     <div>
       <h3 style={{ fontSize: "15px", margin: "8px 0" }}>Profiles</h3>
@@ -1143,7 +1147,7 @@ function ProfileList({ profilesQ, detailsQ }) {
         emptyMessage="No profiles."
         variant="single"
       />
-      {detailsQ.error && (
+      {(detailsQ.error && !liveState?.isNotConnectedClusterNode()) &&  (
         <div className="alert-banner warning" style={{ marginTop: 12 }}>
           <Icon className="ti ti-alert-triangle"></Icon>
           <span>The profile settings could not be read: {detailsQ.error}</span>

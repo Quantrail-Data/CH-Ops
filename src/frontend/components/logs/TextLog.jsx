@@ -24,7 +24,13 @@ import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import { useConnection } from "../../App.jsx";
 import AdvancedFilters from "./AdvancedFilters.jsx";
-import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
+import {
+  buildWhere,
+  extraColumns,
+  extraSelectSql,
+  loadAdvState,
+} from "../../utils/advancedFilters.js";
+import { useLiveOverview } from "../overview/LiveOverview.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -45,30 +51,30 @@ const LOG_LEVELS = [
   "Information",
   "Debug",
   "Trace",
-   "Test",
+  "Test",
 ];
 // Fixed result columns of the Search tab. The SQL and the render share this.
 const TEXT_LOG_COLS = [
- "event_time_microseconds",
- "level",
- "query_id",
- "logger_name",
- "message",
- "source_file",
- "source_line",
+  "event_time_microseconds",
+  "level",
+  "query_id",
+  "logger_name",
+  "message",
+  "source_file",
+  "source_line",
 ];
 // Map and Array cells arrive as objects. Show them as JSON text.
 function cellText(cellValue) {
- if (cellValue !== null && typeof cellValue === "object") {
- return JSON.stringify(cellValue);
- }
- return String(cellValue ?? "");
+  if (cellValue !== null && typeof cellValue === "object") {
+    return JSON.stringify(cellValue);
+  }
+  return String(cellValue ?? "");
 }
 
 export default function TextLog() {
   const { tab: routeTab = "overview" } = useParams();
   const navigate = useNavigate();
-  const conn = useConnection()
+  const conn = useConnection();
 
   const handleTabChange = (newTab) => {
     navigate(`/logs/text/${newTab}`, { replace: true });
@@ -95,44 +101,96 @@ export default function TextLog() {
           <Icon className="ti ti-search"></Icon> Search
         </div>
       </div>
-      {routeTab === "overview" && <TextLogOverview unavailable={conn.unavailable} />}
-      {routeTab === "search" && <TextLogSearch unavailable={conn.unavailable} />}
+      {routeTab === "overview" && (
+        <TextLogOverview unavailable={conn.unavailable} />
+      )}
+      {routeTab === "search" && (
+        <TextLogSearch unavailable={conn.unavailable} />
+      )}
     </div>
   );
 }
 
 /* Overview dashboard */
 
-const RANGE_HOURS = { "1h": 1, "6h": 6, "24h": 24, "48h": 48, "7d": 168, "30d": 720 };
-const RANGE_ROUNDING = { "1h": 60, "6h": 300, "24h": 600, "48h": 1800, "7d": 3600, "30d": 21600 };
+const RANGE_HOURS = {
+  "1h": 1,
+  "6h": 6,
+  "24h": 24,
+  "48h": 48,
+  "7d": 168,
+  "30d": 720,
+};
+const RANGE_ROUNDING = {
+  "1h": 60,
+  "6h": 300,
+  "24h": 600,
+  "48h": 1800,
+  "7d": 3600,
+  "30d": 21600,
+};
 const PRESETS = ["1h", "6h", "24h", "48h", "7d", "30d"];
 
 // Severity ordering (most severe first) and semantic colours per level. These
 // fixed hues read on both themes, so they do not need CSS-variable resolution
 // (which ECharts cannot do on canvas anyway).
-const LEVEL_ORDER = ["Fatal", "Critical", "Error", "Warning", "Notice", "Information", "Debug", "Trace", "Test"];
+const LEVEL_ORDER = [
+  "Fatal",
+  "Critical",
+  "Error",
+  "Warning",
+  "Notice",
+  "Information",
+  "Debug",
+  "Trace",
+  "Test",
+];
 // Level colours mirror the .log-row-<level> classes used on the Search page
 // (global.css), so the Overview matches Search. They are theme-specific; ECharts
 // cannot read CSS, so the hex values are duplicated here and re-resolved per
 // theme (the charts recompute on theme change).
 const LEVEL_COLORS_DARK = {
-  Fatal: "#fb7185", Critical: "#f87171", Error: "#fca5a5", Warning: "#fdba74",
-  Notice: "#fde68a", Information: "#60a5fa", Debug: "#93c5fd", Trace: "#6ee7b7", Test: "#86efac",
+  Fatal: "#fb7185",
+  Critical: "#f87171",
+  Error: "#fca5a5",
+  Warning: "#fdba74",
+  Notice: "#fde68a",
+  Information: "#60a5fa",
+  Debug: "#93c5fd",
+  Trace: "#6ee7b7",
+  Test: "#86efac",
 };
 const LEVEL_COLORS_LIGHT = {
-  Fatal: "#880e4f", Critical: "#b71c1c", Error: "#c62828", Warning: "#e65100",
-  Notice: "#f57f17", Information: "#1565c0", Debug: "#0277bd", Trace: "#2e7d32", Test: "#1a5e1a",
+  Fatal: "#880e4f",
+  Critical: "#b71c1c",
+  Error: "#c62828",
+  Warning: "#e65100",
+  Notice: "#f57f17",
+  Information: "#1565c0",
+  Debug: "#0277bd",
+  Trace: "#2e7d32",
+  Test: "#1a5e1a",
 };
 function levelColor(lv) {
-  const light = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "light";
+  const light =
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-theme") === "light";
   const map = light ? LEVEL_COLORS_LIGHT : LEVEL_COLORS_DARK;
   return map[lv] || (light ? "#1565c0" : "#60a5fa");
 }
 
 // Bar palette for the noisy-loggers chart.
 const PALETTE = [
-  "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#a855f7",
-  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6",
+  "#3b82f6",
+  "#ef4444",
+  "#22c55e",
+  "#f59e0b",
+  "#a855f7",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
 ];
 
 const fmtInt = (v) => (Number(v) || 0).toLocaleString("en-US");
@@ -143,7 +201,10 @@ function timeAxis(from, to) {
   const min = from ? new Date(from.replace(" ", "T")).getTime() : undefined;
   const max = to ? new Date(to.replace(" ", "T")).getTime() : undefined;
   return {
-    type: "time", min, max, splitNumber: 3,
+    type: "time",
+    min,
+    max,
+    splitNumber: 3,
     axisLabel: {
       hideOverlap: true,
       formatter: (ms) => {
@@ -160,8 +221,12 @@ function timeAxis(from, to) {
 // with no events in range are dropped.
 function buildLevelSeries(rows, from, to, rounding) {
   const r = Number(rounding) || 3600;
-  const fromSec = from ? Math.floor(new Date(from.replace(" ", "T")).getTime() / 1000) : 0;
-  const toSec = to ? Math.floor(new Date(to.replace(" ", "T")).getTime() / 1000) : 0;
+  const fromSec = from
+    ? Math.floor(new Date(from.replace(" ", "T")).getTime() / 1000)
+    : 0;
+  const toSec = to
+    ? Math.floor(new Date(to.replace(" ", "T")).getTime() / 1000)
+    : 0;
   const b0 = Math.floor(fromSec / r) * r;
   const b1 = Math.floor(toSec / r) * r;
   const buckets = [];
@@ -175,7 +240,10 @@ function buildLevelSeries(rows, from, to, rounding) {
     const v = Number(row.v) || 0;
     present.add(lv);
     let m = perLevel.get(lv);
-    if (!m) { m = new Map(); perLevel.set(lv, m); }
+    if (!m) {
+      m = new Map();
+      perLevel.set(lv, m);
+    }
     m.set(tt, (m.get(tt) || 0) + v);
   }
   // Severity order first, then any unexpected levels appended.
@@ -187,7 +255,11 @@ function buildLevelSeries(rows, from, to, rounding) {
     const c = levelColor(name);
     const m = perLevel.get(name) || new Map();
     return {
-      name, type: "line", stack: "total", smooth: false, symbol: "none",
+      name,
+      type: "line",
+      stack: "total",
+      smooth: false,
+      symbol: "none",
       itemStyle: { color: c },
       lineStyle: { color: c, width: 1 },
       areaStyle: { color: c, opacity: 0.3 },
@@ -207,18 +279,38 @@ function levelDonutOption(rows) {
     .filter((d) => d.value > 0);
   return {
     tooltip: {
-      trigger: "item", confine: true,
+      trigger: "item",
+      confine: true,
       formatter: (p) => `${p.name}: ${fmtInt(p.value)} (${p.percent}%)`,
     },
     legend: {
-      type: "scroll", orient: "vertical", right: 6, top: "middle",
-      itemWidth: 11, itemHeight: 11, textStyle: { fontSize: 11 },
+      type: "scroll",
+      orient: "vertical",
+      right: 6,
+      top: "middle",
+      itemWidth: 11,
+      itemHeight: 11,
+      textStyle: { fontSize: 11 },
     },
-    series: [{
-      type: "pie", radius: ["42%", "68%"], center: ["32%", "50%"],
-      avoidLabelOverlap: true, label: { show: true, formatter: '{b} ({d}%)', color: 'inherit', fontSize: 11 }, labelLine: { show: true },
-      data: data.map((d) => ({ ...d, itemStyle: { color: levelColor(d.name) } })),
-    }],
+    series: [
+      {
+        type: "pie",
+        radius: ["42%", "68%"],
+        center: ["32%", "50%"],
+        avoidLabelOverlap: true,
+        label: {
+          show: true,
+          formatter: "{b} ({d}%)",
+          color: "inherit",
+          fontSize: 11,
+        },
+        labelLine: { show: true },
+        data: data.map((d) => ({
+          ...d,
+          itemStyle: { color: levelColor(d.name) },
+        })),
+      },
+    ],
   };
 }
 
@@ -226,7 +318,10 @@ function levelDonutOption(rows) {
 // it is visible at the initial scroll position; per-bar value labels mean the
 // exact count is always readable even once the axis scrolls out of view.
 function scrollBarOption(rows, labelKey, valueKey) {
-  const data = rows.map((r) => ({ name: String(r[labelKey]), v: Number(r[valueKey]) || 0 }));
+  const data = rows.map((r) => ({
+    name: String(r[labelKey]),
+    v: Number(r[valueKey]) || 0,
+  }));
   const maxV = data.reduce((a, d) => Math.max(a, d.v), 0);
   const axMax = maxV > 0 ? Math.ceil(maxV * 1.15) : 1;
   return {
@@ -235,23 +330,37 @@ function scrollBarOption(rows, labelKey, valueKey) {
     // the shared toolbox so it neither overlaps the axis nor scrolls out of view.
     toolbox: { show: false },
     tooltip: {
-      trigger: "axis", confine: true, axisPointer: { type: "shadow" },
+      trigger: "axis",
+      confine: true,
+      axisPointer: { type: "shadow" },
       formatter: (p) => `${p[0].name}: ${fmtInt(p[0].value)}`,
     },
     xAxis: { type: "value", position: "top", max: axMax, minInterval: 1 },
     yAxis: {
-      type: "category", inverse: true,
+      type: "category",
+      inverse: true,
       data: data.map((d) => d.name),
       axisLabel: { width: 150, overflow: "truncate" },
     },
-    series: [{
-      type: "bar", barMaxWidth: 18,
-      label: { show: true, position: "right", formatter: (p) => fmtInt(p.value), fontSize: 11 },
-      data: data.map((d, i) => ({
-        value: d.v,
-        itemStyle: { color: PALETTE[i % PALETTE.length], borderRadius: [0, 3, 3, 0] },
-      })),
-    }],
+    series: [
+      {
+        type: "bar",
+        barMaxWidth: 18,
+        label: {
+          show: true,
+          position: "right",
+          formatter: (p) => fmtInt(p.value),
+          fontSize: 11,
+        },
+        data: data.map((d, i) => ({
+          value: d.v,
+          itemStyle: {
+            color: PALETTE[i % PALETTE.length],
+            borderRadius: [0, 3, 3, 0],
+          },
+        })),
+      },
+    ],
   };
 }
 
@@ -260,7 +369,14 @@ function scrollBarOption(rows, labelKey, valueKey) {
 // rows (rowHeight each) inside a fixed-height scroll viewport; with few rows it
 // just fills the viewport (no scroll). Remounts on theme change via the parent
 // key, which re-resolves the registered-theme colours.
-function ScrollBarChart({ title, rows, labelKey, valueKey, rowHeight = 32, viewHeight = 320 }) {
+function ScrollBarChart({
+  title,
+  rows,
+  labelKey,
+  valueKey,
+  rowHeight = 32,
+  viewHeight = 320,
+}) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const tools = useChartTools(() => chartRef.current, { filename: title });
@@ -274,17 +390,65 @@ function ScrollBarChart({ title, rows, labelKey, valueKey, rowHeight = 32, viewH
     chartRef.current = chart;
     chart.setOption(scrollBarOption(rows, labelKey, valueKey), true);
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
-    return () => { disposeChart(chartEl); chartRef.current = null; };
+    return () => {
+      disposeChart(chartEl);
+      chartRef.current = null;
+    };
   }, [rows, labelKey, valueKey, innerHeight]);
 
   return (
-    <div className="card" style={tools.fullscreen ? { padding: 16, position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "var(--font-ui)" }}>{title}</span>
-        <ChartToolbar fullscreen={tools.fullscreen} onSave={tools.save} onToggleFullscreen={tools.toggleFullscreen} />
+    <div
+      className="card"
+      style={
+        tools.fullscreen
+          ? {
+              padding: 16,
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "var(--bg-page)",
+              display: "flex",
+              flexDirection: "column",
+            }
+          : { padding: 16 }
+      }
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 10,
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "var(--text-secondary)",
+            fontFamily: "var(--font-ui)",
+          }}
+        >
+          {title}
+        </span>
+        <ChartToolbar
+          fullscreen={tools.fullscreen}
+          onSave={tools.save}
+          onToggleFullscreen={tools.toggleFullscreen}
+        />
       </div>
-      <div style={{ height: tools.fullscreen ? "calc(100vh - 96px)" : viewHeight, overflowY: "auto", overflowX: "hidden", flex: tools.fullscreen ? 1 : undefined }}>
-        <div ref={containerRef} style={{ height: innerHeight, width: "100%" }} />
+      <div
+        style={{
+          height: tools.fullscreen ? "calc(100vh - 96px)" : viewHeight,
+          overflowY: "auto",
+          overflowX: "hidden",
+          flex: tools.fullscreen ? 1 : undefined,
+        }}
+      >
+        <div
+          ref={containerRef}
+          style={{ height: innerHeight, width: "100%" }}
+        />
       </div>
     </div>
   );
@@ -292,11 +456,50 @@ function ScrollBarChart({ title, rows, labelKey, valueKey, rowHeight = 32, viewH
 
 function Stat({ label, value, icon, color, small }) {
   return (
-    <div className="card" style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, minHeight: 84 }}>
-      {icon && <Icon className={`ti ${icon}`} style={{ fontSize: 28, color: color || "var(--accent)", opacity: 0.9, flexShrink: 0 }}></Icon>}
+    <div
+      className="card"
+      style={{
+        padding: 18,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        minHeight: 84,
+      }}
+    >
+      {icon && (
+        <Icon
+          className={`ti ${icon}`}
+          style={{
+            fontSize: 28,
+            color: color || "var(--accent)",
+            opacity: 0.9,
+            flexShrink: 0,
+          }}
+        ></Icon>
+      )}
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: small ? "1.05rem" : "1.5rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+        <div
+          style={{
+            fontSize: "12px",
+            color: "var(--text-muted)",
+            marginBottom: 4,
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            fontSize: small ? "1.05rem" : "1.5rem",
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            lineHeight: 1.15,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {value}
+        </div>
       </div>
     </div>
   );
@@ -304,10 +507,30 @@ function Stat({ label, value, icon, color, small }) {
 
 function SectionError({ title, message }) {
   return (
-    <div className="card" style={{ padding: 16, minHeight: 100, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)" }}>{title}</div>
+    <div
+      className="card"
+      style={{
+        padding: 16,
+        minHeight: 100,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      <div
+        style={{
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          color: "var(--text-secondary)",
+        }}
+      >
+        {title}
+      </div>
       <div className="alert-banner danger">
-        <Icon className="ti ti-alert-circle" style={{ flexShrink: 0, marginTop: 2 }}></Icon>
+        <Icon
+          className="ti ti-alert-circle"
+          style={{ flexShrink: 0, marginTop: 2 }}
+        ></Icon>
         <span>{message}</span>
       </div>
     </div>
@@ -331,68 +554,136 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
     if (!containerRef.current) return;
     const chart = initChart(containerRef.current);
     chartRef.current = chart;
-    chart.setOption({
-      grid: { left: 12, right: 16, top: 16, bottom: 36, containLabel: true },
-      tooltip: {
-        trigger: "axis", confine: true,
-        formatter: (ps) => {
-          if (!ps || !ps.length) return "";
-          const ms = ps[0].value && ps[0].value[0];
-          const d = new Date(ms);
-          const head = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-          const items = ps
-            .map((p) => ({ n: p.seriesName, v: Number(p.value && p.value[1]) || 0, m: p.marker }))
-            .filter((it) => it.v > 0)
-            .sort((a, b) => b.v - a.v);
-          const total = items.reduce((a, it) => a + it.v, 0);
-          const top = items.slice(0, 12).map((it) => `${it.m}${it.n}: ${fmtInt(it.v)}`).join("<br/>");
-          const more = items.length > 12 ? `<br/>+${items.length - 12} more` : "";
-          return `${head}<br/>${top}${more}<br/><b>Total: ${fmtInt(total)}</b>`;
+    chart.setOption(
+      {
+        grid: { left: 12, right: 16, top: 16, bottom: 36, containLabel: true },
+        tooltip: {
+          trigger: "axis",
+          confine: true,
+          formatter: (ps) => {
+            if (!ps || !ps.length) return "";
+            const ms = ps[0].value && ps[0].value[0];
+            const d = new Date(ms);
+            const head = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            const items = ps
+              .map((p) => ({
+                n: p.seriesName,
+                v: Number(p.value && p.value[1]) || 0,
+                m: p.marker,
+              }))
+              .filter((it) => it.v > 0)
+              .sort((a, b) => b.v - a.v);
+            const total = items.reduce((a, it) => a + it.v, 0);
+            const top = items
+              .slice(0, 12)
+              .map((it) => `${it.m}${it.n}: ${fmtInt(it.v)}`)
+              .join("<br/>");
+            const more =
+              items.length > 12 ? `<br/>+${items.length - 12} more` : "";
+            return `${head}<br/>${top}${more}<br/><b>Total: ${fmtInt(total)}</b>`;
+          },
         },
+        legend: {
+          show: false,
+          data: names,
+          selected: Object.fromEntries(names.map((n) => [n, true])),
+        },
+        toolbox: { show: false },
+        dataZoom: [{ type: "inside", xAxisIndex: 0, filterMode: "none" }],
+        xAxis: timeAxis(from, to),
+        yAxis: { type: "value" },
+        series,
       },
-      legend: { show: false, data: names, selected: Object.fromEntries(names.map((n) => [n, true])) },
-      toolbox: { show: false },
-      dataZoom: [{ type: "inside", xAxisIndex: 0, filterMode: "none" }],
-      xAxis: timeAxis(from, to),
-      yAxis: { type: "value" },
-      series,
-    }, true);
+      true,
+    );
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
-    return () => { disposeChart(chartEl); chartRef.current = null; };
+    return () => {
+      disposeChart(chartEl);
+      chartRef.current = null;
+    };
   }, [series, names, from, to]);
 
   useEffect(() => {
     if (!chartRef.current) return;
     chartRef.current.setOption({
-      legend: { selected: Object.fromEntries(names.map((n) => [n, !hidden.has(n)])) },
+      legend: {
+        selected: Object.fromEntries(names.map((n) => [n, !hidden.has(n)])),
+      },
     });
   }, [hidden, names]);
 
   useEffect(() => {
-    const t = setTimeout(() => chartRef.current && chartRef.current.resize(), 150);
+    const t = setTimeout(
+      () => chartRef.current && chartRef.current.resize(),
+      150,
+    );
     if (!fullscreen) return () => clearTimeout(t);
-    const onKey = (e) => { if (e.key === "Escape") setFullscreen(false); };
+    const onKey = (e) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); };
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [fullscreen]);
 
-  const toggle = (name) => setHidden((prev) => {
-    const n = new Set(prev);
-    n.has(name) ? n.delete(name) : n.add(name);
-    return n;
-  });
+  const toggle = (name) =>
+    setHidden((prev) => {
+      const n = new Set(prev);
+      n.has(name) ? n.delete(name) : n.add(name);
+      return n;
+    });
   const showAll = () => setHidden(new Set());
   const hideAll = () => setHidden(new Set(names));
 
   const chartH = fullscreen ? "calc(100vh - 130px)" : 428;
 
   return (
-    <div style={fullscreen
-      ? { position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", padding: 16, display: "flex", flexDirection: "column" }
-      : { position: "relative" }}>
-      <div className="card" style={{ padding: 16, flex: fullscreen ? 1 : undefined, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
-          <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "var(--font-ui)" }}>{title}</span>
+    <div
+      style={
+        fullscreen
+          ? {
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "var(--bg-page)",
+              padding: 16,
+              display: "flex",
+              flexDirection: "column",
+            }
+          : { position: "relative" }
+      }
+    >
+      <div
+        className="card"
+        style={{
+          padding: 16,
+          flex: fullscreen ? 1 : undefined,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 10,
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+              fontFamily: "var(--font-ui)",
+            }}
+          >
+            {title}
+          </span>
           <ChartToolbar
             zoomable
             fullscreen={fullscreen}
@@ -403,17 +694,81 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
             onToggleFullscreen={() => setFullscreen((f) => !f)}
           />
         </div>
-        <div style={{ display: "flex", gap: 12, flex: fullscreen ? 1 : undefined, minHeight: 0 }}>
-          <div ref={containerRef} style={{ flex: 1, minWidth: 0, height: fullscreen ? "100%" : chartH }} />
-          <div style={{ width: 196, flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0, height: fullscreen ? "100%" : chartH, borderLeft: "1px solid var(--border-default)", paddingLeft: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
-              <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Series ({names.length})</span>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flex: fullscreen ? 1 : undefined,
+            minHeight: 0,
+          }}
+        >
+          <div
+            ref={containerRef}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              height: fullscreen ? "100%" : chartH,
+            }}
+          />
+          <div
+            style={{
+              width: 196,
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              height: fullscreen ? "100%" : chartH,
+              borderLeft: "1px solid var(--border-default)",
+              paddingLeft: 10,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 6,
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Series ({names.length})
+              </span>
               <span style={{ display: "flex", gap: 4 }}>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: "11px", padding: "2px 7px" }} onClick={showAll}>All</button>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: "11px", padding: "2px 7px" }} onClick={hideAll}>None</button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  onClick={showAll}
+                >
+                  All
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  onClick={hideAll}
+                >
+                  None
+                </button>
               </span>
             </div>
-            <div style={{ overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 1, paddingRight: 4 }}>
+            <div
+              style={{
+                overflowY: "auto",
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 1,
+                paddingRight: 4,
+              }}
+            >
               {legendItems.map((it) => {
                 const off = hidden.has(it.name);
                 return (
@@ -421,10 +776,41 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
                     key={it.name}
                     onClick={() => toggle(it.name)}
                     title={it.name}
-                    style={{ display: "flex", alignItems: "center", gap: 7, background: "transparent", border: "none", cursor: "pointer", padding: "3px 4px", borderRadius: 4, opacity: off ? 0.4 : 1, textAlign: "left", width: "100%" }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "3px 4px",
+                      borderRadius: 4,
+                      opacity: off ? 0.4 : 1,
+                      textAlign: "left",
+                      width: "100%",
+                    }}
                   >
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: it.color, flexShrink: 0, filter: off ? "grayscale(1)" : "none" }} />
-                    <span style={{ fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.name}</span>
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 2,
+                        background: it.color,
+                        flexShrink: 0,
+                        filter: off ? "grayscale(1)" : "none",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "var(--text-secondary)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {it.name}
+                    </span>
                   </button>
                 );
               })}
@@ -452,7 +838,6 @@ function PlainChartCard({ title, option, height = 320 }) {
     fullscreenFun: true,
   };
 
-
   useEffect(() => {
     // React clears the ref before the cleanup runs on unmount, so keep the element here.
     const chartEl = containerRef.current;
@@ -460,41 +845,107 @@ function PlainChartCard({ title, option, height = 320 }) {
     const chart = initChart(containerRef.current);
     chartRef.current = chart;
     if (option) {
-      chart.setOption(withZoomable({ ...option, toolbox: { show: false } }), true);
+      chart.setOption(
+        withZoomable({ ...option, toolbox: { show: false } }),
+        true,
+      );
       setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
     }
-    return () => { disposeChart(chartEl); chartRef.current = null; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
+    return () => {
+      disposeChart(chartEl);
+      chartRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
   useEffect(() => {
     if (!chartRef.current || !option) return;
-    chartRef.current.setOption(withZoomable({ ...option, toolbox: { show: false } }), true);
+    chartRef.current.setOption(
+      withZoomable({ ...option, toolbox: { show: false } }),
+      true,
+    );
     setTimeout(() => chartRef.current && chartRef.current.resize(), 50);
   }, [option]);
   return (
-    <div className="card" style={tools.fullscreen ? { padding: 16, position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg-page)", display: "flex", flexDirection: "column" } : { padding: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "var(--font-ui)" }}>{title}</span>
-        <ChartToolbar zoomable={!!option?.xAxis} fullscreen={tools.fullscreen} onZoomIn={tools.zoomIn} onZoomOut={tools.zoomOut} onZoomReset={tools.zoomReset} onSave={tools.save} onToggleFullscreen={tools.toggleFullscreen} isWantFeature={pieChartControlsFlags} />
+    <div
+      className="card"
+      style={
+        tools.fullscreen
+          ? {
+              padding: 16,
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "var(--bg-page)",
+              display: "flex",
+              flexDirection: "column",
+            }
+          : { padding: 16 }
+      }
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 10,
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "var(--text-secondary)",
+            fontFamily: "var(--font-ui)",
+          }}
+        >
+          {title}
+        </span>
+        <ChartToolbar
+          zoomable={!!option?.xAxis}
+          fullscreen={tools.fullscreen}
+          onZoomIn={tools.zoomIn}
+          onZoomOut={tools.zoomOut}
+          onZoomReset={tools.zoomReset}
+          onSave={tools.save}
+          onToggleFullscreen={tools.toggleFullscreen}
+          isWantFeature={pieChartControlsFlags}
+        />
       </div>
-      <div ref={containerRef} style={{ height: tools.fullscreen ? "calc(100vh - 96px)" : height, width: "100%", flex: tools.fullscreen ? 1 : undefined }} />
+      <div
+        ref={containerRef}
+        style={{
+          height: tools.fullscreen ? "calc(100vh - 96px)" : height,
+          width: "100%",
+          flex: tools.fullscreen ? 1 : undefined,
+        }}
+      />
     </div>
   );
 }
 
-function TextLogOverview({unavailable}) {
+function TextLogOverview({ unavailable }) {
   const [duration, setDuration] = useState("24h");
   const [from, setFrom] = useState(fmtAgo(24));
   const [to, setTo] = useState(fmtNow());
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [data, setData] = useState({ summary: [], trend: [], dist: [], loggers: [], messages: [], rng: { from: null, to: null, r: 3600 } });
+  const [data, setData] = useState({
+    summary: [],
+    trend: [],
+    dist: [],
+    loggers: [],
+    messages: [],
+    rng: { from: null, to: null, r: 3600 },
+  });
   const [errs, setErrs] = useState({});
   const [themeKey, setThemeKey] = useState(0);
 
   useEffect(() => {
     const obs = new MutationObserver(() => setThemeKey((k) => k + 1));
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
     return () => obs.disconnect();
   }, []);
 
@@ -507,35 +958,63 @@ function TextLogOverview({unavailable}) {
   const load = useCallback(async () => {
     setLoading(true);
     const r = RANGE_ROUNDING[duration] || 3600;
-    const f = from, t = to;
-    const next = { summary: [], trend: [], dist: [], loggers: [], messages: [], rng: { from: f, to: t, r } };
+    const f = from,
+      t = to;
+    const next = {
+      summary: [],
+      trend: [],
+      dist: [],
+      loggers: [],
+      messages: [],
+      rng: { from: f, to: t, r },
+    };
     const e = {};
     const where = `event_time BETWEEN '${f}' AND '${t}'`;
 
     try {
-      const res = await runQuery(`SELECT count() AS total, countIf(level IN ('Fatal','Critical','Error')) AS errors, countIf(level = 'Warning') AS warnings, uniqExact(logger_name) AS loggers, maxIf(event_time, level IN ('Fatal','Critical','Error')) AS last_error FROM system.text_log WHERE ${where}`);
+      const res = await runQuery(
+        `SELECT count() AS total, countIf(level IN ('Fatal','Critical','Error')) AS errors, countIf(level = 'Warning') AS warnings, uniqExact(logger_name) AS loggers, maxIf(event_time, level IN ('Fatal','Critical','Error')) AS last_error FROM system.text_log WHERE ${where}`,
+      );
       next.summary = res.rows || [];
-    } catch (err) { e.summary = err.message || "Query failed"; }
+    } catch (err) {
+      e.summary = err.message || "Query failed";
+    }
 
     try {
-      const res = await runQuery(`SELECT toStartOfInterval(event_time, INTERVAL ${r} SECOND)::INT AS t, level, count() AS v FROM system.text_log WHERE ${where} GROUP BY t, level`);
+      const res = await runQuery(
+        `SELECT toStartOfInterval(event_time, INTERVAL ${r} SECOND)::INT AS t, level, count() AS v FROM system.text_log WHERE ${where} GROUP BY t, level`,
+      );
       next.trend = res.rows || [];
-    } catch (err) { e.trend = err.message || "Query failed"; }
+    } catch (err) {
+      e.trend = err.message || "Query failed";
+    }
 
     try {
-      const res = await runQuery(`SELECT level, count() AS v FROM system.text_log WHERE ${where} GROUP BY level ORDER BY v DESC`);
+      const res = await runQuery(
+        `SELECT level, count() AS v FROM system.text_log WHERE ${where} GROUP BY level ORDER BY v DESC`,
+      );
       next.dist = res.rows || [];
-    } catch (err) { e.dist = err.message || "Query failed"; }
+    } catch (err) {
+      e.dist = err.message || "Query failed";
+    }
 
     try {
-      const res = await runQuery(`SELECT logger_name AS logger, countIf(level IN ('Fatal','Critical','Error','Warning')) AS issues, count() AS total FROM system.text_log WHERE ${where} GROUP BY logger ORDER BY issues DESC, total DESC LIMIT 15`);
+      const res = await runQuery(
+        `SELECT logger_name AS logger, countIf(level IN ('Fatal','Critical','Error','Warning')) AS issues, count() AS total FROM system.text_log WHERE ${where} GROUP BY logger ORDER BY issues DESC, total DESC LIMIT 15`,
+      );
       next.loggers = res.rows || [];
-    } catch (err) { e.loggers = err.message || "Query failed"; }
+    } catch (err) {
+      e.loggers = err.message || "Query failed";
+    }
 
     try {
-      const res = await runQuery(`SELECT message_format_string AS template, count() AS cnt, min(level) AS severity, any(message) AS sample FROM system.text_log WHERE ${where} AND message_format_string != '' GROUP BY template ORDER BY cnt DESC LIMIT 50`);
+      const res = await runQuery(
+        `SELECT message_format_string AS template, count() AS cnt, min(level) AS severity, any(message) AS sample FROM system.text_log WHERE ${where} AND message_format_string != '' GROUP BY template ORDER BY cnt DESC LIMIT 50`,
+      );
       next.messages = res.rows || [];
-    } catch (err) { e.messages = err.message || "Query failed"; }
+    } catch (err) {
+      e.messages = err.message || "Query failed";
+    }
 
     setData(next);
     setErrs(e);
@@ -549,11 +1028,16 @@ function TextLogOverview({unavailable}) {
   const warnings = Number(summaryRow.warnings) || 0;
   const loggers = Number(summaryRow.loggers) || 0;
   const rawLast = summaryRow.last_error;
-  const lastError = errors > 0 && rawLast && !String(rawLast).startsWith("1970") ? rawLast : "-";
+  const lastError =
+    errors > 0 && rawLast && !String(rawLast).startsWith("1970")
+      ? rawLast
+      : "-";
 
   const hasData = total > 0;
   const hasErrs = Object.keys(errs).length > 0;
   const rng = data.rng || { from, to, r: 3600 };
+
+  const liveState = useLiveOverview();
 
   const trend = useMemo(
     () => buildLevelSeries(data.trend, rng.from, rng.to, rng.r),
@@ -573,34 +1057,43 @@ function TextLogOverview({unavailable}) {
   const cellRenderers = {
     count: (v) => fmtInt(v),
     severity: (v) => (
-      <span style={{ color: levelColor(v), fontWeight: 600, fontSize: "13px" }}>{v || "-"}</span>
+      <span style={{ color: levelColor(v), fontWeight: 600, fontSize: "13px" }}>
+        {v || "-"}
+      </span>
     ),
   };
 
-    const getUnavailableMessage = () => {
-  const match = unavailable.find(item => item.table === "system.text_log");
-  return match ? match.message : null;
-};
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === "system.text_log");
+    return match ? match.message : null;
+  };
 
-const unavailableMessage = getUnavailableMessage();
+  const unavailableMessage = getUnavailableMessage();
 
-if (unavailableMessage) {
-  return (
-    <div className="unavailable-container">
-      <div className="unavailable-icon-wrapper">
-        <Icon className="ti-git-branch" />
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
       </div>
-      <div className="unavailable-text">
-        {unavailableMessage}
-      </div>
-    </div>
-  );
-}
-
+    );
+  }
 
   return (
     <div>
-      <div className="card" style={{ padding: 14, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div
+        className="card"
+        style={{
+          padding: 14,
+          marginBottom: 16,
+          display: "flex",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "flex-end",
+        }}
+      >
         <div className="form-group">
           <label className="form-label">Quick</label>
           <div style={{ display: "flex", gap: 4 }}>
@@ -610,75 +1103,194 @@ if (unavailableMessage) {
                 className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
                 style={{ padding: "8px 12px", minWidth: 48 }}
                 onClick={() => applyDuration(d)}
-              >{d}</button>
+              >
+                {d}
+              </button>
             ))}
           </div>
         </div>
-        <button className="btn btn-primary btn-sm" style={{ padding: "8px 14px" }} onClick={load} disabled={loading}>
-          {loading ? <><span className="loading-spinner"></span> Loading...</> : <><Icon className="ti ti-player-play"></Icon> Load</>}
+        <button
+          title={
+            liveState?.isNotConnectedClusterNode()
+              ? "No cluster nodes configured"
+              : ""
+          }
+          className="btn btn-primary btn-sm"
+          style={{ padding: "8px 14px" }}
+          onClick={load}
+          disabled={loading || liveState?.isNotConnectedClusterNode()}
+        >
+          {loading ? (
+            <>
+              <span className="loading-spinner"></span> Loading...
+            </>
+          ) : (
+            <>
+              <Icon className="ti ti-player-play"></Icon> Load
+            </>
+          )}
         </button>
       </div>
 
       {loading ? (
-        <div className="empty-state"><span className="loading-spinner"></span></div>
+        <div className="empty-state">
+          <span className="loading-spinner"></span>
+        </div>
       ) : !loaded ? (
-        <div className="empty-state" style={{height:"50vh" }}><Icon className="ti ti-player-play" style={{ color: "#fb923c" }}></Icon><p>Select a time range and click Load.</p></div>
+        <div className="empty-state" style={{ height: "50vh" }}>
+          <Icon
+            className="ti ti-player-play"
+            style={{ color: "#fb923c" }}
+          ></Icon>
+          <p>Select a time range and click Load.</p>
+        </div>
       ) : !hasData && !hasErrs ? (
-        <div className="empty-state"><Icon className="ti ti-file-text" style={{ color: "#60a5fa" }}></Icon><p>No log entries in the selected range.</p></div>
+        <div className="empty-state">
+          <Icon className="ti ti-file-text" style={{ color: "#60a5fa" }}></Icon>
+          <p>No log entries in the selected range.</p>
+        </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
-            <Stat label="Total Lines" value={fmtInt(total)} icon="ti-file-text" color="var(--accent)" />
-            <Stat label="Errors" value={fmtInt(errors)} icon="ti-alert-triangle" color="var(--color-danger)" />
-            <Stat label="Warnings" value={fmtInt(warnings)} icon="ti-alert-hexagon" color="var(--color-warning)" />
-            <Stat label="Loggers" value={fmtInt(loggers)} icon="ti-category" color="var(--color-info)" />
-            <Stat label="Last Error" value={lastError} icon="ti-clock" color="var(--text-secondary)" small />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <Stat
+              label="Total Lines"
+              value={fmtInt(total)}
+              icon="ti-file-text"
+              color="var(--accent)"
+            />
+            <Stat
+              label="Errors"
+              value={fmtInt(errors)}
+              icon="ti-alert-triangle"
+              color="var(--color-danger)"
+            />
+            <Stat
+              label="Warnings"
+              value={fmtInt(warnings)}
+              icon="ti-alert-hexagon"
+              color="var(--color-warning)"
+            />
+            <Stat
+              label="Loggers"
+              value={fmtInt(loggers)}
+              icon="ti-category"
+              color="var(--color-info)"
+            />
+            <Stat
+              label="Last Error"
+              value={lastError}
+              icon="ti-clock"
+              color="var(--text-secondary)"
+              small
+            />
           </div>
 
-          {errs.trend
-            ? <SectionError title="Log Volume by Level" message={errs.trend} />
-            : trend.series.length
-              ? <StackedAreaChart key={`trend-${themeKey}`} title="Log Volume by Level" series={trend.series} names={trend.names} legendItems={trend.legendItems} from={rng.from} to={rng.to} />
-              : null}
+          {errs.trend ? (
+            <SectionError title="Log Volume by Level" message={errs.trend} />
+          ) : trend.series.length ? (
+            <StackedAreaChart
+              key={`trend-${themeKey}`}
+              title="Log Volume by Level"
+              series={trend.series}
+              names={trend.names}
+              legendItems={trend.legendItems}
+              from={rng.from}
+              to={rng.to}
+            />
+          ) : null}
 
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(0, 1.4fr)", gap: 16 }}>
-            {errs.dist
-              ? <SectionError title="Level Distribution" message={errs.dist} />
-              : data.dist.length
-                ? <PlainChartCard key={`dist-${themeKey}`} title="Level Distribution" height={400} option={levelDonutOption(data.dist)} />
-                : null}
-            {errs.loggers
-              ? <SectionError title="Noisiest Loggers (errors + warnings)" message={errs.loggers} />
-              : data.loggers.length
-                ? <ScrollBarChart key={`loggers-${themeKey}`} title="Noisiest Loggers (errors + warnings)" rows={data.loggers} labelKey="logger" valueKey="issues" />
-                : <div className="card" style={{ padding: 16 }}><div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>Noisiest Loggers (errors + warnings)</div><div style={{ color: "var(--text-muted)", fontSize: "14px" }}>No errors or warnings in range.</div></div>}
-          </div>
-
-          {errs.messages
-            ? <SectionError title="Most Frequent Messages" message={errs.messages} />
-            : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(280px, 1fr) minmax(0, 1.4fr)",
+              gap: 16,
+            }}
+          >
+            {errs.dist ? (
+              <SectionError title="Level Distribution" message={errs.dist} />
+            ) : data.dist.length ? (
+              <PlainChartCard
+                key={`dist-${themeKey}`}
+                title="Level Distribution"
+                height={400}
+                option={levelDonutOption(data.dist)}
+              />
+            ) : null}
+            {errs.loggers ? (
+              <SectionError
+                title="Noisiest Loggers (errors + warnings)"
+                message={errs.loggers}
+              />
+            ) : data.loggers.length ? (
+              <ScrollBarChart
+                key={`loggers-${themeKey}`}
+                title="Noisiest Loggers (errors + warnings)"
+                rows={data.loggers}
+                labelKey="logger"
+                valueKey="issues"
+              />
+            ) : (
               <div className="card" style={{ padding: 16 }}>
-                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 12 }}>Most Frequent Messages</div>
-                <div className="ov-log-table">
-                  <DataTable
-                    rows={messageRows}
-                    columns={["severity", "count", "template", "sample"]}
-                    cellRenderers={cellRenderers}
-                    variant="single"
-                    s_no={true}
-                    maxHeight={460}
-                    emptyMessage="No templated messages in range."
-                  />
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                    marginBottom: 8,
+                  }}
+                >
+                  Noisiest Loggers (errors + warnings)
+                </div>
+                <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                  No errors or warnings in range.
                 </div>
               </div>
             )}
+          </div>
+
+          {errs.messages ? (
+            <SectionError
+              title="Most Frequent Messages"
+              message={errs.messages}
+            />
+          ) : (
+            <div className="card" style={{ padding: 16 }}>
+              <div
+                style={{
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  marginBottom: 12,
+                }}
+              >
+                Most Frequent Messages
+              </div>
+              <div className="ov-log-table">
+                <DataTable
+                  rows={messageRows}
+                  columns={["severity", "count", "template", "sample"]}
+                  cellRenderers={cellRenderers}
+                  variant="single"
+                  s_no={true}
+                  maxHeight={460}
+                  emptyMessage="No templated messages in range."
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function TextLogSearch({unavailable}) {
+function TextLogSearch({ unavailable }) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(24));
   const [to, setTo] = useState(fmtNow());
@@ -695,10 +1307,11 @@ function TextLogSearch({unavailable}) {
   const [adv, setAdv] = useState(() => loadAdvState("text_log"));
   const [filtersOpen, setFiltersOpen] = useState(true);
   const q = useQuery();
+  const liveState = useLiveOverview();
 
   useEffect(() => {
     if (q.error) toast.error(q.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [q.error]);
 
   function toggleLevel(lv) {
@@ -713,25 +1326,27 @@ function TextLogSearch({unavailable}) {
     setLevels([]);
   }
 
- async function handleSearch(e) {
- e.preventDefault();
- if (!levels.length) return;
- const conds = [
- `event_time BETWEEN '${from}' AND '${to}'`,
- `level IN (${levels.map((l) => `'${l}'`).join(",")})`,
- ];
- if (message.trim()) conds.push(`message LIKE '%${message.trim()}%'`);
- setSubmitted(true);
- setFiltersOpen(false);
- const where = buildWhere(conds, adv.filters);
- await q.execute(
- `SELECT ${TEXT_LOG_COLS.join(", ")}${extraSelectSql(TEXT_LOG_COLS,
-adv.columns)} FROM system.text_log WHERE ${where} ORDER BY event_time DESC
+  async function handleSearch(e) {
+    e.preventDefault();
+    if (!levels.length) return;
+    const conds = [
+      `event_time BETWEEN '${from}' AND '${to}'`,
+      `level IN (${levels.map((l) => `'${l}'`).join(",")})`,
+    ];
+    if (message.trim()) conds.push(`message LIKE '%${message.trim()}%'`);
+    setSubmitted(true);
+    setFiltersOpen(false);
+    const where = buildWhere(conds, adv.filters);
+    await q.execute(
+      `SELECT ${TEXT_LOG_COLS.join(", ")}${extraSelectSql(
+        TEXT_LOG_COLS,
+        adv.columns,
+      )} FROM system.text_log WHERE ${where} ORDER BY event_time DESC
 LIMIT ${rowLimit}`,
- { readOnly: true },
- );
- }
- const extras = extraColumns(TEXT_LOG_COLS, adv.columns);
+      { readOnly: true },
+    );
+  }
+  const extras = extraColumns(TEXT_LOG_COLS, adv.columns);
   // handle the Date change infinity like FROM > TO -->( Kathirdhasan )
   const handleDateOnChange = (date, label) => {
     if (label === "From") {
@@ -751,26 +1366,23 @@ LIMIT ${rowLimit}`,
     }
   };
 
-    const getUnavailableMessage = () => {
-  const match = unavailable.find(item => item.table === "system.text_log");
-  return match ? match.message : null;
-};
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === "system.text_log");
+    return match ? match.message : null;
+  };
 
-const unavailableMessage = getUnavailableMessage();
+  const unavailableMessage = getUnavailableMessage();
 
-if (unavailableMessage) {
-  return (
-    <div className="unavailable-container">
-      <div className="unavailable-icon-wrapper">
-        <Icon className="ti-git-branch" />
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
       </div>
-      <div className="unavailable-text">
-        {unavailableMessage}
-      </div>
-    </div>
-  );
-}
-
+    );
+  }
 
   return (
     <div>
@@ -794,7 +1406,8 @@ if (unavailableMessage) {
             fontSize: "15px",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>Search
+          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
+          Search
         </label>
         <button
           className="btn btn-ghost btn-sm"
@@ -861,8 +1474,8 @@ if (unavailableMessage) {
                       fontSize: "13px",
                       cursor: "pointer",
                       padding: "3px 10px",
-                      justifyContent:"center",
-                      alignItems:"center",
+                      justifyContent: "center",
+                      alignItems: "center",
                       borderRadius: 4,
                       border: levels.includes(lv)
                         ? "2px solid currentColor"
@@ -899,7 +1512,7 @@ if (unavailableMessage) {
                 />
               </div>
             </div>
-            <AdvancedFilters table="text_log" value={adv} onChange={setAdv}/>
+            <AdvancedFilters table="text_log" value={adv} onChange={setAdv} />
             <div
               style={{
                 display: "flex",
@@ -921,9 +1534,18 @@ if (unavailableMessage) {
                 />
               </div>
               <button
+                title={
+                  liveState?.isNotConnectedClusterNode()
+                    ? "No cluster nodes configured"
+                    : ""
+                }
                 className="btn btn-primary"
                 type="submit"
-                disabled={q.loading || !levels.length}
+                disabled={
+                  q.loading ||
+                  !levels.length ||
+                  liveState?.isNotConnectedClusterNode()
+                }
               >
                 {q.loading ? (
                   <>
@@ -945,9 +1567,9 @@ if (unavailableMessage) {
             <thead>
               <tr>
                 <th>S.No</th>
-              {[...TEXT_LOG_COLS, ...extras].map((c) => (
-              <th key={c}>{c}</th>
-              ))}
+                {[...TEXT_LOG_COLS, ...extras].map((c) => (
+                  <th key={c}>{c}</th>
+                ))}
               </tr>
             </thead>
 
@@ -976,7 +1598,7 @@ if (unavailableMessage) {
                   >
                     <td>{i + 1}</td>
 
-                     {[...TEXT_LOG_COLS, ...extras].map((c) => (
+                    {[...TEXT_LOG_COLS, ...extras].map((c) => (
                       <td
                         key={c}
                         style={
