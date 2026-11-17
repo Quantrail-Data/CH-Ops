@@ -224,6 +224,10 @@ export default function UserManagement() {
     });
   }
 
+  function resetCreateForm() {
+    setForm({ username: "", email: "", role: "readonly" });
+  }
+
   async function createUser(e) {
     e.preventDefault();
     try {
@@ -237,7 +241,7 @@ export default function UserManagement() {
       });
       toast.success(`User "${form.username}" created.`);
       setSetupURL(r?.setPasswordUrl);
-      setForm({ username: "", email: "", role: "readonly" });
+      resetCreateForm();
       setShowCreate(false);
       load();
     } catch (err) {
@@ -418,6 +422,7 @@ async function resetPassword(id,initUser) {
             <button
               className="btn btn-primary btn-sm"
               onClick={() => {
+                if (!showCreate) resetCreateForm();
                 setShowCreate(!showCreate);
                 if (!showCreate) setChangePw((p) => ({ ...p, show: false }));
               }}
