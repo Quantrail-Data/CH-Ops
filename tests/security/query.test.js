@@ -59,7 +59,7 @@ describe("service account: readonly and editor users", () => {
       expect(result.status).toBe(400);
     });
 
-    it(`runs a SELECT from ${role} with readonly=1`, async () => {
+    it(`runs a SELECT from ${role} with readonly=2`, async () => {
       app.clickHouse.requests.length = 0;
       const result = await app.api(
         role,
@@ -70,7 +70,9 @@ describe("service account: readonly and editor users", () => {
       expect(result.status).toBe(200);
       const sent = sentToClickHouse("SELECT 42");
       expect(sent.length).toBe(1);
-      expect(sent[0].readonly).toBe("1");
+      // Level 2, not 1: level 1 also blocks changing settings, which would
+      // silently defeat a caller's max_result_rows (Max rows) override.
+      expect(sent[0].readonly).toBe("2");
       expect(sent[0].user).toBe("service");
     });
 
@@ -114,7 +116,7 @@ describe("service account: readonly and editor users", () => {
       expect(result.status).toBe(200);
       const sent = sentToClickHouse("SELECT 'readonly' AS note");
       expect(sent.length).toBe(1);
-      expect(sent[0].readonly).toBe("1");
+      expect(sent[0].readonly).toBe("2");
     });
   }
 });
@@ -182,6 +184,6 @@ describe("settings passed with a query", () => {
       queryBody("SELECT 43", { settings: { readonly: 0 } }),
     );
     const sent = sentToClickHouse("SELECT 43");
-    expect(sent[0].readonly).toBe("1");
+    expect(sent[0].readonly).toBe("2");
   });
 });
