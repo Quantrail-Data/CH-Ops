@@ -31,9 +31,10 @@ export async function executeQuery({
 }) {
   const proto = secure ? "https" : "http";
   // Apply ClickHouse's readonly setting as the authoritative guard for read-
-  // only requests.
+  // only requests. Use level 2, not 1: level 1 also blocks changing settings
+  // (e.g. max_result_rows), which would silently defeat the Max rows cap.
   const url = new URL(`${proto}://${host}:${port}/`);
-  if (readOnly) url.searchParams.set("readonly", "1");
+  if (readOnly) url.searchParams.set("readonly", "2");
 
   // Parameter and setting names become part of the request URL, so they are
   // validated before use.

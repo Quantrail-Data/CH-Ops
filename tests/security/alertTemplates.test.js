@@ -99,7 +99,7 @@ describe("rule test", () => {
     const cpuQuery = app.clickHouse.requests.find((query) =>
       query.sql.includes("cpu_busy_percent"),
     );
-    expect(cpuQuery.readonly).toBe("1");
+    expect(cpuQuery.readonly).toBe("2");
   });
 
   it("shows the ClickHouse error when the data is missing", async () => {
