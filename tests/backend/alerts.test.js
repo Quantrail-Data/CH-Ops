@@ -57,6 +57,8 @@ function createQuery(table) {
 }
 
 const dbMock = {
+  transaction: (callback) => callback(dbMock),
+
   select: () => ({
     from: (table) => createQuery(table),
   }),
@@ -122,9 +124,9 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertChannels: alertChannelsMock,
   alertRuleChannels: alertRuleChannelsMock,
   appSettings: {},
-  dashboards:{},
-  charts:{},
-  appUsers:{},
+  dashboards: {},
+  charts: {},
+  appUsers: {},
   // clusterUtils imports these, so a suite loading the real module after this
   // one needs them present.
   clusters: {},
@@ -144,7 +146,9 @@ mock.module("../../src/backend/services/notifier.js", () => ({
   validateWebhookUrl: async (url) => {
     checkedWebhookUrls.push(url);
     if (url.includes("private-host")) {
-      throw new Error("Webhook URL cannot point to localhost, private networks, link-local or special addresses");
+      throw new Error(
+        "Webhook URL cannot point to localhost, private networks, link-local or special addresses",
+      );
     }
   },
 }));
@@ -160,7 +164,6 @@ mock.module("../../src/backend/services/alertScheduler.js", () => ({
     return new Promise(() => {});
   },
 }));
-
 
 const {
   createRule,
@@ -236,9 +239,9 @@ describe("Alert Rules Controller", () => {
     expect(fakeDB.rules.length).toBe(1);
   });
 
-  
-
   it("if channel id present insert it ", () => {
+    fakeDB.channels.push({ id: 1 }, { id: 3 });
+
     const { req, res } = mockReqRes({
       name: "cpu alert",
       sql: "SELECT 1",
@@ -251,9 +254,14 @@ describe("Alert Rules Controller", () => {
     expect(res.statusCode).toBe(201);
     expect(res.jsonData.name).toBe("cpu alert");
     expect(fakeDB.rules.length).toBe(1);
+    expect(fakeDB.ruleChannels.map((link) => link.alertChannelId)).toEqual([
+      1, 3,
+    ]);
   });
 
   it("if error happens throw 500 code ", () => {
+    fakeDB.channels.push({ id: 1 }, { id: 3 });
+
     const { req, res } = mockReqRes({
       name: "cpu alert",
       sql: "SELECT 1",
@@ -302,11 +310,12 @@ describe("Alert Rules Controller", () => {
     expect(res.jsonData[0].name).toBe("test");
   });
 
-  it("updateRule should with respected nodes and channels", () => {
+  it("updateRule should with respected nodes and channels", async () => {
     fakeDB.rules.push({
       id: 1,
       name: "old",
     });
+    fakeDB.channels.push({ id: 1 }, { id: 2 });
 
     const { req, res } = mockReqRes(
       {
@@ -320,12 +329,15 @@ describe("Alert Rules Controller", () => {
       },
     );
 
-    updateRule(req, res);
+    await updateRule(req, res);
 
     expect(res.statusCode).toBe(200);
+    expect(fakeDB.ruleChannels.map((link) => link.alertChannelId)).toEqual([
+      1, 2,
+    ]);
   });
 
-  it("updateRule should update without crashing", () => {
+  it("updateRule should update without crashing", async () => {
     fakeDB.rules.push({
       id: 1,
       name: "old",
@@ -340,12 +352,12 @@ describe("Alert Rules Controller", () => {
       },
     );
 
-    updateRule(req, res);
+    await updateRule(req, res);
 
     expect(res.statusCode).toBe(200);
   });
 
-  it("updateRule should throw error any error came", () => {
+  it("updateRule should throw error any error came", async () => {
     fakeDB.rules.push({
       id: 1,
       name: "old",
@@ -362,7 +374,7 @@ describe("Alert Rules Controller", () => {
 
     dbMock.update = mock(() => false);
 
-    updateRule(req, res);
+    await updateRule(req, res);
 
     expect(res.statusCode).toBe(500);
   });
@@ -435,7 +447,12 @@ describe("Alert Channels", () => {
   });
 
   it("updateChannel should udpate channel", async () => {
-    fakeDB.channels.push({ id: 1, name: "slack", type: "slack", config: "{}" });
+    fakeDB.channels.push({
+      id: 1,
+      name: "slack",
+      type: "slack",
+      config: "{}",
+    });
     const { req, res } = mockReqRes({
       id: 1,
       name: "slack",
@@ -457,7 +474,12 @@ describe("Alert Channels", () => {
   });
 
   it("updateChannel should 500 if any backend error happen", async () => {
-    fakeDB.channels.push({ id: 1, name: "slack", type: "slack", config: "{}" });
+    fakeDB.channels.push({
+      id: 1,
+      name: "slack",
+      type: "slack",
+      config: "{}",
+    });
     const { req, res } = mockReqRes({
       id: 1,
       name: "slack",
@@ -532,15 +554,17 @@ describe("Alert Channels", () => {
         url: "x",
       }),
     });
-     dbMock.update = mock(() => false)
+    dbMock.update = mock(() => false);
 
     const { req, res } = mockReqRes({}, { id: "1" });
 
     await testChannel(req, res);
 
-    expect(res.jsonData).toEqual(expect.objectContaining({
-      ok: false,
-    }));
+    expect(res.jsonData).toEqual(
+      expect.objectContaining({
+        ok: false,
+      }),
+    );
   });
 });
 
@@ -560,7 +584,12 @@ describe("channel type and webhook check", () => {
   });
 
   it("updateChannel refuses an unknown type", async () => {
-    fakeDB.channels.push({ id: 1, name: "slack", type: "slack", config: "{}" });
+    fakeDB.channels.push({
+      id: 1,
+      name: "slack",
+      type: "slack",
+      config: "{}",
+    });
     const { req, res } = mockReqRes({ type: "sms" }, { id: "1" });
     await updateChannel(req, res);
     expect(res.statusCode).toBe(400);
@@ -575,7 +604,9 @@ describe("channel type and webhook check", () => {
     });
     await createChannel(req, res);
     expect(res.statusCode).toBe(400);
-    expect(res.jsonData.error).toContain("private networks, link-local or special addresses");
+    expect(res.jsonData.error).toContain(
+      "private networks, link-local or special addresses",
+    );
     expect(fakeDB.channels.length).toBe(0);
   });
 
@@ -587,11 +618,18 @@ describe("channel type and webhook check", () => {
     });
     await createChannel(req, res);
     expect(res.statusCode).toBe(201);
-    expect(checkedWebhookUrls).toEqual(["https://chat.googleapis.com/v1/spaces/x"]);
+    expect(checkedWebhookUrls).toEqual([
+      "https://chat.googleapis.com/v1/spaces/x",
+    ]);
   });
 
   it("updateChannel refuses a new webhook URL that fails the check", async () => {
-    fakeDB.channels.push({ id: 1, name: "teams", type: "teams", config: "{}" });
+    fakeDB.channels.push({
+      id: 1,
+      name: "teams",
+      type: "teams",
+      config: "{}",
+    });
     const { req, res } = mockReqRes(
       { config: { webhook_url: "https://private-host/hook" } },
       { id: "1" },
@@ -601,7 +639,12 @@ describe("channel type and webhook check", () => {
   });
 
   it("updateChannel does not check the masked URL again", async () => {
-    fakeDB.channels.push({ id: 1, name: "teams", type: "teams", config: "{}" });
+    fakeDB.channels.push({
+      id: 1,
+      name: "teams",
+      type: "teams",
+      config: "{}",
+    });
     const { req, res } = mockReqRes(
       { config: { webhook_url: "*".repeat(15) } },
       { id: "1" },
@@ -614,13 +657,22 @@ describe("channel type and webhook check", () => {
 
 describe("turning off a firing rule", () => {
   it("answers at once and sends the closing messages in the background", async () => {
-    fakeDB.rules.push({ id: 4, name: "cpu", enabled: true, lastState: "firing" });
+    fakeDB.rules.push({
+      id: 4,
+      name: "cpu",
+      enabled: true,
+      lastState: "firing",
+    });
     const { req, res } = mockReqRes({ enabled: false }, { id: "4" });
 
     // The fake sends never end. The answer must still come.
     const answer = updateRule(req, res);
-    const timeout = new Promise((resolve) => setTimeout(() => resolve("timeout"), 500));
-    expect(await Promise.race([answer.then(() => "answered"), timeout])).toBe("answered");
+    const timeout = new Promise((resolve) =>
+      setTimeout(() => resolve("timeout"), 500),
+    );
+    expect(
+      await Promise.race([answer.then(() => "answered"), timeout]),
+    ).toBe("answered");
     expect(res.statusCode).toBe(200);
     expect(disableNotifyCalls).toEqual([4]);
   });
