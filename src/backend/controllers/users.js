@@ -3,7 +3,7 @@
 // Implements 4-tier RBAC user management, restricting hierarchical role modifications and credential updates by access level.
 
 import crypto from "crypto";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, ne } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { sendNotification } from "../services/notifier.js";
 import { resolveSystemSmtp } from "../services/systemSmtp.js";
@@ -102,6 +102,15 @@ function startPasswordSetup(req, userId) {
   return setupLink(req, setupToken);
 }
 
+const MAX_SUPERADMINS = 3;
+
+function countSuperadmins(tx) {
+  const rows = tx
+    ? tx.select().from(appUsers).all()
+    : db.select().from(appUsers).all();
+  return rows.filter((u) => u.role === "superadmin").length;
+}
+
 // -- Middleware --
 
 // Blocks anyone below admin level. Used on user management write routes.
@@ -182,19 +191,6 @@ export async function createUser(req, res) {
       // admins can create other admins - that's fine
     }
 
-    // Max 3 superadmins
-    if (newRole === "superadmin") {
-      const count = db
-        .select()
-        .from(appUsers)
-        .all()
-        .filter((u) => u.role === "superadmin").length;
-      if (count >= 3)
-        return res
-          .status(400)
-          .json({ error: "Maximum 3 super admins allowed." });
-    }
-
     const setupToken = crypto.randomBytes(32).toString("hex");
 
     const setupTokenHash = crypto
@@ -203,21 +199,65 @@ export async function createUser(req, res) {
       .digest("hex");
 
     const setupTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
-    const user = db
-      .insert(appUsers)
-      .values({
-        username: username,
-        passwordHash: null,
-        role: newRole,
-        email: email,
-        mustChangePassword: true,
 
-        // One-time password setup information
-        passwordSetupTokenHash: setupTokenHash,
-        passwordSetupTokenExpiresAt: setupTokenExpiresAt.toISOString(),
-      })
-      .returning()
-      .get();
+    let user;
+    try {
+      user = db.transaction((tx) => {
+        const racedUsername = tx
+          .select()
+          .from(appUsers)
+          .where(eq(appUsers.username, username.trim()))
+          .get();
+        if (racedUsername) {
+          const err = new Error("Username already exists.");
+          err.statusCode = 409;
+          throw err;
+        }
+        const racedEmail = tx
+          .select()
+          .from(appUsers)
+          .where(eq(appUsers.email, email.trim()))
+          .get();
+        if (racedEmail) {
+          const err = new Error("Email already exists.");
+          err.statusCode = 409;
+          throw err;
+        }
+        if (newRole === "superadmin") {
+          const count = tx
+            .select()
+            .from(appUsers)
+            .all()
+            .filter((u) => u.role === "superadmin").length;
+          if (count >= MAX_SUPERADMINS) {
+            const err = new Error("Maximum 3 super admins allowed.");
+            err.statusCode = 400;
+            throw err;
+          }
+        }
+
+        return tx
+          .insert(appUsers)
+          .values({
+            username: username,
+            passwordHash: null,
+            role: newRole,
+            email: email,
+            mustChangePassword: true,
+
+            // One-time password setup information
+            passwordSetupTokenHash: setupTokenHash,
+            passwordSetupTokenExpiresAt: setupTokenExpiresAt.toISOString(),
+          })
+          .returning()
+          .get();
+      });
+    } catch (err) {
+      if (err.statusCode === 400 || err.statusCode === 409) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      throw err;
+    }
 
     const setPasswordUrl = setupLink(req, setupToken);
 
@@ -283,6 +323,17 @@ export async function updateUser(req, res) {
         return res
           .status(403)
           .json({ error: "Cannot change this user's email." });
+
+      if (req.body.email?.trim() !== target.email) {
+        const emailTaken = db
+          .select()
+          .from(appUsers)
+          .where(eq(appUsers.email, req.body.email?.trim()))
+          .get();
+        if (emailTaken && emailTaken.id !== id)
+          return res.status(409).json({ error: "Email already exists." });
+      }
+
       updates.email = req.body.email;
     }
 
@@ -298,18 +349,6 @@ export async function updateUser(req, res) {
         return res.status(403).json({
           error: "You do not have permission to change this user's role.",
         });
-      }
-      // Max 3 superadmins
-      if (newRole === "superadmin") {
-        const count = db
-          .select()
-          .from(appUsers)
-          .all()
-          .filter((u) => u.role === "superadmin").length;
-        if (count >= 3)
-          return res
-            .status(400)
-            .json({ error: "Maximum 3 super admins allowed." });
       }
       updates.role = newRole;
     }
@@ -373,9 +412,43 @@ export async function updateUser(req, res) {
       return res.json({ ok: true, setPasswordUrl });
     }
 
-    if (Object.keys(updates).length > 0) {
-      db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+    try {
+      db.transaction((tx) => {
+        if (updates.email !== undefined) {
+          const emailTaken = tx
+            .select()
+            .from(appUsers)
+            .where(eq(appUsers.email, updates.email?.trim()))
+            .get();
+          if (emailTaken && emailTaken.id !== id) {
+            const err = new Error("Email already exists.");
+            err.statusCode = 409;
+            throw err;
+          }
+        }
+        if (updates.role === "superadmin") {
+          const count = tx
+            .select()
+            .from(appUsers)
+            .all()
+            .filter((u) => u.role === "superadmin").length;
+          if (count >= MAX_SUPERADMINS) {
+            const err = new Error("Maximum 3 super admins allowed.");
+            err.statusCode = 400;
+            throw err;
+          }
+        }
+        if (Object.keys(updates).length > 0) {
+          tx.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+        }
+      });
+    } catch (err) {
+      if (err.statusCode === 400 || err.statusCode === 409) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      throw err;
     }
+
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json(error.message);
