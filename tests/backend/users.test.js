@@ -15,6 +15,7 @@ function createQuery() {
 
   return {
     where: (cond) => {
+      cond = eq(cond.queryChunks[1], cond.queryChunks[3]);
       let filtered = data;
 
       if (cond?.field === "id") {
@@ -23,6 +24,10 @@ function createQuery() {
 
       if (cond?.field === "username") {
         filtered = data.filter((u) => u.username === cond.value);
+      }
+
+      if (cond?.field === "email") {
+        filtered = data.filter((u) => u.email === cond.value);
       }
 
       return {
@@ -41,6 +46,8 @@ function createQuery() {
 }
 
 const db = {
+  transaction: (callback) => callback(db),
+
   select: () => ({
     from: () => createQuery(),
   }),
@@ -61,7 +68,8 @@ const db = {
     set: (u) => ({
       where: (cond) => ({
         run: () => {
-          const idx = fakeDB.users.findIndex((x) => x.id === cond.value);
+          const { value } = eq(cond.queryChunks[1], cond.queryChunks[3]);
+          const idx = fakeDB.users.findIndex((x) => x.id === value);
           if (idx !== -1) {
             fakeDB.users[idx] = {
               ...fakeDB.users[idx],
@@ -76,7 +84,8 @@ const db = {
   delete: () => ({
     where: (cond) => ({
       run: () => {
-        fakeDB.users = fakeDB.users.filter((u) => u.id !== cond.value);
+        const { value } = eq(cond.queryChunks[1], cond.queryChunks[3]);
+        fakeDB.users = fakeDB.users.filter((u) => u.id !== value);
         return { changes: 1 };
       },
     }),
@@ -107,7 +116,13 @@ beforeAll(async () => {
   mock.module("../../src/backend/db/index.js", () => ({
     db,
     rawSqlite: {},
-    appUsers: {},
+    appUsers: {
+      id: "id",
+      username: "username",
+      email: "email",
+      createdAt: "createdAt",
+      tokenVersion: "tokenVersion",
+    },
     alertRules: {},
     alertChannels: {},
     alertRuleChannels: {},
@@ -190,14 +205,14 @@ describe("Users Controller", () => {
   });
 
   it("createUser rejects duplicate email", async () => {
-    fakeDB.users.push({ id: 1, username: "john", email:"test@gmail.com"});
+    fakeDB.users.push({ id: 1, username: "john", email: "test@gmail.com" });
 
     await createUser(
       {
         user: { role: "admin" },
         body: {
-          username: "john",
-          email:"test@gmail.com",
+          username: "jane",
+          email: "test@gmail.com",
           audit: {},
         },
       },
@@ -208,14 +223,14 @@ describe("Users Controller", () => {
   });
 
   it("createUser blocks superadmin creation by admin", async () => {
-    console.log(fakeDB)
+    console.log(fakeDB);
     await createUser(
       {
         user: { role: "admin" },
         body: {
           username: "root",
           role: "superadmin",
-          email:"test@gmail.com",
+          email: "test@gmail.com",
           audit: {},
         },
       },
@@ -323,6 +338,8 @@ describe("Users Controller", () => {
           role: "superadmin",
           audit: {},
         },
+        protocol: "https",
+        get: () => "chops.example.com",
       },
       { status: statusMock, json: jsonMock },
     );
@@ -500,7 +517,7 @@ describe("Users Controller", () => {
         user: { role: "admin" },
         body: {
           username: "john",
-          email:"test@gmail.com",
+          email: "test@gmail.com",
           audit: {},
         },
         ip: "127.0.0.1",
