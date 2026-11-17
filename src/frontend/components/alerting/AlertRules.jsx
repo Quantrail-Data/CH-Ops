@@ -47,6 +47,7 @@ export default function AlertRules({mainRef}) {
   const [cronError, setCronError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const refreshTimerRef = useRef(null);
+  const formRef = useRef(null);
   const [f, setF] = useState({
     name: "",
     description: "",
@@ -201,6 +202,15 @@ export default function AlertRules({mainRef}) {
     });
   }
 
+  function scrollFormToTop() {
+    if (
+      formRef.current &&
+      typeof formRef.current.scrollIntoView === "function"
+    ) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   function resetForm() {
     setF({
       name: "",
@@ -252,6 +262,7 @@ export default function AlertRules({mainRef}) {
     setShowTemplatePicker(false);
     setTemplateSearch("");
     setShowForm(true);
+    setTimeout(scrollFormToTop, 0);
   }
 
 
@@ -272,6 +283,11 @@ export default function AlertRules({mainRef}) {
     const template = templates.find((item) => item.id === editingTemplateId);
     if (!template) return;
     setF((previous) => ({ ...previous, ...templateFormValues(template) }));
+  }
+
+  function cancelForm() {
+    resetForm();
+    setShowForm(false);
   }
 
   async function save() {
@@ -428,6 +444,7 @@ export default function AlertRules({mainRef}) {
     setTestResults(null);
     setShowForm(true);
     setCronError(validateCron(rule.schedule || ""));
+    setTimeout(scrollFormToTop, 0);
   }
 
 
@@ -490,7 +507,7 @@ export default function AlertRules({mainRef}) {
                   className={
                     showTemplateRulesThatAreOff ? "ti ti-eye" : "ti ti-eye-off"
                   }
-                  style={{ fontSize: 14 }}
+                  style={{ fontSize: 14, color: "inherit" }}
                 />
               </div>
               <ToggleSwitch
@@ -609,7 +626,7 @@ export default function AlertRules({mainRef}) {
         </div>
       )}
       {showForm && isAdmin && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <div ref={formRef} className="card" style={{ padding: 20, marginBottom: 20 }}>
           <div
             style={{
               display: "grid",
@@ -972,6 +989,13 @@ export default function AlertRules({mainRef}) {
               <Icon className="ti ti-refresh"></Icon> Reset to template
             </button>
           )}
+          <button
+            className="btn btn-secondary"
+            onClick={cancelForm}
+            style={{ marginLeft: "10px" }}
+          >
+            <Icon className="ti ti-x"></Icon> Cancel
+          </button>
           {testResults && (
             <table className="data-table" style={{ marginTop: 14 }}>
               <thead>
