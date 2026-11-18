@@ -2,7 +2,6 @@
 // Contributors -> kathir Moorthy, kathir dhasan
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import Icon from "../common/Icon.jsx";
 import { useState, useCallback, lazy, Suspense, useMemo, useRef } from "react";
 import {
   HashRouter,
@@ -19,7 +18,6 @@ import BugReportButton from "./BugReportButton.jsx";
 import { ToastProvider } from "./Toast.jsx";
 import AlertMarquee from "./AlertMarquee.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-import { BREADCRUMB_MAP } from "../../utils/routeMeta.js";
 import { useLiveOverview } from "../overview/LiveOverview.jsx";
 import MiniErrorClusterConnected from "../common/MiniErrorClusterConnected.jsx";
 
@@ -124,45 +122,6 @@ const CORE_ROUTES = [
   ["/qurioz/:session_id?", QuriozChatComponent],
 ];
 
-function Breadcrumb({ route }) {
-  const crumbs = BREADCRUMB_MAP[route];
-  if (!crumbs || route.startsWith("editor/")) return null; // hide on SQL editor (no section header)
-  return (
-    <div
-      style={{
-        padding: "8px 0px 0",
-        fontSize: "0.75rem",
-        color: "var(--text-muted)",
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        marginBottom: "10px",
-      }}
-    >
-      <Icon className="ti ti-home" style={{ fontSize: 13 }}></Icon>
-      {crumbs.map((c, i) => (
-        <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {i > 0 && (
-            <Icon
-              className="ti ti-chevron-right"
-              style={{ fontSize: 10, opacity: 0.5 }}
-            ></Icon>
-          )}
-          <span
-            style={
-              i === crumbs.length - 1
-                ? { color: "var(--text-secondary)", fontWeight: 500 }
-                : {}
-            }
-          >
-            {c}
-          </span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function MainLayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -209,26 +168,31 @@ function MainLayoutInner() {
 
   return (
     <ToastProvider>
+      {/* Style guide shell: a full-height sidebar (brand, cluster, nav) beside
+          a column holding the top bar (breadcrumb, search, node, account),
+          the page and the footer. */}
       <div className="app-shell">
+        <Sidebar
+          currentRoute={route}
+          onNavigate={handleNavigate}
+          collapsed={sidebarCollapsed}
+          forceCollapsed={false}
+          onToggle={() => setSidebarCollapsed((v) => !v)}
+          onRefresh={handleRefresh}
+        />
+        <div className="app-column">
         <Navbar
+          route={route}
           onRefresh={handleRefresh}
           onOpenSearch={() => setSearchOpen(true)}
         />
         <AlertMarquee />
         <div className="app-body">
-          <Sidebar
-            currentRoute={route}
-            onNavigate={handleNavigate}
-            collapsed={sidebarCollapsed}
-            forceCollapsed={false}
-            onToggle={() => setSidebarCollapsed((v) => !v)}
-          />
           <main
             className="app-main"
             ref={mainRef}
             style={route === "editor/query" ? { padding: "0px" } : {}}
           >
-            <Breadcrumb route={route} />
             <ErrorBoundary>
               <Suspense fallback={fallback}>
                 <Routes>
@@ -302,6 +266,7 @@ function MainLayoutInner() {
           <span className="app-version-badge">
             v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}
           </span>
+        </div>
         </div>
         <GlobalSearch
           open={searchOpen}

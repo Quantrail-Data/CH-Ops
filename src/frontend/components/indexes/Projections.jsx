@@ -8,6 +8,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
 import { runQuery } from "../../utils/api.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
+import { themeColor } from "../../utils/theme.js";
 import { treeSize, treeSeries } from "../../utils/treeChart.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
@@ -255,7 +256,7 @@ function ViewProjections() {
     });
     return {
       name: db,
-      itemStyle: { color: "#8b5cf6" },
+      itemStyle: { color: themeColor("--accent", "#9590FF") },
       children: Object.entries(tableMap).map(([t, ps]) => ({
         name: t,
         itemStyle: { color: "#f59e0b" },

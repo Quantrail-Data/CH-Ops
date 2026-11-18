@@ -51,9 +51,10 @@ describe('Login carousel: naming and formatting conventions', () => {
 });
 
 describe('Login carousel: image preview (lightbox)', () => {
-  it('marquee thumbnails are clickable and open a preview', () => {
-    // both marquee columns wire the click to the lightbox state
-    expect(code.match(/onClick=\{\(\) => setLightboxSrc\(img\)\}/g)?.length).toBe(2);
+  it('showcase screenshots are clickable and open a preview', () => {
+    // the framed screenshot carousel wires each slide to the lightbox state
+    expect(code.match(/onClick=\{\(\) => setLightboxSrc\(img\)\}/g)?.length).toBe(1);
+    expect(code).toContain('login-window-img');
     expect(code).toContain('login-lightbox-overlay');
     expect(code).toContain('login-lightbox-img');
   });

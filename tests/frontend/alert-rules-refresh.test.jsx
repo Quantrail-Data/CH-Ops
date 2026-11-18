@@ -138,7 +138,7 @@ describe("Alert Rules: refresh", () => {
     fireEvent.click(screen.getByRole("button", { name: /New Rule/ }));
     const scheduleInput = screen.getByDisplayValue("*/5 * * * *");
     const nameInput = scheduleInput
-      .closest(".card")
+      .closest('[role="dialog"]')
       .querySelector(".form-group input.form-input");
     fireEvent.change(nameInput, { target: { value: "Rule in progress" } });
 

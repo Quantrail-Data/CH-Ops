@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import { SegmentedControl } from "../ui/index.jsx";
 import Select from "../common/Select.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
@@ -273,21 +274,13 @@ export default function AppConfig() {
         then to a built-in default.
       </p>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            className={
-              tab === t.id
-                ? "btn btn-primary btn-sm"
-                : "btn btn-secondary btn-sm"
-            }
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        ariaLabel="App config sections"
+        style={{ marginBottom: 20 }}
+        value={tab}
+        onChange={setTab}
+        options={TABS.map((t) => ({ value: t.id, label: t.label }))}
+      />
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {rows

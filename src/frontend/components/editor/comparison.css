@@ -210,13 +210,13 @@
 /* Mild tint so the left (current) and right (experimental) result tables read
    as visually distinct. Headers carry the stronger tint, cells a faint wash. */
 .cmp-pane-left .cmp-pane-results .data-table thead th {
-  background: var(--accent-soft, rgba(124, 58, 237, 0.1));
+  background: var(--accent-soft);
 }
 .cmp-pane-right .cmp-pane-results .data-table thead th {
   background: var(--bg-hover);
 }
 .cmp-pane-left .cmp-pane-results .data-table-wrap {
-  border-top: 2px solid var(--accent, #7c3aed);
+  border-top: 2px solid var(--accent);
 }
 .cmp-pane-right .cmp-pane-results .data-table-wrap {
   border-top: 2px solid var(--border-strong, var(--text-muted));

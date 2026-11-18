@@ -22,7 +22,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
   const styles = {
     disabledButton: {
       padding: "8px",
-      color: "#9CA3AF",
+      color: "var(--text-muted)",
       cursor: "not-allowed",
       border: "none",
       background: "transparent",
@@ -43,23 +43,23 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
     },
 
     listeningButton: {
-      color: "#fff",
-      backgroundColor: "#5D3FD3",
-      border: "1px solid #5D3FD3",
-      boxShadow: "0 10px 15px rgba(0,0,0,0.15)"
+      color: "var(--on-accent)",
+      backgroundColor: "var(--accent-solid)",
+      border: "1px solid var(--accent-solid)",
+      boxShadow: "var(--shadow-md)"
     },
 
     errorButton: {
-      color: "#9CA3AF",
-      backgroundColor: "#F9FAFB",
-      border: "1px solid #E5E7EB",
+      color: "var(--text-muted)",
+      backgroundColor: "var(--bg-sunken)",
+      border: "1px solid var(--border-default)",
       cursor: "not-allowed"
     },
 
     defaultButton: {
-      color: "#ffffffff",
-      backgroundColor: "#8b5cf6",
-      border: "1px solid #8b5cf6",
+      color: "var(--on-accent)",
+      backgroundColor: "var(--accent-solid)",
+      border: "1px solid var(--accent-solid)",
       cursor: "pointer"
     },
 
@@ -73,7 +73,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       right: "-4px",
       width: "8px",
       height: "8px",
-      backgroundColor: "#fff",
+      backgroundColor: "var(--bg-surface)",
       borderRadius: "50%"
     },
 
@@ -82,12 +82,12 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       top: "-48px",
       left: "-80px",
       transform: "translateX(-50%)",
-      backgroundColor: "#5D3FD3",
-      color: "#fff",
+      backgroundColor: "var(--accent-solid)",
+      color: "var(--on-accent)",
       fontSize: "12px",
       padding: "8px 12px",
       borderRadius: "8px",
-      boxShadow: "0 10px 15px rgba(0,0,0,0.15)",
+      boxShadow: "var(--shadow-md)",
       whiteSpace: "nowrap",
       zIndex: 50
     },
@@ -106,7 +106,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
     bar: {
       width: "4px",
       height: "16px",
-      backgroundColor: "#fff",
+      backgroundColor: "var(--bg-surface)",
       borderRadius: "9999px"
     },
 
@@ -115,8 +115,8 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       top: "-36px",
       left: "-29px",
       transform: "translateX(-50%)",
-      backgroundColor: "#5D3FD3",
-      color: "#fff",
+      backgroundColor: "var(--accent-solid)",
+      color: "var(--on-accent)",
       fontSize: "12px",
       padding: "4px 8px",
       borderRadius: "4px",
@@ -130,7 +130,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       left: "50%",
       width: "8px",
       height: "8px",
-      backgroundColor: "#5D3FD3",
+      backgroundColor: "var(--accent-solid)",
       transform: "translateX(-50%) rotate(45deg)"
     }
   };

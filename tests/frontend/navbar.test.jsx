@@ -48,6 +48,7 @@ vi.mock('../../src/frontend/assets/chops-dark.svg', () => ({ default: 'dark.svg'
 
 // Import AFTER the mocks are registered.
 import Navbar from '../../src/frontend/components/layout/Navbar.jsx';
+import ClusterSwitcher from '../../src/frontend/components/layout/ClusterSwitcher.jsx';
 
 // Helpers
 
@@ -187,11 +188,30 @@ describe('Navbar core', () => {
     expect(screen.getByText('admin')).toBeTruthy();
   });
 
-  it('renders cluster and node options', () => {
+  it('renders node options (the cluster picker lives in the sidebar)', () => {
     renderNavbar();
-    expect(screen.getByText('Production')).toBeTruthy();
+    expect(screen.queryByText('Production')).toBeNull();
     expect(screen.getByText('node-1')).toBeTruthy();
     expect(screen.getByText('node-2')).toBeTruthy();
+  });
+
+  it('ClusterSwitcher renders the clusters and switches on change', async () => {
+    const state = connState({ clusters: [{ id: 'c1', name: 'Production' }, { id: 'c2', name: 'Staging' }] });
+    mockUseConnection.mockReturnValue(state);
+    const onRefresh = vi.fn();
+    render(<ClusterSwitcher onRefresh={onRefresh} />);
+    expect(screen.getByText('Production')).toBeTruthy();
+    expect(screen.getByText('Staging')).toBeTruthy();
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'c2' } });
+    expect(state.switchCluster).toHaveBeenCalledWith('c2');
+    await waitFor(() => expect(state.testConnection).toHaveBeenCalled());
+    expect(onRefresh).toHaveBeenCalled();
+  });
+
+  it('ClusterSwitcher renders nothing without clusters', () => {
+    mockUseConnection.mockReturnValue(connState({ clusters: [] }));
+    const { container } = render(<ClusterSwitcher />);
+    expect(container.innerHTML).toBe('');
   });
 
   it('reconnects when a different node is selected', async () => {

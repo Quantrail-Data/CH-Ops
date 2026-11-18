@@ -46,6 +46,13 @@ const SUGGESTIONS = SUGGESTED_IDS.map((id) =>
   SEARCH_ENTRIES.find((e) => e.id === id),
 ).filter(Boolean);
 
+// Any component can open the palette (e.g. the Home page search field)
+// without a prop chain: requestGlobalSearch() fires this window event.
+export const OPEN_SEARCH_EVENT = "chops:open-search";
+export function requestGlobalSearch() {
+  window.dispatchEvent(new Event(OPEN_SEARCH_EVENT));
+}
+
 export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -67,8 +74,13 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
         onOpen();
       }
     }
+    const onRequest = () => onOpen();
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener(OPEN_SEARCH_EVENT, onRequest);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener(OPEN_SEARCH_EVENT, onRequest);
+    };
   }, [onOpen]);
 
   // Reset when the panel closes; focus the input when it opens.
@@ -168,12 +180,12 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
                 title="Close"
                 aria-label="Close search"
               >
-                <Icon className="ti ti-x"></Icon>
+                <kbd className="kbd">Esc</kbd>
               </button>
             </div>
 
-            {!trimmed && (
-              <div className="global-search-hint">Suggested pages</div>
+            {results.length > 0 && (
+              <div className="global-search-hint">{trimmed ? "Pages" : "Suggested pages"}</div>
             )}
 
             <div className="global-search-results" ref={resultsRef}>
@@ -201,9 +213,6 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
                     <span className="global-search-item-body">
                       <span className="global-search-item-title">
                         {item.title}
-                        <span className="global-search-item-section">
-                          {item.section}
-                        </span>
                       </span>
                       {item.description && (
                         <span className="global-search-item-desc">
@@ -211,9 +220,9 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
                         </span>
                       )}
                     </span>
-                    <Icon
-                      className="ti ti-chevron-right global-search-item-go"
-                    ></Icon>
+                    <span className="global-search-item-section">
+                      {item.section}
+                    </span>
                   </div>
                 ))
               )}

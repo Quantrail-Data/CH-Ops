@@ -10,21 +10,23 @@ function read(f) {
 
 describe("Navbar: Layout", () => {
   const code = read("src/frontend/components/layout/Navbar.jsx");
-  it("three zones: brand, connection, actions", () => {
-    expect(code).toContain("navbar-brand");
-    expect(code).toContain("navbar-connection");
+  it("style guide shell: breadcrumb left, actions right; brand moved to the sidebar", () => {
+    expect(code).toContain("<Breadcrumb route={route} />");
     expect(code).toContain("navbar-actions");
+    expect(code).not.toContain("navbar-brand");
+    const sidebar = read("src/frontend/components/layout/Sidebar.jsx");
+    expect(sidebar).toContain("<SidebarBrand");
   });
   it("user dropdown is rightmost in actions zone", () => {
     expect(code.lastIndexOf("userMenuOpen")).toBeGreaterThan(
       code.indexOf("navbar-actions"),
     );
   });
-  it("80% opaque navbar background", () => {
+  it("solid navbar background (Midnight: no glass blur)", () => {
     const css = read("src/frontend/styles/global.css");
     const r = css.match(/\.navbar\s*\{[^}]+\}/)?.[0] || "";
     expect(r).toContain("background: var(--navbar-bg);");
-    expect(r).toContain("backdrop-filter");
+    expect(r).not.toContain("backdrop-filter");
   });
 });
 
@@ -59,10 +61,10 @@ describe("Navbar: Actions", () => {
   it("reloadConfig on refresh", () => {
     expect(code).toContain("reloadConfig");
   });
-  it("glassy dropdown style with strong blur", () => {
+  it("solid raised dropdown (Midnight: no glass blur)", () => {
     expect(code).toContain("dropdownStyle");
-    expect(code).toContain("glass-dropdown");
-    expect(code).toContain("blur(40px)");
+    expect(code).toContain('background: "var(--bg-raised)"');
+    expect(code).not.toContain("blur(40px)");
   });
   it("Sign Out in user dropdown", () => {
     expect(code).toContain("Sign Out");
@@ -73,11 +75,8 @@ describe("Navbar: Actions", () => {
     expect(code).toContain("App version");
     expect(code).toContain("ClickHouse®");
   });
-  it("role badge colors for 4 roles", () => {
-    expect(code).toContain("badge-amber");
-    expect(code).toContain("badge-purple");
-    expect(code).toContain("badge-blue");
-    expect(code).toContain("badge-gray");
+  it("role badge tone comes from the shared role map", () => {
+    expect(code).toContain("<Badge tone={roleTone(auth.role)}");
   });
 });
 
@@ -97,5 +96,21 @@ describe("Connection Context: reloadConfig", () => {
     expect(
       read("src/frontend/components/admin/ClusterManagement.jsx"),
     ).toContain("reloadConfig");
+  });
+});
+
+describe("roleTone: one role-to-badge map for the whole app", () => {
+  it("maps the four roles to the style guide tones", async () => {
+    const { roleTone } = await import("../../src/frontend/utils/roles.js");
+    expect(roleTone("superadmin")).toBe("accent");
+    expect(roleTone("admin")).toBe("warning");
+    expect(roleTone("editor")).toBe("info");
+    expect(roleTone("readonly")).toBe("neutral");
+    expect(roleTone("something-else")).toBe("neutral");
+  });
+  it("UserManagement uses the same map", () => {
+    const um = read("src/frontend/components/admin/UserManagement.jsx");
+    expect(um).toContain("roleTone(u.role)");
+    expect(um).not.toContain("ROLE_BADGE");
   });
 });
