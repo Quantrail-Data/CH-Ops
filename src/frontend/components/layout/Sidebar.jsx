@@ -4,8 +4,8 @@
 
 import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import ClusterSwitcher, { SidebarBrand } from "./ClusterSwitcher.jsx";
 import { useLocation } from "react-router-dom";
-import {useTheme} from "../../App.jsx"
 
 const CORE_NAV_ITEMS = [
   {
@@ -163,6 +163,7 @@ export default function Sidebar({
   collapsed,
   onToggle,
   forceCollapsed,
+  onRefresh,
 }) {
   const isCollapsed = forceCollapsed || collapsed;
   const location = useLocation();
@@ -178,11 +179,7 @@ export default function Sidebar({
     return initial;
   });
 
-  const {theme} = useTheme();
 
-   function isDark(){
-    return theme === 'dark'
-   }
 
   useEffect(() => {
     const route = (currentRoute || "").toLowerCase();
@@ -234,58 +231,34 @@ export default function Sidebar({
 
   return (
     <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
-      <div className="sidebar-scroll">
-       <div
-        className={`sidebar-item ${currentRoute === "home" ? "active" :
-""}`}
-        onClick={() => onNavigate("home")}
-        title={isCollapsed ? "Home" : undefined}
-        style={isCollapsed ? {} : { padding: "12px 10px", gap: 12 }}
-       >
-        <Icon className="ti ti-home" style={{ fontSize: isCollapsed ? 28
-: 24 }} />
-        <span style={{ fontSize: "11.5px", fontWeight: "700",letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            Home
-        </span>
+      <div className="sidebar-top">
+        <SidebarBrand collapsed={isCollapsed} />
+        <ClusterSwitcher collapsed={isCollapsed} onRefresh={onRefresh} />
       </div>
+      <div className="sidebar-scroll">
+        <div
+          className={`sidebar-item ${currentRoute === "home" ? "active" : ""}`}
+          onClick={() => onNavigate("home")}
+          title={isCollapsed ? "Home" : undefined}
+        >
+          <Icon className="ti ti-home" />
+          <span>Home</span>
+        </div>
         {NAV_ITEMS.map((section) => (
-          <div key={section.id}>
+          <div key={section.id} className="sidebar-group">
             <div
-              className="sidebar-section-header"
+              className={`sidebar-section-header ${openSections[section.id] ? "open" : ""}`}
               onClick={() => handleSectionClick(section.id)}
               title={isCollapsed ? section.label : undefined}
-              style={{
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                userSelect: "none",
-              }}
             >
-              <span
-                className="sidebar-section-icon"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  // width: 25,
-                  // height: 25,
-                  borderRadius: 5,
-                  flexShrink: 0,
-                  transition: "background 0.2s, color 0.2s",
-                }}
-              >
-                <Icon
-                  className={`ti ${section.icon}`}
-                  style={{ fontSize:24, color: isDark() ? "white" : "black" }}
-                />
+              <span className="sidebar-section-icon">
+                <Icon className={`ti ${section.icon}`} />
               </span>
               {!isCollapsed && (
                 <>
-                  <span style={{ flex: 1, fontSize:"11.5px",fontWeight:"700",         whiteSpace: "nowrap",  }}>{section.label}</span>
+                  <span className="sidebar-section-label">{section.label}</span>
                   <Icon
                     className={`ti ti-chevron-${openSections[section.id] ? "down" : "right"}`}
-                    style={{ fontSize: 12, opacity: 0.5 }}
                   />
                 </>
               )}
@@ -295,55 +268,33 @@ export default function Sidebar({
                 className={`sidebar-item ${openSections[section.id] ? "active" : ""}`}
                 onClick={() => handleSectionClick(section.id)}
                 title={section.label}
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
               >
-                <span
-                  className="sidebar-section-icon"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 34.5,
-                    height: 34.5,
-                    borderRadius: 5,
-                    flexShrink: 0,
-                    transition: "background 0.2s, color 0.2s",
-                  }}
-                >
-                                   <Icon
-                    className={`ti ${section.icon}`}
-                    style={{ fontSize:28, color: isDark() ? "white" : "black" }}
-                  />
-                </span>
+                <Icon className={`ti ${section.icon}`} />
               </div>
             )}
-            {!isCollapsed &&
-              openSections[section.id] &&
-              section.children.map((item) =>
-                item?.id === "/qurioz" ? (
-                  <div
-                    key={item.id}
-                    className={`sidebar-item ${currentRoute === item.id?.replace("/", "") ? "active" : ""}`}
-                    onClick={() => navigateTo(item.id, section.id)}
-                    style={{marginLeft:"15px"}}
-                  >
-                    <span style={{fontSize:"13px"}}>{item.label}</span>
-                  </div>
-                ) : (
-                  <div
-                    key={item.id}
-                    className={`sidebar-item ${currentRoute === item.id ? "active" : ""}`}
-                    onClick={() => navigateTo(item.id, section.id)}
-                         style={{marginLeft:"15px"}}
-                  >
-                   <span style={{fontSize:"13px"}}>{item.label}</span>
-                  </div>
-                ),
-              )}
+            {!isCollapsed && openSections[section.id] && (
+              <div className="sidebar-children">
+                {section.children.map((item) =>
+                  item?.id === "/qurioz" ? (
+                    <div
+                      key={item.id}
+                      className={`sidebar-item ${currentRoute === item.id?.replace("/", "") ? "active" : ""}`}
+                      onClick={() => navigateTo(item.id, section.id)}
+                    >
+                      <span>{item.label}</span>
+                    </div>
+                  ) : (
+                    <div
+                      key={item.id}
+                      className={`sidebar-item ${currentRoute === item.id ? "active" : ""}`}
+                      onClick={() => navigateTo(item.id, section.id)}
+                    >
+                      <span>{item.label}</span>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

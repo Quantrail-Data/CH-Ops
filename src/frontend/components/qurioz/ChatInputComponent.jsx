@@ -60,8 +60,8 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
       style={{
         zIndex: isStage() ? 0:10999,
         border: isFocus
-          ? `2px solid ${isDark() ? "#8b5cf6" : "#8b5cf6"}`
-          : `2px solid ${!isDark() ? "lightgray" : "rgba(200,200,200,0.1)"}`,
+          ? "2px solid var(--accent)"
+          : "2px solid var(--border-default)",
         position: "relative",
         ...styleReturnForchatInput(),
       }}

@@ -14,6 +14,7 @@
         "@codemirror/state": "^6.7.1",
         "@codemirror/view": "^6.43.6",
         "@dagrejs/dagre": "^3.0.0",
+        "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
         "@fontsource/b612": "^5.2.7",
         "@fontsource/red-hat-mono": "^5.2.8",
         "@google/genai": "^2.11.0",
@@ -237,6 +238,8 @@
     "@eslint/object-schema": ["@eslint/object-schema@2.1.7", "", {}, "sha512-VtAOaymWVfZcmZbp6E2mympDIHvyjXs/12LqWYjVw6qjrfF+VK+fyG33kChz3nnK+SU5/NeHOqrTEHS8sXO3OA=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
+
+    "@fontsource-variable/atkinson-hyperlegible-next": ["@fontsource-variable/atkinson-hyperlegible-next@5.3.0", "", {}, "sha512-UnLzNUy1RWoLDfydAatP4NaRm99X/WbQEph7q/PymJnCFIOOwKOx3pBmp5ys8trO0dM+CKGuJgeZP9fAR4mQpA=="],
 
     "@fontsource/b612": ["@fontsource/b612@5.2.7", "", {}, "sha512-ALWds7TznSpGM2QUJVqMXLd6GT2LA7XviIbek8YR3+/xoAAjYl6ed0Mh71vFoM8eZv0BSu25D7WMEJw/iwVWlQ=="],
 

@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "../common/Icon.jsx";
+import { SegmentedControl } from "../ui/index.jsx";
 import Select from "../common/Select.jsx";
 import MultiSelect from "../common/MultiSelect.jsx";
 import yaml from "js-yaml";
@@ -1584,19 +1585,12 @@ export default function KubernetesInsight({ cluster }) {
           gap: 8,
         }}
       >
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={
-                tab === t.id ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"
-              }
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          ariaLabel="Kubernetes insight sections"
+          value={tab}
+          onChange={setTab}
+          options={TABS.map((t) => ({ value: t.id, label: t.label }))}
+        />
         <button className="btn btn-secondary btn-sm" onClick={refresh} disabled={busy}>
           <Icon className="ti ti-refresh" /> Refresh
         </button>

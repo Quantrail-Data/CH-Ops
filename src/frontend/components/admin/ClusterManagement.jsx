@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import { SegmentedControl } from "../ui/index.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useConnection } from "../../App.jsx";
@@ -590,27 +591,24 @@ function startEditK8s(cluster) {
       </div>
 
       {k8sEnabled && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-          <button
-            className={tab === "direct" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-            onClick={() => {
-              setTab("direct");
+        <SegmentedControl
+          ariaLabel="Cluster connection type"
+          style={{ marginBottom: 20 }}
+          value={tab}
+          options={[
+            { value: "direct", label: "Direct connection" },
+            { value: "k8s", label: "Kubernetes" },
+          ]}
+          onChange={(next) => {
+            setTab(next);
+            if (next === "direct") {
               setShowK8sWizard(false);
-            }}
-          >
-            Direct connection
-          </button>
-          <button
-            className={tab === "k8s" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-            onClick={() => {
-              setTab("k8s");
+            } else {
               setShowForm(false);
               setEditing(null);
-            }}
-          >
-            Kubernetes
-          </button>
-        </div>
+            }
+          }}
+        />
       )}
 
       {k8sEnabled && tab === "k8s" && showK8sWizard && (

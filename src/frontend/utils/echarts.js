@@ -9,84 +9,66 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import * as echarts from "echarts";
+import { LIGHT_COLORS, DARK_COLORS, MIDNIGHT } from "./theme.js";
 
-const LIGHT_COLORS = [
-  "#0891b2",
-  "#dc2626",
-  "#7c3aed",
-  "#d97706",
-  "#16a34a",
-  "#be185d",
-  "#2563eb",
-  "#65a30d",
-  "#c2410c",
-  "#4f46e5",
-];
-const DARK_COLORS = [
-  "#22d3ee",
-  "#f87171",
-  "#a78bfa",
-  "#fbbf24",
-  "#34d399",
-  "#f472b6",
-  "#60a5fa",
-  "#a3e635",
-  "#fb923c",
-  "#818cf8",
-];
+// Token helpers live in theme.js; re-exported so chart code has one import.
+export { chartPalette, themeColor, isLightTheme } from "./theme.js";
 
-const makeTheme = (colors, isDark) => ({
+// Chart chrome comes from the single token mirror in theme.js.
+const CHROME = MIDNIGHT;
+
+const makeTheme = (colors, isDark, c = isDark ? CHROME.dark : CHROME.light) => ({
   color: colors,
   backgroundColor: "transparent",
-  title: { textStyle: { color: isDark ? "#f0f4f8" : "#1a1a2e" } },
+  title: { textStyle: { color: c.text } },
   line: { lineStyle: { width: 1 }, symbolSize: 0, smooth: false },
   bar: {
     itemStyle: { barBorderWidth: 0 },
     label: {
-      color: isDark ? "#cbd5e1" : "#374151",
+      color: c.secondary,
       textShadowColor: "transparent",
       textShadowBlur: 0,
     },
   },
   pie: {
     label: {
-      color: isDark ? "#cbd5e1" : "#374151",
+      color: c.secondary,
       textShadowColor: "transparent",
       textShadowBlur: 0,
     },
   },
   gauge: {
-    title: { color: isDark ? "#cbd5e1" : "#374151" },
+    title: { color: c.secondary },
     detail: {
-      color: isDark ? "#f0f4f8" : "#1a1a2e",
+      color: c.text,
       textShadowColor: "transparent",
       textShadowBlur: 0,
     },
   },
   funnel: {
     label: {
-      color: isDark ? "#cbd5e1" : "#374151",
+      color: c.secondary,
       textShadowColor: "transparent",
       textShadowBlur: 0,
     },
   },
   boxplot: {
     itemStyle: {
-      borderColor: isDark ? "#94a3b8" : "#475569",
+      borderColor: c.muted,
       borderWidth: 1.5,
     },
   },
   sunburst: {
     label: {
-      color: isDark ? "#cbd5e1" : "#374151",
+      color: c.secondary,
       textShadowColor: "transparent",
       textShadowBlur: 0,
     },
   },
   categoryAxis: {
-    axisLine: { lineStyle: { color: isDark ? "#475569" : "#94a3b8" } },
+    axisLine: { lineStyle: { color: c.axis } },
     axisLabel: {
-      color: isDark ? "#94a3b8" : "#374151",
+      color: c.muted,
       fontSize: 12.5,
       fontWeight: 500,
       fontFamily: "B612, sans-serif",
@@ -94,15 +76,15 @@ const makeTheme = (colors, isDark) => ({
     splitLine: {
       show: true,
       lineStyle: {
-        color: isDark ? "rgba(148,163,184,0.12)" : "rgba(0,0,0,0.06)",
+        color: c.grid,
         width: 0.8,
       },
     },
   },
   valueAxis: {
-    axisLine: { lineStyle: { color: isDark ? "#475569" : "#94a3b8" } },
+    axisLine: { lineStyle: { color: c.axis } },
     axisLabel: {
-      color: isDark ? "#94a3b8" : "#374151",
+      color: c.muted,
       fontSize: 12.5,
       fontWeight: 500,
       fontFamily: "B612, sans-serif",
@@ -110,15 +92,15 @@ const makeTheme = (colors, isDark) => ({
     splitLine: {
       show: true,
       lineStyle: {
-        color: isDark ? "rgba(148,163,184,0.12)" : "rgba(0,0,0,0.06)",
+        color: c.grid,
         width: 0.8,
       },
     },
   },
   timeAxis: {
-    axisLine: { lineStyle: { color: isDark ? "#475569" : "#94a3b8" } },
+    axisLine: { lineStyle: { color: c.axis } },
     axisLabel: {
-      color: isDark ? "#94a3b8" : "#374151",
+      color: c.muted,
       fontSize: 12.5,
       fontWeight: 500,
       fontFamily: "B612, sans-serif",
@@ -126,31 +108,31 @@ const makeTheme = (colors, isDark) => ({
     splitLine: {
       show: true,
       lineStyle: {
-        color: isDark ? "rgba(148,163,184,0.12)" : "rgba(0,0,0,0.06)",
+        color: c.grid,
         width: 0.8,
       },
     },
   },
   legend: {
     textStyle: {
-      color: isDark ? "#94a3b8" : "#374151",
+      color: c.muted,
       fontFamily: "B612, sans-serif",
     },
   },
   tooltip: {
-    backgroundColor: isDark ? "rgba(17,24,42,0.95)" : "rgba(255,255,255,0.95)",
-    borderColor: isDark ? "#334155" : "#e5e7eb",
+    backgroundColor: c.tooltipBg,
+    borderColor: c.tooltipBorder,
     textStyle: {
-      color: isDark ? "#f0f4f8" : "#1a1a2e",
+      color: c.text,
       fontFamily: "Red hat Mono, monospace",
     },
   },
   toolbox: {
     iconStyle: {
-      borderColor: isDark ? "#64748b" : "#6b7280",
+      borderColor: c.muted,
       borderWidth: 1.5,
     },
-    emphasis: { iconStyle: { borderColor: isDark ? "#f0f4f8" : "#1a1a2e" } },
+    emphasis: { iconStyle: { borderColor: c.text } },
   },
   grid: { left: 60, right: 20, top: 14, bottom: 50 },
 });
@@ -249,3 +231,4 @@ export function baseChartOption(overrides = {}) {
 }
 
 export { echarts };
+

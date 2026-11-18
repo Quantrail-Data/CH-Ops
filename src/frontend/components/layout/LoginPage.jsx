@@ -47,6 +47,18 @@ import OtpInput from "react-otp-input";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "./Toast.jsx";
 
+// Feature chips that scroll across the sign-in showcase (style guide).
+const FEATURE_CHIPS = [
+  "Cluster health",
+  "Query profiler",
+  "SQL editor",
+  "Qurioz AI",
+  "Log search",
+  "Alert rules",
+  "Custom dashboards",
+  "Backups and TTL",
+];
+
 const swiperDatas = [
   {
     title: "One Tool for Every ClickHouse® Deployment",
@@ -174,7 +186,7 @@ const OTP_Component = ({ setFormStatus }) => {
       <div className="top-title-login">
         <div
           style={{
-            textAlign: "center",
+            textAlign: "left",
             marginBottom: "30px",
             lineHeight: "30px",
             width: "100%",
@@ -185,11 +197,11 @@ const OTP_Component = ({ setFormStatus }) => {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: "flex-start",
               margin: "0px",
             }}
           >
-            {"Verify Your Account".toUpperCase()}
+            Verify your account
           </h4>
           <p>Enter the verification code sent to your email</p>
         </div>
@@ -368,7 +380,7 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
       <div className="top-title-login">
         <div
           style={{
-            textAlign: "center",
+            textAlign: "left",
             marginBottom: "30px",
             lineHeight: "30px",
           }}
@@ -378,11 +390,11 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: "flex-start",
               margin: "0px",
             }}
           >
-            {"Login".toUpperCase()}
+            Login
           </h4>
           <p>Enter your new password and confirm it.</p>
         </div>
@@ -711,7 +723,7 @@ export default function LoginPage() {
               <div className="top-title-login">
                 <div
                   style={{
-                    textAlign: "center",
+                    textAlign: "left",
                     marginBottom: "30px",
                     lineHeight: "30px",
                   }}
@@ -721,11 +733,11 @@ export default function LoginPage() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
+                      justifyContent: "flex-start",
                       margin: "0px",
                     }}
                   >
-                    {"Login".toUpperCase()}
+                    Login
                   </h4>
                   <p>Enter your username and password to continue</p>
                 </div>
@@ -871,7 +883,7 @@ export default function LoginPage() {
               <div className="top-title-login">
                 <div
                   style={{
-                    textAlign: "center",
+                    textAlign: "left",
                     marginBottom: "30px",
                     lineHeight: "30px",
                     width: "300px",
@@ -882,11 +894,11 @@ export default function LoginPage() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
+                      justifyContent: "flex-start",
                       margin: "0px",
                     }}
                   >
-                    {"Forget password".toUpperCase()}
+                    Forgot password
                   </h4>
                   <p>Enter your email to reset your password.</p>
                 </div>
@@ -973,60 +985,83 @@ export default function LoginPage() {
             <ChangePasswordComponent setFormStatus={setFormStatus} />
           )}
         </div>
-        <div className="right-container-login">
-          <div className="top-con">
-            <div className="marquee-container">
-              <div className="marquee-text">
-                {leftImages.map((img, idx) => {
-                  return (
-                    <img
-                      src={img}
-                      className="mar-left-img"
-                      key={idx}
-                      onClick={() => setLightboxSrc(img)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-            <div className="marquee-container2">
-              <div className="marquee-text2">
-                {leftImages.map((img, idx) => {
-                  return (
-                    <img
-                      src={img}
-                      className="mar-left-img"
-                      key={idx}
-                      onClick={() => setLightboxSrc(img)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+        <div className="right-container-login login-showcase">
+          {/* Style guide sign-in screen: headline, a moving strip of feature
+              chips, a framed screenshot carousel and the feature captions. */}
+          <div className="login-showcase-inner">
+            <h1 className="login-headline">
+              Run ClickHouse® with <span className="login-headline-accent">clear eyes.</span>
+            </h1>
+            <p className="login-lede">
+              Monitor clusters, trace slow queries, manage schemas and alerts from one place.
+            </p>
 
-          <div className="bottom-con">
-            <Swiper
-              pagination={true}
-              modules={[Pagination, Navigation, Autoplay, EffectFade]}
-              autoplay={{
-                delay: 5000,
-                disableOnInteraction: false,
-              }}
-              loop={true}
-              className="mySwiper"
-            >
-              {swiperDatas?.map((data, indx) => {
-                return (
-                  <SwiperSlide key={indx}>
-                    <div className="hero-content">
-                      <h1>{data?.title}</h1>
-                      <p className="">{data?.subtitle}</p>
-                    </div>
+            <div className="login-chips" aria-hidden="true">
+              <div className="login-chips-track">
+                {[...FEATURE_CHIPS, ...FEATURE_CHIPS].map((label, i) => (
+                  <span key={i} className="login-chip">
+                    <span className="status-dot accent" />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="login-window">
+              <div className="login-window-bar">
+                <span className="login-window-dot" />
+                <span className="login-window-dot" />
+                <span className="login-window-dot" />
+                <span className="login-window-title">CHOps preview</span>
+              </div>
+              <Swiper
+                pagination={{ clickable: true }}
+                navigation={true}
+                modules={[Pagination, Navigation, Autoplay]}
+                autoplay={{ delay: 5000, disableOnInteraction: false }}
+                loop={true}
+                className="login-window-swiper"
+              >
+                {leftImages.map((img, idx) => (
+                  <SwiperSlide key={idx}>
+                    <img
+                      src={img}
+                      className="login-window-img"
+                      alt="CHOps screen"
+                      onClick={() => setLightboxSrc(img)}
+                    />
                   </SwiperSlide>
-                );
-              })}
-            </Swiper>
+                ))}
+              </Swiper>
+            </div>
+
+            <div className="bottom-con">
+              <Swiper
+                pagination={false}
+                modules={[Autoplay, EffectFade]}
+                autoplay={{
+                  delay: 5000,
+                  disableOnInteraction: false,
+                }}
+                loop={true}
+                className="mySwiper"
+              >
+                {swiperDatas?.map((data, indx) => {
+                  return (
+                    <SwiperSlide key={indx}>
+                      <div className="hero-content">
+                        <h1>{data?.title}</h1>
+                        <p className="">{data?.subtitle}</p>
+                      </div>
+                    </SwiperSlide>
+                  );
+                })}
+              </Swiper>
+            </div>
+
+            <p className="login-trademark">
+              ClickHouse® is a registered trademark of ClickHouse, Inc.
+            </p>
           </div>
         </div>
       </div>

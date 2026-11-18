@@ -1,54 +1,166 @@
-/* home.css - Layout of the Home page cards. */
-.home-intro {
- margin: -8px 0 18px;
- color: var(--text-muted);
- font-size: 14px;
+/* home.css - Layout of the Home page task tiles.
+   Tiles follow the style guide's Home screen: a .card with a small indigo
+   icon chip (same look as the global .icon-chip), a bold title and a muted
+   description. Only layout and sizing live here; colours come from tokens. */
+.home-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
 }
+
+.home-greeting {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.home-title {
+  font-size: 30px;
+}
+
+.home-search {
+  min-width: min(440px, 100%);
+  min-height: 42px;
+}
+
+/* Cluster pulse: four KPI cards. */
+.home-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.home-kpi-link {
+  text-decoration: none;
+}
+
 .home-grid {
- display: grid;
- grid-template-columns: repeat(4, minmax(0, 1fr));
- gap: 16px;
- }
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .home-card {
- display: flex;
- flex-direction: column;
- gap: 8px;
- padding: 22px 20px;
- color: var(--text-primary);
- text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 18px 20px;
+  color: var(--text-primary);
+  text-decoration: none;
 }
+
 .home-card:hover {
- border-color: var(--accent-border);
+  border-color: var(--accent-border);
+  background: var(--bg-raised);
 }
+
 .home-card-icon {
- display: inline-flex;
- align-items: center;
- justify-content: center;
- width: 64px;
- height: 64px;
- margin-bottom: 14px;
- border-radius: var(--radius-md);
- background: var(--accent-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  border: 1px solid var(--border-default);
 }
-/* Three classes, so it wins over the light theme icon colors in
-global.css. */
+
+/* Three classes, so it wins over generic .ti sizing in global.css. */
 .home-card .home-card-icon .ti {
- font-size: 38px;
- color: var(--accent);
+  font-size: 17px;
+  color: var(--accent);
 }
+
 .home-card-title {
- font-size: 16px;
- font-weight: 700;
+  font-size: var(--text-md);
+  font-weight: 700;
 }
+
 .home-card-description {
- color: var(--text-muted);
- font-size: 13px;
- line-height: 1.45;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
+
+/* The first task (cluster health) is the featured tile: two columns wide,
+   two rows tall, with a chip per node. */
+.home-card-featured {
+  grid-column: span 2;
+  grid-row: span 2;
+  padding: 24px;
+  border-color: var(--accent-border);
+}
+
+.home-card-featured .home-card-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.home-card.home-card-featured .home-card-icon .ti {
+  font-size: 20px;
+}
+
+.home-card-featured .home-card-title {
+  font-size: var(--text-xl);
+}
+
+.home-card-featured .home-card-description {
+  font-size: var(--text-base);
+}
+
+.home-node-chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.home-node-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.home-node-chip-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-node-chip-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 1100px) {
-  .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-grid,
+  .home-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 600px) {
-  .home-grid { grid-template-columns: 1fr; }
+  .home-grid,
+  .home-kpis { grid-template-columns: 1fr; }
+  .home-card-featured { grid-column: auto; grid-row: auto; }
+  .home-node-chips { grid-template-columns: 1fr; }
 }

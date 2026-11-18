@@ -25,11 +25,12 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
 
 
   const backGroundColorTheme =() => {
-    return theme === "dark" ? "#1f2937" : (!editingSql?.isEditing ? "#1f2937" : "#F3F6F8")
+    // Code panels follow the theme (style guide: SQL blocks sit on a sunken surface).
+    return theme === "dark" || !editingSql?.isEditing ? "var(--bg-sunken)" : "var(--input-bg)"
   }
 
   const colorThemeSetter = () => {
-    return theme === "dark" ? "#f3f4f6" : (!editingSql?.isEditing ? "#f3f4f6" : "black")
+    return "var(--text-primary)"
   }
 
   const copyHandler = () => {
@@ -195,7 +196,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  color: "#d1d5db",
+                  color: "var(--text-secondary)",
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
@@ -214,7 +215,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  color: "#d1d5db",
+                  color: "var(--text-secondary)",
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
@@ -227,7 +228,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                       className="ti ti-check"
                       style={{
                         marginRight: "4px",
-                        color: "#4ade80",
+                        color: "var(--color-success)",
                         fontSize: 12,
                       }}
                     />
@@ -248,7 +249,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  color: "#d1d5db",
+                  color: "var(--text-secondary)",
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
@@ -263,7 +264,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                         width: "12px",
                         height: "12px",
                         marginRight: "4px",
-                        borderTopColor: "#818cf8",
+                        borderTopColor: "var(--accent)",
                       }}
                     ></div>
                     <span style={{ fontSize: "12px" }}>Run..</span>
@@ -275,7 +276,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                       style={{
                         marginRight: "4px",
                         fontSize: 12,
-                        color: "#818cf8",
+                        color: "var(--accent)",
                       }}
                     />
                     <span style={{ fontSize: "12px" }}>Run</span>
@@ -325,7 +326,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
               //   display: "flex",
               //   alignItems: "center",
               //   fontSize: "12px",
-              //   color: "#d1d5db",
+              //   color: "var(--text-secondary)",
               //   padding: "6px 12px",
               //   borderRadius: "4px",
               //   border: "1px solid #4b5563",
@@ -401,8 +402,8 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
         >
           <pre
             style={{
-              backgroundColor: "#111827",
-              color: "#f3f4f6",
+              backgroundColor: "var(--bg-sunken)",
+              color: "var(--text-primary)",
               padding: "12px",
               borderBottomLeftRadius: "6px",
               borderBottomRightRadius: "6px",

@@ -20,7 +20,7 @@ const FLOW_THEME_CSS = `
 .chops-topology .react-flow__node { color: var(--text-primary); }
 .chops-topology .react-flow__attribution { display: none; }
 .chops-topology .react-flow__controls {
-  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow-md);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
@@ -42,16 +42,14 @@ const FLOW_THEME_CSS = `
 .chops-topology .react-flow__background { opacity: 0.5; }
 `;
 
-// Eight hues, cycled.
-const SHARD_FILLS = [
-  "rgba(59,130,246,0.18)", "rgba(139,92,246,0.18)", "rgba(34,197,94,0.18)",
-  "rgba(245,158,11,0.18)", "rgba(236,72,153,0.18)", "rgba(6,182,212,0.18)",
-  "rgba(249,115,22,0.18)", "rgba(132,204,22,0.18)",
-];
-const REPLICA_STROKES = [
-  "#3b82f6", "#8b5cf6", "#22c55e", "#f59e0b",
-  "#ec4899", "#06b6d4", "#f97316", "#84cc16",
-];
+// Shard fill and replica stroke cycle through the Midnight chart tokens
+// (--chart-1..10). They are CSS var() references, not resolved colours, so the
+// browser re-resolves them when the theme flips even though React Flow does not
+// re-render the memoized nodes.
+const CHART_TOKENS = 10;
+const chartVar = (n) => `var(--chart-${((Math.max(1, n) - 1) % CHART_TOKENS) + 1})`;
+const shardFill = (shard) => `color-mix(in srgb, ${chartVar(shard)} 16%, transparent)`;
+const replicaStroke = (replica) => chartVar(replica);
 
 const NODE_WIDTH = 210;
 const NODE_HEIGHT = 78;
@@ -105,8 +103,8 @@ function TopologyNode({ data }) {
     errors, slowdowns, isLocal, isActive, selected,
   } = data;
 
-  const fill = SHARD_FILLS[(shard - 1) % SHARD_FILLS.length];
-  const stroke = REPLICA_STROKES[(replica - 1) % REPLICA_STROKES.length];
+  const fill = shardFill(shard);
+  const stroke = replicaStroke(replica);
 
 
   let dot = "var(--text-muted)";
@@ -482,7 +480,7 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
           <Background gap={16} size={1} color="var(--border-default)" />
           <Controls showInteractive={false} showZoom showFitView position="bottom-right" />
           {cluster.nodes.length > 12 && (
-            <MiniMap pannable zoomable nodeColor={() => "var(--text-muted)"} maskColor="rgba(0,0,0,0.35)" />
+            <MiniMap pannable zoomable nodeColor={() => "var(--text-muted)"} maskColor="var(--bg-overlay)" />
           )}
         </ReactFlow>
       </div>
