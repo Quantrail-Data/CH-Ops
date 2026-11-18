@@ -571,11 +571,9 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
         {icon && <Icon className={`ti ${icon}`} />}
         <span
           style={{
-            fontSize: "0.8125rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
+            fontSize: "var(--text-md)",
             fontWeight: 700,
-            color: "var(--text-secondary, var(--text-muted))",
+            color: "var(--text-primary)",
           }}
         >
           {title}

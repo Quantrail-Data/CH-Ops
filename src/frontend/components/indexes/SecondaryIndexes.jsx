@@ -7,6 +7,7 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
+import { themeColor } from "../../utils/theme.js";
 import { treeSize, treeSeries } from "../../utils/treeChart.js";
 
 export default function SecondaryIndexes() {
@@ -57,7 +58,7 @@ export default function SecondaryIndexes() {
     });
     return {
       name: db,
-      itemStyle: { color: "#8b5cf6" },
+      itemStyle: { color: themeColor("--accent", "#9590FF") },
       children: Object.entries(tableMap).map(([t, idxs]) => ({
         name: t,
         itemStyle: { color: "#f59e0b" },

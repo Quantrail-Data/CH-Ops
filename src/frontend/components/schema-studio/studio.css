@@ -106,8 +106,8 @@
   font-weight: 700;
 }
 .studio-step.active .studio-step-num {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-solid);
+  color: var(--on-accent);
 }
 
 /* Panes */
@@ -151,8 +151,8 @@
   border-right: none;
 }
 .studio-seg-btn.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-solid);
+  color: var(--on-accent);
 }
 
 /* Dropzone */
@@ -588,8 +588,8 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-solid);
+  color: var(--on-accent);
   font-size: 11px;
   font-weight: 700;
 }
@@ -684,8 +684,6 @@
 .studio-page .form-select,
 .studio-page .form-textarea,
 .studio-page .studio-key-tokens {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 .studio-page .chops-icon {
   shape-rendering: geometricPrecision;

@@ -242,19 +242,19 @@ export function makeEditorTheme(dark) {
       backgroundColor: "var(--bg-elevated, var(--bg-sunken))",
       color: "var(--text-secondary, var(--text-primary))",
     },
-    ".cm-activeLine": { backgroundColor: "rgba(148,163,184,0.07)" },
+    ".cm-activeLine": { backgroundColor: "var(--bg-hover)" },
     ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--text-primary)" },
     // These selectors mirror the ones in CodeMirror's own base theme.
-    ".cm-selectionBackground": { backgroundColor: "rgba(139,92,246,0.30)" },
+    ".cm-selectionBackground": { backgroundColor: "var(--selection-bg)" },
     "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-      backgroundColor: "rgba(139,92,246,0.38)",
+      backgroundColor: "var(--selection-bg)",
     },
     "&.cm-focused .cm-selectionBackground, ::selection": {
-      backgroundColor: "rgba(139,92,246,0.38)",
+      backgroundColor: "var(--selection-bg)",
     },
-    ".cm-selectionMatch": { backgroundColor: "rgba(148,163,184,0.20)" },
+    ".cm-selectionMatch": { backgroundColor: "var(--bg-active)" },
     ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
-      backgroundColor: "rgba(139,92,246,0.28)",
+      backgroundColor: "var(--accent-soft)",
       outline: "1px solid var(--accent)",
     },
     ".cm-nonmatchingBracket": { outline: "1px solid var(--color-danger)" },
@@ -268,10 +268,10 @@ export function makeEditorTheme(dark) {
       borderRadius: "3px",
     },
     ".cm-tooltip": {
-      backgroundColor: "var(--bg-page)",
-      border: "1px solid var(--border-default)",
+      backgroundColor: "var(--bg-raised)",
+      border: "1px solid var(--border-strong)",
       borderRadius: "var(--radius-sm)",
-      boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
+      boxShadow: "var(--shadow-md)",
       color: "var(--text-primary)",
       fontSize: "0.75rem",
     },
@@ -280,8 +280,8 @@ export function makeEditorTheme(dark) {
       padding: "3px 8px",
     },
     ".cm-tooltip-autocomplete ul li[aria-selected]": {
-      backgroundColor: "var(--accent)",
-      color: "#fff",
+      backgroundColor: "var(--bg-active)",
+      color: "var(--text-primary)",
     },
     ".cm-completionIcon": { paddingRight: "12px", opacity: 0.7 },
     ".cm-completionDetail": { color: "var(--text-muted)", fontStyle: "normal", marginLeft: "8px" },
@@ -292,7 +292,7 @@ export function makeEditorTheme(dark) {
       borderBottom: "1px solid var(--border-default)",
     },
     ".cm-panel.cm-search input, .cm-panel.cm-search button": {
-      fontFamily: "var(--font-body, inherit)",
+      fontFamily: "var(--font-ui)",
       fontSize: "0.75rem",
       backgroundColor: "var(--input-bg, var(--bg-page))",
       color: "var(--text-primary)",
@@ -301,8 +301,8 @@ export function makeEditorTheme(dark) {
       padding: "2px 6px",
     },
     ".cm-panel.cm-search label": { fontSize: "0.6875rem", color: "var(--text-muted)" },
-    ".cm-searchMatch": { backgroundColor: "rgba(251,191,36,0.30)" },
-    ".cm-searchMatch-selected": { backgroundColor: "rgba(251,191,36,0.55)" },
+    ".cm-searchMatch": { backgroundColor: "var(--color-warning-bg)", outline: "1px solid var(--color-warning-border)" },
+    ".cm-searchMatch-selected": { backgroundColor: "var(--color-warning-border)" },
   },
     // CodeMirror applies its LIGHT base theme without this flag
     { dark });

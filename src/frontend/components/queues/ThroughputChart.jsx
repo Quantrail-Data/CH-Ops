@@ -30,7 +30,7 @@ export default function ThroughputChart({ points }) {
     const grid = cssVar("--border-default", "#334155");
     const ok = cssVar("--color-success", "#22c55e");
     const bad = cssVar("--color-danger", "#ef4444");
-    const accent = cssVar("--accent", "#8b5cf6");
+    const accent = cssVar("--accent", "#9590FF");
 
     const labels = points.map((p) => p.bucket);
     // Show only 4 x-axis labels (first, last, and 2 evenly spaced between) so the

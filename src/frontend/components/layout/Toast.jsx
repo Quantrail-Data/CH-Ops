@@ -52,11 +52,13 @@ export function ToastProvider({ children }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  // Style guide: confirmations close after 4 s. Errors and warnings stay 5 s,
+  // since they usually need reading before they go.
   const toast = {
-    success: (msg) => addToast(msg, 'success',5000),
-    error: (msg) => addToast(msg, 'error',5000),
-    info: (msg) => addToast(msg, 'info',5000),
-    warning: (msg) => addToast(msg, 'warning',5000),
+    success: (msg) => addToast(msg, 'success', 4000),
+    error: (msg) => addToast(msg, 'error', 5000),
+    info: (msg) => addToast(msg, 'info', 4000),
+    warning: (msg) => addToast(msg, 'warning', 5000),
   };
 
   return (
@@ -64,10 +66,12 @@ export function ToastProvider({ children }) {
       {children}
       <div className="toast-container">
         {toasts.map(t => (
-          <div key={t.id} className={`toast ${t.type}`} style={{ alignItems: 'flex-start' }} > 
-            <Icon style={{marginTop:"3px"}} className={`ti ${t.type === 'success' ? 'ti-check' : t.type === 'error' ? 'ti-bug' : t.type === 'warning' ? 'ti-alert-triangle' : 'ti-info-circle'}`}></Icon>
-            <span style={{ flex: 1 }}>{t.message}</span>
-            <Icon className="ti ti-x" style={{ fontSize: 16, cursor: 'pointer', opacity: 0.6, flexShrink: 0,marginTop:"3px" }} onClick={() => dismiss(t.id)}></Icon>
+          <div key={t.id} className={`toast ${t.type}`} role={t.type === 'error' ? 'alert' : 'status'}>
+            <Icon className={`ti toast-icon ${t.type === 'success' ? 'ti-check' : t.type === 'error' ? 'ti-bug' : t.type === 'warning' ? 'ti-alert-triangle' : 'ti-info-circle'}`}></Icon>
+            <span className="toast-message">{t.message}</span>
+            <button type="button" className="toast-close" aria-label="Dismiss" onClick={() => dismiss(t.id)}>
+              <Icon className="ti ti-x"></Icon>
+            </button>
           </div>
         ))}
       </div>
