@@ -86,7 +86,7 @@ export default function KillQueriesModal({ targets, scopeLabel, defaultSync = fa
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="modal-overlay" onClick={phase === "running" ? undefined : onClose} style={{ zIndex: 1400 }}>
+    <div className="modal-overlay" onClick={phase === "running" ? undefined : onClose} style={{ zIndex: 1700 }}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, width: "92%" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           <Icon className="ti ti-alert-triangle" style={{ color: "var(--color-danger)" }} />

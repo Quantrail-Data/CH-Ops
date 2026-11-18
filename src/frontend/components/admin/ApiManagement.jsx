@@ -36,7 +36,6 @@ export default function ApiManagement() {
     keyId: null,
     keyName: "",
   });
-  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [isValidKey, setISvalidKey] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(false);
@@ -61,80 +60,6 @@ export default function ApiManagement() {
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [deleteConfirm.show]);
-
-  useEffect(() => {
-    const detectDarkMode = () => {
-      if (typeof document !== "undefined") {
-        const html = document.documentElement;
-        const body = document.body;
-        const htmlTheme =
-          html && html.getAttribute && html.getAttribute("data-theme");
-        const bodyTheme =
-          body && body.getAttribute && body.getAttribute("data-theme");
-        if (htmlTheme === "dark" || bodyTheme === "dark") return true;
-        if (htmlTheme === "light" || bodyTheme === "light") return false;
-        if (html && html.classList && html.classList.contains("dark"))
-          return true;
-        if (body && body.classList && body.classList.contains("dark"))
-          return true;
-        if (html && html.classList && html.classList.contains("light"))
-          return false;
-        if (body && body.classList && body.classList.contains("light"))
-          return false;
-        try {
-          const stored = window.localStorage
-            ? window.localStorage.getItem("theme")
-            : null;
-          if (stored === "dark") return true;
-          if (stored === "light") return false;
-        } catch {
-          // The browser can block storage. Continue without it.
-        }
-      }
-      if (typeof window !== "undefined" && window.matchMedia) {
-        return window.matchMedia("(prefers-color-scheme: dark)").matches;
-      }
-      return false;
-    };
-
-    setIsDarkMode(detectDarkMode());
-
-    let mq;
-    const mqHandler = () => setIsDarkMode(detectDarkMode());
-
-    if (typeof window !== "undefined" && window.matchMedia) {
-      mq = window.matchMedia("(prefers-color-scheme: dark)");
-      if (mq.addEventListener) {
-        mq.addEventListener("change", mqHandler);
-      } else if (mq.addListener) {
-        mq.addListener(mqHandler);
-      }
-    }
-
-    const observer =
-      typeof MutationObserver !== "undefined"
-        ? new MutationObserver(() => setIsDarkMode(detectDarkMode()))
-        : null;
-    if (observer && typeof document !== "undefined") {
-      observer.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["class", "data-theme"],
-      });
-      if (document.body)
-        observer.observe(document.body, {
-          attributes: true,
-          attributeFilter: ["class", "data-theme"],
-        });
-    }
-
-    return () => {
-      if (mq) {
-        if (mq.removeEventListener) mq.removeEventListener("change", mqHandler);
-        else if (mq.removeListener) mq.removeListener(mqHandler);
-      }
-      if (observer) observer.disconnect();
-    };
-  }, []);
 
   async function loadApiKeys() {
     try {
@@ -407,36 +332,20 @@ export default function ApiManagement() {
     );
   }
 
-  const themeStyles = {
-    light: {
-      overlay: "rgba(0, 0, 0, 0.25)",
-      modalBg: "#ffffff",
-      modalBorder: "1px solid #e5e7eb",
-      modalText: "#111827",
-      titleText: "#111827",
-      paragraphText: "#374151",
-      cancelBtnBg: undefined,
-      cancelBtnColor: undefined,
-      cancelBtnBorder: undefined,
-      modalBoxShadow:
-        "0 12px 18px -8px rgba(2,6,23,0.08), 0 8px 12px -8px rgba(2,6,23,0.06)",
-    },
-    dark: {
-      overlay: "rgba(2,6,23,0.6)",
-      modalBg: "#0b1220",
-      modalBorder: "1px solid rgba(255,255,255,0.04)",
-      modalText: "#E6EEF8",
-      titleText: "#F9FAFB",
-      paragraphText: "#D1D5DB",
-      cancelBtnBg: "rgba(255,255,255,0.03)",
-      cancelBtnColor: "#E6EEF8",
-      cancelBtnBorder: "1px solid rgba(255,255,255,0.06)",
-      modalBoxShadow:
-        "0 20px 25px -5px rgba(2,6,23,0.6), 0 10px 10px -5px rgba(2,6,23,0.5)",
-    },
+  // Modal colours resolve through the Midnight tokens, so they follow the
+  // theme by themselves; no theme detection is needed here.
+  const current = {
+    overlay: "var(--bg-overlay)",
+    modalBg: "var(--bg-surface)",
+    modalBorder: "1px solid var(--border-strong)",
+    modalText: "var(--text-primary)",
+    titleText: "var(--text-primary)",
+    paragraphText: "var(--text-secondary)",
+    cancelBtnBg: undefined,
+    cancelBtnColor: undefined,
+    cancelBtnBorder: undefined,
+    modalBoxShadow: "var(--shadow-lg)",
   };
-
-  const current = isDarkMode ? themeStyles.dark : themeStyles.light;
 
   const modalInnerStyle = {
     backgroundColor: current.modalBg,
@@ -645,8 +554,9 @@ export default function ApiManagement() {
                           style={{
                             fontSize: "11px",
                             padding: "2px 6px",
-                            backgroundColor: "var(--accent)",
-                            color: "white",
+                            backgroundColor: "var(--color-success-bg)",
+                            color: "var(--color-success)",
+                            fontWeight: 700,
                             borderRadius: "4px",
                           }}
                         >
@@ -1020,7 +930,6 @@ export default function ApiManagement() {
             right: 0,
             bottom: 0,
             backgroundColor: current.overlay,
-            backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1032,7 +941,7 @@ export default function ApiManagement() {
             <h3 style={modalTitleStyle}>Confirm Delete</h3>
             <p style={modalParagraphStyle}>
               Are you sure you want to delete API key{" "}
-              <strong style={{ color: "#6366f1" }}>
+              <strong style={{ color: "var(--accent)" }}>
                 &quot;{deleteConfirm.keyName}&quot;
               </strong>
               ?

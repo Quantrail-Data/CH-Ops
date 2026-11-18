@@ -15,6 +15,7 @@ import {
 import ChartCard from "../layout/ChartCard.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
+import { themeColor } from "../../utils/theme.js";
 import { runQuery } from "../../utils/api.js";
 import DataTable from "../layout/DataTable.jsx";
 import { useLiveOverview } from "../overview/LiveOverview.jsx";
@@ -412,7 +413,7 @@ function buildBandOption(label, rows, frameT) {
       ? {
           silent: true,
           symbol: "none",
-          lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
+          lineStyle: { color: themeColor("--accent", "#9590FF"), width: 2, type: "solid" },
           data: [{ xAxis: frameT * 1000 }],
           label: { show: false },
           animation: false,
@@ -505,9 +506,9 @@ function buildBandOption(label, rows, frameT) {
         smooth: true,
         symbol: "none",
         data: minData,
-        lineStyle: { color: "#8b5cf6", width: 1 },
-        itemStyle: { color: "#8b5cf6" },
-        areaStyle: { color: "#8b5cf6", opacity: 0.08 },
+        lineStyle: { color: themeColor("--accent", "#9590FF"), width: 1 },
+        itemStyle: { color: themeColor("--accent", "#9590FF") },
+        areaStyle: { color: themeColor("--accent", "#9590FF"), opacity: 0.08 },
         markLine,
         animation: false,
       },
@@ -521,7 +522,7 @@ function buildStackedAreaOption(chart, rows, frameT) {
       ? {
           silent: true,
           symbol: "none",
-          lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
+          lineStyle: { color: themeColor("--accent", "#9590FF"), width: 2, type: "solid" },
           data: [{ xAxis: frameT * 1000 }],
           label: { show: false },
           animation: false,
@@ -1680,7 +1681,7 @@ export default function Playback() {
             <button
               className="btn btn-sm"
               style={{
-                background: "#dc2626",
+                background: "var(--danger-solid)",
                 color: "#fff",
                 fontSize: "11px",
                 padding: "5px 15px",
@@ -1698,7 +1699,7 @@ export default function Playback() {
             <button
               className="btn btn-sm"
               style={{
-                background: "#dc2626",
+                background: "var(--danger-solid)",
                 color: "#fff",
                 fontSize: "11px",
                 padding: "5px 15px",

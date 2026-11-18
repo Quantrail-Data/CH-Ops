@@ -480,10 +480,8 @@ export default function AlertRules({mainRef}) {
                 gap: 10,
                 padding: "6px 14px",
                 borderRadius: 999,
-                background:
-                  "linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(168,85,247,0.08) 50%, rgba(59,130,246,0.10) 100%)",
-                border: "1px solid rgba(99,102,241,0.20)",
-                boxShadow: "0 2px 10px rgba(99,102,241,0.08)",
+                background: "var(--accent-soft)",
+                border: "1px solid var(--accent-border)",
                 marginRight: 4,
               }}
             >
@@ -496,9 +494,9 @@ export default function AlertRules({mainRef}) {
                   height: 24,
                   borderRadius: 7,
                   background: showTemplateRulesThatAreOff
-                    ? "var(--accent)"
-                    : "rgba(99,102,241,0.14)",
-                  color: showTemplateRulesThatAreOff ? "#fff" : "var(--accent)",
+                    ? "var(--accent-solid)"
+                    : "var(--accent-soft)",
+                  color: showTemplateRulesThatAreOff ? "var(--on-accent)" : "var(--accent)",
                   flexShrink: 0,
                   transition: "background 0.2s ease, color 0.2s ease",
                 }}
@@ -544,10 +542,10 @@ export default function AlertRules({mainRef}) {
                         fontSize: 10.5,
                         fontWeight: 700,
                         background: showTemplateRulesThatAreOff
-                          ? "var(--accent)"
-                          : "rgba(99,102,241,0.14)",
+                          ? "var(--accent-solid)"
+                          : "var(--accent-soft)",
                         color: showTemplateRulesThatAreOff
-                          ? "#fff"
+                          ? "var(--on-accent)"
                           : "var(--accent)",
                         transition:
                           "background 0.2s ease, color 0.2s ease",
@@ -626,7 +624,31 @@ export default function AlertRules({mainRef}) {
         </div>
       )}
       {showForm && isAdmin && (
-        <div ref={formRef} className="card" style={{ padding: 20, marginBottom: 20 }}>
+        // Style guide Alert Rules screen: the rule editor is a modal over the
+        // list. The backdrop does not close it, so a stray click cannot lose a
+        // half-written rule; Escape, the close button and Cancel do.
+        <div className="modal-overlay" style={{ alignItems: "flex-start", overflowY: "auto", padding: "5vh 0" }}>
+        <div
+          ref={formRef}
+          className="modal-box modal-form"
+          role="dialog"
+          aria-modal="true"
+          aria-label={editing ? "Edit alert rule" : "New alert rule"}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") cancelForm();
+          }}
+        >
+          <div className="modal-header">
+            <div>
+              <div className="modal-title">{editing ? "Edit alert rule" : "New alert rule"}</div>
+              <div className="modal-subtitle">
+                CHOps runs the SQL on a schedule and compares the value with the threshold.
+              </div>
+            </div>
+            <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={cancelForm} aria-label="Close">
+              <Icon className="ti ti-x"></Icon>
+            </button>
+          </div>
           <div
             style={{
               display: "grid",
@@ -1036,6 +1058,7 @@ export default function AlertRules({mainRef}) {
             </table>
           )}
         </div>
+        </div>
       )}
       {!loaded ? (
         <div className="empty-state">
@@ -1072,19 +1095,19 @@ export default function AlertRules({mainRef}) {
             const showMarquee =
               hasZeroNodes || r.isActive || r.lastStatus || r.lastError;
             const marqueeBg = hasZeroNodes
-              ? "rgba(245,158,11,0.12)"
+              ? "var(--color-warning-bg)"
               : r.lastError
-                ? "rgba(239,68,68,0.12)"
+                ? "var(--color-danger-bg)"
                 : r.isActive
-                  ? "rgba(239,68,68,0.12)"
-                  : "rgba(59,130,246,0.12)";
+                  ? "var(--color-danger-bg)"
+                  : "var(--color-info-bg)";
             const marqueeBorder = hasZeroNodes
-              ? "rgba(245,158,11,0.28)"
+              ? "var(--color-warning-border)"
               : r.lastError
-                ? "rgba(239,68,68,0.28)"
+                ? "var(--color-danger-border)"
                 : r.isActive
-                  ? "rgba(239,68,68,0.28)"
-                  : "rgba(59,130,246,0.28)";
+                  ? "var(--color-danger-border)"
+                  : "var(--color-info-border)";
             const marqueeColor = hasZeroNodes
               ? "var(--color-warning)"
               : r.lastError

@@ -37,7 +37,7 @@ import { useLiveOverview } from "../overview/LiveOverview.jsx";
 function getThemeColors() {
   const s = getComputedStyle(document.documentElement);
   return {
-    accent: s.getPropertyValue("--accent").trim() || "#8b5cf6",
+    accent: s.getPropertyValue("--accent").trim() || "#9590FF",
     bgCard: s.getPropertyValue("--bg-card").trim() || "#1e293b",
     textMuted: s.getPropertyValue("--text-muted").trim() || "#64748b",
     textSecondary: s.getPropertyValue("--text-secondary").trim() || "#94a3b8",

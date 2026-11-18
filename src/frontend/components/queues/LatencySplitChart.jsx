@@ -38,7 +38,7 @@ export default function LatencySplitChart({ latency }) {
 
     const axis = cssVar("--text-muted", "#94a3b8");
     const grid = cssVar("--border-default", "#334155");
-    const c50 = cssVar("--accent", "#8b5cf6");
+    const c50 = cssVar("--accent", "#9590FF");
     const c95 = cssVar("--color-warning", "#f59e0b");
 
     const avail = (s) => stageAvail(latency, s.key);

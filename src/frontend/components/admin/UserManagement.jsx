@@ -11,15 +11,11 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import { SegmentedControl, Badge, RowMenu } from "../ui/index.jsx";
+import { roleTone } from "../../utils/roles.js";
 
 const ROLES = ["superadmin", "admin", "editor", "readonly"];
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
-const ROLE_BADGE = {
-  superadmin: "badge-amber",
-  admin: "badge-purple",
-  editor: "badge-blue",
-  readonly: "badge-gray",
-};
 
 export default function UserManagement() {
   const toast = useToast();
@@ -435,32 +431,22 @@ async function resetPassword(id,initUser) {
       </div>
 
       {myRole === "superadmin" && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-          <button
-            className={
-              tab === "users"
-                ? "btn btn-primary btn-sm"
-                : "btn btn-secondary btn-sm"
-            }
-            onClick={() => setTab("users")}
-          >
-            Users
-          </button>
-          <button
-            className={
-              tab === "smtp"
-                ? "btn btn-primary btn-sm"
-                : "btn btn-secondary btn-sm"
-            }
-            onClick={() => {
-              setTab("smtp");
+        <SegmentedControl
+          ariaLabel="User management sections"
+          style={{ marginBottom: 20 }}
+          value={tab}
+          options={[
+            { value: "users", label: "Users" },
+            { value: "smtp", label: "System Email" },
+          ]}
+          onChange={(next) => {
+            setTab(next);
+            if (next === "smtp") {
               setSmtpResult(null);
               if (!smtp) loadSmtp();
-            }}
-          >
-            System Email
-          </button>
-        </div>
+            }
+          }}
+        />
       )}
 
       {tab === "users" && (
@@ -662,8 +648,8 @@ async function resetPassword(id,initUser) {
                 padding: 20,
                 border: "1px solid var(--border-default)",
                 borderRadius: 12,
-                background: "var(--bg-elevated)",
-                boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+                background: "var(--bg-surface)",
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               <div
@@ -684,8 +670,8 @@ async function resetPassword(id,initUser) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      background: "rgba(59, 130, 246, 0.10)",
-                      color: "#2563eb",
+                      background: "var(--accent-soft)",
+                      color: "var(--accent)",
                       flexShrink: 0,
                     }}
                   >
@@ -698,7 +684,7 @@ async function resetPassword(id,initUser) {
                         margin: 0,
                         fontSize: 16,
                         fontWeight: 650,
-                        color: "var(--text-primary, #172033)",
+                        color: "var(--text-primary)",
                       }}
                     >
                       Password Setup Link
@@ -708,7 +694,7 @@ async function resetPassword(id,initUser) {
                       style={{
                         margin: "4px 0 0",
                         fontSize: 13,
-                        color: "var(--text-muted, #64748b)",
+                        color: "var(--text-muted)",
                         lineHeight: 1.5,
                       }}
                     >
@@ -737,7 +723,7 @@ async function resetPassword(id,initUser) {
                   fontSize: 13,
                   fontWeight: 600,
                   marginBottom: 7,
-                  color: "var(--text-primary, #334155)",
+                  color: "var(--text-primary)",
                 }}
               >
                 Setup URL
@@ -765,8 +751,8 @@ async function resetPassword(id,initUser) {
                     height: 40,
                     fontSize: 13,
                     borderRadius: 8,
-                    background: "var(--bg-page, #f8fafc)",
-                    fontFamily: "monospace",
+                    background: "var(--input-bg)",
+                    fontFamily: "var(--font-code)",
                   }}
                 />
 
@@ -796,8 +782,8 @@ async function resetPassword(id,initUser) {
                   marginTop: 14,
                   padding: "10px 12px",
                   borderRadius: 8,
-                  background: "rgba(59, 130, 246, 0.06)",
-                  color: "var(--text-muted, #64748b)",
+                  background: "var(--color-info-bg)",
+                  color: "var(--text-muted)",
                   fontSize: 12,
                   lineHeight: 1.6,
                 }}
@@ -806,7 +792,7 @@ async function resetPassword(id,initUser) {
                   className="ti ti-shield-lock"
                   style={{
                     fontSize: 16,
-                    color: "#2563eb",
+                    color: "var(--color-info)",
                     marginTop: 1,
                     flexShrink: 0,
                   }}
@@ -900,7 +886,7 @@ async function resetPassword(id,initUser) {
                   <th>Role</th>
                   <th>Email</th>
                   <th>Last Login</th>
-                  <th>Actions</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -916,7 +902,15 @@ async function resetPassword(id,initUser) {
                   const rolesForTarget = assignableRoles(u.role);
                   return (
                     <tr key={u.id}>
-                      <td style={{ fontWeight: 600 }}>{u.username}</td>
+                      <td>
+                        <span className="user-cell">
+                          <span className="avatar" aria-hidden="true">
+                            {String(u.username || "?").slice(0, 2).toUpperCase()}
+                          </span>
+                          <span className="user-cell-name">{u.username}</span>
+                          {isOwnRow && <span className="user-cell-you">(you)</span>}
+                        </span>
+                      </td>
                       <td>
                         {canManage && rolesForTarget.length > 0 ? (
                           <Select
@@ -947,11 +941,7 @@ async function resetPassword(id,initUser) {
                               ))}
                           </Select>
                         ) : (
-                          <span
-                            className={`badge ${ROLE_BADGE[u.role] || "badge-gray"}`}
-                          >
-                            {u.role}
-                          </span>
+                          <Badge tone={roleTone(u.role)}>{u.role}</Badge>
                         )}
                       </td>
                       <td>{u.email || "-"}</td>
@@ -960,54 +950,32 @@ async function resetPassword(id,initUser) {
                           ? new Date(u.lastLoginAt).toLocaleString()
                           : "-"}
                       </td>
-                      <td style={{ verticalAlign: "middle" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 4,
-                            alignItems: "center",
-                          }}
-                        >
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => resetPassword(u.id,u.initUser)}
-                            title="Reset Password"
-                            disabled={!canResetPassword || u.initUser}
-                            style={
-                              !canResetPassword || u.initUser
-                                ? { opacity: 0.35, cursor: "not-allowed" }
-                                : {}
-                            }
-                          >
-                            <Icon className="ti ti-key"></Icon>
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => reGenerateSetupURL(u?.id)}
-                            title="Copy setup URL"
-                            disabled={!canResetPassword || u.initUser}
-                            style={
-                              !canResetPassword || u.initUser
-                                ? { opacity: 0.35, cursor: "not-allowed" }
-                                : {}
-                            }
-                          >
-                            <Icon className="ti ti-refresh"></Icon>
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => setDel(u.id)}
-                            title="Delete"
-                            disabled={!canManage || u.initUser}
-                            style={
-                              !canManage || u.initUser
-                                ? { opacity: 0.35, cursor: "not-allowed" }
-                                : {}
-                            }
-                          >
-                            <Icon className="ti ti-trash"></Icon>
-                          </button>
-                        </div>
+                      <td style={{ verticalAlign: "middle", textAlign: "right" }}>
+                        <RowMenu
+                          label={u.username}
+                          items={[
+                            {
+                              label: "Reset Password",
+                              icon: "ti-key",
+                              disabled: !canResetPassword || u.initUser,
+                              onClick: () => resetPassword(u.id, u.initUser),
+                            },
+                            {
+                              label: "Copy setup URL",
+                              icon: "ti-link",
+                              disabled: !canResetPassword || u.initUser,
+                              onClick: () => reGenerateSetupURL(u?.id),
+                            },
+                            { divider: true },
+                            {
+                              label: "Delete",
+                              icon: "ti-trash",
+                              danger: true,
+                              disabled: !canManage || u.initUser,
+                              onClick: () => setDel(u.id),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );

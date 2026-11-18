@@ -81,15 +81,7 @@ function useColumnCount() {
 function FilterField({ label, htmlFor, children, grow }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: grow ? "1 1 220px" : "0 0 auto", minWidth: 0 }}>
-      <label
-        htmlFor={htmlFor}
-        style={{
-          fontSize: 11,
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-        }}
-      >
+      <label htmlFor={htmlFor} className="form-label" style={{ fontSize: "var(--text-xs)" }}>
         {label}
       </label>
       {children}

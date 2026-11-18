@@ -1,7 +1,8 @@
-// Navbar - Top navigation bar with cluster switching and user controls
+// Navbar - Top bar with breadcrumb, search, node switching and user controls
 //
-// The main navigation header that sits at the top of every page. It shows
-// the CHOps branding, cluster/node selection dropdowns, and a combined
+// Style guide shell: the top bar sits beside the full-height sidebar (which
+// holds the brand and cluster picker). It shows the breadcrumb, the command
+// palette search field, the node dropdown, and a combined
 // connection-status + live server clock: a green, ticking clock showing the
 // selected node's server time when connected, and a red, frozen clock-off
 // icon (no time) when disconnected.
@@ -14,31 +15,27 @@ import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
 import { editorDisconnect, runQuery } from "../../utils/api.js";
+import Breadcrumb from "./Breadcrumb.jsx";
+import { Kbd, Badge, shortcutLabel } from "../ui/index.jsx";
+import { roleTone } from "../../utils/roles.js";
 
-import chopsLightLogo from "../../assets/chops-light.svg";
-import chopsDarkLogo from "../../assets/chops-dark.svg";
-
-// Dropdown is translucent (96% opaque) with a strong blur so you can barely
-// see through it, but it still feels like glass rather than a solid box.
+// Solid raised menu panel (Midnight: no glass).
 const dropdownStyle = {
   position: "absolute",
   top: "100%",
   right: 0,
   marginTop: 4,
-  background: "var(--glass-dropdown)",
-  backdropFilter: "blur(40px) saturate(1.8)",
-  WebkitBackdropFilter: "blur(40px) saturate(1.8)",
-  border: "1px solid var(--glass-border)",
-  borderRadius: "var(--radius-sm)",
-  boxShadow: "var(--shadow-lg)",
+  background: "var(--bg-raised)",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--shadow-md)",
   zIndex: 1200,
 };
 
-export default function Navbar({ onRefresh, onOpenSearch }) {
+export default function Navbar({ route, onRefresh, onOpenSearch }) {
   const { auth, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const {
-    clusters,
     selectedClusterId,
     nodes,
     selectedNode,
@@ -48,7 +45,6 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     setConnection,
     testConnection,
     reloadConfig,
-    switchCluster,
   } = useConnection();
   const [, setConnecting] = useState(false);
 
@@ -188,81 +184,31 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     onRefresh();
   }
 
-  async function handleChangeCluster(e) {
-    switchCluster(e.target.value);
-    if (nodes?.length > 0) {
-      const firstNode = nodes[0];
-      setConnecting(true);
-      await testConnection(firstNode?.host, firstNode?.user, firstNode?.port);
-      onRefresh();
-      setConnecting(false);
-    }
-    await editorDisconnect();
-  }
-
   return (
     <header className="navbar">
-      {/* Left: Brand */}
-      <a
-        href="https://www.ch-ops.io/"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="navbar-brand"
-        style={{ flex: "0 0 auto", minWidth: 0, textDecoration: "none" }}
-      >
-        {/* <Icon className="ti ti-database"></Icon>
-        <span className="navbar-title">CHOps</span> */}
+      {/* Left: where you are */}
+      <Breadcrumb route={route} />
 
-         <img
-          style={{ width: "100px",position:"relative",right:"10px" }}
-          src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
-        />
-      </a>
+      {/* Right: search, node, live clock, actions, account */}
+      <div className="navbar-actions" style={{ flex: "0 0 auto", minWidth: 0 }}>
+        <button
+          className="navbar-search"
+          onClick={onOpenSearch}
+          title={`Search pages (${shortcutLabel("K")})`}
+          aria-label="Search"
+        >
+          <Icon className="ti ti-search"></Icon>
+          <span className="navbar-search-label">Search pages, tables, queries</span>
+          <Kbd>{shortcutLabel("K")}</Kbd>
+        </button>
 
-      {/* Center: Connection */}
-      <div
-        className="navbar-connection"
-        style={{ flex: "1 1 auto", minWidth: 0, justifyContent: "center" }}
-      >
-        {clusters.length > 0 && (
-          <div className="conn-group">
-            <span className="conn-label">
-              <Icon className="ti ti-topology-star"></Icon>
-            </span>
-            <Select
-              className="form-select conn-select"
-              value={selectedClusterId}
-              onChange={(e) => handleChangeCluster(e)}
-              style={{
-                Width: 120,
-                fontWeight: 600,
-                height: "38px",
-                fontSize: "13px",
-              }}
-              title="Switch cluster"
-            >
-              {clusters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
         <div className="conn-group">
-          <span className="conn-label">
-            <Icon className="ti ti-server"></Icon>
-          </span>
           <Select
             className="form-select conn-select"
             value={nodeName || ""}
-            style={{
-              Width: 120,
-              fontWeight: 600,
-              height: "38px",
-              fontSize: "13px",
-            }}
             onChange={(e) => handleNodeChange(e.target.value)}
+            aria-label="Node"
+            title="Switch node"
           >
             {nodes.map((n) => (
               <option key={n.name} value={n.name}>
@@ -277,7 +223,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
             Connected    -> green ticking clock + server time.
             Disconnected -> red, frozen clock-off icon, no time shown. */}
         <div
-          className="conn-group"
+          className="conn-group navbar-clock"
           title={
             connected
               ? `Connected. Server time${serverTz ? ` in ${serverTz}` : ""}. Use this when setting time-range filters.`
@@ -298,75 +244,54 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
             ></Icon>
           </span>
           {serverClock && (
-            <span
-              style={{
-                fontVariantNumeric: "tabular-nums",
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <span className="navbar-clock-time">
               {serverClock}{" "}
-              <span style={{ opacity: 0.6, fontWeight: 400 }}>{serverTz}</span>
+              <span className="navbar-clock-tz">{serverTz}</span>
             </span>
           )}
         </div>
-      </div>
 
-      {/* Right: Actions + User dropdown */}
-      <div className="navbar-actions" style={{ flex: "0 0 auto", minWidth: 0 }}>
         <button
-          className="btn btn-ghost btn-sm"
-          onClick={onOpenSearch}
-          title="Search pages (Ctrl/Cmd + K)"
-          aria-label="Search"
-        >
-          <Icon className="ti ti-search"></Icon>
-          <span className="navbar-btn-label">Search</span>
-        </button>
-        <button
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm btn-icon"
           onClick={handleRefresh}
           title="Refresh"
           aria-label="Refresh"
         >
           <Icon className="ti ti-refresh"></Icon>
-          <span className="navbar-btn-label">Refresh</span>
+          <span className="navbar-btn-label sr-only">Refresh</span>
         </button>
         <a
           href="/docs/"
           target="_blank"
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm btn-icon"
           title="Documentation"
-          style={{ textDecoration: "none" }}
+          aria-label="Documentation"
         >
           <Icon className="ti ti-book"></Icon>
-          <span className="navbar-btn-label">Docs</span>
+          <span className="navbar-btn-label sr-only">Docs</span>
+        </a>
+        <a
+          href="https://github.com/Quantrail-Data/CH-Ops"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-ghost btn-sm btn-icon"
+          title="GitHub repository"
+          aria-label="GitHub repository"
+        >
+          <Icon className="ti ti-brand-github"></Icon>
+          <span className="navbar-btn-label sr-only">GitHub</span>
         </a>
         <button
-          className="btn btn-ghost btn-sm"
+          className="btn btn-secondary btn-sm btn-icon"
           onClick={toggleTheme}
           title={theme === "dark" ? "Light mode" : "Dark mode"}
           aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
         >
           <Icon className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}></Icon>
-          <span className="navbar-btn-label">
+          <span className="navbar-btn-label sr-only">
             {theme === "dark" ? "Light" : "Dark"}
           </span>
         </button>
-        <a
-          href="https://github.com/Quantrail-Data/CH-Ops"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-ghost btn-sm"
-          title="GitHub repository"
-          aria-label="GitHub repository"
-          style={{ textDecoration: "none" }}
-        >
-          <Icon className="ti ti-brand-github"></Icon>
-          <span className="navbar-btn-label">GitHub</span>
-        </a>
 
         {/* User dropdown (rightmost) - contains Sign Out + Text Size */}
         <div style={{ position: "relative", marginLeft: 4 }}>
@@ -375,25 +300,14 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
               e.stopPropagation();
               setUserMenuOpen(!userMenuOpen);
             }}
-            style={{
-              cursor: "pointer",
-              border: "1px solid var(--accent-border)",
-              background: "var(--accent-soft)",
-              borderRadius: "var(--radius-sm)",
-              padding: "4px 10px",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              fontSize: "13px",
-              fontFamily: "var(--font-ui)",
-              color: "var(--text-primary)",
-            }}
+            className="navbar-user-btn"
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
           >
-            <Icon
-              className="ti ti-user"
-              style={{ fontSize: 16, color: "var(--icon-color)" }}
-            ></Icon>
-            <span>{auth?.username}</span>
+            <span className="avatar" aria-hidden="true">
+              {String(auth?.username || "?").slice(0, 2).toUpperCase()}
+            </span>
+            <span className="navbar-user-name">{auth?.username}</span>
             <Icon
               className="ti ti-chevron-down"
               style={{ fontSize: 12, opacity: 0.6 }}
@@ -418,12 +332,9 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
                   {auth?.username}
                 </strong>
                 {auth?.role && (
-                  <span
-                    className={`badge ${auth.role === "superadmin" ? "badge-amber" : auth.role === "admin" ? "badge-purple" : auth.role === "editor" ? "badge-blue" : "badge-gray"}`}
-                    style={{ marginLeft: 6 }}
-                  >
+                  <Badge tone={roleTone(auth.role)} style={{ marginLeft: 6 }}>
                     {auth.role}
-                  </span>
+                  </Badge>
                 )}
               </div>
 
