@@ -51,9 +51,13 @@ describe("executeQuery: the base URL", () => {
     expect(lastUrl().protocol).toBe("https:");
   });
 
-  test("sets readonly=1 when asked", async () => {
+  test("sets readonly=2 when asked, not 1", async () => {
+    // Level 1 blocks both writes and changing settings; level 2 blocks writes
+    // only. Chart Builder and friends rely on overriding max_result_rows
+    // (the Max rows cap) on read-only requests, so level 1 would silently
+    // defeat that cap.
     await executeQuery({ ...NODE, sql: "SELECT 1", readOnly: true });
-    expect(lastUrl().searchParams.get("readonly")).toBe("1");
+    expect(lastUrl().searchParams.get("readonly")).toBe("2");
   });
 
   test("omits readonly entirely when not asked, rather than sending 0", async () => {
@@ -193,7 +197,7 @@ describe("executeQuery: request settings", () => {
       settings: { max_result_rows: 10001 },
     });
     const p = lastUrl().searchParams;
-    expect(p.get("readonly")).toBe("1");
+    expect(p.get("readonly")).toBe("2");
     expect(p.get("param_t")).toBe("acme");
     expect(p.get("max_result_rows")).toBe("10001");
   });
@@ -210,12 +214,30 @@ describe("executeQuery: nothing changes for existing callers", () => {
     expect(lastUrl().toString()).toBe(plain);
   });
 
-  test("a readonly call is unchanged", async () => {
+  test("a readonly call uses readonly=2", async () => {
     await executeQuery({ ...NODE, sql: "SELECT 1", readOnly: true });
     expect(lastUrl().toString()).toBe(
-      "http://10.0.0.1:8123/?readonly=1&max_result_bytes=134217728" +
+      "http://10.0.0.1:8123/?readonly=2&max_result_bytes=134217728" +
         "&result_overflow_mode=break",
     );
+  });
+
+  test("a readonly call honors an explicit max_result_rows override", async () => {
+    // Regression test: readonly=1 blocks changing settings in ClickHouse,
+    // which silently defeated Chart Builder's "Max rows" cap because it
+    // always runs with readOnly: true. readonly=2 must still let the caller's
+    // max_result_rows setting reach the request.
+    await executeQuery({
+      ...NODE,
+      sql: "SELECT 1",
+      readOnly: true,
+      settings: { max_result_rows: 5001, result_overflow_mode: "break" },
+    });
+    const p = lastUrl().searchParams;
+    expect(p.get("readonly")).toBe("2");
+    expect(p.get("max_result_rows")).toBe("5001");
+    // The caller's overflow mode wins over the generic ceiling set earlier.
+    expect(p.get("result_overflow_mode")).toBe("break");
   });
 
   test("still appends FORMAT JSONEachRow to a data query", async () => {

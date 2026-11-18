@@ -517,6 +517,11 @@ export function useLiveOverview() {
 
   const failingChecks = healthChips.filter((c) => c.value > 0).length;
 
+  // If no cluster is not connected function returns the boolean value
+  const isNotConnectedClusterNode = ()=>{
+    return error === "No cluster nodes configured";
+  }
+
   return {
     live, setLive, interval, setIntervalSeconds,
     m, a, ev, hasPair, restarted, error, lastAt, loaded,
@@ -525,6 +530,7 @@ export function useLiveOverview() {
     // system.metrics / asynchronous_metrics / events. Polled on every refresh
     // and, until now, used only for health chips.
     descriptions,
+    isNotConnectedClusterNode
   };
 }
 

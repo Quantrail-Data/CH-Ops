@@ -226,38 +226,57 @@ export function createRule(req, res) {
   try {
     const cronError = validateCronExpression(schedule || "*/5 * * * *");
     if (cronError) return res.status(400).json({ error: cronError });
-    const result = db
-      .insert(alertRules)
-      .values({
-        name,
-        description: description || null,
-        sql,
-        threshold: threshold ?? 0,
-        operator: operator || "gt",
-        severity: severity || "warning",
-        schedule: schedule || "*/5 * * * *",
-        enabled: enabled !== false,
-        nodes:
-          Array.isArray(nodes) && nodes.length > 0
-            ? JSON.stringify(nodes)
-            : null,
-        clusterId: cluster_id || null,
-        notifyIntervalMinutes: notifyIntervalMinutes,
-        breachRunsRequired: breachRunsRequired,
-        noRowsMeansBreach: noRowsMeansBreach,
-        templateId: pickedTemplate ? pickedTemplate.id : null,
-        templateEdited: Boolean(pickedTemplate),
-      })
-      .returning()
-      .get();
 
-    if (channel_ids?.length) {
+    if (Array.isArray(channel_ids)) {
       for (const cid of channel_ids) {
-        db.insert(alertRuleChannels)
-          .values({ alertRuleId: result.id, alertChannelId: cid })
-          .run();
+        const ch = db
+          .select()
+          .from(alertChannels)
+          .where(eq(alertChannels.id, cid))
+          .get();
+        if (!ch)
+          return res
+            .status(400)
+            .json({ error: `Channel ${cid} does not exist.` });
       }
     }
+
+    const result = db.transaction((tx) => {
+      const inserted = tx
+        .insert(alertRules)
+        .values({
+          name,
+          description: description || null,
+          sql,
+          threshold: threshold ?? 0,
+          operator: operator || "gt",
+          severity: severity || "warning",
+          schedule: schedule || "*/5 * * * *",
+          enabled: enabled !== false,
+          nodes:
+            Array.isArray(nodes) && nodes.length > 0
+              ? JSON.stringify(nodes)
+              : null,
+          clusterId: cluster_id || null,
+          notifyIntervalMinutes: notifyIntervalMinutes,
+          breachRunsRequired: breachRunsRequired,
+          noRowsMeansBreach: noRowsMeansBreach,
+          templateId: pickedTemplate ? pickedTemplate.id : null,
+          templateEdited: Boolean(pickedTemplate),
+        })
+        .returning()
+        .get();
+
+      if (Array.isArray(channel_ids) && channel_ids.length > 0) {
+        for (const cid of channel_ids) {
+          tx.insert(alertRuleChannels)
+            .values({ alertRuleId: inserted.id, alertChannelId: cid })
+            .run();
+        }
+      }
+
+      return inserted;
+    });
 
     res.status(201).json(result);
   } catch (error) {
@@ -337,6 +356,20 @@ export async function updateRule(req, res) {
       return res.status(404).json({ error: "Alert rule not found" });
     }
 
+    if (Array.isArray(req.body.channel_ids)) {
+      for (const cid of req.body.channel_ids) {
+        const ch = db
+          .select()
+          .from(alertChannels)
+          .where(eq(alertChannels.id, cid))
+          .get();
+        if (!ch)
+          return res
+            .status(400)
+            .json({ error: `Channel ${cid} does not exist.` });
+      }
+    }
+
     const updates = {};
     for (const k of [
       "name",
@@ -387,24 +420,26 @@ export async function updateRule(req, res) {
       updates.clusterId = req.body.cluster_id || null;
     }
 
-    if (Object.keys(updates).length > 0) {
-      db.update(alertRules).set(updates).where(eq(alertRules.id, id)).run();
-    }
-
-    if (req.body.channel_ids !== undefined) {
-      db.delete(alertRuleChannels)
-        .where(eq(alertRuleChannels.alertRuleId, id))
-        .run();
-
-      for (const cid of req.body.channel_ids) {
-        db.insert(alertRuleChannels)
-          .values({
-            alertRuleId: id,
-            alertChannelId: cid,
-          })
-          .run();
+    db.transaction((tx) => {
+      if (Object.keys(updates).length > 0) {
+        tx.update(alertRules).set(updates).where(eq(alertRules.id, id)).run();
       }
-    }
+
+      if (Array.isArray(req.body.channel_ids)) {
+        tx.delete(alertRuleChannels)
+          .where(eq(alertRuleChannels.alertRuleId, id))
+          .run();
+
+        for (const cid of req.body.channel_ids) {
+          tx.insert(alertRuleChannels)
+            .values({
+              alertRuleId: id,
+              alertChannelId: cid,
+            })
+            .run();
+        }
+      }
+    });
 
     // The "resolved" and "recovered" messages go out in the background. The answer does not wait for them.
     if (turnsOffFiringRule) {
