@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import ClusterSwitcher, { SidebarBrand } from "./ClusterSwitcher.jsx";
 import { useLocation } from "react-router-dom";
+import { useTheme } from "../../App.jsx";
 
 const CORE_NAV_ITEMS = [
   {
@@ -169,6 +170,7 @@ export default function Sidebar({
   const location = useLocation();
 
   const NAV_ITEMS = CORE_NAV_ITEMS;
+  const {theme} = useTheme()
 
   const [openSections, setOpenSections] = useState(() => {
     const segment = location.pathname.split("/")[1]?.toLowerCase();
@@ -232,7 +234,7 @@ export default function Sidebar({
   return (
     <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
       <div className="sidebar-top">
-        <SidebarBrand collapsed={isCollapsed} />
+        <SidebarBrand collapsed={isCollapsed} theme={theme}/>
         <ClusterSwitcher collapsed={isCollapsed} onRefresh={onRefresh} />
       </div>
       <div className="sidebar-scroll">

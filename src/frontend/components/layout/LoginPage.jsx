@@ -146,7 +146,7 @@ const OTP_Component = ({ setFormStatus }) => {
     }, 1000);
 
     return () => clearInterval(timers);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [sec, min]);
 
   const OPT_verifyHandle = async (e) => {
@@ -353,14 +353,12 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
         }),
       });
 
-
       if (res?.success) {
         localStorage.removeItem("otp-mail");
         sessionStorage.removeItem("otp-reset-token");
         setFormStatus("login");
-      }
-      else {
-        setError(res?.message)
+      } else {
+        setError(res?.message);
       }
     } catch (err) {
       setError(err?.message);
@@ -990,11 +988,46 @@ export default function LoginPage() {
               chips, a framed screenshot carousel and the feature captions. */}
           <div className="login-showcase-inner">
             <h1 className="login-headline">
-              Run ClickHouse® with <span className="login-headline-accent">clear eyes.</span>
+              ClickHouse® Database operations,{" "}
+              <span className="login-headline-accent">made easy</span>
             </h1>
             <p className="login-lede">
-              Monitor clusters, trace slow queries, manage schemas and alerts from one place.
+              One UI to manage, monitor and troubleshoot every ClickHouse®
+              database cluster, wherever it runs.
             </p>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "start",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent)"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-world-bolt"
+              >
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M20.985 12.52a9 9 0 1 0 -7.52 8.36" />
+                <path d="M3.6 9h16.8" />
+                <path d="M3.6 15h10.9" />
+                <path d="M11.5 3a17 17 0 0 0 0 18" />
+                <path d="M12.5 3c2.313 3.706 3.07 7.856 2.27 12" />
+                <path d="M19 16l-2 3h4l-2 3" />
+              </svg>
+              <p style={{ color: "var(--text-muted)" }}>
+                Powering hundreds of ClickHouse® database installations across
+                the globe.
+              </p>
+            </div>
 
             <div className="login-chips" aria-hidden="true">
               <div className="login-chips-track">

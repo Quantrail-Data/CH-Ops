@@ -11,9 +11,14 @@ import { StatusDot } from "../ui/index.jsx";
 import { useConnection } from "../../App.jsx";
 import { editorDisconnect } from "../../utils/api.js";
 
+import chopsLightLogo from "../../assets/chops-light.svg";
+import chopsDarkLogo from "../../assets/chops-dark.svg";
+import CollapseLogoLight from "../../assets/CollapseLogoLight.svg";
+import CollapseLogoDark from "../../assets/CollapseLogoDark.png"
+
 const APP_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "";
 
-export function SidebarBrand({ collapsed = false }) {
+export function SidebarBrand({ collapsed = false,theme }) {
   return (
     <a
       href="https://www.ch-ops.io/"
@@ -22,10 +27,17 @@ export function SidebarBrand({ collapsed = false }) {
       className="sidebar-brand"
       title="CHOps"
     >
-      <span className="brand-mark" aria-hidden="true">CH</span>
-      {!collapsed && (
+
+      {collapsed ? <img
+          style={{ width: "20px"}}
+          src={theme === "dark" ? CollapseLogoLight :CollapseLogoDark}
+        /> :(
+        
         <span className="sidebar-brand-text">
-          <span className="sidebar-brand-name">CHOps</span>
+          <img
+          style={{ width: "70px",marginBottom:"2px"}}
+          src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
+        />
           {APP_VERSION && <span className="sidebar-brand-version">v{APP_VERSION}</span>}
         </span>
       )}
