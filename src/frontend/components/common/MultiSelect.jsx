@@ -122,7 +122,7 @@ ${v}`}
         overwriteStyle="true"
       >
         {searchable && (
-          <div style={{position: "sticky", top: 0,zIndex: 1,backgroundColor:"var(--menu-bg, #161e34)"}}>
+          <div style={{position: "sticky", top: 0,zIndex: 1,backgroundColor:"var(--bg-raised)"}}>
             <li
             style={{
               position: "sticky",

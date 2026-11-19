@@ -7,6 +7,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import UserManagement from '../../src/frontend/components/admin/UserManagement.jsx';
 
+// Row actions live in the "..." menu (style guide User Management screen):
+// open it when the item is not on screen yet, then return the item.
+function rowAction(title) {
+  if (!screen.queryByTitle(title)) fireEvent.click(screen.getByLabelText(/^Actions for /));
+  return screen.getByTitle(title);
+}
+
+
 const mockToast = {
   success: vi.fn(),
   error: vi.fn(),
@@ -405,8 +413,8 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(screen.getByTitle('Reset Password')).toBeTruthy();
-    expect(screen.getByTitle('Delete')).toBeTruthy();
+    expect(rowAction('Reset Password')).toBeTruthy();
+    expect(rowAction('Delete')).toBeTruthy();
   });
 
   it('lets a superadmin reset another superadmin, but not delete them', async () => {
@@ -419,8 +427,8 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(screen.getByTitle('Reset Password')).not.toHaveAttribute('disabled');
-    expect(screen.getByTitle('Delete')).toHaveAttribute('disabled');
+    expect(rowAction('Reset Password')).not.toHaveAttribute('disabled');
+    expect(rowAction('Delete')).toHaveAttribute('disabled');
   });
 
   it('does not ask an admin for the SMTP settings, which are for superadmins only', async () => {
@@ -441,7 +449,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(screen.getByTitle('Reset Password')).toHaveAttribute('disabled');
+    expect(rowAction('Reset Password')).toHaveAttribute('disabled');
   });
 
   it('disables reset and delete for equal-level user', async () => {
@@ -453,8 +461,8 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(screen.getByTitle('Reset Password')).toHaveAttribute('disabled');
-    expect(screen.getByTitle('Delete')).toHaveAttribute('disabled');
+    expect(rowAction('Reset Password')).toHaveAttribute('disabled');
+    expect(rowAction('Delete')).toHaveAttribute('disabled');
   });
 
   it('resets user password successfully', async () => {
@@ -467,7 +475,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Reset Password'));
+    fireEvent.click(rowAction('Reset Password'));
 
     await waitFor(() => {
       expect(mockToast.success).toHaveBeenCalledWith('Password reset. Send the setup link to the user.');
@@ -485,7 +493,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Reset Password'));
+    fireEvent.click(rowAction('Reset Password'));
 
     await waitFor(() => {
       expect(mockToast.error).toHaveBeenCalledWith('Reset failed');
@@ -501,7 +509,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Delete'));
+    fireEvent.click(rowAction('Delete'));
     await waitFor(() => expect(screen.getByText('Delete this user?')).toBeTruthy());
 
     fireEvent.click(screen.getByText('Cancel'));
@@ -522,7 +530,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Delete'));
+    fireEvent.click(rowAction('Delete'));
     await waitFor(() => expect(screen.getByText('Delete this user?')).toBeTruthy());
 
     fireEvent.click(screen.getByText('Confirm'));
@@ -542,7 +550,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Delete'));
+    fireEvent.click(rowAction('Delete'));
     await waitFor(() => expect(screen.getByText('Delete this user?')).toBeTruthy());
 
     fireEvent.click(screen.getByText('Confirm'));

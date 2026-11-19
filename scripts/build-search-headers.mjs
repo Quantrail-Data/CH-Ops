@@ -97,6 +97,20 @@ export function generatePageHeaders() {
   const MAX_PER_ROUTE = 30;
   const MAX_TEXT_PER_ROUTE = 180;
 
+  // Comments are documentation, not UI: drop block comments (including JSX
+  // {/* ... */}) and whole-line // comments before scraping, or JSX examples
+  // in a docstring leak into the search index as page text. Line comments are
+  // only removed when they start a line, so "https://" inside strings survives.
+  function stripComments(s) {
+    return s
+      .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^[ \t]*\/\/.*$/gm, "");
+  }
+
+  // Shared design-system primitives (components/ui) belong to no single page.
+  const UI_DIR = join(COMPONENTS_DIR, "ui");
+
   // Resolve a relative import specifier to a .jsx file under components/.
   function resolveLocal(fromDir, spec) {
     if (!spec.startsWith(".")) return null;
@@ -111,7 +125,7 @@ export function generatePageHeaders() {
     if (depth > MAX_DEPTH || visited.has(file)) return;
     if (headers.size >= MAX_PER_ROUTE && text.size >= MAX_TEXT_PER_ROUTE) return;
     visited.add(file);
-    const src = readFileSync(file, "utf8");
+    const src = stripComments(readFileSync(file, "utf8"));
     for (const m of src.matchAll(TITLE_RE)) {
       const t = cleanTitle(m[2]);
       if (t && t.length >= 2 && t.length <= 60 && headers.size < MAX_PER_ROUTE) headers.add(t);
@@ -131,7 +145,7 @@ export function generatePageHeaders() {
       const child = resolveLocal(dirname(file), im[1]);
       if (!child) continue;
       const baseName = child.split("/").pop().replace(/\.jsx$/, "");
-      if (DENY.has(baseName)) continue;
+      if (DENY.has(baseName) || child.startsWith(UI_DIR)) continue;
       collect(child, depth + 1, visited, headers, text);
     }
   }

@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../common/Icon.jsx";
+import { Badge } from "../ui/index.jsx";
 import Select from "../common/Select.jsx";
 import { OPEN_IN_DESTINATIONS } from "./OpenInMenu.jsx";
 import { useToast } from "../layout/Toast.jsx";
@@ -90,6 +91,16 @@ function MapTable({ data, emptyLabel }) {
   );
 }
 
+// One fact in the drawer's stat grid (style guide: User, Duration, Read rows...).
+function DetailStat({ label, value }) {
+  return (
+    <div className="detail-stat">
+      <div className="detail-stat-label">{label}</div>
+      <div className="detail-stat-value">{value === null || value === undefined || value === "" ? "-" : value}</div>
+    </div>
+  );
+}
+
 export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -145,32 +156,44 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
   const isPreviewOnly = source === "preview" || (!detail && !loading);
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1350 }}>
+    // Style guide Queries screen: details open in a right-hand drawer over a
+    // dimmed page, so the list stays in view.
+    // z-index above the floating search / bug-report buttons (1500), which
+    // otherwise sit on top of the drawer's footer actions.
+    <div className="modal-overlay drawer-overlay" onClick={onClose} style={{ zIndex: 1600 }}>
       <div
-        className="modal-box"
+        className="drawer"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 760, width: "94%", maxHeight: "88vh", display: "flex", flexDirection: "column" }}
         role="dialog"
         aria-label="Query detail"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>Query detail</span>
-          <code
-            style={{
-              fontFamily: "var(--font-code, monospace)",
-              fontSize: 12,
-              color: "var(--accent)",
-              wordBreak: "break-all",
-            }}
-          >
-            {row.query_id}
-          </code>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-            
-            <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
-              <Icon className="ti ti-x" />
-            </button>
+        <div className="drawer-header">
+          <div style={{ minWidth: 0 }}>
+            <div className="drawer-title">
+              Query detail
+              {row.is_cancelled ? (
+                <Badge tone="warning">Cancelling</Badge>
+              ) : isPreviewOnly || source === "query_log" ? (
+                <Badge tone="neutral">Finished</Badge>
+              ) : loading ? null : (
+                <Badge tone="info">Running</Badge>
+              )}
+            </div>
+            <code className="drawer-subtitle">{row.query_id}</code>
           </div>
+          <button className="btn btn-secondary btn-sm btn-icon" onClick={onClose} aria-label="Close">
+            <Icon className="ti ti-x" />
+          </button>
+        </div>
+
+        <div className="drawer-body">
+        <div className="detail-stats">
+          <DetailStat label="User" value={row.user} />
+          <DetailStat label="Elapsed" value={fmtDuration(row.elapsed)} />
+          <DetailStat label="Read rows" value={fmtRows(row.read_rows)} />
+          <DetailStat label="Read bytes" value={fmtBytes(row.read_bytes)} />
+          <DetailStat label="Peak memory" value={fmtBytes(row.peak_memory_usage)} />
+          <DetailStat label="Kind" value={row.query_kind} />
         </div>
 
         {row.is_cancelled && (
@@ -326,18 +349,9 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
             />
           </Section>
         </div>
+        </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 6,
-            paddingTop: 12,
-            marginTop: 4,
-            borderTop: "1px solid var(--border-default)",
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
+        <div className="drawer-footer">
           <Select
             value={openIn}
             onChange={(e) => setOpenIn(e.target.value)}
