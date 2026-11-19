@@ -231,11 +231,6 @@ describe('Sidebar: current structure behavior', () => {
     expect(code).toContain('useLocation');
   });
 
-  it('uses useTheme', () => {
-    expect(code).toContain('useTheme');
-    expect(code).toContain('const {theme} = useTheme();');
-  });
-
   it('contains openSections state', () => {
     expect(code).toContain('const [openSections, setOpenSections]');
   });
@@ -261,12 +256,9 @@ describe('Sidebar: current structure behavior', () => {
     ).toBe(true);
   });
 
-  it('contains dark theme helper', () => {
-    expect(code).toContain('function isDark()');
-    expect(
-      code.includes("return theme === 'dark'") ||
-      code.includes('return theme === "dark"')
-    ).toBe(true);
+  it('renders the brand and cluster switcher at the top (style guide shell)', () => {
+    expect(code).toContain('<SidebarBrand collapsed={isCollapsed} theme={theme}/>');
+    expect(code).toContain('<ClusterSwitcher collapsed={isCollapsed} onRefresh={onRefresh} />');
   });
 });
 
@@ -407,10 +399,9 @@ describe('Sidebar: newly added function coverage', () => {
     expect(code).toContain('item.id?.replace("/", "")');
   });
 
-  it('styles icons based on theme', () => {
-    expect(
-      code.includes('color: isDark() ? "white" : "black"') ||
-      code.includes("color: isDark() ? 'white' : 'black'")
-    ).toBe(true);
+  it('takes icon colours from theme tokens, not inline per-theme values', () => {
+    // Midnight: .sidebar-section-icon .ti uses var(--icon-color) in global.css.
+    expect(code).not.toContain('color: isDark() ? "white" : "black"');
+    expect(code).toContain('className="sidebar-section-icon"');
   });
 });

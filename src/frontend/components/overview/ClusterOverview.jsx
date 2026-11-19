@@ -10,11 +10,12 @@ import { useQuery } from '../../hooks/useQuery.js';
 import { useConnection } from '../../App.jsx';
 import DataTable from '../layout/DataTable.jsx';
 import { initChart, disposeChart } from '../../utils/echarts.js';
+import { themeColor } from '../../utils/theme.js';
 import { fmtBytes } from '../../utils/costEstimator.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import ClusterTopology from './ClusterTopology.jsx';
 import { Section } from './OverviewCards.jsx';
-import { SERIES_COLORS } from './overviewChart.js';
+import { KpiCard, PageHeader, StatusDot } from '../ui/index.jsx';
 import LiveOverview, { useLiveOverview, LiveControlBar, MachineGauges } from './LiveOverview.jsx';
 import ErrorClusterConnected from '../common/ErrorClusterConnected.jsx';
 
@@ -27,30 +28,16 @@ function isDark() {
   return document.documentElement.getAttribute('data-theme') !== 'light';
 }
 
-function StatCard({ icon, label, value, iconColor }) {
+// Dense fact card for the node overview row, built on the shared KpiCard.
+function StatCard({ icon, label, value, tone }) {
   return (
-    <div className="stat-card" style={{ padding: '10px 12px', minWidth: 0 }}>
-      <div className="stat-card-icon">
-        <Icon className={`ti ${icon}`} style={{ color: iconColor, fontSize: 15 }} />
-      </div>
-      <div className="stat-card-content" style={{ minWidth: 0 }}>
-        <div className="stat-card-label" style={{ fontSize: '0.6875rem', marginBottom: 2 }}>
-          {label}
-        </div>
-        <div
-          className="stat-card-value"
-          style={{
-            fontSize: '0.9375rem',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-          title={value == null ? '-' : String(value)}
-        >
-          {value ?? '-'}
-        </div>
-      </div>
-    </div>
+    <KpiCard
+      compact
+      icon={icon}
+      label={label}
+      value={value}
+      className={tone === 'danger' ? 'stat-card-danger' : undefined}
+    />
   );
 }
 
@@ -90,7 +77,7 @@ function renderPie(instRef, elRef, title, segments) {
   if (!instRef.current) instRef.current = initChart(elRef.current);
 
   const dark = isDark();
-  const textColor = dark ? '#e2e8f0' : '#1a1a2e';
+  const textColor = themeColor('--text-primary', dark ? '#ECEFF4' : '#0F1320');
 
   instRef.current.setOption({
     tooltip: {
@@ -239,8 +226,8 @@ export default function ClusterOverview({mainRef}) {
     const total = Number(d.total_space) || 0;
     const free = Number(d.free_space) || 0;
     renderPie(diskInst, diskEl, `Disk: ${d.name}`, [
-      { value: Math.max(0, total - free), name: 'Used', itemStyle: { color: '#f59e0b' } },
-      { value: free,                      name: 'Free', itemStyle: { color: '#34d399' } },
+      { value: Math.max(0, total - free), name: 'Used', itemStyle: { color: themeColor('--color-warning', '#F5B83D') } },
+      { value: free,                      name: 'Free', itemStyle: { color: themeColor('--color-success', '#3FD69A') } },
     ]);
   }, [disks.data, diskIndex, themeKey, diskElVersion]);
 
@@ -300,6 +287,25 @@ const unavailableMessage = getUnavailableMessage();
   return (
     <div className="page-content">
       {liveState?.isNotConnectedClusterNode() ? <ErrorClusterConnected mainRef={mainRef} title={"No Cluster Connected"} message={"Connect a ClickHouse cluster to view nodes, queries, and real-time performance metrics"} /> :<>
+      <PageHeader
+        title="Cluster Overview"
+        subtitle={
+          <>
+            <span className="page-subtitle-item">
+              <StatusDot tone={connection.connected ? "success" : "danger"} />
+              {connection.connected
+                ? `${(connection.nodes || []).length || 1} node${(connection.nodes || []).length === 1 ? "" : "s"} connected`
+                : "Disconnected"}
+            </span>
+            {version.data?.[0]?.version && (
+              <span className="page-subtitle-item">ClickHouse® {version.data[0].version}</span>
+            )}
+            {connection.clusterName && (
+              <span className="page-subtitle-item">{connection.clusterName}</span>
+            )}
+          </>
+        }
+      />
       <LiveControlBar nodeName={selectedNodeName} live={liveState} />
 
       <Section id="node-cards" icon="ti-topology-star" title="Node Overview">
@@ -310,14 +316,14 @@ const unavailableMessage = getUnavailableMessage();
         gridTemplateColumns: 'repeat(auto-fit, minmax(168px, 1fr))',
         gap: 10, marginBottom: 16,
       }}>
-        <StatCard icon="ti-server-cog"  label="Version"         value={version.data?.[0]?.version} iconColor="#3b82f6" />
-        <StatCard icon="ti-clock"       label="Uptime"          value={uptime.data?.[0]?.seconds ? fmtUptime(uptime.data[0].seconds) : '-'} iconColor="#22c55e" />
-        <StatCard icon="ti-database"    label="Databases"       value={dbCount.data?.[0]?.cnt} iconColor="#8b5cf6" />
-        <StatCard icon="ti-table"       label="Tables"          value={tableCount.data?.[0]?.cnt} iconColor="#06b6d4" />
-        <StatCard icon="ti-terminal-2"  label="Active Queries"  value={queryCount.data?.[0]?.cnt} iconColor="#f59e0b" />
-        <StatCard icon="ti-arrows-join" label="Merges"          value={mergeCount.data?.[0]?.cnt} iconColor="#ec4899" />
-        <StatCard icon="ti-edit"        label="Mutations"       value={mutationCount.data?.[0]?.cnt} iconColor="#f97316" />
-        <StatCard icon="ti-lock"        label="Readonly Tables" value={readonlyVal ?? '-'} iconColor={hasReadonly ? '#ef4444' : '#94a3b8'} />
+        <StatCard icon="ti-server-cog"  label="Version"         value={version.data?.[0]?.version} />
+        <StatCard icon="ti-clock"       label="Uptime"          value={uptime.data?.[0]?.seconds ? fmtUptime(uptime.data[0].seconds) : '-'} />
+        <StatCard icon="ti-database"    label="Databases"       value={dbCount.data?.[0]?.cnt} />
+        <StatCard icon="ti-table"       label="Tables"          value={tableCount.data?.[0]?.cnt} />
+        <StatCard icon="ti-terminal-2"  label="Active Queries"  value={queryCount.data?.[0]?.cnt} />
+        <StatCard icon="ti-arrows-join" label="Merges"          value={mergeCount.data?.[0]?.cnt} />
+        <StatCard icon="ti-edit"        label="Mutations"       value={mutationCount.data?.[0]?.cnt} />
+        <StatCard icon="ti-lock"        label="Readonly Tables" value={readonlyVal ?? '-'} tone={hasReadonly ? 'danger' : undefined} />
       </div>
 
       {/* Readonly alert */}
@@ -469,10 +475,9 @@ const unavailableMessage = getUnavailableMessage();
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {conns.map((c, i) => {
                 const val = Number(c.value) || 0;
-                // Same palette the charts use, one colour per protocol. A single
-                // accent for every bar made this panel look unrelated to
-                // everything else on the page.
-                const barColor = SERIES_COLORS[i % SERIES_COLORS.length];
+                // Same palette the charts use, one colour per protocol. A CSS
+                // token reference, so it follows the theme without a re-render.
+                const barColor = `var(--chart-${(i % 10) + 1})`;
                 const label = c.metric.replace('Connection', '');
                 const maxVal = Math.max(...conns.map(x => Number(x.value) || 0), 1);
                 const pct = (val / maxVal) * 100;

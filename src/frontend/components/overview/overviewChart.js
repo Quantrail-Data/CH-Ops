@@ -4,13 +4,11 @@
 
 import { useEffect, useState } from "react";
 import { fmtBytes } from "../../utils/costEstimator.js";
+import { chartPalette, themeColor, MIDNIGHT } from "../../utils/theme.js";
 
-// The series palette, pinned for both themes.
-
-export const SERIES_COLORS = [
-  "#22d3ee", "#f87171", "#a78bfa", "#fbbf24", "#34d399",
-  "#f472b6", "#60a5fa", "#a3e635", "#fb923c", "#818cf8",
-];
+// The series palette follows the Midnight tokens: chartPalette(dark) from
+// utils/theme.js. There is no static list, so light mode always gets its own
+// contrast-checked set.
 
 /** Compact number for axis ticks and labels. 1234567 becomes 1.2M. */
 export function compact(v) {
@@ -86,43 +84,32 @@ export function useIsDark() {
   return dark;
 }
 
-// Resolve a CSS custom property to a real colour string.
-
-function cssVar(name, fallback) {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v || fallback;
-  } catch {
-    return fallback;
-  }
-}
+// Token reads go through the shared helper in utils/theme.js.
+const cssVar = themeColor;
 
 function palette(dark) {
+  const m = dark ? MIDNIGHT.dark : MIDNIGHT.light;
   return {
-    // The only two values that follow the theme. Everything below is fixed, so
-    // a chart looks the same in both and only its labels change.
-    //
-    // text and axis are deliberately the SAME value. They were #e2e8f0 and
-    // #cbd5e1, which put a bar's series labels and its axis ticks half a step
-    // apart - close enough to look like a rendering fault rather than a
-    // decision, and the axis one was the weaker of the two against a dark card.
-    // Both now match --text-primary, which is what the gauge labels beside them
-    // use, so every label on the page is one shade.
-    text: dark ? "#f5f7fa" : "#111827",
-    axis: dark ? "#f5f7fa" : "#111827",
+    // Every value resolves from the Midnight design tokens at call time, so a
+    // chart follows the active theme. Series labels use --text-primary; axis
+    // ticks use --text-muted, a full step below (as in the style guide), which
+    // still clears 4.5:1 on a card in both themes.
+    text: cssVar("--text-primary", m.text),
+    axis: cssVar("--text-muted", m.muted),
 
     // Chosen to read on either background rather than being swapped per theme:
-    // a mid grey at low opacity is visible on a dark card and on a white one.
-    line: "rgba(148,163,184,0.30)",
-    split: "rgba(148,163,184,0.15)",
-    surface: "#0a0f1e",
+    // a mid grey at low opacity is visible on a dark card and on a white one,
+    // so a dial or axis looks the same to two people on different themes.
+    line: "rgba(140,149,168,0.30)",
+    split: "rgba(140,149,168,0.15)",
+    // Fixed for the same reason: gauge ticks look the same in both themes.
+    surface: MIDNIGHT.dark.surface,
 
-    success: "#34d399",
-    warning: "#fbbf24",
-    danger: "#f87171",
-    info: "#60a5fa",
-    accent: "#8b5cf6",
+    success: cssVar("--color-success", m.success),
+    warning: cssVar("--color-warning", m.warning),
+    danger: cssVar("--color-danger", m.danger),
+    info: cssVar("--color-info", m.info),
+    accent: cssVar("--accent", m.accent),
 
     fontChart: cssVar("--font-chart", '"B612", sans-serif'),
     fontCode: cssVar("--font-code", '"Red Hat Mono", monospace'),
@@ -243,7 +230,7 @@ export function polish(option, { type, format = "count", dark = true } = {}) {
   };
 
   // Overrides whichever palette initChart baked in from the theme.
-  opt.color = SERIES_COLORS;
+  opt.color = chartPalette(dark);
   opt.textStyle = { ...(opt.textStyle || {}), color: p.text, fontFamily: p.fontChart };
   opt.tooltip = {
     ...(opt.tooltip || {}),
@@ -356,14 +343,17 @@ export function stageGauge({ value, dark = true, formatter, size = 188 } = {}) {
   ];
 
   // Which band the needle is sitting in, used only for the readout colour so
-  // the number agrees with the dial without introducing a second scheme.
+  // the number agrees with the dial. The dial bands stay fixed across themes,
+  // but the readout is text, so it uses the theme's contrast-checked status
+  // colour for that band (the fixed band greens fail 4.5:1 on a white card).
+  const tone = dark ? MIDNIGHT.dark : MIDNIGHT.light;
   const readout = !defined
     ? p.muted
     : value <= 0.6
-      ? BAND_GOOD
+      ? tone.success
       : value <= 0.85
-        ? BAND_WARN
-        : BAND_BAD;
+        ? tone.warning
+        : tone.danger;
 
   return {
     series: [

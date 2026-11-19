@@ -22,7 +22,7 @@
 }
 .queue-seg-btn:last-child { border-right: none; }
 .queue-seg-btn:hover { color: var(--text-primary); }
-.queue-seg-btn.active { color: #fff; background: var(--accent); }
+.queue-seg-btn.active { color: var(--on-accent); background: var(--accent-solid); }
 
 /* Cards */
 .queue-cards {
@@ -118,7 +118,7 @@
   border: 1px solid var(--border-default); background: var(--bg-sunken);
   color: var(--text-secondary); cursor: pointer;
 }
-.queue-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.queue-chip.active { background: var(--accent-solid); color: var(--on-accent); border-color: var(--accent); }
 
 /* Search */
 .queue-disclosure {
