@@ -257,7 +257,7 @@ describe('Sidebar: current structure behavior', () => {
   });
 
   it('renders the brand and cluster switcher at the top (style guide shell)', () => {
-    expect(code).toContain('<SidebarBrand collapsed={isCollapsed} />');
+    expect(code).toContain('<SidebarBrand collapsed={isCollapsed} theme={theme}/>');
     expect(code).toContain('<ClusterSwitcher collapsed={isCollapsed} onRefresh={onRefresh} />');
   });
 });
