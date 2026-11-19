@@ -305,7 +305,7 @@ function Stat({ label, value, icon, color, small }) {
         <Icon
           className={`ti ${icon}`}
           style={{
-            fontSize: 28,
+            fontSize: "1.75rem",
             color: color || "var(--accent)",
             opacity: 0.9,
             flexShrink: 0,
@@ -315,7 +315,7 @@ function Stat({ label, value, icon, color, small }) {
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 4,
           }}
@@ -583,7 +583,7 @@ function RateChart({ rows, from, to, rounding }) {
             >
               <span
                 style={{
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
@@ -594,14 +594,14 @@ function RateChart({ rows, from, to, rounding }) {
               <span style={{ display: "flex", gap: 4 }}>
                 <button
                   className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  style={{ fontSize: "0.6875rem", padding: "2px 7px" }}
                   onClick={showAll}
                 >
                   All
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  style={{ fontSize: "0.6875rem", padding: "2px 7px" }}
                   onClick={hideAll}
                 >
                   None
@@ -652,7 +652,7 @@ function RateChart({ rows, from, to, rounding }) {
                     />
                     <span
                       style={{
-                        fontSize: "12px",
+                        fontSize: "0.75rem",
                         color: "var(--text-secondary)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -949,7 +949,7 @@ function ErrorLogOverview() {
                 >
                   Top Error Types
                 </div>
-                <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
                   No errors in range.
                 </div>
               </div>
@@ -1104,10 +1104,10 @@ function ErrorLogSearch() {
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>
           Search
         </label>
         <button
@@ -1175,7 +1175,7 @@ function ErrorLogSearch() {
                       style={{
                         display: "flex",
                         gap: 4,
-                        fontSize: "12px",
+                        fontSize: "0.75rem",
                         cursor: "pointer",
                         padding: "2px 6px",
                         alignItems: "center",
@@ -1207,7 +1207,7 @@ function ErrorLogSearch() {
                   ))}
                   {!errorsQ.data?.length && (
                     <span
-                      style={{ color: "var(--text-muted)", fontSize: "13px" }}
+                      style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}
                     >
                       Loading errors...
                     </span>

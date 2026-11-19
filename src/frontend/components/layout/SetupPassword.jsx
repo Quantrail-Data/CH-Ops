@@ -61,14 +61,14 @@ export default function SetupPassword({token}) {
         style={{ position: "absolute", top: "16px", right: "16px", zIndex: 9999 }}
         title={theme === "dark" ? "Light mode" : "Dark mode"}
       >
-        <Icon className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`} style={{ fontSize: "20px" }}></Icon>
+        <Icon className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`} style={{ fontSize: "1.25rem" }}></Icon>
       </button>
 
       <div className="card" style={{ padding: 32, width: "100%", maxWidth: 420 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <Icon className="ti ti-shield-lock" style={{ fontSize: 32, color: "var(--accent)" }}></Icon>
+          <Icon className="ti ti-shield-lock" style={{ fontSize: "2rem", color: "var(--accent)" }}></Icon>
           <h4 style={{ margin: "12px 0 4px" }}>Set Your Password</h4>
-          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
             Your account requires to set password before you can continue
             (first login, or a password reset by an administrator).
           </p>

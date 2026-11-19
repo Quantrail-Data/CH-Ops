@@ -159,7 +159,7 @@ function ChatRenderComponent({
                       >
                         <Icon
                           className="ti ti-copy"
-                          style={{ fontSize: "13px" }}
+                          style={{ fontSize: "0.8125rem" }}
                         ></Icon>
                       </button>
                       <button
@@ -169,7 +169,7 @@ function ChatRenderComponent({
                         {
                           <Icon
                             className="ti ti-edit"
-                            style={{ fontSize: "13px" }}
+                            style={{ fontSize: "0.8125rem" }}
                           ></Icon>
                         }
                       </button>
@@ -251,9 +251,9 @@ function ChatRenderComponent({
         >
           <Icon
             className="ti ti-info-triangle"
-            style={{ fontSize: "15px" }}
+            style={{ fontSize: "0.9375rem" }}
           ></Icon>
-          <code style={{ fontSize: "12px" }}>
+          <code style={{ fontSize: "0.75rem" }}>
             {chatMessage?.aiError?.message}
           </code>
         </div>
@@ -354,13 +354,13 @@ function ChatRenderComponent({
                           >
                             <Icon
                               className="ti ti-copy"
-                              style={{ fontSize: "14px" }}
+                              style={{ fontSize: "0.875rem" }}
                             ></Icon>
                           </button>
                         </div>
                       </div>
 
-                      <code style={{ fontSize: "12px" }}>
+                      <code style={{ fontSize: "0.75rem" }}>
                         {chatMessage?.error?.message}
                       </code>
                       <div
@@ -373,12 +373,12 @@ function ChatRenderComponent({
                       >
                         <button
                           className="btn btn-danger"
-                          style={{ fontSize: "12px" }}
+                          style={{ fontSize: "0.75rem" }}
                           onClick={() => retryHandler()}
                         >
                           <Icon
                             className="ti ti-refresh-alert"
-                            style={{ color: "white", fontSize: "12px" }}
+                            style={{ color: "white", fontSize: "0.75rem" }}
                           ></Icon>
                           Retry
                         </button>
@@ -417,7 +417,7 @@ function ChatRenderComponent({
                       >
                         <Icon
                           className="ti ti-inbox"
-                          style={{ fontSize: "23px" }}
+                          style={{ fontSize: "1.4375rem" }}
                         ></Icon>
                         <p>
                           {

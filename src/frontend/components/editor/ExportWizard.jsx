@@ -304,7 +304,7 @@ export default function ExportWizard({ sql, username, onClose }) {
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
       <div className="modal-box xw-box" onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginBottom: 12, fontSize: 18 }}>
+        <h3 style={{ marginBottom: 12, fontSize: "1.125rem" }}>
           <Icon className="ti ti-download" /> Export query results
         </h3>
 
@@ -469,7 +469,7 @@ export default function ExportWizard({ sql, username, onClose }) {
                   style={{ width: "100%", backgroundColor: "var(--bg-page)" }}
                 >
                   {FORMAT_GROUPS.map((group) => (
-                    <optgroup key={group} label={group} style={{ padding: "10px 0px", fontSize: "14px" }}>
+                    <optgroup key={group} label={group} style={{ padding: "10px 0px", fontSize: "0.875rem" }}>
                       {FORMATS.filter((f) => f.group === group).map((f) => (
                         <option key={f.id} value={f.id}>
                           {f.label}
@@ -523,7 +523,7 @@ export default function ExportWizard({ sql, username, onClose }) {
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    fontSize: 13,
+                    fontSize: "0.8125rem",
                   }}
                 >
                   <input

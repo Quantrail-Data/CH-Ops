@@ -1,0 +1,21 @@
+{
+  "files": {
+    "src/frontend/utils/echarts.js": "793e827a920d5e37e71c10500fc9242602f227c9123b22043391f3a6079a219d",
+    "src/frontend/utils/treeChart.js": "d5972c5689b5aee7e9a7bf6cea73e276bc615d5a25cd6db6fc84e62d370110fe",
+    "src/frontend/components/dashboards/chartTypes.js": "343048ebff0a9be7d7cc3917da4a8c319f768271a6611fc72ae87d92c90d4d68",
+    "src/frontend/components/overview/overviewChart.js": "69ab160c41f702aa4575508dc2072a0f49a0c06e0dbb224af81abc1f23aef87e",
+    "src/frontend/components/queries/currentQueriesCharts.js": "8e23482dd5ad796f6c6db1b490f367c51f72bdbce4b2ef7c1f02393ae71ff53c",
+    "src/frontend/components/layout/ChartCard.jsx": "e949efec8cb29c9a65cc66fd9188004d56ae65289458ac09539bc7074e2eb88f",
+    "src/frontend/components/common/ChartToolbar.jsx": "e992af6319cbc6d0daf99c24bed3a489764d42cb05254ba0b2cce69d17e2cf85",
+    "src/frontend/components/layout/LogHeatmap.jsx": "f1667e9a92a6f4b75f3c3f806c5251a1045da9dbec8feb3aab64ed714094291b",
+    "src/frontend/components/queues/LatencySplitChart.jsx": "8ddedc2b6c71df2f261af5971f2f688b94e17351ea0906739772dbbe8086d3fa",
+    "src/frontend/components/queues/ThroughputChart.jsx": "937ebda3f9d28a4a0cdd271f27171a9d535d99089608a80ebd75c3e79b13752e",
+    "src/frontend/utils/theme.js": "26149f1a0d4b6874e89c7f2d3d4a1c45f3f5bde9190d619022e2da3f3aa9a81e"
+  },
+  "cssRuleCount": 17,
+  "cssRulesHash": "2d18638c34f757f6637f3a9b562512d9a54c2516a828b36fd48530bd4b824ec0",
+  "approvedChanges": [
+    "OSS testing f4e460a (PR #681, Midnight theme by the CHOps team): chart colors move to utils/theme.js; chart skeleton colors and no backdrop blur. Colors only. utils/theme.js added to the guard.",
+    "Package 2: font name Red Hat Mono to Atkinson Hyperlegible Mono in echarts.js (tooltip) and overviewChart.js (fallback). Font name only."
+  ]
+}

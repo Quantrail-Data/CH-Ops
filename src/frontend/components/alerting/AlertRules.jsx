@@ -13,6 +13,8 @@ import SqlEditor from "../editor/SqlEditor.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
 import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const SEVS = ["info", "warning", "critical"];
@@ -505,7 +507,7 @@ export default function AlertRules({mainRef}) {
                   className={
                     showTemplateRulesThatAreOff ? "ti ti-eye" : "ti ti-eye-off"
                   }
-                  style={{ fontSize: 14, color: "inherit" }}
+                  style={{ fontSize: "0.875rem", color: "inherit" }}
                 />
               </div>
               <ToggleSwitch
@@ -519,7 +521,7 @@ export default function AlertRules({mainRef}) {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 8,
-                      fontSize: 12.5,
+                      fontSize: "0.7813rem",
                       fontWeight: 600,
                       letterSpacing: "0.01em",
                       color: showTemplateRulesThatAreOff
@@ -539,7 +541,7 @@ export default function AlertRules({mainRef}) {
                         height: 18,
                         padding: "0 6px",
                         borderRadius: 999,
-                        fontSize: 10.5,
+                        fontSize: "0.6563rem",
                         fontWeight: 700,
                         background: showTemplateRulesThatAreOff
                           ? "var(--accent-solid)"
@@ -559,8 +561,8 @@ export default function AlertRules({mainRef}) {
               />
             </div>
           )}
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary" size="sm"
             onClick={handleRefresh}
             disabled={refreshing}
             title="Refresh"
@@ -574,17 +576,17 @@ export default function AlertRules({mainRef}) {
                   : {}
               }
             ></Icon>
-          </button>
-          <button
-            className="btn btn-secondary btn-sm"
+          </Button>
+          <Button
+            variant="secondary" size="sm"
             onClick={() => setShowTemplatePicker(true)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-list-check"></Icon> New from template
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
+          </Button>
+          <Button
+            variant="primary" size="sm"
             onClick={() => {
               resetForm();
               setShowForm(!showForm);
@@ -594,49 +596,36 @@ export default function AlertRules({mainRef}) {
           >
             <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showForm ? "Cancel" : "New Rule"}
-          </button>
+          </Button>
         </div>
       </div>
       {!isAdmin && (
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>
             Alert rules management is only available for administrators.
           </span>
-        </div>
+        </Notice>
       )}
       {result && (
-        <div
-          className={`alert-banner ${result.ok ? "success" : "danger"}`}
+        <Notice
+          tone={result.ok ? "success" : "danger"}
+          icon={result.ok ? "ti-check" : "ti-alert-circle"}
+          onDismiss={() => setResult(null)}
           style={{ marginBottom: 14 }}
         >
-          <Icon
-            className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
-          ></Icon>{" "}
           {result.msg}
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginLeft: "auto" }}
-            onClick={() => setResult(null)}
-          >
-            <Icon className="ti ti-x"></Icon>
-          </button>
-        </div>
+        </Notice>
       )}
       {showForm && isAdmin && (
         // Style guide Alert Rules screen: the rule editor is a modal over the
         // list. The backdrop does not close it, so a stray click cannot lose a
         // half-written rule; Escape, the close button and Cancel do.
-        <div className="modal-overlay" style={{ alignItems: "flex-start", overflowY: "auto", padding: "5vh 0" }}>
-        <div
-          ref={formRef}
-          className="modal-box modal-form"
-          role="dialog"
-          aria-modal="true"
-          aria-label={editing ? "Edit alert rule" : "New alert rule"}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") cancelForm();
-          }}
+        <Modal
+          onClose={cancelForm}
+          closeOnBackdrop={false}
+          boxRef={formRef}
+          className="modal-form"
+          label={editing ? "Edit alert rule" : "New alert rule"}
         >
           <div className="modal-header">
             <div>
@@ -645,9 +634,9 @@ export default function AlertRules({mainRef}) {
                 CHOps runs the SQL on a schedule and compares the value with the threshold.
               </div>
             </div>
-            <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={cancelForm} aria-label="Close">
+            <Button type="button" variant="secondary" size="sm" iconOnly onClick={cancelForm} aria-label="Close">
               <Icon className="ti ti-x"></Icon>
-            </button>
+            </Button>
           </div>
           <div
             style={{
@@ -657,16 +646,13 @@ export default function AlertRules({mainRef}) {
               marginBottom: 14,
             }}
           >
-            <div className="form-group">
-              <label className="form-label">Name</label>
-              <input
-                className="form-input"
+            <FormField label="Name">
+              <Input
                 value={f.name}
                 onChange={(e) => setF({ ...f, name: e.target.value })}
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Severity</label>
+            </FormField>
+            <FormField label="Severity">
               <Select
                 className="form-select"
                 value={f.severity}
@@ -676,11 +662,10 @@ export default function AlertRules({mainRef}) {
                   <option key={s}>{s}</option>
                 ))}
               </Select>
-            </div>
+            </FormField>
             <div className="form-group">
               <label className="form-label">Schedule (cron)</label>
-              <input
-                className="form-input"
+              <Input
                 value={f.schedule}
                 onChange={(e) => {
                   setF({ ...f, schedule: e.target.value });
@@ -706,8 +691,7 @@ export default function AlertRules({mainRef}) {
                 Supported: *, */n, and comma lists. Day of week is 0 to 6, and 0 is Sunday. Schedules run in the server&apos;s timezone.
               </span>
             </div>
-            <div className="form-group">
-              <label className="form-label">Operator</label>
+            <FormField label="Operator">
               <Select
                 className="form-select"
                 value={f.operator}
@@ -719,27 +703,21 @@ export default function AlertRules({mainRef}) {
                   </option>
                 ))}
               </Select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                Threshold
+            </FormField>
+            <FormField label={<>Threshold
                 {unitOfTemplate(f.templateId)
                   ? ` (${unitOfTemplate(f.templateId)})`
-                  : ""}
-              </label>
-              <input
-                className="form-input"
+                  : ""}</>}>
+              <Input
                 type="number"
                 value={f.threshold}
                 onChange={(e) =>
                   setF({ ...f, threshold: parseFloat(e.target.value) || 0 })
                 }
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Notify Interval</label>
-              <input
-                className="form-input"
+            </FormField>
+            <FormField label="Notify Interval">
+              <Input
                 type="number"
                 value={f.notifyIntervalMinutes}
                 onChange={(e) =>
@@ -749,11 +727,9 @@ export default function AlertRules({mainRef}) {
                   })
                 }
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Breach Run Required</label>
-              <input
-                className="form-input"
+            </FormField>
+            <FormField label="Breach Run Required">
+              <Input
                 type="number"
                 value={f.breachRunsRequired}
                 onChange={(e) =>
@@ -763,7 +739,7 @@ export default function AlertRules({mainRef}) {
                   })
                 }
               />
-            </div>
+            </FormField>
             <div
               className="form-group"
               style={{ display: "flex", flexDirection:"row",justifyContent:"end", paddingTop: 20 ,gap:"4rem"}}
@@ -778,8 +754,7 @@ export default function AlertRules({mainRef}) {
                     } label="noRowsMeansBreach"/>
             </div>
           </div>
-          <div className="form-group" style={{ marginBottom: 14 }}>
-            <label className="form-label">SQL (single value)</label>
+          <FormField label="SQL (single value)" style={{ marginBottom: 14 }}>
             <div
               style={{
                 border: "1px solid var(--border-default)",
@@ -795,18 +770,15 @@ export default function AlertRules({mainRef}) {
                 height="72px"
               />
             </div>
-          </div>
-          <div className="form-group" style={{ marginBottom: 14 }}>
-            <label className="form-label">Description</label>
-            <input
-              className="form-input"
+          </FormField>
+          <FormField label="Description" style={{ marginBottom: 14 }}>
+            <Input
               value={f.description}
               onChange={(e) => setF({ ...f, description: e.target.value })}
             />
-          </div>
+          </FormField>
           {channels.length > 0 && (
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Channels</label>
+            <FormField label="Channels" style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {channels.map((ch) => (
                   <div
@@ -855,23 +827,22 @@ export default function AlertRules({mainRef}) {
                         }
                         width={20}
                       />
-                      <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                      <span style={{ fontSize: "0.8125rem", fontWeight: "600" }}>
                         {ch.name}
                       </span>
                     </div>
                     {isChannelSelected(ch?.id) && (
                       <Icon
                         className="ti ti-x"
-                        style={{ color: "white", fontSize: "15px" }}
+                        style={{ color: "white", fontSize: "0.9375rem" }}
                       />
                     )}
                   </div>
                 ))}
               </div>
-            </div>
+            </FormField>
           )}
-          <div className="form-group" style={{ marginBottom: 14 }}>
-            <label className="form-label">Cluster</label>
+          <FormField label="Cluster" style={{ marginBottom: 14 }}>
             <Select
               className="form-select"
               value={f.cluster_id}
@@ -886,21 +857,18 @@ export default function AlertRules({mainRef}) {
                 </option>
               ))}
             </Select>
-          </div>
+          </FormField>
           {clusterNodes.length > 0 && (
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">
-                Target Nodes{" "}
+            <FormField label={<>Target Nodes{" "}
                 <span
                   style={{
                     fontWeight: 400,
                     color: "var(--text-muted)",
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                   }}
                 >
                   (empty = all nodes)
-                </span>
-              </label>
+                </span></>} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {clusterNodes.map((chipNodeName) => (
                   <div
@@ -947,14 +915,14 @@ export default function AlertRules({mainRef}) {
                         }
                         width={20}
                       />
-                      <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                      <span style={{ fontSize: "0.8125rem", fontWeight: "600" }}>
                         {chipNodeName}
                       </span>
                     </div>
                     {f.nodes.includes(chipNodeName) && (
                       <Icon
                         className="ti ti-x"
-                        style={{ color: "white", fontSize: "15px" }}
+                        style={{ color: "white", fontSize: "0.9375rem" }}
                       />
                     )}
                   </div>
@@ -984,40 +952,40 @@ export default function AlertRules({mainRef}) {
                   // </label>
                 ))}
               </div>
-            </div>
+            </FormField>
           )}
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={save}
             disabled={!f.name || !f.sql || !!cronError}
           >
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update" : "Create"}
-          </button>
-          <button
-            className="btn btn-primary"
+          </Button>
+          <Button
+            variant="primary"
             onClick={testQuery}
             disabled={!f.name || !f.sql || !!cronError}
             style={{ marginLeft: "10px" }}
           >
             <Icon className="ti ti-send"></Icon> Test
-          </button>
+          </Button>
           {editingTemplateId && (
-            <button
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
               onClick={resetToTemplate}
               style={{ marginLeft: "10px" }}
             >
               <Icon className="ti ti-refresh"></Icon> Reset to template
-            </button>
+            </Button>
           )}
-          <button
-            className="btn btn-secondary"
+          <Button
+            variant="secondary"
             onClick={cancelForm}
             style={{ marginLeft: "10px" }}
           >
             <Icon className="ti ti-x"></Icon> Cancel
-          </button>
+          </Button>
           {testResults && (
             <table className="data-table" style={{ marginTop: 14 }}>
               <thead>
@@ -1057,8 +1025,7 @@ export default function AlertRules({mainRef}) {
               </tbody>
             </table>
           )}
-        </div>
-        </div>
+        </Modal>
       )}
       {!loaded ? (
         <div className="empty-state">
@@ -1071,7 +1038,7 @@ export default function AlertRules({mainRef}) {
         </div>
       ) : visibleRules.length === 0 ? (
          <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
-          <Icon className="ti ti-bell-plus" style={{ fontSize: 36 }}></Icon>
+          <Icon className="ti ti-bell-plus" style={{ fontSize: "2.25rem" }}></Icon>
           <p>No rules yet. Click New Rule.</p>
         </div>
       ) : (
@@ -1158,7 +1125,7 @@ export default function AlertRules({mainRef}) {
                   <p
                     style={{
                       color: "var(--text-muted)",
-                      fontSize: "13px",
+                      fontSize: "0.8125rem",
                       marginBottom: 8,
                     }}
                   >
@@ -1168,7 +1135,7 @@ export default function AlertRules({mainRef}) {
                 <div
                   style={{
                     fontFamily: "var(--font-code)",
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     background: "var(--bg-sunken)",
                     padding: 8,
                     borderRadius: "var(--radius-sm)",
@@ -1198,7 +1165,7 @@ export default function AlertRules({mainRef}) {
                       scrollamount="4"
                       style={{
                         padding: "6px 10px",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         color: marqueeColor,
                       }}
                     >
@@ -1211,7 +1178,7 @@ export default function AlertRules({mainRef}) {
                   style={{
                     display: "flex",
                     gap: 12,
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-secondary)",
                     marginBottom: 10,
                     flexWrap: "wrap",
@@ -1248,21 +1215,21 @@ export default function AlertRules({mainRef}) {
                   )}
                   {Array.isArray(r.nodes) && r.nodes.length > 0 && (
                     <span
-                      style={{ fontSize: "12px", color: "var(--text-muted)" }}
+                      style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}
                     >
                       <Icon
                         className="ti ti-server"
-                        style={{ fontSize: 14 }}
+                        style={{ fontSize: "0.875rem" }}
                       ></Icon>{" "}
                       {r.nodes.join(", ")}
                     </span>
                   )}
                   <span
-                    style={{ fontSize: "12px", color: "var(--text-muted)" }}
+                    style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}
                   >
                     <Icon
                       className="ti ti-topology-star-ring-3"
-                      style={{ fontSize: 14 }}
+                      style={{ fontSize: "0.875rem" }}
                     ></Icon>{" "}
                     {r.cluster_id
                       ? (clusters || []).find((c) => c.id === r.cluster_id)
@@ -1292,8 +1259,8 @@ export default function AlertRules({mainRef}) {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => edit(r)}
                     disabled={!isAdmin}
                     style={
@@ -1301,9 +1268,9 @@ export default function AlertRules({mainRef}) {
                     }
                   >
                     <Icon className="ti ti-edit"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => toggleEnabled(r)}
                     disabled={!isAdmin}
                     style={
@@ -1314,9 +1281,9 @@ export default function AlertRules({mainRef}) {
                       className={`ti ${r.enabled ? "ti-player-pause" : "ti-player-play"}`}
                     ></Icon>{" "}
                     {r.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
+                  </Button>
+                  <Button
+                    variant="danger" size="sm"
                     onClick={() => isAdmin && setDel(r.id)}
                     disabled={!isAdmin}
                     style={
@@ -1324,9 +1291,9 @@ export default function AlertRules({mainRef}) {
                     }
                   >
                     <Icon className="ti ti-trash"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    variant="secondary" size="sm"
                     title="History"
                     onClick={() => getHistory(r.id)}
                     disabled={!isAdmin}
@@ -1335,7 +1302,7 @@ export default function AlertRules({mainRef}) {
                     }
                   >
                     <Icon className="ti ti-clock"></Icon>
-                  </button>
+                  </Button>
                 </div>
               </div>
             );
@@ -1344,18 +1311,14 @@ export default function AlertRules({mainRef}) {
       )}
 
       {history && (
-        <div className="modal-overlay">
-          <div
-            className="modal-box"
-            style={{
+        <Modal style={{
               maxWidth: 800,
               maxHeight: "min(40rem, 90vh)",
               padding: "2px",
               overflowY: "auto",
-            }}
-          >
+            }}>
             <div style={{ display: "flex", justifyContent: "space-between", margin:"1rem"}}>
-              <h2 className="section-title" style={{fontSize:"18px"}}>
+              <h2 className="section-title" style={{fontSize:"1.125rem"}}>
                 <Icon className="ti ti-clock"></Icon> History
               </h2>
               <div onClick={() => setHistory(null)}>
@@ -1364,24 +1327,17 @@ export default function AlertRules({mainRef}) {
             </div>
 
             <DataTable rows={history} allowFullscreen={false} />
-          </div>
-        </div>
+          </Modal>
       )}
 
       {showTemplatePicker && isAdmin && (
-        <div
-          className="modal-overlay"
-          style={{
+        <Modal overlayStyle={{
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
             padding: "24px 16px",
             overflowY: "auto",
-          }}
-        >
-          <div
-            className="modal-box"
-            style={{
+          }} style={{
               maxWidth: "min(800px, 100%)",
               width: "100%",
               height: "min(40rem, calc(100vh - 48px))",
@@ -1390,8 +1346,7 @@ export default function AlertRules({mainRef}) {
               display: "flex",
               flexDirection: "column",
               margin: "0 auto",
-            }}
-          >
+            }}>
             <div
               style={{
                 display: "flex",
@@ -1400,21 +1355,20 @@ export default function AlertRules({mainRef}) {
                 flexShrink: 0,
               }}
             >
-              <h2 className="section-title" style={{ fontSize: "18px" }}>
+              <h2 className="section-title" style={{ fontSize: "1.125rem" }}>
                 <Icon className="ti ti-list-check"></Icon> New from template
               </h2>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => {
                   setShowTemplatePicker(false);
                   setTemplateSearch("");
                 }}
               >
                 <Icon className="ti ti-x" />
-              </button>
+              </Button>
             </div>
-            <input
-              className="form-input"
+            <Input
               placeholder="Search templates"
               value={templateSearch}
               onChange={(e) => setTemplateSearch(e.target.value)}
@@ -1430,17 +1384,17 @@ export default function AlertRules({mainRef}) {
                     justifyContent: "center",
                     height: "100%",
                     color: "var(--text-muted)",
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                     gap: 8,
                   }}
                 >
                   <Icon
                     className="ti ti-list-search"
-                    style={{ fontSize: 36, opacity: 0.4 }}
+                    style={{ fontSize: "2.25rem", opacity: 0.4 }}
                   />
                   <span>No Alert Templates Available</span>
                   {templateSearch && (
-                    <span style={{ fontSize: "12px", opacity: 0.7 }}>
+                    <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>
                       No templates match &ldquo;{templateSearch}&rdquo;
                     </span>
                   )}
@@ -1466,20 +1420,20 @@ export default function AlertRules({mainRef}) {
                       style={{ display: "flex", justifyContent: "space-between" }}
                     >
                       <strong>{template.name}</strong>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                         {template.category}
                       </span>
                     </div>
                     <div
                       style={{
-                        fontSize: 13,
+                        fontSize: "0.8125rem",
                         color: "var(--text-muted)",
                         marginTop: 4,
                       }}
                     >
                       {template.description}
                     </div>
-                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                    <div style={{ fontSize: "0.75rem", marginTop: 4 }}>
                       Fires when the value is{" "}
                       {template.operator === "gt" ? "above" : "below"}{" "}
                       {withUnit(template.threshold, template.unit)}. Severity:{" "}
@@ -1489,8 +1443,7 @@ export default function AlertRules({mainRef}) {
                 ))
               )}
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {del && isAdmin && (

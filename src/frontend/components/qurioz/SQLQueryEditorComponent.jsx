@@ -173,7 +173,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
       >
         <span
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             fontWeight: "500",
           }}
         >
@@ -205,9 +205,9 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
               >
                 <Icon
                   className="ti ti-edit"
-                  style={{ marginRight: "4px", fontSize: 12 }}
+                  style={{ marginRight: "4px", fontSize: "0.75rem" }}
                 />
-                <span style={{ fontSize: "12px" }}>Edit</span>
+                <span style={{ fontSize: "0.75rem" }}>Edit</span>
               </button>
 
               <button
@@ -229,18 +229,18 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                       style={{
                         marginRight: "4px",
                         color: "var(--color-success)",
-                        fontSize: 12,
+                        fontSize: "0.75rem",
                       }}
                     />
-                    <span style={{ fontSize: "12px" }}>Copied!</span>
+                    <span style={{ fontSize: "0.75rem" }}>Copied!</span>
                   </>
                 ) : (
                   <>
                     <Icon
                       className="ti ti-copy"
-                      style={{ marginRight: "4px", fontSize: 12 }}
+                      style={{ marginRight: "4px", fontSize: "0.75rem" }}
                     />
-                    <span style={{ fontSize: "12px" }}>Copy</span>
+                    <span style={{ fontSize: "0.75rem" }}>Copy</span>
                   </>
                 )}
               </button>
@@ -267,7 +267,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                         borderTopColor: "var(--accent)",
                       }}
                     ></div>
-                    <span style={{ fontSize: "12px" }}>Run..</span>
+                    <span style={{ fontSize: "0.75rem" }}>Run..</span>
                   </>
                 ) : (
                   <>
@@ -275,11 +275,11 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                       className="ti ti-player-play"
                       style={{
                         marginRight: "4px",
-                        fontSize: 12,
+                        fontSize: "0.75rem",
                         color: "var(--accent)",
                       }}
                     />
-                    <span style={{ fontSize: "12px" }}>Run</span>
+                    <span style={{ fontSize: "0.75rem" }}>Run</span>
                   </>
                 )}
               </button>
@@ -338,7 +338,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
             >
               <Icon
                 className="ti ti-x"
-                style={{ marginRight: "4px", fontSize: 12 }}
+                style={{ marginRight: "4px", fontSize: "0.75rem" }}
               />
               Cancel
             </button>
@@ -364,7 +364,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                 <>
                   <Icon
                     className="ti ti-loader-2 animate-spin"
-                    style={{ marginRight: "4px", fontSize: 12 }}
+                    style={{ marginRight: "4px", fontSize: "0.75rem" }}
                   />
                   Updating...
                 </>
@@ -372,7 +372,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                 <>
                   <Icon
                     className="ti ti-device-floppy"
-                    style={{ marginRight: "4px", fontSize: 12 }}
+                    style={{ marginRight: "4px", fontSize: "0.75rem" }}
                   />
                   Update
                 </>
@@ -382,7 +382,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
 
           <div
             style={{
-              fontSize: "11px",
+              fontSize: "0.6875rem",
               // color: "#9ca3af",
               color:colorThemeSetter(),
               padding: "0 12px 8px",
@@ -408,7 +408,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
               borderBottomLeftRadius: "6px",
               borderBottomRightRadius: "6px",
               overflowX: "auto",
-              fontSize: "12px",
+              fontSize: "0.75rem",
               fontFamily: "var(--font-code)",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",

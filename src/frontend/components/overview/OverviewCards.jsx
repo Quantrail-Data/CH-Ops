@@ -10,6 +10,7 @@ import { initChart, disposeChart } from "../../utils/echarts.js";
 import { METRICS } from "./overviewMetrics.js";
 import { polish, stageGauge, useIsDark } from "./overviewChart.js";
 import { NO_VALUE } from "./overviewMath.js";
+import { Button } from "../ui/index.jsx";
 
 const GAUGE_HEIGHT = 188;
 
@@ -375,14 +376,14 @@ export function HealthStrip({ chips }) {
           );
         })}
 
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost btn-sm"
+          variant="ghost" size="sm"
           style={{ marginLeft: "auto" }}
           onClick={() => setShowHealthy((v) => !v)}
         >
           {showHealthy ? "Hide clear checks" : `Show all ${chips.length} checks`}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -552,11 +553,11 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
 
   return (
     <div style={{ marginBottom: open ? 16 : 8 }}>
-      <button
+      <Button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="btn btn-ghost"
+        variant="ghost"
         style={{
           display: "flex",
           alignItems: "center",
@@ -583,7 +584,7 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
             {summary}
           </span>
         )}
-      </button>
+      </Button>
       {open && children}
     </div>
   );

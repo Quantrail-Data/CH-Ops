@@ -327,7 +327,7 @@ function Stat({ label, value, icon, color, small }) {
         <Icon
           className={`ti ${icon}`}
           style={{
-            fontSize: 28,
+            fontSize: "1.75rem",
             color: color || "var(--accent)",
             opacity: 0.9,
             flexShrink: 0,
@@ -337,7 +337,7 @@ function Stat({ label, value, icon, color, small }) {
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 4,
           }}
@@ -390,7 +390,7 @@ function SectionError({ title, message }) {
           alignItems: "flex-start",
           gap: 8,
           color: "var(--color-danger)",
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           lineHeight: 1.5,
           wordBreak: "break-word",
         }}
@@ -430,7 +430,7 @@ function BarCard({
         >
           {title}
         </div>
-        <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+        <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
           No data in range.
         </div>
       </div>
@@ -647,7 +647,7 @@ function RateChart({ rows, from, to, rounding }) {
             >
               <span
                 style={{
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
@@ -658,14 +658,14 @@ function RateChart({ rows, from, to, rounding }) {
               <span style={{ display: "flex", gap: 4 }}>
                 <button
                   className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  style={{ fontSize: "0.6875rem", padding: "2px 7px" }}
                   onClick={showAll}
                 >
                   All
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  style={{ fontSize: "0.6875rem", padding: "2px 7px" }}
                   onClick={hideAll}
                 >
                   None
@@ -716,7 +716,7 @@ function RateChart({ rows, from, to, rounding }) {
                     />
                     <span
                       style={{
-                        fontSize: "12px",
+                        fontSize: "0.75rem",
                         color: "var(--text-secondary)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -1155,7 +1155,7 @@ function SessionLogOverview({ unavailable }) {
               >
                 Login Activity Over Time
               </div>
-              <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+              <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
                 No activity data in range.
               </div>
             </div>
@@ -1331,10 +1331,10 @@ function SessionLogSearch({ unavailable }) {
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>
           Search
         </label>
         <button
@@ -1402,7 +1402,7 @@ function SessionLogSearch({ unavailable }) {
                         display: "flex",
                         gap: 4,
                         alignItems: "center",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         cursor: "pointer",
                         padding: "2px 6px",
                         borderRadius: 4,

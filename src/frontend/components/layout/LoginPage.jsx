@@ -255,7 +255,7 @@ const OTP_Component = ({ setFormStatus }) => {
               alignItems: "center",
               justifyContent: "center",
               height: "45px",
-              fontSize: "15px",
+              fontSize: "0.9375rem",
             }}
           >
             {loading ? (
@@ -282,7 +282,7 @@ const OTP_Component = ({ setFormStatus }) => {
         <div
           style={{
             margin: "15px 0px",
-            fontSize: "11px",
+            fontSize: "0.6875rem",
             fontWeight: "bold",
             textAlign: "center",
           }}
@@ -317,9 +317,9 @@ const OTP_Component = ({ setFormStatus }) => {
         >
           <Icon
             className="ti ti-info-circle"
-            style={{ color: "#ff5454", fontSize: "13px" }}
+            style={{ color: "#ff5454", fontSize: "0.8125rem" }}
           />
-          <p className="" style={{ fontSize: "10px" }}>
+          <p className="" style={{ fontSize: "0.625rem" }}>
             Do not refresh this page until OTP verification is complete.
           </p>
         </div>
@@ -521,7 +521,7 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
               alignItems: "center",
               justifyContent: "center",
               height: "45px",
-              fontSize: "15px",
+              fontSize: "0.9375rem",
             }}
             disabled={
               passwords?.confirmPassword &&
@@ -680,7 +680,7 @@ export default function LoginPage() {
         >
           <Icon
             className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}
-            style={{ fontSize: "20px" }}
+            style={{ fontSize: "1.25rem" }}
           ></Icon>
         </button>
       )}
@@ -834,7 +834,7 @@ export default function LoginPage() {
                       alignItems: "center",
                       justifyContent: "center",
                       height: "45px",
-                      fontSize: "15px",
+                      fontSize: "0.9375rem",
                     }}
                   >
                     {loading ? (
@@ -938,7 +938,7 @@ export default function LoginPage() {
                       alignItems: "center",
                       justifyContent: "center",
                       height: "45px",
-                      fontSize: "15px",
+                      fontSize: "0.9375rem",
                     }}
                   >
                     {loading ? (
@@ -962,7 +962,7 @@ export default function LoginPage() {
                   </button>
                 </div>
                 <div style={{ textAlign: "center", margin: "10px 0px" }}>
-                  <p style={{ fontSize: "13px" }}>
+                  <p style={{ fontSize: "0.8125rem" }}>
                     Have an account?{" "}
                     <span
                       style={{ color: "blue", cursor: "pointer" }}

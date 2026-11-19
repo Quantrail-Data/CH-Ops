@@ -34,9 +34,9 @@ export default class ErrorBoundary extends React.Component {
       }
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', gap: '16px' }}>
-          <Icon className="ti ti-alert-triangle" style={{ fontSize: '48px', color: 'var(--color-danger)' }}></Icon>
-          <h2 style={{ fontSize: '19px' }}>Something went wrong</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center', maxWidth: '500px' }}>
+          <Icon className="ti ti-alert-triangle" style={{ fontSize: "3rem", color: 'var(--color-danger)' }}></Icon>
+          <h2 style={{ fontSize: "1.1875rem" }}>Something went wrong</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: "0.875rem", textAlign: 'center', maxWidth: '500px' }}>
             {this.state.error?.message || 'An unexpected error occurred.'}
           </p>
           <button className="btn btn-primary" onClick={() => { this.setState({ hasError: false, error: null }); }}>

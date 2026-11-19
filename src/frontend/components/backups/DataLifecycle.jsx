@@ -451,7 +451,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         </div>
         )}
       <div className="card" style={{ padding: 20 }}>
-      <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+      <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
         <Icon className="ti ti-settings-filled"></Icon> Manual Backup / Restore
       </h4>
       <div
@@ -559,7 +559,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       </div>
       {action === "backup" && (
         <div style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+          <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
             <Icon className="ti ti-filter"></Icon> Exceptions and Base Backup
           </h4>
           <div
@@ -594,7 +594,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 onChange={(e) => setBaseBackup(e.target.value)}
                 placeholder="manual/ALL/MANUAL_ALL__2026_01_01_02_00_00"
               />
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                 Backup ID of an earlier backup. Set it for an incremental backup.
               </span>
             </div>
@@ -603,7 +603,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       )}
       {action === "restore" && (
         <div style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+          <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
             <Icon className="ti ti-cloud-download"></Icon> Select Backup
           </h4>
           <div
@@ -633,7 +633,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           {scanErrors.length > 0 && (
             <div
               className="alert-banner info"
-              style={{ marginBottom: 12, fontSize: "13px" }}
+              style={{ marginBottom: 12, fontSize: "0.8125rem" }}
             >
               <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
               scanned: {scanErrors.join("; ")}
@@ -660,7 +660,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           )}
         </div>
       )}
-      <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+      <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
         <Icon className="ti ti-adjustments"></Icon> SETTINGS
       </h4>
       <div className="form-group" style={{ marginBottom: 20 }}>
@@ -670,7 +670,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           onChange={(e) => setSettingsStr(e.target.value)}
           placeholder="compression_method = 'lz4', compression_level = 3"
         />
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
           Use name = value pairs, split by commas. A value is a number, a word or a quoted text. Set base_backup in the BASE BACKUP field.
         </span>
       </div>
@@ -678,10 +678,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       <div style={{ marginBottom: 20 }}>
         <div
           className="alert-banner info"
-          style={{ marginTop: 10, marginBottom: 0, fontSize: "12px", padding: "6px" }}
+          style={{ marginTop: 10, marginBottom: 0, fontSize: "0.75rem", padding: "6px" }}
         >
           <Icon
-            style={{ fontSize: "15px", paddingTop: "2px" }}
+            style={{ fontSize: "0.9375rem", paddingTop: "2px" }}
             className="ti ti-info-circle"
           ></Icon>
           <span>
@@ -814,7 +814,7 @@ function AvailableBackupsTab({ profiles,mainRef }) {
       {scanErrors.length > 0 && (
         <div
           className="alert-banner info"
-          style={{ marginBottom: 14, fontSize: "13px" }}
+          style={{ marginBottom: 14, fontSize: "0.8125rem" }}
         >
           <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
           scanned: {scanErrors.join("; ")}
@@ -839,7 +839,7 @@ function AvailableBackupsTab({ profiles,mainRef }) {
                     <td
                       style={{
                         fontFamily: "var(--font-code)",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         wordBreak: "break-all",
                       }}
                     >

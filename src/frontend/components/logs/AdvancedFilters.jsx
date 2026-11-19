@@ -67,7 +67,7 @@ export default function AdvancedFilters({ table, value, onChange }) {
   if (loading) {
     return (
       <div
-        style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 14 }}
+        style={{ color: "var(--text-muted)", fontSize: "0.8125rem", marginBottom: 14 }}
       >
         Loading columns...
       </div>

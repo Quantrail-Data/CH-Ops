@@ -38,7 +38,7 @@ function MiniErrorClusterConnected({ title, message }) {
 
         <div>
           <h5>{title}</h5>
-          <span style={{ fontSize: "10px",lineHeight:"5px" }}>{message}</span>
+          <span style={{ fontSize: "0.625rem",lineHeight:"5px" }}>{message}</span>
           <div
           style={{
             width: "100%",
@@ -57,7 +57,7 @@ function MiniErrorClusterConnected({ title, message }) {
               alignItems: "center",
               justifyContent: "center",
               padding:"5px",
-              fontSize:"13px"
+              fontSize:"0.8125rem"
             }}
             className="btn btn-primary"
             onClick={()=>navigateCluster()}
@@ -72,7 +72,7 @@ function MiniErrorClusterConnected({ title, message }) {
               alignItems: "center",
               justifyContent: "center",
               padding:"5px",
-              fontSize:"13px"
+              fontSize:"0.8125rem"
             }}
             className="btn btn-secondary"
             onClick={()=>{

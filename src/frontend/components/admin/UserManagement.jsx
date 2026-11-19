@@ -11,7 +11,7 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
-import { SegmentedControl, Badge, RowMenu } from "../ui/index.jsx";
+import { SegmentedControl, Badge, RowMenu, Button, Input, FormField, PasswordInput, Notice } from "../ui/index.jsx";
 import { roleTone } from "../../utils/roles.js";
 
 const ROLES = ["superadmin", "admin", "editor", "readonly"];
@@ -383,10 +383,9 @@ async function resetPassword(id,initUser) {
             <Icon className="ti ti-users"></Icon> User Management
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
-          <span>User management is only available for administrators.</span>
-        </div>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
+          User management is only available for administrators.
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>User management is only available for administrators.</p>
@@ -405,18 +404,18 @@ async function resetPassword(id,initUser) {
           <Icon className="ti ti-users"></Icon> User Management
         </h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary" size="sm"
             onClick={() => {
               setChangePw((p) => ({ ...p, show: !p.show }));
               if (!changePw.show) setShowCreate(false);
             }}
           >
             <Icon className="ti ti-key"></Icon> Change My Password
-          </button>
+          </Button>
           {isAdmin && (
-            <button
-              className="btn btn-primary btn-sm"
+            <Button
+              variant="primary" size="sm"
               onClick={() => {
                 if (!showCreate) resetCreateForm();
                 setShowCreate(!showCreate);
@@ -425,7 +424,7 @@ async function resetPassword(id,initUser) {
             >
               <Icon className={`ti ${showCreate ? "ti-x" : "ti-plus"}`}></Icon>{" "}
               {showCreate ? "Cancel" : "New User"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -457,7 +456,7 @@ async function resetPassword(id,initUser) {
               style={{ padding: 20, marginBottom: 16, maxWidth: 480 }}
             >
               <h3
-                style={{ fontSize: "15px", fontWeight: 600, marginBottom: 16 }}
+                style={{ fontSize: "0.9375rem", fontWeight: 600, marginBottom: 16 }}
               >
                 <Icon
                   className="ti ti-key"
@@ -466,179 +465,81 @@ async function resetPassword(id,initUser) {
                 Change Password
               </h3>
               <form onSubmit={selfChangePassword}>
-                <div className="form-group" style={{ marginBottom: 12 }}>
-                  <label className="form-label">Current Password *</label>
-                  <div
-                    className=""
-                    style={{ width: "100%", position: "relative" }}
-                  >
-                    <input
-                      className="form-input"
-                      required
-                      value={changePw.current?.value}
-                      type={changePw?.current?.isView ? "text" : "password"}
-                      style={{ width: "100%", paddingRight: "35px" }}
-                      onChange={(e) =>
-                        setChangePw((p) => ({
-                          ...p,
-                          current: { ...p?.confirm, value: e.target?.value },
-                        }))
-                      }
-                    />
+                <FormField label="Current Password *" style={{ marginBottom: 12 }}>
+                  <PasswordInput
+                    required
+                    autoComplete="current-password"
+                    value={changePw.current?.value}
+                    onChange={(e) =>
+                      setChangePw((p) => ({
+                        ...p,
+                        current: { ...p?.current, value: e.target?.value },
+                      }))
+                    }
+                  />
+                </FormField>
+                <FormField label="New Password *" style={{ marginBottom: 12 }}>
+                  <PasswordInput
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    value={changePw.newPw?.value}
+                    onChange={(e) =>
+                      setChangePw((p) => ({
+                        ...p,
+                        newPw: { ...p?.newPw, value: e.target?.value },
+                      }))
+                    }
+                  />
+                </FormField>
+                <FormField label="Confirm New Password *" style={{ marginBottom: 16 }}>
+                  <PasswordInput
+                    required
+                    autoComplete="new-password"
+                    value={changePw.confirm?.value}
+                    onChange={(e) =>
+                      setChangePw((p) => ({
+                        ...p,
+                        confirm: { ...p?.confirm, value: e.target?.value },
+                      }))
+                    }
+                  />
+                </FormField>
+                {changePw.newPw.value &&
+                  changePw.confirm.value &&
+                  changePw.newPw.value === changePw.confirm.value && (
                     <div
-                      className="password-eye"
+                      role="status"
                       style={{
-                        position: "absolute",
-                        right: "15px",
-                        top: "22%",
-                        cursor: "pointer",
+                        marginTop: -8,
+                        marginBottom: 16,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: "var(--success)",
+                        fontSize: "0.8125rem",
                       }}
-                      title={changePw?.current?.isView ? "hide" : "show"}
-                      onClick={() =>
-                        setChangePw({
-                          ...changePw,
-                          current: {
-                            ...changePw?.current,
-                            isView: !changePw?.current?.isView,
-                          },
-                        })
-                      }
                     >
-                      {changePw?.current?.isView ? (
-                        <Icon className="ti ti-eye-off" />
-                      ) : (
-                        <Icon className="ti ti-eye" />
-                      )}
+                      <Icon
+                        className="ti ti-check"
+                        style={{ fontSize: "1.125rem", color: "var(--success)" }}
+                      />
+                      <span>Passwords match</span>
                     </div>
-                  </div>
-                </div>
-                <div className="form-group" style={{ marginBottom: 12 }}>
-                  <label className="form-label">New Password *</label>
-                  <div
-                    className=""
-                    style={{ width: "100%", position: "relative" }}
-                  >
-                    <input
-                      className="form-input"
-                      required
-                      minLength={8}
-                      value={changePw.newPw?.value}
-                      type={changePw?.newPw?.isView ? "text" : "password"}
-                      style={{ width: "100%", paddingRight: "35px" }}
-                      onChange={(e) =>
-                        setChangePw((p) => ({
-                          ...p,
-                          newPw: { ...p?.newPw, value: e.target?.value },
-                        }))
-                      }
-                    />
-                    <div
-                      className="password-eye"
-                      style={{
-                        position: "absolute",
-                        right: "15px",
-                        top: "22%",
-                        cursor: "pointer",
-                      }}
-                      title={changePw?.newPw?.isView ? "hide" : "show"}
-                      onClick={() =>
-                        setChangePw({
-                          ...changePw,
-                          newPw: {
-                            ...changePw?.newPw,
-                            isView: !changePw?.newPw?.isView,
-                          },
-                        })
-                      }
-                    >
-                      {changePw?.newPw?.isView ? (
-                        <Icon className="ti ti-eye-off" />
-                      ) : (
-                        <Icon className="ti ti-eye" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label className="form-label">Confirm New Password *</label>
-                  <div
-                    className=""
-                    style={{ width: "100%", position: "relative" }}
-                  >
-                    <input
-                      className="form-input"
-                      required
-                      value={changePw.confirm?.value}
-                      type={changePw?.confirm?.isView ? "text" : "password"}
-                      style={{ width: "100%", paddingRight: "35px" }}
-                      onChange={(e) =>
-                        setChangePw((p) => ({
-                          ...p,
-                          confirm: { ...p?.confirm, value: e.target?.value },
-                        }))
-                      }
-                    />
-                    <div
-                      className="password-eye"
-                      style={{
-                        position: "absolute",
-                        right: "15px",
-                        top: "22%",
-                        cursor: "pointer",
-                      }}
-                      title={changePw?.confirm?.isView ? "hide" : "show"}
-                      onClick={() =>
-                        setChangePw({
-                          ...changePw,
-                          confirm: {
-                            ...changePw?.confirm,
-                            isView: !changePw?.confirm?.isView,
-                          },
-                        })
-                      }
-                    >
-                      {changePw?.confirm?.isView ? (
-                        <Icon className="ti ti-eye-off" />
-                      ) : (
-                        <Icon className="ti ti-eye" />
-                      )}
-                    </div>
-                  </div>
-                  {changePw.newPw.value &&
-                    changePw.confirm.value &&
-                    changePw.newPw.value === changePw.confirm.value && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          color: "var(--success)",
-                          fontSize: "13px",
-                        }}
-                      >
-                        <Icon
-                          className="ti ti-check"
-                          style={{ fontSize: "18px", color: "var(--success)" }}
-                        />
-                        <span>Passwords match</span>
-                      </div>
-                    )}
-                </div>
-                <button className="btn btn-primary" type="submit">
+                  )}
+                <Button variant="primary" type="submit">
                   <Icon className="ti ti-check"></Icon> Update Password
-                </button>
+                </Button>
               </form>
             </div>
           )}
           {/* {isSmtpConfigured &&  <div className="alert-banner info" style={{ marginBottom: 14 }}><Icon className="ti ti-info-circle"></Icon> DDL queue not available. This is normal for single-node setups without distributed_ddl_queue.</div>} */}
 
           {!isSmtpConfigured && myLevel === ROLE_LEVEL["superadmin"]&&(
-            <div className="alert-banner info" style={{ marginBottom: 14 }}>
-              <Icon className="ti ti-info-circle"></Icon>SMTP is not configured.
-              Email notifications are disabled. Copy the setup link from this
-              page and send it to the user.
-            </div>
+            <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 14 }}>
+              SMTP is not configured. Email notifications are disabled. Copy
+              the setup link from this page and send it to the user.
+            </Notice>
           )}
           {setupURL && (
             <div
@@ -675,14 +576,14 @@ async function resetPassword(id,initUser) {
                       flexShrink: 0,
                     }}
                   >
-                    <Icon className="ti ti-link" style={{ fontSize: 22 }} />
+                    <Icon className="ti ti-link" style={{ fontSize: "1.375rem" }} />
                   </div>
 
                   <div>
                     <h4
                       style={{
                         margin: 0,
-                        fontSize: 16,
+                        fontSize: "1rem",
                         fontWeight: 650,
                         color: "var(--text-primary)",
                       }}
@@ -693,7 +594,7 @@ async function resetPassword(id,initUser) {
                     <p
                       style={{
                         margin: "4px 0 0",
-                        fontSize: 13,
+                        fontSize: "0.8125rem",
                         color: "var(--text-muted)",
                         lineHeight: 1.5,
                       }}
@@ -704,23 +605,23 @@ async function resetPassword(id,initUser) {
                   </div>
                 </div>
 
-                <button
+                <Button
                   type="button"
-                  className="btn btn-secondary btn-sm"
+                  variant="secondary" size="sm"
                   onClick={handleCloseSetupURL}
                   aria-label="Close setup URL"
                   title="Close"
                   style={{ flexShrink: 0 }}
                 >
                   <Icon className="ti ti-x" />
-                </button>
+                </Button>
               </div>
 
               <label
                 htmlFor="setup-password-url"
                 style={{
                   display: "block",
-                  fontSize: 13,
+                  fontSize: "0.8125rem",
                   fontWeight: 600,
                   marginBottom: 7,
                   color: "var(--text-primary)",
@@ -737,9 +638,8 @@ async function resetPassword(id,initUser) {
                   flexWrap: "wrap",
                 }}
               >
-                <input
+                <Input
                   id="setup-password-url"
-                  className="form-input"
                   type="text"
                   readOnly
                   value={setupURL}
@@ -749,15 +649,15 @@ async function resetPassword(id,initUser) {
                     flex: "1 1 280px",
                     minWidth: 0,
                     height: 40,
-                    fontSize: 13,
+                    fontSize: "0.8125rem",
                     borderRadius: 8,
                     background: "var(--input-bg)",
                     fontFamily: "var(--font-code)",
                   }}
                 />
 
-                <button
-                  className="btn btn-primary btn-sm"
+                <Button
+                  variant="primary" size="sm"
                   type="button"
                   onClick={handleCopySetupURL}
                   style={{
@@ -771,7 +671,7 @@ async function resetPassword(id,initUser) {
                     className={setupURLCopied ? "ti ti-check" : "ti ti-copy"}
                   />
                   {setupURLCopied ? "Copied" : "Copy URL"}
-                </button>
+                </Button>
               </div>
 
               <div
@@ -784,14 +684,14 @@ async function resetPassword(id,initUser) {
                   borderRadius: 8,
                   background: "var(--color-info-bg)",
                   color: "var(--text-muted)",
-                  fontSize: 12,
+                  fontSize: "0.75rem",
                   lineHeight: 1.6,
                 }}
               >
                 <Icon
                   className="ti ti-shield-lock"
                   style={{
-                    fontSize: 16,
+                    fontSize: "1rem",
                     color: "var(--color-info)",
                     marginTop: 1,
                     flexShrink: 0,
@@ -820,21 +720,17 @@ async function resetPassword(id,initUser) {
                   marginBottom: 14,
                 }}
               >
-                <div className="form-group">
-                  <label className="form-label">Username *</label>
-                  <input
-                    className="form-input"
+                <FormField label="Username *">
+                  <Input
                     required
                     value={form.username}
                     onChange={(e) =>
                       setForm((p) => ({ ...p, username: e.target.value }))
                     }
                   />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Email *</label>
-                  <input
-                    className="form-input"
+                </FormField>
+                <FormField label="Email *">
+                  <Input
                     type="email"
                     required
                     value={form.email}
@@ -843,9 +739,8 @@ async function resetPassword(id,initUser) {
                     }
                     placeholder="For password email"
                   />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Role</label>
+                </FormField>
+                <FormField label="Role">
                   <Select
                     className="form-select"
                     value={form.role}
@@ -859,11 +754,11 @@ async function resetPassword(id,initUser) {
                       </option>
                     ))}
                   </Select>
-                </div>
+                </FormField>
               </div>
               <p
                 style={{
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   color: "var(--text-muted)",
                   marginBottom: 12,
                 }}
@@ -872,9 +767,9 @@ async function resetPassword(id,initUser) {
                 provided and SMTP is configured in .env, the password will be
                 emailed.
               </p>
-              <button className="btn btn-primary" type="submit">
+              <Button variant="primary" type="submit">
                 <Icon className="ti ti-plus"></Icon> Create User
-              </button>
+              </Button>
             </form>
           )}
 
@@ -927,7 +822,7 @@ async function resetPassword(id,initUser) {
                             }}
                             style={{
                               padding: "2px 6px",
-                              fontSize: "12px",
+                              fontSize: "0.75rem",
                               minWidth: 100,
                             }}
                           >
@@ -1012,7 +907,7 @@ async function resetPassword(id,initUser) {
           <div style={{ marginBottom: 24 }}>
             <h3
               style={{
-                fontSize: 16,
+                fontSize: "1rem",
                 fontWeight: 600,
                 margin: 0,
                 display: "flex",
@@ -1026,7 +921,7 @@ async function resetPassword(id,initUser) {
 
             <p
               style={{
-                fontSize: 12,
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 margin: "6px 0 0",
               }}
@@ -1042,7 +937,7 @@ async function resetPassword(id,initUser) {
               marginBottom: 20,
               borderRadius: 6,
               background: "var(--bg-subtle)",
-              fontSize: 12,
+              fontSize: "0.75rem",
             }}
           >
             Currently using:{" "}
@@ -1060,10 +955,8 @@ async function resetPassword(id,initUser) {
               gap: "16px 20px",
             }}
           >
-            <div className="form-group">
-              <label className="form-label">SMTP host</label>
-              <input
-                className="form-input"
+            <FormField label="SMTP host">
+              <Input
                 style={{ width: "100%" }}
                 value={smtpForm.host}
                 placeholder="smtp.example.com"
@@ -1075,12 +968,10 @@ async function resetPassword(id,initUser) {
                   setSmtpResult(null);
                 }}
               />
-            </div>
+            </FormField>
 
-            <div className="form-group">
-              <label className="form-label">Port</label>
-              <input
-                className="form-input"
+            <FormField label="Port">
+              <Input
                 type="number"
                 min="1"
                 max="65535"
@@ -1095,12 +986,10 @@ async function resetPassword(id,initUser) {
                   setSmtpResult(null);
                 }}
               />
-            </div>
+            </FormField>
 
-            <div className="form-group">
-              <label className="form-label">Username</label>
-              <input
-                className="form-input"
+            <FormField label="Username">
+              <Input
                 style={{ width: "100%" }}
                 value={smtpForm.user}
                 placeholder="username@example.com"
@@ -1112,14 +1001,11 @@ async function resetPassword(id,initUser) {
                   setSmtpResult(null);
                 }}
               />
-            </div>
+            </FormField>
 
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input
-                className="form-input"
-                type="password"
-                style={{ width: "100%" }}
+            <FormField label="Password">
+              <PasswordInput
+                autoComplete="new-password"
                 value={smtpForm.password}
                 placeholder={
                   smtp?.hasPassword
@@ -1134,12 +1020,10 @@ async function resetPassword(id,initUser) {
                   setSmtpResult(null);
                 }}
               />
-            </div>
+            </FormField>
 
-            <div className="form-group">
-              <label className="form-label">From address</label>
-              <input
-                className="form-input"
+            <FormField label="From address">
+              <Input
                 style={{ width: "100%" }}
                 value={smtpForm.from}
                 placeholder="CHOps <noreply@example.com>"
@@ -1151,7 +1035,7 @@ async function resetPassword(id,initUser) {
                   setSmtpResult(null);
                 }}
               />
-            </div>
+            </FormField>
             <ToggleSwitch  checked={smtpForm.secure}
                   onChange={(e) => {
                     setSmtpForm((p) => ({
@@ -1168,7 +1052,7 @@ async function resetPassword(id,initUser) {
                 marginTop: 16,
                 padding: "10px 12px",
                 borderRadius: 6,
-                fontSize: 12,
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 background: "var(--bg-subtle)",
               }}
@@ -1186,22 +1070,13 @@ async function resetPassword(id,initUser) {
           )}
 
           {smtpResult && (
-            <div
-              className={
-                smtpResult.ok ? "alert-banner info" : "alert-banner danger"
-              }
-              style={{
-                marginTop: 16,
-                fontSize: 12,
-              }}
+            <Notice
+              tone={smtpResult.ok ? "info" : "danger"}
+              icon={smtpResult.ok ? "ti-check" : "ti-alert-triangle"}
+              style={{ marginTop: 16, fontSize: "0.75rem" }}
             >
-              <Icon
-                className={
-                  smtpResult.ok ? "ti ti-check" : "ti ti-alert-triangle"
-                }
-              />
-              <span>{smtpResult.message}</span>
-            </div>
+              {smtpResult.message}
+            </Notice>
           )}
 
           <div
@@ -1213,7 +1088,7 @@ async function resetPassword(id,initUser) {
           >
             <div
               style={{
-                fontSize: 13,
+                fontSize: "0.8125rem",
                 fontWeight: 600,
                 marginBottom: 12,
               }}
@@ -1228,32 +1103,26 @@ async function resetPassword(id,initUser) {
                 alignItems: "flex-end",
               }}
             >
-              <div
-                className="form-group"
-                style={{
+              <FormField label="Send a test email to" style={{
                   flex: 1,
                   marginBottom: 0,
-                }}
-              >
-                <label className="form-label">Send a test email to</label>
-
-                <input
-                  className="form-input"
+                }}>
+                <Input
                   style={{ width: "100%" }}
                   value={testTo}
                   placeholder="test@example.com"
                   onChange={(e) => setTestTo(e.target.value)}
                 />
-              </div>
+              </FormField>
 
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button
+                variant="secondary" size="sm"
                 disabled={smtpBusy || !smtpFormReady() || !testTo.trim()}
                 onClick={() => sendTestEmail()}
               >
                 <Icon className="ti ti-send" />
                 Send test email
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -1265,34 +1134,34 @@ async function resetPassword(id,initUser) {
               marginTop: 20,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               disabled={smtpBusy || !smtpFormReady()}
               onClick={() => testConnection()}
             >
               <Icon className="ti ti-plug-connected" />
               Test connection
-            </button>
+            </Button>
 
             {smtp?.configured && (
-              <button
-                className="btn btn-danger btn-sm"
+              <Button
+                variant="danger" size="sm"
                 disabled={smtpBusy}
                 onClick={() => deleteSmtp()}
               >
                 <Icon className="ti ti-trash" />
                 Delete configuration
-              </button>
+              </Button>
             )}
 
-            <button
-              className="btn btn-primary btn-sm"
+            <Button
+              variant="primary" size="sm"
               disabled={smtpBusy || !smtpFormReady()}
               onClick={() => saveSmtp()}
             >
               <Icon className="ti ti-device-floppy" />
               {smtpBusy ? "Working..." : "Save"}
-            </button>
+            </Button>
           </div>
 
           <div
@@ -1300,7 +1169,7 @@ async function resetPassword(id,initUser) {
               marginTop: 24,
               paddingTop: 18,
               borderTop: "1px solid var(--border-default)",
-              fontSize: 12,
+              fontSize: "0.75rem",
               color: "var(--text-muted)",
               lineHeight: 1.6,
             }}

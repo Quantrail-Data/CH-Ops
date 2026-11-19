@@ -42,7 +42,7 @@ export default function KubernetesInsightPage({mainRef}) {
   if (!loaded) {
     return (
       <div className="page-content">
-        <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading...</div>
+        <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>Loading...</div>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export default function KubernetesInsightPage({mainRef}) {
       </div>
 
       {cluster && (
-        <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+        <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: 16 }}>
           {cluster.k8s?.installation} in namespace {cluster.k8s?.namespace}, via{" "}
           {cluster.k8s?.operator === "ocko" ? "OCKO" : "AKOC"}
         </div>

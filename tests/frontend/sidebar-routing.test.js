@@ -359,20 +359,17 @@ describe('Sidebar: newly added function coverage', () => {
   });
 
   it('render logic includes section header click and collapsed item click handlers', () => {
+    // Expanded: the shadcn Collapsible reports the header click through onOpenChange.
+    expect(code).toContain('onOpenChange={() => handleSectionClick(section.id)}');
+    // Collapsed: the icon button opens the sidebar on that section.
     expect(code).toContain('onClick={() => handleSectionClick(section.id)}');
-    expect(code).toContain('{isCollapsed && (');
-    expect(
-      code.includes('className={`sidebar-item ${openSections[section.id] ? "active" : ""}`}') ||
-      code.includes("className={`sidebar-item ${openSections[section.id] ? 'active' : ''}`}")
-    ).toBe(true);
+    expect(code).toContain('className={`sidebar-item ${openSections[section.id] ? "active" : ""}`}');
   });
 
   it('expanded mode renders children only for open section', () => {
-    expect(
-      code.includes('{!isCollapsed &&') &&
-      code.includes('openSections[section.id] &&') &&
-      code.includes('section.children.map((item) =>')
-    ).toBe(true);
+    expect(code).toContain('open={!isCollapsed && Boolean(openSections[section.id])}');
+    expect(code).toContain('<CollapsibleContent className="sidebar-children">');
+    expect(code).toContain('section.children.map((item) =>');
   });
 
   it('uses chevron direction based on open state', () => {
@@ -382,12 +379,18 @@ describe('Sidebar: newly added function coverage', () => {
     ).toBe(true);
   });
 
-  it('passes title tooltip for collapsed section header', () => {
-    expect(code).toContain('title={isCollapsed ? section.label : undefined}');
+  it('shows a tooltip with the section name in the collapsed sidebar', () => {
+    expect(code).toContain('function withTooltip(label, button)');
+    expect(code).toContain('if (!isCollapsed) return button;');
+    expect(code).toContain('section.label,');
   });
 
-  it('renders collapsed sidebar item title tooltip', () => {
-    expect(code).toContain('title={section.label}');
+  it('collapsed icon buttons have an accessible name', () => {
+    expect(code).toContain('aria-label={section.label}');
+  });
+
+  it('marks the current page for screen readers', () => {
+    expect(code).toContain('aria-current={isActive ? "page" : undefined}');
   });
 
   it('renders collapse button label only when expanded', () => {
@@ -395,8 +398,7 @@ describe('Sidebar: newly added function coverage', () => {
   });
 
   it('includes special qurioz item handling branch', () => {
-    expect(code).toContain('item?.id === "/qurioz" ? (');
-    expect(code).toContain('item.id?.replace("/", "")');
+    expect(code).toContain('item.id === "/qurioz" ? item.id.replace("/", "") : item.id');
   });
 
   it('takes icon colours from theme tokens, not inline per-theme values', () => {

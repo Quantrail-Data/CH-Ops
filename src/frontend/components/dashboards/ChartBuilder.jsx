@@ -2692,7 +2692,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
           >
             <Icon
               className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
-              style={{ fontSize: 14 }}
+              style={{ fontSize: "0.875rem" }}
             ></Icon>
           </button>
         </div>
@@ -2708,14 +2708,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               cursor: "pointer",
               background: "var(--bg-elevated)",
               fontWeight: 600,
-              fontSize: "14px",
+              fontSize: "0.875rem",
             }}
           >
             <Icon
               className={`ti ti-chevron-${topOpen ? "down" : "right"}`}
-              style={{ fontSize: 16 }}
+              style={{ fontSize: "1rem" }}
             ></Icon>{" "}
-            <Icon className="ti ti-code" style={{ fontSize: 18 }}></Icon> SQL &
+            <Icon className="ti ti-code" style={{ fontSize: "1.125rem" }}></Icon> SQL &
             Results
           </div>
           {topOpen && (
@@ -2789,7 +2789,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     {paramError && (
                       <div
                         className="alert-banner danger"
-                        style={{ marginTop: 8, fontSize: "13px" }}
+                        style={{ marginTop: 8, fontSize: "0.8125rem" }}
                       >
                         <Icon className="ti ti-alert-circle" /> {paramError}
                       </div>
@@ -2802,7 +2802,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       >
                         <div
                           style={{
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             color: "var(--text-muted)",
                             marginBottom: 8,
                           }}
@@ -2815,7 +2815,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         {unwrapped.length > 0 && (
                           <div
                             className="alert-banner warning"
-                            style={{ fontSize: "13px", marginBottom: 8 }}
+                            style={{ fontSize: "0.8125rem", marginBottom: 8 }}
                           >
                             <Icon className="ti ti-alert-triangle" />
                             <div>
@@ -2829,7 +2829,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                               Give a default below, or wrap the filter so it can
                               be left out:
                               <div style={{ marginTop: 6 }}>
-                                <code style={{ fontSize: "12px" }}>
+                                <code style={{ fontSize: "0.75rem" }}>
                                   {"WHERE 1 /*[ AND col = {"}
                                   {unwrapped[0].name}:{unwrapped[0].type}
                                   {"} ]*/"}
@@ -2849,12 +2849,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                               marginBottom: 6,
                             }}
                           >
-                            <code style={{ fontSize: "12px", minWidth: 140 }}>
+                            <code style={{ fontSize: "0.75rem", minWidth: 140 }}>
                               {p.name}:{p.type}
                             </code>
                             <span
                               style={{
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                                 color: "var(--text-muted)",
                                 minWidth: 70,
                               }}
@@ -2863,7 +2863,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                             </span>
                             <span
                               style={{
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                                 color: "var(--text-muted)",
                               }}
                             >
@@ -2937,7 +2937,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               >
                 <div
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-muted)",
                     marginBottom: 6,
                   }}
@@ -2949,7 +2949,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 {error && (
                   <div
                     className="alert-banner danger"
-                    style={{ fontSize: "13px" }}
+                    style={{ fontSize: "0.8125rem" }}
                   >
                     <Icon className="ti ti-alert-circle"></Icon> {error}
                   </div>
@@ -2998,14 +2998,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 cursor: "pointer",
                 background: "var(--bg-elevated)",
                 fontWeight: 600,
-                fontSize: "14px",
+                fontSize: "0.875rem",
               }}
             >
               <Icon
                 className={`ti ti-chevron-${bottomOpen ? "down" : "right"}`}
-                style={{ fontSize: 16 }}
+                style={{ fontSize: "1rem" }}
               ></Icon>{" "}
-              <Icon className="ti ti-settings" style={{ fontSize: 18 }}></Icon>{" "}
+              <Icon className="ti ti-settings" style={{ fontSize: "1.125rem" }}></Icon>{" "}
               Config & Preview
             </div>
           )}
@@ -3108,7 +3108,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                               <div key={f.key} className="form-group">
                                 <label
                                   className="form-label"
-                                  style={{ fontSize: "12px" }}
+                                  style={{ fontSize: "0.75rem" }}
                                 >
                                   {f.label}
                                   {f.required ? " *" : ""} ({f.expect})
@@ -3124,7 +3124,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                                       }));
                                     }}
                                     style={{
-                                      fontSize: "13px",
+                                      fontSize: "0.8125rem",
                                       borderColor: validationErrors[f.key]
                                         ? "var(--color-danger)"
                                         : undefined,
@@ -3150,7 +3150,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                                       }));
                                     }}
                                     style={{
-                                      fontSize: "13px",
+                                      fontSize: "0.8125rem",
                                       borderColor: validationErrors[f.key]
                                         ? "var(--color-danger)"
                                         : undefined,
@@ -3169,7 +3169,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                                   <span
                                     style={{
                                       color: "var(--color-danger)",
-                                      fontSize: "12px",
+                                      fontSize: "0.75rem",
                                     }}
                                   >
                                     {validationErrors[f.key]}
@@ -3193,7 +3193,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       <div className="form-group">
                         <label
                           className="form-label"
-                          style={{ fontSize: "12px" }}
+                          style={{ fontSize: "0.75rem" }}
                         >
                           X Label
                         </label>
@@ -3201,13 +3201,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           className="form-input"
                           value={xLabel}
                           onChange={(e) => setXLabel(e.target.value)}
-                          style={{ fontSize: "13px" }}
+                          style={{ fontSize: "0.8125rem" }}
                         />
                       </div>
                       <div className="form-group">
                         <label
                           className="form-label"
-                          style={{ fontSize: "12px" }}
+                          style={{ fontSize: "0.75rem" }}
                         >
                           Y Label
                         </label>
@@ -3215,7 +3215,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           className="form-input"
                           value={yLabel}
                           onChange={(e) => setYLabel(e.target.value)}
-                          style={{ fontSize: "13px" }}
+                          style={{ fontSize: "0.8125rem" }}
                         />
                       </div>
                     </div>
@@ -3237,14 +3237,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           display: "flex",
                           alignItems: "center",
                           gap: 4,
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           padding: "4px 8px",
                         }}
                         title={showLegend ? "Hide legend" : "Show legend"}
                       >
                         <Icon
                           className={`ti ${showLegend ? "ti-eye" : "ti-eye-off"}`}
-                          style={{ fontSize: "14px" }}
+                          style={{ fontSize: "0.875rem" }}
                         ></Icon>
                         <span>Legend</span>
                       </button>
@@ -3262,7 +3262,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       <div className="form-group">
                         <label
                           className="form-label"
-                          style={{ fontSize: "12px" }}
+                          style={{ fontSize: "0.75rem" }}
                         >
                           Min
                         </label>
@@ -3281,7 +3281,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       <div className="form-group">
                         <label
                           className="form-label"
-                          style={{ fontSize: "12px" }}
+                          style={{ fontSize: "0.75rem" }}
                         >
                           Max
                         </label>
@@ -3322,7 +3322,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   fallback={(err) => (
                     <div
                       className="alert-banner danger"
-                      style={{ fontSize: "13px" }}
+                      style={{ fontSize: "0.8125rem" }}
                     >
                       <Icon className="ti ti-alert-circle"></Icon> Chart preview
                       failed: {err?.message || String(err)}
@@ -3338,7 +3338,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     }}
                   >
                     <div
-                      style={{ fontSize: "13px", color: "var(--text-muted)" }}
+                      style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}
                     >
                       Preview
                     </div>
@@ -3346,7 +3346,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                   {chartOption?._error && (
                     <div
                       className="alert-banner danger"
-                      style={{ fontSize: "13px" }}
+                      style={{ fontSize: "0.8125rem" }}
                     >
                       <Icon className="ti ti-alert-circle"></Icon>{" "}
                       {chartOption.message}
@@ -3356,7 +3356,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     (chartOption?.isArray ? (
                       <div
                         className="alert-banner danger"
-                        style={{ fontSize: "13px" }}
+                        style={{ fontSize: "0.8125rem" }}
                       >
                         <Icon className="ti ti-alert-circle"></Icon>{" "}
                         {chartOption.message}
@@ -3512,7 +3512,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                               style={{ padding: 16, height: "80%" }}
                             >
                               <Icon className="ti ti-chart-dots"></Icon>
-                              <p style={{ fontSize: "13px" }}>
+                              <p style={{ fontSize: "0.8125rem" }}>
                                 Map columns to see preview.
                               </p>
                             </div>
@@ -3536,14 +3536,14 @@ export default function ChartBuilder({ editChart, onEditDone }) {
 
         {chartOption && !chartOption._error && (
           <div className="card" style={{ padding: 12 }}>
-            <h3 style={{ fontSize: "14px", marginBottom: 10 }}>
+            <h3 style={{ fontSize: "0.875rem", marginBottom: 10 }}>
               <Icon className="ti ti-device-floppy"></Icon>{" "}
               {editId ? "Update Chart" : "Save to Dashboard"}
             </h3>
             {dashboards.length === 0 && (
               <div
                 className="alert-banner info"
-                style={{ marginBottom: 12, fontSize: "14px" }}
+                style={{ marginBottom: 12, fontSize: "0.875rem" }}
               >
                 <Icon className="ti ti-info-circle"></Icon> Create a dashboard
                 first in the Dashboards section.

@@ -8,6 +8,7 @@ import Select from "../common/Select.jsx";
 import ConfirmDialog from "../editor/ConfirmDialog.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import { Input, Button, FormField, Textarea } from "../ui/index.jsx";
 
 const STEPS = [
   { n: 1, label: "Connect" },
@@ -40,7 +41,7 @@ function StepHeader({ current }) {
           style={{
             flex: 1,
             padding: "8px 12px",
-            fontSize: 13,
+            fontSize: "0.8125rem",
             color: s.n <= current ? "var(--text-primary)" : "var(--text-muted)",
             borderBottom:
               s.n === current
@@ -63,7 +64,7 @@ function TestResult({ result }) {
   const degraded = result.permissions?.degraded ?? [];
 
   return (
-    <div style={{ marginTop: 12, fontSize: 13 }}>
+    <div style={{ marginTop: 12, fontSize: "0.8125rem" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Icon className={k8s.ok ? "ti ti-check" : "ti ti-x"} />
         <span>Kubernetes: {k8s.message}</span>
@@ -375,7 +376,7 @@ export default function KubernetesClusterTab({ onImported }) {
     <div>
       <div
         className="card"
-        style={{ padding: 12, marginBottom: 16, fontSize: 13 ,display:"flex", alignItems:"center",gap:"5px"}}
+        style={{ padding: 12, marginBottom: 16, fontSize: "0.8125rem" ,display:"flex", alignItems:"center",gap:"5px"}}
       >
         <Icon className="ti ti-info-circle" /> 
         <div style={{marginTop:"4px"}}>Using ClickHouse® Cloud or hosted
@@ -389,8 +390,7 @@ export default function KubernetesClusterTab({ onImported }) {
       {step === 1 && (
         <div>
           {connections.length > 0 && (
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label">Use an existing connection</label>
+            <FormField label="Use an existing connection" style={{ marginBottom: 16 }}>
               <Select
                 className="form-select"
                 value={connectionId}
@@ -403,29 +403,26 @@ export default function KubernetesClusterTab({ onImported }) {
                   </option>
                 ))}
               </Select>
-            </div>
+            </FormField>
           )}
 
           {!connectionId && (
             <>
-              <div className="form-group">
-                <label className="form-label">Connection name *</label>
-                <input
-                  className="form-input"
+              <FormField label="Connection name *">
+                <Input
                   value={conn.name}
                   onChange={(e) =>
                     setConn((p) => ({ ...p, name: e.target.value }))
                   }
                   placeholder="Production EKS"
                 />
-              </div>
+              </FormField>
 
               <div className="form-group">
                 <label className="form-label" style={{marginTop:"1rem"}}>
                   Paste the output of chops-k8s-setup.sh
                 </label>
-                <textarea
-                  className="form-input"
+                <Textarea
                   rows={5}
                   value={pasteBlock}
                   onChange={(e) => applyPaste(e.target.value)}
@@ -435,8 +432,7 @@ export default function KubernetesClusterTab({ onImported }) {
 
               <div className="form-group">
                 <label className="form-label" style={{marginTop:"1rem"}}>API address *</label>
-                <input
-                  className="form-input"
+                <Input
                   value={conn.apiAddress}
                   onChange={(e) =>
                     setConn((p) => ({ ...p, apiAddress: e.target.value }))
@@ -447,8 +443,7 @@ export default function KubernetesClusterTab({ onImported }) {
 
               <div className="form-group">
                 <label className="form-label" style={{marginTop:"1rem"}}>CA certificate *</label>
-                <textarea
-                  className="form-input"
+                <Textarea
                   rows={4}
                   value={conn.caCertificate}
                   onChange={(e) =>
@@ -460,8 +455,7 @@ export default function KubernetesClusterTab({ onImported }) {
 
               <div className="form-group">
                 <label className="form-label" style={{marginTop:"1rem"}}>Token *</label>
-                <input
-                  className="form-input"
+                <Input
                   type="password"
                   value={conn.token}
                   onChange={(e) =>
@@ -475,21 +469,20 @@ export default function KubernetesClusterTab({ onImported }) {
           <div className="form-group">
             <label className="form-label" style={{marginTop:"1rem"}}>Operator namespace</label>
             <div style={{ display: "flex", gap: 8 }}>
-              <input
-                className="form-input"
+              <Input
                 value={operatorNamespace}
                 onChange={(event) => setOperatorNamespace(event.target.value)}
                 placeholder="kube-system"
               />
-              <button
-                className="btn btn-secondary"
+              <Button
+                variant="secondary"
                 onClick={probeOperator}
                 disabled={busy}
               >
                 Probe
-              </button>
+              </Button>
             </div>
-            <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>
+            <div style={{ fontSize: "0.75rem", marginTop: 4, color: "var(--text-muted)" }}>
               Where the operator pod runs, to read the operator logs. Optional.
               The Altinity operator installs into kube-system by default. OCKO
               usually runs in its own namespace. Probe works after the
@@ -498,20 +491,20 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
               onClick={testConnection}
               disabled={busy}
             >
               Test connection
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={saveAndContinue}
               disabled={busy}
             >
               Continue
-            </button>
+            </Button>
           </div>
 
           <TestResult result={testResult} />
@@ -536,7 +529,7 @@ export default function KubernetesClusterTab({ onImported }) {
             {operators.find((o) => o.id === operator)?.earlyAccess && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: "0.75rem",
                   marginTop: 4,
                   color: "var(--text-muted)",
                 }}
@@ -550,7 +543,7 @@ export default function KubernetesClusterTab({ onImported }) {
             {testResult?.operators?.length > 1 && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: "0.75rem",
                   marginTop: 4,
                   color: "var(--text-muted)",
                 }}
@@ -564,8 +557,7 @@ export default function KubernetesClusterTab({ onImported }) {
           <div className="form-group">
             <label className="form-label" style={{marginTop:"1rem"}}>Namespace *</label>
             {namespaceSource === "restricted" || !namespaces.length ? (
-              <input
-                className="form-input"
+              <Input
                 value={namespace}
                 onChange={(e) => setNamespace(e.target.value)}
                 placeholder="production"
@@ -586,14 +578,14 @@ export default function KubernetesClusterTab({ onImported }) {
             )}
           </div>
 
-          <button
-            className="btn btn-secondary"
+          <Button
+            variant="secondary"
             onClick={loadInstallations}
             disabled={busy}
             style={{marginTop:"1rem"}}
           >
             Find installations
-          </button>
+          </Button>
 
           {installations.length > 0 && (
             <div style={{ marginTop: 16 }}>
@@ -637,16 +629,16 @@ export default function KubernetesClusterTab({ onImported }) {
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={() => setStep(1)}>
+            <Button variant="secondary" onClick={() => setStep(1)}>
               Back
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => setStep(3)}
               disabled={!installation}
             >
               Continue
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -655,7 +647,7 @@ export default function KubernetesClusterTab({ onImported }) {
         <div>
           <div
             className="card"
-            style={{ padding: 12, marginBottom: 16, fontSize: 13 }}
+            style={{ padding: 12, marginBottom: 16, fontSize: "0.8125rem" }}
           >
             Enter an address that reaches ClickHouse® from wherever CHOps is
             running. If CHOps runs inside this cluster, an internal service
@@ -680,10 +672,10 @@ export default function KubernetesClusterTab({ onImported }) {
               <option value="endpoint">Always use the address above</option>
             </Select>
             <div
-              style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}
+              style={{ fontSize: "0.75rem", marginTop: 4, color: "var(--text-muted)" }}
             >
               {addressingMode === "auto" && (
-                <details style={{ marginTop: 12, fontSize: 13 }}>
+                <details style={{ marginTop: 12, fontSize: "0.8125rem" }}>
                   <summary style={{ cursor: "pointer" }}>
                     How to expose each pod so per-node data works
                   </summary>
@@ -695,7 +687,7 @@ export default function KubernetesClusterTab({ onImported }) {
                     </p>
                     <pre
                       className="profiler-popup-code"
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: "0.75rem" }}
                     >
                       {`spec:
   templates:
@@ -736,8 +728,7 @@ export default function KubernetesClusterTab({ onImported }) {
 
           <div className="form-group">
             <label className="form-label" style={{marginTop:"1rem"}}>ClickHouse® address *</label>
-            <input
-              className="form-input"
+            <Input
               value={endpoint}
               onChange={(e) => setEndpoint(e.target.value)}
               placeholder="clickhouse.example.com"
@@ -749,8 +740,7 @@ export default function KubernetesClusterTab({ onImported }) {
           >
             <div className="form-group">
               <label className="form-label" style={{marginTop:"1rem"}}>Port</label>
-              <input
-                className="form-input"
+              <Input
                 type="number"
                 value={port}
                 onChange={(e) => setPort(parseInt(e.target.value, 10) || 8443)}
@@ -770,42 +760,39 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={() => setStep(2)}>
+            <Button variant="secondary" onClick={() => setStep(2)}>
               Back
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => setStep(4)}
               disabled={!endpoint.trim()}
             >
               Continue
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {step === 4 && (
         <div>
-          <div className="form-group">
-            <label className="form-label">Display name</label>
-            <input
-              className="form-input"
+          <FormField label="Display name">
+            <Input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder={installation}
             />
-          </div>
+          </FormField>
 
           <div className="form-group">
             <label className="form-label" style={{marginTop:"1rem"}}>ClickHouse® user *</label>
-            <input
-              className="form-input"
+            <Input
               value={chUser}
               onChange={(e) => setChUser(e.target.value)}
               placeholder="chops"
             />
             <div
-              style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}
+              style={{ fontSize: "0.75rem", marginTop: 4, color: "var(--text-muted)" }}
             >
               Do not use the default user. The operator restricts it to the
               cluster&apos;s own pods, so a connection from here is refused and the
@@ -816,14 +803,13 @@ export default function KubernetesClusterTab({ onImported }) {
 
           <div className="form-group">
             <label className="form-label" style={{marginTop:"1rem"}}>Password</label>
-            <input
-              className="form-input"
+            <Input
               type="password"
               value={chPassword}
               onChange={(e) => setChPassword(e.target.value)}
             />
             <div
-              style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}
+              style={{ fontSize: "0.75rem", marginTop: 4, color: "var(--text-muted)" }}
             >
               Entered once for the whole installation. Every host inherits it,
               which is what keeps things working when the cluster is scaled.
@@ -831,16 +817,16 @@ export default function KubernetesClusterTab({ onImported }) {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={() => setStep(3)}>
+            <Button variant="secondary" onClick={() => setStep(3)}>
               Back
-            </button>
-            <button
-              className="btn btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => doImport()}
               disabled={busy}
             >
               {busy ? "Adding..." : "Add cluster"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

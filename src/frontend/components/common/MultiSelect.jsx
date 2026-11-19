@@ -135,7 +135,7 @@ ${v}`}
           >
             <input
               className="form-input"
-              style={{ width: "100%", fontSize: 13 }}
+              style={{ width: "100%", fontSize: "0.8125rem" }}
               placeholder="Type to filter..."
               value={searchText}
               autoFocus
@@ -168,7 +168,7 @@ ${v}`}
                   marginLeft: "auto",
                   paddingLeft: 12,
                   color: "var(--text-muted)",
-                  fontSize: 12,
+                  fontSize: "0.75rem",
                   flexShrink: 0,
                 }}
               >

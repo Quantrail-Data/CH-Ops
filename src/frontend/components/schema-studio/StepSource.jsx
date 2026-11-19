@@ -110,24 +110,24 @@ export default function StepSource({ onDone }) {
           </div>
 
           <div>
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Warning:</strong> HTTP request field value exceeds the
               configured limit.
             </h5>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
               The submitted field value is too large for ClickHouse to process.
             </p>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
               Please increase the http_max_field_value_size setting in the
               ClickHouse server configuration and restart ClickHouse.
             </p>
 
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Current error:</strong>
             </h5>
-            <code style={{fontSize:"12px"}}>{warning?.message}</code>
+            <code style={{fontSize:"0.75rem"}}>{warning?.message}</code>
           </div>
         </div>
       )}
@@ -140,24 +140,24 @@ export default function StepSource({ onDone }) {
           </div>
 
           <div>
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Warning:</strong> HTTP request URI is invalid or too long.
             </h5>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
              The request URL exceeds the configured size limit for ClickHouse.
 
 
             </p>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
              Please increase the http_max_uri_size setting in the ClickHouse server configuration and restart ClickHouse.
             </p>
 
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Current error:</strong>
             </h5>
-            <code style={{fontSize:"12px"}}>{warning?.message}</code>
+            <code style={{fontSize:"0.75rem"}}>{warning?.message}</code>
           </div>
         </div>
       )}
@@ -187,7 +187,7 @@ export default function StepSource({ onDone }) {
             <>
               <Icon
                 className="ti ti-upload"
-                style={{ fontSize: "32px", opacity: 0.6 }}
+                style={{ fontSize: "2rem", opacity: 0.6 }}
               />
               <div className="studio-dropzone-title">
                 Drop a file here, or click to choose

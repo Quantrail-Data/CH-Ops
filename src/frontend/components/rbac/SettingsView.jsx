@@ -196,7 +196,7 @@ export default function SettingsView() {
 
       {result && (
         <>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 10px" }}>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 10px" }}>
             {`CHOps applies the settings in the ClickHouse order: the default profile "${config.defaultProfileName}", ` +
               "the profiles with a TO clause, the roles, and then the settings of the user. A later source overrides an " +
               "earlier one. The default profile name and the constraint mode come from Control panel > App Config > DB RBAC."}
@@ -211,7 +211,7 @@ export default function SettingsView() {
             </div>
           )}
 
-          <h3 style={{ fontSize: 15, margin: "8px 0" }}>Effective settings</h3>
+          <h3 style={{ fontSize: "0.9375rem", margin: "8px 0" }}>Effective settings</h3>
           <DataTable
             rows={effectiveRows}
             columns={["setting", "value", "min", "max", "writability", "source", "overrides"]}
@@ -248,8 +248,8 @@ export default function SettingsView() {
             }}
           />
 
-          <h3 style={{ fontSize: 15, margin: "16px 0 8px" }}>Sources, in the order ClickHouse applies them</h3>
-          <ol style={{ fontSize: 13, margin: "0 0 0 18px", lineHeight: 1.8 }}>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>Sources, in the order ClickHouse applies them</h3>
+          <ol style={{ fontSize: "0.8125rem", margin: "0 0 0 18px", lineHeight: 1.8 }}>
             <li>{`Default profile "${config.defaultProfileName}"`}</li>
             {result.profilesWithTo.map((profileName) => (
               <li key={`to-${profileName}`}>{`Profile "${profileName}" (TO clause)`}</li>
@@ -260,7 +260,7 @@ export default function SettingsView() {
             {targetType === "user" && <li>{`User "${targetName}"`}</li>}
           </ol>
 
-          <h3 style={{ fontSize: 15, margin: "16px 0 8px" }}>Rows of system.settings_profile_elements for {targetName}</h3>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>Rows of system.settings_profile_elements for {targetName}</h3>
           <DataTable
             rows={directRows}
             columns={["index", "setting_name", "value", "min", "max", "writability", "inherit_profile"]}

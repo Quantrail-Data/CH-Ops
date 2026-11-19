@@ -33,7 +33,7 @@ function IntroChatComponent({inputSubmitHandler,isSendDisabled}) {
               display: "flex",
               alignItems: "center",
               gap: "5px",
-              fontSize: "13px",
+              fontSize: "0.8125rem",
             }}
           >
             Choose a database from the dropdown above to begin your conversation

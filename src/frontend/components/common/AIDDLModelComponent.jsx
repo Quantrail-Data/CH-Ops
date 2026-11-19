@@ -77,7 +77,7 @@ function AIDDLModelComponent({
         {alertMessage?.flag && (
           <div
             className={`alert-banner info`}
-            style={{ fontSize: "12px", margin: "10px 0px" }}
+            style={{ fontSize: "0.75rem", margin: "10px 0px" }}
           >
             {alertMessage?.message}
           </div>
@@ -174,7 +174,7 @@ function AIDDLModelComponent({
                     <path d="M3 3l18 18" />
                   </svg>
                 )}
-                <span style={{ fontSize: "11px" }}>
+                <span style={{ fontSize: "0.6875rem" }}>
                   {isNewSelectAll ? "Deselect All" : "Select All"}
                 </span>
               </button>
@@ -184,7 +184,7 @@ function AIDDLModelComponent({
                   databaseSchemaSetterHandler("add");
                 }}
                 style={{
-                  fontSize: "11px",
+                  fontSize: "0.6875rem",
                   padding: "5px 10px",
                   height: "30px",
                 }}
@@ -241,7 +241,7 @@ function AIDDLModelComponent({
                       gap: "10px",
                     }}
                   >
-                    <span style={{ fontSize: "12px", fontWeight: "700" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: "700" }}>
                       {_b?.name}
                     </span>
                   </div>
@@ -306,7 +306,7 @@ function AIDDLModelComponent({
                   <path d="M17 8h3" />
                   <path d="M4 4h3" />
                 </svg>
-                <span style={{ fontSize: "10px" }}>
+                <span style={{ fontSize: "0.625rem" }}>
                   Estimate : {estimateScore ? estimateScore : 0}
                 </span>
               </div>
@@ -315,7 +315,7 @@ function AIDDLModelComponent({
                 // disabled={!isEnableRefreshSchema()}
                 onClick={() => GenerateDDL_EsitmateHandler()}
                 style={{
-                  fontSize: "11px",
+                  fontSize: "0.6875rem",
                   padding: "5px 10px",
                   height: "30px",
                 }}
@@ -357,7 +357,7 @@ function AIDDLModelComponent({
                   }}
                 >
                   <Icon className="ti ti-info-circle" />
-                  <span style={{ fontSize: "10px" }}>
+                  <span style={{ fontSize: "0.625rem" }}>
                     No Table and DDL info founded!
                   </span>
                 </div>
@@ -377,7 +377,7 @@ function AIDDLModelComponent({
                       >
                         <h3
                           style={{
-                            fontSize: "13px",
+                            fontSize: "0.8125rem",
                             paddingBottom: "8px",
                             margin: "5px 0px",
                             display: "flex",
@@ -388,7 +388,7 @@ function AIDDLModelComponent({
                           {" "}
                           <Icon
                             className="ti ti-database"
-                            style={{ fontSize: "13px" }}
+                            style={{ fontSize: "0.8125rem" }}
                           />
                           {_v}
                         </h3>
@@ -434,11 +434,11 @@ function AIDDLModelComponent({
                             >
                               <Icon
                                 className="ti ti-table"
-                                style={{ fontSize: "13px" }}
+                                style={{ fontSize: "0.8125rem" }}
                               />
                               <span
                                 style={{
-                                  fontSize: "12px",
+                                  fontSize: "0.75rem",
                                   fontWeight: "700",
                                 }}
                               >

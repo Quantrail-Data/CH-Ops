@@ -439,7 +439,7 @@ function UserTree() {
         >
           <span
             style={{
-              fontSize: '12px',
+              fontSize: "0.75rem",
               color: 'var(--text-muted)',
               marginRight: 4,
             }}
@@ -776,7 +776,7 @@ function RoleTree() {
         >
           <span
             style={{
-              fontSize: '12px',
+              fontSize: "0.75rem",
               color: 'var(--text-muted)',
               marginRight: 4,
             }}
@@ -905,7 +905,7 @@ function FullOverview() {
     <div>
       <h3
         style={{
-          fontSize: '15px',
+          fontSize: "0.9375rem",
           margin: '16px 0 8px',
         }}
       >
@@ -931,7 +931,7 @@ function FullOverview() {
 
       <h3
         style={{
-          fontSize: '15px',
+          fontSize: "0.9375rem",
           margin: '16px 0 8px',
         }}
       >
@@ -946,7 +946,7 @@ function FullOverview() {
 
       <h3
         style={{
-          fontSize: '15px',
+          fontSize: "0.9375rem",
           margin: '16px 0 8px',
         }}
       >

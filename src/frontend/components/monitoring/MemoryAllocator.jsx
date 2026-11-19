@@ -31,6 +31,7 @@ import {
 
 import { useToast } from "../layout/Toast.jsx";
 import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { Button, Notice } from "../ui/index.jsx";
 
 // Theme Colors (ECharts does not resolve CSS custom properties)
 
@@ -88,7 +89,7 @@ function InfoBanner({ children }) {
     >
       <Icon
         className="ti ti-info-circle"
-        style={{ flexShrink: 0, marginTop: 1, fontSize: 14 }}
+        style={{ flexShrink: 0, marginTop: 1, fontSize: "0.875rem" }}
       />
       <span>{children}</span>
     </div>
@@ -99,7 +100,7 @@ function SectionTitle({ children }) {
   return (
     <div
       style={{
-        fontSize: "12px",
+        fontSize: "0.75rem",
         fontWeight: 700,
         color: "var(--text-secondary)",
         textTransform: "uppercase",
@@ -138,7 +139,7 @@ function HealthCard({
     >
       <div
         style={{
-          fontSize: "10px",
+          fontSize: "0.625rem",
           color: "var(--text-muted)",
           textTransform: "uppercase",
           letterSpacing: "0.03em",
@@ -149,7 +150,7 @@ function HealthCard({
       </div>
       <div
         style={{
-          fontSize: "21px",
+          fontSize: "1.3125rem",
           fontWeight: 700,
           fontFamily: "var(--font-chart)",
           color: "var(--text-primary)",
@@ -188,7 +189,7 @@ function HeatmapBar({ label, colorClass, widthPct, content, tooltip }) {
       <div
         style={{
           minWidth: 70,
-          fontSize: "12px",
+          fontSize: "0.75rem",
           fontFamily: "var(--font-code)",
           textAlign: "right",
           color: "var(--text-secondary)",
@@ -214,7 +215,7 @@ function HeatmapBar({ label, colorClass, widthPct, content, tooltip }) {
             display: "flex",
             alignItems: "center",
             paddingLeft: 10,
-            fontSize: "11px",
+            fontSize: "0.6875rem",
             color: textColor,
             fontWeight: 600,
             transition: "width 0.3s",
@@ -230,7 +231,7 @@ function HeatmapBar({ label, colorClass, widthPct, content, tooltip }) {
       </div>
       {widthPct <= 10 && (
         <span
-          style={{ fontSize: "11px", color: "var(--text-muted)", minWidth: 80 }}
+          style={{ fontSize: "0.6875rem", color: "var(--text-muted)", minWidth: 80 }}
         >
           {content}
         </span>
@@ -326,14 +327,14 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
           padding: "10px 0",
           cursor: "pointer",
           fontWeight: 600,
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           color: "var(--text-secondary)",
           userSelect: "none",
         }}
       >
         <Icon
           className={`ti ti-chevron-${open ? "down" : "right"}`}
-          style={{ fontSize: 14 }}
+          style={{ fontSize: "0.875rem" }}
         />
         {title}
       </div>
@@ -541,15 +542,14 @@ export default function MemoryAllocator() {
   if (error && !liveState?.isNotConnectedClusterNode() ) {
     return (
       <div style={{ padding: 20 }}>
-        <div className="alert-banner danger" style={{ margin: 0 }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="danger" icon="ti-alert-circle" style={{ margin: 0 }}>
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load jemalloc stats
             </div>
-            <div style={{ fontSize: "13px" }}>{error}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
-        </div>
+        </Notice>
       </div>
     );
   }
@@ -557,15 +557,14 @@ export default function MemoryAllocator() {
   if (liveState?.isNotConnectedClusterNode()) {
     return (
        <div style={{ padding: 20 }}>
-        <div className="alert-banner info" style={{ margin: 0 }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="info" icon="ti-alert-circle" style={{ margin: 0 }}>
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load jemalloc stats
             </div>
-            <div style={{ fontSize: "13px" }}>{error}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
-        </div>
+        </Notice>
       </div>
     )
   }
@@ -581,7 +580,7 @@ export default function MemoryAllocator() {
       <p
         style={{
           margin: "0 0 20px",
-          fontSize: "12px",
+          fontSize: "0.75rem",
           color: "var(--text-muted)",
         }}
       >
@@ -679,7 +678,7 @@ export default function MemoryAllocator() {
           style={{
             display: "flex",
             justifyContent: "space-between",
-            fontSize: "11px",
+            fontSize: "0.6875rem",
             color: "var(--text-muted)",
             // marginTop: 6,
             position:"absolute",
@@ -746,7 +745,7 @@ export default function MemoryAllocator() {
               </div>
               <div
                 style={{
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   color: "var(--text-muted)",
                   marginTop: 8,
                 }}
@@ -913,7 +912,7 @@ export default function MemoryAllocator() {
         <div className="card" style={{ padding: 16, marginBottom: 20 }}>
           <SectionTitle>Lock Contention</SectionTitle>
           <div style={{ overflow: "auto" }}>
-            <table className="data-table" style={{ fontSize: "12px" }}>
+            <table className="data-table" style={{ fontSize: "0.75rem" }}>
               <thead>
                 <tr>
                   <th>Lock Name</th>
@@ -1089,7 +1088,7 @@ export default function MemoryAllocator() {
               </table>
             </div>
           ) : (
-            <div style={{ color: "var(--text-muted)", fontSize: "13px" }}>
+            <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
               No large allocation data
             </div>
           )}
@@ -1157,7 +1156,7 @@ export default function MemoryAllocator() {
               </table>
             </div>
           ) : (
-            <div style={{ color: "var(--text-muted)", fontSize: "13px" }}>
+            <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
               No extent data
             </div>
           )}
@@ -1167,7 +1166,7 @@ export default function MemoryAllocator() {
           {arenas.length > 0 && (
             <>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: "13px", marginRight: 8 }}>
+                <label style={{ fontSize: "0.8125rem", marginRight: 8 }}>
                   Select Pool:
                 </label>
                 <Select
@@ -1196,7 +1195,7 @@ export default function MemoryAllocator() {
                       <div style={{ marginBottom: 12 }}>
                         <div
                           style={{
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             fontWeight: 600,
                             marginBottom: 6,
                           }}
@@ -1246,7 +1245,7 @@ export default function MemoryAllocator() {
                       </div>
                     )}
                     <div
-                      style={{ fontSize: "12px", color: "var(--text-muted)" }}
+                      style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}
                     >
                       {ab.length} bin sizes, {al.length} large sizes,{" "}
                       {ae.length} extent sizes in this pool
@@ -1260,17 +1259,17 @@ export default function MemoryAllocator() {
 
         <CollapsibleSection title="Raw jemalloc Output">
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={() => {
                 navigator.clipboard?.writeText(rawText);
                 toast?.success("Raw jemalloc copied");
               }}
             >
               <Icon className="ti ti-copy" /> Copy
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={() => {
                 const blob = new Blob([rawText], { type: "text/plain" });
                 const url = URL.createObjectURL(blob);
@@ -1282,7 +1281,7 @@ export default function MemoryAllocator() {
               }}
             >
               <Icon className="ti ti-download" /> Save
-            </button>
+            </Button>
           </div>
           <pre
             style={{

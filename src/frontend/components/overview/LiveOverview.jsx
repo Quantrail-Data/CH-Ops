@@ -31,6 +31,7 @@ import {
   pairRatioOfSums,
   threadEquivalents,
 } from "./overviewMath.js";
+import { Button } from "../ui/index.jsx";
 
 const INTERVALS = [5, 10, 30, 60];
 const LS_LIVE = "chops_overview_live";
@@ -557,19 +558,20 @@ export function LiveControlBar({ nodeName, live: s }) {
           {nodeName || "Live overview"}
         </h2>
 
-        <button
-          type="button"
-          className={`btn btn-sm ${live ? "btn-primary" : "btn-secondary"}`}
+        <Button
+          variant={live ? "primary" : "secondary"}
+          size="sm"
+          aria-pressed={live}
           onClick={() => setLive((v) => !v)}
         >
           <Icon className={`ti ti-player-${live ? "pause" : "play"}`} />
           {live ? "Live" : "Paused"}
-        </button>
+        </Button>
 
         <Select
           value={interval}
           onChange={(e) => setIntervalSeconds(Number(e.target.value))}
-          style={{ width: 120 }}
+          style={{ width: "7.5rem" }}
           title="Refresh interval"
         >
           {INTERVALS.map((s) => (

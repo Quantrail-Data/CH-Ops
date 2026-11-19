@@ -44,18 +44,18 @@ function SettingGroup({ group, settings, toggleSetting }) {
           padding: "10px 14px",
           cursor: "pointer",
           background: "var(--bg-elevated)",
-          fontSize: "14px",
+          fontSize: "0.875rem",
           fontWeight: 600,
         }}
       >
         <Icon
           className={`ti ti-chevron-${open ? "down" : "right"}`}
-          style={{ fontSize: 16 }}
+          style={{ fontSize: "1rem" }}
         ></Icon>
         {group.group}
         <span
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginLeft: "auto",
           }}
@@ -105,7 +105,7 @@ function SettingGroup({ group, settings, toggleSetting }) {
                   }}
                 />
               )}
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
                 {s.desc}
               </span>
             </div>
@@ -1141,7 +1141,7 @@ function ProfileList({ profilesQ, detailsQ }) {
   const liveState = useLiveOverview()
   return (
     <div>
-      <h3 style={{ fontSize: "15px", margin: "8px 0" }}>Profiles</h3>
+      <h3 style={{ fontSize: "0.9375rem", margin: "8px 0" }}>Profiles</h3>
       <DataTable
         rows={profilesQ.data || []}
         emptyMessage="No profiles."
@@ -1155,7 +1155,7 @@ function ProfileList({ profilesQ, detailsQ }) {
       )}
       {detailsQ.data?.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", margin: "16px 0 8px" }}>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>
             Profile Settings
           </h3>
           <DataTable
@@ -1440,7 +1440,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
                   display: "flex",
                   gap: 6,
                   cursor: "pointer",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                 }}
               >
                 <input
@@ -1456,7 +1456,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
                   display: "flex",
                   gap: 6,
                   cursor: "pointer",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                 }}
               >
                 <input
@@ -1482,7 +1482,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
         >
           <h4
             style={{
-              fontSize: "14px",
+              fontSize: "0.875rem",
               marginBottom: 12,
               display: "flex",
               alignItems: "center",
@@ -1506,7 +1506,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
           >
             <Icon
               className={`ti ti-chevron-${open ? "down" : "right"}`}
-              style={{ fontSize: 16 }}
+              style={{ fontSize: "1rem" }}
             ></Icon>
             Collapse Settings
           </div>

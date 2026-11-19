@@ -14,6 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import Icon from "../common/Icon.jsx";
 import InfoTip from "../common/InfoTip.jsx";
+import { Button } from "../ui/index.jsx";
 
 
 const FLOW_THEME_CSS = `
@@ -427,16 +428,16 @@ function ClusterCanvas({ cluster, selectedHost, onSelectNode }) {
             {unhealthy} of {cluster.nodes.length} reporting problems
           </span>
         )}
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost btn-sm"
+          variant="ghost" size="sm"
           style={{ marginLeft: "auto" }}
           onClick={() => setFullscreen((v) => !v)}
           title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
           aria-label={fullscreen ? "Exit full screen" : "Full screen"}
         >
           <Icon className={`ti ti-${fullscreen ? "arrows-minimize" : "arrows-maximize"}`} />
-        </button>
+        </Button>
       </div>
 
       <div
@@ -500,11 +501,11 @@ export default function ClusterTopology({ rows, loading, selectedHost, onSelectN
   const unhealthy = (rows || []).filter(nodeIsUnhealthy).length;
 
   const header = (
-    <button
+    <Button
       type="button"
       onClick={() => setOpen((v) => !v)}
       aria-expanded={open}
-      className="btn btn-ghost"
+      variant="ghost"
       style={{
         display: "flex",
         alignItems: "center",
@@ -539,7 +540,7 @@ export default function ClusterTopology({ rows, loading, selectedHost, onSelectN
           {unhealthy} reporting problems
         </span>
       )}
-    </button>
+    </Button>
   );
 
   return (

@@ -10,27 +10,45 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
 import { editorDisconnect, runQuery } from "../../utils/api.js";
 import Breadcrumb from "./Breadcrumb.jsx";
-import { Kbd, Badge, shortcutLabel } from "../ui/index.jsx";
+import { Kbd, Badge, Button, shortcutLabel } from "../ui/index.jsx";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "../ui/dropdown-menu.jsx";
+import { Slider } from "../ui/slider.jsx";
+import { Switch } from "../ui/switch.jsx";
+import { AnimatedThemeToggler } from "../ui/animated-theme-toggler.jsx";
+import { useBackgroundMotion, setBackgroundMotion } from "../../utils/backgroundMotion.js";
 import { roleTone } from "../../utils/roles.js";
 
-// Solid raised menu panel (Midnight: no glass).
-const dropdownStyle = {
-  position: "absolute",
-  top: "100%",
-  right: 0,
-  marginTop: 4,
-  background: "var(--bg-raised)",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-md)",
-  boxShadow: "var(--shadow-md)",
-  zIndex: 1200,
-};
+// Text size limits for the user menu slider, in percent.
+const FONT_SCALE_MIN = 75;
+const FONT_SCALE_MAX = 200;
+
+// The saved text size: a number in percent, or null for Auto.
+// No saved value means Auto.
+function readSavedFontScale() {
+  const saved = localStorage.getItem("chops_fontscale");
+  if (!saved || saved === "auto") return null;
+  const value = parseFloat(saved);
+  return Number.isFinite(value) ? value : null;
+}
+
+// The size that the Auto CSS rule gives now, in percent of 16px.
+function readAutoFontScale() {
+  const px = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  return Math.round((px / 16) * 100);
+}
 
 export default function Navbar({ route, onRefresh, onOpenSearch }) {
   const { auth, logout } = useAuth();
@@ -48,11 +66,19 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
   } = useConnection();
   const [, setConnecting] = useState(false);
 
-  const [fontScale, setFontScale] = useState(() =>
-    parseFloat(localStorage.getItem("chops_fontscale") || "100"),
-  );
+  // Text size in percent, or null for "Auto". Auto is the default: global.css
+  // makes the text a little larger on wide screens. A number is a fixed size.
+  const [fontScale, setFontScale] = useState(() => readSavedFontScale());
+  // The shadcn DropdownMenu closes itself on an outside click and on Escape.
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const sliderRef = useRef(null);
+  const isBackgroundMotionOn = useBackgroundMotion();
+
+  // The Magic UI toggler animates the change. It needs the new theme on <html>
+  // at once, so set data-theme here; App.jsx then saves it as before.
+  function changeTheme(nextTheme) {
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    toggleTheme();
+  }
 
   // Server clock: the selected node's timezone plus a one-time skew correction
   // between the server clock and this browser, so the displayed time is the
@@ -64,24 +90,27 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
   const [clockTick, setClockTick] = useState(Date.now());
 
   function applyFontScale(val) {
-    const v = Math.min(200, Math.max(75, Math.round(val / 5) * 5));
+    const v = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(val / 5) * 5));
     setFontScale(v);
     localStorage.setItem("chops_fontscale", String(v));
     document.documentElement.style.fontSize = (v / 100) * 16 + "px";
   }
 
+  // Back to Auto: remove the fixed size, so the CSS size for the screen applies.
+  function switchToAutoFontScale() {
+    setFontScale(null);
+    localStorage.setItem("chops_fontscale", "auto");
+    document.documentElement.style.removeProperty("font-size");
+  }
+
+  // The size that Auto gives now, in percent, to show on the slider.
+  const shownFontScale = fontScale ?? readAutoFontScale();
+
   useEffect(() => {
-    document.documentElement.style.fontSize = (fontScale / 100) * 16 + "px";
+    if (fontScale === null) document.documentElement.style.removeProperty("font-size");
+    else document.documentElement.style.fontSize = (fontScale / 100) * 16 + "px";
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!userMenuOpen) return;
-    const close = () => setUserMenuOpen(false);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [userMenuOpen]);
 
   // Fetch the server timezone and the server's current instant whenever the
   // connected node (or cluster) changes. serverTimeZone() gives the IANA zone
@@ -156,7 +185,7 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
   function handleSliderWheel(e) {
     e.preventDefault();
     const delta = e.deltaY < 0 ? 5 : -5;
-    applyFontScale(fontScale + delta);
+    applyFontScale(shownFontScale + delta);
   }
 
 
@@ -251,58 +280,54 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
           )}
         </div>
 
-        <button
-          className="btn btn-ghost btn-sm btn-icon"
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
           onClick={handleRefresh}
           title="Refresh"
           aria-label="Refresh"
         >
           <Icon className="ti ti-refresh"></Icon>
           <span className="navbar-btn-label sr-only">Refresh</span>
-        </button>
-        <a
-          href="/docs/"
-          target="_blank"
-          className="btn btn-ghost btn-sm btn-icon"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          nativeButton={false}
+          render={<a href="/docs/" target="_blank" />}
           title="Documentation"
           aria-label="Documentation"
         >
           <Icon className="ti ti-book"></Icon>
           <span className="navbar-btn-label sr-only">Docs</span>
-        </a>
-        <a
-          href="https://github.com/Quantrail-Data/CH-Ops"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-ghost btn-sm btn-icon"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          nativeButton={false}
+          render={<a href="https://github.com/Quantrail-Data/CH-Ops" target="_blank" rel="noopener noreferrer" />}
           title="GitHub repository"
           aria-label="GitHub repository"
         >
           <Icon className="ti ti-brand-github"></Icon>
           <span className="navbar-btn-label sr-only">GitHub</span>
-        </a>
-        <button
-          className="btn btn-secondary btn-sm btn-icon"
-          onClick={toggleTheme}
+        </Button>
+        <AnimatedThemeToggler
+          theme={theme}
+          onThemeChange={changeTheme}
+          duration={450}
+          className="tw:inline-flex tw:size-7 tw:items-center tw:justify-center tw:rounded-[var(--radius-sm)] tw:border tw:border-[var(--border-strong)] tw:bg-[var(--bg-surface)] tw:text-[var(--text-primary)] tw:hover:bg-[var(--bg-hover)] tw:cursor-pointer"
           title={theme === "dark" ? "Light mode" : "Dark mode"}
           aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
-        >
-          <Icon className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}></Icon>
-          <span className="navbar-btn-label sr-only">
-            {theme === "dark" ? "Light" : "Dark"}
-          </span>
-        </button>
+        />
 
-        {/* User dropdown (rightmost) - contains Sign Out + Text Size */}
-        <div style={{ position: "relative", marginLeft: 4 }}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setUserMenuOpen(!userMenuOpen);
-            }}
-            className="navbar-user-btn"
-            aria-haspopup="menu"
-            aria-expanded={userMenuOpen}
+        {/* User menu (rightmost): who is signed in, text size, versions, Sign Out */}
+        <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
+          <DropdownMenuTrigger
+            render={<button type="button" className="navbar-user-btn" style={{ marginLeft: 4 }} />}
           >
             <span className="avatar" aria-hidden="true">
               {String(auth?.username || "?").slice(0, 2).toUpperCase()}
@@ -310,189 +335,122 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
             <span className="navbar-user-name">{auth?.username}</span>
             <Icon
               className="ti ti-chevron-down"
-              style={{ fontSize: 12, opacity: 0.6 }}
+              style={{ fontSize: "0.75rem", opacity: 0.6 }}
             ></Icon>
-          </button>
-          {userMenuOpen && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ ...dropdownStyle, minWidth: 220, overflow: "hidden" }}
-            >
-              {/* User info */}
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderBottom: "1px solid var(--border-default)",
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                }}
-              >
-                Signed in as{" "}
-                <strong style={{ color: "var(--text-primary)" }}>
-                  {auth?.username}
-                </strong>
-                {auth?.role && (
-                  <Badge tone={roleTone(auth.role)} style={{ marginLeft: 6 }}>
-                    {auth.role}
-                  </Badge>
-                )}
-              </div>
-
-              {/* Text size control */}
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderBottom: "1px solid var(--border-default)",
-                }}
-                onWheel={handleSliderWheel}
-              >
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <Icon className="ti ti-text-resize" style={{ fontSize: 14 }}></Icon>{" "}
-                  Text Size
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => applyFontScale(fontScale - 5)}
-                    disabled={fontScale <= 75}
-                    style={{
-                      padding: "2px 6px",
-                      fontSize: "14px",
-                      lineHeight: 1,
-                    }}
-                  >
-                    -
-                  </button>
-                  <input
-                    ref={sliderRef}
-                    type="range"
-                    min={75}
-                    max={200}
-                    step={5}
-                    value={fontScale}
-                    onChange={(e) => applyFontScale(parseInt(e.target.value))}
-                    style={{
-                      flex: 1,
-                      accentColor: "var(--accent)",
-                      cursor: "pointer",
-                    }}
-                  />
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => applyFontScale(fontScale + 5)}
-                    disabled={fontScale >= 200}
-                    style={{
-                      padding: "2px 6px",
-                      fontSize: "14px",
-                      lineHeight: 1,
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "11px",
-                    color: "var(--text-muted)",
-                    marginTop: 2,
-                  }}
-                >
-                  <span>75%</span>
-                  <span
-                    style={{ color: "var(--text-primary)", fontWeight: 600 }}
-                  >
-                    {fontScale}%
-                  </span>
-                  <span>200%</span>
-                </div>
-                {fontScale !== 100 && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => applyFontScale(100)}
-                    style={{ width: "100%", marginTop: 4, fontSize: "12px" }}
-                  >
-                    Reset to 100%
-                  </button>
-                )}
-              </div>
-
-              {/* Version info (read-only) */}
-              <div
-                style={{
-                  padding: "8px 14px",
-                  borderBottom: "1px solid var(--border-default)",
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                  fontFamily: "var(--font-code)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 3,
-                  }}
-                >
-                  <span>App version</span>
-                  <span style={{ color: "var(--text-secondary)" }}>
-                    {typeof __APP_VERSION__ !== "undefined"
-                      ? __APP_VERSION__
-                      : "?"}
-                  </span>
-                </div>
-                <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <span>ClickHouse®</span>
-                  <span style={{ color: "var(--text-secondary)" }}>
-                    {typeof __CH_VERSION__ !== "undefined"
-                      ? __CH_VERSION__
-                      : "?"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Sign out */}
-              <button
-                onClick={logout}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "10px 14px",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  color: "var(--color-danger)",
-                  fontFamily: "var(--font-ui)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--bg-hover)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                <Icon className="ti ti-logout" style={{ fontSize: 16 }}></Icon> Sign
-                Out
-              </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="tw:w-[280px] tw:p-0 tw:rounded-[var(--radius-md)] tw:border tw:border-[var(--border-strong)] tw:bg-[var(--bg-raised)] tw:shadow-[var(--shadow-md)] tw:ring-0"
+          >
+            {/* User info */}
+            <div className="tw:px-3.5 tw:py-2.5 tw:text-xs tw:text-[var(--text-muted)]">
+              Signed in as{" "}
+              <strong className="tw:text-[var(--text-primary)]">{auth?.username}</strong>
+              {auth?.role && (
+                <Badge tone={roleTone(auth.role)} style={{ marginLeft: 6 }}>
+                  {auth.role}
+                </Badge>
+              )}
             </div>
-          )}
-        </div>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            {/* Text size. Arrow keys belong to the slider here, not to the menu. */}
+            <div
+              className="tw:px-3.5 tw:py-2.5"
+              onWheel={handleSliderWheel}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <div className="tw:mb-1.5 tw:flex tw:items-center tw:gap-1 tw:text-xs tw:font-semibold tw:text-[var(--text-secondary)]">
+                <Icon className="ti ti-text-resize" style={{ fontSize: "0.875rem" }}></Icon> Text Size
+              </div>
+              <div className="tw:flex tw:items-center tw:gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Smaller text"
+                  onClick={() => applyFontScale(shownFontScale - 5)}
+                  disabled={shownFontScale <= FONT_SCALE_MIN}
+                >
+                  -
+                </Button>
+                <Slider
+                  aria-label="Text size"
+                  min={75}
+                  max={200}
+                  step={5}
+                  value={shownFontScale}
+                  onValueChange={(value) => applyFontScale(Array.isArray(value) ? value[0] : value)}
+                  className="tw:flex-1"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Larger text"
+                  onClick={() => applyFontScale(shownFontScale + 5)}
+                  disabled={shownFontScale >= FONT_SCALE_MAX}
+                >
+                  +
+                </Button>
+              </div>
+              <div className="tw:mt-0.5 tw:flex tw:justify-between tw:text-[11px] tw:text-[var(--text-muted)]">
+                <span>{FONT_SCALE_MIN}%</span>
+                <span className="tw:font-semibold tw:text-[var(--text-primary)]">
+                  {fontScale === null ? `Auto (${shownFontScale}%)` : `${fontScale}%`}
+                </span>
+                <span>{FONT_SCALE_MAX}%</span>
+              </div>
+              {fontScale !== null && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={switchToAutoFontScale}
+                  className="tw:mt-1 tw:w-full tw:text-xs"
+                >
+                  Use Auto (fits the screen)
+                </Button>
+              )}
+            </div>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            {/* Animated page background (floating particles) on or off */}
+            <label className="tw:flex tw:cursor-pointer tw:items-center tw:justify-between tw:gap-3 tw:px-3.5 tw:py-2.5 tw:text-xs tw:font-semibold tw:text-[var(--text-secondary)]">
+              <span className="tw:flex tw:items-center tw:gap-1">
+                <Icon className="ti ti-sparkles-2" style={{ fontSize: "0.875rem" }}></Icon> Background animation
+              </span>
+              <Switch
+                checked={isBackgroundMotionOn}
+                onCheckedChange={(checked) => setBackgroundMotion(checked)}
+                aria-label="Background animation"
+              />
+            </label>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            {/* Version info (read-only) */}
+            <div className="tw:px-3.5 tw:py-2 tw:font-mono tw:text-xs tw:text-[var(--text-muted)]">
+              <div className="tw:mb-1 tw:flex tw:justify-between tw:gap-3">
+                <span className="tw:shrink-0">App version</span>
+                <span className="tw:text-right tw:text-[var(--text-secondary)]">
+                  {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}
+                </span>
+              </div>
+              <div className="tw:flex tw:justify-between tw:gap-3">
+                <span className="tw:shrink-0">ClickHouse®</span>
+                <span className="tw:text-right tw:text-[var(--text-secondary)]">
+                  {typeof __CH_VERSION__ !== "undefined" ? __CH_VERSION__ : "?"}
+                </span>
+              </div>
+            </div>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            <DropdownMenuGroup className="tw:p-1">
+              <DropdownMenuItem variant="destructive" onClick={logout} className="tw:gap-2 tw:px-2.5 tw:py-2">
+                <Icon className="ti ti-logout" style={{ fontSize: "1rem" }}></Icon> Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

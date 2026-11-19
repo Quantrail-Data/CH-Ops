@@ -231,7 +231,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
         >
           <h3
             style={{
-              fontSize: "15px",
+              fontSize: "0.9375rem",
               fontWeight: 700,
               display: "flex",
               alignItems: "center",
@@ -256,7 +256,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
               style={{
                 color: "var(--text-muted)",
                 fontWeight: 500,
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 flexShrink: 0,
               }}
             >
@@ -672,7 +672,7 @@ export default function DataTable({
         <div
           style={{
             padding: "8px 14px",
-            fontSize: "13px",
+            fontSize: "0.8125rem",
             color: "var(--text-muted)",
           }}
         >

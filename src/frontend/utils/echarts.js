@@ -124,7 +124,7 @@ const makeTheme = (colors, isDark, c = isDark ? CHROME.dark : CHROME.light) => (
     borderColor: c.tooltipBorder,
     textStyle: {
       color: c.text,
-      fontFamily: "Red hat Mono, monospace",
+      fontFamily: "Atkinson Hyperlegible Mono, monospace",
     },
   },
   toolbox: {

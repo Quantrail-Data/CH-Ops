@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { readFileSync } from 'fs';
 import { generatePageHeaders } from './scripts/build-search-headers.mjs';
 import { resolveVersion } from './scripts/resolveVersion.mjs';
@@ -25,7 +26,7 @@ const searchHeadersPlugin = {
 };
 
 export default defineConfig({
-  plugins: [react(), searchHeadersPlugin],
+  plugins: [react(), tailwindcss(), searchHeadersPlugin],
   define: {
     __APP_VERSION__: JSON.stringify(resolvedAppVersion),
     __CH_VERSION__: JSON.stringify(appVersion.clickhouseVersion),

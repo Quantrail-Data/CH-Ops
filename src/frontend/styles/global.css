@@ -48,18 +48,18 @@
   font-display: swap;
 }
 
-/* Red Hat Mono - code. Variable weight axis 300..700 in a single woff2. */
+/* Atkinson Hyperlegible Mono - code, SQL and ids. Variable weight axis 200..800. */
 @font-face {
-  font-family: 'Red hat Mono';
-  src: url('../fonts/RedHatMono-VF.woff2') format('woff2');
-  font-weight: 300 700;
+  font-family: 'Atkinson Hyperlegible Mono';
+  src: url('../fonts/AtkinsonHyperlegibleMono-VF.woff2') format('woff2');
+  font-weight: 200 800;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Red hat Mono';
-  src: url('../fonts/RedHatMono-Italic-VF.woff2') format('woff2');
-  font-weight: 300 700;
+  font-family: 'Atkinson Hyperlegible Mono';
+  src: url('../fonts/AtkinsonHyperlegibleMono-Italic-VF.woff2') format('woff2');
+  font-weight: 200 800;
   font-style: italic;
   font-display: swap;
 }
@@ -180,16 +180,16 @@
   --font-data: "B612", "Atkinson Hyperlegible Next", sans-serif;
   --font-table: var(--font-data);
   --font-chart: var(--font-data);
-  --font-code: "Red hat Mono", ui-monospace, monospace;
-  --text-2xs: 11px;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 14px;
-  --text-md: 15px;
-  --text-lg: 17px;
-  --text-xl: 20px;
-  --text-2xl: 26px;
-  --text-kpi: 28px;
+  --font-code: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.625rem;
+  --text-kpi: 1.75rem;
 
   /* Shape and layout */
   --radius-xs: 6px;
@@ -197,11 +197,11 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-pill: 999px;
-  --control-h: 34px;
-  --control-h-sm: 28px;
-  --navbar-height: 56px;
-  --sidebar-width: 240px;
-  --sidebar-collapsed: 56px;
+  --control-h: 2.125rem;
+  --control-h-sm: 1.75rem;
+  --navbar-height: 3.5rem;
+  --sidebar-width: 15rem;
+  --sidebar-collapsed: 3.5rem;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Chart series, in order (mirrored in utils/echarts.js) */
@@ -311,7 +311,11 @@ input, select, textarea {
 }
 
 html {
-  font-size: 16px;
+  /* Auto text size. 100% (16px) up to a 1920px wide window, then larger on
+     wider screens: 125% (20px) at 2560px, at most 150%. Text and spacing in
+     rem follow it. Charts keep their own fixed sizes. A fixed size from the
+     user menu replaces this (inline style on <html>). */
+  font-size: clamp(100%, calc(100% + (100vw - 1920px) * 0.00625), 150%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
@@ -498,7 +502,7 @@ a {
 }
 
 .ti {
-  font-size: 20px;
+  font-size: 1.25rem;
   color: var(--icon-color);
   line-height: 1;
   font-weight:thin !important;
@@ -598,6 +602,14 @@ a {
   display: flex;
   flex: 1;
   overflow: hidden;
+  /* The particle background (AppBackground) fills this box behind the page. */
+  position: relative;
+}
+
+/* Below the page content. No stacking context is made, so page dialogs
+   still open above the navbar and the sidebar. */
+.app-background {
+  z-index: -1;
 }
 
 /* Visually hidden, still read by screen readers. */
@@ -667,7 +679,7 @@ a {
 }
 
 .navbar-brand .ti {
-  font-size: 26px;
+  font-size: 1.625rem;
   color: var(--accent);
 }
 
@@ -682,7 +694,7 @@ a {
   background: var(--accent-solid);
   color: var(--on-accent);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   flex-shrink: 0;
@@ -723,7 +735,7 @@ a {
 }
 
 .navbar-actions .ti {
-  font-size: 18px;
+  font-size: 1.125rem;
   color: var(--icon-color);
   transition: color 0.15s var(--ease);
 }
@@ -762,7 +774,7 @@ a {
 }
 
 .navbar-search .ti {
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: var(--text-muted);
 }
 
@@ -898,7 +910,7 @@ a {
 }
 
 .conn-label .ti {
-  font-size: 20px;
+  font-size: 1.25rem;
   transition: color 0.2s var(--ease);
 }
 
@@ -1044,7 +1056,7 @@ a {
 }
 
 .sidebar-section-icon .ti {
-  font-size: 18px;
+  font-size: 1.125rem;
   color: var(--icon-color);
 }
 
@@ -1061,7 +1073,7 @@ a {
 
 .sidebar-section-header > .ti-chevron-down,
 .sidebar-section-header > .ti-chevron-right {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -1091,6 +1103,17 @@ a {
   overflow: hidden;
 }
 
+/* Sidebar items and section headers are buttons. Remove the browser button
+   look. :where() keeps this weaker than the .sidebar-item rules below. */
+:where(.sidebar) :where(button.sidebar-item, button.sidebar-section-header) {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
 .sidebar-item {
   display: flex;
   align-items: center;
@@ -1107,7 +1130,7 @@ a {
 }
 
 .sidebar-item .ti {
-  font-size: 18px;
+  font-size: 1.125rem;
   color: var(--icon-color);
   transition: color 0.15s var(--ease);
 }
@@ -1158,7 +1181,7 @@ a {
 }
 
 .sidebar-toggle .ti {
-  font-size: 18px;
+  font-size: 1.125rem;
   transition: color 0.15s var(--ease);
 }
 
@@ -1197,7 +1220,7 @@ a {
 }
 
 .form-label .ti {
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: var(--text-muted);
 }
 
@@ -1322,7 +1345,7 @@ input[type="datetime-local"] {
 }
 
 .btn .ti {
-  font-size: 16px;
+  font-size: 1rem;
   color: inherit;
   transition: color 0.15s var(--ease);
 }
@@ -1394,7 +1417,7 @@ input[type="datetime-local"] {
 }
 
 .btn-sm .ti {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .btn-icon {
@@ -1504,7 +1527,7 @@ input[type="datetime-local"] {
 }
 
 .icon-chip .ti {
-  font-size: 16px;
+  font-size: 1rem;
   color: var(--accent);
 }
 
@@ -1632,7 +1655,7 @@ input[type="datetime-local"] {
 .data-subtable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .data-subtable th,
@@ -1692,7 +1715,7 @@ input[type="datetime-local"] {
   text-align: center;
   color: var(--text-muted);
   font-style: italic;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 
@@ -1748,7 +1771,7 @@ input[type="datetime-local"] {
 
 .tab-item .ti,
 .segmented-item .ti {
-  font-size: 16px;
+  font-size: 1rem;
   color: inherit;
 }
 
@@ -1856,7 +1879,7 @@ input[type="datetime-local"] {
 }
 
 .alert-banner .ti {
-  font-size: 18px;
+  font-size: 1.125rem;
   flex-shrink: 0;
   color: inherit;
 }
@@ -1929,7 +1952,7 @@ input[type="datetime-local"] {
 }
 
 .stat-card-label .ti {
-  font-size: 16px;
+  font-size: 1rem;
   color: var(--text-muted);
 }
 
@@ -2073,7 +2096,7 @@ input[type="datetime-local"] {
 }
 
 .section-title .ti {
-  font-size: 22px;
+  font-size: 1.375rem;
   color: var(--accent);
 }
 
@@ -2128,7 +2151,7 @@ input[type="datetime-local"] {
 }
 
 .empty-state .ti {
-  font-size: 40px;
+  font-size: 2.5rem;
   color: var(--accent);
   opacity: 0.35;
 }
@@ -2165,7 +2188,7 @@ input[type="datetime-local"] {
 .editor-sidebar-header {
   padding: 12px 16px;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-primary);
   border-bottom: 1px solid var(--sidebar-border);
   display: flex;
@@ -2174,7 +2197,7 @@ input[type="datetime-local"] {
 }
 
 .editor-sidebar-header .ti {
-  font-size: 20px;
+  font-size: 1.25rem;
   color: var(--accent);
 }
 
@@ -2185,13 +2208,13 @@ input[type="datetime-local"] {
   padding: 7px 16px;
   cursor: pointer;
   color: var(--sidebar-text);
-  font-size: 14px;
+  font-size: 0.875rem;
   transition: all 0.12s var(--ease);
   border-radius: 4px;
 }
 
 .editor-db-item .ti {
-  font-size: 18px;
+  font-size: 1.125rem;
   transition: color 0.15s var(--ease);
 }
 
@@ -2220,13 +2243,13 @@ input[type="datetime-local"] {
   gap: 6px;
   padding: 4px 12px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   transition: all 0.12s var(--ease);
 }
 
 .editor-table-item .ti {
-  font-size: 16px;
+  font-size: 1rem;
   transition: color 0.15s var(--ease);
 }
 
@@ -2283,7 +2306,7 @@ input[type="datetime-local"] {
 .datetime-date {
   width: 152px;
   font-family: var(--font-code);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .datetime-unit {
@@ -2291,7 +2314,7 @@ input[type="datetime-local"] {
   min-width: 60px;
   padding: 7px 3px;
   font-family: var(--font-code);
-  font-size: 14px;
+  font-size: 0.875rem;
   text-align: center;
 }
 /* Narrow time selects: keep the value and chevron together and centered
@@ -2339,7 +2362,7 @@ input[type="datetime-local"] {
 }
 
 .toast .ti {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .toast .toast-icon {
@@ -2374,7 +2397,7 @@ input[type="datetime-local"] {
 }
 
 .toast .toast-close .ti {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: inherit;
 }
 
@@ -2496,7 +2519,7 @@ input[type="datetime-local"] {
   position: relative;
   padding: 8px 16px;
   text-align: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--text-muted);
   border-top: 1px solid var(--border-default);
   flex-shrink: 0;
@@ -2507,7 +2530,7 @@ input[type="datetime-local"] {
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--text-muted);
 }
 
@@ -2761,11 +2784,11 @@ input[type="datetime-local"] {
 
 .hi-title {
   color: var(--accent);
-  font-size: 45px;
+  font-size: 2.8125rem;
 }
 
 .hi-title span {
-  font-size: 35px;
+  font-size: 2.1875rem;
 }
 
 [data-theme="dark"] .hi-title span {
@@ -2806,7 +2829,7 @@ input[type="datetime-local"] {
 }
 
 .intro-feat span {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 400;
 }
 
@@ -2879,7 +2902,7 @@ color: var(--on-accent);
 }
 
 .ai-button span {
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:600;
 }
 
@@ -2919,7 +2942,7 @@ color: var(--on-accent);
   outline: none;
   resize: none;
   min-height: 50px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   padding-top: 0px;
   font-family: var(--font-ui);
 }
@@ -2995,7 +3018,7 @@ color: var(--on-accent);
 }
 
 .content-user span {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 400;
 }
 
@@ -3026,7 +3049,7 @@ color: var(--on-accent);
 }
 
 .icon-action-bot span {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .download-container {
@@ -3124,7 +3147,7 @@ color: var(--on-accent);
   background-color: rgba(135, 206, 250, 0.016);
   border-radius: 20px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .loader {
@@ -3163,7 +3186,7 @@ color: var(--on-accent);
 }
 
 .data-table-ai-con {
-  font-size: 12px;
+  font-size: 0.75rem;
   width: 90%;
   /* height:300px; */
 }
@@ -3181,7 +3204,7 @@ color: var(--on-accent);
 .editor-container input {
   background-color: transparent;
   outline: none;
-  font-size: 13px;
+  font-size: 0.8125rem;
   height: 50px;
   padding: 10px 20px;
   border-radius: 10px;
@@ -3202,7 +3225,7 @@ color: var(--on-accent);
 .editor-container textarea {
   background-color: transparent;
   outline: none;
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 10px 20px;
   border-radius: 10px;
   width: 700px;
@@ -3292,7 +3315,7 @@ color: var(--on-accent);
 }
 
 .form-login-con label {
-  font-size:14px;
+  font-size:0.875rem;
   font-weight:500;
   margin:5px 0px;
 }
@@ -3330,7 +3353,7 @@ color: var(--on-accent);
 }
 
 .form-login-rem span {
-  font-size:13px;
+  font-size:0.8125rem;
 }
 
 .form-login-rem p {
@@ -3364,7 +3387,7 @@ color: var(--on-accent);
 .form-login-sep .line-con {
   width:300px;
   padding:5px;
-  font-size:13px;
+  font-size:0.8125rem;
   text-align: center;
 }
 
@@ -3377,13 +3400,13 @@ color: var(--on-accent);
 }
 
 .hero-content h1 {
-  font-size: 30px;
+  font-size: 1.875rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text-primary);
 }
 .hero-content p {
-  font-size:12px;
+  font-size:0.75rem;
   width:80%;
   font-weight:500;
   text-align: center;
@@ -3535,7 +3558,7 @@ color: var(--on-accent);
   background: var(--bg-elevated, rgba(255, 255, 255, 0.08));
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 20px;
+  font-size: 1.25rem;
   transition: background 0.15s var(--ease);
 }
 
@@ -3580,7 +3603,7 @@ color: var(--on-accent);
   justify-content: center;
   background-color: var(--accent-solid);
   border-radius: var(--radius-xs);
-  font-size:13px;
+  font-size:0.8125rem;
 }
 
 .logo-conatiner h4 {
@@ -3596,7 +3619,7 @@ color: var(--on-accent);
   padding: 12px;
   border-radius: 6px;
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-family: var(--font-code);
   overflow-x: auto;
   white-space: pre-wrap;
@@ -3636,7 +3659,7 @@ color: var(--on-accent);
 }
 
 .profiler-query-id {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-family: var(--font-code);
   color: var(--accent);
   white-space: nowrap;
@@ -3648,13 +3671,13 @@ color: var(--on-accent);
 .profiler-query-meta {
   display: flex;
   gap: 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .profiler-query-preview {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-secondary);
   font-family: var(--font-code);
   white-space: nowrap;
@@ -3675,7 +3698,7 @@ color: var(--on-accent);
 
 .profiler-query-text-content {
   flex: 1;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-family: var(--font-code);
   color: var(--text-secondary);
   line-height: 1.5;
@@ -3731,7 +3754,7 @@ color: var(--on-accent);
   padding: 14px;
   border-radius: 6px;
   border: 1px var(--border-default) solid;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-family: var(--font-code);
   color: var(--text-primary);
   line-height: 1.6;
@@ -3931,16 +3954,16 @@ color: var(--on-accent);
 
 @media (max-width: 1600px) {
   .navbar-title {
-    font-size: 17px;
+    font-size: 1.0625rem;
   }
 
   .btn {
     padding: 6px 12px;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .btn .ti {
-    font-size: 16px;
+    font-size: 1rem;
   }
 
   .conn-select {
@@ -3948,7 +3971,7 @@ color: var(--on-accent);
   }
 
   .navbar-actions .navbar-btn-label {
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
   .setting-body {
     grid-template-columns: repeat(2, minmax(260px, 1fr));
@@ -3972,7 +3995,7 @@ color: var(--on-accent);
 
   .btn {
     padding: 6px 10px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     gap: 4px;
   }
 
@@ -3982,7 +4005,7 @@ color: var(--on-accent);
   }
 
   .navbar-actions .navbar-btn-label {
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .navbar {
@@ -4000,12 +4023,12 @@ color: var(--on-accent);
 
 @media (max-width: 1200px) {
   .navbar-title {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   .btn {
     padding: 5px 8px;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .conn-select {
@@ -4014,7 +4037,7 @@ color: var(--on-accent);
   }
 
   .navbar-actions .navbar-btn-label {
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 
   .navbar {
@@ -4035,12 +4058,12 @@ color: var(--on-accent);
 
 @media (max-width: 1000px) {
   .navbar-title {
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .btn {
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: 0.75rem;
     gap: 4px;
   }
 
@@ -4095,7 +4118,7 @@ color: var(--on-accent);
   background: var(--accent-solid-hover);
 }
 .global-search-fab .ti {
-  font-size: 24px;
+  font-size: 1.5rem;
   color: #fff;
 }
 /* Floating bug report button. Same size as the search button.
@@ -4124,7 +4147,7 @@ touch-action: none;
 cursor: grabbing;
 }
 .bug-report-fab .ti {
-font-size: 24px;
+font-size: 1.5rem;
 color: #fff;
 /* Pointer events stay on the button, so the drag math has one target. */
 pointer-events: none;
@@ -4165,7 +4188,7 @@ pointer-events: none;
   border-bottom: 1px solid var(--border-default);
 }
 .global-search-input-icon {
-  font-size: 18px;
+  font-size: 1.125rem;
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -4195,7 +4218,7 @@ pointer-events: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .global-search-close:hover {
   background: var(--bg-hover);
@@ -4238,7 +4261,7 @@ pointer-events: none;
   justify-content: center;
   width: 28px;
   height: 28px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: var(--accent);
   background: var(--bg-sunken);
   border: 1px solid var(--border-default);
@@ -4256,7 +4279,7 @@ pointer-events: none;
   gap: 8px;
   font-family: var(--font-ui);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-primary);
 }
 .global-search-item-section {
@@ -4269,7 +4292,7 @@ pointer-events: none;
 }
 .global-search-item-desc {
   font-family: var(--font-ui);
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -4278,7 +4301,7 @@ pointer-events: none;
 }
 .global-search-item-go {
   flex-shrink: 0;
-  font-size: 16px;
+  font-size: 1rem;
   color: var(--text-muted);
   opacity: 0;
 }
@@ -4293,7 +4316,7 @@ pointer-events: none;
   gap: 8px;
   padding: 34px 16px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-family: var(--font-ui);
 }
 
@@ -4303,7 +4326,7 @@ pointer-events: none;
   gap: 16px;
   padding: 9px 16px;
   border-top: 1px solid var(--border-default);
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--text-muted);
   font-family: var(--font-ui);
 }
@@ -4318,7 +4341,7 @@ pointer-events: none;
   background: var(--bg-raised);
   color: var(--text-secondary);
   font-family: var(--font-code);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.4;
 }
 
@@ -4491,7 +4514,7 @@ pointer-events: none;
    too heavy for a close mark inside a 30px tab strip. */
 .qtab-close .ti,
 .qtab-close svg {
-  font-size: 13px;
+  font-size: 0.8125rem;
   width: 13px;
   height: 13px;
 }
@@ -4533,7 +4556,7 @@ pointer-events: none;
    confirmation intelligible rather than mysterious. */
 .qtab-spin {
   color: var(--accent);
-  font-size: 13px;
+  font-size: 0.8125rem;
   width: 13px;
   height: 13px;
   flex-shrink: 0;
@@ -4655,7 +4678,7 @@ pointer-events: none;
 }
 
 .mx-rows-steps .ti {
-  font-size: 11px;
+  font-size: 0.6875rem;
   width: 11px;
   height: 11px;
 }
@@ -4749,7 +4772,7 @@ pointer-events: none;
 }
 
 .data-table-fs-btn .ti {
-  font-size: 14px;
+  font-size: 0.875rem;
   width: 14px;
   height: 14px;
 }
@@ -4821,7 +4844,7 @@ pointer-events: none;
   border: none;
   background: var(--accent-solid);
   color: var(--on-accent);
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
@@ -5075,7 +5098,7 @@ select.sql-action-control {
 }
 
 .chat-session-tab div:nth-child(1) span {
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:600;
   width:90%;
   text-wrap: inherit;
@@ -5090,7 +5113,7 @@ select.sql-action-control {
 }
 
 .header-history button:nth-child(2) {
-  font-size:12px;
+  font-size:0.75rem;
 }
 
 .chat-sesion-body {
@@ -5162,7 +5185,7 @@ select.sql-action-control {
 
 .analyze-time-total {
   font-family: var(--font-mono, monospace);
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -5195,7 +5218,7 @@ select.sql-action-control {
   gap: 18px;
   flex-wrap: wrap;
   margin-top: 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -5226,7 +5249,7 @@ select.sql-action-control {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   margin-bottom: 10px;
 }
@@ -5241,7 +5264,7 @@ select.sql-action-control {
 
 .analyze-tree {
   font-family: var(--font-mono, monospace);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
   overflow: auto;
   /* Takes what is left after the bar, the cards and the message, and scrolls
@@ -5410,7 +5433,7 @@ input:read-only {
 }
 
 .breadcrumb .breadcrumb-sep.ti {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -5587,7 +5610,7 @@ input:read-only {
 
 .login-window-swiper .swiper-button-prev::after,
 .login-window-swiper .swiper-button-next::after {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -5652,7 +5675,7 @@ input:read-only {
 }
 
 .menu-item .ti {
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: var(--icon-color);
 }
 

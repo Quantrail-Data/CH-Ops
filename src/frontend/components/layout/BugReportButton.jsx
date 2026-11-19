@@ -57,11 +57,14 @@ export default function BugReportButton() {
         const widthRatio = currentWidth / lastWidth;
         const heightRatio = currentHeight / lastHeight;
 
-        const newX = prevPos.x * widthRatio;
-        const newY = prevPos.y * heightRatio;
-
         lastWidth = currentWidth;
         lastHeight = currentHeight;
+
+        // null is the default spot, which the CSS places. Nothing to move.
+        if (!prevPos) return prevPos;
+
+        const newX = prevPos.x * widthRatio;
+        const newY = prevPos.y * heightRatio;
 
         return clampToViewport(newX, newY);
       });
