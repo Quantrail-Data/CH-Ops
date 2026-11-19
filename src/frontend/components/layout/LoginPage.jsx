@@ -1010,10 +1010,10 @@ export default function LoginPage() {
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="var(--accent)"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="icon icon-tabler icons-tabler-outline icon-tabler-world-bolt"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="icon icon-tabler icons-tabler-outline icon-tabler-world-bolt"
               >
                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                 <path d="M20.985 12.52a9 9 0 1 0 -7.52 8.36" />
