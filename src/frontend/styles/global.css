@@ -5322,7 +5322,8 @@ input:read-only {
 
 .sidebar-brand {
   display: flex;
-  align-items: center;
+  align-items: start;
+  flex-direction: column;
   gap: 10px;
   min-height: 32px;
   text-decoration: none;
