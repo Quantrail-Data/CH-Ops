@@ -55,6 +55,7 @@ import {
   fmtBytes,
 } from "../../utils/costEstimator.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
+import { themeColor } from "../../utils/theme.js";
 import { treeSizeTB } from "../../utils/treeChart.js";
 import { Link } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
@@ -887,7 +888,7 @@ export default function QueryEditor({
     try {
       const isDark =
         document.documentElement.getAttribute("data-theme") === "dark";
-      const lc = isDark ? "#cbd5e1" : "#374151";
+      const lc = themeColor("--text-secondary", isDark ? "#B6BECD" : "#384154");
 
       const CAT_MATCHERS = [
         { name: "ReadFrom", match: (n) => /read|scan|merge.*read/i.test(n) },
@@ -965,7 +966,7 @@ export default function QueryEditor({
           name: wrapLabel(node.name),
           itemStyle: {
             color: catColorMap.get(catName),
-            borderColor: isDark ? "#1e293b" : "#fff",
+            borderColor: themeColor("--bg-surface", isDark ? "#0D1324" : "#FFFFFF"),
             borderWidth: 2,
           },
           children: (childrenMap.get(id) || [])
@@ -979,7 +980,7 @@ export default function QueryEditor({
           ? buildTreeNode(roots[0].id)
           : {
               name: "Root",
-              itemStyle: { color: isDark ? "#64748b" : "#94a3b8" },
+              itemStyle: { color: themeColor("--text-muted", isDark ? "#8C95A8" : "#5B6478") },
               children: roots.map((r) => buildTreeNode(r.id)).filter(Boolean),
             };
 
@@ -1035,7 +1036,7 @@ export default function QueryEditor({
                   align: "center",
                 },
               },
-              lineStyle: { color: isDark ? "#475569" : "#94a3b8", width: 1.5 },
+              lineStyle: { color: themeColor("--border-strong", isDark ? "#2A3556" : "#CDD2DC"), width: 1.5 },
               emphasis: { focus: "descendant" },
               expandAndCollapse: true,
               initialTreeDepth: -1,
@@ -2590,7 +2591,6 @@ export default function QueryEditor({
             padding: "6px 16px",
             borderBottom: "1px solid var(--border-default)",
             background: "var(--glass-bg)",
-            backdropFilter: "blur(8px)",
             flexShrink: 0,
           }}
         >
@@ -2924,7 +2924,6 @@ export default function QueryEditor({
                 maxHeight: "80vh",
                 overflow: "auto",
                 background: "var(--glass-dropdown)",
-                backdropFilter: "blur(24px)",
                 border: "1px solid var(--border-default)",
                 borderRadius: "var(--radius-lg)",
                 padding: 0,

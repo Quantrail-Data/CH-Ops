@@ -159,13 +159,16 @@ describe("polish", () => {
     expect(out.yAxis.axisLabel.formatter(1024)).toContain("KB");
   });
 
-  it("pins the series palette so a chart does not change colour with the theme", () => {
-    // utils/echarts.js registers two palettes and initChart picks by theme, so
-    // without this the same series was cyan on dark and blue on light.
+  it("keeps series hues in the same order across themes", () => {
+    // Midnight tunes each series colour per theme for contrast (indigo #9590FF
+    // on dark, #4F46E5 on light) but a series keeps its hue: series 1 is always
+    // indigo, series 2 always cyan. It must never jump hue with the theme.
     const light = polish(barOption(), { type: "bar", dark: false });
     const dark = polish(barOption(), { type: "bar", dark: true });
-    expect(light.color).toEqual(dark.color);
     expect(Array.isArray(light.color)).toBe(true);
+    expect(light.color).toHaveLength(dark.color.length);
+    expect(dark.color[0]).toBe("#9590FF");
+    expect(light.color[0]).toBe("#4F46E5");
   });
 
   it("shows a legend only when there is more than one series", () => {

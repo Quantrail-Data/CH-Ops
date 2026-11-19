@@ -71,12 +71,10 @@ export default function OpenInMenu({ queryId }) {
             display: "flex",
             flexDirection: "column",
             padding: 4,
-            background: "var(--glass-bg, rgba(24,28,38,0.85))",
-            backdropFilter: "blur(12px) saturate(140%)",
-            WebkitBackdropFilter: "blur(12px) saturate(140%)",
-            border: "1px solid var(--border-default, rgba(255,255,255,0.14))",
-            borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            background: "var(--bg-raised)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "var(--radius-md)",
+            boxShadow: "var(--shadow-md)",
             overflow: "visible",
           }}
         >
