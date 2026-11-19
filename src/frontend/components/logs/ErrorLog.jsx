@@ -1028,19 +1028,19 @@ function ErrorLogSearch() {
 
   const liveState = useLiveOverview()
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
+   
   useEffect(() => {
     errorsQ.execute(
       "SELECT DISTINCT error FROM system.error_log ORDER BY error",
     );
   }, []);
   
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
+   
   useEffect(() => {
 
     if (q.error && !liveState?.isNotConnectedClusterNode()) toast.error(q.error);
   }, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
+   
   useEffect(() => {
     if (errorsQ.error && !liveState?.isNotConnectedClusterNode()) toast.error(errorsQ.error);
   }, []);
