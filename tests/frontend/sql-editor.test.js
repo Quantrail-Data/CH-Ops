@@ -25,7 +25,7 @@ describe('SQL Editor: EXPLAIN Tree - DAG→tree algorithm', () => {
 
 describe('SQL Editor: EXPLAIN Tree - labels and edges', () => {
   const code = read('src/frontend/components/editor/QueryEditor.jsx');
-  it('labels use the monospace code font, wraps long names', () => { expect(code).toMatch(/red hat mono/i); expect(code).toContain('wrapLabel'); });
+  it('labels use the monospace code font, wraps long names', () => { expect(code).toMatch(/atkinson hyperlegible mono/i); expect(code).toContain('wrapLabel'); });
   it('chart auto-sized inside scroll container, no roam', () => { expect(code).toContain('treeSizeTB'); expect(code).not.toContain('roam'); });
   it('has HTML toolbar with download, zoom, fullscreen buttons', () => { expect(code).toContain('graphDownload'); expect(code).toContain('graphZoom'); expect(code).toContain('graphFullscreen'); expect(code).toContain('ti-download'); expect(code).toContain('ti-zoom-in'); expect(code).toContain('ti-zoom-out'); expect(code).toContain('ti-arrows-maximize'); });
 });

@@ -360,7 +360,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
         <div style={{ marginBottom: 12 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query ID
           </label>
@@ -368,7 +368,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             <code
               style={{
                 flex: 1,
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
                 wordBreak: "break-all",
@@ -394,7 +394,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             display: "flex",
             gap: 20,
             marginBottom: 14,
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
           }}
         >
@@ -412,7 +412,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
         <div style={{ marginBottom: 14 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query Text
           </label>
@@ -767,7 +767,7 @@ if (unavailableMessage) {
         style={{
           padding: 14,
           marginBottom: 16,
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           color: "var(--text-secondary)",
           lineHeight: 1.6,
         }}
@@ -865,7 +865,7 @@ if (unavailableMessage) {
               onChange={(e) => setSearchText(e.target.value)}
               style={{
                 fontFamily: "var(--font-code)",
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 height: 39,
               }}
             />
@@ -910,7 +910,7 @@ if (unavailableMessage) {
         {rangeError && (
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--color-danger, #ef4444)",
               marginBottom: 10,
             }}
@@ -927,7 +927,7 @@ if (unavailableMessage) {
           {queriesError && (
             <div
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--color-warning, #f59e0b)",
                 marginBottom: 8,
               }}
@@ -977,7 +977,7 @@ if (unavailableMessage) {
             !rangeError && (
               <div
                 style={{
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   color: "var(--text-muted)",
                   padding: "12px 0",
                 }}
@@ -993,7 +993,7 @@ if (unavailableMessage) {
           <div
             style={{
               marginBottom: 14,
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--text-secondary)",
               display: "flex",
               alignItems: "center",
@@ -1009,7 +1009,7 @@ if (unavailableMessage) {
               style={{
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
-                fontSize: "12px",
+                fontSize: "0.75rem",
               }}
             >
               {selectedQueryId}
@@ -1026,7 +1026,7 @@ if (unavailableMessage) {
                 }
                 chartRef.current = null;
               }}
-              style={{ marginLeft: 4, fontSize: "12px" }}
+              style={{ marginLeft: 4, fontSize: "0.75rem" }}
             >
               <Icon className="ti ti-x"></Icon> Clear
             </button>
@@ -1057,7 +1057,7 @@ if (unavailableMessage) {
           </button>
           <span
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--text-muted)",
               marginLeft: "auto",
             }}
@@ -1089,7 +1089,7 @@ if (unavailableMessage) {
             display: "flex",
             gap: 24,
             marginBottom: 12,
-            fontSize: "13px",
+            fontSize: "0.8125rem",
             color: "var(--text-secondary)",
           }}
         >
@@ -1139,7 +1139,7 @@ if (unavailableMessage) {
             <Icon
               className="ti ti-flame"
               style={{
-                fontSize: 48,
+                fontSize: "3rem",
                 opacity: 0.3,
                 display: "block",
                 marginBottom: 12,
@@ -1193,7 +1193,7 @@ if (unavailableMessage) {
           <summary
             style={{
               cursor: "pointer",
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--text-muted)",
               userSelect: "none",
             }}

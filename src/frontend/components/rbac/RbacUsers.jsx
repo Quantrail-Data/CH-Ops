@@ -152,7 +152,7 @@ export default function RbacUsers() {
                 marginBottom: 12,
                 borderRadius: "var(--radius-md)",
                 background: "var(--color-info-bg)",
-                fontSize: 13,
+                fontSize: "0.8125rem",
               }}
             >
               <strong>Managed elsewhere:</strong> {operatorOwned.join(", ")}.
@@ -657,7 +657,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
               display: "flex",
               gap: 6,
               cursor: isAdmin ? "pointer" : "not-allowed",
-              fontSize: "14px",
+              fontSize: "0.875rem",
             }}
           >
             <input
@@ -722,10 +722,10 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
             {openInfo && (
               <div
                 className="alert-banner info"
-                style={{ marginTop: "0px", fontSize: "12px",padding:"6px" }}
+                style={{ marginTop: "0px", fontSize: "0.75rem",padding:"6px" }}
               >
                 <Icon
-                  style={{ fontSize: "15px",paddingTop:"2px" }}
+                  style={{ fontSize: "0.9375rem",paddingTop:"2px" }}
                   className="ti ti-info-circle"
                 ></Icon>
                 <span>

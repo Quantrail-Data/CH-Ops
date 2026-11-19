@@ -1028,14 +1028,14 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
               <span className="cmp-connect-field">
                 <Icon
                   className="ti ti-user"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                 ></Icon>
                 <input
                   className="form-input"
                   style={{
                     height: 28,
                     width: 150,
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     padding: "0 6px",
                   }}
                   placeholder="user"
@@ -1055,7 +1055,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
               >
                 <Icon
                   className="ti ti-lock"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                 ></Icon>
                 <div
                   style={{
@@ -1068,7 +1068,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                     style={{
                       height: 28,
                       width: 150,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       padding: "0 6px",
                     }}
                     placeholder="password"
@@ -1088,7 +1088,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                         position: "absolute",
                         right: "10px",
                         top: "17%",
-                        fontSize: "17px",
+                        fontSize: "1.0625rem",
                       }}
                     />
                   </div>
@@ -1117,7 +1117,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
             <div className="cmp-connect-status">
               <Icon
                 className="ti ti-plug-connected"
-                style={{ fontSize: 15, color: "var(--color-success)" }}
+                style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
               ></Icon>
               <span>
                 <strong style={{ color: "var(--text-primary)" }}>

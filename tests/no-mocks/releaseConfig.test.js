@@ -10,7 +10,7 @@ const readRepoFile = (name) => fs.readFileSync(path.join(repoRoot, name), "utf8"
 const versionInfo = JSON.parse(readRepoFile("version.json"));
 
 describe("CI workflows", () => {
-  it("use Bun 1.4.2 in every job", () => {
+  it("use Bun 1.4.4 in every job", () => {
     const workflowDir = path.join(repoRoot, ".github/workflows");
     const workflowNames = fs
       .readdirSync(workflowDir)
@@ -26,7 +26,7 @@ describe("CI workflows", () => {
 
     expect(bunVersions.length).toBeGreaterThan(0);
     for (const entry of bunVersions) {
-      expect(entry.endsWith(": 1.4.2")).toBe(true);
+      expect(entry.endsWith(": 1.4.4")).toBe(true);
     }
   });
 });

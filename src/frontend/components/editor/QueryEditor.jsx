@@ -1024,7 +1024,7 @@ export default function QueryEditor({
                 verticalAlign: "top",
                 align: "center",
                 fontSize: 13,
-                fontFamily: "Red hat Mono, monospace",
+                fontFamily: "Atkinson Hyperlegible Mono, monospace",
                 color: lc,
                 width: 200,
                 overflow: "truncate",
@@ -2007,12 +2007,12 @@ export default function QueryEditor({
                     padding: "28px 16px",
                     textAlign: "center",
                     color: "var(--text-muted)",
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                   }}
                 >
                   <Icon
                     className="ti ti-lock"
-                    style={{ fontSize: 22, opacity: 0.6 }}
+                    style={{ fontSize: "1.375rem", opacity: 0.6 }}
                   ></Icon>
                   <span>Connect to browse databases.</span>
                 </div>
@@ -2050,10 +2050,10 @@ export default function QueryEditor({
                             "ti ti-chevron-" +
                             (selectedDb === db ? "down" : "right")
                           }
-                          style={{ fontSize: 14, opacity: 0.5 }}
+                          style={{ fontSize: "0.875rem", opacity: 0.5 }}
                         ></Icon>
                         <Icon className="ti ti-database-import"></Icon>
-                        <span style={{ flex: 1, fontSize: "12px" }}>{db}</span>
+                        <span style={{ flex: 1, fontSize: "0.75rem" }}>{db}</span>
                       </div>
                       {selectedDb === db && (
                         <div
@@ -2066,7 +2066,7 @@ export default function QueryEditor({
                             <div
                               style={{
                                 padding: "8px 12px",
-                                fontSize: "13px",
+                                fontSize: "0.8125rem",
                                 color: "var(--text-secondary)",
                               }}
                             >
@@ -2086,7 +2086,7 @@ export default function QueryEditor({
                             <div
                               style={{
                                 padding: "8px 12px",
-                                fontSize: "13px",
+                                fontSize: "0.8125rem",
                                 color: "var(--text-muted)",
                               }}
                             >
@@ -2114,7 +2114,7 @@ export default function QueryEditor({
                                   className="ti ti-code"
                                   title="View DDL"
                                   style={{
-                                    fontSize: 14,
+                                    fontSize: "0.875rem",
                                     cursor: "pointer",
                                     opacity: 0.5,
                                     flexShrink: 0,
@@ -2225,7 +2225,7 @@ export default function QueryEditor({
               flexShrink: 0,
             }}
           >
-            <Icon className="ti ti-folder-open" style={{ fontSize: 18 }}></Icon>
+            <Icon className="ti ti-folder-open" style={{ fontSize: "1.125rem" }}></Icon>
           </button>
           <div style={{ flex: 1, minHeight: 0 }}></div>
         </div>
@@ -2242,7 +2242,7 @@ export default function QueryEditor({
               >
                 <Icon
                   className="ti ti-user"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
                 <input
@@ -2250,7 +2250,7 @@ export default function QueryEditor({
                   style={{
                     height: 28,
                     width: 150,
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     padding: "0 6px",
                   }}
                   placeholder="user"
@@ -2269,7 +2269,7 @@ export default function QueryEditor({
               >
                 <Icon
                   className="ti ti-lock"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
                 <div
@@ -2283,7 +2283,7 @@ export default function QueryEditor({
                     style={{
                       height: 28,
                       width: 150,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       padding: "0 6px",
                       paddingRight: "30px",
                     }}
@@ -2304,7 +2304,7 @@ export default function QueryEditor({
                         position: "absolute",
                         right: "10px",
                         top: "17%",
-                        fontSize: "17px",
+                        fontSize: "1.0625rem",
                       }}
                     />
                   </div>
@@ -2330,13 +2330,13 @@ export default function QueryEditor({
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-secondary)",
               }}
             >
               <Icon
                 className="ti ti-plug-connected"
-                style={{ fontSize: 15, color: "var(--color-success)" }}
+                style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
               ></Icon>
               <span>
                 <strong style={{ color: "var(--text-primary)" }}>
@@ -2358,8 +2358,8 @@ export default function QueryEditor({
             </div>
           )}
           {copied && (
-            <span style={{ fontSize: "12px", color: "var(--color-success)" }}>
-              <Icon className="ti ti-check" style={{ fontSize: 16 }}></Icon>{" "}
+            <span style={{ fontSize: "0.75rem", color: "var(--color-success)" }}>
+              <Icon className="ti ti-check" style={{ fontSize: "1rem" }}></Icon>{" "}
               Copied
             </span>
           )}
@@ -2597,7 +2597,7 @@ export default function QueryEditor({
           {result && !error && (
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 flex: 1,
                 display: "flex",
@@ -2610,7 +2610,7 @@ export default function QueryEditor({
                 <>
                   <Icon
                     className="ti ti-check"
-                    style={{ color: "var(--color-success)", fontSize: 16 }}
+                    style={{ color: "var(--color-success)", fontSize: "1rem" }}
                   />
                   {successMsg}
                   {queryStats?.written_rows && queryStats.written_rows !== "0"
@@ -2621,7 +2621,7 @@ export default function QueryEditor({
                 <>
                   <Icon
                     className="ti ti-check"
-                    style={{ color: "var(--color-success)", fontSize: 16 }}
+                    style={{ color: "var(--color-success)", fontSize: "1rem" }}
                   />
                   {(totalRows || result.length).toLocaleString()} row(s)
                   {truncated ? "+" : ""} returned
@@ -2657,14 +2657,14 @@ export default function QueryEditor({
                 <span style={{ display: "inline-flex", gap: 4, marginLeft: 8 }}>
                   <button
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
+                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
                     onClick={() => {
                       navigator.clipboard?.writeText(effectiveQueryId);
                       toast.success("Query ID Copied Successfully");
                     }}
                     title={"query_id: " + effectiveQueryId}
                   >
-                    <Icon className="ti ti-copy" style={{ fontSize: 12 }} />{" "}
+                    <Icon className="ti ti-copy" style={{ fontSize: "0.75rem" }} />{" "}
                     query_id
                   </button>
                   <Link
@@ -2672,10 +2672,10 @@ export default function QueryEditor({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
+                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
                     title="Open in Query Profiler (flame graph)"
                   >
-                    <Icon className="ti ti-flame" style={{ fontSize: 12 }} />{" "}
+                    <Icon className="ti ti-flame" style={{ fontSize: "0.75rem" }} />{" "}
                     Flame Graph
                   </Link>
                   <Link
@@ -2683,12 +2683,12 @@ export default function QueryEditor({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
+                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
                     title="Open in Query Profiler (flame graph)"
                   >
                     <Icon
                       className="ti ti-git-branch"
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: "0.75rem" }}
                     />{" "}
                     Pipeline
                   </Link>
@@ -2697,12 +2697,12 @@ export default function QueryEditor({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
+                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
                     title="Open in Query Profiler (flame graph)"
                   >
                     <Icon
                       className="ti ti-chart-line"
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: "0.75rem" }}
                     />{" "}
                     Metrics
                   </Link>
@@ -2713,7 +2713,7 @@ export default function QueryEditor({
           {error && (
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--color-danger)",
                 flex: 1,
               }}
@@ -2813,7 +2813,7 @@ export default function QueryEditor({
             style={{
               // Smaller, because the labels are longer now that each one names
               // the EXPLAIN it performs.
-              fontSize: "10.5px",
+              fontSize: "0.6563rem",
               padding: "0 6px",
               borderRadius: "5px",
               color: "var(--text-primary)",
@@ -2943,14 +2943,14 @@ export default function QueryEditor({
                   >
                     <span
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         fontWeight: 700,
                         color: "var(--text-secondary)",
                       }}
                     >
                       <Icon
                         className="ti ti-history"
-                        style={{ fontSize: 16 }}
+                        style={{ fontSize: "1rem" }}
                       ></Icon>{" "}
                       Recent Queries ({history.length})
                     </span>
@@ -2975,7 +2975,7 @@ export default function QueryEditor({
                     <div
                       style={{
                         color: "var(--text-muted)",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         padding: 8,
                       }}
                     >
@@ -3001,7 +3001,7 @@ export default function QueryEditor({
                           style={{
                             padding: "6px 8px",
                             borderRadius: "var(--radius-sm)",
-                            fontSize: "13px",
+                            fontSize: "0.8125rem",
                             borderBottom: "1px solid var(--border-default)",
                           }}
                         >
@@ -3017,7 +3017,7 @@ export default function QueryEditor({
                                 "ti " +
                                 (h.status === "ok" ? "ti-check" : "ti-x")
                               }
-                              style={{ fontSize: 14, flexShrink: 0 }}
+                              style={{ fontSize: "0.875rem", flexShrink: 0 }}
                             ></Icon>
                             <span
                               style={{
@@ -3037,7 +3037,7 @@ export default function QueryEditor({
                             <span
                               style={{
                                 color: "var(--text-muted)",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                                 flexShrink: 0,
                               }}
                             >
@@ -3047,7 +3047,7 @@ export default function QueryEditor({
                               <span
                                 style={{
                                   color: "var(--text-muted)",
-                                  fontSize: "12px",
+                                  fontSize: "0.75rem",
                                   flexShrink: 0,
                                 }}
                               >
@@ -3057,7 +3057,7 @@ export default function QueryEditor({
                             <span
                               style={{
                                 color: "var(--text-muted)",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                                 flexShrink: 0,
                                 minWidth: 110,
                                 textAlign: "right",
@@ -3082,7 +3082,7 @@ export default function QueryEditor({
                                     ? "ti-chevron-up"
                                     : "ti-chevron-down")
                                 }
-                                style={{ fontSize: 14 }}
+                                style={{ fontSize: "0.875rem" }}
                               ></Icon>
                             </button>
                             <button
@@ -3091,13 +3091,13 @@ export default function QueryEditor({
                               title="Open in a new tab"
                               style={{
                                 padding: "2px 8px",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                               }}
                             >
                               <Icon
                                 className="ti ti-player-play"
                                 style={{
-                                  fontSize: 13,
+                                  fontSize: "0.8125rem",
                                   color: "var(--color-success)",
                                 }}
                               ></Icon>{" "}
@@ -3114,7 +3114,7 @@ export default function QueryEditor({
                             >
                               <Icon
                                 className="ti ti-trash"
-                                style={{ fontSize: 12, padding: "0" }}
+                                style={{ fontSize: "0.75rem", padding: "0" }}
                               ></Icon>
                             </button>
                           </div>
@@ -3136,14 +3136,14 @@ export default function QueryEditor({
                   >
                     <span
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         fontWeight: 700,
                         color: "var(--text-secondary)",
                       }}
                     >
                       <Icon
                         className="ti ti-star"
-                        style={{ fontSize: 16 }}
+                        style={{ fontSize: "1rem" }}
                       ></Icon>{" "}
                       Bookmarks ({bookmarks.length})
                     </span>
@@ -3164,7 +3164,7 @@ export default function QueryEditor({
                         if (e.key === "Enter") saveBookmark();
                       }}
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         padding: "4px 8px",
                         flex: 1,
                       }}
@@ -3188,7 +3188,7 @@ export default function QueryEditor({
                       alignItems: "center",
                       gap: 6,
                       marginBottom: 10,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       color: "var(--text-muted)",
                       cursor: "pointer",
                     }}
@@ -3205,7 +3205,7 @@ export default function QueryEditor({
                     <div
                       style={{
                         color: "var(--text-muted)",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         padding: 8,
                       }}
                     >
@@ -3232,7 +3232,7 @@ export default function QueryEditor({
                           style={{
                             padding: "6px 8px",
                             borderRadius: "var(--radius-sm)",
-                            fontSize: "13px",
+                            fontSize: "0.8125rem",
                             borderBottom: "1px solid var(--border-default)",
                           }}
                         >
@@ -3245,7 +3245,7 @@ export default function QueryEditor({
                           >
                             <Icon
                               className="ti ti-star"
-                              style={{ fontSize: 14, flexShrink: 0 }}
+                              style={{ fontSize: "0.875rem", flexShrink: 0 }}
                             ></Icon>
                             <span
                               style={{
@@ -3297,7 +3297,7 @@ export default function QueryEditor({
                                     ? "ti-chevron-up"
                                     : "ti-chevron-down")
                                 }
-                                style={{ fontSize: 14 }}
+                                style={{ fontSize: "0.875rem" }}
                               ></Icon>
                             </button>
                             <button
@@ -3306,13 +3306,13 @@ export default function QueryEditor({
                               title="Open in a new tab"
                               style={{
                                 padding: "2px 8px",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                               }}
                             >
                               <Icon
                                 className="ti ti-player-play"
                                 style={{
-                                  fontSize: 13,
+                                  fontSize: "0.8125rem",
                                   color: "var(--color-success)",
                                 }}
                               ></Icon>{" "}
@@ -3326,7 +3326,7 @@ export default function QueryEditor({
                             >
                               <Icon
                                 className="ti ti-trash"
-                                style={{ fontSize: 14 }}
+                                style={{ fontSize: "0.875rem" }}
                               ></Icon>
                             </button>
                           </div>
@@ -3356,7 +3356,7 @@ export default function QueryEditor({
                 style={{
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-all",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                   margin: 0,
                   flex: 1,
                 }}
@@ -3392,7 +3392,7 @@ export default function QueryEditor({
                   {graphTitle && (
                     <span
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         color: "var(--text-primary)",
                         fontWeight: 700,
                       }}
@@ -3404,7 +3404,7 @@ export default function QueryEditor({
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <span
                     style={{
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       color: "var(--text-muted)",
                       marginRight: 4,
                     }}
@@ -3474,14 +3474,14 @@ export default function QueryEditor({
           {graphData?._json && (
             <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
               <div style={{ marginBottom: 8 }}>
-                <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
                   EXPLAIN JSON Output
                 </span>
               </div>
               <pre
                 style={{
                   fontFamily: "var(--font-code)",
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-all",
@@ -3602,7 +3602,7 @@ export default function QueryEditor({
                 <pre
                   style={{
                     fontFamily: "var(--font-code)",
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                     lineHeight: 1.6,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-all",
@@ -3728,7 +3728,7 @@ export default function QueryEditor({
               <pre
                 style={{
                   fontFamily: "var(--font-code)",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-all",

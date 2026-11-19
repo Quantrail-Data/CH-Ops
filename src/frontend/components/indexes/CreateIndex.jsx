@@ -275,7 +275,7 @@ function CreateForm() {
 
         {idxType === 'text' && (
           <div className="card" style={{ padding: 16, marginBottom: 14, background: 'var(--bg-elevated)' }}>
-            <h4 style={{ fontSize: '14px', marginBottom: 12 }}><Icon className="ti ti-text-recognition"></Icon> Text Index Parameters</h4>
+            <h4 style={{ fontSize: "0.875rem", marginBottom: 12 }}><Icon className="ti ti-text-recognition"></Icon> Text Index Parameters</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
               <div className="form-group">
                 <label className="form-label">Tokenizer *</label>

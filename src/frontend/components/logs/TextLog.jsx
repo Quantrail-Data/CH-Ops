@@ -470,7 +470,7 @@ function Stat({ label, value, icon, color, small }) {
         <Icon
           className={`ti ${icon}`}
           style={{
-            fontSize: 28,
+            fontSize: "1.75rem",
             color: color || "var(--accent)",
             opacity: 0.9,
             flexShrink: 0,
@@ -480,7 +480,7 @@ function Stat({ label, value, icon, color, small }) {
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 4,
           }}
@@ -733,7 +733,7 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
             >
               <span
                 style={{
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
@@ -744,14 +744,14 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
               <span style={{ display: "flex", gap: 4 }}>
                 <button
                   className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  style={{ fontSize: "0.6875rem", padding: "2px 7px" }}
                   onClick={showAll}
                 >
                   All
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                  style={{ fontSize: "0.6875rem", padding: "2px 7px" }}
                   onClick={hideAll}
                 >
                   None
@@ -802,7 +802,7 @@ function StackedAreaChart({ title, series, names, legendItems, from, to }) {
                     />
                     <span
                       style={{
-                        fontSize: "12px",
+                        fontSize: "0.75rem",
                         color: "var(--text-secondary)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -1057,7 +1057,7 @@ function TextLogOverview({ unavailable }) {
   const cellRenderers = {
     count: (v) => fmtInt(v),
     severity: (v) => (
-      <span style={{ color: levelColor(v), fontWeight: 600, fontSize: "13px" }}>
+      <span style={{ color: levelColor(v), fontWeight: 600, fontSize: "0.8125rem" }}>
         {v || "-"}
       </span>
     ),
@@ -1247,7 +1247,7 @@ function TextLogOverview({ unavailable }) {
                 >
                   Noisiest Loggers (errors + warnings)
                 </div>
-                <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
                   No errors or warnings in range.
                 </div>
               </div>
@@ -1403,10 +1403,10 @@ LIMIT ${rowLimit}`,
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>
           Search
         </label>
         <button
@@ -1450,7 +1450,7 @@ LIMIT ${rowLimit}`,
                   type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={selectAll}
-                  style={{ fontSize: "12px" }}
+                  style={{ fontSize: "0.75rem" }}
                 >
                   All
                 </button>{" "}
@@ -1458,7 +1458,7 @@ LIMIT ${rowLimit}`,
                   type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={selectNone}
-                  style={{ fontSize: "12px" }}
+                  style={{ fontSize: "0.75rem" }}
                 >
                   None
                 </button>
@@ -1471,7 +1471,7 @@ LIMIT ${rowLimit}`,
                     style={{
                       display: "flex",
                       gap: 4,
-                      fontSize: "13px",
+                      fontSize: "0.8125rem",
                       cursor: "pointer",
                       padding: "3px 10px",
                       justifyContent: "center",

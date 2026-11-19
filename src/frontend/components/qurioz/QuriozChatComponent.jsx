@@ -458,8 +458,8 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
               className="btn btn-ghost"
               onClick={handleNewChat}
             >
-              <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
-              <span style={{ fontSize: "10px" }}>New Chat</span>
+              <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
+              <span style={{ fontSize: "0.625rem" }}>New Chat</span>
             </button>
           </div>
           <div className="chat-sesion-body">
@@ -475,7 +475,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                 <span
                   style={{
                     color: "var(--text-secondary)",
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                   }}
                 >
                   Loading chats...
@@ -496,7 +496,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                 <span
                   style={{
                     color: "var(--text-secondary)",
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     margin: "10px 0px",
                   }}
                 >
@@ -529,7 +529,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                           minHeight: 0,
                           padding: "2px 6px",
                           boxSizing: "border-box",
-                          fontSize: "13px",
+                          fontSize: "0.8125rem",
                           lineHeight: "18px",
                         }}
                         value={title}
@@ -1586,7 +1586,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
               >
                 <Icon
                   className="ti ti-user"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
                 <input
@@ -1594,7 +1594,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                   style={{
                     height: 28,
                     width: 150,
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     padding: "0 6px",
                   }}
                   placeholder="user"
@@ -1617,7 +1617,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
               >
                 <Icon
                   className="ti ti-lock"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
                 <div
@@ -1631,7 +1631,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                     style={{
                       height: 28,
                       width: 150,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       padding: "0 6px",
                       paddingRight: "30px",
                     }}
@@ -1652,7 +1652,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                         position: "absolute",
                         right: "10px",
                         top: "17%",
-                        fontSize: "17px",
+                        fontSize: "1.0625rem",
                       }}
                     />
                   </div>
@@ -1678,7 +1678,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-secondary)",
               }}
             >
@@ -1686,11 +1686,11 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 className="btn btn-ghost"
                 onClick={() => setShowDBModel(true)}
               >
-                <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
+                <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
               </button>
               <Icon
                 className="ti ti-plug-connected"
-                style={{ fontSize: 15, color: "var(--color-success)" }}
+                style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
               ></Icon>
               <span>
                 <strong style={{ color: "var(--text-primary)" }}>
@@ -1722,11 +1722,11 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
               <Select
                 className="form-input"
                 value={
-                  <h3 style={{ fontSize: "10px" }}>
+                  <h3 style={{ fontSize: "0.625rem" }}>
                     {apikey?.serviceName}{" "}
                     <span
                       style={{
-                        fontSize: "10px",
+                        fontSize: "0.625rem",
                         color: "ligthgray",
                         marginLeft: "3px",
                       }}
@@ -1740,7 +1740,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                   width: "150px",
                   padding: "5px",
                   paddingLeft: "10px",
-                  fontSize: "10px",
+                  fontSize: "0.625rem",
                 }}
                 type="chat"
                 Title={() => `${apikey?.serviceName} | ${apikey?.model}`}
@@ -1753,7 +1753,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                       display: "flex",
                       flexDirection: "row",
                       alignItems: "center",
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                     }}
                   >
                     {u?.name}
@@ -1780,9 +1780,9 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 }
                 onClick={() => navigate("/admin/api-management")}
               >
-                <Icon className="ti ti-key" style={{ fontSize: "13px" }}></Icon>
+                <Icon className="ti ti-key" style={{ fontSize: "0.8125rem" }}></Icon>
                 <div className="details">
-                  <h6 style={{ fontSize: "10px" }}>{"NO API KEY"} </h6>
+                  <h6 style={{ fontSize: "0.625rem" }}>{"NO API KEY"} </h6>
                 </div>
               </div>
             </div>

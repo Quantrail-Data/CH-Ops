@@ -12,7 +12,7 @@
   gap: 8px;
   padding: 40px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .studio-header {
   margin-bottom: 14px;
@@ -39,7 +39,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   margin-bottom: 14px;
 }
@@ -48,7 +48,7 @@
 }
 .studio-conn-btn {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .studio-connect {
   max-width: 480px;
@@ -58,7 +58,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-secondary);
   margin: 4px 0 14px;
 }
@@ -81,7 +81,7 @@
   gap: 8px;
   padding: 8px 14px;
   border-radius: var(--radius-sm, 6px);
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-muted);
   background: var(--bg-sunken);
   border: 1px solid var(--border-default);
@@ -118,13 +118,13 @@
   padding: 16px;
 }
 .studio-step-title {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 700;
   margin-bottom: 8px;
   color: var(--text-primary);
 }
 .studio-note {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin: 8px 0;
   line-height: 1.5;
@@ -139,7 +139,7 @@
 }
 .studio-seg-btn {
   padding: 6px 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   color: var(--text-secondary);
@@ -173,13 +173,13 @@
   opacity: 0.6;
 }
 .studio-dropzone-title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-secondary);
   margin-top: 10px;
 }
 .studio-dropzone-sub {
-  font-size: 12px;
+  font-size: 0.75rem;
   margin-top: 4px;
 }
 
@@ -207,7 +207,7 @@
   padding: 6px 0;
 }
 .studio-schema-head {
-  font-size: 12px;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -217,13 +217,13 @@
   border-bottom: 1px solid var(--border-default);
 }
 .studio-stat {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 .form-input.mono {
   font-family: var(--font-code, monospace);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 /* Per-column expand control and modifier panel */
@@ -274,7 +274,7 @@
   align-items: center;
   gap: 8px;
   grid-column: 1 / -1;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -287,7 +287,7 @@
   gap: 6px;
 }
 .studio-field label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -297,7 +297,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -310,7 +310,7 @@
   outline: none;
 }
 .studio-tip .ti {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .studio-tip-bubble {
   position: absolute;
@@ -326,7 +326,7 @@
   border: 1px solid var(--border-strong, var(--border-default));
   border-radius: var(--radius-sm, 6px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 400;
   line-height: 1.45;
   white-space: normal;
@@ -348,12 +348,12 @@
   flex-wrap: wrap;
 }
 .studio-field-row label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 .studio-hint {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 .studio-toggle {
@@ -361,7 +361,7 @@
   align-items: center;
   gap: 8px;
   margin: 12px 0 4px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
@@ -379,7 +379,7 @@
   border-radius: var(--radius-md, 8px);
 }
 .studio-subhead {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0 0 6px;
@@ -398,7 +398,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -445,7 +445,7 @@
 }
 .form-textarea.mono {
   font-family: var(--font-code, monospace);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 /* Custom derived column affordances */
@@ -453,7 +453,7 @@
   display: inline-block;
   padding: 1px 7px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   text-transform: lowercase;
   background: var(--accent-soft, rgba(99, 102, 241, 0.15));
@@ -485,7 +485,7 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 6px);
   padding: 12px;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-secondary);
   margin-bottom: 12px;
   display: flex;
@@ -493,7 +493,7 @@
   gap: 4px;
 }
 .studio-suggestion {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--color-warning);
   margin-bottom: 12px;
 }
@@ -501,7 +501,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   margin-bottom: 12px;
 }
@@ -512,7 +512,7 @@
   margin-bottom: 12px;
 }
 .studio-editor-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
   display: block;
@@ -523,7 +523,7 @@
   align-items: center;
   gap: 6px;
   color: var(--color-success);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 8px 0;
 }
 .studio-eval {
@@ -578,7 +578,7 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 6px);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .studio-key-pos {
   display: inline-flex;
@@ -590,7 +590,7 @@
   border-radius: 999px;
   background: var(--accent-solid);
   color: var(--on-accent);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
 }
 .studio-key-label {
@@ -630,7 +630,7 @@
   background: transparent;
   outline: none;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 4px;
 }
 .studio-key-menu {
@@ -657,7 +657,7 @@
   color: var(--text-primary);
   cursor: pointer;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .studio-key-opt:hover {
   background: var(--bg-hover);

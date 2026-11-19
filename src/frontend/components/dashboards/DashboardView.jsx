@@ -708,7 +708,7 @@ export default function DashboardView({ sidebar,mainRef }) {
               <Icon
                 className={`ti ${showLegends ? "ti-eye" : "ti-eye-off"}`}
               ></Icon>
-              <span style={{ fontSize: "12px" }}>Legends</span>
+              <span style={{ fontSize: "0.75rem" }}>Legends</span>
             </button>
           )}
           {selDash && (
@@ -729,7 +729,7 @@ export default function DashboardView({ sidebar,mainRef }) {
             >
               <Icon
                 className={`ti ${pageFs ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
-                style={{ fontSize: 14 }}
+                style={{ fontSize: "0.875rem" }}
               ></Icon>
             </button>
           )}
@@ -844,7 +844,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                   }}
                   autoFocus
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     padding: "2px 6px",
                     minWidth: 120,
                   }}
@@ -854,7 +854,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                   {d.name}
                 </span>
               )}
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                 {d.columns}col
               </span>
               {renameId === d.id ? (
@@ -870,7 +870,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                   >
                     <Icon
                       className="ti ti-check"
-                      style={{ fontSize: 14 }}
+                      style={{ fontSize: "0.875rem" }}
                     ></Icon>
                   </button>
                   <button
@@ -883,7 +883,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                     style={{ padding: 2 }}
                     title="Cancel"
                   >
-                    <Icon className="ti ti-x" style={{ fontSize: 14 }}></Icon>
+                    <Icon className="ti ti-x" style={{ fontSize: "0.875rem" }}></Icon>
                   </button>
                 </>
               ) : (
@@ -903,7 +903,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                   disabled={!canEdit}
                   title="Rename"
                 >
-                  <Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon>
+                  <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon>
                 </button>
               )}
               <button
@@ -920,7 +920,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                 }}
                 disabled={!isAdmin}
               >
-                <Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon>
+                <Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon>
               </button>
             </div>
           ))}
@@ -954,7 +954,7 @@ export default function DashboardView({ sidebar,mainRef }) {
       {selDash && !!params.errors.length && (
         <div
           className="alert-banner warning"
-          style={{ marginBottom: 12, fontSize: "13px" }}
+          style={{ marginBottom: 12, fontSize: "0.8125rem" }}
         >
           <Icon className="ti ti-alert-triangle"></Icon>
           {params.errors.map((e) => `"${e.chartName}": ${e.message}`).join(" ")}
@@ -988,7 +988,7 @@ export default function DashboardView({ sidebar,mainRef }) {
               marginBottom: 8,
             }}
           >
-            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
               Drag charts to swap positions.
             </span>
             {hasUnsaved && canEdit && (
@@ -3052,7 +3052,7 @@ function ChartTile({
       >
         <span
           style={{
-            fontSize: "14px",
+            fontSize: "0.875rem",
             fontWeight: 600,
             minWidth: 0,
             flex: 1,
@@ -3135,18 +3135,18 @@ function ChartTile({
               disabled={!canEdit}
               style={!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}}
             >
-              <Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon>
+              <Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon>
             </button>
           )}
         </div>
       </div>
       {opt?._error && (
-        <div className="alert-banner danger" style={{ fontSize: "13px" }}>
+        <div className="alert-banner danger" style={{ fontSize: "0.8125rem" }}>
           <Icon className="ti ti-alert-circle"></Icon> {opt.message}
         </div>
       )}
       {opt?._waiting && (
-        <div className="alert-banner warning" style={{ fontSize: "13px" }}>
+        <div className="alert-banner warning" style={{ fontSize: "0.8125rem" }}>
           <Icon className="ti ti-clock"></Icon> {opt.message}
         </div>
       )}

@@ -398,7 +398,7 @@ function SchemaFlow() {
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load schema
             </div>
-            <div style={{ fontSize: "13px" }}>{error}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
         </div>
       </div>
@@ -412,7 +412,7 @@ function SchemaFlow() {
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load schema
             </div>
-            <div style={{ fontSize: "13px" }}>{error}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
         </div>
       </div>
@@ -473,7 +473,7 @@ function SchemaFlow() {
             style={{
               width: 240,
               fontFamily: "var(--font-code)",
-              fontSize: "12px",
+              fontSize: "0.75rem",
             }}
           >
             <option value="">Select table...</option>
@@ -496,7 +496,7 @@ function SchemaFlow() {
               style={{
                 width: 200,
                 fontFamily: "var(--font-code)",
-                fontSize: "13px",
+                fontSize: "0.8125rem",
               }}
             />
             <button
@@ -567,7 +567,7 @@ function SchemaFlow() {
             display: "flex",
             gap: 14,
             alignItems: "center",
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             flexWrap: "wrap",
             paddingBottom: 6,
@@ -678,7 +678,7 @@ function SchemaFlow() {
                 style={{
                   fontWeight: 700,
                   fontFamily: "var(--font-code)",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                   flex: 1,
                   minWidth: 0,
                   overflowWrap: "anywhere",
@@ -695,7 +695,7 @@ function SchemaFlow() {
                   border: "none",
                   cursor: "pointer",
                   color: "var(--text-muted)",
-                  fontSize: "19px",
+                  fontSize: "1.1875rem",
                   lineHeight: 1,
                   flexShrink: 0,
                   padding: 0,
@@ -706,14 +706,14 @@ function SchemaFlow() {
                   height: 24,
                 }}
               >
-                <Icon className="ti ti-x" style={{ fontSize: "19px" }} />
+                <Icon className="ti ti-x" style={{ fontSize: "1.1875rem" }} />
               </button>
             </div>
             <table
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 tableLayout: "fixed",
               }}
             >
@@ -792,7 +792,7 @@ function SchemaFlow() {
                     <>
                       <div
                         style={{
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
@@ -810,7 +810,7 @@ function SchemaFlow() {
                             cursor: "pointer",
                             color: "var(--accent)",
                             fontFamily: "var(--font-code)",
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             padding: "2px 0",
                             wordBreak: "break-word",
                             overflowWrap: "anywhere",
@@ -831,7 +831,7 @@ function SchemaFlow() {
                     <>
                       <div
                         style={{
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
@@ -849,7 +849,7 @@ function SchemaFlow() {
                             cursor: "pointer",
                             color: "var(--accent)",
                             fontFamily: "var(--font-code)",
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             padding: "2px 0",
                             wordBreak: "break-word",
                             overflowWrap: "anywhere",
@@ -873,7 +873,7 @@ function SchemaFlow() {
               <>
                 <div
                   style={{
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
                     color: "var(--text-muted)",
                     textTransform: "uppercase",
@@ -918,9 +918,9 @@ function SchemaFlow() {
           >
             <Icon
               className="ti ti-database-search"
-              style={{ fontSize: 48, opacity: 0.3 }}
+              style={{ fontSize: "3rem", opacity: 0.3 }}
             />
-            <div style={{ fontSize: "14px" }}>
+            <div style={{ fontSize: "0.875rem" }}>
               {!dbFilter
                 ? "Select a database to begin"
                 : "Select a table to visualize its relationships"}

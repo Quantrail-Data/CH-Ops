@@ -13,6 +13,7 @@ import {
 } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import Sidebar from "./Sidebar.jsx";
+import AppBackground from "./AppBackground.jsx";
 import GlobalSearch from "./GlobalSearch.jsx";
 import BugReportButton from "./BugReportButton.jsx";
 import { ToastProvider } from "./Toast.jsx";
@@ -188,6 +189,7 @@ function MainLayoutInner() {
         />
         <AlertMarquee />
         <div className="app-body">
+          <AppBackground />
           <main
             className="app-main"
             ref={mainRef}

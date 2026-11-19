@@ -729,7 +729,7 @@ export default function StorageProfiles({mainRef}) {
                 </div>
                 <div
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-muted)",
                     fontFamily: "var(--font-table)",
                   }}
@@ -737,7 +737,7 @@ export default function StorageProfiles({mainRef}) {
                   <div>
                     <Icon
                       className="ti ti-bucket"
-                      style={{ fontSize: 14 }}
+                      style={{ fontSize: "0.875rem" }}
                     ></Icon>{" "}
                     {p.bucket}
                   </div>
@@ -745,13 +745,13 @@ export default function StorageProfiles({mainRef}) {
                     <div>
                       <Icon
                         className="ti ti-map-pin"
-                        style={{ fontSize: 14 }}
+                        style={{ fontSize: "0.875rem" }}
                       ></Icon>{" "}
                       {p.region}
                     </div>
                   )}
                   <div>
-                    <Icon className="ti ti-key" style={{ fontSize: 14 }}></Icon>{" "}
+                    <Icon className="ti ti-key" style={{ fontSize: "0.875rem" }}></Icon>{" "}
                     {"*".repeat("15")}
                   </div>
                 </div>
@@ -759,7 +759,7 @@ export default function StorageProfiles({mainRef}) {
                   <div
                     style={{
                       marginTop: 8,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       color: tr.loading
                         ? "var(--text-muted)"
                         : tr.ok

@@ -219,7 +219,7 @@ export default function SecondaryIndexes() {
           >
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 marginRight: 4,
               }}

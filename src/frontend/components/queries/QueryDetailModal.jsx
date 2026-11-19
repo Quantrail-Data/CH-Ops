@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../common/Icon.jsx";
-import { Badge } from "../ui/index.jsx";
+import { Badge, Button, Notice } from "../ui/index.jsx";
 import Select from "../common/Select.jsx";
 import { OPEN_IN_DESTINATIONS } from "./OpenInMenu.jsx";
 import { useToast } from "../layout/Toast.jsx";
@@ -21,14 +21,15 @@ import {
   interfaceName,
 } from "./processesModel.js";
 import { fmtBytes, fmtDuration, fmtPercent, fmtRows } from "../../utils/format.js";
+import { Modal } from "../ui/modal.jsx";
 
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ borderTop: "1px solid var(--border-default)" }}>
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost btn-sm"
+        variant="ghost" size="sm"
         onClick={() => setOpen((v) => !v)}
         style={{
           width: "100%",
@@ -36,7 +37,7 @@ function Section({ title, children, defaultOpen = true }) {
           gap: 6,
           padding: "10px 0",
           fontWeight: 600,
-          fontSize: 12,
+          fontSize: "0.75rem",
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           color: "var(--text-secondary)",
@@ -44,7 +45,7 @@ function Section({ title, children, defaultOpen = true }) {
       >
         <Icon className={`ti ${open ? "ti-chevron-down" : "ti-chevron-right"}`} />
         {title}
-      </button>
+      </Button>
       {open && <div style={{ paddingBottom: 12 }}>{children}</div>}
     </div>
   );
@@ -53,7 +54,7 @@ function Section({ title, children, defaultOpen = true }) {
 function Field({ label, value, mono }) {
   if (value === undefined || value === null || value === "") return null;
   return (
-    <div style={{ display: "flex", gap: 10, padding: "3px 0", fontSize: 12, alignItems: "baseline" }}>
+    <div style={{ display: "flex", gap: 10, padding: "3px 0", fontSize: "0.75rem", alignItems: "baseline" }}>
       <span style={{ color: "var(--text-muted)", minWidth: 120, flexShrink: 0 }}>{label}</span>
       <span
         style={{
@@ -70,10 +71,10 @@ function Field({ label, value, mono }) {
 
 function MapTable({ data, emptyLabel }) {
   const entries = data && typeof data === "object" ? Object.entries(data) : [];
-  if (!entries.length) return <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{emptyLabel}</div>;
+  if (!entries.length) return <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{emptyLabel}</div>;
   return (
     <div style={{ maxHeight: 240, overflow: "auto" }}>
-      <table className="data-table" style={{ fontSize: 12 }}>
+      <table className="data-table" style={{ fontSize: "0.75rem" }}>
         <tbody>
           {entries
             .sort((a, b) => a[0].localeCompare(b[0]))
@@ -160,13 +161,7 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
     // dimmed page, so the list stays in view.
     // z-index above the floating search / bug-report buttons (1500), which
     // otherwise sit on top of the drawer's footer actions.
-    <div className="modal-overlay drawer-overlay" onClick={onClose} style={{ zIndex: 1600 }}>
-      <div
-        className="drawer"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Query detail"
-      >
+    <Modal kind="drawer" onClose={onClose} overlayStyle={{ zIndex: 1600 }} label="Query detail">
         <div className="drawer-header">
           <div style={{ minWidth: 0 }}>
             <div className="drawer-title">
@@ -181,9 +176,9 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
             </div>
             <code className="drawer-subtitle">{row.query_id}</code>
           </div>
-          <button className="btn btn-secondary btn-sm btn-icon" onClick={onClose} aria-label="Close">
+          <Button variant="secondary" size="sm" iconOnly onClick={onClose} aria-label="Close">
             <Icon className="ti ti-x" />
-          </button>
+          </Button>
         </div>
 
         <div className="drawer-body">
@@ -197,28 +192,27 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
         </div>
 
         {row.is_cancelled && (
-          <div className="alert-banner warning" style={{ marginBottom: 10, fontSize: 12 }}>
-            <Icon className="ti ti-alert-triangle" />
+          <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 10, fontSize: "0.75rem" }}>
             <span>Cancellation requested. The query is winding down.</span>
-          </div>
+          </Notice>
         )}
 
         <div style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
           <Section title="Query text">
             {loading ? (
-              <div style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", padding: "8px 0" }}>
                 Loading full text...
               </div>
             ) : (
               <>
                 {isPreviewOnly && (
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginBottom: 6 }}>
                     This query is no longer running and was not found in the query log. Showing the
                     truncated preview captured while it was live.
                   </div>
                 )}
                 {source === "query_log" && (
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginBottom: 6 }}>
                     Finished while you were looking. Text recovered from the query log.
                   </div>
                 )}
@@ -230,14 +224,14 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
                     overflow: "auto",
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
-                    fontSize: 12,
+                    fontSize: "0.75rem",
                     margin: 0,
                     position:"relative"
                   }}
                 >
                   <div style={{position:"absolute",right:"10px",top:"10px"}}>
-                  <button
-              className="btn btn-secondary btn-sm"
+                  <Button
+              variant="secondary" size="sm"
               onClick={() => {
                 try {
                   navigator.clipboard?.writeText(text);
@@ -249,7 +243,7 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
               title="Copy query text"
             >
               <Icon className="ti ti-copy" />
-            </button>
+            </Button>
                 </div>
                   {text || "(query text not available)"}
                 </pre>
@@ -263,7 +257,7 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  fontSize: 11,
+                  fontSize: "0.6875rem",
                   color: "var(--text-muted)",
                   marginBottom: 4,
                 }}
@@ -365,8 +359,8 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
               </option>
             ))}
           </Select>
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary" size="sm"
             disabled={!openIn}
             style={!openIn ? { opacity: 0.4, cursor: "not-allowed" } : {}}
             onClick={() => {
@@ -376,35 +370,34 @@ export default function QueryDetailModal({ row,rowData, onClose, onKill, canKill
             }}
           >
             <Icon className="ti ti-external-link" /> Open
-          </button>
+          </Button>
 
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
             {canKill && (
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
                 async returns at once, sync waits for the query to stop
               </span>
             )}
-            <button
-              className="btn btn-danger btn-sm"
+            <Button
+              variant="danger" size="sm"
               onClick={() => onKill(row, { sync: false })}
               disabled={!canKill || !rowData}
               style={!canKill ? { opacity: 0.35, cursor: "not-allowed" } : {}}
               title={!rowData ? "Query is not available" : canKill ? "Send the kill and return immediately" : "Admin access required"}
             >
               <Icon className="ti ti-player-stop" /> Kill async
-            </button>
-            <button
-              className="btn btn-danger btn-sm"
+            </Button>
+            <Button
+              variant="danger" size="sm"
               onClick={() => onKill(row, { sync: true })}
               disabled={!canKill || !rowData}
               style={!canKill ? { opacity: 0.35, cursor: "not-allowed" } : {}}
               title={!rowData ? "Query is not available" : canKill ? "Wait until the query has actually stopped" : "Admin access required"}
             >
               <Icon className="ti ti-player-stop" /> Kill sync
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }

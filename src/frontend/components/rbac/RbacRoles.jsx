@@ -431,7 +431,7 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
             display: "flex",
             gap: 6,
             cursor: isAdmin ? "pointer" : "not-allowed",
-            fontSize: "14px",
+            fontSize: "0.875rem",
           }}
         >
           <input
@@ -448,7 +448,7 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
             display: "flex",
             gap: 6,
             cursor: isAdmin ? "pointer" : "not-allowed",
-            fontSize: "14px",
+            fontSize: "0.875rem",
           }}
         >
           <input

@@ -15,7 +15,7 @@ import { fmtBytes } from '../../utils/costEstimator.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import ClusterTopology from './ClusterTopology.jsx';
 import { Section } from './OverviewCards.jsx';
-import { KpiCard, PageHeader, StatusDot } from '../ui/index.jsx';
+import { KpiCard, PageHeader, StatusDot, Notice } from '../ui/index.jsx';
 import LiveOverview, { useLiveOverview, LiveControlBar, MachineGauges } from './LiveOverview.jsx';
 import ErrorClusterConnected from '../common/ErrorClusterConnected.jsx';
 
@@ -328,10 +328,9 @@ const unavailableMessage = getUnavailableMessage();
 
       {/* Readonly alert */}
       {hasReadonly && (
-        <div className="alert-banner danger" style={{ marginBottom: 16 }}>
-          <Icon className="ti ti-alert-circle" />{' '}
+        <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 16 }}>{' '}
           {readonlyVal} readonly replica(s) detected. Check replication status.
-        </div>
+        </Notice>
       )}
       </Section>
 
@@ -356,7 +355,7 @@ const unavailableMessage = getUnavailableMessage();
               isHigherZindex={diskTools.fullscreen ?10000 :4000}
               value={diskIndex}
               onChange={(e) => setDiskIndex(Number(e.target.value))}
-              style={{ width: 160, fontWeight: 600, height: '38px', fontSize: '13px',justifyContent:"start",flex:"none"}}
+              style={{ width: 160, fontWeight: 600, height: '38px', fontSize: "0.8125rem",justifyContent:"start",flex:"none"}}
               title="Switch disk"
             >
               {disks.data?.map((d, i) => (
@@ -400,11 +399,11 @@ const unavailableMessage = getUnavailableMessage();
 
         {/* Zookeeper Connection */}
         <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: '15px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h3 style={{ fontSize: "0.9375rem", marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon className="ti ti-binary-tree" /> Zookeeper Connection
           </h3>
           {zk ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: "0.8125rem" }}>
               <tbody>
                 {[
                   ['Host',            `${zk.host}:${zk.port}`],
@@ -424,11 +423,11 @@ const unavailableMessage = getUnavailableMessage();
                     <td style={{
                       padding: '5px 8px', color: 'var(--text-muted)', whiteSpace: 'nowrap',
                       width: '40%', borderBottom: '1px dotted var(--border-default)',
-                      fontFamily: 'var(--font-code)', fontSize: '12px',
+                      fontFamily: 'var(--font-code)', fontSize: "0.75rem",
                     }}>{label}</td>
                     <td style={{
                       padding: '5px 8px', borderBottom: '1px dotted var(--border-default)',
-                      fontFamily: 'var(--font-code)', fontSize: '12px', wordBreak: 'break-word',
+                      fontFamily: 'var(--font-code)', fontSize: "0.75rem", wordBreak: 'break-word',
                     }}>
                       {val === '_status_' ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -448,7 +447,7 @@ const unavailableMessage = getUnavailableMessage();
             </table>
           ) : (
             <div style={{
-              color: 'var(--text-muted)', fontSize: '13px',
+              color: 'var(--text-muted)', fontSize: "0.8125rem",
               fontStyle: 'italic', padding: '12px 0',
             }}>
               {zookeeper.loading
@@ -462,11 +461,11 @@ const unavailableMessage = getUnavailableMessage();
 
         {/* Active Connections */}
         <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: '15px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h3 style={{ fontSize: "0.9375rem", marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon className="ti ti-plug-connected" /> Active Connections
             {totalConns > 0 && (
               <span style={{
-                marginLeft: 'auto', fontSize: '13px', fontWeight: 700,
+                marginLeft: 'auto', fontSize: "0.8125rem", fontWeight: 700,
                 fontFamily: 'var(--font-chart)', color: 'var(--text-primary)',
               }}>{totalConns} total</span>
             )}
@@ -483,10 +482,10 @@ const unavailableMessage = getUnavailableMessage();
                 const pct = (val / maxVal) * 100;
                 return (
                   <div key={c.metric} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, fontSize: '13px',
+                    display: 'flex', alignItems: 'center', gap: 10, fontSize: "0.8125rem",
                   }}>
                     <span style={{
-                      width: 120, fontFamily: 'var(--font-code)', fontSize: '12px',
+                      width: 120, fontFamily: 'var(--font-code)', fontSize: "0.75rem",
                       color: 'var(--text-muted)', flexShrink: 0,
                     }}>{label}</span>
                     <div style={{
@@ -502,7 +501,7 @@ const unavailableMessage = getUnavailableMessage();
                           paddingRight: 6,
                         }}>
                           <span style={{
-                            fontSize: '11px', fontWeight: 600, color: '#fff',
+                            fontSize: "0.6875rem", fontWeight: 600, color: '#fff',
                             fontFamily: 'var(--font-chart)',
                           }}>{val}</span>
                         </div>
@@ -511,7 +510,7 @@ const unavailableMessage = getUnavailableMessage();
                     {val === 0 && (
                       <span style={{
                         width: 24, textAlign: 'right', fontFamily: 'var(--font-chart)',
-                        fontWeight: 600, fontSize: '12px', color: 'var(--text-muted)',
+                        fontWeight: 600, fontSize: "0.75rem", color: 'var(--text-muted)',
                       }}>0</span>
                     )}
                   </div>
@@ -520,7 +519,7 @@ const unavailableMessage = getUnavailableMessage();
             </div>
           ) : (
             <div style={{
-              color: 'var(--text-muted)', fontSize: '13px',
+              color: 'var(--text-muted)', fontSize: "0.8125rem",
               fontStyle: 'italic', padding: '12px 0',
             }}>
               {connections.loading ? 'Loading...' : 'No connection data'}

@@ -19,7 +19,7 @@
 }
 
 .home-title {
-  font-size: 30px;
+  font-size: 1.875rem;
 }
 
 .home-search {
@@ -73,7 +73,7 @@
 
 /* Three classes, so it wins over generic .ti sizing in global.css. */
 .home-card .home-card-icon .ti {
-  font-size: 17px;
+  font-size: 1.0625rem;
   color: var(--accent);
 }
 
@@ -103,7 +103,7 @@
 }
 
 .home-card.home-card-featured .home-card-icon .ti {
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 
 .home-card-featured .home-card-title {

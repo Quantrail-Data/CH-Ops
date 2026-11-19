@@ -81,9 +81,9 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
             borderBottom: "1px solid var(--border-default)",
           }}
         >
-          <Icon className="ti ti-adjustments" style={{ fontSize: 18 }} />
-          <strong style={{ fontSize: "15px" }}>Filter settings</strong>
-          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+          <Icon className="ti ti-adjustments" style={{ fontSize: "1.125rem" }} />
+          <strong style={{ fontSize: "0.9375rem" }}>Filter settings</strong>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
             {ordered.length} filter{ordered.length === 1 ? "" : "s"}
           </span>
           <button
@@ -99,7 +99,7 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
 
         <div style={{ padding: "16px 20px", overflow: "auto", flex: 1, minHeight: 0 }}>
           {!ordered.length && (
-            <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
               No filters on this dashboard yet. Add a {"{name:Type}"} placeholder to a
               chart&apos;s SQL and it appears here.
             </div>
@@ -128,7 +128,7 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
                     <div style={cell}>
                       <code
                         style={{
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           // Names come from SQL; an enum type can be very long.
                           overflowWrap: "anywhere",
                           wordBreak: "break-word",
@@ -141,13 +141,13 @@ export default function DashboardSettings({ filters, settings, onSave, onClose }
                       {warn && (
                         <div
                           style={{
-                            fontSize: "11px",
+                            fontSize: "0.6875rem",
                             color: "var(--color-warning, #d98324)",
                             marginTop: 4,
                             lineHeight: 1.35,
                           }}
                         >
-                          <Icon className="ti ti-alert-triangle" style={{ fontSize: 12 }} /> Hidden
+                          <Icon className="ti ti-alert-triangle" style={{ fontSize: "0.75rem" }} /> Hidden
                           and required with no default: its charts will not run.
                         </div>
                       )}

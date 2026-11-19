@@ -19,14 +19,14 @@ export default function CostEstimatePanel({ estimate, loading }) {
   if (!estimate.supported) {
     return (
       <div style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>
-        <Icon className="ti ti-info-circle" style={{ fontSize: 20, marginRight: 8 }} />
+        <Icon className="ti ti-info-circle" style={{ fontSize: "1.25rem", marginRight: 8 }} />
         {estimate.reason}
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 16, overflowX: 'hidden', overflowY: 'auto', fontSize: '13px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+    <div style={{ padding: 16, overflowX: 'hidden', overflowY: 'auto', fontSize: "0.8125rem", width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
 
       {/* Section 1: Cost Estimate */}
       {estimate.estimateError ? (
@@ -40,7 +40,7 @@ export default function CostEstimatePanel({ estimate, loading }) {
             Cost Estimate
           </div>
           <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
-            <table className="data-table" style={{ width: '100%', minWidth: 560, fontSize: '13px' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: 560, fontSize: "0.8125rem" }}>
               <thead>
                 <tr>
                   <th>Database</th>
@@ -86,19 +86,19 @@ export default function CostEstimatePanel({ estimate, loading }) {
                 <span style={{ fontFamily: 'var(--font-code)', fontWeight: 600, overflowWrap: 'anywhere' }}>
                   {idx.database}.{idx.table}
                 </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>
+                <span style={{ fontSize: "0.75rem", color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>
                   {idx.engine}{idx.totalRows > 0 ? ` | ${fmtRows(idx.totalRows)} rows | ${fmtBytes(idx.totalBytes)}` : ''}
                 </span>
               </div>
 
               {idx.sortingKey && (
-                <div style={{ fontSize: '12px', marginBottom: 4 }}>
+                <div style={{ fontSize: "0.75rem", marginBottom: 4 }}>
                   <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>ORDER BY:</span>
                   <span style={{ fontFamily: 'var(--font-code)', color: 'var(--color-success)', overflowWrap: 'anywhere' }}>{idx.sortingKey}</span>
                 </div>
               )}
               {idx.primaryKey && idx.primaryKey !== idx.sortingKey && (
-                <div style={{ fontSize: '12px', marginBottom: 4 }}>
+                <div style={{ fontSize: "0.75rem", marginBottom: 4 }}>
                   <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>PRIMARY KEY:</span>
                   <span style={{ fontFamily: 'var(--font-code)', color: 'var(--color-success)', overflowWrap: 'anywhere' }}>{idx.primaryKey}</span>
                 </div>
@@ -106,7 +106,7 @@ export default function CostEstimatePanel({ estimate, loading }) {
 
               {idx.skippingIndexes.length > 0 ? (
                 <div style={{ marginTop: 6, width: '100%', maxWidth: '100%', minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 4 }}>Data Skipping Indexes:</div>
+                  <div style={{ fontSize: "0.75rem", color: 'var(--text-muted)', marginBottom: 4 }}>Data Skipping Indexes:</div>
                   <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
                     <table className="data-table" style={{ width: '100%', minWidth: 680, fontSize: '0.75rem' }}>
                       <thead>
@@ -131,7 +131,7 @@ export default function CostEstimatePanel({ estimate, loading }) {
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: 4 }}>
+                <div style={{ fontSize: "0.75rem", color: 'var(--text-muted)', marginTop: 4 }}>
                   No data skipping indexes
                 </div>
               )}
@@ -152,7 +152,7 @@ export default function CostEstimatePanel({ estimate, loading }) {
             Execution Plan
           </div>
           <pre style={{
-            fontFamily: 'var(--font-code)', fontSize: '12px', lineHeight: 1.6,
+            fontFamily: 'var(--font-code)', fontSize: "0.75rem", lineHeight: 1.6,
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             padding: 12, background: 'var(--bg-sunken)', borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border-default)', color: 'var(--text-primary)',

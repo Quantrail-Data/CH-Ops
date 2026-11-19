@@ -19,6 +19,7 @@ import { themeColor } from "../../utils/theme.js";
 import { runQuery } from "../../utils/api.js";
 import DataTable from "../layout/DataTable.jsx";
 import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { Button, FormField } from "../ui/index.jsx";
 // HELPERS
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -955,7 +956,7 @@ function InspectionPopup({
             <span style={{ fontWeight: 600 }}>{title}</span>
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 marginLeft: 8,
               }}
@@ -963,9 +964,9 @@ function InspectionPopup({
               at {frameTimestamp}
             </span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
 
         {loading && (
@@ -1113,7 +1114,7 @@ function InspectionPopup({
 
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             padding: "8px 0 0",
             textAlign: "right",
@@ -1447,7 +1448,7 @@ export default function Playback() {
         style={{
           padding: 14,
           marginBottom: 16,
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           color: "var(--text-secondary)",
           lineHeight: 1.6,
         }}
@@ -1471,8 +1472,7 @@ export default function Playback() {
         >
           <DateTimePicker label="From" value={from} onChange={setFrom} />
           <DateTimePicker label="To" value={to} onChange={setTo} />
-          <div className="form-group" style={{ minWidth: 100,paddingBottom:"4px" }}>
-            <label className="form-label">Step</label>
+          <FormField label="Step" style={{ minWidth: 100,paddingBottom:"4px" }}>
             <Select
               className="form-select cui-sm"
               value={step}
@@ -1484,11 +1484,11 @@ export default function Playback() {
                 </option>
               ))}
             </Select>
-          </div>
+          </FormField>
           <div className="form-group" style={{paddingBottom:"4px"}}>
-            <button
+            <Button
              title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
-              className="btn btn-primary"
+              variant="primary"
               onClick={handleFetch}
               disabled={fetchLoading || liveState?.isNotConnectedClusterNode()}
               style={{ height: 36, minWidth: 140 }}
@@ -1507,7 +1507,7 @@ export default function Playback() {
                   Fetch Data
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
         {fetchLoading && (
@@ -1531,7 +1531,7 @@ export default function Playback() {
             </div>
             <p
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 marginTop: 4,
               }}
@@ -1543,7 +1543,7 @@ export default function Playback() {
         {fetchError && (
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color:
                 failedCharts.length > 0
                   ? "var(--color-warning, #f59e0b)"
@@ -1577,7 +1577,7 @@ export default function Playback() {
             <span className="playback-timestamp">
               {currentT != null ? fmtTimestamp(currentT) : "--"}
             </span>
-            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+            <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
               {frameIndex + 1} / {allTimes.length}
             </span>
           </div>
@@ -1601,22 +1601,22 @@ export default function Playback() {
               flexWrap: "wrap",
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={handleToStart}
               title="To Start (Home)"
             >
               <Icon className="ti ti-player-skip-back"></Icon>
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={handleStepBack}
               title="Back (←)"
             >
               <Icon className="ti ti-player-track-prev"></Icon>
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
+            </Button>
+            <Button
+              variant="primary" size="sm"
               onClick={handlePlayPause}
               style={{ minWidth: 70 }}
               title="Play/Pause (Space)"
@@ -1626,21 +1626,21 @@ export default function Playback() {
                 style={{ marginRight: 3 }}
               ></Icon>
               {playing ? "Pause" : "Play"}
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={handleStepForward}
               title="Forward (→)"
             >
               <Icon className="ti ti-player-track-next"></Icon>
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={handleToEnd}
               title="To End (End)"
             >
               <Icon className="ti ti-player-skip-forward"></Icon>
-            </button>
+            </Button>
 
             <div
               style={{
@@ -1652,21 +1652,23 @@ export default function Playback() {
             ></div>
 
             {SPEED_OPTIONS.map((s) => (
-              <button
+              <Button
                 key={s.value}
-                className={`btn btn-sm ${speed === s.value ? "btn-primary" : "btn-secondary"}`}
+                variant={speed === s.value ? "primary" : "secondary"}
+                size="sm"
+                aria-pressed={speed === s.value}
                 onClick={() => setSpeed(s.value)}
                 style={{
                   minWidth: 36,
                   padding: "2px 5px",
-                  fontSize: "11px",
+                  fontSize: "0.6875rem",
                   display:"flex",
                   alignItems:"center",
                   justifyContent:"center"
                 }}
               >
                 {s.label}
-              </button>
+              </Button>
             ))}
 
             <div
@@ -1678,12 +1680,12 @@ export default function Playback() {
               }}
             ></div>
 
-            <button
-              className="btn btn-sm"
+            <Button
+              variant="secondary" size="sm"
               style={{
                 background: "var(--danger-solid)",
                 color: "#fff",
-                fontSize: "11px",
+                fontSize: "0.6875rem",
                 padding: "5px 15px",
               }}
               onClick={handleShowFailedQueries}
@@ -1695,13 +1697,13 @@ export default function Playback() {
                 style={{ marginRight: 3 }}
               ></Icon>{" "}
               Failed Queries
-            </button>
-            <button
-              className="btn btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               style={{
                 background: "var(--danger-solid)",
                 color: "#fff",
-                fontSize: "11px",
+                fontSize: "0.6875rem",
                 padding: "5px 15px",
               }}
               onClick={handleShowErrorLogs}
@@ -1710,7 +1712,7 @@ export default function Playback() {
             >
               <Icon className="ti ti-bug" style={{ marginRight: 3 }}></Icon> Error
               Logs
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1733,7 +1735,7 @@ export default function Playback() {
             <div key={section} style={{ marginBottom: 24 }}>
               <h3
                 style={{
-                  fontSize: "15px",
+                  fontSize: "0.9375rem",
                   fontWeight: 600,
                   color: "var(--text-secondary)",
                   marginBottom: 12,
@@ -1778,7 +1780,7 @@ export default function Playback() {
           <Icon
             className="ti ti-player-play"
             style={{
-              fontSize: 48,
+              fontSize: "3rem",
               opacity: 0.3,
               display: "block",
               marginBottom: 12,

@@ -13,6 +13,7 @@ import EmptyState from "./EmptyState.jsx";
 import { fmtInt, fmtAge } from "../../utils/queueFormat.js";
 import { fmtBytes } from "../../utils/costEstimator.js";
 import { loadReplication, loadDistribution } from "../../utils/queueQueries.js";
+import { Input } from "../ui/index.jsx";
 
 const REFRESH_MS = 30000;
 
@@ -150,7 +151,7 @@ if (isRepl && unavailableMessage) {
           <div className="queue-panel-head">
             <h3 className="queue-panel-title">Tasks (most retried first)</h3>
             <div className="queue-filter-row">
-              <input className="form-input" placeholder="Filter tasks..."
+              <Input  placeholder="Filter tasks..."
                 value={filter} onChange={(e) => setFilter(e.target.value)} />
               <button
                 className={"queue-chip" + (chips.executing ? " active" : "")}

@@ -423,7 +423,7 @@ useEffect(() => {
                         <div key={f.key} className="form-group">
                           <label
                             className="form-label"
-                            style={{ fontSize: "12px" }}
+                            style={{ fontSize: "0.75rem" }}
                           >
                             {f.label}
                             {f.required ? " *" : ""} ({f.expect})
@@ -439,7 +439,7 @@ useEffect(() => {
                                                             }))
                                                           }
                                                           style={{
-                                                            fontSize: "13px",
+                                                            fontSize: "0.8125rem",
                                                             borderColor: validationErrors[f.key]
                                                               ? "var(--color-danger)"
                                                               : undefined,
@@ -463,7 +463,7 @@ useEffect(() => {
                                                             }))
                                                           }
                                                           style={{
-                                                            fontSize: "13px",
+                                                            fontSize: "0.8125rem",
                                                             borderColor: validationErrors[f.key]
                                                               ? "var(--color-danger)"
                                                               : undefined,
@@ -481,7 +481,7 @@ useEffect(() => {
                             <span
                               style={{
                                 color: "var(--color-danger)",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                               }}
                             >
                               {validationErrors[f.key]}
@@ -503,25 +503,25 @@ useEffect(() => {
                 }}
               >
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     X Label
                   </label>
                   <input
                     className="form-input"
                     value={xLabel}
                     onChange={(e) => setXLabel(e.target.value)}
-                    style={{ fontSize: "13px" }}
+                    style={{ fontSize: "0.8125rem" }}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Y Label
                   </label>
                   <input
                     className="form-input"
                     value={yLabel}
                     onChange={(e) => setYLabel(e.target.value)}
-                    style={{ fontSize: "13px" }}
+                    style={{ fontSize: "0.8125rem" }}
                   />
                 </div>
               </div>
@@ -539,7 +539,7 @@ useEffect(() => {
                 }}
               >
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Min
                   </label>
                   <input
@@ -552,7 +552,7 @@ useEffect(() => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Max
                   </label>
                   <input
@@ -570,7 +570,7 @@ useEffect(() => {
           {ChatVisiablePreview() && <div style={{ padding: 16, minHeight: 340 }}>
             <div
               style={{
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 color: "var(--text-muted)",
                 marginBottom: 8,
               }}
@@ -580,7 +580,7 @@ useEffect(() => {
             {chartOption?._error && (
               <div
                 className="alert-banner danger"
-                style={{ fontSize: "13px" }}
+                style={{ fontSize: "0.8125rem" }}
               >
                 <Icon className="ti ti-alert-circle"></Icon> {chartOption.message}
               </div>
@@ -597,7 +597,7 @@ useEffect(() => {
               >
                 <div
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-muted)",
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
@@ -642,7 +642,7 @@ useEffect(() => {
                     {!chartOption && !previewRef &&(
                       <div className="empty-state" style={{ padding: 24 }}>
                         <Icon className="ti ti-chart-dots"></Icon>
-                        <p style={{ fontSize: "13px" }}>
+                        <p style={{ fontSize: "0.8125rem" }}>
                           Map columns to see preview.
                         </p>
                       </div>

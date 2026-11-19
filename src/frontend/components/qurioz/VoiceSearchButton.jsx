@@ -147,7 +147,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         style={styles.disabledButton}
         title="Speech recognition not supported in this browser"
       >
-        <Icon className="ti ti-microphone-off" style={{ fontSize: 12 }} />
+        <Icon className="ti ti-microphone-off" style={{ fontSize: "0.75rem" }} />
       </button>
     );
   }
@@ -159,7 +159,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         style={styles.disabledButton}
         title="Microphone not available"
       >
-        <Icon className="ti ti-microphone-off" style={{ fontSize: 12 }} />
+        <Icon className="ti ti-microphone-off" style={{ fontSize: "0.75rem" }} />
       </button>
     );
   }
@@ -209,7 +209,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         >
           {listening ? (
             <div style={styles.micContainer}>
-              <Icon className="ti ti-microphone" style={{ fontSize: 14 }} />
+              <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem" }} />
               <motion.div
                 style={styles.indicatorDot}
                 animate={{ opacity: [0, 1, 0] }}
@@ -217,7 +217,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
               />
             </div>
           ) : (
-            <Icon className="ti ti-microphone" style={{ fontSize: 14 }} />
+            <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem" }} />
           )}
         </motion.div>
       </motion.button>

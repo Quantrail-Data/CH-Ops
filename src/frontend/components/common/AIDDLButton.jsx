@@ -33,7 +33,7 @@ function AIDDLButton({ onClickEventMethod, isDisabled }) {
     <motion.button
       style={{
         display: "flex",
-        fontSize: "11px",
+        fontSize: "0.6875rem",
         fontWeight: "800",
         padding: "6px 10px",
       }}

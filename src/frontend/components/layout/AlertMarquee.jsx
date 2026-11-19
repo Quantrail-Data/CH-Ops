@@ -71,13 +71,13 @@ export default function AlertMarquee() {
           background: "var(--glass-bg)",
           borderBottom: "1px solid rgba(248,113,113,0.2)",
           cursor: "pointer",
-          fontSize: "12px",
+          fontSize: "0.75rem",
           fontWeight: 600,
           color: "var(--color-danger)",
           flexShrink: 0,
         }}
       >
-        <Icon className="ti ti-alert-triangle" style={{ fontSize: 16 }}></Icon>
+        <Icon className="ti ti-alert-triangle" style={{ fontSize: "1rem" }}></Icon>
         {alerts.length} active alert(s) - click to expand
       </div>
     );
@@ -112,7 +112,7 @@ export default function AlertMarquee() {
           alignItems: "center",
           whiteSpace: "nowrap",
           paddingRight: "30px",
-          fontSize: "11px",
+          fontSize: "0.6875rem",
           fontWeight: 600,
           willChange: "transform",
         }}
@@ -138,7 +138,7 @@ export default function AlertMarquee() {
               >
                 <Icon
                   className="ti ti-alert-triangle"
-                  style={{ fontSize: 16, marginRight: 8, color: c }}
+                  style={{ fontSize: "1rem", marginRight: 8, color: c }}
                 />
                 {msg?.message}
               </div>
@@ -158,13 +158,13 @@ export default function AlertMarquee() {
           color: "var(--text-muted)",
           cursor: "pointer",
           padding: "2px 6px",
-          fontSize: 14,
+          fontSize: "0.875rem",
           lineHeight: 1,
         }}
         
         className="btn btn-danger"
       >
-        <Icon className="ti ti-x" style={{ fontSize: 14 }}></Icon>
+        <Icon className="ti ti-x" style={{ fontSize: "0.875rem" }}></Icon>
       </motion.button>
     </div>
   );

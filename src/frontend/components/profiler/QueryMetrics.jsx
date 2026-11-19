@@ -550,7 +550,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
         <div style={{ marginBottom: 12 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query ID
           </label>
@@ -558,7 +558,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             <code
               style={{
                 flex: 1,
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
                 wordBreak: "break-all",
@@ -592,7 +592,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             display: "flex",
             gap: 20,
             marginBottom: 14,
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             flexWrap: "wrap",
           }}
@@ -610,7 +610,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
         <div style={{ marginBottom: 14 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query Text
           </label>
@@ -1033,7 +1033,7 @@ export default function QueryMetrics() {
         style={{
           padding: 14,
           marginBottom: 16,
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           color: "var(--text-secondary)",
           lineHeight: 1.6,
         }}
@@ -1102,7 +1102,7 @@ export default function QueryMetrics() {
         {rangeError && (
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--color-danger, #ef4444)",
               marginBottom: 10,
             }}
@@ -1142,7 +1142,7 @@ export default function QueryMetrics() {
             style={{
               marginBottom: 8,
               fontFamily: "var(--font-code)",
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               width: "100%",
               maxWidth: 480,
             }}
@@ -1151,7 +1151,7 @@ export default function QueryMetrics() {
           {queriesError && (
             <div
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--color-warning, #f59e0b)",
                 marginBottom: 8,
               }}
@@ -1201,7 +1201,7 @@ export default function QueryMetrics() {
             !rangeError && (
               <div
                 style={{
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   color: "var(--text-muted)",
                   padding: "12px 0",
                 }}
@@ -1217,7 +1217,7 @@ export default function QueryMetrics() {
           <div
             style={{
               marginBottom: 14,
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--text-secondary)",
               display: "flex",
               alignItems: "center",
@@ -1234,7 +1234,7 @@ export default function QueryMetrics() {
               style={{
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 wordBreak: "break-all",
               }}
             >
@@ -1248,7 +1248,7 @@ export default function QueryMetrics() {
                 setGroupedCharts([]);
                 setChartLayoutKey((k) => k + 1);
               }}
-              style={{ marginLeft: 4, fontSize: "12px" }}
+              style={{ marginLeft: 4, fontSize: "0.75rem" }}
             >
               <Icon className="ti ti-x"></Icon> Clear
             </button>
@@ -1300,7 +1300,7 @@ export default function QueryMetrics() {
         <div
           style={{
             marginBottom: 16,
-            fontSize: "13px",
+            fontSize: "0.8125rem",
             color: "var(--text-muted)",
           }}
         >
@@ -1325,7 +1325,7 @@ export default function QueryMetrics() {
           >
             <h3
               style={{
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 fontWeight: 600,
                 color: "var(--text-secondary)",
                 marginBottom: 8,
@@ -1337,13 +1337,13 @@ export default function QueryMetrics() {
             >
               <Icon
                 className={`ti ${group.icon}`}
-                style={{ fontSize: "15px" }}
+                style={{ fontSize: "0.9375rem" }}
               ></Icon>
               {group.label}
               <span
                 style={{
                   fontWeight: 400,
-                  fontSize: "11px",
+                  fontSize: "0.6875rem",
                   color: "var(--text-muted)",
                 }}
               >
@@ -1376,7 +1376,7 @@ export default function QueryMetrics() {
           <Icon
             className="ti ti-chart-line"
             style={{
-              fontSize: 48,
+              fontSize: "3rem",
               opacity: 0.3,
               display: "block",
               marginBottom: 12,

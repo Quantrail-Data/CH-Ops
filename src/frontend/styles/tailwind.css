@@ -1,0 +1,110 @@
+/* Tailwind CSS v4 and the shadcn/ui theme.
+
+   Rules that keep the existing app safe:
+   - No preflight. The app keeps its own base styles in global.css.
+   - Prefix "tw". Utilities are written as tw:flex, tw:bg-primary and so on.
+     Without it, Tailwind makes rules for words that the app already uses
+     as class names, such as "hidden", "table", "container" and "shadow".
+   - The theme is in a layer, so the app's own :root variables win.
+   - The utilities are not in a layer and come after global.css, so the
+     order of the existing app rules does not change. */
+@layer theme;
+@import "tailwindcss/theme.css" layer(theme) prefix(tw);
+@import "tailwindcss/utilities.css" prefix(tw);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@source "../";
+
+/* A small part of the Tailwind preflight, only for shadcn/ui parts. Every
+   shadcn part sets data-slot. Without this, a shadcn button shows the
+   browser's default border and background. :where() has no specificity,
+   so the app rules and the Tailwind classes still win. Lists lose their
+   numbers and bullets, as in the preflight. */
+:where([data-slot]),
+:where([data-slot])::before,
+:where([data-slot])::after {
+  border: 0 solid;
+}
+:where(ol[data-slot], ul[data-slot]) {
+  list-style: none;
+}
+:where(button[data-slot], input[data-slot], select[data-slot], textarea[data-slot]) {
+  background-color: transparent;
+  color: inherit;
+  border-radius: 0;
+  letter-spacing: inherit;
+}
+
+/* The app is dark by default. The light theme sets data-theme="light" on <html>. */
+@custom-variant dark (&:where(html:not([data-theme="light"]) *));
+
+/* shadcn/ui color names, mapped to the app theme variables in global.css.
+   shadcn uses its own names (--accent, --input, --ring) for other things,
+   so they are mapped here and never set on :root. */
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-heading: var(--font-ui);
+  --font-mono: var(--font-code);
+  --font-data: var(--font-table);
+
+  --color-background: var(--bg-page);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-surface);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--bg-raised);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--accent-solid);
+  --color-primary-foreground: var(--on-accent);
+  --color-secondary: var(--bg-raised);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--bg-sunken);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--bg-hover);
+  --color-accent-foreground: var(--text-primary);
+  --color-destructive: var(--color-danger);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-info: var(--color-info);
+  --color-border: var(--border-default);
+  --color-input: var(--border-strong);
+  --color-ring: var(--accent);
+
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-text);
+  --color-sidebar-primary: var(--accent-solid);
+  --color-sidebar-primary-foreground: var(--on-accent);
+  --color-sidebar-accent: var(--bg-hover);
+  --color-sidebar-accent-foreground: var(--sidebar-text-hover);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--accent);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 22px;
+  --radius-4xl: 26px;
+}
+
+/* A few shadcn/ui parts read these variables directly, not through a
+   Tailwind class. The app does not use these names. --border and --radius
+   come from global.css. Never add --accent, --input or --ring here: the app
+   uses --accent for its own accent color. */
+:root {
+  --background: var(--bg-page);
+  --foreground: var(--text-primary);
+  --popover: var(--bg-raised);
+  --popover-foreground: var(--text-primary);
+  --secondary: var(--bg-raised);
+  --sidebar-accent: var(--bg-hover);
+}
+
+/* Magic UI animated theme toggler: the theme change is a view transition that
+   the toggler animates itself, so the default cross-fade is off. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

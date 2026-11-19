@@ -49,7 +49,7 @@ export default function DashboardFilters({
           <strong>This dashboard&apos;s filters cannot be built.</strong>
           <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
             {conflicts.map((c, i) => (
-              <li key={i} style={{ fontSize: "13px" }}>{c}</li>
+              <li key={i} style={{ fontSize: "0.8125rem" }}>{c}</li>
             ))}
           </ul>
         </div>
@@ -86,15 +86,15 @@ export default function DashboardFilters({
           aria-expanded={open}
           style={{ padding: "2px 6px" }}
         >
-          <Icon className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: 16 }} />
+          <Icon className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: "1rem" }} />
         </button>
 
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: "14px" }}>
-          <Icon className="ti ti-filter" style={{ fontSize: 16 }} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: "0.875rem" }}>
+          <Icon className="ti ti-filter" style={{ fontSize: "1rem" }} />
           Chart filters
         </span>
 
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
           {visible.length}
           {needingValue > 0 && (
             <span style={{ color: "var(--color-warning, #d98324)" }}>
@@ -105,10 +105,10 @@ export default function DashboardFilters({
 
         {dirty && (
           <span
-            style={{ fontSize: "12px", color: "var(--color-warning, #d98324)" }}
+            style={{ fontSize: "0.75rem", color: "var(--color-warning, #d98324)" }}
             title="The charts below still show the previously applied filters"
           >
-            <Icon className="ti ti-alert-triangle" style={{ fontSize: 13 }} /> Out of date
+            <Icon className="ti ti-alert-triangle" style={{ fontSize: "0.8125rem" }} /> Out of date
           </span>
         )}
 

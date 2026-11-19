@@ -48,7 +48,7 @@ function ErrorClusterConnected({ title, message, mainRef }) {
 
         <div>
           <h4>{title}</h4>
-          <span style={{ fontSize: "13px" }}>{message}</span>
+          <span style={{ fontSize: "0.8125rem" }}>{message}</span>
         </div>
 
         <div

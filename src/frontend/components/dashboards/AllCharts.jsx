@@ -1383,7 +1383,7 @@ export default function AllCharts({ onEdit }) {
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`}></Icon>
-              <span style={{ fontSize: '12px' }}>Legend</span>
+              <span style={{ fontSize: "0.75rem" }}>Legend</span>
             </button>
           )}
         </div>
@@ -1454,7 +1454,7 @@ export default function AllCharts({ onEdit }) {
           </button>
         )}
         
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: "0.75rem", color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
           {filteredCharts.length} chart{filteredCharts.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -1470,9 +1470,9 @@ export default function AllCharts({ onEdit }) {
                   <td>{c.chartType} / {c.chartSubtype}</td>
                   <td>{c.dashboardId ? dashMap[c.dashboardId] || `#${c.dashboardId}` : '-'}</td>
                   <td style={{ display: 'flex', gap: 4 }}>
-                    {onEdit && canEdit && <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onEdit(c); }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></button>}
-                    {onEdit && !canEdit && <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: 14 }}></Icon></button>}
-                    <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); canEdit && setDel({ id: c.id, name: c.name }); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+                    {onEdit && canEdit && <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onEdit(c); }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon></button>}
+                    {onEdit && !canEdit && <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon></button>}
+                    <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); canEdit && setDel({ id: c.id, name: c.name }); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon></button>
                   </td>
                 </tr>
               ))}
@@ -1483,17 +1483,17 @@ export default function AllCharts({ onEdit }) {
         {selected && (
           <div ref={previewContainerRef} className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: (previewOpt && previewOpt._table) ? 'auto' : (isSmallScreen ? '500px' : '420px'), width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontSize: '14px', fontWeight: 600 }}>{selected.name}</div>
+              <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{selected.name}</div>
               <button 
                 className="btn btn-ghost btn-sm" 
                 onClick={() => { setSelected(null); setPreviewOpt(null); if (previewInst.current) { disposeChart(previewRef.current); previewInst.current = null; setHasPreviewInstance(false); } }}
                 title="Close preview"
               >
-                <Icon className="ti ti-x" style={{ fontSize: 16 }}></Icon>
+                <Icon className="ti ti-x" style={{ fontSize: "1rem" }}></Icon>
               </button>
             </div>
             {previewLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
-            {previewOpt?._error && <div className="alert-banner danger" style={{ fontSize: '13px' }}><Icon className="ti ti-alert-circle"></Icon> {previewOpt.message}</div>}
+            {previewOpt?._error && <div className="alert-banner danger" style={{ fontSize: "0.8125rem" }}><Icon className="ti ti-alert-circle"></Icon> {previewOpt.message}</div>}
             {previewOpt?._kpi && <div style={{ textAlign: 'center', padding: 32 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{previewOpt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)' }}>{previewOpt.value}</div></div>}
             {previewOpt?._table && <DataTable rows={previewOpt.data} maxRows={previewTools.fullscreen ? (previewOpt?.data?.length || 10) : Math.max(5, Math.min(20, (previewOpt?.data?.length || 0)))} />}
             {!previewOpt?._kpi && !previewOpt?._table && !previewOpt?._error && !previewLoading && (

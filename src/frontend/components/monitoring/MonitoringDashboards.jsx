@@ -11,6 +11,7 @@ import { baseChartOption } from "../../utils/echarts.js";
 import { runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -648,7 +649,7 @@ function ChartErrorCard({ title, message }) {
           alignItems: "flex-start",
           gap: 8,
           color: "var(--color-danger)",
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           lineHeight: 1.5,
           wordBreak: "break-word",
         }}
@@ -724,13 +725,13 @@ function StatCard({ label, value, unit, icon, warn, danger, invert, loading }) {
       {icon && (
         <Icon
           className={`ti ${icon}`}
-          style={{ fontSize: 32, color: "var(--accent)", opacity: 0.85 }}
+          style={{ fontSize: "2rem", color: "var(--accent)", opacity: 0.85 }}
         ></Icon>
       )}
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 6,
           }}
@@ -739,7 +740,7 @@ function StatCard({ label, value, unit, icon, warn, danger, invert, loading }) {
         </div>
         <div
           style={{
-            fontSize: "29px",
+            fontSize: "1.8125rem",
             fontWeight: 700,
             color: valueColor,
             lineHeight: 1,
@@ -1158,8 +1159,8 @@ export default function MonitoringDashboards() {
           <Icon className="ti ti-device-analytics"></Icon> Monitoring
         </h2>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setSectionFullscreen((v) => !v)}
             title={
               sectionFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen section"
@@ -1169,16 +1170,16 @@ export default function MonitoringDashboards() {
               className={`ti ${sectionFullscreen ? "ti-minimize" : "ti-maximize"}`}
             ></Icon>{" "}
             {sectionFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setFiltersOpen(!filtersOpen)}
           >
             <Icon
               className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
             ></Icon>{" "}
             {filtersOpen ? "Collapse" : "Expand"}
-          </button>
+          </Button>
         </div>
       </div>
       {filtersOpen && (
@@ -1194,8 +1195,7 @@ export default function MonitoringDashboards() {
           }}
         >
           {/* <div className="form-group"><label className="form-label">Quick</label><div style={{ display: 'flex', gap: 4 }}>{[1, 6, 24, 48, 168, 720].map(h => <button key={h} className="btn btn-secondary btn-sm" onClick={() => applyDuration(h)}>{h <= 48 ? h + 'h' : h === 168 ? '7d' : '30d'}</button>)}</div></div> */}
-          <div className="form-group">
-            <label className="form-label">Quick</label>
+          <FormField label="Quick">
             <div
               style={{
                 display: "flex",
@@ -1205,7 +1205,7 @@ export default function MonitoringDashboards() {
               }}
             >
               {[1, 6, 24, 48, 168, 720].map((h) => (
-                <button
+                <Button
                   key={h}
                   style={{
                     border:
@@ -1218,14 +1218,16 @@ export default function MonitoringDashboards() {
                     alignItems: "center",
                     justifyContent: "center",
                   }}
-                  className={`btn btn-sm ${duration === h ? "btn-primary" : "btn-secondary"}`}
+                  variant={duration === h ? "primary" : "secondary"}
+                  size="sm"
+                  aria-pressed={duration === h}
                   onClick={() => applyDuration(h)}
                 >
                   {h <= 48 ? h + "h" : h === 168 ? "7d" : "30d"}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
+          </FormField>
           <DateTimePicker
             label="From"
             value={from}
@@ -1238,27 +1240,25 @@ export default function MonitoringDashboards() {
             onChange={handleDateOnChange}
             name="To"
           />
-          <div className="form-group">
-            <label className="form-label">Rounding (s)</label>
-            <input
-              className="form-input"
+          <FormField label="Rounding (s)">
+            <Input
               type="number"
               min={5}
               value={rounding}
               onChange={(e) => setRounding(parseInt(e.target.value) || 60)}
               style={{ width: 80 }}
             />
-          </div>
-          <button
+          </FormField>
+          <Button
            title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
-            className="btn btn-primary"
+            variant="primary"
             onClick={loadAllCurrentTab}
             disabled={loading || liveState?.isNotConnectedClusterNode()}
             style={{ minWidth: 140 }}
           >
             <Icon className="ti ti-player-play"></Icon>{" "}
             {loading ? "Loading..." : "Load Charts"}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -1283,7 +1283,7 @@ export default function MonitoringDashboards() {
           </div>
           <p
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--text-muted)",
               marginTop: 6,
             }}
@@ -1293,11 +1293,10 @@ export default function MonitoringDashboards() {
         </div>
       )}
       {fetchErrors > 0 && !loading && (
-        <div className="alert-banner danger" style={{ marginBottom: 16 }}>
-          <Icon className="ti ti-alert-circle"></Icon>{" "}
+        <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 16 }}>{" "}
           {fetchErrors} of {activeGroup.charts.length} charts failed to load.
           See the affected charts below for details.
-        </div>
+        </Notice>
       )}
 
       <div className="tab-bar">

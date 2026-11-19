@@ -76,7 +76,7 @@ function ProcessorNode({ data, selected }) {
           : "1px solid var(--border-default)",
         background: heatColor || "var(--bg-card)",
         fontFamily: "var(--font-code)",
-        fontSize: "12px",
+        fontSize: "0.75rem",
         color: textColor,
         cursor: "pointer",
         transition: "border-color 0.15s",
@@ -104,7 +104,7 @@ function ProcessorNode({ data, selected }) {
         {shortLabel}
       </div>
       {elapsed && (
-        <div style={{ marginTop: 3, color: subTextColor, fontSize: "11px" }}>
+        <div style={{ marginTop: 3, color: subTextColor, fontSize: "0.6875rem" }}>
           {elapsed}
         </div>
       )}
@@ -158,7 +158,7 @@ function DetailPanel({ processorId, profile, onClose }) {
         border: "1px solid var(--border-default)",
         borderRadius: 8,
         padding: 16,
-        fontSize: "12px",
+        fontSize: "0.75rem",
         boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
       }}
     >
@@ -170,13 +170,13 @@ function DetailPanel({ processorId, profile, onClose }) {
           marginBottom: 12,
         }}
       >
-        <span style={{ fontWeight: 700, fontSize: "13px" }}>
+        <span style={{ fontWeight: 700, fontSize: "0.8125rem" }}>
           Processor Details
         </span>
         <button
           className="btn btn-ghost btn-sm"
           onClick={onClose}
-          style={{ fontSize: "13px" }}
+          style={{ fontSize: "0.8125rem" }}
         >
           <Icon className="ti ti-x" />
         </button>
@@ -227,7 +227,7 @@ function HeatmapLegend({ minUs, maxUs }) {
         display: "flex",
         alignItems: "center",
         gap: 8,
-        fontSize: "12px",
+        fontSize: "0.75rem",
         color: "var(--text-muted)",
       }}
     >
@@ -247,7 +247,7 @@ function HeatmapLegend({ minUs, maxUs }) {
           style={{
             marginLeft: 8,
             fontFamily: "var(--font-code)",
-            fontSize: "11px",
+            fontSize: "0.6875rem",
           }}
         >
           {formatUs(minUs)} - {formatUs(maxUs)}
@@ -664,7 +664,7 @@ function ProcessorsProfileInner() {
                 style={{
                   padding: "7px 8px",
                   fontFamily: "var(--font-code)",
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   background: "var(--bg-card)",
                   color: "var(--text-primary)",
                   border: "1px solid var(--border-default)",
@@ -689,7 +689,7 @@ function ProcessorsProfileInner() {
                 style={{
                   padding: "7px 8px",
                   fontFamily: "var(--font-code)",
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   background: "var(--bg-card)",
                   color: "var(--text-primary)",
                   border: "1px solid var(--border-default)",
@@ -768,7 +768,7 @@ function ProcessorsProfileInner() {
               </button>
             </div>
             {optsLoading && (
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                 Refreshing options...
               </span>
             )}
@@ -835,7 +835,7 @@ function ProcessorsProfileInner() {
             padding: "10px 16px",
             marginBottom: 12,
             flexShrink: 0,
-            fontSize: "12px",
+            fontSize: "0.75rem",
           }}
         >
           <summary
@@ -873,7 +873,7 @@ function ProcessorsProfileInner() {
             background: "rgba(239,68,68,0.1)",
             border: "1px solid rgba(239,68,68,0.3)",
             borderRadius: 6,
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--color-danger, #ef4444)",
             fontFamily: "var(--font-code)",
           }}
@@ -1056,7 +1056,7 @@ function ProcessorsProfileInner() {
                 padding: "8px 14px",
                 borderRadius: 6,
                 border: "1px solid var(--border-default)",
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 maxWidth: 500,
                 textAlign: "center",

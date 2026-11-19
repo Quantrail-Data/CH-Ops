@@ -263,7 +263,7 @@ If a table has no tracked dependencies, its connected subgraph is just the table
 
 | Element | Font | Purpose |
 |---------|------|---------|
-| Table names, column names, engine labels | Red Hat Mono (`--font-code`) | Monospace for identifiers and code |
+| Table names, column names, engine labels | Atkinson Hyperlegible Mono (`--font-code`) | Monospace for identifiers and code |
 | Row counts, byte sizes, heatmap values | B612 (`--font-chart`) | Numbers for metrics |
 | Section labels, control labels, legend text | Jakarta Sans (`--font-ui`) | UI text (inherited from body) |
-| CREATE statement in sidebar | Red Hat Mono (`--font-code`) | Code block |
+| CREATE statement in sidebar | Atkinson Hyperlegible Mono (`--font-code`) | Code block |
