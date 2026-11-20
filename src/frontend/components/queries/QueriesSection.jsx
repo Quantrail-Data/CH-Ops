@@ -23,7 +23,7 @@ import OpenInMenu from "./OpenInMenu.jsx";
 import CurrentQueries from "./CurrentQueries.jsx";
 import AdvancedFilters from "../logs/AdvancedFilters.jsx";
 import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
 import { Button, Input, FormField } from "../ui/index.jsx";
 import { Modal } from "../ui/modal.jsx";
 
@@ -674,17 +674,7 @@ function QueryAnalytics({isCN}) {
 
   return (
     <div>
-      <div
-        className="card"
-        style={{
-          padding: "16px",
-          marginBottom: "20px",
-          display: "flex",
-          gap: "14px",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-        }}
-      >
+      <div className="card search-form-row" style={{ padding: "16px", marginBottom: "20px" }}>
         <FormField label="Quick Range">
           <div
             style={{
@@ -697,16 +687,9 @@ function QueryAnalytics({isCN}) {
             {["1h", "6h", "24h", "48h", "7d", "30d"].map((d) => (
               <Button
                 key={d}
-                style={{
-                  padding: "10px",
-                  width: "50px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
                 variant={duration === d ? "primary" : "secondary"}
-                  size="sm"
-                  aria-pressed={duration === d}
+                size="sm"
+                aria-pressed={duration === d}
                 onClick={() => applyDuration(d)}
               >
                 {d}
@@ -726,7 +709,7 @@ function QueryAnalytics({isCN}) {
           onChange={handleDateOnChange}
           name="To"
         />
-        <FormField label="Query Kind">
+        <FormField label="Query Kind" className="search-field-select">
           <Select
             className="form-select"
             value={queryKind}
@@ -739,7 +722,7 @@ function QueryAnalytics({isCN}) {
           </Select>
         </FormField>
         <Button
-        title={isCN() ? "No cluster nodes configured" : ""}
+          title={isCN() ? "No cluster nodes configured" : ""}
           variant="primary"
           onClick={runAnalytics}
           disabled={loading || isCN()}
@@ -1033,62 +1016,21 @@ function QueryLogSearch({isCN}) {
     }}
   >
     <form onSubmit={handleSearch}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "16px",
-          flexWrap: "wrap",
-          width: "100%",
-        }}
-      >
+      <div className="search-form-row">
+        <DateTimePicker
+          label="From (required)"
+          value={from}
+          onChange={handleDateOnChange}
+          name="From"
+        />
+        <DateTimePicker
+          label="To (required)"
+          value={to}
+          onChange={handleDateOnChange}
+          name="To"
+        />
 
-<div
-  style={{
-    display: "flex",
-    alignItems: "flex-end",
-    gap: "40px", // 
-    flex: "2 1 680px",
-    minWidth: "650px",
-    marginRight:"50px"
-  }}
->
-
-  <div
-    style={{
-      flex: "1 1 320px",
-      minWidth: "320px",
-      marginRight:"10px"
-    }}
-  >
-    <DateTimePicker
-      label="From (required)"
-      value={from}
-      onChange={handleDateOnChange}
-      name="From"
-    />
-  </div>
-
-
-  <div
-    style={{
-      flex: "1 1 320px",
-      minWidth: "320px",
-    }}
-  >
-    <DateTimePicker
-      label="To (required)"
-      value={to}
-      onChange={handleDateOnChange}
-      name="To"
-    />
-  </div>
-</div>
-
-        <FormField label="Exception Code" style={{
-            flex: "1 1 160px",
-            minWidth: "150px",
-          }}>
+        <FormField label="Exception Code" className="search-field-select">
           <Select
             className="form-select"
             value={exceptionCode}
@@ -1104,10 +1046,7 @@ function QueryLogSearch({isCN}) {
         </FormField>
 
 
-        <FormField label="Is Initial" style={{
-            flex: "1 1 130px",
-            minWidth: "120px",
-          }}>
+        <FormField label="Is Initial" className="search-field-select">
           <Select
             className="form-select"
             value={isInitial}
@@ -1119,10 +1058,7 @@ function QueryLogSearch({isCN}) {
           </Select>
         </FormField>
 
-        <FormField label="Initial User" style={{
-            flex: "1 1 160px",
-            minWidth: "150px",
-          }}>
+        <FormField label="Initial User" className="search-field-select">
           <Select
             className="form-select"
             value={initialUser}
@@ -1137,10 +1073,7 @@ function QueryLogSearch({isCN}) {
           </Select>
         </FormField>
 
-        <FormField label="Direction" style={{
-            flex: "1 1 120px",
-            minWidth: "110px",
-          }}>
+        <FormField label="Direction" className="search-field-select">
           <Select
             className="form-select"
             value={sortDir}
@@ -1152,10 +1085,7 @@ function QueryLogSearch({isCN}) {
         </FormField>
 
 
-        <FormField label="Sort By" style={{
-            flex: "1 1 150px",
-            minWidth: "140px",
-          }}>
+        <FormField label="Sort By" className="search-field-select">
           <Select
             className="form-select"
             value={sortField}
@@ -1170,10 +1100,7 @@ function QueryLogSearch({isCN}) {
         </FormField>
 
 
-        <FormField label="Query Kind" style={{
-            flex: "1 1 150px",
-            minWidth: "140px",
-          }}>
+        <FormField label="Query Kind" className="search-field-select">
           <Select
             className="form-select"
             value={queryKind}
@@ -1188,10 +1115,7 @@ function QueryLogSearch({isCN}) {
           </Select>
         </FormField>
 
-        <FormField label="Type" style={{
-            flex: "1 1 130px",
-            minWidth: "120px",
-          }}>
+        <FormField label="Type" className="search-field-select">
           <Select
             className="form-select"
             value={queryType}
@@ -1206,10 +1130,7 @@ function QueryLogSearch({isCN}) {
           </Select>
         </FormField>
 
-        <FormField label="Exception" style={{
-            flex: "1.5 1 180px",
-            minWidth: "170px",
-          }}>
+        <FormField label="Exception" className="search-field">
           <Input
             value={exceptionText}
             onChange={(e) => setExceptionText(e.target.value)}
@@ -1217,25 +1138,12 @@ function QueryLogSearch({isCN}) {
           />
         </FormField>
 
-        <div
-          style={{
-            flex: "0 0 120px",
-          }}
-        >
+        <div className="search-form-submit">
           <Button
-           title={isCN() ? "No cluster nodes configured" : ""}
+            title={isCN() ? "No cluster nodes configured" : ""}
             variant="primary"
             type="submit"
             disabled={searchQ.loading || isCN()}
-            style={{
-              width: "100%",
-              minHeight: "40px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              whiteSpace: "nowrap",
-            }}
           >
             {searchQ.loading ? (
               <>

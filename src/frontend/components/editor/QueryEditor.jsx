@@ -72,6 +72,8 @@ import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
 import AIDDLButton from "../common/AIDDLButton.jsx";
 import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
+import { Button, Input, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
@@ -1980,8 +1982,8 @@ export default function QueryEditor({
           <div style={{ flex: 1, overflowY: "auto" }}>
             <div className="editor-sidebar-header" style={{ width: "100%" }}>
               <Icon className="ti ti-database"></Icon> Explorer
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => {
                   loadDbs();
                   setSelectedDb(null);
@@ -1994,7 +1996,7 @@ export default function QueryEditor({
                 ) : (
                   <Icon className="ti ti-refresh"></Icon>
                 )}
-              </button>
+              </Button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", height: "93%" }}>
               {!editorConnected ? (
@@ -2245,8 +2247,7 @@ export default function QueryEditor({
                   style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
-                <input
-                  className="form-input"
+                <Input
                   style={{
                     height: 28,
                     width: 150,
@@ -2277,8 +2278,7 @@ export default function QueryEditor({
                     position: "relative",
                   }}
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     type={isViewFlag ? "text" : "password"}
                     style={{
                       height: 28,
@@ -2297,7 +2297,7 @@ export default function QueryEditor({
                     }}
                     autoComplete="off"
                   />
-                  <div onClick={() => setIsViewFlag(!isViewFlag)}>
+                  <button type="button" className="password-eye" aria-label={isViewFlag ? "Hide password" : "Show password"} aria-pressed={!!(isViewFlag)} onClick={() => setIsViewFlag(!isViewFlag)}>
                     <Icon
                       className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
                       style={{
@@ -2307,11 +2307,11 @@ export default function QueryEditor({
                         fontSize: "1.0625rem",
                       }}
                     />
-                  </div>
+                  </button>
                 </div>
               </span>
-              <button
-                className="btn btn-primary btn-sm"
+              <Button
+                variant="primary" size="sm"
                 onClick={handleConnect}
                 disabled={connecting || !connUser.trim()}
                 title={`Connect to ${selectedNode || "node"}:${port}`}
@@ -2322,7 +2322,7 @@ export default function QueryEditor({
                   <Icon className="ti ti-plug"></Icon>
                 )}{" "}
                 Go
-              </button>
+              </Button>
             </div>
           ) : (
             <div
@@ -2347,14 +2347,13 @@ export default function QueryEditor({
                   @ {selectedNode}:{port}
                 </span>
               </span>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={handleDisconnect}
                 title="Disconnect and clear credentials"
-                style={{ padding: "2px 6px" }}
               >
                 <Icon className="ti ti-logout"></Icon>
-              </button>
+              </Button>
             </div>
           )}
           {copied && (
@@ -2389,28 +2388,28 @@ export default function QueryEditor({
           >
             <Icon className="ti ti-star"></Icon> Bookmarks
           </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setShareOpen(true)}
             disabled={!sql?.trim()}
             title="Copy a link to this query"
           >
             <Icon className="ti ti-link"></Icon>
             <span className="navbar-btn-label">Share</span>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setExportOpen(true)}
             disabled={!sql?.trim()}
             title="Export the results of this query"
           >
             <Icon className="ti ti-download"></Icon>
             <span className="navbar-btn-label">Export</span>
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setSqlCollapsed(!sqlCollapsed)}
             title={sqlCollapsed ? "Expand SQL" : "Collapse SQL"}
           >
@@ -2418,9 +2417,9 @@ export default function QueryEditor({
               className={`ti ${sqlCollapsed ? "ti-chevron-down" : "ti-chevron-up"}`}
             ></Icon>{" "}
             {sqlCollapsed ? "Expand SQL" : "Collapse SQL"}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setFullscreen(!fullscreen)}
             title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
           >
@@ -2428,7 +2427,7 @@ export default function QueryEditor({
               className={`ti ${fullscreen ? "ti-minimize" : "ti-maximize"}`}
             ></Icon>{" "}
             {fullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          </button>
+          </Button>
         </div>
 
         {/* The strip sits above the parameter row and carries the hint that
@@ -2459,9 +2458,8 @@ export default function QueryEditor({
         )}
 
         {paramError && !sqlCollapsed && (
-          <div className="alert-banner danger" style={{ margin: "6px 16px" }}>
-            <Icon className="ti ti-alert-circle" /> {paramError}
-          </div>
+          <Notice tone="danger" icon="ti-alert-circle" style={{ margin: "6px 16px" }}> {paramError}
+          </Notice>
         )}
 
         {/* Consecutive queries can reach different replicas behind a load balancer. */}
@@ -2655,9 +2653,8 @@ export default function QueryEditor({
               )}
               {effectiveQueryId && (
                 <span style={{ display: "inline-flex", gap: 4, marginLeft: 8 }}>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => {
                       navigator.clipboard?.writeText(effectiveQueryId);
                       toast.success("Query ID Copied Successfully");
@@ -2666,7 +2663,7 @@ export default function QueryEditor({
                   >
                     <Icon className="ti ti-copy" style={{ fontSize: "0.75rem" }} />{" "}
                     query_id
-                  </button>
+                  </Button>
                   <Link
                     to={`/tools/profiler?qid=${encodeURIComponent(effectiveQueryId)}`}
                     target="_blank"
@@ -2684,7 +2681,7 @@ export default function QueryEditor({
                     rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
-                    title="Open in Query Profiler (flame graph)"
+                    title="Open in Processors Profile"
                   >
                     <Icon
                       className="ti ti-git-branch"
@@ -2698,7 +2695,7 @@ export default function QueryEditor({
                     rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
-                    title="Open in Query Profiler (flame graph)"
+                    title="Open in Query Metrics"
                   >
                     <Icon
                       className="ti ti-chart-line"
@@ -2732,8 +2729,8 @@ export default function QueryEditor({
             disabled={running}
           />
 
-          <button
-            className="btn btn-secondary btn-sm sql-action-control"
+          <Button
+            variant="secondary" size="sm" className="sql-action-control"
             /* NOT onClick={doEstimate}. That passes the click EVENT as the
                first argument, which doEstimate takes as a tab id, so every
                result was written under a key no tab has and the button looked
@@ -2753,10 +2750,10 @@ export default function QueryEditor({
                 <Icon className="ti ti-calculator"></Icon> Cost
               </>
             )}
-          </button>
+          </Button>
 
-          <button
-            className="ai-button sql-action-control btn"
+          <Button
+            variant="secondary" className="ai-button sql-action-control"
             /* The button's background is var(--accent), a purple in both
                themes, so the label is white in both. It was black on the light
                theme, which put dark text on a mid-purple fill.
@@ -2768,17 +2765,7 @@ export default function QueryEditor({
             /* Matched to btn-sm so it lines up with Cost and Go. It was sized
                by .ai-button's own rules and came out noticeably shorter than
                everything beside it. */
-            style={{
-              color: "#fff",
-              whiteSpace: "nowrap",
-              gap: 5,
-              padding: "0 12px",
-              fontSize: "0.8125rem",
-              lineHeight: 1,
-              display: "inline-flex",
-              alignItems: "center",
-              flexShrink: 0,
-            }}
+            style={{ color: "#fff", flexShrink: 0 }}
             onClick={() => GeneratingSQLHandler()}
             disabled={isAILoadingGenerating || !editorConnected || !IsSelectedAiID()}
             title="Generate SQL from a question, using the selected AI database"
@@ -2806,7 +2793,7 @@ export default function QueryEditor({
                 <span>Generate SQL</span>
               </>
             )}
-          </button>
+          </Button>
 
           <Select
             className="sql-action-control"
@@ -2870,8 +2857,8 @@ export default function QueryEditor({
             </option>
           </Select>
 
-          <button
-            className="btn btn-primary btn-sm sql-action-control"
+          <Button
+            variant="primary" size="sm" className="sql-action-control btn-shimmer"
             /* The ONLY thing that runs a query. It performs whatever the
                dropdown says, and does not change it: forcing GENERAL RUN here
                would silently discard the mode the user had just chosen. */
@@ -2893,7 +2880,7 @@ export default function QueryEditor({
                 <Icon className="ti ti-player-play"></Icon> Go
               </>
             )}
-          </button>
+          </Button>
         </div>
         {ExplainOptionSelector?.type &&
           ExplainOptionSelector.type !== "GENERAL RUN" && (
@@ -2955,20 +2942,20 @@ export default function QueryEditor({
                       Recent Queries ({history.length})
                     </span>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
+                      <Button
+                        variant="ghost" size="sm"
                         onClick={() => setClearHistConfirmModal(true)}
                         title="Clear history"
                       >
                         <Icon className="ti ti-trash"></Icon>
                         Clear History
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
                         onClick={() => setPanel(null)}
                       >
                         <Icon className="ti ti-x"></Icon>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   {history.length === 0 ? (
@@ -3065,15 +3052,14 @@ export default function QueryEditor({
                             >
                               {new Date(h.timestamp).toLocaleString()}
                             </span>
-                            <button
-                              className="btn btn-ghost btn-sm"
+                            <Button
+                              variant="ghost" size="sm"
                               onClick={() =>
                                 setExpandedIdx(expandedIdx === i ? null : i)
                               }
                               title={
                                 expandedIdx === i ? "Collapse" : "Expand SQL"
                               }
-                              style={{ padding: "2px 4px" }}
                             >
                               <Icon
                                 className={
@@ -3084,15 +3070,11 @@ export default function QueryEditor({
                                 }
                                 style={{ fontSize: "0.875rem" }}
                               ></Icon>
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
+                            </Button>
+                            <Button
+                              variant="secondary" size="sm"
                               onClick={() => openInNewTab("History", h.sql)}
                               title="Open in a new tab"
-                              style={{
-                                padding: "2px 8px",
-                                fontSize: "0.75rem",
-                              }}
                             >
                               <Icon
                                 className="ti ti-player-play"
@@ -3102,9 +3084,9 @@ export default function QueryEditor({
                                 }}
                               ></Icon>{" "}
                               Load
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
+                            </Button>
+                            <Button
+                              variant="danger" size="sm"
                               onClick={() =>
                                 setDeleteConfirmModal({
                                   id: h?.id,
@@ -3116,7 +3098,7 @@ export default function QueryEditor({
                                 className="ti ti-trash"
                                 style={{ fontSize: "0.75rem", padding: "0" }}
                               ></Icon>
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -3147,16 +3129,15 @@ export default function QueryEditor({
                       ></Icon>{" "}
                       Bookmarks ({bookmarks.length})
                     </span>
-                    <button
-                      className="btn btn-ghost btn-sm"
+                    <Button
+                      variant="ghost" size="sm"
                       onClick={() => setPanel(null)}
                     >
                       <Icon className="ti ti-x"></Icon>
-                    </button>
+                    </Button>
                   </div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    <input
-                      className="form-input"
+                    <Input
                       placeholder="Bookmark name"
                       value={bookmarkName}
                       onChange={(e) => setBookmarkName(e.target.value)}
@@ -3169,13 +3150,13 @@ export default function QueryEditor({
                         flex: 1,
                       }}
                     />
-                    <button
-                      className="btn btn-primary btn-sm"
+                    <Button
+                      variant="primary" size="sm"
                       onClick={saveBookmark}
                       disabled={!bookmarkName.trim() || !sql.trim()}
                     >
                       <Icon className="ti ti-star"></Icon> Save
-                    </button>
+                    </Button>
                   </div>
 
                   {/* The other half of bookmark defaults. The save path has
@@ -3276,8 +3257,8 @@ export default function QueryEditor({
                             >
                               {b.sql}
                             </span>
-                            <button
-                              className="btn btn-ghost btn-sm"
+                            <Button
+                              variant="ghost" size="sm"
                               onClick={() =>
                                 setExpandedIdx(
                                   expandedIdx === "b" + i ? null : "b" + i,
@@ -3288,7 +3269,6 @@ export default function QueryEditor({
                                   ? "Collapse"
                                   : "Expand SQL"
                               }
-                              style={{ padding: "2px 4px" }}
                             >
                               <Icon
                                 className={
@@ -3299,15 +3279,11 @@ export default function QueryEditor({
                                 }
                                 style={{ fontSize: "0.875rem" }}
                               ></Icon>
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
+                            </Button>
+                            <Button
+                              variant="secondary" size="sm"
                               onClick={() => openInNewTab(b.name, b.sql, b)}
                               title="Open in a new tab"
-                              style={{
-                                padding: "2px 8px",
-                                fontSize: "0.75rem",
-                              }}
                             >
                               <Icon
                                 className="ti ti-player-play"
@@ -3317,18 +3293,17 @@ export default function QueryEditor({
                                 }}
                               ></Icon>{" "}
                               Load
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm"
                               onClick={() => deleteBookmark(i)}
                               title="Remove bookmark"
-                              style={{ padding: "2px 4px" }}
                             >
                               <Icon
                                 className="ti ti-trash"
                                 style={{ fontSize: "0.875rem" }}
                               ></Icon>
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -3350,8 +3325,7 @@ export default function QueryEditor({
 
         <div className="editor-results">
           {error && (
-            <div className="alert-banner danger" style={{ margin: 12 }}>
-              <Icon className="ti ti-alert-circle"></Icon>
+            <Notice tone="danger" icon="ti-alert-circle" style={{ margin: 12 }}>
               <pre
                 style={{
                   whiteSpace: "pre-wrap",
@@ -3363,7 +3337,7 @@ export default function QueryEditor({
               >
                 {error}
               </pre>
-            </div>
+            </Notice>
           )}
 
           {graphData && !graphData._json && graphFullscreen && (
@@ -3411,51 +3385,51 @@ export default function QueryEditor({
                   >
                     {Math.round(graphZoomLevel * 100)}%
                   </span>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => graphZoom(1.25)}
                     title="Zoom in"
                   >
                     <Icon className="ti ti-zoom-in"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => graphZoom(0.8)}
                     title="Zoom out"
                   >
                     <Icon className="ti ti-zoom-out"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => setGraphZoomLevel(1)}
                     title="Reset zoom"
                   >
                     <Icon className="ti ti-zoom-reset"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={graphDownload}
                     title="Download PNG"
                     aria-label="Download PNG"
                   >
                     <Icon className="ti ti-download"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => setShowGraphSqlModal(true)}
                     title="View SQL"
                   >
                     <Icon className="ti ti-code"></Icon> View SQL
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => setGraphFullscreen(!graphFullscreen)}
                     title={graphFullscreen ? "Exit fullscreen" : "Fullscreen"}
                   >
                     <Icon
                       className={`ti ${graphFullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
                     ></Icon>
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div
@@ -3551,12 +3525,7 @@ export default function QueryEditor({
       </div>
 
       {ddlModal && (
-        <div className="modal-overlay" onClick={() => setDdlModal(null)}>
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 700, width: "95%" }}
-          >
+        <Modal onClose={() => setDdlModal(null)} style={{ maxWidth: 700, width: "95%" }}>
             <div
               style={{
                 display: "flex",
@@ -3580,12 +3549,12 @@ export default function QueryEditor({
                 ></Icon>{" "}
                 DDL: {ddlModal.name}
               </h3>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => setDdlModal(null)}
               >
                 <Icon className="ti ti-x"></Icon>
-              </button>
+              </Button>
             </div>
             {ddlModal.loading ? (
               <div
@@ -3625,29 +3594,23 @@ export default function QueryEditor({
                     gap: 8,
                   }}
                 >
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => {
                       navigator.clipboard?.writeText(ddlModal.ddl);
                       toast.success("DDL Text Copied Successfully");
                     }}
                   >
                     <Icon className="ti ti-copy"></Icon> Copy
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
 
       {previewOpen && (
-        <div className="modal-overlay" onClick={() => setPreviewOpen(false)}>
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 700, width: "95%" }}
-          >
+        <Modal onClose={() => setPreviewOpen(false)} style={{ maxWidth: 700, width: "95%" }}>
             <div
               style={{
                 display: "flex",
@@ -3671,29 +3634,20 @@ export default function QueryEditor({
                 ></Icon>{" "}
                 Preview
               </h3>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => setPreviewOpen(false)}
               >
                 <Icon className="ti ti-x"></Icon>
-              </button>
+              </Button>
             </div>
 
             <QueryPreviewPanel sql={sql} values={paramValues} />
-          </div>
-        </div>
+          </Modal>
       )}
 
       {showGraphSqlModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowGraphSqlModal(false)}
-        >
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 900, width: "95%" }}
-          >
+        <Modal onClose={() => setShowGraphSqlModal(false)} style={{ maxWidth: 900, width: "95%" }}>
             <div
               style={{
                 display: "flex",
@@ -3717,12 +3671,12 @@ export default function QueryEditor({
                 ></Icon>{" "}
                 SQL
               </h3>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => setShowGraphSqlModal(false)}
               >
                 <Icon className="ti ti-x"></Icon>
-              </button>
+              </Button>
             </div>
             <div>
               <pre
@@ -3751,19 +3705,18 @@ export default function QueryEditor({
                   gap: 8,
                 }}
               >
-                <button
-                  className="btn btn-secondary btn-sm"
+                <Button
+                  variant="secondary" size="sm"
                   onClick={() => {
                     navigator.clipboard?.writeText(sql);
                     toast.success("Quer Text Copied Successfully");
                   }}
                 >
                   <Icon className="ti ti-copy"></Icon> Copy
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
       <ConfirmDialog
         open={rowsWarn != null}

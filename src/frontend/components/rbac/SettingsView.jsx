@@ -7,6 +7,9 @@ import Icon from "../common/Icon.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { resolveEffectiveSettings, describeSource } from "../../utils/effectiveSettings.js";
+import { Input, Button, Notice } from "../ui/index.jsx";
+import TreeGraph from "../common/TreeGraph.jsx";
+import { buildSettingsSourceTree } from "../../utils/settingsTree.js";
 
 // The system tables this tab reads. None of the SQL contains user input.
 const QUERIES = {
@@ -106,6 +109,17 @@ export default function SettingsView() {
     });
   }, [data, targetType, targetName, useAllGrantedRoles, config]);
 
+  const sourceTree = useMemo(
+    () =>
+      buildSettingsSourceTree({
+        targetType,
+        targetName,
+        result,
+        defaultProfileName: config.defaultProfileName,
+      }),
+    [targetType, targetName, result, config],
+  );
+
   const settingInfoByName = useMemo(
     () => new Map((data?.settings || []).map((setting) => [setting.name, setting])),
     [data],
@@ -141,7 +155,7 @@ export default function SettingsView() {
 
   return (
     <div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 14 }}>
+      <div className="search-form-row" style={{ alignItems: "center" }}>
         <Select className="form-select" value={targetType} onChange={(event) => changeTargetType(event.target.value)}>
           <option value="user">User</option>
           <option value="role">Role</option>
@@ -164,27 +178,25 @@ export default function SettingsView() {
             <option value="default">Default roles only (as at login)</option>
           </Select>
         )}
-        <input
-          className="form-input"
+        <Input
           placeholder="Search settings"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          style={{ width: 200 }}
+          style={{ width: "14rem" }}
         />
-        <button className="btn btn-secondary btn-sm" onClick={load} disabled={loading}>
+        <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
           <Icon className="ti ti-refresh"></Icon> Refresh
-        </button>
+        </Button>
       </div>
 
       {loadErrors.length > 0 && (
-        <div className="alert-banner warning" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-alert-triangle"></Icon>
+        <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 14 }}>
           <span>
             Some tables could not be read, so the result can be incomplete. Check that the CHOps
             service account has SHOW USERS, SHOW ROLES and SHOW SETTINGS PROFILES.{" "}
             {loadErrors.join(" ")}
           </span>
-        </div>
+        </Notice>
       )}
 
       {!targetName && (
@@ -203,14 +215,15 @@ export default function SettingsView() {
           </p>
 
           {result.missingProfiles.length > 0 && (
-            <div className="alert-banner warning" style={{ marginBottom: 10 }}>
-              <Icon className="ti ti-alert-triangle"></Icon>
+            <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 10 }}>
               <span>
                 These profiles do not exist, so ClickHouse skips them: {result.missingProfiles.join(", ")}.
               </span>
-            </div>
+            </Notice>
           )}
 
+          <h3 style={{ fontSize: "0.9375rem", margin: "8px 0" }}>Where the settings come from</h3>
+          <TreeGraph tree={sourceTree} fileName={`settings-${targetName}.png`} emptyMessage="No sources." />
           <h3 style={{ fontSize: "0.9375rem", margin: "8px 0" }}>Effective settings</h3>
           <DataTable
             rows={effectiveRows}

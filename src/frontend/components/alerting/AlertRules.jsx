@@ -767,7 +767,9 @@ export default function AlertRules({mainRef}) {
                 value={f.sql}
                 onChange={(next) => setF({ ...f, sql: next })}
                 variant="expression"
-                height="72px"
+                height="auto"
+                minHeight="4.5rem"
+                maxHeight="50vh"
               />
             </div>
           </FormField>
@@ -1090,7 +1092,15 @@ export default function AlertRules({mainRef}) {
                   ? `Alert firing${r.lastValue != null ? ` - Current value: ${withUnit(r.lastValue, unitOfTemplate(r.templateId))}` : ""}`
                   : `Last status: ${r.lastStatus}${r.lastValue != null ? ` (${withUnit(r.lastValue, unitOfTemplate(r.templateId))})` : ""}`;
             return (
-              <div key={r.id} className="card" style={{ padding: 16 }}>
+              <div
+                key={r.id}
+                className="card"
+                style={{ padding: 16, cursor: "pointer" }}
+                onClick={(event) => {
+                  if (event.target.closest("button, a")) return;
+                  edit(r);
+                }}
+              >
                 <div
                   style={{
                     display: "flex",
@@ -1100,7 +1110,14 @@ export default function AlertRules({mainRef}) {
                   }}
                 >
                   <strong>
-                    {r.name}
+                    <button
+                      type="button"
+                      className="alert-rule-name"
+                      title="Open the rule (shows the SQL)"
+                      onClick={() => edit(r)}
+                    >
+                      {r.name}
+                    </button>
                     {r.templateId && (
                       <span
                         className="badge badge-gray"
@@ -1132,20 +1149,6 @@ export default function AlertRules({mainRef}) {
                     {r.description}
                   </p>
                 )}
-                <div
-                  style={{
-                    fontFamily: "var(--font-code)",
-                    fontSize: "0.75rem",
-                    background: "var(--bg-sunken)",
-                    padding: 8,
-                    borderRadius: "var(--radius-sm)",
-                    marginBottom: 8,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  {r.sql}
-                </div>
                 {showMarquee && (
                   <div
                     style={{
@@ -1261,6 +1264,8 @@ export default function AlertRules({mainRef}) {
                 <div style={{ display: "flex", gap: 6 }}>
                   <Button
                     variant="secondary" size="sm"
+                    aria-label="Edit rule"
+                    title="Edit rule"
                     onClick={() => edit(r)}
                     disabled={!isAdmin}
                     style={
@@ -1284,6 +1289,8 @@ export default function AlertRules({mainRef}) {
                   </Button>
                   <Button
                     variant="danger" size="sm"
+                    aria-label="Delete rule"
+                    title="Delete rule"
                     onClick={() => isAdmin && setDel(r.id)}
                     disabled={!isAdmin}
                     style={
@@ -1295,6 +1302,7 @@ export default function AlertRules({mainRef}) {
                   <Button
                     variant="secondary" size="sm"
                     title="History"
+                    aria-label="History"
                     onClick={() => getHistory(r.id)}
                     disabled={!isAdmin}
                     style={

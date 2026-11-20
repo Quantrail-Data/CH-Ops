@@ -1347,7 +1347,6 @@ function changeSince(v) {
           variant="secondary"
           onClick={load}
           disabled={busy}
-          style={{ height:"2.5rem" }}
         >
           {busy ? "Reading..." : "Read logs"}
         </Button>

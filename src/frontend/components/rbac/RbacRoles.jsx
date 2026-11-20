@@ -14,6 +14,7 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
 import { useAuth } from "../../App.jsx";
 import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
+import { Input, Button, FormField } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const ACCESS_TYPES = [
@@ -215,17 +216,15 @@ function CreateRole({ rbac, clusters, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Role Name *</label>
-          <input
-            className="form-input"
+        <FormField label="Role Name *">
+          <Input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           />
-        </div>
+        </FormField>
         <div className="form-group">
           
           <label className="form-label">ON CLUSTER</label>
@@ -246,14 +245,14 @@ function CreateRole({ rbac, clusters, setResult, onSuccess }) {
       </div>
       <SqlPreview sql={sql} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           type="submit"
           disabled={!isAdmin}
           style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
         >
           <Icon className="ti ti-plus"></Icon> Create
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -334,8 +333,7 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Role *</label>
+        <FormField label="Role *">
           <Select
             className="form-select"
             required
@@ -349,17 +347,15 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
               <option key={r}>{r}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Rename To</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="Rename To">
+          <Input
             value={f.rename}
             onChange={(e) => u("rename", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           />
-        </div>
+        </FormField>
         <div className="form-group">
           <label className="form-label">ON CLUSTER</label>
           <Select
@@ -385,45 +381,37 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">ADD SETTINGS</label>
-          <input
-            className="form-input"
+        <FormField label="ADD SETTINGS">
+          <Input
             value={f.addSettings}
             onChange={(e) => u("addSettings", e.target.value)}
             placeholder="var = value, ..."
             style={{ fontFamily: "var(--font-code)" }}
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">DROP SETTINGS</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="DROP SETTINGS">
+          <Input
             value={f.dropSettings}
             onChange={(e) => u("dropSettings", e.target.value)}
             style={{ fontFamily: "var(--font-code)" }}
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">ADD PROFILES</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="ADD PROFILES">
+          <Input
             value={f.addProfiles}
             onChange={(e) => u("addProfiles", e.target.value)}
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">DROP PROFILES</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="DROP PROFILES">
+          <Input
             value={f.dropProfiles}
             onChange={(e) => u("dropProfiles", e.target.value)}
             disabled={!isAdmin}
           />
-        </div>
+        </FormField>
       </div>
       <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
         <label
@@ -463,14 +451,14 @@ function AlterRole({ rbac, roles, clusters, setResult, onSuccess }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           type="submit"
           disabled={!sel || !isAdmin}
           style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
         >
           <Icon className="ti ti-edit"></Icon> Alter
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -540,8 +528,7 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Role *</label>
+        <FormField label="Role *">
           <Select
             className="form-select"
             value={f.role}
@@ -555,9 +542,8 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
               <option key={r}>{r}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Action</label>
+        </FormField>
+        <FormField label="Action">
           <Select
             className="form-select"
             value={f.action}
@@ -568,9 +554,8 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
             <option value="grant">Grant</option>
             <option value="revoke">Revoke</option>
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Privilege</label>
+        </FormField>
+        <FormField label="Privilege">
           <Select
             className="form-select"
             value={f.accessType}
@@ -582,9 +567,8 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
               <option key={a}>{a}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Database</label>
+        </FormField>
+        <FormField label="Database">
           <Select
             className="form-select"
             value={f.database}
@@ -600,9 +584,8 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Table</label>
+        </FormField>
+        <FormField label="Table">
           <Select
             className="form-select"
             value={f.table}
@@ -615,7 +598,7 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <div className="form-group">
           
           <label className="form-label">ON CLUSTER</label>
@@ -636,14 +619,14 @@ function GrantRevoke({ rbac, roles, clusters, setResult }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           type="submit"
           disabled={!f.role || !isAdmin}
           style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
         >
           <Icon className="ti ti-key"></Icon> Execute
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -697,8 +680,7 @@ function DropRole({ rbac, roles, clusters, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Role</label>
+        <FormField label="Role">
           <Select
             className="form-select"
             value={sel}
@@ -711,7 +693,7 @@ function DropRole({ rbac, roles, clusters, setResult, onSuccess }) {
               <option key={r}>{r}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <div className="form-group">
          
           <label className="form-label">ON CLUSTER</label>
@@ -732,14 +714,14 @@ function DropRole({ rbac, roles, clusters, setResult, onSuccess }) {
       </div>
       <SqlPreview sql={sql} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-danger"
+        <Button
+          variant="danger"
           disabled={!sel || !isAdmin}
           onClick={() => setConfirm(true)}
           style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop
-        </button>
+        </Button>
       </div>
       {confirm && (
         <ConfirmModal
@@ -749,8 +731,7 @@ function DropRole({ rbac, roles, clusters, setResult, onSuccess }) {
               <p>
                 Type the role name <strong>{sel}</strong> to confirm:
               </p>
-              <input
-                className="form-input"
+              <Input
                 style={{ marginTop: 8 }}
                 value={confirmName}
                 onChange={(e) => setConfirmName(e.target.value)}

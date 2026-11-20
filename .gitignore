@@ -3,6 +3,8 @@ dist/
 .env
 data/
 *.db
+# Sample databases for the migration tests (made by older CHOps versions).
+!tests/db/fixtures/*.db
 *.sqlite
 *.log
 .DS_Store
@@ -18,3 +20,10 @@ chops-linux-x64
 chops-darwin-arm64
 chops-darwin-x64
 chops-windows-x64.exe
+
+# Visual check: generated files
+tests/visual/output/
+tests/visual/output-*/
+tests/visual/baseline/
+tests/visual/fake-clickhouse/.data/
+tests/visual/fake-clickhouse/__pycache__/

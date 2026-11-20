@@ -24,7 +24,8 @@ import ChartCard from "../layout/ChartCard.jsx";
 import { useConnection } from "../../App.jsx";
 import AdvancedFilters from "./AdvancedFilters.jsx";
 import { buildWhere, extraColumns, loadAdvState } from "../../utils/advancedFilters.js";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -37,7 +38,7 @@ const fmtNow = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
-export default function CrashLog({ sidebar }) {
+export default function CrashLog() {
   const { tab: routeTab = "overview" } = useParams();
   const conn = useConnection();
   const navigate = useNavigate();
@@ -71,7 +72,7 @@ export default function CrashLog({ sidebar }) {
         <CrashLogOverview unavailable={conn.unavailable} />
       )}
       {routeTab === "search" && (
-        <CrashLogSearch sidebar={sidebar} unavailable={conn.unavailable} />
+        <CrashLogSearch unavailable={conn.unavailable} />
       )}
     </div>
   );
@@ -256,15 +257,13 @@ function SectionError({ title, message }) {
       >
         {title}
       </div>
-      { <div
-        className="alert-banner danger"
-      >
+      { <Notice tone="danger">
         <Icon
           className="ti ti-alert-circle"
           style={{ flexShrink: 0, marginTop: 1 }}
         ></Icon>
         <span>{message}</span>
-      </div>}
+      </Notice>}
     </div>
   );
 }
@@ -469,25 +468,23 @@ function CrashLogOverview({ unavailable }) {
           alignItems: "flex-end",
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Quick</label>
+        <FormField label="Quick">
           <div style={{ display: "flex", gap: 4 }}>
             {PRESETS.map((d) => (
-              <button
+              <Button
                 key={d}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
-                style={{ padding: "8px 12px", minWidth: 48 }}
+                size="sm" variant={duration === d ? "primary" : "secondary"} aria-pressed={duration === d}
+                style={{ minWidth: 48 }}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
-        <button
+        </FormField>
+        <Button
           title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
-          className="btn btn-primary btn-sm"
-          style={{ padding: "8px 14px" }}
+          variant="primary" size="sm"
           onClick={load}
           disabled={loading || liveState?.isNotConnectedClusterNode()}
         >
@@ -500,7 +497,7 @@ function CrashLogOverview({ unavailable }) {
               <Icon className="ti ti-player-play"></Icon> Load
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -650,7 +647,7 @@ async function runQueryProbe() {
   return new Set((res.rows || []).map((r) => r.name).filter(Boolean));
 }
 
-function CrashLogSearch({ sidebar, unavailable }) {
+function CrashLogSearch({ unavailable }) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());
@@ -819,10 +816,6 @@ function CrashLogSearch({ sidebar, unavailable }) {
     );
   }
 
-  const widthStyle = {
-    width: `${(window?.innerWidth - (sidebar ? 650 : 900)) / (sidebar ? 5 : 5)}px`,
-  };
-
   return (
     <div>
       <div
@@ -845,101 +838,67 @@ function CrashLogSearch({ sidebar, unavailable }) {
           <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>
           Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
 
       {filtersOpen && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <form onSubmit={handleSearch}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 5,
-                marginBottom: 14,
-              }}
-            >
-              <div>
-                <DateTimePicker
-                  label="From *"
-                  value={from}
-                  onChange={handleDateOnChange}
-                  name="From"
-                />
-              </div>
-              <div>
-                {" "}
-                <DateTimePicker
-                  label="To *"
-                  value={to}
-                  onChange={handleDateOnChange}
-                  name="To"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Query (text)</label>
-                <input
-                  className="form-input"
-                  style={widthStyle}
+            <div className="search-form-row">
+              <DateTimePicker
+                label="From *"
+                value={from}
+                onChange={handleDateOnChange}
+                name="From"
+              />
+              <DateTimePicker
+                label="To *"
+                value={to}
+                onChange={handleDateOnChange}
+                name="To"
+              />
+              <FormField label="Query (text)" className="search-field">
+                <Input
                   value={queryText}
                   onChange={(e) => setQueryText(e.target.value)}
                   placeholder="partial..."
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Signal Description</label>
-                <input
-                  className="form-input"
+              </FormField>
+              <FormField label="Signal Description" className="search-field">
+                <Input
                   value={signalDesc}
-                  style={widthStyle}
                   onChange={(e) => setSignalDesc(e.target.value)}
                   placeholder="partial..."
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Exception Trace</label>
-                <input
-                  className="form-input"
+              </FormField>
+              <FormField label="Exception Trace" className="search-field">
+                <Input
                   value={exceptionTrace}
-                  style={widthStyle}
                   onChange={(e) => setExceptionTrace(e.target.value)}
                   placeholder="partial..."
                 />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Row Limit</label>
-                <input
-                  className="form-input"
+              </FormField>
+              <FormField label="Row Limit" className="search-field-small">
+                <Input
                   type="number"
                   min={1}
                   max={100000}
                   value={rowLimit}
                   onChange={(e) => setRowLimit(parseInt(e.target.value) || 500)}
-                  style={{ width: 100 }}
                 />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  justifyContent: "flex-end",
-                  height: "60px",
-                  marginLeft: "10px",
-                }}
-              >
-                <button
-                title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
-                  className="btn btn-primary"
+              </FormField>
+              <div className="search-form-submit">
+                <Button
+                  title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+                  variant="primary"
                   type="submit"
                   disabled={loading || liveState?.isNotConnectedClusterNode()}
                 >
@@ -952,7 +911,7 @@ function CrashLogSearch({ sidebar, unavailable }) {
                       <Icon className="ti ti-search"></Icon> Search
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
 

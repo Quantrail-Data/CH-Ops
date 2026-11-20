@@ -15,6 +15,8 @@ import {
   applyImport,
   summarise,
 } from "../../utils/bookmarkExport.js";
+import { Button, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 const CHOICE_LABELS = [
   [CHOICES.KEEP, "Keep mine"],
@@ -82,26 +84,26 @@ export default function BookmarkExport({ bookmarks, onImport }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Export as</span>
         {FORMATS.map((f) => (
-          <button
+          <Button
             key={f.id}
-            className="btn btn-ghost btn-sm"
+            variant="ghost" size="sm"
             onClick={() => download(f)}
             disabled={empty}
             title={f.hint}
           >
             <Icon className="ti ti-download" /> {f.label}
-          </button>
+          </Button>
         ))}
 
         <span style={{ flex: 1 }} />
 
-        <button
-          className="btn btn-secondary btn-sm"
+        <Button
+          variant="secondary" size="sm"
           onClick={() => fileRef.current?.click()}
           title="Import a JSON export. Nothing is run; queries are only stored."
         >
           <Icon className="ti ti-upload" /> Import
-        </button>
+        </Button>
         <input
           ref={fileRef}
           type="file"
@@ -118,19 +120,13 @@ export default function BookmarkExport({ bookmarks, onImport }) {
       </div>
 
       {error && (
-        <div className="alert-banner danger" style={{ marginTop: 10, fontSize: "0.75rem" }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="danger" icon="ti-alert-circle" style={{ marginTop: 10, fontSize: "0.75rem" }}>
           <span>{error}</span>
-        </div>
+        </Notice>
       )}
 
       {plan && (
-        <div className="modal-overlay" onClick={() => setPlan(null)}>
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 720, width: "95%" }}
-          >
+        <Modal onClose={() => setPlan(null)} style={{ maxWidth: 720, width: "95%" }}>
             <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: 6 }}>
               Some of these already exist
             </h3>
@@ -192,19 +188,18 @@ export default function BookmarkExport({ bookmarks, onImport }) {
                 alone{counts.identical ? `, ${counts.identical} already identical` : ""}
               </span>
               <span style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setPlan(null)}>
+                <Button variant="ghost" size="sm" onClick={() => setPlan(null)}>
                   Cancel
-                </button>
+                </Button>
                 {/* Not "Import": the toolbar button behind this overlay says
                     that already, and two buttons with one label a few hundred
                     pixels apart is a question the user should not have to ask. */}
-                <button className="btn btn-primary btn-sm" onClick={confirm}>
+                <Button variant="primary" size="sm" onClick={confirm}>
                   Apply import
-                </button>
+                </Button>
               </span>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </div>
   );

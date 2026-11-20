@@ -41,6 +41,6 @@ bun run db:migrate
 bun run dev
 ```
 
-The `dev` command starts the backend on port 3000 and the frontend development server on port 5173. Open `http://localhost:5173`. When you edit the code, the servers reload automatically. After you sign in, add your test cluster in **Control panel > Cluster Management**. To set up a local ClickHouse&reg; cluster for tests, see [Setting Up a Test Cluster](test-cluster-setup.md). Before you open a pull request, run `bun run test`, `bun run lint`, and `bun run check:sensitive-logging`. See [Testing](testing.md).
+The `dev` command starts the backend on port 7720 and the frontend development server on port 7721. Open `http://localhost:7721`. When you edit the code, the servers reload automatically. After you sign in, add your test cluster in **Control panel > Cluster Management**. To set up a local ClickHouse&reg; cluster for tests, see [Setting Up a Test Cluster](test-cluster-setup.md). Before you open a pull request, run `bun run test`, `bun run lint`, and `bun run check:sensitive-logging`. See [Testing](testing.md).
 
 Thank you again for your help. We are glad that you are here.

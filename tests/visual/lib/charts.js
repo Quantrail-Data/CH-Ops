@@ -1,14 +1,15 @@
 // Reads every ECharts chart on the page, with no change to the app.
 //
-// In the Vite dev server, the app loads ECharts from one module address. The
-// page reads that address from the served file src/frontend/utils/echarts.js,
-// imports the same address again and gets the same module. Then it can call
+// In the Vite dev server, the app loads ECharts from one module address
+// ("echarts/core", pre-bundled as deps/echarts_core.js). The page reads that
+// address from the served file src/frontend/utils/echarts.js, imports the same
+// address again and gets the same module. Then it can call
 // echarts.getInstanceByDom() on each chart element.
 
 export async function readCharts(page) {
   return page.evaluate(async () => {
     const appModule = await (await fetch("/src/frontend/utils/echarts.js")).text();
-    const match = appModule.match(/from\s+["']([^"']*\/deps\/echarts\.js[^"']*)["']/);
+    const match = appModule.match(/from\s+["']([^"']*\/deps\/echarts(?:_core)?\.js[^"']*)["']/);
     if (!match) return { error: "ECharts module not found. Run the check against the Vite dev server.", charts: [] };
     const echarts = await import(match[1]);
 
@@ -55,7 +56,9 @@ export async function readCharts(page) {
       while (current && current !== document.body) {
         const parent = current.parentElement;
         const index = parent ? [...parent.children].indexOf(current) : 0;
-        parts.unshift(`${current.tagName.toLowerCase()}:${index}`);
+        // The page fade-in wrapper (package 6) is not in the path, so the
+        // paths stay the same as in the older baselines.
+        if (!current.classList.contains("page-enter")) parts.unshift(`${current.tagName.toLowerCase()}:${index}`);
         current = parent;
       }
       return parts.join("/");

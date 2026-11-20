@@ -5,13 +5,16 @@ import { fileURLToPath } from "node:url";
 export const VISUAL_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const FIXTURES_DIR = path.join(VISUAL_DIR, "fixtures");
 export const BASELINE_DIR = path.join(VISUAL_DIR, "baseline");
-export const OUTPUT_DIR = path.join(VISUAL_DIR, "output");
+// The browser language. Run again with VISUAL_LOCALE=en-IN to see the Indian
+// date and number format (day first). Its output goes to its own folder.
+export const LOCALE = process.env.VISUAL_LOCALE || "en-US";
+export const OUTPUT_DIR = path.join(VISUAL_DIR, LOCALE === "en-US" ? "output" : `output-${LOCALE}`);
 
 // The Vite dev server. The chart check needs dev mode (see lib/charts.js).
-export const APP_URL = process.env.VISUAL_APP_URL || "http://localhost:5173";
+export const APP_URL = process.env.VISUAL_APP_URL || `http://localhost:${process.env.DEV_FRONTEND_PORT || 7721}`;
 
 // Used only while recording.
-export const BACKEND_URL = process.env.VISUAL_BACKEND_URL || "http://localhost:3000";
+export const BACKEND_URL = process.env.VISUAL_BACKEND_URL || `http://localhost:${process.env.PORT || 7720}`;
 export const FAKE_CLICKHOUSE_URL = process.env.VISUAL_FAKE_CLICKHOUSE_URL || "http://127.0.0.1:8123";
 export const ADMIN_USER = process.env.VISUAL_ADMIN_USER || "admin";
 export const ADMIN_PASSWORD = process.env.VISUAL_ADMIN_PASSWORD || "";

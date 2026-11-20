@@ -9,13 +9,14 @@ import Icon from "../common/Icon.jsx";
 import { useQuery } from '../../hooks/useQuery.js';
 import { useConnection } from '../../App.jsx';
 import DataTable from '../layout/DataTable.jsx';
-import { initChart, disposeChart } from '../../utils/echarts.js';
+import { initChart, disposeChart, disposeChartInstance } from '../../utils/echarts.js';
 import { themeColor } from '../../utils/theme.js';
 import { fmtBytes } from '../../utils/costEstimator.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import ClusterTopology from './ClusterTopology.jsx';
 import { Section } from './OverviewCards.jsx';
 import { KpiCard, PageHeader, StatusDot, Notice } from '../ui/index.jsx';
+import { NumberTicker } from '../ui/number-ticker.jsx';
 import LiveOverview, { useLiveOverview, LiveControlBar, MachineGauges } from './LiveOverview.jsx';
 import ErrorClusterConnected from '../common/ErrorClusterConnected.jsx';
 
@@ -29,13 +30,16 @@ function isDark() {
 }
 
 // Dense fact card for the node overview row, built on the shared KpiCard.
+// A whole number counts up to its value (Magic UI Number Ticker); text
+// (version, uptime) shows as it is.
 function StatCard({ icon, label, value, tone }) {
+  const isWholeNumber = value !== null && value !== undefined && value !== "" && /^\d+$/.test(String(value));
   return (
     <KpiCard
       compact
       icon={icon}
       label={label}
-      value={value}
+      value={isWholeNumber ? <NumberTicker value={Number(value)} /> : value}
       className={tone === 'danger' ? 'stat-card-danger' : undefined}
     />
   );
@@ -242,7 +246,8 @@ export default function ClusterOverview({mainRef}) {
 
   /* Cleanup */
   useEffect(() => () => {
-    if (diskEl.current) disposeChart(diskEl.current);
+    disposeChartInstance(diskInst.current);
+    diskInst.current = null;
   }, []);
 
   /* Derived */

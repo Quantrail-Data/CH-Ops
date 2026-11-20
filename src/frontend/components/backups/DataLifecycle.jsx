@@ -19,6 +19,7 @@ import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
 import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -94,10 +95,9 @@ export default function DataLifecycle({mainRef}) {
             <Icon className="ti ti-archive-filled"></Icon> Data Lifecycle
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>Data lifecycle management is only available for administrators.</span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>Data lifecycle management is only available for administrators.</p>
@@ -114,10 +114,9 @@ export default function DataLifecycle({mainRef}) {
         </h2>
       </div>
       {profiles.length === 0 && (
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-info-circle"></Icon> No storage profiles configured.
+        <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 14 }}> No storage profiles configured.
           Create one in Storage Profiles first.
-        </div>
+        </Notice>
       )}
       <div className="tab-bar">
         <div
@@ -433,22 +432,14 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   return (
     <>
       {result && (
-        <div
-          className={`alert-banner ${result.ok ? "success" : "danger"}`}
+        <Notice
+          tone={result.ok ? "success" : "danger"}
+          icon={result.ok ? "ti-check" : "ti-alert-circle"}
+          onDismiss={() => setResult(null)}
           style={{ marginBottom: 14 }}
-          >
-          <Icon
-          className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
-          ></Icon>{" "}
+        >
           {result.msg}
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginLeft: "auto" }}
-            onClick={() => setResult(null)}
-              >
-            <Icon className="ti ti-x"></Icon>
-            </button>
-        </div>
+        </Notice>
         )}
       <div className="card" style={{ padding: 20 }}>
       <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
@@ -462,8 +453,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           marginBottom: 20,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Action *</label>
+        <FormField label="Action *">
           <Select
             className="form-select"
             value={action}
@@ -477,9 +467,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             <option value="backup">BACKUP</option>
             <option value="restore">RESTORE</option>
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Scope</label>
+        </FormField>
+        <FormField label="Scope">
           <Select
             className="form-select"
             value={scope}
@@ -492,10 +481,9 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             <option value="database">DATABASE</option>
             <option value="table">TABLE</option>
           </Select>
-        </div>
+        </FormField>
         {(scope === "database" || scope === "table") && (
-          <div className="form-group">
-            <label className="form-label">Database</label>
+          <FormField label="Database">
             <Select
               className="form-select"
               value={db}
@@ -509,11 +497,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 <option key={d}>{d}</option>
               ))}
             </Select>
-          </div>
+          </FormField>
         )}
         {scope === "table" && (
-          <div className="form-group">
-            <label className="form-label">Table</label>
+          <FormField label="Table">
             <Select
               className="form-select"
               value={tbl}
@@ -524,10 +511,9 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 <option key={t}>{t}</option>
               ))}
             </Select>
-          </div>
+          </FormField>
         )}
-        <div className="form-group">
-          <label className="form-label">Storage Profile *</label>
+        <FormField label="Storage Profile *">
           <Select
             className="form-select"
             value={profile}
@@ -540,9 +526,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">ON CLUSTER</label>
+        </FormField>
+        <FormField label="ON CLUSTER">
           <Select
             className="form-select"
             value={onCluster}
@@ -553,7 +538,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <ToggleSwitch checked={isAsync}
               onChange={(e) => setIsAsync(e.target.checked)} label="ASYNC"/>
       </div>
@@ -566,30 +551,25 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
           >
             {scope !== "table" && (
-              <div className="form-group">
-                <label className="form-label">EXCEPT TABLES</label>
-                <input
-                  className="form-input"
+              <FormField label="EXCEPT TABLES">
+                <Input
                   value={exceptTables}
                   onChange={(e) => setExceptTables(e.target.value)}
                   placeholder="db.table1, db.table2"
                 />
-              </div>
+              </FormField>
             )}
             {scope === "all" && (
-              <div className="form-group">
-                <label className="form-label">EXCEPT DATABASES</label>
-                <input
-                  className="form-input"
+              <FormField label="EXCEPT DATABASES">
+                <Input
                   value={exceptDatabases}
                   onChange={(e) => setExceptDatabases(e.target.value)}
                 />
-              </div>
+              </FormField>
             )}
             <div className="form-group">
               <label className="form-label">BASE BACKUP</label>
-              <input
-                className="form-input"
+              <Input
                 value={baseBackup}
                 onChange={(e) => setBaseBackup(e.target.value)}
                 placeholder="manual/ALL/MANUAL_ALL__2026_01_01_02_00_00"
@@ -614,8 +594,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               marginBottom: 12,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={listBackups}
               disabled={loadingBackups || !profile}
             >
@@ -628,22 +608,15 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                   <Icon className="ti ti-refresh"></Icon> List Available Backups
                 </>
               )}
-            </button>
+            </Button>
           </div>
           {scanErrors.length > 0 && (
-            <div
-              className="alert-banner info"
-              style={{ marginBottom: 12, fontSize: "0.8125rem" }}
-            >
-              <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
+            <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 12, fontSize: "0.8125rem" }}> Some S3 paths could not be
               scanned: {scanErrors.join("; ")}
-            </div>
+            </Notice>
           )}
           {availableBackups.length > 0 && (
-            <div className="form-group">
-              <label className="form-label">
-                Available Backups ({availableBackups.length}, newest first)
-              </label>
+            <FormField label={<>Available Backups ({availableBackups.length}, newest first)</>}>
               <Select
                 className="form-select"
                 value={selectedBackup}
@@ -656,7 +629,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                   </option>
                 ))}
               </Select>
-            </div>
+            </FormField>
           )}
         </div>
       )}
@@ -664,8 +637,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         <Icon className="ti ti-adjustments"></Icon> SETTINGS
       </h4>
       <div className="form-group" style={{ marginBottom: 20 }}>
-        <input
-          className="form-input"
+        <Input
           value={settingsStr}
           onChange={(e) => setSettingsStr(e.target.value)}
           placeholder="compression_method = 'lz4', compression_level = 3"
@@ -676,22 +648,15 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginBottom: 20 }}>
-        <div
-          className="alert-banner info"
-          style={{ marginTop: 10, marginBottom: 0, fontSize: "0.75rem", padding: "6px" }}
-        >
-          <Icon
-            style={{ fontSize: "0.9375rem", paddingTop: "2px" }}
-            className="ti ti-info-circle"
-          ></Icon>
+        <Notice tone="info" icon="ti-info-circle" style={{ marginTop: 10, marginBottom: 0, fontSize: "0.75rem", padding: "6px" }}>
           <span>
             Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
           </span>
-        </div>
+        </Notice>
       </div>
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           onClick={execute}
           disabled={
             !profile ||
@@ -711,7 +676,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               Execute {action.toUpperCase()}
             </>
           )}
-        </button>
+        </Button>
       </div>
       </div>
     </>
@@ -779,8 +744,7 @@ function AvailableBackupsTab({ profiles,mainRef }) {
           flexWrap: "wrap",
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Storage Profile *</label>
+        <FormField label="Storage Profile *">
           <Select
             className="form-select"
             value={profile}
@@ -793,9 +757,9 @@ function AvailableBackupsTab({ profiles,mainRef }) {
               </option>
             ))}
           </Select>
-        </div>
-        <button
-          className="btn btn-primary btn-sm"
+        </FormField>
+        <Button
+          variant="primary" size="sm"
           onClick={loadBackups}
           disabled={loading || !profile}
         >
@@ -808,17 +772,13 @@ function AvailableBackupsTab({ profiles,mainRef }) {
               <Icon className="ti ti-refresh"></Icon> Scan S3
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {scanErrors.length > 0 && (
-        <div
-          className="alert-banner info"
-          style={{ marginBottom: 14, fontSize: "0.8125rem" }}
-        >
-          <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
+        <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 14, fontSize: "0.8125rem" }}> Some S3 paths could not be
           scanned: {scanErrors.join("; ")}
-        </div>
+        </Notice>
       )}
 
       {backups.length > 0 ? (

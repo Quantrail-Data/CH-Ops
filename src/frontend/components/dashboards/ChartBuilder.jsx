@@ -29,7 +29,8 @@ import MaxRowsControl, {
   readMaxRows,
   MAX_ROWS_KEY,
 } from "../editor/MaxRowsControl.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -2653,10 +2654,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             <Icon className="ti ti-chart-dots-3"></Icon> Chart Builder
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>Chart building is only available for administrators.</span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>Chart building is only available for administrators.</p>
@@ -2684,8 +2684,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
             <Icon className="ti ti-chart-dots-3"></Icon>{" "}
             {editId ? "Edit Chart" : "Chart Builder"}
           </h2>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setFullscreen(!fullscreen)}
             title={fullscreen ? "Exit full screen" : "Full screen"}
             aria-label={fullscreen ? "Exit full screen" : "Full screen"}
@@ -2694,7 +2694,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
               style={{ fontSize: "0.875rem" }}
             ></Icon>
-          </button>
+          </Button>
         </div>
 
         <div className="card" style={{ marginBottom: 12, overflow: "hidden" }}>
@@ -2787,12 +2787,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     }}
                   >
                     {paramError && (
-                      <div
-                        className="alert-banner danger"
-                        style={{ marginTop: 8, fontSize: "0.8125rem" }}
-                      >
-                        <Icon className="ti ti-alert-circle" /> {paramError}
-                      </div>
+                      <Notice tone="danger" icon="ti-alert-circle" style={{ marginTop: 8, fontSize: "0.8125rem" }}> {paramError}
+                      </Notice>
                     )}
 
                     {!paramError && declaredParams.length > 0 && (
@@ -2813,11 +2809,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         </div>
 
                         {unwrapped.length > 0 && (
-                          <div
-                            className="alert-banner warning"
-                            style={{ fontSize: "0.8125rem", marginBottom: 8 }}
-                          >
-                            <Icon className="ti ti-alert-triangle" />
+                          <Notice tone="warning" icon="ti-alert-triangle" style={{ fontSize: "0.8125rem", marginBottom: 8 }}>
                             <div>
                               {unwrapped.map((p) => p.name).join(", ")}{" "}
                               {unwrapped.length > 1 ? "are" : "is"} outside an
@@ -2836,7 +2828,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                                 </code>
                               </div>
                             </div>
-                          </div>
+                          </Notice>
                         )}
 
                         {declaredParams.map((p) => (
@@ -2903,13 +2895,13 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     disabled={running}
                   />
 
-                  <button
+                  <Button
                     title={
                       liveState?.isNotConnectedClusterNode()
                         ? "No cluster nodes configured"
                         : ""
                     }
-                    className="btn btn-primary btn-sm"
+                    variant="primary" size="sm"
                     onClick={runSql}
                     disabled={running ||!sql.trim() || liveState?.isNotConnectedClusterNode()}
                   >
@@ -2922,7 +2914,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         <Icon className="ti ti-player-play"></Icon> Run
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div
@@ -2947,12 +2939,8 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     : "Run a query"}
                 </div>
                 {error && (
-                  <div
-                    className="alert-banner danger"
-                    style={{ fontSize: "0.8125rem" }}
-                  >
-                    <Icon className="ti ti-alert-circle"></Icon> {error}
-                  </div>
+                  <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}> {error}
+                  </Notice>
                 )}
                 <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                   {data && <DataTable rows={data} columns={columns} />}
@@ -3046,8 +3034,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                       marginBottom: 12,
                     }}
                   >
-                    <div className="form-group">
-                      <label className="form-label">Chart Type</label>
+                    <FormField label="Chart Type">
                       <Select
                         className="form-select"
                         value={chartType}
@@ -3059,10 +3046,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           </option>
                         ))}
                       </Select>
-                    </div>
+                    </FormField>
                     {hasMultipleSubtypes && (
-                      <div className="form-group">
-                        <label className="form-label">Subtype</label>
+                      <FormField label="Subtype">
                         <Select
                           className="form-select"
                           value={chartSubtype}
@@ -3077,17 +3063,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                             </option>
                           ))}
                         </Select>
-                      </div>
+                      </FormField>
                     )}
                   </div>
-                  <div className="form-group" style={{ marginBottom: 12 }}>
-                    <label className="form-label">Chart Name</label>
-                    <input
-                      className="form-input"
+                  <FormField label="Chart Name" style={{ marginBottom: 12 }}>
+                    <Input
                       value={chartName}
                       onChange={(e) => setChartName(e.target.value)}
                     />
-                  </div>
+                  </FormField>
                   {fields.length > 0 && columns.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
                       <label className="form-label" style={{ marginBottom: 6 }}>
@@ -3197,8 +3181,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         >
                           X Label
                         </label>
-                        <input
-                          className="form-input"
+                        <Input
                           value={xLabel}
                           onChange={(e) => setXLabel(e.target.value)}
                           style={{ fontSize: "0.8125rem" }}
@@ -3211,8 +3194,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         >
                           Y Label
                         </label>
-                        <input
-                          className="form-input"
+                        <Input
                           value={yLabel}
                           onChange={(e) => setYLabel(e.target.value)}
                           style={{ fontSize: "0.8125rem" }}
@@ -3230,16 +3212,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         padding: "8px 0",
                       }}
                     >
-                      <button
+                      <Button
                         onClick={() => setShowLegend(!showLegend)}
-                        className={`btn btn-sm ${showLegend ? "btn-primary" : "btn-secondary"}`}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          fontSize: "0.75rem",
-                          padding: "4px 8px",
-                        }}
+                        size="sm" variant={showLegend ? "primary" : "secondary"} aria-pressed={showLegend}
                         title={showLegend ? "Hide legend" : "Show legend"}
                       >
                         <Icon
@@ -3247,7 +3222,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                           style={{ fontSize: "0.875rem" }}
                         ></Icon>
                         <span>Legend</span>
-                      </button>
+                      </Button>
                     </div>
                   )}
                   {chartType === "gauge" && (
@@ -3266,8 +3241,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         >
                           Min
                         </label>
-                        <input
-                          className="form-input"
+                        <Input
                           type="number"
                           value={mapping.min_val || 0}
                           onChange={(e) =>
@@ -3285,8 +3259,7 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                         >
                           Max
                         </label>
-                        <input
-                          className="form-input"
+                        <Input
                           type="number"
                           value={mapping.max_val || 100}
                           onChange={(e) =>
@@ -3320,13 +3293,9 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                 <ErrorBoundary
                   resetKeys={[chartOption]}
                   fallback={(err) => (
-                    <div
-                      className="alert-banner danger"
-                      style={{ fontSize: "0.8125rem" }}
-                    >
-                      <Icon className="ti ti-alert-circle"></Icon> Chart preview
+                    <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}> Chart preview
                       failed: {err?.message || String(err)}
-                    </div>
+                    </Notice>
                   )}
                 >
                   <div
@@ -3344,23 +3313,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     </div>
                   </div>
                   {chartOption?._error && (
-                    <div
-                      className="alert-banner danger"
-                      style={{ fontSize: "0.8125rem" }}
-                    >
-                      <Icon className="ti ti-alert-circle"></Icon>{" "}
+                    <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}>{" "}
                       {chartOption.message}
-                    </div>
+                    </Notice>
                   )}
                   {chartOption?._kpi &&
                     (chartOption?.isArray ? (
-                      <div
-                        className="alert-banner danger"
-                        style={{ fontSize: "0.8125rem" }}
-                      >
-                        <Icon className="ti ti-alert-circle"></Icon>{" "}
+                      <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}>{" "}
                         {chartOption.message}
-                      </div>
+                      </Notice>
                     ) : (
                       <div
                         style={{
@@ -3541,17 +3502,12 @@ export default function ChartBuilder({ editChart, onEditDone }) {
               {editId ? "Update Chart" : "Save to Dashboard"}
             </h3>
             {dashboards.length === 0 && (
-              <div
-                className="alert-banner info"
-                style={{ marginBottom: 12, fontSize: "0.875rem" }}
-              >
-                <Icon className="ti ti-info-circle"></Icon> Create a dashboard
+              <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 12, fontSize: "0.875rem" }}> Create a dashboard
                 first in the Dashboards section.
-              </div>
+              </Notice>
             )}
             <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Dashboard *</label>
+              <FormField label="Dashboard *" style={{ flex: 1 }}>
                 <Select
                   className="form-select"
                   value={selDashboard}
@@ -3564,15 +3520,15 @@ export default function ChartBuilder({ editChart, onEditDone }) {
                     </option>
                   ))}
                 </Select>
-              </div>
-              <button
-                className="btn btn-primary"
+              </FormField>
+              <Button
+                variant="primary"
                 onClick={saveChart}
                 disabled={!selDashboard || !sql.trim()}
               >
                 <Icon className="ti ti-device-floppy"></Icon>{" "}
                 {editId ? "Update" : "Save"}
-              </button>
+              </Button>
             </div>
           </div>
         )}

@@ -1,7 +1,7 @@
 // Opens CHOps pages in the same way for the recorder and the checker.
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { APP_URL, MASK_SELECTORS, QUIET_MS, PAGE_TIMEOUT_MS } from "./settings.js";
+import { APP_URL, LOCALE, MASK_SELECTORS, QUIET_MS, PAGE_TIMEOUT_MS } from "./settings.js";
 
 // Stops CSS animations and transitions, so two runs give the same picture.
 // ECharts animations are not changed: the check waits until they end.
@@ -86,7 +86,7 @@ export const BROWSER_OPTIONS = {
 // Options for each new browser context. The same time zone and language on
 // every machine, so times and numbers look the same.
 export function contextOptions(size) {
-  return { viewport: size, timezoneId: "UTC", locale: "en-US" };
+  return { viewport: size, timezoneId: "UTC", locale: LOCALE };
 }
 
 // Prepares a new browser context: session, theme, cluster and a fixed clock.

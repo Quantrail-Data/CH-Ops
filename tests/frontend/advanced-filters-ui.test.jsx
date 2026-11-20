@@ -21,9 +21,26 @@ function Harness({ initial }) {
     />
   );
 }
+// The columns and filters are in a section that is closed at the start.
+function openMoreOptions() {
+  fireEvent.click(screen.getByRole("button", { name: /More options/ }));
+}
+
 describe("AdvancedFiltersView", () => {
+  it("starts closed and opens with the More options button", () => {
+    render(<Harness />);
+    expect(screen.queryByText("Additional Result Columns")).toBeNull();
+    openMoreOptions();
+    expect(screen.getByText("Additional Result Columns")).toBeInTheDocument();
+  });
+  it("starts open and shows a summary when filters are already set", () => {
+    render(<Harness initial={{ columns: ["message"], filters: [{ op: "AND", expr: "a=1" }] }} />);
+    expect(screen.getByText("Additional Result Columns")).toBeInTheDocument();
+    expect(screen.getByText("(1 column, 1 filter)")).toBeInTheDocument();
+  });
   it("renders the two blocks", () => {
     render(<Harness />);
+    openMoreOptions();
     expect(screen.getByText("Additional Result Columns")).toBeInTheDocument();
     expect(screen.getByText(/Custom SQL Filters/)).toBeInTheDocument();
     expect(
@@ -32,6 +49,7 @@ describe("AdvancedFiltersView", () => {
   });
   it("adds and removes filter rows", () => {
     render(<Harness />);
+    openMoreOptions();
     const add = screen.getByRole("button", { name: /Add filter/ });
     fireEvent.click(add);
     fireEvent.click(add);
@@ -57,6 +75,7 @@ describe("AdvancedFiltersView", () => {
   });
   it("stops at 10 rows and disables the button", () => {
     render(<Harness />);
+    openMoreOptions();
     const add = screen.getByRole("button", { name: /Add filter/ });
     for (let i = 0; i < 12; i += 1) fireEvent.click(add);
     expect(screen.getAllByLabelText(/Remove filter/)).toHaveLength(10);

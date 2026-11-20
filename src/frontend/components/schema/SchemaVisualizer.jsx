@@ -28,7 +28,8 @@ import {
 import { layoutGraph } from "../../utils/schemaLayout.js";
 import SchemaNode from "./SchemaNode.jsx";
 import { useTheme } from "../../App.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Input, Button, Notice } from "../ui/index.jsx";
 
 const nodeTypes = { schemaNode: SchemaNode };
 
@@ -392,29 +393,27 @@ function SchemaFlow() {
   if (error && !liveState?.isNotConnectedClusterNode())
     return (
       <div style={{ padding: 20 }}>
-        <div className="alert-banner danger" style={{ margin: 0 }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="danger" icon="ti-alert-circle" style={{ margin: 0 }}>
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load schema
             </div>
             <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
-        </div>
+        </Notice>
       </div>
     );
   if (liveState?.isNotConnectedClusterNode()) {
     return (
       <div style={{ padding: 20 }}>
-        <div className="alert-banner info" style={{ margin: 0 }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="info" icon="ti-alert-circle" style={{ margin: 0 }}>
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load schema
             </div>
             <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
-        </div>
+        </Notice>
       </div>
     );
   }
@@ -486,9 +485,8 @@ function SchemaFlow() {
         )}
         {graphDrawn && (
           <>
-            <input
+            <Input
               type="text"
-              className="form-input"
               placeholder="Search table or column..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -499,12 +497,12 @@ function SchemaFlow() {
                 fontSize: "0.8125rem",
               }}
             />
-            <button
-              className={`btn btn-sm ${showColumns ? "btn-primary" : "btn-secondary"}`}
+            <Button
+              size="sm" variant={showColumns ? "primary" : "secondary"} aria-pressed={showColumns}
               onClick={() => setShowColumns(!showColumns)}
             >
               Columns
-            </button>
+            </Button>
             <Select
               className="form-select"
               value={loadDays}
@@ -532,18 +530,18 @@ function SchemaFlow() {
                 <option value="executions">Executions</option>
               </Select>
             )}
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={handleRelayout}
             >
               Re-layout
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={() => fitView({ padding: 0.15 })}
             >
               Fit
-            </button>
+            </Button>
           </>
         )}
         <span

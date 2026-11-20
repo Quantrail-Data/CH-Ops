@@ -3,12 +3,13 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch, runQuery } from '../../utils/api.js';
 import { findParameters, hasValue } from '../../../shared/sqlParams.js';
 import { buildChartOption, needsLegend, yAxisNameGap } from './chartTypes.js';
-import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
+import { initChart, disposeChart, withZoomable, disposeChartInstance } from '../../utils/echarts.js';
 import ChartToolbar, { useChartTools } from '../common/ChartToolbar.jsx';
 import DataTable from '../layout/DataTable.jsx';
 import ConfirmModal from '../layout/ConfirmModal.jsx';
 import { useTheme, useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
+import { Input, Button, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -1145,7 +1146,7 @@ export default function AllCharts({ onEdit }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [previewOpt, previewTools.fullscreen, isDarkColor, hasLegend, selected, showLegend, isSmallScreen]);
 
-  useEffect(() => () => { if (previewRef.current) disposeChart(previewRef.current); }, []);
+  useEffect(() => () => { disposeChartInstance(previewInst.current); previewInst.current = null; }, []);
   useEffect(() => { const t = setTimeout(() => previewInst.current?.resize(), 150); return () => clearTimeout(t); }, [previewTools.fullscreen, showLegend, isSmallScreen]);
 
   async function performDeleteChartById(id) { 
@@ -1376,15 +1377,14 @@ export default function AllCharts({ onEdit }) {
         <h2 className="section-title"><Icon className="ti ti-chart-bar"></Icon> All Charts</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {selected && supportsLegend && (
-            <button
-              className={`btn btn-sm ${showLegend ? 'btn-primary' : 'btn-secondary'}`}
+            <Button
+              size="sm" variant={showLegend ? "primary" : "secondary"} aria-pressed={showLegend}
               onClick={() => setShowLegend(!showLegend)}
               title={showLegend ? 'Hide legend' : 'Show legend'}
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <Icon className={`ti ${showLegend ? 'ti-eye' : 'ti-eye-off'}`}></Icon>
               <span style={{ fontSize: "0.75rem" }}>Legend</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -1402,9 +1402,8 @@ export default function AllCharts({ onEdit }) {
         border: '1px solid var(--border-color)'
       }}>
         <div style={{ flex: 1, minWidth: '200px' }}>
-          <input
+          <Input
             type="text"
-            className="form-input"
             placeholder="Search charts by name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -1441,17 +1440,16 @@ export default function AllCharts({ onEdit }) {
         </div>
         
         {(searchTerm || filterType !== 'all' || filterDashboard !== 'all') && (
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => {
               setSearchTerm('');
               setFilterType('all');
               setFilterDashboard('all');
             }}
-            style={{ whiteSpace: 'nowrap' }}
           >
             <Icon className="ti ti-x"></Icon> Clear
-          </button>
+          </Button>
         )}
         
         <span style={{ fontSize: "0.75rem", color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
@@ -1470,9 +1468,9 @@ export default function AllCharts({ onEdit }) {
                   <td>{c.chartType} / {c.chartSubtype}</td>
                   <td>{c.dashboardId ? dashMap[c.dashboardId] || `#${c.dashboardId}` : '-'}</td>
                   <td style={{ display: 'flex', gap: 4 }}>
-                    {onEdit && canEdit && <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onEdit(c); }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon></button>}
-                    {onEdit && !canEdit && <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon></button>}
-                    <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); canEdit && setDel({ id: c.id, name: c.name }); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon></button>
+                    {onEdit && canEdit && <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); onEdit(c); }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon></Button>}
+                    {onEdit && !canEdit && <Button variant="ghost" size="sm" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Edit"><Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon></Button>}
+                    <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); canEdit && setDel({ id: c.id, name: c.name }); }} disabled={!canEdit} style={!canEdit ? { opacity: 0.35, cursor: 'not-allowed' } : {}} title={canEdit ? "Delete" : "Delete disabled"}><Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon></Button>
                   </td>
                 </tr>
               ))}
@@ -1484,16 +1482,16 @@ export default function AllCharts({ onEdit }) {
           <div ref={previewContainerRef} className="card" style={previewTools.fullscreen ? { padding: 16, position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : { padding: 16, overflow: "auto", minHeight: (previewOpt && previewOpt._table) ? 'auto' : (isSmallScreen ? '500px' : '420px'), width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{selected.name}</div>
-              <button 
-                className="btn btn-ghost btn-sm" 
+              <Button 
+                variant="ghost" size="sm" 
                 onClick={() => { setSelected(null); setPreviewOpt(null); if (previewInst.current) { disposeChart(previewRef.current); previewInst.current = null; setHasPreviewInstance(false); } }}
                 title="Close preview"
               >
                 <Icon className="ti ti-x" style={{ fontSize: "1rem" }}></Icon>
-              </button>
+              </Button>
             </div>
             {previewLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
-            {previewOpt?._error && <div className="alert-banner danger" style={{ fontSize: "0.8125rem" }}><Icon className="ti ti-alert-circle"></Icon> {previewOpt.message}</div>}
+            {previewOpt?._error && <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}> {previewOpt.message}</Notice>}
             {previewOpt?._kpi && <div style={{ textAlign: 'center', padding: 32 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{previewOpt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)' }}>{previewOpt.value}</div></div>}
             {previewOpt?._table && <DataTable rows={previewOpt.data} maxRows={previewTools.fullscreen ? (previewOpt?.data?.length || 10) : Math.max(5, Math.min(20, (previewOpt?.data?.length || 0)))} />}
             {!previewOpt?._kpi && !previewOpt?._table && !previewOpt?._error && !previewLoading && (

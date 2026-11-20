@@ -44,10 +44,13 @@ function readSavedFontScale() {
   return Number.isFinite(value) ? value : null;
 }
 
-// The size that the Auto CSS rule gives now, in percent of 16px.
+// The size that the Auto CSS rule in global.css gives for this window width,
+// in percent of 16px. It uses the same formula as the CSS rule. Do not read the
+// computed font size: during the font-size transition it is a value in between.
 function readAutoFontScale() {
-  const px = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  return Math.round((px / 16) * 100);
+  const fontSizePx = 16 + (window.innerWidth - 1920) * 0.00625;
+  const percent = Math.round((fontSizePx / 16) * 100);
+  return Math.min(150, Math.max(100, percent));
 }
 
 export default function Navbar({ route, onRefresh, onOpenSearch }) {
@@ -104,7 +107,16 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
   }
 
   // The size that Auto gives now, in percent, to show on the slider.
-  const shownFontScale = fontScale ?? readAutoFontScale();
+  // Keep it current when the window size changes.
+  const [autoFontScale, setAutoFontScale] = useState(() => readAutoFontScale());
+  useEffect(() => {
+    function onResize() {
+      setAutoFontScale(readAutoFontScale());
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const shownFontScale = fontScale ?? autoFontScale;
 
   useEffect(() => {
     if (fontScale === null) document.documentElement.style.removeProperty("font-size");

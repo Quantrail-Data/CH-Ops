@@ -18,7 +18,7 @@ import { baseChartOption } from "../../utils/echarts.js";
 import { themeColor } from "../../utils/theme.js";
 import { runQuery } from "../../utils/api.js";
 import DataTable from "../layout/DataTable.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
 import { Button, FormField } from "../ui/index.jsx";
 // HELPERS
 
@@ -1462,17 +1462,10 @@ export default function Playback() {
       </div>
 
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "end",
-          }}
-        >
+        <div className="search-form-row" style={{ marginBottom: 0 }}>
           <DateTimePicker label="From" value={from} onChange={setFrom} />
           <DateTimePicker label="To" value={to} onChange={setTo} />
-          <FormField label="Step" style={{ minWidth: 100,paddingBottom:"4px" }}>
+          <FormField label="Step" className="search-field-select">
             <Select
               className="form-select cui-sm"
               value={step}
@@ -1485,13 +1478,12 @@ export default function Playback() {
               ))}
             </Select>
           </FormField>
-          <div className="form-group" style={{paddingBottom:"4px"}}>
+          <div className="search-form-submit">
             <Button
-             title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+              title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
               variant="primary"
               onClick={handleFetch}
               disabled={fetchLoading || liveState?.isNotConnectedClusterNode()}
-              style={{ height: 36, minWidth: 140 }}
             >
               {fetchLoading ? (
                 <>
@@ -1658,14 +1650,7 @@ export default function Playback() {
                 size="sm"
                 aria-pressed={speed === s.value}
                 onClick={() => setSpeed(s.value)}
-                style={{
-                  minWidth: 36,
-                  padding: "2px 5px",
-                  fontSize: "0.6875rem",
-                  display:"flex",
-                  alignItems:"center",
-                  justifyContent:"center"
-                }}
+                style={{ minWidth: 36 }}
               >
                 {s.label}
               </Button>
@@ -1682,12 +1667,7 @@ export default function Playback() {
 
             <Button
               variant="secondary" size="sm"
-              style={{
-                background: "var(--danger-solid)",
-                color: "#fff",
-                fontSize: "0.6875rem",
-                padding: "5px 15px",
-              }}
+              style={{ background: "var(--danger-solid)", color: "#fff" }}
               onClick={handleShowFailedQueries}
               disabled={!currentT}
               title="View failed queries at this timestamp"
@@ -1700,12 +1680,7 @@ export default function Playback() {
             </Button>
             <Button
               variant="secondary" size="sm"
-              style={{
-                background: "var(--danger-solid)",
-                color: "#fff",
-                fontSize: "0.6875rem",
-                padding: "5px 15px",
-              }}
+              style={{ background: "var(--danger-solid)", color: "#fff" }}
               onClick={handleShowErrorLogs}
               disabled={!currentT}
               title="View Error/Critical/Fatal logs at this timestamp"

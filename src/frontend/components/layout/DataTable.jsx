@@ -16,6 +16,8 @@ import Icon from "../common/Icon.jsx";
 import darkLogo from "../../assets/chops-dark.svg";
 import lightLogo from "../../assets/chops-light.svg";
 import { useTheme } from "../../App.jsx";
+import { Button } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 function isComplexValue(v) {
   return v !== null && typeof v === "object"; // arrays included
@@ -214,12 +216,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 900, width: "95%" }}
-      >
+    <Modal onClose={onClose} overlayStyle={{ zIndex: 1000 }} style={{ maxWidth: 900, width: "95%" }}>
         <div
           style={{
             display: "flex",
@@ -265,8 +262,8 @@ function ComplexCellModal({ columnName, value, onClose }) {
           </h3>
 
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={copyJson}
               title="Copy as JSON"
             >
@@ -275,14 +272,14 @@ function ComplexCellModal({ columnName, value, onClose }) {
                 style={copied ? { color: "var(--color-success)" } : undefined}
               ></Icon>{" "}
               {copied ? "Copied" : "Copy JSON"}
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost" size="sm"
               onClick={onClose}
               title="Close"
             >
               <Icon className="ti ti-x"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -292,8 +289,7 @@ function ComplexCellModal({ columnName, value, onClose }) {
         >
           <ComplexBody value={value} />
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }
 

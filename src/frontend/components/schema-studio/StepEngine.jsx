@@ -18,6 +18,7 @@ import FieldLabel from "./FieldLabel.jsx";
 import Select from "../common/Select.jsx";
 import MultiSelect from "../common/MultiSelect.jsx";
 import KeyInput from "./KeyInput.jsx";
+import { Input, Button, Textarea } from "../ui/index.jsx";
 
 export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
   const [macros, setMacros] = useState({});
@@ -81,17 +82,17 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
 
       <div className="studio-field-row">
         <FieldLabel text="Database" tip="The database the table is created in." />
-        <input className="form-input" value={form.target.database}
+        <Input  value={form.target.database}
           onChange={(e) => set({ target: { ...form.target, database: e.target.value } })} />
         <FieldLabel text="Table name" tip="Name of the new table." />
-        <input className="form-input" value={form.target.table}
+        <Input  value={form.target.table}
           onChange={(e) => set({ target: { ...form.target, table: e.target.value } })} />
       </div>
 
       <div className="studio-field">
         <FieldLabel text="ON CLUSTER (optional)"
           tip="Run the CREATE on every node of this ClickHouse cluster. Leave empty for a single node." />
-        <input className="form-input" value={form.onCluster}
+        <Input  value={form.onCluster}
           placeholder="cluster name"
           onChange={(e) => set({ onCluster: e.target.value })} />
       </div>
@@ -116,7 +117,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
               value={form.behaviorParams[p.key] || []}
               onChange={(arr) => setParam(p.key, arr)} />
           ) : p.kind === "text" ? (
-            <input className="form-input" value={form.behaviorParams[p.key] || ""}
+            <Input  value={form.behaviorParams[p.key] || ""}
               onChange={(e) => setParam(p.key, e.target.value)} />
           ) : (
             <Select className="form-select" value={form.behaviorParams[p.key] || ""}
@@ -152,7 +153,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
         <div className="studio-field">
           <FieldLabel text="PARTITION BY (optional)"
             tip="Splits data into parts on disk, usually by month with toYYYYMM(date). Use coarse partitions only and never partition by a high-cardinality column." />
-          <input className="form-input mono" value={form.partitionBy}
+          <Input className="mono" value={form.partitionBy}
             placeholder="toYYYYMM(event_date)"
             onChange={(e) => set({ partitionBy: e.target.value })} />
         </div>
@@ -160,7 +161,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
         <div className="studio-field">
           <FieldLabel text="SAMPLE BY (optional)"
             tip="Enables SAMPLE queries. Must be an expression contained in the primary key that returns an unsigned integer, for example intHash32(user_id)." />
-          <input className="form-input mono" value={form.sampleBy}
+          <Input className="mono" value={form.sampleBy}
             placeholder="intHash32(user_id)"
             onChange={(e) => set({ sampleBy: e.target.value })} />
         </div>
@@ -168,7 +169,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
         <div className="studio-field">
           <FieldLabel text="Table TTL (optional)"
             tip="Automatically deletes or moves rows after a time. Example: event_date + INTERVAL 90 DAY." />
-          <input className="form-input mono" value={form.tableTtl}
+          <Input className="mono" value={form.tableTtl}
             placeholder="event_date + INTERVAL 90 DAY"
             onChange={(e) => set({ tableTtl: e.target.value })} />
         </div>
@@ -176,7 +177,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
         <div className="studio-field">
           <FieldLabel text="SETTINGS (optional)"
             tip="Engine settings as name = value, comma separated. Example: index_granularity = 8192." />
-          <input className="form-input mono" value={form.tableSettings}
+          <Input className="mono" value={form.tableSettings}
             placeholder="index_granularity = 8192"
             onChange={(e) => set({ tableSettings: e.target.value })} />
         </div>
@@ -201,7 +202,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
               <div className="studio-builder-grid3">
                 <div className="form-group">
                   <FieldLabel text="Name" tip="A unique name for this index." />
-                  <input className="form-input mono" value={idx.name}
+                  <Input className="mono" value={idx.name}
                     placeholder="idx_name" onChange={(e) => updateIndex(i, { name: e.target.value })} />
                 </div>
                 <div className="form-group">
@@ -215,29 +216,29 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
                 <div className="form-group">
                   <FieldLabel text="Granularity"
                     tip="How many index granules each index block covers. Higher is smaller but coarser. Default 1." />
-                  <input className="form-input mono" value={idx.granularity}
+                  <Input className="mono" value={idx.granularity}
                     placeholder="1" onChange={(e) => updateIndex(i, { granularity: e.target.value })} />
                 </div>
               </div>
               <div className="form-group">
                 <FieldLabel text="Expression"
                   tip="The column or expression the index summarizes, for example a column name or u64 * length(s)." />
-                <input className="form-input mono" value={idx.expr}
+                <Input className="mono" value={idx.expr}
                   placeholder="column or expression" onChange={(e) => updateIndex(i, { expr: e.target.value })} />
               </div>
               <div className="form-group">
                 <FieldLabel text="Params"
                   tip="Parameters for the chosen type, for example 0.01 for bloom_filter or 100 for set. Leave empty when the type takes none." />
-                <input className="form-input mono" value={idx.params}
+                <Input className="mono" value={idx.params}
                   placeholder={typeDef && typeDef.paramHint ? typeDef.paramHint : "(none)"}
                   onChange={(e) => updateIndex(i, { params: e.target.value })} />
               </div>
             </div>
           );
         })}
-        <button className="btn btn-secondary btn-sm" onClick={addIndex}>
+        <Button variant="secondary" size="sm" onClick={addIndex}>
           <Icon className="ti ti-plus" /> Add index
-        </button>
+        </Button>
       </div>
 
       <div className="studio-clauses">
@@ -256,21 +257,21 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
             </div>
             <div className="form-group">
               <FieldLabel text="Name" tip="A unique name for this projection." />
-              <input className="form-input mono" value={proj.name}
+              <Input className="mono" value={proj.name}
                 placeholder="proj_name" onChange={(e) => updateProjection(i, { name: e.target.value })} />
             </div>
             <div className="form-group">
               <FieldLabel text="SELECT"
                 tip="The projection query body, for example: SELECT country, count() GROUP BY country. ClickHouse wraps it in PROJECTION name (...)." />
-              <textarea className="form-textarea mono" rows={3} value={proj.select}
+              <Textarea className="mono" rows={3} value={proj.select}
                 placeholder="SELECT country, count() GROUP BY country"
                 onChange={(e) => updateProjection(i, { select: e.target.value })} />
             </div>
           </div>
         ))}
-        <button className="btn btn-secondary btn-sm" onClick={addProjection}>
+        <Button variant="secondary" size="sm" onClick={addProjection}>
           <Icon className="ti ti-plus" /> Add projection
-        </button>
+        </Button>
       </div>
 
       <label className="studio-toggle">
@@ -286,7 +287,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
           <div className="studio-field">
             <FieldLabel text="Keeper path"
               tip="The Keeper path that identifies this table's replicas. Use macros like {shard} when the server provides them." />
-            <input className="form-input mono" value={form.zk_path}
+            <Input className="mono" value={form.zk_path}
               placeholder="/clickhouse/tables/{shard}/db/table"
               onChange={(e) => set({ zk_path: e.target.value })} />
             {(macros.shard == null || macros.replica == null) && (
@@ -298,7 +299,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
           <div className="studio-field">
             <FieldLabel text="Replica name"
               tip="This replica's name, usually the {replica} macro." />
-            <input className="form-input mono" value={form.replica}
+            <Input className="mono" value={form.replica}
               placeholder="{replica}"
               onChange={(e) => set({ replica: e.target.value })} />
           </div>
@@ -327,7 +328,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
           <div className="studio-field">
             <FieldLabel text="Local table name"
               tip="Name of the underlying per-shard table. Defaults to <table>_local." />
-            <input className="form-input mono" value={form.localTableName}
+            <Input className="mono" value={form.localTableName}
               placeholder={(form.target.table || "table") + "_local"}
               onChange={(e) => set({ localTableName: e.target.value })} />
           </div>
@@ -341,7 +342,7 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
                 <option key={p.label} value={p.value}>{p.label}</option>
               ))}
             </Select>
-            <input className="form-input mono" value={form.shardingKey}
+            <Input className="mono" value={form.shardingKey}
               placeholder="cityHash64(user_id)"
               onChange={(e) => set({ shardingKey: e.target.value })} />
             <span className="studio-hint">
@@ -360,10 +361,10 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
       </div>
 
       <div className="studio-actions">
-        <button className="btn btn-ghost" onClick={onBack}>Back</button>
-        <button className="btn btn-primary" onClick={onNext} disabled={!form.target.table}>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button variant="primary" onClick={onNext} disabled={!form.target.table}>
           Next: generate
-        </button>
+        </Button>
       </div>
     </div>
   );

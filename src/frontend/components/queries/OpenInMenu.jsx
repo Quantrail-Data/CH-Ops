@@ -83,15 +83,7 @@ export default function OpenInMenu({ queryId }) {
             <Button
               key={d.key}
               variant="ghost" size="sm"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                width: "100%",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                whiteSpace: "nowrap",
-              }}
+              style={{ width: "100%", justifyContent: "flex-start", borderRadius: 6 }}
               onClick={() => go(d.route)}
             >
               <Icon className={`ti ${d.icon}`}></Icon> {d.label}

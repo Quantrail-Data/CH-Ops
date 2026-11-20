@@ -10,6 +10,7 @@ import {
   Navigate,
   useNavigate,
   useLocation,
+  matchPath,
 } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import Sidebar from "./Sidebar.jsx";
@@ -19,7 +20,7 @@ import BugReportButton from "./BugReportButton.jsx";
 import { ToastProvider } from "./Toast.jsx";
 import AlertMarquee from "./AlertMarquee.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
 import MiniErrorClusterConnected from "../common/MiniErrorClusterConnected.jsx";
 
 // Core lazy-loaded page components
@@ -144,6 +145,11 @@ function MainLayoutInner() {
   const isAdminConfig = route?.includes("admin");
 
   const allRoutes = useMemo(() => [...CORE_ROUTES], []);
+  // The route pattern of the open page, for example "rbac/view/:tab?". It
+  // stays the same when only the tab changes, so the page fade-in plays only
+  // when another page opens.
+  const pagePattern =
+    allRoutes.map(([path]) => path).find((path) => matchPath("/" + path, location.pathname)) || route;
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -197,6 +203,8 @@ function MainLayoutInner() {
           >
             <ErrorBoundary>
               <Suspense fallback={fallback}>
+                {/* A short fade-in when a page opens (after Magic UI Blur Fade). */}
+                <div key={pagePattern} className="page-enter">
                 <Routes>
                   {allRoutes.map(([path, Comp]) => (
                     <Route
@@ -245,6 +253,7 @@ function MainLayoutInner() {
                   />
                   <Route path="*" element={<Navigate to="/home" replace />} />
                 </Routes>
+                </div>
               </Suspense>
             </ErrorBoundary>
             {livestate?.isNotConnectedClusterNode() &&

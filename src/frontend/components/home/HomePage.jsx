@@ -7,6 +7,9 @@ import { useAuth, useConnection } from "../../App.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { requestGlobalSearch } from "../layout/GlobalSearch.jsx";
 import { Badge, Kbd, KpiCard, StatusDot, shortcutLabel } from "../ui/index.jsx";
+import { MagicCard } from "../ui/magic-card.jsx";
+import { NumberTicker } from "../ui/number-ticker.jsx";
+import { BorderBeam } from "../ui/border-beam.jsx";
 import "./home.css";
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 // One card per task. minRole hides the card from users below that role,
@@ -153,7 +156,20 @@ function greeting(date = new Date()) {
   return "Good evening";
 }
 
-const fmtNum = (v) => (v === null || v === undefined || v === "" ? "-" : Number(v).toLocaleString());
+// A KPI number that counts up to its value (Magic UI Number Ticker).
+// No value shows "-", as before.
+function KpiNumber({ value }) {
+  if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "-";
+  return <NumberTicker value={Number(value)} />;
+}
+
+// The spotlight colors of the Home cards (Magic UI Magic Card), from the theme.
+const CARD_SPOTLIGHT = {
+  gradientColor: "var(--accent-soft)",
+  gradientOpacity: 1,
+  gradientFrom: "var(--accent)",
+  gradientTo: "var(--accent-solid)",
+};
 
 export default function HomePage() {
   const { auth } = useAuth();
@@ -189,10 +205,10 @@ export default function HomePage() {
             ) : null
           }
         />
-        <KpiCard label="Queries per second" value={fmtNum(pulse.qps)} />
+        <KpiCard label="Queries per second" value={<KpiNumber value={pulse.qps} />} />
         <KpiCard
           label="Failed queries, 1 h"
-          value={fmtNum(pulse.failed)}
+          value={<KpiNumber value={pulse.failed} />}
           aside={
             pulse.failed > 0 ? (
               <Link to="/overview/queries" className="home-kpi-link">
@@ -203,7 +219,7 @@ export default function HomePage() {
         />
         <KpiCard
           label="Firing alerts"
-          value={fmtNum(pulse.firing)}
+          value={<KpiNumber value={pulse.firing} />}
           aside={
             pulse.firing > 0 ? (
               <Link to="/alerting/rules" className="home-kpi-link">
@@ -216,35 +232,44 @@ export default function HomePage() {
 
       <div className="home-grid">
         {featured && (
-          <Link to={"/" + featured.page} className="card home-card home-card-featured">
-            <span className="home-card-icon">
-              <Icon className={`ti ${featured.icon}`}></Icon>
-            </span>
-            <span className="home-card-title">{featured.title}</span>
-            <span className="home-card-description">{featured.description}</span>
-            {nodes.length > 0 && (
-              <span className="home-node-chips">
-                {nodes.slice(0, 3).map((n) => (
-                  <span key={n.name || n.host} className="home-node-chip">
-                    <span className="home-node-chip-name">
-                      <StatusDot tone={connected ? "success" : "danger"} />
-                      {n.name || n.host}
-                    </span>
-                    <span className="home-node-chip-meta">{n.host}</span>
-                  </span>
-                ))}
+          <MagicCard
+            className="home-card-shell home-card-shell-featured"
+            borderColor="var(--accent-border)"
+            {...CARD_SPOTLIGHT}
+          >
+            <Link to={"/" + featured.page} className="home-card home-card-featured">
+              <span className="home-card-icon">
+                <Icon className={`ti ${featured.icon}`}></Icon>
               </span>
-            )}
-          </Link>
+              <span className="home-card-title">{featured.title}</span>
+              <span className="home-card-description">{featured.description}</span>
+              {nodes.length > 0 && (
+                <span className="home-node-chips">
+                  {nodes.slice(0, 3).map((n) => (
+                    <span key={n.name || n.host} className="home-node-chip">
+                      <span className="home-node-chip-name">
+                        <StatusDot tone={connected ? "success" : "danger"} />
+                        {n.name || n.host}
+                      </span>
+                      <span className="home-node-chip-meta">{n.host}</span>
+                    </span>
+                  ))}
+                </span>
+              )}
+            </Link>
+            <BorderBeam size={120} duration={10} borderWidth={1.5} />
+          </MagicCard>
         )}
         {rest.map((card) => (
-          <Link key={card.page} to={"/" + card.page} className="card home-card">
-            <span className="home-card-icon">
-              <Icon className={`ti ${card.icon}`}></Icon>
-            </span>
-            <span className="home-card-title">{card.title}</span>
-            <span className="home-card-description">{card.description}</span>
-          </Link>
+          <MagicCard key={card.page} className="home-card-shell" {...CARD_SPOTLIGHT}>
+            <Link to={"/" + card.page} className="home-card">
+              <span className="home-card-icon">
+                <Icon className={`ti ${card.icon}`}></Icon>
+              </span>
+              <span className="home-card-title">{card.title}</span>
+              <span className="home-card-description">{card.description}</span>
+            </Link>
+          </MagicCard>
         ))}
       </div>
     </div>

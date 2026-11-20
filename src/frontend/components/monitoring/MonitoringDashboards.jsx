@@ -10,7 +10,7 @@ import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
 import { runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
 import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -1183,17 +1183,7 @@ export default function MonitoringDashboards() {
         </div>
       </div>
       {filtersOpen && (
-        <div
-          className="card"
-          style={{
-            padding: 16,
-            marginBottom: 20,
-            display: "flex",
-            gap: 14,
-            flexWrap: "wrap",
-            alignItems: "flex-end",
-          }}
-        >
+        <div className="card search-form-row" style={{ padding: 16, marginBottom: 20 }}>
           {/* <div className="form-group"><label className="form-label">Quick</label><div style={{ display: 'flex', gap: 4 }}>{[1, 6, 24, 48, 168, 720].map(h => <button key={h} className="btn btn-secondary btn-sm" onClick={() => applyDuration(h)}>{h <= 48 ? h + 'h' : h === 168 ? '7d' : '30d'}</button>)}</div></div> */}
           <FormField label="Quick">
             <div
@@ -1207,17 +1197,6 @@ export default function MonitoringDashboards() {
               {[1, 6, 24, 48, 168, 720].map((h) => (
                 <Button
                   key={h}
-                  style={{
-                    border:
-                      duration === h
-                        ? "1px soild transparent "
-                        : "1px soild red",
-                    padding: "10px",
-                    width: "50px ",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
                   variant={duration === h ? "primary" : "secondary"}
                   size="sm"
                   aria-pressed={duration === h}
@@ -1240,21 +1219,19 @@ export default function MonitoringDashboards() {
             onChange={handleDateOnChange}
             name="To"
           />
-          <FormField label="Rounding (s)">
+          <FormField label="Rounding (s)" className="search-field-small">
             <Input
               type="number"
               min={5}
               value={rounding}
               onChange={(e) => setRounding(parseInt(e.target.value) || 60)}
-              style={{ width: 80 }}
             />
           </FormField>
           <Button
-           title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+            title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
             variant="primary"
             onClick={loadAllCurrentTab}
             disabled={loading || liveState?.isNotConnectedClusterNode()}
-            style={{ minWidth: 140 }}
           >
             <Icon className="ti ti-player-play"></Icon>{" "}
             {loading ? "Loading..." : "Load Charts"}

@@ -366,7 +366,7 @@ export default function ApiManagement() {
   };
 
   const modalParagraphStyle = {
-    fontSize: "15px",
+    fontSize: "0.9375rem",
     color: current.paragraphText,
     marginBottom: "24px",
   };
@@ -779,15 +779,7 @@ export default function ApiManagement() {
                   <Button
                     type="button"
                     variant="secondary"
-                    style={{
-                      padding: "7px 10px",
-                      borderRadius: "5px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      alignSelf: "flex-start",
-                    }}
+                    style={{ borderRadius: "5px", alignSelf: "flex-start" }}
                     onClick={fetchOllamaModels}
                     disabled={isFetchingOllamaModels}
                   >
@@ -803,13 +795,7 @@ export default function ApiManagement() {
                 )}
                 <Button
                   variant="primary" type="submit"
-                  style={{
-                    padding: "7px 10px",
-                    borderRadius: "5px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                  style={{ borderRadius: "5px" }}
                   title={keyValidationMessage || "Test the API key"}
                   onClick={verifyAPIKeyHandler}
                 >
@@ -954,7 +940,7 @@ export default function ApiManagement() {
               <Button
                 variant="danger"
                 onClick={handleDeleteConfirm}
-                style={{ padding: "8px 16px", borderRadius: "8px" }}
+                style={{ borderRadius: "8px" }}
               >
                 Yes, Delete
               </Button>

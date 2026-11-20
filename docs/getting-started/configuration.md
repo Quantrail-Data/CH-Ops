@@ -86,7 +86,8 @@ CHOps also makes a random salt file, `data/crypto.salt`, at the first start. The
 
 | Variable | Required | Default | What it does |
 |----------|----------|---------|--------------|
-| `PORT` | No | `3000` | The port the backend listens on. |
+| `PORT` | No | `7720` | The port the backend listens on. |
+| `DEV_FRONTEND_PORT` | No | `7721` | The port of the Vite dev server in development (`bun run dev`). It sends `/api` and `/docs` to the backend `PORT`. Not used in production. |
 | `NODE_ENV` | No | `development` | The runtime environment label. Set it to `production` when you deploy for real use. |
 | `DB_PATH` | No | `data/chops.db` | The path of the SQLite database file. `data/crypto.salt` stays in the `data/` folder of the working directory. |
 | `EXPORT_DIR` | No | `data/exports` | The folder for export files. |
@@ -128,7 +129,7 @@ Alert notifications do not use the system email. Each email notification channel
 
 | Variable | Required | Default | What it does |
 |----------|----------|---------|--------------|
-| `FRONTEND_LINK` | No | the address of the request | The base URL of the CHOps pages. CHOps uses it to make the one-time links that set a password. Set it to the address that users open, for example `http://localhost:5173` in development or your public URL in production. |
+| `FRONTEND_LINK` | No | the address of the request | The base URL of the CHOps pages. CHOps uses it to make the one-time links that set a password. Set it to the address that users open, for example `http://localhost:7721` in development or your public URL in production. |
 
 A setup link is valid for 30 minutes, and it works one time only. When `FRONTEND_LINK` is not set, CHOps uses the address of the admin's request. Behind a reverse proxy, that address can be wrong, so set `FRONTEND_LINK`.
 

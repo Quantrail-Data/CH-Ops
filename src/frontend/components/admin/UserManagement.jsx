@@ -660,12 +660,7 @@ async function resetPassword(id,initUser) {
                   variant="primary" size="sm"
                   type="button"
                   onClick={handleCopySetupURL}
-                  style={{
-                    minHeight: 40,
-                    padding: "0 16px",
-                    borderRadius: 8,
-                    whiteSpace: "nowrap",
-                  }}
+                  style={{ borderRadius: 8 }}
                 >
                   <Icon
                     className={setupURLCopied ? "ti ti-check" : "ti ti-copy"}

@@ -20,16 +20,19 @@
    shadcn part sets data-slot. Without this, a shadcn button shows the
    browser's default border and background. :where() has no specificity,
    so the app rules and the Tailwind classes still win. Lists lose their
-   numbers and bullets, as in the preflight. */
+   numbers and bullets, as in the preflight. The calendar (react-day-picker)
+   makes its own buttons and lists without data-slot, so it gets the same
+   reset. */
 :where([data-slot]),
 :where([data-slot])::before,
-:where([data-slot])::after {
+:where([data-slot])::after,
+:where([data-slot="calendar"] button) {
   border: 0 solid;
 }
 :where(ol[data-slot], ul[data-slot]) {
   list-style: none;
 }
-:where(button[data-slot], input[data-slot], select[data-slot], textarea[data-slot]) {
+:where(button[data-slot], input[data-slot], select[data-slot], textarea[data-slot], [data-slot="calendar"] button) {
   background-color: transparent;
   color: inherit;
   border-radius: 0;

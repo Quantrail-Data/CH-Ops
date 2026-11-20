@@ -506,14 +506,7 @@ export default function ClusterTopology({ rows, loading, selectedHost, onSelectN
       onClick={() => setOpen((v) => !v)}
       aria-expanded={open}
       variant="ghost"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        width: "100%",
-        justifyContent: "flex-start",
-        padding: "10px 12px",
-      }}
+      style={{ width: "100%", justifyContent: "flex-start" }}
     >
       <Icon className={`ti ti-chevron-${open ? "up" : "down"}`} />
       <span style={{ fontWeight: 600 }}>Cluster topology</span>

@@ -30,7 +30,7 @@ import {
 } from "../../utils/jemallocParser.js";
 
 import { useToast } from "../layout/Toast.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
 import { Button, Notice } from "../ui/index.jsx";
 
 // Theme Colors (ECharts does not resolve CSS custom properties)
