@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import imageSrc from "../../assets/co.png";
 import { useTheme } from "../../App";
+import { Button } from "../ui/index.jsx";
 
 function MiniErrorClusterConnected({ title, message }) {
  
@@ -50,31 +51,17 @@ function MiniErrorClusterConnected({ title, message }) {
             margin:"10px 0px"
           }}
         >
-          <button
-            style={{
-              width: "45%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding:"5px",
-              fontSize:"0.8125rem"
-            }}
-            className="btn btn-primary"
+          <Button
+            style={{ width: "45%" }}
+            variant="primary"
             onClick={()=>navigateCluster()}
           >
             
             Add Cluster
-          </button>
-          <button
-            style={{
-              width: "45%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding:"5px",
-              fontSize:"0.8125rem"
-            }}
-            className="btn btn-secondary"
+          </Button>
+          <Button
+            style={{ width: "45%" }}
+            variant="secondary"
             onClick={()=>{
               const currentURL = window?.location?.host || 'http://localhost:5344';
               window.location.href = currentURL + "/docs/#/guide/admin?id=cluster-management"
@@ -82,7 +69,7 @@ function MiniErrorClusterConnected({ title, message }) {
           >
             
             View Documentation
-          </button>
+          </Button>
         </div>
         </div>
  

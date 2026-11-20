@@ -41,7 +41,7 @@ const iconNode = (icon) =>
 
 /**
  * Button. variant: primary | secondary | ghost | danger | danger-soft.
- * size: md (34px) | sm (28px). `icon`/`iconRight` take a Tabler name
+ * size: md (32px) | sm (28px). `icon`/`iconRight` take a Tabler name
  * ("ti-refresh") or a node. `iconOnly` renders a square button; give it an
  * aria-label.
  *
@@ -386,7 +386,7 @@ export function RowMenu({ label, items, triggerLabel, className }) {
 // The Midnight look of a text field: the same as the old .form-input class.
 // The width is the browser default unless the page sets one, as before.
 const FIELD_LOOK =
-  "tw:h-auto tw:min-h-[var(--control-h)] tw:w-auto tw:rounded-[var(--radius-sm)] tw:border tw:border-[var(--border-default)] tw:bg-[var(--input-bg)] tw:px-3 tw:py-[7px] tw:font-data tw:text-[length:var(--text-base)] tw:text-[var(--text-primary)] tw:dark:bg-[var(--input-bg)] tw:md:text-[length:var(--text-base)] tw:hover:border-[var(--border-strong)] tw:focus-visible:border-[var(--accent)] tw:focus-visible:ring-0 tw:focus-visible:shadow-[var(--focus-ring)] tw:placeholder:font-sans tw:placeholder:text-[var(--text-muted)] tw:disabled:opacity-55";
+  "tw:h-auto tw:min-h-[var(--control-h)] tw:w-auto tw:rounded-[var(--radius-sm)] tw:border tw:border-[var(--border-default)] tw:bg-[var(--input-bg)] tw:px-3 tw:py-[5px] tw:font-data tw:text-[length:var(--text-base)] tw:text-[var(--text-primary)] tw:dark:bg-[var(--input-bg)] tw:md:text-[length:var(--text-base)] tw:hover:border-[var(--border-strong)] tw:focus-visible:border-[var(--accent)] tw:focus-visible:ring-0 tw:focus-visible:shadow-[var(--focus-ring)] tw:placeholder:font-sans tw:placeholder:text-[var(--text-muted)] tw:disabled:opacity-55";
 
 /** Text input with the Midnight look, on the shadcn Input. */
 export function Input({ className, ...rest }) {

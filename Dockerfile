@@ -3,7 +3,7 @@
 # Stage 2: Copy only what's needed into a slim runtime image
 #
 # Build:  docker build -t chops .
-# Run:    docker run -p 3000:3000 --env-file .env chops
+# Run:    docker run -p 7720:7720 --env-file .env chops
 # Or:     docker compose up
 
 # --- Stage 1: Build ---
@@ -42,10 +42,10 @@ RUN mkdir -p /app/data && chown -R chops:chops /app
 USER chops
 # Default environment
 ENV NODE_ENV=production
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=7720
+EXPOSE 7720
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+  CMD wget -qO- http://localhost:7720/api/health || exit 1
 # Start the server
 CMD ["bun", "run", "src/backend/server.js"]

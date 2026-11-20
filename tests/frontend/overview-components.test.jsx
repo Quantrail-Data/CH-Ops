@@ -15,6 +15,10 @@ const disposeChart = vi.fn();
 vi.mock("../../src/frontend/utils/echarts.js", () => ({
   initChart: (...a) => initChart(...a),
   disposeChart: (...a) => disposeChart(...a),
+  // The same as the real helper: dispose through the chart's element.
+  disposeChartInstance: (chart) => {
+    if (chart) disposeChart(chart.getDom ? chart.getDom() : undefined);
+  },
   withZoomable: (o) => o,
 }));
 

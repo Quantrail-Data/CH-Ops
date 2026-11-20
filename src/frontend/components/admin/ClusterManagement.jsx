@@ -104,7 +104,7 @@ function NodeClusterComponent({
                 : ""
             }
           />
-          <div
+          <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={!!(showPassword)}
             className="password-eye"
             style={{
               position: "absolute",
@@ -120,7 +120,7 @@ function NodeClusterComponent({
             ) : (
               <Icon className="ti ti-eye" />
             )}
-          </div>
+          </button>
         </div>
       </FormField>
 

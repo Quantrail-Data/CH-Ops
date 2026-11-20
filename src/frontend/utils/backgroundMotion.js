@@ -15,13 +15,26 @@ export function isBackgroundMotionOn() {
   }
 }
 
+// The "motion-off" class on <html> stops the CSS effects (border beam,
+// shimmer, aurora text, pulse) when the user turns the animation off.
+export function applyMotionClass() {
+  document.documentElement.classList.toggle("motion-off", !isBackgroundMotionOn());
+}
+
 export function setBackgroundMotion(isOn) {
   try {
     localStorage.setItem(STORAGE_KEY, isOn ? "on" : "off");
   } catch {
     // Blocked storage only loses the choice on reload.
   }
+  applyMotionClass();
   window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+// Set the class once when the app loads; another tab can change the choice.
+if (typeof document !== "undefined") {
+  applyMotionClass();
+  window.addEventListener("storage", applyMotionClass);
 }
 
 function subscribe(onChange) {

@@ -7,6 +7,7 @@ import SqlEditor from "../editor/SqlEditor.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useTheme } from "../../App.jsx";
+import { Button } from "../ui/index.jsx";
 
 const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
   const [editingSql, setEditingSql] = useState({
@@ -320,7 +321,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
               flexWrap: "wrap",
             }}
           >
-            <button
+            <Button
               onClick={handleCancelEditSql}
               // style={{
               //   display: "flex",
@@ -334,17 +335,17 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
               //   cursor: "pointer",
               // }}
      
-              className="btn btn-danger"
+              variant="danger"
             >
               <Icon
                 className="ti ti-x"
                 style={{ marginRight: "4px", fontSize: "0.75rem" }}
               />
               Cancel
-            </button>
+            </Button>
 
-            <button
-              className="btn btn-primary"
+            <Button
+              variant="primary"
               onClick={handleUpdateSql}
               disabled={chat.sqlUpdating}
               style={{
@@ -377,7 +378,7 @@ const SQLQueryEditorComponent = ({ chat, RunSqlQueryhandler, replaceChat }) => {
                   Update
                 </>
               )}
-            </button>
+            </Button>
           </div>
 
           <div

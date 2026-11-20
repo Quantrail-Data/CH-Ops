@@ -31,17 +31,7 @@ function Section({ title, children, defaultOpen = true }) {
         type="button"
         variant="ghost" size="sm"
         onClick={() => setOpen((v) => !v)}
-        style={{
-          width: "100%",
-          justifyContent: "flex-start",
-          gap: 6,
-          padding: "10px 0",
-          fontWeight: 600,
-          fontSize: "0.75rem",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          color: "var(--text-secondary)",
-        }}
+        style={{ width: "100%", justifyContent: "flex-start", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-secondary)" }}
       >
         <Icon className={`ti ${open ? "ti-chevron-down" : "ti-chevron-right"}`} />
         {title}

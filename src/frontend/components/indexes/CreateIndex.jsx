@@ -12,6 +12,7 @@ import { SqlPreview } from '../layout/SharedComponents.jsx';
 import { useToast } from '../layout/Toast.jsx';
 import AlertBanner from "../layout/AlertBanner.jsx"
 import { useAuth } from "../../App.jsx";
+import { Input, Button, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -44,10 +45,9 @@ export default function CreateIndex() {
           {routeTab === 'drop' && <DropForm />}
         </>
       ) : (
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>Index management is only available for administrators.</span>
-        </div>
+        </Notice>
       )}
     </div>
   );
@@ -138,8 +138,7 @@ function CreateForm() {
       <AlertBanner result={result} setResult={setResult} />
       <form onSubmit={submit} className="card" style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
-          <div className="form-group">
-            <label className="form-label">Database *</label>
+          <FormField label="Database *">
             <Select 
               className="form-select" 
               value={db} 
@@ -151,9 +150,8 @@ function CreateForm() {
               <option value="">--</option>
               {dbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}
             </Select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Table *</label>
+          </FormField>
+          <FormField label="Table *">
             <Select 
               className="form-select" 
               value={tbl} 
@@ -165,9 +163,8 @@ function CreateForm() {
               <option value="">--</option>
               {tblsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}
             </Select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Column *</label>
+          </FormField>
+          <FormField label="Column *">
             <Select 
               className="form-select" 
               value={col} 
@@ -179,13 +176,11 @@ function CreateForm() {
               <option value="">--</option>
               {colsQ.data?.map(r => <option key={r.name} value={r.name}>{r.name} ({r.type})</option>)}
             </Select>
-          </div>
+          </FormField>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
-          <div className="form-group">
-            <label className="form-label">Index Name *</label>
-            <input 
-              className="form-input" 
+          <FormField label="Index Name *">
+            <Input 
               required 
               value={name} 
               onChange={e => setName(e.target.value)} 
@@ -193,9 +188,8 @@ function CreateForm() {
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Index Type</label>
+          </FormField>
+          <FormField label="Index Type">
             <Select 
               className="form-select" 
               value={idxType} 
@@ -208,11 +202,9 @@ function CreateForm() {
               <option value="bloom_filter">bloom_filter</option>
               <option value="text">text</option>
             </Select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Granularity</label>
-            <input 
-              className="form-input" 
+          </FormField>
+          <FormField label="Granularity">
+            <Input 
               type="number" 
               min={1} 
               value={granularity} 
@@ -220,13 +212,11 @@ function CreateForm() {
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             />
-          </div>
+          </FormField>
         </div>
 
-        {idxType === 'set' && <div className="form-group" style={{ marginBottom: 14, maxWidth: 220 }}>
-          <label className="form-label">Set N (max distinct values)</label>
-          <input 
-            className="form-input" 
+        {idxType === 'set' && <FormField label="Set N (max distinct values)" style={{ marginBottom: 14, maxWidth: 220 }}>
+          <Input 
             type="text" 
             value={setN} 
             onChange={e => {
@@ -245,12 +235,10 @@ function CreateForm() {
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>}
+        </FormField>}
 
-        {idxType === 'bloom_filter' && <div className="form-group" style={{ marginBottom: 14, maxWidth: 220 }}>
-          <label className="form-label">False Positive Rate</label>
-          <input 
-            className="form-input" 
+        {idxType === 'bloom_filter' && <FormField label="False Positive Rate" style={{ marginBottom: 14, maxWidth: 220 }}>
+          <Input 
             type="number"
             value={bfRate}
             onChange={e => {
@@ -270,15 +258,14 @@ function CreateForm() {
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
+        </FormField>
         }
 
         {idxType === 'text' && (
           <div className="card" style={{ padding: 16, marginBottom: 14, background: 'var(--bg-elevated)' }}>
             <h4 style={{ fontSize: "0.875rem", marginBottom: 12 }}><Icon className="ti ti-text-recognition"></Icon> Text Index Parameters</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-              <div className="form-group">
-                <label className="form-label">Tokenizer *</label>
+              <FormField label="Tokenizer *">
                 <Select 
                   className="form-select" 
                   value={tokenizer} 
@@ -293,21 +280,17 @@ function CreateForm() {
                   <option value="sparseGrams">sparseGrams(min, max, cutoff)</option>
                   <option value="array">array</option>
                 </Select>
-              </div>
-              {tokenizer === 'splitByString' && <div className="form-group">
-                <label className="form-label">Separator</label>
-                <input 
-                  className="form-input" 
+              </FormField>
+              {tokenizer === 'splitByString' && <FormField label="Separator">
+                <Input 
                   value={splitByStringS} 
                   onChange={e => setSplitByStringS(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
-              </div>}
-              {tokenizer === 'ngrams' && <div className="form-group">
-                <label className="form-label">N</label>
-                <input 
-                  className="form-input" 
+              </FormField>}
+              {tokenizer === 'ngrams' && <FormField label="N">
+                <Input 
                   type="number" 
                   min={1} 
                   value={ngramsN} 
@@ -315,12 +298,10 @@ function CreateForm() {
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
-              </div>}
+              </FormField>}
               {tokenizer === 'sparseGrams' && <>
-                <div className="form-group">
-                  <label className="form-label">Min Length</label>
-                  <input 
-                    className="form-input" 
+                <FormField label="Min Length">
+                  <Input 
                     type="number" 
                     min={1} 
                     value={sparseMin} 
@@ -328,11 +309,9 @@ function CreateForm() {
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Max Length</label>
-                  <input 
-                    className="form-input" 
+                </FormField>
+                <FormField label="Max Length">
+                  <Input 
                     type="number" 
                     min={1} 
                     value={sparseMax} 
@@ -340,11 +319,9 @@ function CreateForm() {
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Min Cutoff</label>
-                  <input 
-                    className="form-input" 
+                </FormField>
+                <FormField label="Min Cutoff">
+                  <Input 
                     type="number" 
                     min={1} 
                     value={sparseCutoff} 
@@ -352,54 +329,45 @@ function CreateForm() {
                     disabled={!isAdmin}
                     style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   />
-                </div>
+                </FormField>
               </>}
-              <div className="form-group">
-                <label className="form-label">Preprocessor (optional)</label>
-                <input 
-                  className="form-input" 
+              <FormField label="Preprocessor (optional)">
+                <Input 
                   value={preprocessor} 
                   onChange={e => setPreprocessor(e.target.value)} 
                   placeholder="expression(str)"
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Dict Block Size</label>
-                <input 
-                  className="form-input" 
+              </FormField>
+              <FormField label="Dict Block Size">
+                <Input 
                   type="number" 
                   value={dictBlockSize} 
                   onChange={e => setDictBlockSize(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Dict Frontcoding</label>
-                <input 
-                  className="form-input" 
+              </FormField>
+              <FormField label="Dict Frontcoding">
+                <Input 
                   type="number" 
                   value={dictFrontcoding} 
                   onChange={e => setDictFrontcoding(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Posting Block Size</label>
-                <input 
-                  className="form-input" 
+              </FormField>
+              <FormField label="Posting Block Size">
+                <Input 
                   type="number" 
                   value={postingBlockSize} 
                   onChange={e => setPostingBlockSize(e.target.value)}
                   disabled={!isAdmin}
                   style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Posting Codec</label>
+              </FormField>
+              <FormField label="Posting Codec">
                 <Select 
                   className="form-select" 
                   value={postingCodec} 
@@ -411,21 +379,21 @@ function CreateForm() {
                   <option value="none">none</option>
                   <option value="bitpacking">bitpacking</option>
                 </Select>
-              </div>
+              </FormField>
             </div>
           </div>
         )}
 
         <SqlPreview sql={buildSql()} />
         <div style={{ marginTop: 16 }}>
-          <button 
-            className="btn btn-primary" 
+          <Button 
+            variant="primary" 
             type="submit"
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <Icon className="ti ti-plus"></Icon> Create Index
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -477,8 +445,7 @@ function MaterializeForm() {
       <AlertBanner result={result} setResult={setResult} />
       <form onSubmit={submit} className="card" style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
-          <div className="form-group">
-            <label className="form-label">Database *</label>
+          <FormField label="Database *">
             <Select 
               className="form-select" 
               value={db} 
@@ -490,9 +457,8 @@ function MaterializeForm() {
               <option value="">--</option>
               {dbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}
             </Select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Table *</label>
+          </FormField>
+          <FormField label="Table *">
             <Select 
               className="form-select" 
               value={tbl} 
@@ -504,9 +470,8 @@ function MaterializeForm() {
               <option value="">--</option>
               {tblsQ.data?.map(r => <option key={r.table}>{r.table}</option>)}
             </Select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Index *</label>
+          </FormField>
+          <FormField label="Index *">
             <Select 
               className="form-select" 
               value={idxName} 
@@ -518,18 +483,18 @@ function MaterializeForm() {
               <option value="">--</option>
               {idxQ.data?.map(r => <option key={r.name}>{r.name}</option>)}
             </Select>
-          </div>
+          </FormField>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button 
-            className="btn btn-primary" 
+          <Button 
+            variant="primary" 
             type="submit" 
             disabled={!sql || !isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           >
             <Icon className="ti ti-hammer"></Icon> Materialize Index
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -584,8 +549,7 @@ function DropForm() {
   return (
     <div className="card" style={{ padding: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 16 }}>
-        <div className="form-group">
-          <label className="form-label">Database *</label>
+        <FormField label="Database *">
           <Select 
             className="form-select" 
             value={dropDb} 
@@ -596,9 +560,8 @@ function DropForm() {
             <option value="">-- select --</option>
             {dropDbsQ.data?.map(r => <option key={r.database}>{r.database}</option>)}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Table *</label>
+        </FormField>
+        <FormField label="Table *">
           <Select 
             className="form-select" 
             value={dropTbl} 
@@ -609,9 +572,8 @@ function DropForm() {
             <option value="">-- select --</option>
             {dropTblsQ.data?.map(r => <option key={r.table}>{r.table}</option>)}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Index *</label>
+        </FormField>
+        <FormField label="Index *">
           <Select 
             className="form-select" 
             value={dropIdx} 
@@ -622,18 +584,18 @@ function DropForm() {
             <option value="">-- select --</option>
             {dropIdxsQ.data?.map(r => <option key={r.name}>{r.name}</option>)}
           </Select>
-        </div>
+        </FormField>
       </div>
       <SqlPreview sql={buildDropSql()} />
       <div style={{ marginTop: 16 }}>
-        <button 
-          className="btn btn-danger" 
+        <Button 
+          variant="danger" 
           onClick={executeDrop} 
           disabled={!dropDb || !dropTbl || !dropIdx || !isAdmin}
           style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop Index
-        </button>
+        </Button>
       </div>
     </div>
   );

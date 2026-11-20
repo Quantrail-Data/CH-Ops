@@ -4,6 +4,7 @@
 
 import Icon from "../common/Icon.jsx";
 import { fmtBytes, fmtRows } from '../../utils/costEstimator.js';
+import { Notice } from "../ui/index.jsx";
 
 export default function CostEstimatePanel({ estimate, loading }) {
   if (loading) {
@@ -30,10 +31,9 @@ export default function CostEstimatePanel({ estimate, loading }) {
 
       {/* Section 1: Cost Estimate */}
       {estimate.estimateError ? (
-        <div className="alert-banner warning" style={{ marginBottom: 16 }}>
-          <Icon className="ti ti-alert-triangle" />
+        <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 16 }}>
           <span>Estimate unavailable: {estimate.estimateError}</span>
-        </div>
+        </Notice>
       ) : estimate.tables.length > 0 && (
         <div style={{ marginBottom: 20, width: '100%', maxWidth: '100%', minWidth: 0 }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
@@ -142,10 +142,9 @@ export default function CostEstimatePanel({ estimate, loading }) {
 
       {/* Section 3: Execution Plan */}
       {estimate.planError ? (
-        <div className="alert-banner warning" style={{ marginBottom: 16 }}>
-          <Icon className="ti ti-alert-triangle" />
+        <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 16 }}>
           <span>Plan unavailable: {estimate.planError}</span>
-        </div>
+        </Notice>
       ) : estimate.plan && (
         <div>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>

@@ -16,6 +16,8 @@ import {
   saveAdvState,
 } from "../../utils/advancedFilters.js";
 import Select from "../common/Select.jsx";
+import { Button, FormField } from "../ui/index.jsx";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "../ui/collapsible.jsx";
 // Autocomplete words. Loaded once per session, shared by all five screens.
 let keywordsAndFunctionsPromise = null;
 function loadKeywordsAndFunctions() {
@@ -85,6 +87,11 @@ export default function AdvancedFilters({ table, value, onChange }) {
 // The view alone, no network. The test renders this export.
 export function AdvancedFiltersView({ columns, dialect, value, onChange }) {
   const filters = normalizeFilters(value.filters);
+  // The More options section is closed at the start, unless columns or
+  // filters are already set.
+  const [isOpen, setIsOpen] = useState(
+    () => (value.columns || []).length > 0 || filters.some((filterRow) => filterRow.expr?.trim()),
+  );
   const completions = useMemo(
     () =>
       buildCompletionOptions({
@@ -129,16 +136,28 @@ export function AdvancedFiltersView({ columns, dialect, value, onChange }) {
   function removeFilterRow(rowIndex) {
     onChange({ ...value, filters: filters.filter((_, i) => i !== rowIndex) });
   }
+  // A short summary on the closed section, for example "2 columns, 1 filter".
+  const columnCount = (value.columns || []).length;
+  const filledFilterCount = filters.filter((filterRow) => filterRow.expr?.trim()).length;
+  const summaryParts = [];
+  if (columnCount > 0) summaryParts.push(`${columnCount} column${columnCount === 1 ? "" : "s"}`);
+  if (filledFilterCount > 0) summaryParts.push(`${filledFilterCount} filter${filledFilterCount === 1 ? "" : "s"}`);
+
   return (
-    <div
-      style={{
-        borderTop: "1px solid var(--border-default)",
-        paddingTop: 14,
-        marginBottom: 14,
-      }}
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="advanced-filters"
     >
-      <div className="form-group" style={{ marginBottom: 14 }}>
-        <label className="form-label">Additional Result Columns</label>
+      <CollapsibleTrigger className="advanced-filters-toggle">
+        <Icon className={`ti ${isOpen ? "ti-chevron-down" : "ti-chevron-right"}`} />
+        More options: result columns and SQL filters
+        {summaryParts.length > 0 && (
+          <span className="advanced-filters-summary">({summaryParts.join(", ")})</span>
+        )}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="advanced-filters-body">
+      <FormField label="Additional Result Columns" className="advanced-filters-columns" style={{ marginBottom: 14 }}>
         <MultiSelect
           searchable
           options={columnOptions}
@@ -148,8 +167,8 @@ export function AdvancedFiltersView({ columns, dialect, value, onChange }) {
           }
           placeholder="Add columns to the result..."
         />
-      </div>
-      <div className="form-group">
+      </FormField>
+      <div className="form-group advanced-filters-rows">
         <label className="form-label">
           Custom SQL Filters{" "}
           <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
@@ -203,27 +222,28 @@ export function AdvancedFiltersView({ columns, dialect, value, onChange }) {
                 value={filterRow.expr}
                 onChange={(newText) => changeFilterText(rowIndex, newText)}
                 variant="expression"
-                height="36px"
+                height="2rem"
                 placeholder="e.g. thread_id = 12345"
                 completions={completions}
                 dialectData={dialectData}
               />
             </div>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost btn-sm"
+              variant="ghost" size="sm"
               aria-label={`Remove filter ${rowIndex + 1}`}
               onClick={() => removeFilterRow(rowIndex)}
               style={{ flexShrink: 0 }}
             >
               <Icon className="ti ti-x" />
-            </button>
+            </Button>
           </div>
         ))}
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost btn-sm"
+          variant="ghost" size="sm"
           onClick={addFilterRow}
+          style={{ alignSelf: "flex-start" }}
           disabled={filters.length >= MAX_FILTERS}
           title={
             filters.length >= MAX_FILTERS
@@ -233,8 +253,9 @@ filters`
           }
         >
           <Icon className="ti ti-plus" /> Add filter
-        </button>
+        </Button>
       </div>
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

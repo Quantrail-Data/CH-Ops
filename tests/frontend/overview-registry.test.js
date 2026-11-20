@@ -20,8 +20,10 @@ import {
 } from "../../src/frontend/components/overview/overviewMetrics.js";
 
 const DIR = "src/frontend/components/overview";
-const FILES = ["LiveOverview.jsx", "OverviewCards.jsx", "ClusterOverview.jsx", "ClusterTopology.jsx"];
-const live = fs.readFileSync(`${DIR}/LiveOverview.jsx`, "utf8");
+const FILES = ["LiveOverview.jsx", "useLiveOverview.js", "OverviewCards.jsx", "ClusterOverview.jsx", "ClusterTopology.jsx"];
+// The live page and its data hook (the hook is in its own file).
+const live =
+  fs.readFileSync(`${DIR}/LiveOverview.jsx`, "utf8") + "\n" + fs.readFileSync(`${DIR}/useLiveOverview.js`, "utf8");
 
 describe("metric registry", () => {
   it("gives every metric a label and a unit", () => {

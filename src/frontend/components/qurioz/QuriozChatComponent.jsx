@@ -19,6 +19,7 @@ import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
 import { AnimatePresence, motion } from "motion/react";
 import { createPortal } from "react-dom";
 import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
+import { Button, Input } from "../ui/index.jsx";
 
 const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
@@ -382,9 +383,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
             ease: "easeInOut",
           }}
         >
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost"
+            variant="ghost"
             onClick={() => setIsOpen(true)}
             aria-label="Open chat history"
           >
@@ -408,7 +409,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
               <path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356" />
               <path d="M12 8v4l3 3" />
             </svg>
-          </button>
+          </Button>
         </motion.div>
       )}
 
@@ -440,9 +441,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
           }}
         >
           <div className="header-history">
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => {
                 setIsOpen(false);
                 setOpenMenuId(null);
@@ -451,16 +452,16 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
               aria-label="Close chat history"
             >
               <Icon className="ti ti-chevron-left" />
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={handleNewChat}
             >
               <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
               <span style={{ fontSize: "0.625rem" }}>New Chat</span>
-            </button>
+            </Button>
           </div>
           <div className="chat-sesion-body">
             {isLoading ? (
@@ -519,10 +520,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                     }}
                   >
                     {editingChatId === chat.id ? (
-                      <input
+                      <Input
                         autoFocus
                         disabled={isSaving}
-                        className="form-input"
                         style={{
                           width: "100%",
                           height: "30px",
@@ -552,9 +552,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                       flexShrink: 0,
                     }}
                   >
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
+                      variant="ghost"
                       title="More options"
                       aria-label={`More options for ${
                         chat?.title || "Untitled chat"
@@ -571,7 +571,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                       >
                         <path d="M12 10a2 2 0 1 0 2 2 2 2 0 0 0-2-2m-7 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2m14 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2" />
                       </svg>
-                    </button>
+                    </Button>
 
                     {openMenuId === chat.id &&
                       menuPosition &&
@@ -1589,8 +1589,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                   style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
-                <input
-                  className="form-input"
+                <Input
                   style={{
                     height: 28,
                     width: 150,
@@ -1625,8 +1624,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                     position: "relative",
                   }}
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     type={isViewFlag ? "text" : "password"}
                     style={{
                       height: 28,
@@ -1645,7 +1643,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                     }}
                     autoComplete="off"
                   />
-                  <div onClick={() => setIsViewFlag(!isViewFlag)}>
+                  <button type="button" className="password-eye" aria-label={isViewFlag ? "Hide password" : "Show password"} aria-pressed={!!(isViewFlag)} onClick={() => setIsViewFlag(!isViewFlag)}>
                     <Icon
                       className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
                       style={{
@@ -1655,11 +1653,11 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                         fontSize: "1.0625rem",
                       }}
                     />
-                  </div>
+                  </button>
                 </div>
               </span>
-              <button
-                className="btn btn-primary btn-sm"
+              <Button
+                variant="primary" size="sm"
                 onClick={handleConnect}
                 disabled={connecting || !connUser.trim()}
                 title={`Connect to ${selectedNode || "node"}:${port}`}
@@ -1670,7 +1668,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                   <Icon className="ti ti-plug"></Icon>
                 )}{" "}
                 Go
-              </button>
+              </Button>
             </div>
           ) : (
             <div
@@ -1682,12 +1680,12 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 color: "var(--text-secondary)",
               }}
             >
-              <button
-                className="btn btn-ghost"
+              <Button
+                variant="ghost"
                 onClick={() => setShowDBModel(true)}
               >
                 <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
-              </button>
+              </Button>
               <Icon
                 className="ti ti-plug-connected"
                 style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
@@ -1706,14 +1704,13 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 </span>
               </span>
 
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={handleDisconnect}
                 title="Disconnect and clear credentials"
-                style={{ padding: "2px 6px" }}
               >
                 <Icon className="ti ti-logout"></Icon>
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1763,12 +1760,14 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div
-                className={`api-details alert-banner danger `}
+              <button
+                type="button"
+                className="api-details alert-banner danger"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   cursor: "pointer",
+                  font: "inherit",
                   borderRadius: "5px",
                   gap: "10px",
                   padding: "5px 15px",
@@ -1784,7 +1783,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 <div className="details">
                   <h6 style={{ fontSize: "0.625rem" }}>{"NO API KEY"} </h6>
                 </div>
-              </div>
+              </button>
             </div>
           )}
         </div>

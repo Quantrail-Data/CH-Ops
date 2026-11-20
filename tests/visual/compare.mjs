@@ -58,6 +58,14 @@ function comparePictures(oldFile, newFile, diffFile) {
 }
 
 // Chart differences other than color and font name. Each one is a defect.
+// A chart option lists an empty array for each ECharts part that is loaded
+// but not used (for example "brush: []"). Since package 6 the app loads only
+// the parts it uses, so these empty lists are gone. They draw nothing.
+function withoutEmptyParts(option) {
+  if (!option || typeof option !== "object") return option;
+  return Object.fromEntries(Object.entries(option).filter(([, value]) => !(Array.isArray(value) && value.length === 0)));
+}
+
 function compareCharts(oldCharts, newCharts) {
   const problems = [];
   const oldByPath = Object.fromEntries((oldCharts?.charts || []).map((chart) => [chart.path, chart]));
@@ -79,7 +87,7 @@ function compareCharts(oldCharts, newCharts) {
     if (JSON.stringify(oldChart.legendBox) !== JSON.stringify(newChart.legendBox)) {
       problems.push(`legend size or position changed: ${chartPath}`);
     }
-    if (JSON.stringify(withoutColors(oldChart.option)) !== JSON.stringify(withoutColors(newChart.option))) {
+    if (JSON.stringify(withoutEmptyParts(withoutColors(oldChart.option))) !== JSON.stringify(withoutEmptyParts(withoutColors(newChart.option)))) {
       problems.push(`chart options changed (not only colors or fonts): ${chartPath}`);
     }
   }

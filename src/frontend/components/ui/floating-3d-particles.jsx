@@ -10,6 +10,12 @@ const MOBILE_BREAKPOINT = 768
 const SPREAD_FACTOR = 1.2
 const MAX_DPR = 2
 
+// Particles with almost the same opacity are drawn together (see drawAll).
+const OPACITY_STEP = 0.02
+// The canvas pixel scale (see resize).
+const CANVAS_SCALE = 0.5
+const STEP_TIME_MS = 50
+
 function hexToRgba(hex, alpha) {
   const clean = hex.replace("#", "").trim()
   const full =
@@ -75,11 +81,17 @@ export function Floating3DParticles({
 }) {
   const canvasRef = React.useRef(null)
   const ioRef = React.useRef(null)
+  // CHOps: the loop pauses when the tab is hidden, the canvas is off screen
+  // or the window is not in focus. While paused (and after the one still
+  // frame of reduced motion) no frame is requested at all.
   const stateRef = React.useRef({
     mounted: false,
-    paused: false,
+    isHidden: false,
+    isOffscreen: false,
+    isBlurred: false,
     reducedMotion: false,
     rafId: null,
+    waitTimerId: null,
   })
 
   // Read fresh on every frame, so recolouring (e.g. a theme switch) does not
@@ -97,7 +109,16 @@ export function Floating3DParticles({
 
     const s = stateRef.current
     s.mounted = true
-    s.paused = false
+    s.isHidden = document.hidden
+    s.isOffscreen = false
+    s.isBlurred = !document.hasFocus()
+
+    const isPaused = () => s.isHidden || s.isOffscreen || s.isBlurred
+    // Starts the loop if it is not running and there is something to draw.
+    const startLoop = () => {
+      if (!s.mounted || s.rafId !== null || s.waitTimerId !== null || isPaused()) return
+      s.rafId = requestAnimationFrame(tick)
+    }
 
     let width = 0
     let height = 0
@@ -110,18 +131,35 @@ export function Floating3DParticles({
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
     const syncReducedMotion = () => {
       s.reducedMotion = mq.matches
+      staticDirty = true
+      startLoop()
     }
     syncReducedMotion()
 
-    // Draw single particle
-    const draw = (p) => {
-      const r = Math.max(0, p.size * p.projectedScale)
-      if (r <= 0) return
-
-      ctx.beginPath()
-      ctx.fillStyle = hexToRgba(colorRef.current, p.opacity)
-      ctx.arc(p.screenX, p.screenY, r, 0, Math.PI * 2)
-      ctx.fill()
+    // CHOps: draws all particles with a few fill calls instead of one each.
+    // One color for all; the particles are put in groups of the same opacity
+    // (steps of OPACITY_STEP), and each group is one path and one fill. With
+    // one color the painting order does not matter, so there is no sort.
+    const drawAll = (list) => {
+      const groups = new Map()
+      for (const p of list) {
+        if (p.size * p.projectedScale <= 0) continue
+        const level = Math.max(1, Math.round(p.opacity / OPACITY_STEP))
+        if (!groups.has(level)) groups.set(level, [])
+        groups.get(level).push(p)
+      }
+      ctx.fillStyle = hexToRgba(colorRef.current, 1)
+      for (const [level, group] of groups) {
+        ctx.globalAlpha = Math.min(1, level * OPACITY_STEP)
+        ctx.beginPath()
+        for (const p of group) {
+          const r = p.size * p.projectedScale
+          ctx.moveTo(p.screenX + r, p.screenY)
+          ctx.arc(p.screenX, p.screenY, r, 0, Math.PI * 2)
+        }
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
     }
 
     // Static frame for reduced motion
@@ -136,8 +174,8 @@ export function Floating3DParticles({
         p.screenX = cx + Math.cos(p.angle) * p.radius * scale
         p.screenY = cy + p.y * scale
         p.projectedScale = scale
-        draw(p)
       }
+      drawAll(particles)
     }
 
     // CHOps: draw at most maxFps frames per second, to save CPU and battery.
@@ -145,19 +183,25 @@ export function Floating3DParticles({
     let lastFrame = 0
 
     // Animation loop: continuous 3D field rotation and buoyant drift
-    const tick = (now = 0) => {
-      if (!s.mounted) return
+    function tick(now = 0) {
+      s.rafId = null
+      if (!s.mounted || isPaused()) return
 
-      if (now - lastFrame < frameTime) {
-        s.rafId = requestAnimationFrame(tick)
+      // Too early: wait for the rest of the frame time with a timer. A new
+      // requestAnimationFrame here would wake the page 60 times per second
+      // only to skip the frame.
+      const timeLeft = frameTime - (now - lastFrame)
+      if (timeLeft > 1) {
+        s.waitTimerId = setTimeout(() => {
+          s.waitTimerId = null
+          startLoop()
+        }, timeLeft)
         return
       }
+      // The particles move the same distance per second at any frame rate.
+      // One step is the move of one frame at 20 frames per second.
+      const steps = lastFrame === 0 ? 1 : Math.min(3, (now - lastFrame) / STEP_TIME_MS)
       lastFrame = now
-
-      if (s.paused) {
-        s.rafId = requestAnimationFrame(tick)
-        return
-      }
 
       // Reduced motion: paint one static frame, then idle until something
       // invalidates it (resize, or the motion preference being turned off).
@@ -166,7 +210,7 @@ export function Floating3DParticles({
           staticDirty = false
           staticFrame()
         }
-        s.rafId = requestAnimationFrame(tick)
+        // One still frame is enough; resize or a motion change starts again.
         return
       }
 
@@ -179,8 +223,8 @@ export function Floating3DParticles({
 
       for (const p of particles) {
         // Continuous organic rotation around the 3D central axis
-        p.angle += p.angularSpeed
-        p.y -= drift
+        p.angle += p.angularSpeed * steps
+        p.y -= drift * steps
 
         // Respawn on the opposite edge, whichever one the particle left
         // through, so a negative drift falls instead of draining the field
@@ -204,9 +248,7 @@ export function Floating3DParticles({
         p.projectedScale = scale
       }
 
-      // Painter's algorithm: draw farthest particles first
-      particles.sort((a, b) => a.projectedScale - b.projectedScale)
-      for (const p of particles) draw(p)
+      drawAll(particles)
 
       s.rafId = requestAnimationFrame(tick)
     }
@@ -217,7 +259,10 @@ export function Floating3DParticles({
       width = Math.max(1, Math.round(rect.width))
       height = Math.max(1, Math.round(rect.height))
 
-      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, MAX_DPR))
+      // CHOps: the canvas has half the pixels in each direction and is
+      // stretched to the full size. The dots are tiny and soft, so it looks
+      // the same, and each frame clears and paints a quarter of the pixels.
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, MAX_DPR)) * CANVAS_SCALE
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -231,10 +276,19 @@ export function Floating3DParticles({
 
       // Canvas was cleared by the width/height reassignment above.
       staticDirty = true
+      startLoop()
     }
 
     const onVisibilityChange = () => {
-      s.paused = document.hidden
+      s.isHidden = document.hidden
+      startLoop()
+    }
+    const onWindowBlur = () => {
+      s.isBlurred = true
+    }
+    const onWindowFocus = () => {
+      s.isBlurred = false
+      startLoop()
     }
 
     // ResizeObserver
@@ -250,7 +304,9 @@ export function Floating3DParticles({
     if (typeof IntersectionObserver !== "undefined") {
       ioRef.current = new IntersectionObserver(
         ([entry]) => {
-          if (entry) s.paused = document.hidden || !entry.isIntersecting
+          if (!entry) return
+          s.isOffscreen = !entry.isIntersecting
+          startLoop()
         },
         { threshold: 0 }
       )
@@ -258,10 +314,12 @@ export function Floating3DParticles({
     }
 
     document.addEventListener("visibilitychange", onVisibilityChange)
+    window.addEventListener("blur", onWindowBlur)
+    window.addEventListener("focus", onWindowFocus)
     mq.addEventListener("change", syncReducedMotion)
 
     resize()
-    s.rafId = requestAnimationFrame(tick)
+    startLoop()
 
     return () => {
       s.mounted = false
@@ -269,11 +327,17 @@ export function Floating3DParticles({
         cancelAnimationFrame(s.rafId)
         s.rafId = null
       }
+      if (s.waitTimerId !== null) {
+        clearTimeout(s.waitTimerId)
+        s.waitTimerId = null
+      }
       ro?.disconnect()
       if (!ro) window.removeEventListener("resize", resize)
       ioRef.current?.disconnect()
       ioRef.current = null
       document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.removeEventListener("blur", onWindowBlur)
+      window.removeEventListener("focus", onWindowFocus)
       mq.removeEventListener("change", syncReducedMotion)
     }
   }, [quantity, size, opacity, drift, depth, maxFps])

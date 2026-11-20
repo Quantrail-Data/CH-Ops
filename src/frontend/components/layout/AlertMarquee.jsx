@@ -13,6 +13,7 @@ import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useConnection } from "../../App.jsx";
 import {motion} from "motion/react";
+import { BorderBeam } from "../ui/border-beam.jsx";
 
 const OP = { gt: ">", gte: ">=", lt: "<", lte: "<=", eq: "=", neq: "!=" };
 
@@ -105,6 +106,8 @@ export default function AlertMarquee() {
         alignItems: "center",
       }}
     >
+      {/* Magic UI Border Beam in the danger colors: an alert is firing. */}
+      <BorderBeam size={160} duration={7} colorFrom="var(--color-danger)" colorTo="var(--color-warning)" />
       <marquee
         style={{
           display: "inline-flex",

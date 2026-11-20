@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import Icon from "../common/Icon.jsx";
 import InfoTip from "../common/InfoTip.jsx";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
-import { initChart, disposeChart } from "../../utils/echarts.js";
+import { initChart, disposeChart, disposeChartInstance } from "../../utils/echarts.js";
 import { METRICS } from "./overviewMetrics.js";
 import { polish, stageGauge, useIsDark } from "./overviewChart.js";
 import { NO_VALUE } from "./overviewMath.js";
@@ -141,7 +141,7 @@ export function ChartCard({
 
   useEffect(
     () => () => {
-      if (elRef.current) disposeChart(elRef.current);
+      disposeChartInstance(instRef.current);
       instRef.current = null;
     },
     [],
@@ -437,7 +437,7 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
 
   useEffect(
     () => () => {
-      if (elRef.current) disposeChart(elRef.current);
+      disposeChartInstance(instRef.current);
       instRef.current = null;
     },
     [],
@@ -558,15 +558,7 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         variant="ghost"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          width: "100%",
-          justifyContent: "flex-start",
-          padding: "8px 10px",
-          marginBottom: open ? 10 : 0,
-        }}
+        style={{ width: "100%", justifyContent: "flex-start", marginBottom: open ? 10 : 0 }}
       >
         <Icon className={`ti ti-chevron-${open ? "up" : "down"}`} />
         {icon && <Icon className={`ti ${icon}`} />}

@@ -5,6 +5,7 @@
 import { useMemo } from "react";
 import { materialize } from "../../../shared/sqlParams.js";
 import SqlEditor from "./SqlEditor.jsx";
+import { Notice } from "../ui/index.jsx";
 
 export default function QueryPreviewPanel({ sql, values }) {
   const { text, params, error } = useMemo(() => {
@@ -25,7 +26,7 @@ export default function QueryPreviewPanel({ sql, values }) {
       </div>
 
       {error ? (
-        <div className="alert-banner danger">{error}</div>
+        <Notice tone="danger">{error}</Notice>
       ) : (
         <>
           <div

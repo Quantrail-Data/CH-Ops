@@ -120,7 +120,7 @@ CHOps needs an encryption secret and one super-admin account. The `ENCRYPTION_SE
 export ENCRYPTION_SECRET=$(openssl rand -hex 32)
 
 # 2. Start the container.
-docker run -d --name chops -p 3000:3000 \
+docker run -d --name chops -p 7720:7720 \
   -e ENCRYPTION_SECRET="$ENCRYPTION_SECRET" \
   -e SUPER_ADMIN_1=admin \
   -e SUPER_ADMIN_1_PASSWORD=change-this-password \
@@ -129,7 +129,7 @@ docker run -d --name chops -p 3000:3000 \
   quantrailadmin1/ch-ops:latest
 ```
 
-Then open `http://localhost:3000`. Log in with the super-admin user name and password that you set.
+Then open `http://localhost:7720`. Log in with the super-admin user name and password that you set.
 
 The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:latest`.
 
@@ -144,7 +144,7 @@ services:
     container_name: chops
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "7720:7720"
     environment:
       - ENCRYPTION_SECRET=replace-with-a-long-random-value
       - SUPER_ADMIN_1=admin
@@ -163,7 +163,7 @@ Start it:
 docker compose up -d
 ```
 
-Then open `http://localhost:3000`. To stop CHOps, run `docker compose down`. Your data stays in the `chops-data` volume.
+Then open `http://localhost:7720`. To stop CHOps, run `docker compose down`. Your data stays in the `chops-data` volume.
 
 ### Run a prebuilt binary
 
@@ -286,7 +286,7 @@ Development mode reloads on code changes:
 bun run dev
 ```
 
-This starts the backend API on port 3000 and the Vite frontend dev server on port 5173. Open `http://localhost:5173`.
+This starts the backend API on port 7720 and the Vite frontend dev server on port 7721. Open `http://localhost:7721`.
 
 ### Start in production
 
@@ -295,7 +295,7 @@ bun run build
 bun src/backend/server.js
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:7720`.
 
 ### Build your own Docker image
 
@@ -316,13 +316,13 @@ Or build and run by hand:
 docker build -t chops:latest .
 
 # Run it (mount a volume so the data survives).
-docker run -d --name chops -p 3000:3000 \
+docker run -d --name chops -p 7720:7720 \
   --env-file .env \
   -v chops-data:/app/data \
   chops:latest
 ```
 
-Open `http://localhost:3000`. A `VITE_*` change needs a rebuild, because the build compiles those values into the frontend. Everything else takes effect on the next restart.
+Open `http://localhost:7720`. A `VITE_*` change needs a rebuild, because the build compiles those values into the frontend. Everything else takes effect on the next restart.
 
 ### Build a standalone binary
 
@@ -542,7 +542,7 @@ WantedBy=multi-user.target
 
 ```
 chops.example.com {
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -573,7 +573,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 
 **DDL cards show zeros**: This is normal on single-node setups with no distributed DDL queue.
 
-**Port already in use**: Set a different port in `.env` with `PORT=3001`.
+**Port already in use**: Set a different port in `.env` with `PORT=7730`.
 
 **Binary crashes on startup**: Make sure `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET` are set. The binary needs them, just like the dev server.
 

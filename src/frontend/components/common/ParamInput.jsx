@@ -4,6 +4,7 @@
 
 import Select from "./Select.jsx";
 import { isTemporal, isNumeric, enumMembers } from "../../../shared/sqlParams.js";
+import { Input } from "../ui/index.jsx";
 
 // Nullable(T) / LowCardinality(T) behave as T for input purposes.
 function unwrap(type) {
@@ -54,8 +55,7 @@ export default function ParamInput({ param, value, onChange, invalid = false, fu
   if (isTemporal(param.type)) {
     const dateOnly = /^Date(32)?$/i.test(unwrap(param.type));
     return (
-      <input
-        className="form-input"
+      <Input
         type={dateOnly ? "date" : "datetime-local"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -68,8 +68,7 @@ export default function ParamInput({ param, value, onChange, invalid = false, fu
 
   if (isNumeric(param.type)) {
     return (
-      <input
-        className="form-input"
+      <Input
         type="number"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -82,8 +81,7 @@ export default function ParamInput({ param, value, onChange, invalid = false, fu
 
   const isCollection = /^(Array|Map)/i.test(param.type);
   return (
-    <input
-      className="form-input"
+    <Input
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}

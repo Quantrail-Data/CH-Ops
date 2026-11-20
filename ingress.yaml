@@ -20,4 +20,4 @@ spec:
               service:
                 name: chops
                 port:
-                  number: 3000
+                  number: 7720

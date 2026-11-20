@@ -26,6 +26,7 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
 import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -699,30 +700,29 @@ export default function DashboardView({ sidebar,mainRef }) {
         </h2>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {selDash && hasLegendCharts && (
-            <button
-              className={`btn btn-sm ${showLegends ? "btn-primary" : "btn-secondary"}`}
+            <Button
+              size="sm" variant={showLegends ? "primary" : "secondary"} aria-pressed={showLegends}
               onClick={() => setShowLegends(!showLegends)}
               title={showLegends ? "Hide legends" : "Show legends"}
-              style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
               <Icon
                 className={`ti ${showLegends ? "ti-eye" : "ti-eye-off"}`}
               ></Icon>
               <span style={{ fontSize: "0.75rem" }}>Legends</span>
-            </button>
+            </Button>
           )}
           {selDash && (
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={() => loadCharts(selDash.id, applied, params)}
               title="Reload every chart"
             >
               <Icon className="ti ti-refresh"></Icon>
-            </button>
+            </Button>
           )}
           {selDash && (
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               onClick={() => setPageFs((v) => !v)}
               title={pageFs ? "Exit full screen" : "Full screen"}
               aria-label={pageFs ? "Exit full screen" : "Full screen"}
@@ -731,12 +731,12 @@ export default function DashboardView({ sidebar,mainRef }) {
                 className={`ti ${pageFs ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
                 style={{ fontSize: "0.875rem" }}
               ></Icon>
-            </button>
+            </Button>
           )}
           {/* Editors may create and edit; only admins may delete. The button
               used to be gated on isAdmin while the route accepted any editor. */}
-          <button
-            className="btn btn-primary btn-sm"
+          <Button
+            variant="primary" size="sm"
             onClick={() =>
               showCreate ? setShowCreate(false) : setShowCreate(true)
             }
@@ -745,7 +745,7 @@ export default function DashboardView({ sidebar,mainRef }) {
           >
             <Icon className={`ti ${showCreate ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showCreate ? "Cancel" : "New"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -760,16 +760,13 @@ export default function DashboardView({ sidebar,mainRef }) {
             alignItems: "flex-end",
           }}
         >
-          <div className="form-group">
-            <label className="form-label">Name *</label>
-            <input
-              className="form-input"
+          <FormField label="Name *">
+            <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Columns</label>
+          </FormField>
+          <FormField label="Columns">
             <Select
               className="form-select"
               value={newCols}
@@ -781,14 +778,14 @@ export default function DashboardView({ sidebar,mainRef }) {
                 </option>
               ))}
             </Select>
-          </div>
-          <button
-            className="btn btn-primary btn-sm"
+          </FormField>
+          <Button
+            variant="primary" size="sm"
             onClick={createDash}
             disabled={!newName.trim()}
           >
             <Icon className="ti ti-plus"></Icon> Create
-          </button>
+          </Button>
         </div>
       )}
 
@@ -826,8 +823,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                 }}
               ></Icon>
               {renameId === d.id ? (
-                <input
-                  className="form-input"
+                <Input
                   value={renameName}
                   onChange={(e) => setRenameName(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
@@ -859,69 +855,57 @@ export default function DashboardView({ sidebar,mainRef }) {
               </span>
               {renameId === d.id ? (
                 <>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       renameDash(d.id, renameName);
                     }}
-                    style={{ padding: 2 }}
                     title="Save name"
                   >
                     <Icon
                       className="ti ti-check"
                       style={{ fontSize: "0.875rem" }}
                     ></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       setRenameId(null);
                       setRenameName("");
                     }}
-                    style={{ padding: 2 }}
                     title="Cancel"
                   >
                     <Icon className="ti ti-x" style={{ fontSize: "0.875rem" }}></Icon>
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <button
-                  className="btn btn-ghost btn-sm"
+                <Button
+                  variant="ghost" size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     setRenameId(d.id);
                     setRenameName(d.name || "");
                   }}
-                  style={{
-                    padding: 2,
-                    marginLeft: "auto",
-                    opacity: !canEdit ? 0.35 : 1,
-                    cursor: !canEdit ? "not-allowed" : "pointer",
-                  }}
+                  style={{ marginLeft: "auto", opacity: !canEdit ? 0.35 : 1, cursor: !canEdit ? "not-allowed" : "pointer" }}
                   disabled={!canEdit}
                   title="Rename"
                 >
                   <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon>
-                </button>
+                </Button>
               )}
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   setDel(d.id);
                 }}
-                style={{
-                  padding: 2,
-                  marginLeft: renameId === d.id ? 0 : "auto",
-                  opacity: !isAdmin ? 0.35 : 1,
-                  cursor: !isAdmin ? "not-allowed" : "pointer",
-                }}
+                style={{ marginLeft: renameId === d.id ? 0 : "auto", opacity: !isAdmin ? 0.35 : 1, cursor: !isAdmin ? "not-allowed" : "pointer" }}
                 disabled={!isAdmin}
               >
                 <Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon>
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -952,13 +936,9 @@ export default function DashboardView({ sidebar,mainRef }) {
       )}
 
       {selDash && !!params.errors.length && (
-        <div
-          className="alert-banner warning"
-          style={{ marginBottom: 12, fontSize: "0.8125rem" }}
-        >
-          <Icon className="ti ti-alert-triangle"></Icon>
+        <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 12, fontSize: "0.8125rem" }}>
           {params.errors.map((e) => `"${e.chartName}": ${e.message}`).join(" ")}
-        </div>
+        </Notice>
       )}
 
       {(loading || transitioning) && selDash && (
@@ -992,9 +972,9 @@ export default function DashboardView({ sidebar,mainRef }) {
               Drag charts to swap positions.
             </span>
             {hasUnsaved && canEdit && (
-              <button className="btn btn-primary btn-sm" onClick={saveLayout}>
+              <Button variant="primary" size="sm" onClick={saveLayout}>
                 <Icon className="ti ti-device-floppy"></Icon> Save Layout
-              </button>
+              </Button>
             )}
           </div>
           <div
@@ -3128,27 +3108,25 @@ function ChartTile({
             />
           )}
           {isAdmin && (
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               onClick={onDelete}
               title="Delete chart (admin only)"
               disabled={!canEdit}
               style={!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}}
             >
               <Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon>
-            </button>
+            </Button>
           )}
         </div>
       </div>
       {opt?._error && (
-        <div className="alert-banner danger" style={{ fontSize: "0.8125rem" }}>
-          <Icon className="ti ti-alert-circle"></Icon> {opt.message}
-        </div>
+        <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}> {opt.message}
+        </Notice>
       )}
       {opt?._waiting && (
-        <div className="alert-banner warning" style={{ fontSize: "0.8125rem" }}>
-          <Icon className="ti ti-clock"></Icon> {opt.message}
-        </div>
+        <Notice tone="warning" icon="ti-clock" style={{ fontSize: "0.8125rem" }}> {opt.message}
+        </Notice>
       )}
       {opt?._kpi && (
         <div

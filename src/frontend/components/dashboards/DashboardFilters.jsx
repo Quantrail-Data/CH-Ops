@@ -7,6 +7,7 @@ import Icon from "../common/Icon.jsx";
 import ParamInput from "../common/ParamInput.jsx";
 import { labelFor, isHidden, orderFilters, hasValue }
   from "../../utils/dashboardParams.js";
+import { Button, Notice } from "../ui/index.jsx";
 
 export default function DashboardFilters({
   filters,
@@ -43,8 +44,7 @@ export default function DashboardFilters({
 
   if (conflicts.length) {
     return (
-      <div className="alert-banner danger" style={{ marginBottom: 12 }}>
-        <Icon className="ti ti-alert-circle" />
+      <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 12 }}>
         <div>
           <strong>This dashboard&apos;s filters cannot be built.</strong>
           <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
@@ -53,7 +53,7 @@ export default function DashboardFilters({
             ))}
           </ul>
         </div>
-      </div>
+      </Notice>
     );
   }
 
@@ -79,15 +79,14 @@ export default function DashboardFilters({
           borderBottom: open ? "1px solid var(--border-default)" : "none",
         }}
       >
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setOpen((v) => !v)}
           title={open ? "Hide filters" : "Show filters"}
           aria-expanded={open}
-          style={{ padding: "2px 6px" }}
         >
           <Icon className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: "1rem" }} />
-        </button>
+        </Button>
 
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: "0.875rem" }}>
           <Icon className="ti ti-filter" style={{ fontSize: "1rem" }} />
@@ -113,14 +112,14 @@ export default function DashboardFilters({
         )}
 
         {canEdit && (
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={onOpenSettings}
             title="Filter settings: labels, order, defaults, visibility"
             style={{ marginLeft: "auto" }}
           >
             <Icon className="ti ti-adjustments" /> Filter settings
-          </button>
+          </Button>
         )}
       </div>
 
@@ -202,21 +201,21 @@ export default function DashboardFilters({
               marginTop: 12,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={onReset}
               title="Return every filter to its default"
             >
               <Icon className="ti ti-refresh" /> Reset
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
+            </Button>
+            <Button
+              variant="primary" size="sm"
               onClick={onApply}
               disabled={!dirty}
               title={dirty ? "Re-run the affected charts" : "Nothing has changed"}
             >
               <Icon className="ti ti-check" /> Apply
-            </button>
+            </Button>
           </div>
         </div>
       )}

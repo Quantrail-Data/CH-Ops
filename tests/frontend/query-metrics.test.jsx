@@ -26,6 +26,13 @@ vi.mock('../../src/frontend/components/layout/Toast.jsx', () => ({
   useToast: () => ({ success: (...args) => toastSuccessMock(...args) }),
 }));
 
+// The page logic is tested here, not the date picker (components.test.jsx
+// tests the picker). The stub is a plain input that calls onChange the same way.
+vi.mock('../../src/frontend/components/layout/DateTimePicker.jsx', () => ({
+  default: ({ label, value, onChange, name }) => (
+    <input type="datetime-local" aria-label={label} value={value} onChange={(e) => onChange(e.target.value, name)} />
+  ),
+}));
 vi.mock('../../src/frontend/components/layout/ChartCard.jsx', () => ({
   default: ({ title, option, height }) => (
     <div data-testid="chart-card">

@@ -1,6 +1,7 @@
-import { motion } from "motion/react";
 import Icon from "./Icon";
 import { useTheme } from "../../App";
+import { Button, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 
 
@@ -33,19 +34,22 @@ function AIDDLModelComponent({
 
 
   return (
-    <div className="modal-overlay" style={{ zIndex: "100000", padding: "0px" }}>
-      <motion.div
-        initial={{ scale: 0.99 }}
-        animate={{ scale: 1 }}
-        style={{
-          width: "50rem",
-          backgroundColor: "var(--bg-page)",
-          borderRadius: "10px",
-          padding: "15px",
-          position: "relative",
-          maxHeight: "80vh",
-        }}
-      >
+    // A click on the backdrop does not close it (the selection would be lost).
+    // Escape and the close button do.
+    <Modal
+      onClose={() => setShowDBModel(false)}
+      closeOnBackdrop={false}
+      label="Database Schema & Estimate Generator"
+      style={{
+        width: "50rem",
+        maxWidth: "95vw",
+        backgroundColor: "var(--bg-page)",
+        borderRadius: "10px",
+        padding: "15px",
+        position: "relative",
+        maxHeight: "80vh",
+      }}
+    >
         <div
           style={{
             display: "flex",
@@ -66,21 +70,19 @@ function AIDDLModelComponent({
               alignItems: "center",
             }}
           >
-            <button
-              className="btn btn-ghost"
+            <Button
+              variant="ghost"
+              aria-label="Close"
               onClick={() => setShowDBModel(false)}
             >
               <Icon className="ti ti-x" />
-            </button>
+            </Button>
           </div>
         </div>
         {alertMessage?.flag && (
-          <div
-            className={`alert-banner info`}
-            style={{ fontSize: "0.75rem", margin: "10px 0px" }}
-          >
+          <Notice tone="info" style={{ fontSize: "0.75rem", margin: "10px 0px" }}>
             {alertMessage?.message}
-          </div>
+          </Notice>
         )}
         {/* non-selected */}
         <div>
@@ -103,7 +105,7 @@ function AIDDLModelComponent({
                   backgroundColor: isNewSelectAll ? "var(--accent)" : undefined,
                   color: isNewSelectAll && "white",
                   ...{
-                    fontSize: "11px",
+                    fontSize: "0.6875rem",
                     padding: "5px 10px",
                     height: "30px",
                   },
@@ -178,15 +180,10 @@ function AIDDLModelComponent({
                   {isNewSelectAll ? "Deselect All" : "Select All"}
                 </span>
               </button>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 onClick={() => {
                   databaseSchemaSetterHandler("add");
-                }}
-                style={{
-                  fontSize: "0.6875rem",
-                  padding: "5px 10px",
-                  height: "30px",
                 }}
                 disabled={newSelection?.length === 0 || !isEnableAddButton()}
               >
@@ -195,11 +192,10 @@ function AIDDLModelComponent({
                   <Icon className="ti ti-plus" />
                   Get Tables
                 </>
-              </button>
+              </Button>
             </div>
           </div>
-          <div
-            style={{
+          <Notice tone="info" style={{
               display: "flex",
               flexWrap: "wrap",
               width: "100%",
@@ -208,9 +204,7 @@ function AIDDLModelComponent({
               maxHeight: "300px",
               alignItems: "start",
               gap: "10px",
-            }}
-            className="alert-banner dbcard"
-          >
+            }} className="dbcard">
             {newSelection?.length > 0 ? (
               newSelection?.map((_b, i) => {
                 return (
@@ -250,7 +244,7 @@ function AIDDLModelComponent({
             ) : (
               <div></div>
             )}
-          </div>
+          </Notice>
         </div>
         <div
           style={{
@@ -310,21 +304,16 @@ function AIDDLModelComponent({
                   Estimate : {estimateScore ? estimateScore : 0}
                 </span>
               </div>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 // disabled={!isEnableRefreshSchema()}
                 onClick={() => GenerateDDL_EsitmateHandler()}
-                style={{
-                  fontSize: "0.6875rem",
-                  padding: "5px 10px",
-                  height: "30px",
-                }}
               >
                 <>
                   <Icon className="ti ti-refresh" />
                   Generate DDL & Estimate
                 </>
-              </button>
+              </Button>
             </div>
           </div>
           <div
@@ -392,13 +381,13 @@ function AIDDLModelComponent({
                           />
                           {_v}
                         </h3>
-                        <button
-                          className="btn btn-ghost"
+                        <Button
+                          variant="ghost"
                           title={`Delete the DDL of ${_v}`}
                           onClick={() => DeleteDatabaseDDLHandler(_v)}
                         >
                           <Icon className="ti ti-trash" />
-                        </button>
+                        </Button>
                       </div>
                       <div
                         style={{
@@ -474,8 +463,7 @@ function AIDDLModelComponent({
             <h5>{dbLoading?.message}</h5>
           </div>
         )}
-      </motion.div>
-    </div>
+    </Modal>
   );
 }
 

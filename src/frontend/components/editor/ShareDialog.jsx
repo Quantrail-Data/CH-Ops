@@ -5,6 +5,8 @@
 import { useMemo, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { buildShareUrl, LINK_WARN_CHARS } from "../../utils/shareLink.js";
+import { Button, Input, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 export default function ShareDialog({ sql, params, onClose, onExportBookmarks }) {
   // Off by default, and deliberately so.
@@ -38,12 +40,7 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 620, width: "95%" }}
-      >
+    <Modal onClose={onClose} style={{ maxWidth: 620, width: "95%" }}>
         <div
           style={{
             display: "flex",
@@ -55,9 +52,9 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
           <h3 style={{ fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
             <Icon className="ti ti-link" style={{ color: "var(--accent)" }} /> Share this query
           </h3>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
             <Icon className="ti ti-x" />
-          </button>
+          </Button>
         </div>
 
         <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", margin: "0 0 12px" }}>
@@ -65,8 +62,7 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
           change what the link opens.
         </p>
 
-        <input
-          className="form-input"
+        <Input
           readOnly
           value={url}
           onFocus={(e) => e.target.select()}
@@ -98,18 +94,16 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
         )}
 
         {includeParams && (
-          <div className="alert-banner" style={{ marginTop: 10, fontSize: "0.75rem" }}>
-            <Icon className="ti ti-alert-circle" />
+          <Notice tone="info" icon="ti-alert-circle" style={{ marginTop: 10, fontSize: "0.75rem" }}>
             <span>
               The values are in the link. Anyone it reaches can read them, so
               send it the way you would send the values themselves.
             </span>
-          </div>
+          </Notice>
         )}
 
         {tooLong && (
-          <div className="alert-banner danger" style={{ marginTop: 10, fontSize: "0.75rem" }}>
-            <Icon className="ti ti-alert-triangle" />
+          <Notice tone="danger" icon="ti-alert-triangle" style={{ marginTop: 10, fontSize: "0.75rem" }}>
             <span>
               This link is {url.length.toLocaleString()} characters. Some chat
               and mail clients will break it.{" "}
@@ -117,7 +111,7 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
                 ? "Saving the query and exporting your bookmarks may work better."
                 : "Sharing the query as a file may work better."}
             </span>
-          </div>
+          </Notice>
         )}
 
         <div
@@ -137,15 +131,14 @@ export default function ShareDialog({ sql, params, onClose, onExportBookmarks })
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             Close
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={copy}>
+          </Button>
+          <Button variant="primary" size="sm" onClick={copy}>
             <Icon className={copied ? "ti ti-check" : "ti ti-copy"} />{" "}
             {copied ? "Copied" : "Copy link"}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }
