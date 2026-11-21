@@ -19,6 +19,7 @@ import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
 import { AnimatePresence, motion } from "motion/react";
 import { createPortal } from "react-dom";
 import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
+import { Button, Input } from "../ui/index.jsx";
 
 const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
@@ -382,9 +383,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
             ease: "easeInOut",
           }}
         >
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost"
+            variant="ghost"
             onClick={() => setIsOpen(true)}
             aria-label="Open chat history"
           >
@@ -408,7 +409,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
               <path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356" />
               <path d="M12 8v4l3 3" />
             </svg>
-          </button>
+          </Button>
         </motion.div>
       )}
 
@@ -440,9 +441,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
           }}
         >
           <div className="header-history">
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => {
                 setIsOpen(false);
                 setOpenMenuId(null);
@@ -451,16 +452,16 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
               aria-label="Close chat history"
             >
               <Icon className="ti ti-chevron-left" />
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={handleNewChat}
             >
-              <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
-              <span style={{ fontSize: "10px" }}>New Chat</span>
-            </button>
+              <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
+              <span style={{ fontSize: "0.625rem" }}>New Chat</span>
+            </Button>
           </div>
           <div className="chat-sesion-body">
             {isLoading ? (
@@ -475,7 +476,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                 <span
                   style={{
                     color: "var(--text-secondary)",
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                   }}
                 >
                   Loading chats...
@@ -496,7 +497,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                 <span
                   style={{
                     color: "var(--text-secondary)",
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     margin: "10px 0px",
                   }}
                 >
@@ -519,17 +520,16 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                     }}
                   >
                     {editingChatId === chat.id ? (
-                      <input
+                      <Input
                         autoFocus
                         disabled={isSaving}
-                        className="form-input"
                         style={{
                           width: "100%",
                           height: "30px",
                           minHeight: 0,
                           padding: "2px 6px",
                           boxSizing: "border-box",
-                          fontSize: "13px",
+                          fontSize: "0.8125rem",
                           lineHeight: "18px",
                         }}
                         value={title}
@@ -552,9 +552,9 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                       flexShrink: 0,
                     }}
                   >
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
+                      variant="ghost"
                       title="More options"
                       aria-label={`More options for ${
                         chat?.title || "Untitled chat"
@@ -571,7 +571,7 @@ function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
                       >
                         <path d="M12 10a2 2 0 1 0 2 2 2 2 0 0 0-2-2m-7 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2m14 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2" />
                       </svg>
-                    </button>
+                    </Button>
 
                     {openMenuId === chat.id &&
                       menuPosition &&
@@ -1586,15 +1586,14 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
               >
                 <Icon
                   className="ti ti-user"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
-                <input
-                  className="form-input"
+                <Input
                   style={{
                     height: 28,
                     width: 150,
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     padding: "0 6px",
                   }}
                   placeholder="user"
@@ -1617,7 +1616,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
               >
                 <Icon
                   className="ti ti-lock"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
                 <div
@@ -1625,13 +1624,12 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                     position: "relative",
                   }}
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     type={isViewFlag ? "text" : "password"}
                     style={{
                       height: 28,
                       width: 150,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       padding: "0 6px",
                       paddingRight: "30px",
                     }}
@@ -1645,21 +1643,21 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                     }}
                     autoComplete="off"
                   />
-                  <div onClick={() => setIsViewFlag(!isViewFlag)}>
+                  <button type="button" className="password-eye" aria-label={isViewFlag ? "Hide password" : "Show password"} aria-pressed={!!(isViewFlag)} onClick={() => setIsViewFlag(!isViewFlag)}>
                     <Icon
                       className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
                       style={{
                         position: "absolute",
                         right: "10px",
                         top: "17%",
-                        fontSize: "17px",
+                        fontSize: "1.0625rem",
                       }}
                     />
-                  </div>
+                  </button>
                 </div>
               </span>
-              <button
-                className="btn btn-primary btn-sm"
+              <Button
+                variant="primary" size="sm"
                 onClick={handleConnect}
                 disabled={connecting || !connUser.trim()}
                 title={`Connect to ${selectedNode || "node"}:${port}`}
@@ -1670,7 +1668,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                   <Icon className="ti ti-plug"></Icon>
                 )}{" "}
                 Go
-              </button>
+              </Button>
             </div>
           ) : (
             <div
@@ -1678,19 +1676,19 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-secondary)",
               }}
             >
-              <button
-                className="btn btn-ghost"
+              <Button
+                variant="ghost"
                 onClick={() => setShowDBModel(true)}
               >
-                <Icon className="ti ti-edit" style={{ fontSize: "14px" }} />
-              </button>
+                <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
+              </Button>
               <Icon
                 className="ti ti-plug-connected"
-                style={{ fontSize: 15, color: "var(--color-success)" }}
+                style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
               ></Icon>
               <span>
                 <strong style={{ color: "var(--text-primary)" }}>
@@ -1706,14 +1704,13 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 </span>
               </span>
 
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={handleDisconnect}
                 title="Disconnect and clear credentials"
-                style={{ padding: "2px 6px" }}
               >
                 <Icon className="ti ti-logout"></Icon>
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1722,11 +1719,11 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
               <Select
                 className="form-input"
                 value={
-                  <h3 style={{ fontSize: "10px" }}>
+                  <h3 style={{ fontSize: "0.625rem" }}>
                     {apikey?.serviceName}{" "}
                     <span
                       style={{
-                        fontSize: "10px",
+                        fontSize: "0.625rem",
                         color: "ligthgray",
                         marginLeft: "3px",
                       }}
@@ -1740,7 +1737,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                   width: "150px",
                   padding: "5px",
                   paddingLeft: "10px",
-                  fontSize: "10px",
+                  fontSize: "0.625rem",
                 }}
                 type="chat"
                 Title={() => `${apikey?.serviceName} | ${apikey?.model}`}
@@ -1753,7 +1750,7 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                       display: "flex",
                       flexDirection: "row",
                       alignItems: "center",
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                     }}
                   >
                     {u?.name}
@@ -1763,12 +1760,14 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div
-                className={`api-details alert-banner danger `}
+              <button
+                type="button"
+                className="api-details alert-banner danger"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   cursor: "pointer",
+                  font: "inherit",
                   borderRadius: "5px",
                   gap: "10px",
                   padding: "5px 15px",
@@ -1780,11 +1779,11 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
                 }
                 onClick={() => navigate("/admin/api-management")}
               >
-                <Icon className="ti ti-key" style={{ fontSize: "13px" }}></Icon>
+                <Icon className="ti ti-key" style={{ fontSize: "0.8125rem" }}></Icon>
                 <div className="details">
-                  <h6 style={{ fontSize: "10px" }}>{"NO API KEY"} </h6>
+                  <h6 style={{ fontSize: "0.625rem" }}>{"NO API KEY"} </h6>
                 </div>
-              </div>
+              </button>
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ metadata:
   name: chops-config
 data:
   NODE_ENV: "production"
-  PORT: "3000"
+  PORT: "7720"
 
   # Where the database file lives. This directory is on the persistent disk.
   DB_PATH: "/app/data/chops.db"

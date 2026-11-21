@@ -25,6 +25,7 @@ import { useToast } from "../layout/Toast.jsx";
 import { apiFetch } from "../../utils/api.js";
 import AIDDLButton from "../common/AIDDLButton.jsx";
 import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
+import { Button, Input, Notice } from "../ui/index.jsx";
 
 // Keep at most this many result rows in the DOM,
 const RESULT_MAX_ROWS = 100;
@@ -76,10 +77,9 @@ const PaneResults = memo(function PaneResults({ estimate, exec }) {
   return (
     <div style={{ width: "100%" }}>
       {estimate && !estimate.ok && (
-        <div className="alert-banner danger cmp-pane-error">
-          <Icon className="ti ti-alert-circle"></Icon>
+        <Notice tone="danger" icon="ti-alert-circle" className="cmp-pane-error">
           <span>{estimate.error}</span>
-        </div>
+        </Notice>
       )}
       {estimate && estimate.ok && (
         <div className="cmp-pane-estimate">
@@ -88,10 +88,9 @@ const PaneResults = memo(function PaneResults({ estimate, exec }) {
       )}
 
       {exec && !exec.ok && (
-        <div className="alert-banner danger cmp-pane-error">
-          <Icon className="ti ti-alert-circle"></Icon>
+        <Notice tone="danger" icon="ti-alert-circle" className="cmp-pane-error">
           <span>{exec.error}</span>
-        </div>
+        </Notice>
       )}
       {exec && exec.ok && (
         <div className="cmp-pane-results">
@@ -300,8 +299,8 @@ const ComparePane = memo(function ComparePane({
         }}
       >
         {side === "right" ? (
-          <button
-            className="ai-button btn "
+          <Button
+            variant="secondary" className="ai-button"
             style={{ color: "white" }}
             onClick={() => GeneratingSQLHandler()}
             disabled={isAILoadingGenerating || !ListTheSelectedDatabase()}
@@ -328,25 +327,25 @@ const ComparePane = memo(function ComparePane({
                 <span>Generate SQL</span>
               </>
             )}
-          </button>
+          </Button>
         ) : (
           <div style={{ width: 156, height: 32 }}></div>
         )}
 
-        <button
-          className="btn btn-secondary btn-sm"
+        <Button
+          variant="secondary" size="sm"
           disabled={disabled || isAILoadingGenerating}
           onClick={onEstimate}
         >
           {busy === "estimate" ? "Working..." : "Estimate"}
-        </button>
-        <button
-          className="btn btn-primary btn-sm"
+        </Button>
+        <Button
+          variant="primary" size="sm"
           disabled={disabled || isAILoadingGenerating}
           onClick={onExecute}
         >
           {busy === "execute" ? "Working..." : "Execute"}
-        </button>
+        </Button>
       </div>
 
       <div style={{ width: "100%", marginTop: "12px" }}>
@@ -1028,14 +1027,13 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
               <span className="cmp-connect-field">
                 <Icon
                   className="ti ti-user"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                 ></Icon>
-                <input
-                  className="form-input"
+                <Input
                   style={{
                     height: 28,
                     width: 150,
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     padding: "0 6px",
                   }}
                   placeholder="user"
@@ -1055,20 +1053,19 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
               >
                 <Icon
                   className="ti ti-lock"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                 ></Icon>
                 <div
                   style={{
                     position: "relative",
                   }}
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     type={isViewFlag ? "text" : "password"}
                     style={{
                       height: 28,
                       width: 150,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       padding: "0 6px",
                     }}
                     placeholder="password"
@@ -1081,21 +1078,21 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                     }}
                     autoComplete="off"
                   />
-                  <div onClick={() => setIsViewFlag(!isViewFlag)}>
+                  <button type="button" className="password-eye" aria-label={isViewFlag ? "Hide password" : "Show password"} aria-pressed={!!(isViewFlag)} onClick={() => setIsViewFlag(!isViewFlag)}>
                     <Icon
                       className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
                       style={{
                         position: "absolute",
                         right: "10px",
                         top: "17%",
-                        fontSize: "17px",
+                        fontSize: "1.0625rem",
                       }}
                     />
-                  </div>
+                  </button>
                 </div>
               </span>
-              <button
-                className="btn btn-primary btn-sm"
+              <Button
+                variant="primary" size="sm"
                 onClick={handleConnect}
                 disabled={connecting || !connUser.trim()}
                 title={`Connect to ${selectedNode || "node"}:${port}`}
@@ -1106,7 +1103,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                   <Icon className="ti ti-plug"></Icon>
                 )}{" "}
                 Go
-              </button>
+              </Button>
               {connError && (
                 <span className="cmp-connect-error" title={connError}>
                   {connError}
@@ -1117,7 +1114,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
             <div className="cmp-connect-status">
               <Icon
                 className="ti ti-plug-connected"
-                style={{ fontSize: 15, color: "var(--color-success)" }}
+                style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
               ></Icon>
               <span>
                 <strong style={{ color: "var(--text-primary)" }}>
@@ -1128,30 +1125,29 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
                   @ {selectedNode}:{port}
                 </span>
               </span>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={handleDisconnect}
                 title="Disconnect and clear credentials"
-                style={{ padding: "2px 6px" }}
               >
                 <Icon className="ti ti-logout"></Icon>
-              </button>
+              </Button>
             </div>
           )}
         </div>
 
         <div className="cmp-toolbar-right">
-          <button
-            className="btn btn-primary btn-sm"
+          <Button
+            variant="primary" size="sm"
             onClick={runCompare}
             disabled={!canCompare}
             title="Estimate both queries and compare them"
           >
             <Icon className="ti ti-versions"></Icon>{" "}
             {comparing ? "Comparing..." : "Compare"}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setFullscreen((v) => !v)}
             title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
           >
@@ -1159,7 +1155,7 @@ export default function ComparisonView({ mode, onModeChange, active = true }) {
               className={"ti " + (fullscreen ? "ti-minimize" : "ti-maximize")}
             ></Icon>{" "}
             {fullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          </button>
+          </Button>
         </div>
       </div>
 

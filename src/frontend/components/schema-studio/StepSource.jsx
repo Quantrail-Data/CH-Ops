@@ -12,6 +12,7 @@ import { useState, useRef } from "react";
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import { inferFromFile, inferFromObject } from "../../utils/studioApi.js";
+import { Input, Button, Notice } from "../ui/index.jsx";
 
 // Leading bytes sent for text formats (a sample is enough to infer + estimate).
 const TEXT_SAMPLE_BYTES = 2 * 1024 * 1024;
@@ -99,67 +100,67 @@ export default function StepSource({ onDone }) {
       </div>
 
       {error && (
-        <div className="alert-banner danger" style={{ marginTop: 12 }}><Icon className="ti ti-alert-circle" /><span>{error}</span></div>
+        <Notice tone="danger" icon="ti-alert-circle" style={{ marginTop: 12 }}><span>{error}</span></Notice>
       )}
 
       {warning?.type === "POCO" && (
-        <div className="alert-banner danger" style={{display:"flex",margin:"10px 0px",alignItems:"start",flexDirection:"column"}}>
+        <Notice tone="danger" style={{display:"flex",margin:"10px 0px",alignItems:"start",flexDirection:"column"}}>
           <div style={{display:"flex",gap:"10px"}}>
             <Icon className="ti ti-alert-circle" />
             <h5>HTTP Field Size Warning</h5>
           </div>
 
           <div>
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Warning:</strong> HTTP request field value exceeds the
               configured limit.
             </h5>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
               The submitted field value is too large for ClickHouse to process.
             </p>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
               Please increase the http_max_field_value_size setting in the
               ClickHouse server configuration and restart ClickHouse.
             </p>
 
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Current error:</strong>
             </h5>
-            <code style={{fontSize:"12px"}}>{warning?.message}</code>
+            <code style={{fontSize:"0.75rem"}}>{warning?.message}</code>
           </div>
-        </div>
+        </Notice>
       )}
 
       {warning?.type === "URI LONG" && (
-        <div className="alert-banner danger" style={{display:"flex",margin:"10px 0px",alignItems:"start",flexDirection:"column"}}>
+        <Notice tone="danger" style={{display:"flex",margin:"10px 0px",alignItems:"start",flexDirection:"column"}}>
           <div style={{display:"flex",gap:"10px"}}>
             <Icon className="ti ti-alert-circle" />
             <h5>HTTP URI Size Warning</h5>
           </div>
 
           <div>
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Warning:</strong> HTTP request URI is invalid or too long.
             </h5>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
              The request URL exceeds the configured size limit for ClickHouse.
 
 
             </p>
 
-            <p style={{fontSize:"12px"}}>
+            <p style={{fontSize:"0.75rem"}}>
              Please increase the http_max_uri_size setting in the ClickHouse server configuration and restart ClickHouse.
             </p>
 
-            <h5 style={{fontSize:"12px"}}>
+            <h5 style={{fontSize:"0.75rem"}}>
               <strong>Current error:</strong>
             </h5>
-            <code style={{fontSize:"12px"}}>{warning?.message}</code>
+            <code style={{fontSize:"0.75rem"}}>{warning?.message}</code>
           </div>
-        </div>
+        </Notice>
       )}
 
       {mode === "upload" ? (
@@ -187,7 +188,7 @@ export default function StepSource({ onDone }) {
             <>
               <Icon
                 className="ti ti-upload"
-                style={{ fontSize: "32px", opacity: 0.6 }}
+                style={{ fontSize: "2rem", opacity: 0.6 }}
               />
               <div className="studio-dropzone-title">
                 Drop a file here, or click to choose
@@ -222,22 +223,19 @@ export default function StepSource({ onDone }) {
 
           {obj.provider === "s3" ? (
             <>
-              <input
-                className="form-input"
+              <Input
                 placeholder="S3 URL (https://bucket.s3.../file.parquet)"
                 value={obj.path}
                 onChange={(e) => setObj({ ...obj, path: e.target.value })}
               />
-              <input
-                className="form-input"
+              <Input
                 placeholder="Access key ID"
                 value={obj.accessKeyId}
                 onChange={(e) =>
                   setObj({ ...obj, accessKeyId: e.target.value })
                 }
               />
-              <input
-                className="form-input"
+              <Input
                 type="password"
                 placeholder="Secret access key"
                 value={obj.secretAccessKey}
@@ -248,8 +246,7 @@ export default function StepSource({ onDone }) {
             </>
           ) : (
             <>
-              <input
-                className="form-input"
+              <Input
                 type="password"
                 placeholder="Azure connection string"
                 value={obj.connectionString}
@@ -257,14 +254,12 @@ export default function StepSource({ onDone }) {
                   setObj({ ...obj, connectionString: e.target.value })
                 }
               />
-              <input
-                className="form-input"
+              <Input
                 placeholder="Container"
                 value={obj.container}
                 onChange={(e) => setObj({ ...obj, container: e.target.value })}
               />
-              <input
-                className="form-input"
+              <Input
                 placeholder="Blob path (file.parquet)"
                 value={obj.path}
                 onChange={(e) => setObj({ ...obj, path: e.target.value })}
@@ -284,13 +279,13 @@ export default function StepSource({ onDone }) {
             <option value="JSONEachRow">JSON / NDJSON</option>
           </Select>
 
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={handleObject}
             disabled={busy || !obj.path}
           >
             {busy ? "Inferring..." : "Infer schema"}
-          </button>
+          </Button>
         </div>
       )}
 

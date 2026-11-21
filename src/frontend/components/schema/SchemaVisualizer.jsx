@@ -28,7 +28,8 @@ import {
 import { layoutGraph } from "../../utils/schemaLayout.js";
 import SchemaNode from "./SchemaNode.jsx";
 import { useTheme } from "../../App.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Input, Button, Notice } from "../ui/index.jsx";
 
 const nodeTypes = { schemaNode: SchemaNode };
 
@@ -392,29 +393,27 @@ function SchemaFlow() {
   if (error && !liveState?.isNotConnectedClusterNode())
     return (
       <div style={{ padding: 20 }}>
-        <div className="alert-banner danger" style={{ margin: 0 }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="danger" icon="ti-alert-circle" style={{ margin: 0 }}>
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load schema
             </div>
-            <div style={{ fontSize: "13px" }}>{error}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
-        </div>
+        </Notice>
       </div>
     );
   if (liveState?.isNotConnectedClusterNode()) {
     return (
       <div style={{ padding: 20 }}>
-        <div className="alert-banner info" style={{ margin: 0 }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="info" icon="ti-alert-circle" style={{ margin: 0 }}>
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load schema
             </div>
-            <div style={{ fontSize: "13px" }}>{error}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
-        </div>
+        </Notice>
       </div>
     );
   }
@@ -473,7 +472,7 @@ function SchemaFlow() {
             style={{
               width: 240,
               fontFamily: "var(--font-code)",
-              fontSize: "12px",
+              fontSize: "0.75rem",
             }}
           >
             <option value="">Select table...</option>
@@ -486,9 +485,8 @@ function SchemaFlow() {
         )}
         {graphDrawn && (
           <>
-            <input
+            <Input
               type="text"
-              className="form-input"
               placeholder="Search table or column..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -496,15 +494,15 @@ function SchemaFlow() {
               style={{
                 width: 200,
                 fontFamily: "var(--font-code)",
-                fontSize: "13px",
+                fontSize: "0.8125rem",
               }}
             />
-            <button
-              className={`btn btn-sm ${showColumns ? "btn-primary" : "btn-secondary"}`}
+            <Button
+              size="sm" variant={showColumns ? "primary" : "secondary"} aria-pressed={showColumns}
               onClick={() => setShowColumns(!showColumns)}
             >
               Columns
-            </button>
+            </Button>
             <Select
               className="form-select"
               value={loadDays}
@@ -532,18 +530,18 @@ function SchemaFlow() {
                 <option value="executions">Executions</option>
               </Select>
             )}
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={handleRelayout}
             >
               Re-layout
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={() => fitView({ padding: 0.15 })}
             >
               Fit
-            </button>
+            </Button>
           </>
         )}
         <span
@@ -567,7 +565,7 @@ function SchemaFlow() {
             display: "flex",
             gap: 14,
             alignItems: "center",
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             flexWrap: "wrap",
             paddingBottom: 6,
@@ -678,7 +676,7 @@ function SchemaFlow() {
                 style={{
                   fontWeight: 700,
                   fontFamily: "var(--font-code)",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                   flex: 1,
                   minWidth: 0,
                   overflowWrap: "anywhere",
@@ -695,7 +693,7 @@ function SchemaFlow() {
                   border: "none",
                   cursor: "pointer",
                   color: "var(--text-muted)",
-                  fontSize: "19px",
+                  fontSize: "1.1875rem",
                   lineHeight: 1,
                   flexShrink: 0,
                   padding: 0,
@@ -706,14 +704,14 @@ function SchemaFlow() {
                   height: 24,
                 }}
               >
-                <Icon className="ti ti-x" style={{ fontSize: "19px" }} />
+                <Icon className="ti ti-x" style={{ fontSize: "1.1875rem" }} />
               </button>
             </div>
             <table
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 tableLayout: "fixed",
               }}
             >
@@ -792,7 +790,7 @@ function SchemaFlow() {
                     <>
                       <div
                         style={{
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
@@ -810,7 +808,7 @@ function SchemaFlow() {
                             cursor: "pointer",
                             color: "var(--accent)",
                             fontFamily: "var(--font-code)",
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             padding: "2px 0",
                             wordBreak: "break-word",
                             overflowWrap: "anywhere",
@@ -831,7 +829,7 @@ function SchemaFlow() {
                     <>
                       <div
                         style={{
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
@@ -849,7 +847,7 @@ function SchemaFlow() {
                             cursor: "pointer",
                             color: "var(--accent)",
                             fontFamily: "var(--font-code)",
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             padding: "2px 0",
                             wordBreak: "break-word",
                             overflowWrap: "anywhere",
@@ -873,7 +871,7 @@ function SchemaFlow() {
               <>
                 <div
                   style={{
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
                     color: "var(--text-muted)",
                     textTransform: "uppercase",
@@ -918,9 +916,9 @@ function SchemaFlow() {
           >
             <Icon
               className="ti ti-database-search"
-              style={{ fontSize: 48, opacity: 0.3 }}
+              style={{ fontSize: "3rem", opacity: 0.3 }}
             />
-            <div style={{ fontSize: "14px" }}>
+            <div style={{ fontSize: "0.875rem" }}>
               {!dbFilter
                 ? "Select a database to begin"
                 : "Select a table to visualize its relationships"}

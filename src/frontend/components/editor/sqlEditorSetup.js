@@ -242,7 +242,8 @@ export function makeEditorTheme(dark) {
       backgroundColor: "var(--bg-elevated, var(--bg-sunken))",
       color: "var(--text-secondary, var(--text-primary))",
     },
-    ".cm-activeLine": { backgroundColor: "var(--bg-hover)" },
+    // Transparent, so the selection behind the text stays visible.
+    ".cm-activeLine": { backgroundColor: "var(--editor-active-line)" },
     ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--text-primary)" },
     // These selectors mirror the ones in CodeMirror's own base theme.
     ".cm-selectionBackground": { backgroundColor: "var(--selection-bg)" },

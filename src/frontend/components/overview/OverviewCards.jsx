@@ -6,10 +6,11 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import Icon from "../common/Icon.jsx";
 import InfoTip from "../common/InfoTip.jsx";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
-import { initChart, disposeChart } from "../../utils/echarts.js";
+import { initChart, disposeChart, disposeChartInstance } from "../../utils/echarts.js";
 import { METRICS } from "./overviewMetrics.js";
 import { polish, stageGauge, useIsDark } from "./overviewChart.js";
 import { NO_VALUE } from "./overviewMath.js";
+import { Button } from "../ui/index.jsx";
 
 const GAUGE_HEIGHT = 188;
 
@@ -140,7 +141,7 @@ export function ChartCard({
 
   useEffect(
     () => () => {
-      if (elRef.current) disposeChart(elRef.current);
+      disposeChartInstance(instRef.current);
       instRef.current = null;
     },
     [],
@@ -375,14 +376,14 @@ export function HealthStrip({ chips }) {
           );
         })}
 
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost btn-sm"
+          variant="ghost" size="sm"
           style={{ marginLeft: "auto" }}
           onClick={() => setShowHealthy((v) => !v)}
         >
           {showHealthy ? "Hide clear checks" : `Show all ${chips.length} checks`}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -436,7 +437,7 @@ function MiniGauge({ metricKey, label, value, formatter, dark }) {
 
   useEffect(
     () => () => {
-      if (elRef.current) disposeChart(elRef.current);
+      disposeChartInstance(instRef.current);
       instRef.current = null;
     },
     [],
@@ -552,20 +553,12 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
 
   return (
     <div style={{ marginBottom: open ? 16 : 8 }}>
-      <button
+      <Button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="btn btn-ghost"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          width: "100%",
-          justifyContent: "flex-start",
-          padding: "8px 10px",
-          marginBottom: open ? 10 : 0,
-        }}
+        variant="ghost"
+        style={{ width: "100%", justifyContent: "flex-start", marginBottom: open ? 10 : 0 }}
       >
         <Icon className={`ti ti-chevron-${open ? "up" : "down"}`} />
         {icon && <Icon className={`ti ${icon}`} />}
@@ -583,7 +576,7 @@ export function Section({ id, icon, title, summary, defaultOpen = true, children
             {summary}
           </span>
         )}
-      </button>
+      </Button>
       {open && children}
     </div>
   );

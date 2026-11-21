@@ -16,21 +16,26 @@ if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 let sqlite;
 try {
   sqlite = new Database(DB_PATH, { create: true });
+  // Wait up to 30 s when another process (for example a second copy that runs
+  // the migrations) has the write lock. This must be the first statement.
+  sqlite.exec('PRAGMA busy_timeout = 30000');
   sqlite.exec('PRAGMA journal_mode = WAL');
   sqlite.exec('PRAGMA foreign_keys = ON');
 } catch (err) {
   console.error(`Cannot open the CHOps database at ${DB_PATH}`);
   console.error(`  ${err.message}`);
-  console.error('  The file exists but is not a SQLite database.');
-  console.error('  Check the volume mount, or restore from a backup.');
+  if (/locked|busy/i.test(err.message)) {
+    console.error('  Another process kept the database locked for 30 seconds.');
+    console.error('  Stop the other CHOps copies or tools that use this file, then start again.');
+  } else {
+    console.error('  The file exists but is not a SQLite database.');
+    console.error('  Check the volume mount, or restore from a backup.');
+  }
   process.exit(1);
 }
 
-// Add columns from newer versions. Safe to run every time - SQLite throws  if the column already exists.
-
-try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN nodes TEXT"); } catch { /* The column exists. */ }
-try { sqlite.exec("ALTER TABLE alert_rule ADD COLUMN cluster_id TEXT"); } catch { /* The column exists. */ }
-try { sqlite.exec("ALTER TABLE k8s_connection ADD COLUMN operator_namespace TEXT"); } catch { /* The column exists. */ }
+// Schema changes are numbered migrations (db/migrations.js). migrate.js runs
+// them at start, before the server takes requests.
 
 export const db = drizzle(sqlite, { schema });
 

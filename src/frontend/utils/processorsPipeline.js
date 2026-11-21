@@ -322,7 +322,8 @@ export function composeProcessorsWhere({ start, end, queryKind, type }) {
 
 // SQL to fetch the distinct values of a column within the selected time window,
 // used to populate the dropdowns. The column is allow-listed to prevent any
-// injection through the column name.
+// injection through the column name. toString() is needed because `type` is an
+// Enum: ClickHouse rejects `type != ''` with "Unknown element '' for enum".
 export function buildDistinctValuesSql(column, start, end) {
   const allowed = { query_kind: true, type: true };
   if (!allowed[column]) throw new Error("Column not allowed: " + column);
@@ -330,6 +331,6 @@ export function buildDistinctValuesSql(column, start, end) {
     SELECT DISTINCT ${column} AS v
     FROM merge('system', '^query_log')
     WHERE event_time >= '${toChDateTime(start)}' AND event_time <= '${toChDateTime(end)}'
-      AND ${column} != ''
+      AND toString(${column}) != ''
     ORDER BY v`;
 }

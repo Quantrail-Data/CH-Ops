@@ -17,6 +17,7 @@ vi.mock("../../src/frontend/utils/api.js", () => ({
 vi.mock("../../src/frontend/utils/echarts.js", () => ({
   initChart: (...a) => initChart(...a),
   disposeChart: vi.fn(),
+  disposeChartInstance: vi.fn(),
   withZoomable: (o) => o,
 }));
 

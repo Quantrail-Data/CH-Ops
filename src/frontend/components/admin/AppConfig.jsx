@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
-import { SegmentedControl } from "../ui/index.jsx";
+import { SegmentedControl, Input, Button, Notice } from "../ui/index.jsx";
 import Select from "../common/Select.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
@@ -242,10 +242,9 @@ export default function AppConfig() {
             <Icon className="ti ti-adjustments-horizontal"></Icon> App Config
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>App Config is only available for administrators.</span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p> App Config is only available for administrators.</p>
@@ -263,7 +262,7 @@ export default function AppConfig() {
 
       <p
         style={{
-          fontSize: 13,
+          fontSize: "0.8125rem",
           color: "var(--text-muted)",
           marginBottom: 20,
           maxWidth: 700,
@@ -301,12 +300,12 @@ export default function AppConfig() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.8125rem" }}>
                     {field.label}
                   </div>
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize: "0.75rem",
                       color: "var(--text-muted)",
                       marginTop: 2,
                     }}
@@ -315,7 +314,7 @@ export default function AppConfig() {
                   </div>
                   <div
                     style={{
-                      fontSize: 11,
+                      fontSize: "0.6875rem",
                       color: "var(--text-muted)",
                       marginTop: 4,
                     }}
@@ -340,8 +339,7 @@ export default function AppConfig() {
                       <option value="0">Off</option>
                     </Select>
                   ) : (
-                    <input
-                      className="form-input"
+                    <Input
                       type={field.kind === "text" ? "text" : "number"}
                       maxLength={field.kind === "text" ? row.maxLength : undefined}
                       style={{ width: field.kind === "text" ? 180 : 110, textAlign: field.kind === "text" ? "left" : "right" }}
@@ -353,22 +351,22 @@ export default function AppConfig() {
                   )}
                   <span
                     style={{
-                      fontSize: 12,
+                      fontSize: "0.75rem",
                       color: "var(--text-muted)",
                       minWidth: 56,
                     }}
                   >
                     {field.unit}
                   </span>
-                  <button
-                    className="btn btn-primary btn-sm"
+                  <Button
+                    variant="primary" size="sm"
                     disabled={busy === row.key || !dirty}
                     onClick={() => save(row)}
                   >
                     Save
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    variant="secondary" size="sm"
                     disabled={busy === row.key || row.source !== "setting"}
                     onClick={() => reset(row)}
                     title={
@@ -378,7 +376,7 @@ export default function AppConfig() {
                     }
                   >
                     Reset
-                  </button>
+                  </Button>
                 </div>
               </div>
             );

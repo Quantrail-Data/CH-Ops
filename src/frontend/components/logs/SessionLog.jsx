@@ -46,7 +46,8 @@ const SESSION_LOG_COLS = [
 ];
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import { useConnection } from "../../App.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -327,7 +328,7 @@ function Stat({ label, value, icon, color, small }) {
         <Icon
           className={`ti ${icon}`}
           style={{
-            fontSize: 28,
+            fontSize: "1.75rem",
             color: color || "var(--accent)",
             opacity: 0.9,
             flexShrink: 0,
@@ -337,7 +338,7 @@ function Stat({ label, value, icon, color, small }) {
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 4,
           }}
@@ -390,7 +391,7 @@ function SectionError({ title, message }) {
           alignItems: "flex-start",
           gap: 8,
           color: "var(--color-danger)",
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           lineHeight: 1.5,
           wordBreak: "break-word",
         }}
@@ -430,7 +431,7 @@ function BarCard({
         >
           {title}
         </div>
-        <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+        <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
           No data in range.
         </div>
       </div>
@@ -647,7 +648,7 @@ function RateChart({ rows, from, to, rounding }) {
             >
               <span
                 style={{
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
@@ -656,20 +657,18 @@ function RateChart({ rows, from, to, rounding }) {
                 Types ({names.length})
               </span>
               <span style={{ display: "flex", gap: 4 }}>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                <Button
+                  variant="ghost" size="sm"
                   onClick={showAll}
                 >
                   All
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                </Button>
+                <Button
+                  variant="ghost" size="sm"
                   onClick={hideAll}
                 >
                   None
-                </button>
+                </Button>
               </span>
             </div>
             <div
@@ -716,7 +715,7 @@ function RateChart({ rows, from, to, rounding }) {
                     />
                     <span
                       style={{
-                        fontSize: "12px",
+                        fontSize: "0.75rem",
                         color: "var(--text-secondary)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -949,14 +948,13 @@ function SessionLogOverview({ unavailable }) {
           alignItems: "flex-end",
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Quick</label>
+        <FormField label="Quick">
           <div style={{ display: "flex", gap: 4 }}>
             {PRESETS.map((d) => (
-              <button
+              <Button
                 key={d}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
-                style={{ padding: "8px 12px", minWidth: 48 }}
+                size="sm" variant={duration === d ? "primary" : "secondary"} aria-pressed={duration === d}
+                style={{ minWidth: 48 }}
                 onClick={() => {
                   const nextFrom = fmtAgo(RANGE_HOURS[d] || 168);
                   const nextTo = fmtNow();
@@ -967,18 +965,17 @@ function SessionLogOverview({ unavailable }) {
                 }}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
-        <button
+        </FormField>
+        <Button
           title={
             liveState?.isNotConnectedClusterNode()
               ? "No cluster nodes configured"
               : ""
           }
-          className="btn btn-primary btn-sm"
-          style={{ padding: "8px 14px" }}
+          variant="primary" size="sm"
           onClick={() => load()}
           disabled={loading || liveState?.isNotConnectedClusterNode()}
         >
@@ -991,7 +988,7 @@ function SessionLogOverview({ unavailable }) {
               <Icon className="ti ti-player-play"></Icon> Load
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -1155,7 +1152,7 @@ function SessionLogOverview({ unavailable }) {
               >
                 Login Activity Over Time
               </div>
-              <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+              <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
                 No activity data in range.
               </div>
             </div>
@@ -1331,24 +1328,24 @@ function SessionLogSearch({ unavailable }) {
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>
           Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
       {submitted && !q.loading && !tableExists && probeDone && (
-        <div className="alert-banner info" style={{ margin: "10px auto" }}>
+        <Notice tone="info" style={{ margin: "10px auto" }}>
           <Icon
             className="ti ti-shield-check"
             style={{ color: "#34d399" }}
@@ -1358,19 +1355,12 @@ function SessionLogSearch({ unavailable }) {
             logging is enabled in the server config, so no session entries can
             be searched.
           </p>
-        </div>
+        </Notice>
       )}
       {filtersOpen && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <form onSubmit={handleSearch}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-                marginBottom: 14,
-              }}
-            >
+            <div className="search-form-row">
               <DateTimePicker
                 label="From *"
                 value={from}
@@ -1383,17 +1373,58 @@ function SessionLogSearch({ unavailable }) {
                 onChange={handleDateOnChange}
                 name="To"
               />
+              <FormField label="User (text)" className="search-field">
+                <Input
+                  value={userText}
+                  onChange={(e) => setUserText(e.target.value)}
+                  placeholder="partial..."
+                />
+              </FormField>
+              <FormField label="Failure Reason (text)" className="search-field">
+                <Input
+                  value={reasonText}
+                  onChange={(e) => setReasonText(e.target.value)}
+                  placeholder="partial..."
+                />
+              </FormField>
+              <FormField label="Row Limit" className="search-field-small">
+                <Input
+                  type="number"
+                  min={1}
+                  max={100000}
+                  value={rowLimit}
+                  onChange={(e) => setRowLimit(parseInt(e.target.value) || 500)}
+                />
+              </FormField>
+              <div className="search-form-submit">
+                <Button
+                  title={
+                    liveState?.isNotConnectedClusterNode()
+                      ? "No cluster nodes configured"
+                      : ""
+                  }
+                  variant="primary"
+                  type="submit"
+                  disabled={
+                    q.loading ||
+                    !probeDone ||
+                    liveState?.isNotConnectedClusterNode()
+                  }
+                >
+                  {q.loading ? (
+                    <>
+                      <span className="loading-spinner"></span> Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Icon className="ti ti-search"></Icon> Search
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-                marginBottom: 14,
-              }}
-            >
-              <div className="form-group">
-                <label className="form-label">Event Type (multi-select)</label>
+            <div className="search-form-row">
+              <FormField label="Event Type (multi-select)" className="search-form-wide">
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {SEARCH_TYPES.map((t) => (
                     <label
@@ -1402,7 +1433,7 @@ function SessionLogSearch({ unavailable }) {
                         display: "flex",
                         gap: 4,
                         alignItems: "center",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         cursor: "pointer",
                         padding: "2px 6px",
                         borderRadius: 4,
@@ -1426,85 +1457,13 @@ function SessionLogSearch({ unavailable }) {
                     </label>
                   ))}
                 </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">User (text)</label>
-                <input
-                  className="form-input"
-                  value={userText}
-                  onChange={(e) => setUserText(e.target.value)}
-                  placeholder="partial..."
-                />
-              </div>
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-                marginBottom: 14,
-              }}
-            >
-              <div className="form-group">
-                <label className="form-label">Failure Reason (text)</label>
-                <input
-                  className="form-input"
-                  value={reasonText}
-                  onChange={(e) => setReasonText(e.target.value)}
-                  placeholder="partial..."
-                />
-              </div>
+              </FormField>
             </div>
             <AdvancedFilters
               table="session_log"
               value={adv}
               onChange={setAdv}
             />
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 12,
-                alignItems: "flex-end",
-              }}
-            >
-              <div className="form-group">
-                <label className="form-label">Row Limit</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  min={1}
-                  max={100000}
-                  value={rowLimit}
-                  onChange={(e) => setRowLimit(parseInt(e.target.value) || 500)}
-                  style={{ width: 100 }}
-                />
-              </div>
-              <button
-                title={
-                  liveState?.isNotConnectedClusterNode()
-                    ? "No cluster nodes configured"
-                    : ""
-                }
-                className="btn btn-primary"
-                type="submit"
-                disabled={
-                  q.loading ||
-                  !probeDone ||
-                  liveState?.isNotConnectedClusterNode()
-                }
-              >
-                {q.loading ? (
-                  <>
-                    <span className="loading-spinner"></span> Searching...
-                  </>
-                ) : (
-                  <>
-                    <Icon className="ti ti-search"></Icon> Search
-                  </>
-                )}
-              </button>
-            </div>
           </form>
         </div>
       )}

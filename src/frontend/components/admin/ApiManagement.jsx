@@ -8,6 +8,7 @@ import {
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 4 };
 const AI_PROVIDERS = ["GEMINI", "OPEN AI", "MISTRAL", "CLAUDE", "OLLAMA"];
@@ -320,10 +321,9 @@ export default function ApiManagement() {
             API Key Management
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>API key management is only available for administrators.</span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>API key management is only available for administrators.</p>
@@ -366,7 +366,7 @@ export default function ApiManagement() {
   };
 
   const modalParagraphStyle = {
-    fontSize: "15px",
+    fontSize: "0.9375rem",
     color: current.paragraphText,
     marginBottom: "24px",
   };
@@ -507,7 +507,7 @@ export default function ApiManagement() {
           </h3>
           <p
             style={{
-              fontSize: "14px",
+              fontSize: "0.875rem",
               color: "var(--text-muted)",
               marginBottom: 0,
             }}
@@ -552,7 +552,7 @@ export default function ApiManagement() {
                       {selectedKeyId === key.id && (
                         <span
                           style={{
-                            fontSize: "11px",
+                            fontSize: "0.6875rem",
                             padding: "2px 6px",
                             backgroundColor: "var(--color-success-bg)",
                             color: "var(--color-success)",
@@ -566,7 +566,7 @@ export default function ApiManagement() {
                       <span
                         style={{
                           fontWeight: 600,
-                          fontSize: "14px",
+                          fontSize: "0.875rem",
                           color: "var(--text-primary)",
                         }}
                       >
@@ -584,35 +584,35 @@ export default function ApiManagement() {
                       </span>
                     </div>
                     <div
-                      style={{ fontSize: "11px", color: "var(--text-muted)" }}
+                      style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}
                     >
                       Added: {new Date(key.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginLeft: 12 }}>
                     {selectedKeyId !== key.id && (
-                      <button
-                        className="btn btn-secondary btn-sm"
+                      <Button
+                        variant="secondary" size="sm"
                         onClick={() => selectActiveKey(key.id)}
                         title="Set as active"
                       >
                         <Icon className="ti ti-check"></Icon>
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      className="btn btn-secondary btn-sm"
+                    <Button
+                      variant="secondary" size="sm"
                       onClick={() => editKey(key)}
                       title="Edit key"
                     >
                       <Icon className="ti ti-edit"></Icon>
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
+                    </Button>
+                    <Button
+                      variant="danger" size="sm"
                       onClick={() => confirmDelete(key.id, key.name)}
                       title="Delete key"
                     >
                       <Icon className="ti ti-trash"></Icon>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -622,13 +622,9 @@ export default function ApiManagement() {
 
         {showAddForm ? (
           <form>
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label">
-                Name{" "}
-                <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-                <input
-                  className="form-input"
+            <FormField label={<>Name{" "}
+                <span style={{ color: "var(--danger)" }}>*</span></>} style={{ marginBottom: 16 }}>
+              <Input
                   type="text"
                   value={formAPIName}
                   onChange={(e) => setFormAPIName(e.target.value)}
@@ -638,14 +634,11 @@ export default function ApiManagement() {
                   style={{
                     width: "100%",
                     maxWidth: 520,
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                   }}
                 />
-            </div>
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label">
-                AI Provider <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
+            </FormField>
+            <FormField label={<>AI Provider <span style={{ color: "var(--danger)" }}>*</span></>} style={{ marginBottom: 16 }}>
               <Select
                 className="form-input"
                 onChange={(e) => setFormAIProvider(e?.target?.value)}
@@ -653,7 +646,7 @@ export default function ApiManagement() {
                 style={{
                   width: "100%",
                   maxWidth: 520,
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                 }}
               >
                 <option value={""} selected>
@@ -667,7 +660,7 @@ export default function ApiManagement() {
                   );
                 })}
               </Select>
-            </div>
+            </FormField>
 
 
             <div className="form-group" style={{ marginBottom: 16 }}>
@@ -684,7 +677,7 @@ export default function ApiManagement() {
                   style={{
                     width: "100%",
                     maxWidth: 520,
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                   }}
                 >
                   <option value="">Select a model</option>
@@ -695,8 +688,7 @@ export default function ApiManagement() {
                   ))}
                 </Select>
               ) : (
-                <input
-                  className="form-input"
+                <Input
                   type="text"
                   value={formModelValue}
                   onChange={(e) => setFormModelValue(e.target.value)}
@@ -706,7 +698,7 @@ export default function ApiManagement() {
                   style={{
                     width: "100%",
                     maxWidth: 520,
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                   }}
                 />
               )}
@@ -732,8 +724,7 @@ export default function ApiManagement() {
                 <div
                   style={{ position: "relative", width: "100%", maxWidth: 520 }}
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     type={isOllama ? "text" : showKey ? "text" : "password"}
                     value={formKeyValue}
                     onChange={(e) => setFormKeyValue(e.target.value)}
@@ -746,7 +737,7 @@ export default function ApiManagement() {
                     style={{
                       width: "100%",
                       fontFamily: "var(--font-code)",
-                      fontSize: "14px",
+                      fontSize: "0.875rem",
                       paddingRight: isOllama ? "12px" : "46px",
                     }}
                   />
@@ -776,27 +767,19 @@ export default function ApiManagement() {
                       {showKey ? (
                         <Icon
                           className="ti ti-eye-off"
-                          style={{ fontSize: 20 }}
+                          style={{ fontSize: "1.25rem" }}
                         />
                       ) : (
-                        <Icon className="ti ti-eye" style={{ fontSize: 20 }} />
+                        <Icon className="ti ti-eye" style={{ fontSize: "1.25rem" }} />
                       )}
                     </button>
                   )}
                 </div>
                 {isOllama && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-secondary"
-                    style={{
-                      padding: "7px 10px",
-                      borderRadius: "5px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      alignSelf: "flex-start",
-                    }}
+                    variant="secondary"
+                    style={{ borderRadius: "5px", alignSelf: "flex-start" }}
                     onClick={fetchOllamaModels}
                     disabled={isFetchingOllamaModels}
                   >
@@ -805,20 +788,14 @@ export default function ApiManagement() {
                     ) : (
                       <>
                         <Icon className="ti ti-refresh"></Icon>
-                        <span style={{ fontSize: "13px" }}>Fetch Models</span>
+                        <span style={{ fontSize: "0.8125rem" }}>Fetch Models</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="btn btn-primary"
-                  style={{
-                    padding: "7px 10px",
-                    borderRadius: "5px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                <Button
+                  variant="primary" type="submit"
+                  style={{ borderRadius: "5px" }}
                   title={keyValidationMessage || "Test the API key"}
                   onClick={verifyAPIKeyHandler}
                 >
@@ -844,10 +821,10 @@ export default function ApiManagement() {
                         <path d="M10.09 4.01l.496 -.495a2 2 0 0 1 2.828 0l7.071 7.07a2 2 0 0 1 0 2.83l-7.07 7.07a2 2 0 0 1 -2.83 0l-7.07 -7.07a2 2 0 0 1 0 -2.83l3.535 -3.535h-3.988" />
                         <path d="M7.05 11.038v-3.988" />
                       </svg>
-                      <p style={{ fontSize: "13px" }}>Verify AI API Key</p>
+                      <p style={{ fontSize: "0.8125rem" }}>Verify AI API Key</p>
                     </>
                   )}
-                </button>
+                </Button>
               </div>
               {keyValidationMessage && (
                 <p
@@ -879,29 +856,29 @@ export default function ApiManagement() {
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary" type="submit"
                 onClick={saveApiKey}
                 disabled={!isValidKey}
               >
                 <Icon className="ti ti-device-floppy"></Icon>{" "}
                 {editingKey ? "Update Key" : "Save Key"}
-              </button>
-              <button
-                className="btn btn-secondary"
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={cancelEdit}
               >
                 <Icon className="ti ti-x"></Icon> Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
           apiKeys.length < 5 && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
-              <button className="btn btn-primary" onClick={startAddNew}>
+              <Button variant="primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key
-              </button>
+              </Button>
             </div>
           )
         )}
@@ -912,7 +889,7 @@ export default function ApiManagement() {
               style={{
                 color: "var(--text-muted)",
                 marginBottom: 16,
-                fontSize: "14px",
+                fontSize: "0.875rem",
               }}
             >
               No API keys configured yet.
@@ -953,20 +930,20 @@ export default function ApiManagement() {
                 justifyContent: "flex-end",
               }}
             >
-              <button
-                className="btn btn-secondary"
+              <Button
+                variant="secondary"
                 onClick={cancelDelete}
                 style={cancelButtonStyle}
               >
                 No, Cancel
-              </button>
-              <button
-                className="btn btn-danger"
+              </Button>
+              <Button
+                variant="danger"
                 onClick={handleDeleteConfirm}
-                style={{ padding: "8px 16px", borderRadius: "8px" }}
+                style={{ borderRadius: "8px" }}
               >
                 Yes, Delete
-              </button>
+              </Button>
             </div>
           </div>
         </div>

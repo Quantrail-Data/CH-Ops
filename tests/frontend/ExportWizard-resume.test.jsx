@@ -85,13 +85,12 @@ describe("remembering", () => {
     // Without this the whole feature is inert: the dialog would still offer to
     // leave the export running and still have no way back to it.
     progress.mockResolvedValue({ state: "running", bytesWritten: 1 });
-    const { container } = render(
-      <ExportWizard sql="SELECT 1" username="u" onClose={() => {}} />,
-    );
+    render(<ExportWizard sql="SELECT 1" username="u" onClose={() => {}} />);
     // Step 1 gates Next on having run the estimate, so the walk is:
     // Estimate rows -> Next -> Start export.
+    // The wizard is a dialog that renders at the end of document.body.
     const btn = (re) =>
-      [...container.querySelectorAll("button")].find((b) => re.test(b.textContent));
+      [...document.querySelectorAll("button")].find((b) => re.test(b.textContent));
     fireEvent.click(btn(/Estimate rows/));
     await waitFor(() => expect(btn(/^Next/).disabled).toBe(false));
     fireEvent.click(btn(/^Next/));

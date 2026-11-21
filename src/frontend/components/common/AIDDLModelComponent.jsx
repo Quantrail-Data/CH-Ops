@@ -1,6 +1,7 @@
-import { motion } from "motion/react";
 import Icon from "./Icon";
 import { useTheme } from "../../App";
+import { Button, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 
 
@@ -33,19 +34,22 @@ function AIDDLModelComponent({
 
 
   return (
-    <div className="modal-overlay" style={{ zIndex: "100000", padding: "0px" }}>
-      <motion.div
-        initial={{ scale: 0.99 }}
-        animate={{ scale: 1 }}
-        style={{
-          width: "50rem",
-          backgroundColor: "var(--bg-page)",
-          borderRadius: "10px",
-          padding: "15px",
-          position: "relative",
-          maxHeight: "80vh",
-        }}
-      >
+    // A click on the backdrop does not close it (the selection would be lost).
+    // Escape and the close button do.
+    <Modal
+      onClose={() => setShowDBModel(false)}
+      closeOnBackdrop={false}
+      label="Database Schema & Estimate Generator"
+      style={{
+        width: "50rem",
+        maxWidth: "95vw",
+        backgroundColor: "var(--bg-page)",
+        borderRadius: "10px",
+        padding: "15px",
+        position: "relative",
+        maxHeight: "80vh",
+      }}
+    >
         <div
           style={{
             display: "flex",
@@ -66,21 +70,19 @@ function AIDDLModelComponent({
               alignItems: "center",
             }}
           >
-            <button
-              className="btn btn-ghost"
+            <Button
+              variant="ghost"
+              aria-label="Close"
               onClick={() => setShowDBModel(false)}
             >
               <Icon className="ti ti-x" />
-            </button>
+            </Button>
           </div>
         </div>
         {alertMessage?.flag && (
-          <div
-            className={`alert-banner info`}
-            style={{ fontSize: "12px", margin: "10px 0px" }}
-          >
+          <Notice tone="info" style={{ fontSize: "0.75rem", margin: "10px 0px" }}>
             {alertMessage?.message}
-          </div>
+          </Notice>
         )}
         {/* non-selected */}
         <div>
@@ -103,7 +105,7 @@ function AIDDLModelComponent({
                   backgroundColor: isNewSelectAll ? "var(--accent)" : undefined,
                   color: isNewSelectAll && "white",
                   ...{
-                    fontSize: "11px",
+                    fontSize: "0.6875rem",
                     padding: "5px 10px",
                     height: "30px",
                   },
@@ -174,19 +176,14 @@ function AIDDLModelComponent({
                     <path d="M3 3l18 18" />
                   </svg>
                 )}
-                <span style={{ fontSize: "11px" }}>
+                <span style={{ fontSize: "0.6875rem" }}>
                   {isNewSelectAll ? "Deselect All" : "Select All"}
                 </span>
               </button>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 onClick={() => {
                   databaseSchemaSetterHandler("add");
-                }}
-                style={{
-                  fontSize: "11px",
-                  padding: "5px 10px",
-                  height: "30px",
                 }}
                 disabled={newSelection?.length === 0 || !isEnableAddButton()}
               >
@@ -195,11 +192,10 @@ function AIDDLModelComponent({
                   <Icon className="ti ti-plus" />
                   Get Tables
                 </>
-              </button>
+              </Button>
             </div>
           </div>
-          <div
-            style={{
+          <Notice tone="info" style={{
               display: "flex",
               flexWrap: "wrap",
               width: "100%",
@@ -208,9 +204,7 @@ function AIDDLModelComponent({
               maxHeight: "300px",
               alignItems: "start",
               gap: "10px",
-            }}
-            className="alert-banner dbcard"
-          >
+            }} className="dbcard">
             {newSelection?.length > 0 ? (
               newSelection?.map((_b, i) => {
                 return (
@@ -241,7 +235,7 @@ function AIDDLModelComponent({
                       gap: "10px",
                     }}
                   >
-                    <span style={{ fontSize: "12px", fontWeight: "700" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: "700" }}>
                       {_b?.name}
                     </span>
                   </div>
@@ -250,7 +244,7 @@ function AIDDLModelComponent({
             ) : (
               <div></div>
             )}
-          </div>
+          </Notice>
         </div>
         <div
           style={{
@@ -306,25 +300,20 @@ function AIDDLModelComponent({
                   <path d="M17 8h3" />
                   <path d="M4 4h3" />
                 </svg>
-                <span style={{ fontSize: "10px" }}>
+                <span style={{ fontSize: "0.625rem" }}>
                   Estimate : {estimateScore ? estimateScore : 0}
                 </span>
               </div>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 // disabled={!isEnableRefreshSchema()}
                 onClick={() => GenerateDDL_EsitmateHandler()}
-                style={{
-                  fontSize: "11px",
-                  padding: "5px 10px",
-                  height: "30px",
-                }}
               >
                 <>
                   <Icon className="ti ti-refresh" />
                   Generate DDL & Estimate
                 </>
-              </button>
+              </Button>
             </div>
           </div>
           <div
@@ -357,7 +346,7 @@ function AIDDLModelComponent({
                   }}
                 >
                   <Icon className="ti ti-info-circle" />
-                  <span style={{ fontSize: "10px" }}>
+                  <span style={{ fontSize: "0.625rem" }}>
                     No Table and DDL info founded!
                   </span>
                 </div>
@@ -377,7 +366,7 @@ function AIDDLModelComponent({
                       >
                         <h3
                           style={{
-                            fontSize: "13px",
+                            fontSize: "0.8125rem",
                             paddingBottom: "8px",
                             margin: "5px 0px",
                             display: "flex",
@@ -388,17 +377,17 @@ function AIDDLModelComponent({
                           {" "}
                           <Icon
                             className="ti ti-database"
-                            style={{ fontSize: "13px" }}
+                            style={{ fontSize: "0.8125rem" }}
                           />
                           {_v}
                         </h3>
-                        <button
-                          className="btn btn-ghost"
+                        <Button
+                          variant="ghost"
                           title={`Delete the DDL of ${_v}`}
                           onClick={() => DeleteDatabaseDDLHandler(_v)}
                         >
                           <Icon className="ti ti-trash" />
-                        </button>
+                        </Button>
                       </div>
                       <div
                         style={{
@@ -434,11 +423,11 @@ function AIDDLModelComponent({
                             >
                               <Icon
                                 className="ti ti-table"
-                                style={{ fontSize: "13px" }}
+                                style={{ fontSize: "0.8125rem" }}
                               />
                               <span
                                 style={{
-                                  fontSize: "12px",
+                                  fontSize: "0.75rem",
                                   fontWeight: "700",
                                 }}
                               >
@@ -474,8 +463,7 @@ function AIDDLModelComponent({
             <h5>{dbLoading?.message}</h5>
           </div>
         )}
-      </motion.div>
-    </div>
+    </Modal>
   );
 }
 

@@ -122,7 +122,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
                     <div style={isSendDisabled ? {backgroundColor:"transparent",cursor:"not-allowed"}:{}} className="qur-chat-btn">
                       <Icon
                         className="ti ti-send"
-                        style={{ fontSize: 14, color: "white" }}
+                        style={{ fontSize: "0.875rem", color: "white" }}
                       />
                     </div>
                   </motion.div>
@@ -135,7 +135,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
               position: "absolute",
               bottom: "1rem",
               textAlign: "center",
-              fontSize: "10px",
+              fontSize: "0.625rem",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -164,7 +164,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
           <p
             style={{
               margin: "0px 10px",
-              fontSize: "12px",
+              fontSize: "0.75rem",
               display: "flex",
               alignItems: "center",
               gap: "5px",

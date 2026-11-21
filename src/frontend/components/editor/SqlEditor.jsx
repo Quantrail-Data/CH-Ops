@@ -40,6 +40,10 @@ const SqlEditor = forwardRef(function SqlEditor(
     dialectData = null,
     readOnly = false,
     height = "100%",
+    // Optional limits for height="auto": the editor grows with the text
+    // between minHeight and maxHeight, then scrolls.
+    minHeight,
+    maxHeight,
     placeholder = "",
     autoFocus = false,
     // Tab mode.
@@ -248,7 +252,8 @@ const SqlEditor = forwardRef(function SqlEditor(
         width: "100%",
         height,
         minWidth: 0,
-        minHeight: 0,
+        minHeight: minHeight ?? 0,
+        maxHeight,
         position: "relative",
       }}
     >
@@ -266,6 +271,8 @@ const SqlEditor = forwardRef(function SqlEditor(
       readOnly={readOnly || variant === "viewer"}
       placeholder={placeholder}
       height={height}
+      minHeight={minHeight}
+      maxHeight={maxHeight}
       // The wrapper's own Tab handling, which replaces the old manual
       // two-space insert. Off for viewer so Tab still moves focus.
       indentWithTab={variant !== "viewer"}

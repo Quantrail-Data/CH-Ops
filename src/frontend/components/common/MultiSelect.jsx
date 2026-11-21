@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Icon from "./Icon.jsx";
 import SelectMenu from "./SelectMenu.jsx";
 import "./select.css";
+import { Input } from "../ui/index.jsx";
 function normOptions(options) {
   return (options || []).map((o) =>
     typeof o === "string" ? { value: o, label: o } : o,
@@ -133,9 +134,8 @@ ${v}`}
             }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <input
-              className="form-input"
-              style={{ width: "100%", fontSize: 13 }}
+            <Input
+              style={{ width: "100%", fontSize: "0.8125rem" }}
               placeholder="Type to filter..."
               value={searchText}
               autoFocus
@@ -168,7 +168,7 @@ ${v}`}
                   marginLeft: "auto",
                   paddingLeft: 12,
                   color: "var(--text-muted)",
-                  fontSize: 12,
+                  fontSize: "0.75rem",
                   flexShrink: 0,
                 }}
               >

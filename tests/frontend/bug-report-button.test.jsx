@@ -60,4 +60,11 @@ expect(screen.queryByText("Open GitHub")).toBeNull();
 // The moved position is saved.
 expect(localStorage.getItem("chops_bug_fab_pos")).not.toBeNull();
 });
+it("a window resize before any drag keeps the button and the page", () => {
+render(<BugReportButton />);
+// Before the fix, this threw on the null position and React removed the page.
+fireEvent(window, new Event("resize"));
+expect(screen.getByLabelText("Report a bug")).toBeInTheDocument();
+expect(localStorage.getItem("chops_bug_fab_pos")).toBeNull();
+});
 });

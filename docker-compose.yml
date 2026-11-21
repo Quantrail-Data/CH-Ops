@@ -5,7 +5,7 @@ services:
     container_name: chops
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "7720:7720"
     # Read the whole .env file, so that no variable is left out.
     env_file:
       - .env
@@ -13,11 +13,11 @@ services:
       # Deployment facts rather than user configuration, so they stay here and
       # override anything in .env.
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=7720
     volumes:
       - chops-data:/app/data
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:7720/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3

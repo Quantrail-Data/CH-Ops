@@ -257,9 +257,9 @@ describe("filters migration", () => {
     expect(row.filters).toBe("{}");
   });
 
-  it("is present in the migrations list in migrate.js", async () => {
+  it("is present in the migrations list (db/migrations.js)", async () => {
     const src = await Bun.file(
-      new URL("../../src/backend/db/migrate.js", import.meta.url),
+      new URL("../../src/backend/db/migrations.js", import.meta.url),
     ).text();
     expect(src).toContain(
       `"ALTER TABLE dashboard ADD COLUMN filters TEXT DEFAULT '{}'"`,

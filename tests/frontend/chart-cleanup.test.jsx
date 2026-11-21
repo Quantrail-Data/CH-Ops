@@ -12,6 +12,7 @@ const disposedElements = [];
 vi.mock("../../src/frontend/utils/echarts.js", () => ({
   initChart: () => ({ setOption: () => {}, resize: () => {}, on: () => {}, dispose: () => {} }),
   disposeChart: (element) => disposedElements.push(element),
+  disposeChartInstance: vi.fn(),
   withZoomable: (option) => option,
 }));
 

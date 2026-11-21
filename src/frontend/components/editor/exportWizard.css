@@ -12,7 +12,7 @@
   display: flex;
   gap: 6px;
   margin-bottom: 16px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -31,7 +31,7 @@
 
 .xw-sql {
   font-family: var(--font-code);
-  font-size: 12px;
+  font-size: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--bg-sunken);
@@ -56,20 +56,20 @@
 
 .xw-label {
   display: block;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   margin-bottom: 4px;
   color: var(--text-secondary);
 }
 
 .xw-help {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--text-muted);
   margin-top: 3px;
 }
 
 .xw-note {
-  font-size: 12px;
+  font-size: 0.75rem;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-default);
@@ -111,7 +111,7 @@
 
 .xw-ext {
   font-family: var(--font-code);
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   margin-left: 6px;
 }

@@ -14,6 +14,7 @@ import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
 import { useAuth } from "../../App.jsx";
 import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
+import { Input, Button, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const ACCESS_TYPES = [
@@ -152,7 +153,7 @@ export default function RbacUsers() {
                 marginBottom: 12,
                 borderRadius: "var(--radius-md)",
                 background: "var(--color-info-bg)",
-                fontSize: 13,
+                fontSize: "0.8125rem",
               }}
             >
               <strong>Managed elsewhere:</strong> {operatorOwned.join(", ")}.
@@ -293,19 +294,16 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Username *</label>
-          <input
-            className="form-input"
+        <FormField label="Username *">
+          <Input
             required
             value={f.name}
             onChange={(e) => u("name", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Auth Method</label>
+        </FormField>
+        <FormField label="Auth Method">
           <Select
             className="form-select"
             value={f.authMethod}
@@ -319,19 +317,17 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Password</label>
+        </FormField>
+        <FormField label="Password">
           <div className="" style={{ width: "100%", position: "relative" }}>
-            <input
-              className="form-input"
+            <Input
               type={showPassword ? "text" : "password"}
               style={{ width: "100%", paddingRight: "35px" }}
               value={f.password}
               onChange={(e) => u("password", e.target.value)}
               disabled={f.authMethod === "no_password" || !isAdmin}
             />
-            <div
+            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={!!(showPassword)}
               className="password-eye"
               style={{
                 position: "absolute",
@@ -343,9 +339,9 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
               onClick={() => setShowpassword(!showPassword)}
             >
               {showPassword ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
-            </div>
+            </button>
           </div>
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -372,8 +368,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
           </Select>
           <OnClusterBanner rbac={rbac} value={f.onCluster} />
         </div>
-        <div className="form-group">
-          <label className="form-label">Default Database</label>
+        <FormField label="Default Database">
           <Select
             className="form-select"
             value={f.defaultDb}
@@ -386,9 +381,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Default Role</label>
+        </FormField>
+        <FormField label="Default Role">
           <Select
             className="form-select"
             value={f.defaultRole}
@@ -401,7 +395,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
               <option key={r}>{r}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -411,34 +405,30 @@ function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Host IP</label>
-          <input
-            className="form-input"
+        <FormField label="Host IP">
+          <Input
             value={f.hostIp}
             onChange={(e) => u("hostIp", e.target.value)}
             placeholder="optional"
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Valid Until</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="Valid Until">
+          <Input
             type="datetime-local"
             value={f.validUntil}
             onChange={(e) => u("validUntil", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
+        </FormField>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-plus"></Icon> Create
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -553,8 +543,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">User *</label>
+        <FormField label="User *">
           <Select
             className="form-select"
             required
@@ -568,17 +557,15 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
               <option key={u}>{u}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Rename To</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="Rename To">
+          <Input
             value={f.rename}
             onChange={(e) => u("rename", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
+        </FormField>
         <div className="form-group">
           
           <label className="form-label">ON CLUSTER</label>
@@ -605,8 +592,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Auth Method</label>
+        <FormField label="Auth Method">
           <Select
             className="form-select"
             value={f.authMethod}
@@ -620,20 +606,17 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">New Password</label>
-
+        </FormField>
+        <FormField label="New Password">
           <div className="" style={{ width: "100%", position: "relative" }}>
-            <input
-              className="form-input"
+            <Input
               style={{ width: "100%", paddingRight: "35px" }}
               type={showPassword ? "text" : "password"}
               value={f.password}
               onChange={(e) => u("password", e.target.value)}
               disabled={f.authMethod === "no_password" || !isAdmin}
             />
-            <div
+            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={!!(showPassword)}
               className="password-eye"
               style={{
                 position: "absolute",
@@ -645,9 +628,9 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
               onClick={() => setShowpassword(!showPassword)}
             >
               {showPassword ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
-            </div>
+            </button>
           </div>
-        </div>
+        </FormField>
         <div
           className="form-group"
           style={{ display: "flex", alignItems: "center", paddingTop: 22 }}
@@ -657,7 +640,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
               display: "flex",
               gap: 6,
               cursor: isAdmin ? "pointer" : "not-allowed",
-              fontSize: "14px",
+              fontSize: "0.875rem",
             }}
           >
             <input
@@ -679,8 +662,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Default Database</label>
+        <FormField label="Default Database">
           <Select
             className="form-select"
             value={f.defaultDb}
@@ -693,7 +675,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <div className="form-group">
           <label
             className="form-label"
@@ -720,24 +702,20 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
           </Select>
           <div style={{ height: "22px" }}>
             {openInfo && (
-              <div
-                className="alert-banner info"
-                style={{ marginTop: "0px", fontSize: "12px",padding:"6px" }}
-              >
+              <Notice tone="info" style={{ marginTop: "0px", fontSize: "0.75rem",padding:"6px" }}>
                 <Icon
-                  style={{ fontSize: "15px",paddingTop:"2px" }}
+                  style={{ fontSize: "0.9375rem",paddingTop:"2px" }}
                   className="ti ti-info-circle"
                 ></Icon>
                 <span>
                   To set a default role to the user, The role must be granted to
                   the user
                 </span>
-              </div>
+              </Notice>
             )}
           </div>
         </div>
-        <div className="form-group">
-          <label className="form-label">Host Action</label>
+        <FormField label="Host Action">
           <Select
             className="form-select"
             value={f.hostAction}
@@ -749,7 +727,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
             <option value="add">ADD HOST</option>
             <option value="drop">DROP HOST</option>
           </Select>
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -760,28 +738,24 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
         }}
       >
         {f.hostAction && (
-          <div className="form-group">
-            <label className="form-label">Host IP</label>
-            <input
-              className="form-input"
+          <FormField label="Host IP">
+            <Input
               value={f.hostIp}
               onChange={(e) => u("hostIp", e.target.value)}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             />
-          </div>
+          </FormField>
         )}
-        <div className="form-group">
-          <label className="form-label">Valid Until</label>
-          <input
-            className="form-input"
+        <FormField label="Valid Until">
+          <Input
             type="datetime-local"
             value={f.validUntil}
             onChange={(e) => u("validUntil", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -791,54 +765,46 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">ADD SETTINGS</label>
-          <input
-            className="form-input"
+        <FormField label="ADD SETTINGS">
+          <Input
             value={f.addSettings}
             onChange={(e) => u("addSettings", e.target.value)}
             placeholder="var = value, ..."
             style={{ fontFamily: "var(--font-code)" }}
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">DROP SETTINGS</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="DROP SETTINGS">
+          <Input
             value={f.dropSettings}
             onChange={(e) => u("dropSettings", e.target.value)}
             placeholder="var, ..."
             style={{ fontFamily: "var(--font-code)" }}
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">ADD PROFILES</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="ADD PROFILES">
+          <Input
             value={f.addProfiles}
             onChange={(e) => u("addProfiles", e.target.value)}
             placeholder="profile_name"
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">DROP PROFILES</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="DROP PROFILES">
+          <Input
             value={f.dropProfiles}
             onChange={(e) => u("dropProfiles", e.target.value)}
             placeholder="profile_name"
             disabled={!isAdmin}
           />
-        </div>
+        </FormField>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!sel || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!sel || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-edit"></Icon> Alter
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -910,8 +876,7 @@ function GrantRevoke({ users, clusters, setResult, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">User *</label>
+        <FormField label="User *">
           <Select
             className="form-select"
             value={f.user}
@@ -925,9 +890,8 @@ function GrantRevoke({ users, clusters, setResult, rbac }) {
               <option key={u}>{u}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Action</label>
+        </FormField>
+        <FormField label="Action">
           <Select
             className="form-select"
             value={f.action}
@@ -938,9 +902,8 @@ function GrantRevoke({ users, clusters, setResult, rbac }) {
             <option value="grant">Grant</option>
             <option value="revoke">Revoke</option>
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Privilege</label>
+        </FormField>
+        <FormField label="Privilege">
           <Select
             className="form-select"
             value={f.accessType}
@@ -952,9 +915,8 @@ function GrantRevoke({ users, clusters, setResult, rbac }) {
               <option key={a}>{a}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Database</label>
+        </FormField>
+        <FormField label="Database">
           <Select
             className="form-select"
             value={f.database}
@@ -970,9 +932,8 @@ function GrantRevoke({ users, clusters, setResult, rbac }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Table</label>
+        </FormField>
+        <FormField label="Table">
           <Select
             className="form-select"
             value={f.table}
@@ -985,7 +946,7 @@ function GrantRevoke({ users, clusters, setResult, rbac }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <div className="form-group" >
           
           <label className="form-label">ON CLUSTER</label>
@@ -1006,9 +967,9 @@ function GrantRevoke({ users, clusters, setResult, rbac }) {
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!f.user || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!f.user || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-key"></Icon> Execute
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -1071,8 +1032,7 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">User</label>
+        <FormField label="User">
           <Select
             className="form-select"
             value={sel}
@@ -1085,7 +1045,7 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
               <option key={u}>{u}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <div className="form-group">
           
           <label className="form-label">ON CLUSTER</label>
@@ -1106,14 +1066,14 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
       </div>
       <SqlPreview sql={sql} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-danger"
+        <Button
+          variant="danger"
           disabled={!sel || !isAdmin}
           onClick={() => setConfirm(true)}
           style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop
-        </button>
+        </Button>
       </div>
       {confirm && (
         <ConfirmModal
@@ -1123,8 +1083,7 @@ function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
               <p>
                 Type the username <strong>{sel}</strong> to confirm:
               </p>
-              <input
-                className="form-input"
+              <Input
                 style={{ marginTop: 8 }}
                 value={confirmName}
                 onChange={(e) => setConfirmName(e.target.value)}

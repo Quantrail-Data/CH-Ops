@@ -1,5 +1,9 @@
 // Contributors -> kathir dhasan
 // Sidebar.jsx - main navigation sidebar with collapsible sections
+// Built with real buttons, the shadcn/ui Collapsible for each section and the
+// shadcn Tooltip for the icon-only (collapsed) mode, so the sidebar works
+// with the keyboard and screen readers. The CSS classes (.sidebar-item and
+// others) still give the look.
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
 import { useState, useEffect } from "react";
@@ -7,6 +11,8 @@ import Icon from "../common/Icon.jsx";
 import ClusterSwitcher, { SidebarBrand } from "./ClusterSwitcher.jsx";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../../App.jsx";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "../ui/collapsible.jsx";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "../ui/tooltip.jsx";
 
 const CORE_NAV_ITEMS = [
   {
@@ -231,81 +237,101 @@ export default function Sidebar({
     onNavigate(itemId);
   }
 
+  // In the collapsed sidebar, a tooltip shows the name of each icon.
+  function withTooltip(label, button) {
+    if (!isCollapsed) return button;
+    return (
+      <Tooltip>
+        <TooltipTrigger render={button} />
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
-    <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
-      <div className="sidebar-top">
-        <SidebarBrand collapsed={isCollapsed} theme={theme}/>
-        <ClusterSwitcher collapsed={isCollapsed} onRefresh={onRefresh} />
-      </div>
-      <div className="sidebar-scroll">
-        <div
-          className={`sidebar-item ${currentRoute === "home" ? "active" : ""}`}
-          onClick={() => onNavigate("home")}
-          title={isCollapsed ? "Home" : undefined}
-        >
-          <Icon className="ti ti-home" />
-          <span>Home</span>
+    <TooltipProvider delay={200}>
+      <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
+        <div className="sidebar-top">
+          <SidebarBrand collapsed={isCollapsed} theme={theme}/>
+          <ClusterSwitcher collapsed={isCollapsed} onRefresh={onRefresh} />
         </div>
-        {NAV_ITEMS.map((section) => (
-          <div key={section.id} className="sidebar-group">
-            <div
-              className={`sidebar-section-header ${openSections[section.id] ? "open" : ""}`}
-              onClick={() => handleSectionClick(section.id)}
-              title={isCollapsed ? section.label : undefined}
+        <nav className="sidebar-scroll" aria-label="Main">
+          {withTooltip(
+            "Home",
+            <button
+              type="button"
+              className={`sidebar-item ${currentRoute === "home" ? "active" : ""}`}
+              aria-current={currentRoute === "home" ? "page" : undefined}
+              onClick={() => onNavigate("home")}
             >
-              <span className="sidebar-section-icon">
-                <Icon className={`ti ${section.icon}`} />
-              </span>
-              {!isCollapsed && (
-                <>
+              <Icon className="ti ti-home" />
+              <span>Home</span>
+            </button>,
+          )}
+          {NAV_ITEMS.map((section) => (
+            <Collapsible
+              key={section.id}
+              className="sidebar-group"
+              open={!isCollapsed && Boolean(openSections[section.id])}
+              onOpenChange={() => handleSectionClick(section.id)}
+            >
+              {isCollapsed ? (
+                withTooltip(
+                  section.label,
+                  <button
+                    type="button"
+                    className={`sidebar-item ${openSections[section.id] ? "active" : ""}`}
+                    aria-label={section.label}
+                    onClick={() => handleSectionClick(section.id)}
+                  >
+                    <Icon className={`ti ${section.icon}`} />
+                  </button>,
+                )
+              ) : (
+                <CollapsibleTrigger
+                  className={`sidebar-section-header ${openSections[section.id] ? "open" : ""}`}
+                >
+                  <span className="sidebar-section-icon">
+                    <Icon className={`ti ${section.icon}`} />
+                  </span>
                   <span className="sidebar-section-label">{section.label}</span>
                   <Icon
                     className={`ti ti-chevron-${openSections[section.id] ? "down" : "right"}`}
                   />
-                </>
+                </CollapsibleTrigger>
               )}
-            </div>
-            {isCollapsed && (
-              <div
-                className={`sidebar-item ${openSections[section.id] ? "active" : ""}`}
-                onClick={() => handleSectionClick(section.id)}
-                title={section.label}
-              >
-                <Icon className={`ti ${section.icon}`} />
-              </div>
-            )}
-            {!isCollapsed && openSections[section.id] && (
-              <div className="sidebar-children">
-                {section.children.map((item) =>
-                  item?.id === "/qurioz" ? (
-                    <div
+              <CollapsibleContent className="sidebar-children">
+                {section.children.map((item) => {
+                  const itemRoute = item.id === "/qurioz" ? item.id.replace("/", "") : item.id;
+                  const isActive = currentRoute === itemRoute;
+                  return (
+                    <button
+                      type="button"
                       key={item.id}
-                      className={`sidebar-item ${currentRoute === item.id?.replace("/", "") ? "active" : ""}`}
+                      className={`sidebar-item ${isActive ? "active" : ""}`}
+                      aria-current={isActive ? "page" : undefined}
                       onClick={() => navigateTo(item.id, section.id)}
                     >
                       <span>{item.label}</span>
-                    </div>
-                  ) : (
-                    <div
-                      key={item.id}
-                      className={`sidebar-item ${currentRoute === item.id ? "active" : ""}`}
-                      onClick={() => navigateTo(item.id, section.id)}
-                    >
-                      <span>{item.label}</span>
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      <button className="sidebar-toggle" onClick={onToggle}>
-        <Icon
-          className={`ti ${isCollapsed ? "ti-chevron-right" : "ti-chevron-left"}`}
-        />
-        {!isCollapsed && <span>Collapse</span>}
-      </button>
-    </aside>
+                    </button>
+                  );
+                })}
+              </CollapsibleContent>
+            </Collapsible>
+          ))}
+        </nav>
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={onToggle}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <Icon
+            className={`ti ${isCollapsed ? "ti-chevron-right" : "ti-chevron-left"}`}
+          />
+          {!isCollapsed && <span>Collapse</span>}
+        </button>
+      </aside>
+    </TooltipProvider>
   );
 }

@@ -69,7 +69,7 @@ The [Configuration](configuration.md) page lists every variable.
 We publish the image to two public registries. Pull the image and run it, with nothing to build.
 
 ```bash
-docker run -d --name chops -p 3000:3000 \
+docker run -d --name chops -p 7720:7720 \
   -e ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
   -e SUPER_ADMIN_1=admin \
   -e SUPER_ADMIN_1_PASSWORD=change_me_to_a_strong_password \
@@ -78,7 +78,7 @@ docker run -d --name chops -p 3000:3000 \
   quantrailadmin1/ch-ops:latest
 ```
 
-Then open **http://localhost:3000**. The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:latest`. Both registries also have a tag for each release version.
+Then open **http://localhost:7720**. The image is also on GitHub Container Registry: `ghcr.io/quantrail-data/ch-ops:latest`. Both registries also have a tag for each release version.
 
 The container runs as a non-root user, serves a health check at `/api/health`, and keeps the SQLite database in the `chops-data` volume across restarts.
 
@@ -95,7 +95,7 @@ services:
     container_name: chops
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "7720:7720"
     environment:
       - ENCRYPTION_SECRET=replace-with-a-long-random-value
       - SUPER_ADMIN_1=admin
@@ -114,7 +114,7 @@ Start it:
 docker compose up -d
 ```
 
-Then open **http://localhost:3000**. To stop CHOps, run `docker compose down`. Your data stays in the `chops-data` volume.
+Then open **http://localhost:7720**. To stop CHOps, run `docker compose down`. Your data stays in the `chops-data` volume.
 
 ---
 
@@ -171,22 +171,22 @@ You see "Database migration complete." The migration makes `data/chops.db` and s
 
 ### Step 4: Start CHOps
 
-Development mode rebuilds on code changes and runs the backend API on port 3000 and the Vite frontend on port 5173:
+Development mode rebuilds on code changes and runs the backend API on port 7720 and the Vite frontend on port 7721:
 
 ```bash
 bun run dev
 ```
 
-Open **http://localhost:5173**.
+Open **http://localhost:7721**.
 
-Production mode builds the frontend once and serves everything from one process on port 3000:
+Production mode builds the frontend once and serves everything from one process on port 7720:
 
 ```bash
 bun run build
 bun src/backend/server.js
 ```
 
-Open **http://localhost:3000**. The `bun run build` step is required. Without it, the server answers "Frontend not built."
+Open **http://localhost:7720**. The `bun run build` step is required. Without it, the server answers "Frontend not built."
 
 ---
 
@@ -204,7 +204,7 @@ Or build and run by hand:
 
 ```bash
 docker build -t chops:latest .
-docker run -d --name chops -p 3000:3000 --env-file .env -v chops-data:/app/data chops:latest
+docker run -d --name chops -p 7720:7720 --env-file .env -v chops-data:/app/data chops:latest
 ```
 
 **Build a standalone binary.**
@@ -249,7 +249,7 @@ The SQL Editor and Schema Studio use each person's own ClickHouse&reg; credentia
 
 ## First login and connecting to ClickHouse®
 
-1. Open CHOps in your browser. The port is 5173 in development, or 3000 in every other method.
+1. Open CHOps in your browser. The port is 7721 in development, or 7720 in every other method.
 2. Log in with the `SUPER_ADMIN_1` user name and password. You land on the Home page.
 3. CHOps does not yet know where your ClickHouse&reg; server is. Go to **Control panel > Cluster Management**.
 4. On the **Direct connection** tab, click **New Cluster**. Type a cluster name.
@@ -267,7 +267,7 @@ You can configure up to 3 clusters, with a combined maximum of 18 nodes. Switch 
 - Check the health endpoint. It confirms the server is up, independent of ClickHouse&reg;:
 
   ```bash
-  curl http://localhost:3000/api/health
+  curl http://localhost:7720/api/health
   # {"ok":true,"ts":"...","version":"..."}
   ```
 
@@ -293,7 +293,7 @@ Run only one CHOps process for one `data/` directory. Two processes on one datab
 
 **"Invalid credentials" at login.** The user name and password must match `SUPER_ADMIN_1` and `SUPER_ADMIN_1_PASSWORD`. After 5 failed attempts for the same user name within 15 minutes, the account locks for a time. Wait and try again.
 
-**Port already in use.** Set a different port in `.env`, for example `PORT=3001`, and restart. In Docker, change the port mapping, for example `-p 3001:3000`.
+**Port already in use.** Set a different port in `.env`, for example `PORT=7730`, and restart. In Docker, change the port mapping, for example `-p 7730:7720`.
 
 **Login worked before but stopped after a config change.** If you changed `ENCRYPTION_SECRET`, CHOps can no longer decrypt the stored ClickHouse&reg; passwords. Restore the original secret, or enter the affected credentials again.
 

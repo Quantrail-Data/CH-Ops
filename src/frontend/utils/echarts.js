@@ -8,7 +8,83 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import * as echarts from "echarts";
+// Only the ECharts parts that CHOps uses, not the full library. This makes the
+// main JS file much smaller. A chart type that is not here does not draw:
+// add it to the lists below (tests/frontend/echarts-parts.test.js checks them).
+import * as echarts from "echarts/core";
+import {
+  BarChart,
+  BoxplotChart,
+  CandlestickChart,
+  CustomChart,
+  FunnelChart,
+  GaugeChart,
+  HeatmapChart,
+  LineChart,
+  PieChart,
+  RadarChart,
+  SankeyChart,
+  ScatterChart,
+  SunburstChart,
+  TreeChart,
+  TreemapChart,
+} from "echarts/charts";
+import {
+  AxisPointerComponent,
+  DataZoomComponent,
+  DatasetComponent,
+  GraphicComponent,
+  GridComponent,
+  LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
+  MarkPointComponent,
+  TitleComponent,
+  ToolboxComponent,
+  TooltipComponent,
+  VisualMapComponent,
+} from "echarts/components";
+import { LabelLayout, UniversalTransition } from "echarts/features";
+import { CanvasRenderer } from "echarts/renderers";
+
+export const USED_CHART_TYPES = [
+  "bar", "boxplot", "candlestick", "custom", "funnel", "gauge", "heatmap", "line",
+  "pie", "radar", "sankey", "scatter", "sunburst", "tree", "treemap",
+];
+
+echarts.use([
+  BarChart,
+  BoxplotChart,
+  CandlestickChart,
+  CustomChart,
+  FunnelChart,
+  GaugeChart,
+  HeatmapChart,
+  LineChart,
+  PieChart,
+  RadarChart,
+  SankeyChart,
+  ScatterChart,
+  SunburstChart,
+  TreeChart,
+  TreemapChart,
+  AxisPointerComponent,
+  DataZoomComponent,
+  DatasetComponent,
+  GraphicComponent,
+  GridComponent,
+  LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
+  MarkPointComponent,
+  TitleComponent,
+  ToolboxComponent,
+  TooltipComponent,
+  VisualMapComponent,
+  LabelLayout,
+  UniversalTransition,
+  CanvasRenderer,
+]);
 import { LIGHT_COLORS, DARK_COLORS, MIDNIGHT } from "./theme.js";
 
 // Token helpers live in theme.js; re-exported so chart code has one import.
@@ -124,7 +200,7 @@ const makeTheme = (colors, isDark, c = isDark ? CHROME.dark : CHROME.light) => (
     borderColor: c.tooltipBorder,
     textStyle: {
       color: c.text,
-      fontFamily: "Red hat Mono, monospace",
+      fontFamily: "Atkinson Hyperlegible Mono, monospace",
     },
   },
   toolbox: {
@@ -204,6 +280,15 @@ export function disposeChart(el) {
   } catch {
     // The chart is already gone.
   }
+}
+
+// Disposes a chart from its instance. Use this in an unmount cleanup: React
+// clears an element ref before the cleanup runs, but an instance ref stays,
+// so disposeChart(elementRef.current) would do nothing there and the chart
+// (and its animation loop) would stay in memory.
+export function disposeChartInstance(chart) {
+  if (!chart || chart.isDisposed?.()) return;
+  disposeChart(chart.getDom());
 }
 
 // Inject a programmatic-only inside dataZoom on cartesian charts so the HTML

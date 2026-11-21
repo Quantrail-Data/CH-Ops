@@ -2,16 +2,28 @@
 //
 // Opened from the navbar Search button, the floating bubble, or Ctrl/Cmd+K.
 // Uses Fuse.js multi-word token search over the page catalog so a natural query
-// like "DDL queue block" surfaces the right pages ranked by relevance. Results
-// update as the user types, are keyboard navigable, scroll when long, and the
-// panel closes on Escape, a backdrop click, or the close button.
+// like "DDL queue block" surfaces the right pages ranked by relevance. The
+// panel is the shadcn/ui CommandDialog (cmdk): results update as the user
+// types, arrow keys and Enter work, long lists scroll, and the panel closes on
+// Escape, a backdrop click, or the close button. Fuse does the ranking, so the
+// cmdk filter is off.
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Fuse from "fuse.js";
 import Icon from "../common/Icon.jsx";
+import { Kbd } from "../ui/index.jsx";
+import {
+  Command,
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "../ui/command.jsx";
 import { SEARCH_ENTRIES, SECTION_ICONS } from "../../utils/searchCatalog.js";
 
 // A few high-traffic pages shown before the user types anything.
@@ -55,9 +67,6 @@ export function requestGlobalSearch() {
 
 export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
   const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
-  const inputRef = useRef(null);
-  const resultsRef = useRef(null);
 
   const trimmed = query.trim();
 
@@ -75,35 +84,20 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
       }
     }
     const onRequest = () => onOpen();
-    window.addEventListener("keydown", onKeyDown);
+    // Capture phase, so a focused widget that stops the key event (for
+    // example a shadcn menu or button) cannot block the shortcut.
+    window.addEventListener("keydown", onKeyDown, true);
     window.addEventListener(OPEN_SEARCH_EVENT, onRequest);
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener(OPEN_SEARCH_EVENT, onRequest);
     };
   }, [onOpen]);
 
-  // Reset when the panel closes; focus the input when it opens.
+  // Start empty each time the panel opens.
   useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => inputRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
-    setQuery("");
-    setActiveIndex(0);
-    return undefined;
+    if (!open) setQuery("");
   }, [open]);
-
-  // Keep the highlighted row valid as results change.
-  useEffect(() => {
-    setActiveIndex((i) => (i >= results.length ? 0 : i));
-  }, [results.length]);
-
-  // Scroll the highlighted row into view.
-  useEffect(() => {
-    const el = resultsRef.current?.querySelector(".global-search-item.active");
-    el?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex, results]);
 
   const select = useCallback(
     (item) => {
@@ -114,22 +108,9 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
     [onNavigate, onClose],
   );
 
-  function handleInputKeyDown(e) {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => (results.length ? (i + 1) % results.length : 0));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) =>
-        results.length ? (i - 1 + results.length) % results.length : 0,
-      );
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      select(results[activeIndex]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
+  // The dialog reports Escape and a backdrop click as a close request.
+  function onOpenChange(nextOpen) {
+    if (!nextOpen) onClose();
   }
 
   return (
@@ -146,106 +127,81 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
         </button>
       )}
 
-      {open && (
-        <div
-          className="global-search-overlay"
-          onClick={onClose}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Search pages"
-        >
-          <div
-            className="global-search-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="global-search-input-row">
-              <Icon
-                className="ti ti-search global-search-input-icon"
-              ></Icon>
-              <input
-                ref={inputRef}
-                className="global-search-input"
-                type="text"
-                placeholder="Search pages and features..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                autoComplete="off"
-                spellCheck={false}
-                aria-label="Search pages and features"
-              />
-              <button
-                className="global-search-close"
-                onClick={onClose}
-                title="Close"
-                aria-label="Close search"
-              >
-                <kbd className="kbd">Esc</kbd>
-              </button>
-            </div>
+      <CommandDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Search pages"
+        description="Find a page or feature by name or by what it does."
+        className="global-search-panel tw:top-[12vh] tw:w-[min(640px,92vw)] tw:max-w-[min(640px,92vw)] tw:sm:max-w-[min(640px,92vw)] tw:border tw:border-[var(--border-strong)] tw:bg-[var(--bg-raised)] tw:shadow-[var(--shadow-lg)] tw:ring-0"
+      >
+        <Command shouldFilter={false} loop className="tw:rounded-none! tw:bg-transparent tw:p-0">
+          <div className="tw:relative">
+            <CommandInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder="Search pages and features..."
+              aria-label="Search pages and features"
+              spellCheck={false}
+              className="tw:h-11 tw:font-sans tw:text-[length:var(--text-base)]"
+            />
+            <button
+              type="button"
+              className="global-search-close tw:absolute tw:top-1/2 tw:right-3 tw:-translate-y-1/2"
+              onClick={onClose}
+              title="Close"
+              aria-label="Close search"
+            >
+              <Kbd>Esc</Kbd>
+            </button>
+          </div>
 
+          <CommandList className="global-search-results tw:max-h-[min(52vh,480px)] tw:p-1.5">
+            <CommandEmpty className="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:text-[var(--text-muted)]">
+              <Icon className="ti ti-list-search" style={{ fontSize: "1.375rem", opacity: 0.5 }}></Icon>
+              <span>No pages match &quot;{trimmed}&quot;</span>
+            </CommandEmpty>
             {results.length > 0 && (
-              <div className="global-search-hint">{trimmed ? "Pages" : "Suggested pages"}</div>
-            )}
-
-            <div className="global-search-results" ref={resultsRef}>
-              {results.length === 0 ? (
-                <div className="global-search-empty">
-                  <Icon
-                    className="ti ti-list-search"
-                    style={{ fontSize: 22, opacity: 0.5 }}
-                  ></Icon>
-                  <span>No pages match &quot;{trimmed}&quot;</span>
-                </div>
-              ) : (
-                results.map((item, i) => (
-                  <div
+              <CommandGroup heading={trimmed ? "Pages" : "Suggested pages"} className="global-search-hint-group">
+                {results.map((item) => (
+                  <CommandItem
                     key={item.id}
-                    className={`global-search-item ${i === activeIndex ? "active" : ""}`}
-                    onMouseMove={() => setActiveIndex(i)}
-                    onClick={() => select(item)}
+                    value={item.id}
+                    onSelect={() => select(item)}
+                    className="global-search-item tw:gap-3 tw:rounded-[var(--radius-sm)] tw:px-2.5 tw:py-2"
                   >
                     <span className="global-search-item-icon">
-                      <Icon
-                        className={`ti ${SECTION_ICONS[item.section] || "ti-file"}`}
-                      ></Icon>
+                      <Icon className={`ti ${SECTION_ICONS[item.section] || "ti-file"}`}></Icon>
                     </span>
                     <span className="global-search-item-body">
-                      <span className="global-search-item-title">
-                        {item.title}
-                      </span>
+                      <span className="global-search-item-title">{item.title}</span>
                       {item.description && (
-                        <span className="global-search-item-desc">
-                          {item.description}
-                        </span>
+                        <span className="global-search-item-desc">{item.description}</span>
                       )}
                     </span>
-                    <span className="global-search-item-section">
-                      {item.section}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+                    <span className="global-search-item-section">{item.section}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
 
-            <div className="global-search-footer">
-              <span>
-                <span className="global-search-kbd">Up</span>
-                <span className="global-search-kbd">Down</span>
-                to navigate
-              </span>
-              <span>
-                <span className="global-search-kbd">Enter</span>
-                to open
-              </span>
-              <span>
-                <span className="global-search-kbd">Esc</span>
-                to close
-              </span>
-            </div>
+          <div className="global-search-footer">
+            <span>
+              <span className="global-search-kbd">Up</span>
+              <span className="global-search-kbd">Down</span>
+              to navigate
+            </span>
+            <span>
+              <span className="global-search-kbd">Enter</span>
+              to open
+            </span>
+            <span>
+              <span className="global-search-kbd">Esc</span>
+              to close
+            </span>
           </div>
-        </div>
-      )}
+        </Command>
+      </CommandDialog>
     </>
   );
 }

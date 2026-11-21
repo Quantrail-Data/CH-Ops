@@ -65,7 +65,7 @@ SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_password
 SUPER_ADMIN_1_EMAIL=you@example.com
 ENCRYPTION_SECRET=paste_output_of_openssl_rand_hex_32_here
-PORT=3000
+PORT=7720
 ```
 
 **Option 2: Exported environment variables:**

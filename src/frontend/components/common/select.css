@@ -55,7 +55,7 @@
 .cui-select-opt.is-selected { color: var(--accent); font-weight: 700; }
 .cui-select-opt.is-disabled { opacity: 0.45; cursor: not-allowed; }
 .cui-select-opt .cui-opt-check { margin-left: auto; flex-shrink: 0; color: var(--accent); }
-.cui-select-empty { padding: 8px 10px; color: var(--text-muted); font-size: 13px; }
+.cui-select-empty { padding: 8px 10px; color: var(--text-muted); font-size: 0.8125rem; }
 
 /* MultiSelect chips inside the control */
 .cui-ms-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }

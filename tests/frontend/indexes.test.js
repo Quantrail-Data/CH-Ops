@@ -34,13 +34,9 @@ describe("Indexes: SecondaryIndexes (Data Skipping)", () => {
   it("title says Data Skipping Indexes", () => {
     expect(code).toContain("Data Skipping Indexes");
   });
-  it("imports treeSize and treeSeries from shared util", () => {
-    expect(code).toContain("from \"../../utils/treeChart.js\"");
-  });
-  it("has zoom, download, fullscreen buttons", () => {
-    expect(code).toContain("ti-zoom-in");
-    expect(code).toContain("ti-download");
-    expect(code).toContain("ti-arrows-maximize");
+  it("draws the tree with the shared TreeGraph", () => {
+    expect(code).toContain("import TreeGraph from \"../common/TreeGraph.jsx\"");
+    expect(code).toContain("<TreeGraph");
   });
 });
 
@@ -62,26 +58,30 @@ describe("Indexes: Index Management (CreateIndex)", () => {
 
 describe("Indexes: Projections", () => {
   const code = read("src/frontend/components/indexes/Projections.jsx");
-  it("imports treeSize and treeSeries from shared util", () => {
-    expect(code).toContain("from \"../../utils/treeChart.js\"");
-  });
-  it("has zoom, download, fullscreen buttons", () => {
-    expect(code).toContain("ti-zoom-in");
-    expect(code).toContain("ti-download");
-    expect(code).toContain("ti-arrows-maximize");
+  it("draws the tree with the shared TreeGraph", () => {
+    expect(code).toContain("import TreeGraph from \"../common/TreeGraph.jsx\"");
+    expect(code).toContain("<TreeGraph");
   });
 });
 
-describe("Tree charts: all 4 files import shared utility", () => {
-  [
-    "indexes/SecondaryIndexes",
-    "indexes/Projections",
-    "rbac/RbacViewGrants",
-    "editor/QueryEditor",
-  ].forEach((f) => {
-    it(`${f.split("/").pop()} imports treeChart.js`, () => {
+describe("Tree charts: the SQL Editor still uses the shared ECharts tree utility", () => {
+  it("QueryEditor imports treeChart.js", () => {
+    const code = read("src/frontend/components/editor/QueryEditor.jsx");
+    expect(code).toContain("treeChart.js");
+  });
+});
+
+describe("Tree graphs: grants, indexes and projections use TreeGraph", () => {
+  ["indexes/SecondaryIndexes", "indexes/Projections", "rbac/RbacViewGrants", "rbac/SettingsView"].forEach((f) => {
+    it(`${f.split("/").pop()} uses TreeGraph`, () => {
       const code = read(`src/frontend/components/${f}.jsx`);
-      expect(code).toContain("treeChart.js");
+      expect(code).toContain("<TreeGraph");
     });
+  });
+  it("TreeGraph has download, fullscreen and zoom controls", () => {
+    const code = read("src/frontend/components/common/TreeGraph.jsx");
+    expect(code).toContain("Download PNG");
+    expect(code).toContain("ti-arrows-maximize");
+    expect(code).toContain("<Controls");
   });
 });

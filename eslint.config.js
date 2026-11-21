@@ -52,13 +52,16 @@ export default [
     },
     settings: {
       react: {
-        version: "19.1.0",
+        version: "19.3.1",
       },
     },
     rules: {
       ...react.configs.recommended.rules,
       ...react.configs["jsx-runtime"].rules,
-      ...reactHooks.configs.recommended.rules,
+      // Only the two classic hook rules. Version 7 of the plugin adds React
+      // Compiler rules to its recommended set; adopting them is a separate task.
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "react/prop-types": "off",
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },

@@ -37,8 +37,9 @@ describe("Navbar: Font Scaling", () => {
     expect(code).toContain("max={200}");
     expect(code).toContain("step={5}");
   });
-  it("Reset to 100% button", () => {
-    expect(code).toContain("Reset to 100%");
+  it("Use Auto button brings back the screen-fit text size", () => {
+    expect(code).toContain("Use Auto (fits the screen)");
+    expect(code).toContain('removeProperty("font-size")');
   });
   it("ti-text-resize icon", () => {
     expect(code).toContain("ti-text-resize");
@@ -61,9 +62,9 @@ describe("Navbar: Actions", () => {
   it("reloadConfig on refresh", () => {
     expect(code).toContain("reloadConfig");
   });
-  it("solid raised dropdown (Midnight: no glass blur)", () => {
-    expect(code).toContain("dropdownStyle");
-    expect(code).toContain('background: "var(--bg-raised)"');
+  it("solid raised dropdown (Midnight: no glass blur), on the shadcn DropdownMenu", () => {
+    expect(code).toContain("<DropdownMenuContent");
+    expect(code).toContain("tw:bg-[var(--bg-raised)]");
     expect(code).not.toContain("blur(40px)");
   });
   it("Sign Out in user dropdown", () => {

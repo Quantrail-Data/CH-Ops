@@ -71,7 +71,7 @@ export default function MergesMutations() {
 
         <div style={{display:"flex",alignItems:"start",justifyContent:"space-between"}}>
          <div style={{width:"49.5%"}}>
-          <h4 style={{fontSize:"14px",margin:"10px 0px"}}>Merges</h4>
+          <h4 style={{fontSize:"0.875rem",margin:"10px 0px"}}>Merges</h4>
            <DataTable
           rows={mq.data || []}
           columns={[
@@ -90,7 +90,7 @@ export default function MergesMutations() {
  
 
       <div style={{width:"49.5%"}}>
-         <h4 style={{fontSize:"14px",margin:"10px 0px"}}>Mutations</h4>
+         <h4 style={{fontSize:"0.875rem",margin:"10px 0px"}}>Mutations</h4>
          <DataTable
           rows={muq.data || []}
           columns={[
