@@ -104,7 +104,7 @@
     "@vitejs/plugin-react": "6.2.1",
     "@vitest/coverage-istanbul": "5.1.0",
     "axe-core": "4.13.0",
-    "concurrently": "10.0.6",
+    "concurrently": "10.0.7",
     "drizzle-kit": "0.31.1",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
