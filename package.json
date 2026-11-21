@@ -89,7 +89,7 @@
     "react-router-dom": "7.18.5",
     "sonner": "2.0.8",
     "sql-formatter": "15.9.0",
-    "swiper": "^12.2.0"
+    "swiper": "^14.4.0"
   },
   "devDependencies": {
     "@codemirror/commands": "^6.11.1",
