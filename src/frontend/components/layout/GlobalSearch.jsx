@@ -1,6 +1,7 @@
 // GlobalSearch - app-wide page finder.
 //
-// Opened from the navbar Search button, the floating bubble, or Ctrl/Cmd+K.
+// Opened from the navbar Search button or Ctrl/Cmd+K. (The floating bubble at
+// the bottom right is removed: the navbar search is the one search entry.)
 // Uses Fuse.js multi-word token search over the page catalog so a natural query
 // like "DDL queue block" surfaces the right pages ranked by relevance. The
 // panel is the shadcn/ui CommandDialog (cmdk): results update as the user
@@ -115,18 +116,6 @@ export default function GlobalSearch({ open, onOpen, onClose, onNavigate }) {
 
   return (
     <>
-      {/* Floating bubble - hidden while the panel is open */}
-      {!open && (
-        <button
-          className="global-search-fab"
-          onClick={onOpen}
-          title="Search (Ctrl/Cmd + K)"
-          aria-label="Search"
-        >
-          <Icon className="ti ti-search"></Icon>
-        </button>
-      )}
-
       <CommandDialog
         open={open}
         onOpenChange={onOpenChange}

@@ -209,7 +209,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         >
           {listening ? (
             <div style={styles.micContainer}>
-              <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem" }} />
+              <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem", color: "inherit" }} />
               <motion.div
                 style={styles.indicatorDot}
                 animate={{ opacity: [0, 1, 0] }}
@@ -217,7 +217,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
               />
             </div>
           ) : (
-            <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem" }} />
+            <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem", color: "inherit" }} />
           )}
         </motion.div>
       </motion.button>

@@ -54,7 +54,8 @@ function fromCalendarDate(calendarDate) {
   return `${calendarDate.getFullYear()}-${padTwo(calendarDate.getMonth() + 1)}-${padTwo(calendarDate.getDate())}`;
 }
 
-export function DateTimePicker({ value, onChange, label, name, valueFormat = "seconds" }) {
+// disabled: the field shows the value but does not open; title explains why.
+export function DateTimePicker({ value, onChange, label, name, valueFormat = "seconds", disabled = false, title }) {
   const hasSeconds = valueFormat !== "datetime-local";
   const fieldId = useId();
   const timeFieldId = useId();
@@ -104,6 +105,8 @@ export function DateTimePicker({ value, onChange, label, name, valueFormat = "se
           id={fieldId}
           className="form-input datetime-trigger"
           aria-haspopup="dialog"
+          disabled={disabled}
+          title={title}
         >
           <IconCalendar className="datetime-icon" size="1em" stroke={1.5} aria-hidden="true" />
           <span>{shownText}</span>

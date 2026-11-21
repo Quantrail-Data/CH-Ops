@@ -4,6 +4,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import ScrollableTabBar from "../common/ScrollableTabBar.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import ChartCard from "../layout/ChartCard.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
@@ -1276,7 +1277,8 @@ export default function MonitoringDashboards() {
         </Notice>
       )}
 
-      <div className="tab-bar">
+      {/* Arrows show when the tabs do not fit. */}
+      <ScrollableTabBar activeKey={activeTab} label="Dashboard tabs">
         {TABS.map((g) => (
           <div
             key={g.id}
@@ -1286,7 +1288,7 @@ export default function MonitoringDashboards() {
             <Icon className={`ti ${g.icon}`}></Icon> {g.label} ({g.charts.length})
           </div>
         ))}
-      </div>
+      </ScrollableTabBar>
 
       {!loadedTabs.has(activeTab) && !loading && (
         <div className="empty-state" style={{height:"50vh"}}>

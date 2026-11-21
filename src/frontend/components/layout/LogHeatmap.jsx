@@ -12,6 +12,7 @@ import Icon from "../common/Icon.jsx";
 import { runQuery } from '../../utils/api.js';
 import { initChart, disposeChart, disposeChartInstance } from '../../utils/echarts.js';
 import {useTheme} from "../../App.jsx";
+import { fullChartDataURL } from "../common/ChartToolbar.jsx";
 
 const pad = n => String(n).padStart(2, '0');
 const fmtAgo = h => { const d = new Date(Date.now() - h * 3600000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
@@ -233,7 +234,8 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
 
   function downloadChart() {
     if (!chartInst.current) return;
-    const url = chartInst.current.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: 'transparent' });
+    // The whole chart, also when zoomed in.
+    const url = fullChartDataURL(chartInst.current, { type: 'png', pixelRatio: 2, backgroundColor: 'transparent' });
     const a = document.createElement('a');
     a.href = url; a.download = `heatmap-${countCol}.png`; a.click();
   }

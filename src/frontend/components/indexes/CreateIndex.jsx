@@ -13,6 +13,7 @@ import { useToast } from '../layout/Toast.jsx';
 import AlertBanner from "../layout/AlertBanner.jsx"
 import { useAuth } from "../../App.jsx";
 import { Input, Button, FormField, Notice } from "../ui/index.jsx";
+import ConfirmModal from "../layout/ConfirmModal.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -511,6 +512,7 @@ function DropForm() {
   const [dropDb, setDropDb] = useState('');
   const [dropTbl, setDropTbl] = useState('');
   const [dropIdx, setDropIdx] = useState('');
+  const [isConfirmingDrop, setIsConfirmingDrop] = useState(false);
   const dropDbsQ = useQuery(), dropTblsQ = useQuery(), dropIdxsQ = useQuery(), clustersQ = useQuery();
 
   useEffect(() => {
@@ -588,15 +590,29 @@ function DropForm() {
       </div>
       <SqlPreview sql={buildDropSql()} />
       <div style={{ marginTop: 16 }}>
+        {/* Dropping an index cannot be undone, so ask first (as Projections does). */}
         <Button 
           variant="danger" 
-          onClick={executeDrop} 
+          onClick={() => setIsConfirmingDrop(true)} 
           disabled={!dropDb || !dropTbl || !dropIdx || !isAdmin}
           style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop Index
         </Button>
       </div>
+      {isConfirmingDrop && (
+        <ConfirmModal
+          title="Drop index"
+          message={`Drop the index "${dropIdx}" from ${dropDb}.${dropTbl}? This cannot be undone.`}
+          confirmText="Drop"
+          danger
+          onConfirm={() => {
+            setIsConfirmingDrop(false);
+            executeDrop();
+          }}
+          onCancel={() => setIsConfirmingDrop(false)}
+        />
+      )}
     </div>
   );
 }

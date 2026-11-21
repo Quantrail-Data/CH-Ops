@@ -1730,6 +1730,61 @@ input[type="datetime-local"] {
   margin-bottom: 20px;
 }
 
+/* A tab bar with arrows when the tabs do not fit (common/ScrollableTabBar). */
+.tab-bar-scroll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-bottom: 20px;
+}
+
+.tab-bar-scroll > .tab-bar {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* A soft edge on the side where more tabs are hidden. */
+.tab-bar-scroll.can-scroll-right > .tab-bar {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
+}
+
+.tab-bar-scroll.can-scroll-left > .tab-bar {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 2.5rem);
+  mask-image: linear-gradient(90deg, transparent, #000 2.5rem);
+}
+
+.tab-bar-scroll.can-scroll-left.can-scroll-right > .tab-bar {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+}
+
+.tab-bar-arrow {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tab-bar-arrow:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tab-bar-arrow:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .tab-bar::-webkit-scrollbar,
 .segmented::-webkit-scrollbar {
   display: none;
@@ -3021,6 +3076,15 @@ color: var(--on-accent);
   color: var(--on-accent);
 }
 
+.qur-chat-btn.disabled {
+  background-color: var(--bg-active);
+  cursor: not-allowed;
+}
+
+.qur-chat-btn.disabled .ti {
+  color: var(--text-muted);
+}
+
 .intro-logo {
   position: absolute;
   width: 100%;
@@ -3591,11 +3655,21 @@ color: var(--on-accent);
 
 
 
+/* View Generated SQL: a card with the SQL in a code panel. With the page
+   color as its background, the SQL had no visible panel. */
+.profiler-sql-panel {
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
 .profiler-sql-preview {
-  background: var(--bg-page);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
   padding: 12px;
-  border-radius: 6px;
-  margin-top: 8px;
+  border-radius: var(--radius-sm);
+  margin: 10px 0 4px;
   font-size: 0.75rem;
   font-family: var(--font-code);
   overflow-x: auto;
@@ -3760,7 +3834,7 @@ color: var(--on-accent);
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  background: var(--bg-active);
+  background: var(--border-strong);
   outline: none;
   cursor: pointer;
 }
@@ -3862,7 +3936,7 @@ color: var(--on-accent);
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  background: var(--bg-active);
+  background: var(--border-strong);
   outline: none;
   cursor: pointer;
 }
@@ -4056,41 +4130,15 @@ color: var(--on-accent);
 }
 
 
-/* Global page search (GlobalSearch.jsx): navbar button and floating bubble
-   open a command-palette style finder with live results. */
+/* Global page search (GlobalSearch.jsx): the navbar button opens a
+   command-palette style finder with live results. */
 
-/* Floating bubble - sits above content, clears the copyright footer. */
-.global-search-fab {
-  position: fixed;
-  right: 26px;
-  bottom: 46px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: 1px solid var(--accent-solid);
-  background: var(--accent-solid);
-  color: var(--on-accent);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: var(--shadow-md), var(--shadow-primary);
-  z-index: 1500;
-  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
-}
-.global-search-fab:hover {
-  background: var(--accent-solid-hover);
-}
-.global-search-fab .ti {
-  font-size: 1.5rem;
-  color: #fff;
-}
-/* Floating bug report button. Same size as the search button.
-Default spot: directly above it (46 + 52 + 10px gap). */
+/* Floating bug report button, at the bottom right (the floating search
+   button above it is removed). */
 .bug-report-fab {
 position: fixed;
 right: 26px;
-bottom: 108px;
+bottom: 46px;
 width: 52px;
 height: 52px;
 border-radius: 50%;
@@ -5231,10 +5279,11 @@ select.sql-action-control {
 }
 
 
-/* storage profiles style */
-
-input:read-only {
-  opacity:0.3;
+/* Storage profiles: a field set to read-only is faded. Only fields with the
+   readonly attribute: ":read-only" also matched sliders, check boxes and
+   radio buttons, so the Playback slider and all check boxes were faded. */
+input[readonly] {
+  opacity: 0.3;
 }
 
 
@@ -5950,8 +5999,9 @@ html.motion-off .login-slide-text {
 
 /* Wide form modal (style guide: New alert rule). */
 .modal-box.modal-form {
-  max-width: 880px;
-  width: min(880px, 94vw);
+  /* Wider, so the SQL and the test results have room. */
+  max-width: 1120px;
+  width: min(1120px, 94vw);
   margin: 0 auto;
 }
 
@@ -6395,3 +6445,64 @@ html.motion-off .cluster-switcher-dot.success::after {
   display: none;
 }
 
+
+/* Kubernetes health checks: green when passed, red when it could not run. */
+.check-status-ok {
+  color: var(--success);
+}
+
+.check-status-unknown {
+  color: var(--danger);
+}
+
+/* A failed check keeps the amber warning triangle, so it differs from a
+   check that could not run. */
+.ti.check-status-failed {
+  color: var(--warning);
+}
+
+/* Kubernetes Insights > Logs: one row with equal heights, then the read time. */
+.k8s-logs-row .mx-rows-group,
+.k8s-logs-row .k8s-logs-previous {
+  height: var(--control-h);
+}
+
+.k8s-logs-row .k8s-logs-previous {
+  display: inline-flex;
+  align-items: center;
+}
+
+.k8s-logs-read-at {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.k8s-logs-read-at .ti {
+  font-size: 1rem;
+}
+
+/* A second, smaller line in an empty state that says what to do. */
+.empty-state .empty-state-hint {
+  max-width: 32rem;
+  font-size: var(--text-sm);
+}
+
+/* The CHOps logo in an empty results area: the whole area, logo in the middle. */
+.results-logo {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 2rem 1rem;
+}
+
+.results-logo img {
+  width: 13rem;
+  max-width: 60%;
+  opacity: 0.3;
+}

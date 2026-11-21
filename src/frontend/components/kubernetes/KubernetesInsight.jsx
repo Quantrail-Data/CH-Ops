@@ -26,6 +26,7 @@ import {
 } from "../../utils/podLogs.js";
 import DataTable from "../layout/DataTable.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 
 const TABS = [
   { id: "health", label: "Health" },
@@ -169,14 +170,17 @@ function HealthTab({ data, clusterName, clusterId }) {
             {data.checks.map((c) => (
               <tr key={c.name}>
                 <td style={{ width: 24 }}>
+                  {/* Green check: passed. Red question mark: could not run.
+                      Red triangle: failed. */}
                   <Icon
                     className={
                       c.ok === true
-                        ? "ti ti-check"
+                        ? "ti ti-circle-check check-status-ok"
                         : c.ok === null
-                          ? "ti ti-help-circle"
-                          : "ti ti-alert-triangle"
+                          ? "ti ti-help-circle check-status-unknown"
+                          : "ti ti-alert-triangle check-status-failed"
                     }
+                    title={c.ok === true ? "Passed" : c.ok === null ? "Could not run" : "Failed"}
                   />
                 </td>
                 <td style={{ fontWeight: c.ok === false ? 600 : "normal" }}>{c.name}</td>
@@ -1165,6 +1169,12 @@ export function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
   );
 }
 
+// A date and time such as "21 Nov 2026, 16:42:05", the same form as the
+// date picker.
+function formatReadTime(date) {
+  return date.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+}
+
 function LogsTab({ clusterId, hosts, initialPod }) {
   const toast = useToast();
   const [pod, setPod] = useState(hosts?.[0]?.podName ?? "");
@@ -1172,6 +1182,8 @@ function LogsTab({ clusterId, hosts, initialPod }) {
   const [raw, setRaw] = useState("");
   const [busy, setBusy] = useState(false);
   const [fetchedAt, setFetchedAt] = useState(null);
+  // When the tab opened, shown until the first read.
+  const [openedAt] = useState(() => new Date());
   const [loadError, setLoadError] = useState(null);
 
   // Line count and time range persist, because somebody who wants 5000 lines wants them every time.
@@ -1285,16 +1297,9 @@ function changeSince(v) {
         </Banner>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "flex-end",
-          flexWrap: "wrap",
-          marginBottom: 12,
-        }}
-      >
-        <FormField label="Pod" style={{ flex: "1 1 260px", marginBottom: 0 }}>
+      {/* One compact row: every field and button has the same height. */}
+      <div className="search-form-row k8s-logs-row">
+        <FormField label="Pod" className="search-field" style={{ marginBottom: 0 }}>
           <Select
             className="form-select"
             value={pod}
@@ -1319,19 +1324,18 @@ function changeSince(v) {
           </Select>
         </FormField>
 
-        <FormField label="From" style={{ marginBottom: 0 }}>
-          <Input
-            type="datetime-local"
-            value={since}
-            onChange={(e) => changeSince(e.target.value)}
-            disabled={previous}
-            title={
-              previous
-                ? "Not used when reading the previous container, which stopped before now."
-                : "Read from this time onward. There is no end bound."
-            }
-          />
-        </FormField>
+        <DateTimePicker
+          label="From"
+          value={since}
+          valueFormat="datetime-local"
+          onChange={(value) => changeSince(value)}
+          disabled={previous}
+          title={
+            previous
+              ? "Not used when reading the previous container, which stopped before now."
+              : "Read from this time onward. There is no end bound."
+          }
+        />
 
         <FormField label="Lines" style={{ marginBottom: 0 }}>
           <LineCountControl value={lineCount} onChange={changeLineCount} disabled={busy} />
@@ -1339,7 +1343,7 @@ function changeSince(v) {
 
         {/* The box only frames the switch. It had its own click that toggled
             "previous" a second time, so a click on the switch did nothing. */}
-        <div className="btn btn-secondary" style={{ height: "2.5rem" }}>
+        <div className="btn btn-secondary k8s-logs-previous">
           <ToggleSwitch checked={previous} label="Previous container" onChange={(e) => setPrevious(e.target.checked)} btnContainer={true} />
         </div>
 
@@ -1351,6 +1355,14 @@ function changeSince(v) {
           {busy ? "Reading..." : "Read logs"}
         </Button>
       </div>
+
+      {/* When the logs were read. Before the first read: when the tab opened. */}
+      <p className="k8s-logs-read-at">
+        <Icon className="ti ti-clock" />
+        {fetchedAt
+          ? `Read at ${formatReadTime(fetchedAt)}`
+          : `Tab opened at ${formatReadTime(openedAt)}. No logs read yet: click Read logs.`}
+      </p>
 
       {/* Search filters what has already been fetched, so typing costs nothing
           and needs no round trip. Line count and From do require one. */}
@@ -1403,7 +1415,6 @@ function changeSince(v) {
               : `${result.total} lines`
             : ""}
         </span>
-        {fetchedAt && <span>read at {fetchedAt.toLocaleTimeString()}</span>}
       </div>
 
       <pre
@@ -1446,7 +1457,7 @@ function LineCountControl({ value, onChange, disabled }) {
 
   return (
     <span className="mx-rows">
-      <span className="mx-rows-group" style={{height:"42px"}}>
+      <span className="mx-rows-group">
         <button
           type="button"
           className="mx-rows-btn"

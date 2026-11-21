@@ -406,6 +406,17 @@ export default function DataTable({
     variant === "single" ? " dt-single" : variant === "fixed" ? " dt-fixed" : ""
   }`;
 
+  // A query with no result table (CREATE, INSERT, ...): only the logo, in the
+  // middle of the whole results area. Inside the 200 px empty table it was
+  // cut off.
+  if (!rows.length && isShowLogo) {
+    return (
+      <div className="results-logo">
+        <img src={theme === "dark" ? lightLogo : darkLogo} alt="" />
+      </div>
+    );
+  }
+
   if (!rows.length) {
     return (
       <div
@@ -434,33 +445,13 @@ export default function DataTable({
           <tbody></tbody>
         </table>
 
-        {isShowLogo ? (
-          <div
-            style={{
-              padding: "32px 16px",
-              width: "",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              alignItems: "center",
-              height: "20rem",
-            }}
-          >
-            <img
-              style={{ width: "13rem", opacity: 0.3 }}
-              src={theme === "dark" ? lightLogo : darkLogo}
-              alt=""
-            />
-          </div>
-        ) : (
-          <div
-            className="empty-state"
-            style={{ padding: "32px 16px", height: "150px" }}
-          >
-            <Icon className="ti ti-inbox" style={{ fontSize: "20x" }}></Icon>
-            <p>{emptyMessage || "No data found."}</p>
-          </div>
-        )}
+        <div
+          className="empty-state"
+          style={{ padding: "32px 16px", height: "150px" }}
+        >
+          <Icon className="ti ti-inbox" style={{ fontSize: "20x" }}></Icon>
+          <p>{emptyMessage || "No data found."}</p>
+        </div>
       </div>
     );
   }
