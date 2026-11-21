@@ -209,11 +209,13 @@
 
 /* Mild tint so the left (current) and right (experimental) result tables read
    as visually distinct. Headers carry the stronger tint, cells a faint wash. */
+/* The tint lies over the solid header color: --accent-soft is see-through,
+   so the rows showed through the sticky header while scrolling. */
 .cmp-pane-left .cmp-pane-results .data-table thead th {
-  background: var(--accent-soft);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--th-bg);
 }
 .cmp-pane-right .cmp-pane-results .data-table thead th {
-  background: var(--bg-hover);
+  background: linear-gradient(var(--bg-hover), var(--bg-hover)), var(--th-bg);
 }
 .cmp-pane-left .cmp-pane-results .data-table-wrap {
   border-top: 2px solid var(--accent);

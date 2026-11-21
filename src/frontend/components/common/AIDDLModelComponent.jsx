@@ -40,14 +40,15 @@ function AIDDLModelComponent({
       onClose={() => setShowDBModel(false)}
       closeOnBackdrop={false}
       label="Database Schema & Estimate Generator"
+      // No "position: relative" here: it replaced the fixed position of the
+      // modal, so the centering moved the top of the dialog off the screen.
       style={{
         width: "50rem",
         maxWidth: "95vw",
         backgroundColor: "var(--bg-page)",
         borderRadius: "10px",
         padding: "15px",
-        position: "relative",
-        maxHeight: "80vh",
+        maxHeight: "90vh",
       }}
     >
         <div
@@ -201,7 +202,8 @@ function AIDDLModelComponent({
               width: "100%",
               margin: "20px auto",
               minHeight: "100px",
-              maxHeight: "300px",
+              // Both lists fit a short window; the dialog scrolls when needed.
+              maxHeight: "min(300px, 28vh)",
               alignItems: "start",
               gap: "10px",
             }} className="dbcard">
@@ -323,7 +325,8 @@ function AIDDLModelComponent({
               width: "100%",
               margin: "20px auto",
               minHeight: "100px",
-              maxHeight: "300px",
+              // Both lists fit a short window; the dialog scrolls when needed.
+              maxHeight: "min(300px, 28vh)",
               alignItems: "start",
               overflowY: "auto",
             }}

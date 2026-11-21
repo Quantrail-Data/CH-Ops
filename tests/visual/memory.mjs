@@ -1,5 +1,8 @@
-// Memory and CPU gates. Run against a running app with the recorded data:
-//   bun run build && bunx vite preview --port 7721
+// Memory and CPU gates. Run against a running production build with the
+// recorded data:
+//   NODE_ENV=production bun run build && bunx vite preview --port 7721
+// ("bun run" loads .env; with NODE_ENV=development there, a plain build is a
+// development build of React, which is slower.)
 //   bun tests/visual/memory.mjs          (all gates)
 //   bun tests/visual/memory.mjs pages    (gates 1, 2 and 3 only)
 //   bun tests/visual/memory.mjs idle     (gate 4 only)

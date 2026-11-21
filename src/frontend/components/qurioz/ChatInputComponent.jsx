@@ -119,10 +119,13 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
                       }
                     }}
                   >
-                    <div style={isSendDisabled ? {backgroundColor:"transparent",cursor:"not-allowed"}:{}} className="qur-chat-btn">
+                    {/* Disabled: a grey button with a muted icon, so it shows
+                        in both themes (a white icon on a transparent button did
+                        not show in the light theme). */}
+                    <div className={isSendDisabled ? "qur-chat-btn disabled" : "qur-chat-btn"}>
                       <Icon
                         className="ti ti-send"
-                        style={{ fontSize: "0.875rem", color: "white" }}
+                        style={{ fontSize: "0.875rem" }}
                       />
                     </div>
                   </motion.div>

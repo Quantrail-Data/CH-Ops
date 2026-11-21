@@ -74,6 +74,7 @@ import AIDDLButton from "../common/AIDDLButton.jsx";
 import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
 import { Button, Input, Notice } from "../ui/index.jsx";
 import { Modal } from "../ui/modal.jsx";
+import { fullChartDataURL } from "../common/ChartToolbar.jsx";
 
 const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
@@ -1062,7 +1063,8 @@ export default function QueryEditor({
 
   function graphDownload() {
     if (!graphInst.current) return;
-    const url = graphInst.current.getDataURL({
+    // The whole chart, also when zoomed in.
+    const url = fullChartDataURL(graphInst.current, {
       type: "png",
       pixelRatio: 2,
       backgroundColor: "transparent",
@@ -3503,22 +3505,8 @@ export default function QueryEditor({
                 <p>Connect with your ClickHouse credentials to begin.</p>
               </div>
             ) : (
-              <div
-                style={{
-                  padding: "32px 16px",
-                  width: "",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  height: "20rem",
-                }}
-              >
-                <img
-                  style={{ width: "13rem", opacity: 0.3 }}
-                  src={theme === "dark" ? lightLogo : darkLogo}
-                  alt=""
-                />
+              <div className="results-logo">
+                <img src={theme === "dark" ? lightLogo : darkLogo} alt="" />
               </div>
             ))}
         </div>

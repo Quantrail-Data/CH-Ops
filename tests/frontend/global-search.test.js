@@ -186,8 +186,8 @@ describe("Global search: wiring", () => {
     expect(gs).toMatch(/threshold:\s*0\.3/);
   });
 
-  it("renders a floating bubble and a shadcn command dialog", () => {
-    expect(gs).toContain("global-search-fab");
+  it("has no floating bubble (only the navbar search) and a shadcn command dialog", () => {
+    expect(gs).not.toContain('className="global-search-fab"');
     expect(gs).toContain("<CommandDialog");
     expect(gs).toContain("global-search-results");
   });
