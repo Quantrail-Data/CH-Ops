@@ -1792,7 +1792,9 @@ function QuriozChatComponent({ ScrollBottomAuto }) {
       {isNewChat() ? (
         <IntroChatComponent
           inputSubmitHandler={currentSubmitMessageHandler}
-          isSendDisabled={isAllowForRequestHandler() || !isLoading}
+          // The same rule as the chat screen: disabled while an answer loads.
+          // ("!isLoading" disabled the send and voice buttons all the time.)
+          isSendDisabled={isAllowForRequestHandler() || isLoading}
         />
       ) : (
         <>

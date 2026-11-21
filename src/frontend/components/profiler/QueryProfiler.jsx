@@ -1163,7 +1163,7 @@ if (unavailableMessage) {
       </div>
 
       {generatedSql && (
-        <details style={{ marginBottom: 16 }}>
+        <details className="profiler-sql-panel" style={{ marginBottom: 16 }}>
           <summary
             style={{
               cursor: "pointer",

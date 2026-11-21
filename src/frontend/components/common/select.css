@@ -8,7 +8,8 @@
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   width: 100%; box-sizing: border-box; min-width: 0;
   min-height: var(--control-h);
-  padding: 7px 12px; cursor: pointer; text-align: left;
+  /* 5 px like the other fields, so the control is 2rem high (package 6). */
+  padding: 5px 12px; cursor: pointer; text-align: left;
   background: var(--input-bg); color: var(--text-primary);
   border: 1px solid var(--border-default); border-radius: var(--radius-sm, 6px);
   font-family: var(--font-ui); font-size: var(--text-base); line-height: 1.2;

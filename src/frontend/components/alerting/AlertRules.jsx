@@ -72,9 +72,13 @@ export default function AlertRules({mainRef}) {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
   const [editingTemplateId, setEditingTemplateId] = useState(null);
+  // Template rules disabled on this page: they stay visible until a reload.
+  const [rulesKeptVisible, setRulesKeptVisible] = useState(() => new Set());
   const [showTemplateRulesThatAreOff, setShowTemplateRulesThatAreOff] =
     useState(false);
   const [testResults, setTestResults] = useState(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const testResultsRef = useRef(null);
   
 
     // calculate the Height of application main container app-main
@@ -355,6 +359,7 @@ export default function AlertRules({mainRef}) {
 
   async function testQuery() {
     setTestResults(null);
+    setIsTesting(true);
     try {
       const response = await apiFetch("/api/alerts/rules/test", {
         method: "POST",
@@ -371,7 +376,13 @@ export default function AlertRules({mainRef}) {
     } catch (error) {
       setResult({ ok: false, msg: error.message });
     }
+    setIsTesting(false);
   }
+
+  // Show the test results: they are below the buttons, often out of view.
+  useEffect(() => {
+    if (testResults) testResultsRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  }, [testResults]);
 
   async function remove(id) {
     try {
@@ -388,6 +399,13 @@ export default function AlertRules({mainRef}) {
         method: "PUT",
         body: JSON.stringify({ enabled: !r.enabled }),
       });
+      // A template rule that is off is hidden by default. Keep the one the
+      // user just disabled on the page (with its Enable button), so it does
+      // not look deleted.
+      if (r.templateId && r.enabled) {
+        setRulesKeptVisible((ids) => new Set(ids).add(r.id));
+        setResult({ ok: true, msg: `"${r.name}" is disabled. After a reload, turn on "Show template rules that are off" to see it.` });
+      }
       load();
     } catch (e) {
       setResult({ ok: false, msg: e.message });
@@ -455,7 +473,7 @@ export default function AlertRules({mainRef}) {
   );
   const visibleRules = showTemplateRulesThatAreOff
     ? rules
-    : rules.filter((rule) => !(rule.templateId && !rule.enabled));
+    : rules.filter((rule) => !(rule.templateId && !rule.enabled) || rulesKeptVisible.has(rule.id));
 
   const filteredTemplates = templates.filter((template) =>
     `${template.name} ${template.category} ${template.description}`
@@ -967,10 +985,10 @@ export default function AlertRules({mainRef}) {
           <Button
             variant="primary"
             onClick={testQuery}
-            disabled={!f.name || !f.sql || !!cronError}
+            disabled={!f.name || !f.sql || !!cronError || isTesting}
             style={{ marginLeft: "10px" }}
           >
-            <Icon className="ti ti-send"></Icon> Test
+            <Icon className="ti ti-send"></Icon> {isTesting ? "Testing..." : "Test"}
           </Button>
           {editingTemplateId && (
             <Button
@@ -989,7 +1007,7 @@ export default function AlertRules({mainRef}) {
             <Icon className="ti ti-x"></Icon> Cancel
           </Button>
           {testResults && (
-            <table className="data-table" style={{ marginTop: 14 }}>
+            <table ref={testResultsRef} className="data-table" style={{ marginTop: 14 }}>
               <thead>
                 <tr>
                   <th>Node</th>
@@ -1092,14 +1110,12 @@ export default function AlertRules({mainRef}) {
                   ? `Alert firing${r.lastValue != null ? ` - Current value: ${withUnit(r.lastValue, unitOfTemplate(r.templateId))}` : ""}`
                   : `Last status: ${r.lastStatus}${r.lastValue != null ? ` (${withUnit(r.lastValue, unitOfTemplate(r.templateId))})` : ""}`;
             return (
+              // The card itself does not open the rule: only the Edit button
+              // (and the rule name, a button) do.
               <div
                 key={r.id}
                 className="card"
-                style={{ padding: 16, cursor: "pointer" }}
-                onClick={(event) => {
-                  if (event.target.closest("button, a")) return;
-                  edit(r);
-                }}
+                style={{ padding: 16 }}
               >
                 <div
                   style={{

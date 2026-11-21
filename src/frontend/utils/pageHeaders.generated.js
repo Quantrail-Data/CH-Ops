@@ -337,6 +337,7 @@ export const PAGE_TEXT = {
   ],
   "overview/kubernetes": [
     "Loading...",
+    "Switch to Kubernetes mode to view Kubernetes Insights.",
     "Could not read this tab.",
     "Retry",
     "Copy report",
@@ -872,6 +873,8 @@ export const PAGE_TEXT = {
     "Quick",
     "From",
     "Rounding (s)",
+    "Dashboard tabs",
+    "Tabs",
     "Value:"
   ],
   "monitoring/playback": [
@@ -946,7 +949,6 @@ export const PAGE_TEXT = {
     "CHOps runs the SQL on a schedule and compares the value with the threshold.",
     "Schedule (cron)",
     "All clusters (default)",
-    "Test",
     "Reset to template",
     "Cancel",
     "Node",

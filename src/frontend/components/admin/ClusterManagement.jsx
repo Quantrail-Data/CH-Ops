@@ -844,8 +844,8 @@ function startEditK8s(cluster) {
 
             {k8sVerify && !k8sVerify.testing && (
               <Notice
-                tone={k8sVerify.ok ? "info" : "danger"}
-                icon={k8sVerify.ok ? "ti-check" : "ti-alert-triangle"}
+                tone={k8sVerify.ok ? "success" : "danger"}
+                icon={k8sVerify.ok ? "ti-circle-check" : "ti-alert-triangle"}
                 style={{ marginBottom: 12, fontSize: "0.75rem" }}
               >
                 {k8sVerify.ok
