@@ -2,14 +2,13 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Component for mapping, projecting, and transforming raw database records into custom UI views.
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
 import { runQuery } from "../../utils/api.js";
-import { initChart, disposeChart } from "../../utils/echarts.js";
-import { themeColor } from "../../utils/theme.js";
-import { treeSize, treeSeries } from "../../utils/treeChart.js";
+import TreeGraph from "../common/TreeGraph.jsx";
+import { buildProjectionTree } from "../../utils/schemaTrees.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
@@ -17,6 +16,7 @@ import { useAuth } from "../../App.jsx";
 import Select from "../common/Select.jsx";
 import SqlEditor from "../editor/SqlEditor.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import { Button, Input, FormField } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -154,8 +154,7 @@ function DbTableSelector({
         marginBottom: 14,
       }}
     >
-      <div className="form-group">
-        <label className="form-label">Database *</label>
+      <FormField label="Database *">
         <Select
           className="form-select"
           value={db}
@@ -170,9 +169,8 @@ function DbTableSelector({
             <option key={r.database}>{r.database}</option>
           ))}
         </Select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Table * (MergeTree only)</label>
+      </FormField>
+      <FormField label="Table * (MergeTree only)">
         <Select
           className="form-select"
           value={tbl}
@@ -184,10 +182,9 @@ function DbTableSelector({
             <option key={r.name}>{r.name}</option>
           ))}
         </Select>
-      </div>
+      </FormField>
       {showCluster && (
-        <div className="form-group">
-          <label className="form-label">ON CLUSTER</label>
+        <FormField label="ON CLUSTER">
           <Select
             className="form-select"
             value={cluster}
@@ -198,7 +195,7 @@ function DbTableSelector({
               <option key={r.cluster}>{r.cluster}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
       )}
     </div>
   );
@@ -207,14 +204,9 @@ function DbTableSelector({
 function ViewProjections() {
   const [db, setDb] = useState("");
   const [tbl, setTbl] = useState("");
-  const [fullscreen, setFullscreen] = useState(false);
-  const [themeKey, setThemeKey] = useState(0);
-  const [zoom, setZoom] = useState(1);
   const dbsQ = useQuery(),
     tblsQ = useQuery(),
     projQ = useQuery();
-  const chartRef = useRef(null),
-    chartInst = useRef(null);
   useEffect(() => {
     dbsQ.execute(
       "SELECT DISTINCT database FROM system.projections ORDER BY database",
@@ -238,120 +230,12 @@ function ViewProjections() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db, tbl]);
 
-  const buildTree = useCallback(() => {
-    if (!projQ.data?.length) return null;
-    const tableMap = {};
-    projQ.data.forEach((r) => {
-      if (!tableMap[r.table]) tableMap[r.table] = [];
-      tableMap[r.table].push({
-        name: `${r.name} (${r.type})`,
-        itemStyle: { color: "#34d399" },
-        children: [
-          { name: `key: ${r.sorting_key || "none"}`, children: [] },
-          ...(r.query
-            ? [{ name: `query: ${r.query.substring(0, 80)}`, children: [] }]
-            : []),
-        ],
-      });
-    });
-    return {
-      name: db,
-      itemStyle: { color: themeColor("--accent", "#9590FF") },
-      children: Object.entries(tableMap).map(([t, ps]) => ({
-        name: t,
-        itemStyle: { color: "#f59e0b" },
-        children: ps,
-      })),
-    };
-  }, [projQ.data, db]);
+  const tree = useMemo(() => buildProjectionTree(db, projQ.data), [db, projQ.data]);
 
-  const renderChart = useCallback(() => {
-    const tree = buildTree();
-    if (!tree || !chartRef.current) return;
-    const isDark =
-      document.documentElement.getAttribute("data-theme") === "dark";
-    const size = treeSize(tree);
-    if (chartInst.current) {
-      disposeChart(chartRef.current);
-      chartInst.current = null;
-    }
-    chartRef.current.style.width = Math.round(size.width * zoom) + "px";
-    chartRef.current.style.height = Math.round(size.height * zoom) + "px";
-    chartInst.current = initChart(chartRef.current);
-    const series = treeSeries(tree, isDark);
-    series.symbolSize = Math.round(12 * zoom);
-    chartInst.current.setOption(
-      {
-        tooltip: { trigger: "item", triggerOn: "mousemove" },
-        series: [series],
-      },
-      true,
-    );
-    chartInst.current.resize();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- themeKey is here on purpose. It rebuilds the chart when the theme changes.
-  }, [buildTree, themeKey, zoom]);
-
-  useEffect(() => {
-    renderChart();
-  }, [renderChart]);
-  useEffect(() => {
-    const obs = new MutationObserver(() => setThemeKey((k) => k + 1));
-    obs.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-    return () => obs.disconnect();
-  }, []);
-  useEffect(
-    () => () => {
-      if (chartRef.current) disposeChart(chartRef.current);
-    },
-    [],
-  );
-
-  function doZoom(f) {
-    setZoom((z) => Math.max(0.3, Math.min(3, +(z * f).toFixed(2))));
-  }
-  function downloadChart() {
-    if (!chartInst.current || !chartRef.current) return;
-    const isDark =
-      document.documentElement.getAttribute("data-theme") === "dark";
-    try {
-      const tree = buildTree();
-      if (tree) {
-        const updatedSeries = treeSeries(tree, isDark);
-        updatedSeries.symbolSize = Math.round(12 * zoom);
-        chartInst.current.setOption({ series: [updatedSeries] }, true);
-        chartInst.current.resize();
-      }
-    } catch {
-      // The chart is already gone. Skip the resize.
-    }
-    const bg = isDark ? "#000000" : "#ffffff";
-    const url = chartInst.current.getDataURL({
-      type: "png",
-      pixelRatio: 2,
-      backgroundColor: bg,
-    });
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "projections-tree.png";
-    a.click();
-  }
   return (
     <div>
-      <div
-        className="card"
-        style={{
-          padding: 16,
-          marginBottom: 20,
-          display: "flex",
-          gap: 14,
-          alignItems: "flex-end",
-        }}
-      >
-        <div className="form-group">
-          <label className="form-label">Database</label>
+      <div className="card search-form-row" style={{ padding: 16, marginBottom: 20 }}>
+        <FormField label="Database" className="search-field">
           <Select
             className="form-select"
             value={db}
@@ -365,9 +249,8 @@ function ViewProjections() {
               <option key={r.database}>{r.database}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Table</label>
+        </FormField>
+        <FormField label="Table" className="search-field">
           <Select
             className="form-select"
             value={tbl}
@@ -378,104 +261,10 @@ function ViewProjections() {
               <option key={r.table}>{r.table}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
       </div>
-      {projQ.data?.length > 0 ? (
-        <div
-          className="card"
-          style={
-            fullscreen
-              ? {
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 9999,
-                  background: "var(--bg-page)",
-                  borderRadius: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }
-              : {padding: 16,
-          marginBottom: 20,
-          height:"35rem",
-          overflow:"auto"}
-          }
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: 4,
-              padding: "8px 12px",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontSize: "0.72rem",
-                color: "var(--text-muted)",
-                marginRight: 4,
-              }}
-            >
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => doZoom(1.25)}
-              title="Zoom in"
-            >
-              <Icon className="ti ti-zoom-in"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => doZoom(0.8)}
-              title="Zoom out"
-            >
-              <Icon className="ti ti-zoom-out"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setZoom(1)}
-              title="Reset zoom"
-            >
-              <Icon className="ti ti-zoom-reset"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={downloadChart}
-              title="Download PNG"
-              aria-label="Download PNG"
-            >
-              <Icon className="ti ti-download"></Icon>
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setFullscreen(!fullscreen)}
-            >
-              <Icon
-                className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
-              ></Icon>
-            </button>
-          </div>
-          <div
-            style={
-              fullscreen
-                ? {
-                    overflow: "auto",
-                    flex: 1,
-                    display: "flex",
-                    justifyContent: "center",
-                  }
-                : {
-                    overflowX: "auto",
-                    display: "flex",
-                    justifyContent: "center",
-                  }
-            }
-          >
-            <div ref={chartRef} />
-          </div>
-        </div>
+      {tree ? (
+        <TreeGraph tree={tree} fileName="projections-tree.png" emptyMessage="No projections found." />
       ) : (
         <div className="empty-state" style={{height:"50vh" }}>
           <Icon className="ti ti-transform"></Icon>
@@ -572,16 +361,14 @@ function AddProjection() {
             marginBottom: 14,
           }}
         >
-          <div className="form-group">
-            <label className="form-label">Projection Name *</label>
-            <input
-              className="form-input"
+          <FormField label="Projection Name *">
+            <Input
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="proj_name"
             />
-          </div>
+          </FormField>
         <ToggleSwitch checked={ifNotExists}
               onChange={(e) => setIfNotExists(e.target.checked)} label="IF NOT EXISTS"/>
         </div>
@@ -636,49 +423,43 @@ function AddProjection() {
             marginBottom: 14,
           }}
         >
-          <div className="form-group">
-            <label className="form-label">GROUP BY (optional)</label>
-            <input
-              className="form-input"
+          <FormField label="GROUP BY (optional)">
+            <Input
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value)}
               placeholder="col1, col2"
               style={{ fontFamily: "var(--font-code)" }}
             />
-          </div>
-          <div className="form-group">
-            <label className="form-label">ORDER BY (optional)</label>
-            <input
-              className="form-input"
+          </FormField>
+          <FormField label="ORDER BY (optional)">
+            <Input
               value={orderBy}
               onChange={(e) => setOrderBy(e.target.value)}
               placeholder="col1, col2"
               style={{ fontFamily: "var(--font-code)" }}
             />
-          </div>
+          </FormField>
         </div>
 
-        <div className="form-group" style={{ marginBottom: 14 }}>
-          <label className="form-label">WITH SETTINGS (optional)</label>
-          <input
-            className="form-input"
+        <FormField label="WITH SETTINGS (optional)" style={{ marginBottom: 14 }}>
+          <Input
             value={settings}
             onChange={(e) => setSettings(e.target.value)}
             placeholder="setting_name1 = value1, setting_name2 = value2"
             style={{ fontFamily: "var(--font-code)" }}
           />
-        </div>
+        </FormField>
 
         <SqlPreview sql={buildSql()} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={!buildSql() || !isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-plus"></Icon> Add Projection
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -743,8 +524,7 @@ function DropProjection() {
             marginBottom: 14,
           }}
         >
-          <div className="form-group">
-            <label className="form-label">Projection *</label>
+          <FormField label="Projection *">
             <Select
               className="form-select"
               value={projName}
@@ -755,20 +535,20 @@ function DropProjection() {
                 <option key={r.name}>{r.name}</option>
               ))}
             </Select>
-          </div>
+          </FormField>
         <ToggleSwitch  checked={ifExists}
               onChange={(e) => setIfExists(e.target.checked)} label="IF EXISTS"/>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-danger"
+          <Button
+            variant="danger"
             disabled={!sql || !isAdmin}
             onClick={() => setConfirm(true)}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-trash"></Icon> Drop Projection
-          </button>
+          </Button>
         </div>
       </div>
       {confirm && (
@@ -845,8 +625,7 @@ function MaterializeProjection() {
             marginBottom: 14,
           }}
         >
-          <div className="form-group">
-            <label className="form-label">Projection *</label>
+          <FormField label="Projection *">
             <Select
               className="form-select"
               value={projName}
@@ -858,30 +637,28 @@ function MaterializeProjection() {
                 <option key={r.name}>{r.name}</option>
               ))}
             </Select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">IN PARTITION (optional)</label>
-            <input
-              className="form-input"
+          </FormField>
+          <FormField label="IN PARTITION (optional)">
+            <Input
               value={partition}
               onChange={(e) => setPartition(e.target.value)}
               placeholder="partition_name"
               style={{ fontFamily: "var(--font-code)" }}
             />
-          </div>
+          </FormField>
         <ToggleSwitch checked={ifExists}
               onChange={(e) => setIfExists(e.target.checked)} label="IF EXISTS"/>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={!sql || !isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-hammer"></Icon> Materialize
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -950,8 +727,7 @@ function ClearProjection() {
             marginBottom: 14,
           }}
         >
-          <div className="form-group">
-            <label className="form-label">Projection *</label>
+          <FormField label="Projection *">
             <Select
               className="form-select"
               value={projName}
@@ -962,30 +738,28 @@ function ClearProjection() {
                 <option key={r.name}>{r.name}</option>
               ))}
             </Select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">IN PARTITION (optional)</label>
-            <input
-              className="form-input"
+          </FormField>
+          <FormField label="IN PARTITION (optional)">
+            <Input
               value={partition}
               onChange={(e) => setPartition(e.target.value)}
               placeholder="partition_name"
               style={{ fontFamily: "var(--font-code)" }}
             />
-          </div>
+          </FormField>
         <ToggleSwitch checked={ifExists}
               onChange={(e) => setIfExists(e.target.checked)} label="IF EXISTS"/>
         </div>
         <SqlPreview sql={sql} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-danger"
+          <Button
+            variant="danger"
             disabled={!sql || !isAdmin}
             onClick={() => setConfirm(true)}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
           >
             <Icon className="ti ti-eraser"></Icon> Clear Projection
-          </button>
+          </Button>
         </div>
       </div>
       {confirm && (

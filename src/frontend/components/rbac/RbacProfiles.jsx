@@ -16,7 +16,8 @@ import AlertBanner from "../layout/AlertBanner.jsx";
 import { useAuth } from "../../App.jsx";
 import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
 import { useToast } from "../layout/Toast.jsx";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Input, Button, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -44,18 +45,18 @@ function SettingGroup({ group, settings, toggleSetting }) {
           padding: "10px 14px",
           cursor: "pointer",
           background: "var(--bg-elevated)",
-          fontSize: "14px",
+          fontSize: "0.875rem",
           fontWeight: 600,
         }}
       >
         <Icon
           className={`ti ti-chevron-${open ? "down" : "right"}`}
-          style={{ fontSize: 16 }}
+          style={{ fontSize: "1rem" }}
         ></Icon>
         {group.group}
         <span
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginLeft: "auto",
           }}
@@ -86,15 +87,13 @@ function SettingGroup({ group, settings, toggleSetting }) {
                   ))}
                 </Select>
               ) : s.type === "text" ? (
-                <input
-                  className="form-input"
+                <Input
                   placeholder="default"
                   value={settings[s.key] || ""}
                   onChange={(e) => toggleSetting(s.key, e.target.value)}
                 />
               ) : (
-                <input
-                  className="form-input"
+                <Input
                   type="number"
                   min={0}
                   placeholder="default"
@@ -105,7 +104,7 @@ function SettingGroup({ group, settings, toggleSetting }) {
                   }}
                 />
               )}
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
                 {s.desc}
               </span>
             </div>
@@ -1141,21 +1140,20 @@ function ProfileList({ profilesQ, detailsQ }) {
   const liveState = useLiveOverview()
   return (
     <div>
-      <h3 style={{ fontSize: "15px", margin: "8px 0" }}>Profiles</h3>
+      <h3 style={{ fontSize: "0.9375rem", margin: "8px 0" }}>Profiles</h3>
       <DataTable
         rows={profilesQ.data || []}
         emptyMessage="No profiles."
         variant="single"
       />
       {(detailsQ.error && !liveState?.isNotConnectedClusterNode()) &&  (
-        <div className="alert-banner warning" style={{ marginTop: 12 }}>
-          <Icon className="ti ti-alert-triangle"></Icon>
+        <Notice tone="warning" icon="ti-alert-triangle" style={{ marginTop: 12 }}>
           <span>The profile settings could not be read: {detailsQ.error}</span>
-        </div>
+        </Notice>
       )}
       {detailsQ.data?.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", margin: "16px 0 8px" }}>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>
             Profile Settings
           </h3>
           <DataTable
@@ -1320,8 +1318,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
               marginBottom: 16,
             }}
           >
-            <div className="form-group">
-              <label className="form-label">Profile *</label>
+            <FormField label="Profile *">
               <Select
                 className="form-select"
                 value={sel}
@@ -1333,15 +1330,13 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
                   <option key={p.name}>{p.name}</option>
                 ))}
               </Select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Rename To</label>
-              <input
-                className="form-input"
+            </FormField>
+            <FormField label="Rename To">
+              <Input
                 value={rename}
                 onChange={(e) => setRename(e.target.value)}
               />
-            </div>
+            </FormField>
             <div className="form-group">
               <label className="form-label">ON CLUSTER</label>
               <Select
@@ -1366,15 +1361,13 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
               marginBottom: 16,
             }}
           >
-            <div className="form-group">
-              <label className="form-label">Profile Name *</label>
-              <input
-                className="form-input"
+            <FormField label="Profile Name *">
+              <Input
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-            </div>
+            </FormField>
             <div className="form-group">
               <label className="form-label">ON CLUSTER</label>
               <Select
@@ -1401,32 +1394,26 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
               marginBottom: 16,
             }}
           >
-            <div className="form-group">
-              <label className="form-label">DROP SETTINGS</label>
-              <input
-                className="form-input"
+            <FormField label="DROP SETTINGS">
+              <Input
                 value={dropSettings}
                 onChange={(e) => setDropSettings(e.target.value)}
                 placeholder="var1, var2"
                 style={{ fontFamily: "var(--font-code)" }}
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">DROP PROFILES</label>
-              <input
-                className="form-input"
+            </FormField>
+            <FormField label="DROP PROFILES">
+              <Input
                 value={dropProfiles}
                 onChange={(e) => setDropProfiles(e.target.value)}
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">ADD PROFILES</label>
-              <input
-                className="form-input"
+            </FormField>
+            <FormField label="ADD PROFILES">
+              <Input
                 value={addProfiles}
                 onChange={(e) => setAddProfiles(e.target.value)}
               />
-            </div>
+            </FormField>
             <div
               style={{
                 display: "flex",
@@ -1440,7 +1427,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
                   display: "flex",
                   gap: 6,
                   cursor: "pointer",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                 }}
               >
                 <input
@@ -1456,7 +1443,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
                   display: "flex",
                   gap: 6,
                   cursor: "pointer",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                 }}
               >
                 <input
@@ -1482,7 +1469,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
         >
           <h4
             style={{
-              fontSize: "14px",
+              fontSize: "0.875rem",
               marginBottom: 12,
               display: "flex",
               alignItems: "center",
@@ -1506,7 +1493,7 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
           >
             <Icon
               className={`ti ti-chevron-${open ? "down" : "right"}`}
-              style={{ fontSize: 16 }}
+              style={{ fontSize: "1rem" }}
             ></Icon>
             Collapse Settings
           </div>
@@ -1531,29 +1518,25 @@ function ProfileForm({ rbac, action, profiles, setResult, onSuccess }) {
           )}
         </AnimatePresence>
 
-        <div className="form-group" style={{ marginBottom: 16 }}>
-          <label className="form-label">
-            <Icon className="ti ti-code"></Icon> Additional Settings (key=value,
-            comma-separated)
-          </label>
-          <input
-            className="form-input"
+        <FormField label={<><Icon className="ti ti-code"></Icon> Additional Settings (key=value,
+            comma-separated)</>} style={{ marginBottom: 16 }}>
+          <Input
             value={customSettings}
             onChange={(e) => setCustomSettings(e.target.value)}
             placeholder="distributed_ddl_task_timeout=300, insert_quorum=2"
           />
-        </div>
+        </FormField>
 
         <SqlPreview sql={buildSql()} />
         <div style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={!profileName}
           >
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {isAlter ? "Alter" : "Create"}
-          </button>
+          </Button>
         </div>
       </div>
     </form>
@@ -1591,8 +1574,7 @@ function DropProfile({ profiles, setResult, onSuccess, navigate }) {
       className="card"
       style={{ padding: 20, height: confirm ? "700px" : "auto" }}
     >
-      <div className="form-group" style={{ marginBottom: 14 }}>
-        <label className="form-label">Profile</label>
+      <FormField label="Profile" style={{ marginBottom: 14 }}>
         <Select
           className="form-select"
           value={sel}
@@ -1603,16 +1585,16 @@ function DropProfile({ profiles, setResult, onSuccess, navigate }) {
             <option key={p.name}>{p.name}</option>
           ))}
         </Select>
-      </div>
+      </FormField>
       <SqlPreview sql={sql} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-danger"
+        <Button
+          variant="danger"
           disabled={!sel}
           onClick={() => setConfirm(true)}
         >
           <Icon className="ti ti-trash"></Icon> Drop
-        </button>
+        </Button>
       </div>
       {confirm && (
         <ConfirmModal
@@ -1622,8 +1604,7 @@ function DropProfile({ profiles, setResult, onSuccess, navigate }) {
               <p>
                 Type the profile name <strong>{sel}</strong> to confirm:
               </p>
-              <input
-                className="form-input"
+              <Input
                 style={{ marginTop: 8 }}
                 value={confirmName}
                 onChange={(e) => setConfirmName(e.target.value)}

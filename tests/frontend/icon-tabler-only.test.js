@@ -52,7 +52,9 @@ describe("Icons: Tabler only", () => {
 
   it("migrated components render Tabler <Icon> for their controls", () => {
     const checks = {
-      "src/frontend/components/layout/LoginPage.jsx": ["ti-eye", "ti-login"],
+      // The show/hide eye icon of the password fields is in PasswordInput.
+      "src/frontend/components/layout/LoginPage.jsx": ["PasswordInput", "ti-login"],
+      "src/frontend/components/ui/index.jsx": ["ti-eye", "ti-eye-off"],
       "src/frontend/components/qurioz/VoiceSearchButton.jsx": [
         "ti-microphone",
         "ti-microphone-off",

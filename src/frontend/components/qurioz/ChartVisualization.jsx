@@ -19,6 +19,7 @@ import {  useAuth } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import { Input, Button, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -365,8 +366,7 @@ useEffect(() => {
                 marginBottom: 12,
               }}
             >
-              <div className="form-group">
-                <label className="form-label">Chart Type</label>
+              <FormField label="Chart Type">
                 <Select
                   className="form-select"
                   value={chartType}
@@ -378,9 +378,8 @@ useEffect(() => {
                     </option>
                   ))}
                 </Select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Subtype</label>
+              </FormField>
+              <FormField label="Subtype">
                 <Select
                   className="form-select"
                   value={chartSubtype}
@@ -395,16 +394,14 @@ useEffect(() => {
                     </option>
                   ))}
                 </Select>
-              </div>
+              </FormField>
             </div>
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <label className="form-label">Chart Name</label>
-              <input
-                className="form-input"
+            <FormField label="Chart Name" style={{ marginBottom: 12 }}>
+              <Input
                 value={chartName}
                 onChange={(e) => setChartName(e.target.value)}
               />
-            </div>
+            </FormField>
             {fields.length > 0 && columns.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <label className="form-label" style={{ marginBottom: 6 }}>
@@ -423,7 +420,7 @@ useEffect(() => {
                         <div key={f.key} className="form-group">
                           <label
                             className="form-label"
-                            style={{ fontSize: "12px" }}
+                            style={{ fontSize: "0.75rem" }}
                           >
                             {f.label}
                             {f.required ? " *" : ""} ({f.expect})
@@ -439,7 +436,7 @@ useEffect(() => {
                                                             }))
                                                           }
                                                           style={{
-                                                            fontSize: "13px",
+                                                            fontSize: "0.8125rem",
                                                             borderColor: validationErrors[f.key]
                                                               ? "var(--color-danger)"
                                                               : undefined,
@@ -463,7 +460,7 @@ useEffect(() => {
                                                             }))
                                                           }
                                                           style={{
-                                                            fontSize: "13px",
+                                                            fontSize: "0.8125rem",
                                                             borderColor: validationErrors[f.key]
                                                               ? "var(--color-danger)"
                                                               : undefined,
@@ -481,7 +478,7 @@ useEffect(() => {
                             <span
                               style={{
                                 color: "var(--color-danger)",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                               }}
                             >
                               {validationErrors[f.key]}
@@ -503,25 +500,23 @@ useEffect(() => {
                 }}
               >
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     X Label
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     value={xLabel}
                     onChange={(e) => setXLabel(e.target.value)}
-                    style={{ fontSize: "13px" }}
+                    style={{ fontSize: "0.8125rem" }}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Y Label
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     value={yLabel}
                     onChange={(e) => setYLabel(e.target.value)}
-                    style={{ fontSize: "13px" }}
+                    style={{ fontSize: "0.8125rem" }}
                   />
                 </div>
               </div>
@@ -539,11 +534,10 @@ useEffect(() => {
                 }}
               >
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Min
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     type="number"
                     value={mapping.min_val || 0}
                     onChange={(e) =>
@@ -552,11 +546,10 @@ useEffect(() => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Max
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     type="number"
                     value={mapping.max_val || 100}
                     onChange={(e) =>
@@ -570,7 +563,7 @@ useEffect(() => {
           {ChatVisiablePreview() && <div style={{ padding: 16, minHeight: 340 }}>
             <div
               style={{
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 color: "var(--text-muted)",
                 marginBottom: 8,
               }}
@@ -578,12 +571,8 @@ useEffect(() => {
               Preview
             </div>
             {chartOption?._error && (
-              <div
-                className="alert-banner danger"
-                style={{ fontSize: "13px" }}
-              >
-                <Icon className="ti ti-alert-circle"></Icon> {chartOption.message}
-              </div>
+              <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}> {chartOption.message}
+              </Notice>
             )}
             {chartOption?._kpi && (
               <div
@@ -597,7 +586,7 @@ useEffect(() => {
               >
                 <div
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-muted)",
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
@@ -642,7 +631,7 @@ useEffect(() => {
                     {!chartOption && !previewRef &&(
                       <div className="empty-state" style={{ padding: 24 }}>
                         <Icon className="ti ti-chart-dots"></Icon>
-                        <p style={{ fontSize: "13px" }}>
+                        <p style={{ fontSize: "0.8125rem" }}>
                           Map columns to see preview.
                         </p>
                       </div>
@@ -650,8 +639,7 @@ useEffect(() => {
                 </div>
                   {chartOption && canAddToDashboard && (
                                       <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-                      <div className="form-group" style={{ flex: 1 }}>
-                        <label className="form-label">Dashboard *</label>
+                      <FormField label="Dashboard *" style={{ flex: 1 }}>
                         <Select
                           className="form-select"
                           value={selDashboard}
@@ -664,15 +652,15 @@ useEffect(() => {
                             </option>
                           ))}
                         </Select>
-                      </div>
-                      <button
-                        className="btn btn-primary"
+                      </FormField>
+                      <Button
+                        variant="primary"
                         onClick={saveChart}
                         disabled={!chartOption || !selDashboard}
                       >
                         <Icon className="ti ti-device-floppy"></Icon>{" "}
                        Save
-                      </button>
+                      </Button>
                     </div>
                     )}
                 </div>

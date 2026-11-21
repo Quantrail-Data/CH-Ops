@@ -10,7 +10,8 @@ function read(f) {
 
 describe("Schema: 8 Tables", () => {
   const schema = read("src/backend/db/schema.js");
-  const migrate = read("src/backend/db/migrate.js");
+  // The CREATE TABLE statements are in the numbered migrations.
+  const migrate = read("src/backend/db/migrations.js");
   const idx = read("src/backend/db/index.js");
   [
     "app_setting",

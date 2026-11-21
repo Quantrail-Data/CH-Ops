@@ -40,7 +40,7 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('warns when a parameter sits outside an optional block', () => {
     expect(code).toContain('outside an');
-    expect(code).toContain('alert-banner warning');
+    expect(code).toContain('<Notice tone="warning"');
   });
 
   it('has no leftover debug logging', () => {

@@ -177,7 +177,7 @@ export default function TablesAndParts() {
 
       {brokenItems.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", margin: "16px 0 8px" }}>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>
             <Icon
               className="ti ti-alert-triangle"
               style={{ color: "var(--color-danger)", marginRight: 6 }}
@@ -196,7 +196,7 @@ export default function TablesAndParts() {
 
       {detachedItems.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", margin: "16px 0 8px" }}>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>
             <Icon
               className="ti ti-unlink"
               style={{ color: "var(--color-warning)", marginRight: 6 }}
@@ -213,7 +213,7 @@ export default function TablesAndParts() {
         </>
       )}
 
-      <h3 style={{ fontSize: "15px", margin: "16px 0 8px" }}>Table Details</h3>
+      <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>Table Details</h3>
       <DataTable
         rows={tablesQ.data || []}
         columns={[

@@ -48,7 +48,7 @@ export function loadEnv() {
     },
     superAdmins,
     encryptionSecret: process.env.ENCRYPTION_SECRET,
-    port: parseInt(process.env.PORT || '3000', 10),
+    port: parseInt(process.env.PORT || '7720', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
     disableEnvLogin: process.env.DISABLE_ENV_LOGIN === 'true',
     frontendLink:process.env.FRONTEND_LINK,

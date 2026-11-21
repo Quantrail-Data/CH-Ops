@@ -7,6 +7,7 @@ import Icon from "../common/Icon.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
 import { StatCard } from "../layout/SharedComponents.jsx";
 import DataTable from "../layout/DataTable.jsx";
+import { Notice } from "../ui/index.jsx";
 
 export default function DistributedDDL() {
   // DDL cards
@@ -94,20 +95,20 @@ export default function DistributedDDL() {
       </div>
 
       {ddlError && (
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
+        <Notice tone="info" style={{ marginBottom: 14 }}>
           <Icon
             style={{ marginTop: "1px" }}
             className="ti ti-info-circle"
           ></Icon>{" "}
           DDL queue not available. This is normal for single-node setups without
           distributed_ddl_queue.
-        </div>
+        </Notice>
       )}
 
-      <h3 style={{ fontSize: "15px", margin: "0 0 12px" }}>
+      <h3 style={{ fontSize: "0.9375rem", margin: "0 0 12px" }}>
         <Icon className="ti ti-list-details" style={{ marginRight: 6 }}></Icon>
         Distributed DDL Queue{" "}
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
           (auto-refresh 10s)
         </span>
       </h3>
@@ -135,7 +136,7 @@ export default function DistributedDDL() {
         />
       </div>
 
-      <h4 style={{ fontSize: "14px", margin: "16px 0 8px" }}>
+      <h4 style={{ fontSize: "0.875rem", margin: "16px 0 8px" }}>
         Slow / Pending DDLs
       </h4>
       <DataTable
@@ -153,10 +154,10 @@ export default function DistributedDDL() {
 
       <div className="divider"></div>
 
-      <h3 style={{ fontSize: "15px", margin: "0 0 12px" }}>
+      <h3 style={{ fontSize: "0.9375rem", margin: "0 0 12px" }}>
         <Icon className="ti ti-lock" style={{ marginRight: 6 }}></Icon>Read-Only
         Tables{" "}
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
           (auto-refresh 30s)
         </span>
       </h3>

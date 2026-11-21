@@ -91,7 +91,7 @@ export default function InfoTip({ what, read, formula, unit, serverNotes = [] })
           lineHeight: 1,
         }}
       >
-        <Icon className="ti ti-info-circle" style={{ fontSize: 14 }} />
+        <Icon className="ti ti-info-circle" style={{ fontSize: "0.875rem" }} />
       </span>
 
       {open &&

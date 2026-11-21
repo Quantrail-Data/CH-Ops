@@ -112,7 +112,7 @@ function palette(dark) {
     accent: cssVar("--accent", m.accent),
 
     fontChart: cssVar("--font-chart", '"B612", sans-serif'),
-    fontCode: cssVar("--font-code", '"Red Hat Mono", monospace'),
+    fontCode: cssVar("--font-code", '"Atkinson Hyperlegible Mono", monospace'),
   };
 }
 

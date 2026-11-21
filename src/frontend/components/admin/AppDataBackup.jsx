@@ -9,6 +9,7 @@ import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
 import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, FormField, Notice } from "../ui/index.jsx";
 
 const DAYS = [
   "Sunday",
@@ -145,12 +146,11 @@ export default function AppDataBackup({mainRef}) {
             <Icon className="ti ti-database-export"></Icon> App Data Backup
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>
             App data backup is only available for superadministrators.
           </span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>App data backup is only available for superadministrators.</p>
@@ -168,13 +168,12 @@ export default function AppDataBackup({mainRef}) {
       </div>
 
       {profiles.length === 0 ? (
-        <div className="alert-banner info" style={{ marginBottom: 20 }}>
-          <Icon className="ti ti-info-circle"></Icon>
+        <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 20 }}>
           <span>
             No storage profiles configured. Go to{" "}
             <strong>Administration &gt; Storage Profiles</strong> to add one.
           </span>
-        </div>
+        </Notice>
       ) : (
         <>
           <div className="card" style={{ padding: 20, marginBottom: 20 }}>
@@ -196,7 +195,7 @@ export default function AppDataBackup({mainRef}) {
             </h3>
             <p
               style={{
-                fontSize: "14px",
+                fontSize: "0.875rem",
                 color: "var(--text-secondary)",
                 marginBottom: 14,
               }}
@@ -205,8 +204,7 @@ export default function AppDataBackup({mainRef}) {
               to the storage profile. Safe to run while the app is running.
             </p>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-              <div className="form-group">
-                <label className="form-label">Storage Profile</label>
+              <FormField label="Storage Profile">
                 <Select
                   className="form-select"
                   value={selectedProfile}
@@ -219,9 +217,9 @@ export default function AppDataBackup({mainRef}) {
                     </option>
                   ))}
                 </Select>
-              </div>
-              <button
-                className="btn btn-primary"
+              </FormField>
+              <Button
+                variant="primary"
                 onClick={runBackup}
                 disabled={backing || !selectedProfile}
               >
@@ -229,7 +227,7 @@ export default function AppDataBackup({mainRef}) {
                   className={`ti ${backing ? "ti-loader" : "ti-cloud-upload"}`}
                 ></Icon>{" "}
                 {backing ? "Uploading..." : "Backup Now"}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -258,8 +256,7 @@ export default function AppDataBackup({mainRef}) {
                 flexWrap: "wrap",
               }}
             >
-              <div className="form-group">
-                <label className="form-label">Storage Profile</label>
+              <FormField label="Storage Profile">
                 <Select
                   className="form-select"
                   value={config.profileName}
@@ -275,9 +272,8 @@ export default function AppDataBackup({mainRef}) {
                     </option>
                   ))}
                 </Select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Frequency</label>
+              </FormField>
+              <FormField label="Frequency">
                 <Select
                   className="form-select"
                   value={config.frequency}
@@ -288,10 +284,9 @@ export default function AppDataBackup({mainRef}) {
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                 </Select>
-              </div>
+              </FormField>
               {config.frequency === "weekly" && (
-                <div className="form-group">
-                  <label className="form-label">Day</label>
+                <FormField label="Day">
                   <Select
                     className="form-select"
                     value={config.weekday}
@@ -308,10 +303,9 @@ export default function AppDataBackup({mainRef}) {
                       </option>
                     ))}
                   </Select>
-                </div>
+                </FormField>
               )}
-              <div className="form-group">
-                <label className="form-label">Hour (24h)</label>
+              <FormField label="Hour (24h)">
                 <Select
                   className="form-select"
                   value={config.backupHour}
@@ -328,7 +322,7 @@ export default function AppDataBackup({mainRef}) {
                     </option>
                   ))}
                 </Select>
-              </div>
+              </FormField>
               <div className="form-group">
                 <label
                   className="form-label"
@@ -379,25 +373,25 @@ export default function AppDataBackup({mainRef}) {
                       }}
                     />
                   </div>
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>
                     {config.enabled ? "Enabled" : "Disabled"}
                   </span>
                 </label>
               </div>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary"
                 onClick={saveConfig}
                 disabled={savingConfig}
                 style={{ alignSelf: "flex-end", marginTop: "20px" }}
               >
                 <Icon className="ti ti-device-floppy"></Icon> Save Schedule
-              </button>
+              </Button>
             </div>
             {config.lastRunAt && (
               <div
                 style={{
                   marginTop: 12,
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   color: "var(--text-muted)",
                 }}
               >
@@ -447,13 +441,13 @@ export default function AppDataBackup({mainRef}) {
                 ></Icon>{" "}
                 Backup History
               </h3>
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button
+                variant="secondary" size="sm"
                 onClick={() => loadBackups(selectedProfile)}
                 disabled={loadingBackups}
               >
                 <Icon className="ti ti-refresh"></Icon>
-              </button>
+              </Button>
             </div>
             {loadingBackups ? (
               <div className="empty-state" style={{ padding: 24 }}>
@@ -486,7 +480,7 @@ export default function AppDataBackup({mainRef}) {
                         <td
                           style={{
                             fontFamily: "var(--font-code)",
-                            fontSize: "13px",
+                            fontSize: "0.8125rem",
                           }}
                         >
                           {b.backup_id}
@@ -495,7 +489,7 @@ export default function AppDataBackup({mainRef}) {
                         <td>{new Date(b.created_at).toLocaleString()}</td>
                         <td>{b.file_size_display}</td>
                         <td>{b.app_version}</td>
-                        <td style={{ fontSize: "12px" }}>
+                        <td style={{ fontSize: "0.75rem" }}>
                           {b.table_counts &&
                             Object.entries(b.table_counts).map(([t, c]) => (
                               <span
@@ -539,22 +533,22 @@ export default function AppDataBackup({mainRef}) {
                 ></Icon>{" "}
                 Restore Instructions
               </h3>
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button
+                variant="secondary" size="sm"
                 onClick={() => setShowRestore(!showRestore)}
               >
                 <Icon
                   className={`ti ${showRestore ? "ti-chevron-up" : "ti-chevron-down"}`}
                 ></Icon>{" "}
                 {showRestore ? "Hide" : "Show"}
-              </button>
+              </Button>
             </div>
             {showRestore && (
-<div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+<div style={{ fontSize: "0.875rem", color: 'var(--text-secondary)', lineHeight: 1.7 }}>
   <p style={{ marginBottom: 12, color: 'var(--color-warning)', fontWeight: 600 }}>
     <Icon
       className="ti ti-alert-triangle"
-      style={{ fontSize: 16, marginRight: 4 }}
+      style={{ fontSize: "1rem", marginRight: 4 }}
     />
     Restoring replaces all app data. Stop the server before restoring the database
     and crypto salt. Keep the same ENCRYPTION_SECRET used by the original server.
@@ -568,7 +562,7 @@ export default function AppDataBackup({mainRef}) {
     padding: 12,
     borderRadius: 'var(--radius-sm)',
     fontFamily: 'var(--font-code)',
-    fontSize: '13px',
+    fontSize: "0.8125rem",
     marginBottom: 16,
     overflowX: 'auto'
   }}>
@@ -595,7 +589,7 @@ az storage blob download --account-name YOUR_ACCOUNT --container-name YOUR_CONTA
     padding: 12,
     borderRadius: 'var(--radius-sm)',
     fontFamily: 'var(--font-code)',
-    fontSize: '13px',
+    fontSize: "0.8125rem",
     marginBottom: 16,
     overflowX: 'auto'
   }}>
@@ -615,7 +609,7 @@ sudo systemctl stop chops
     padding: 12,
     borderRadius: 'var(--radius-sm)',
     fontFamily: 'var(--font-code)',
-    fontSize: '13px',
+    fontSize: "0.8125rem",
     marginBottom: 16,
     overflowX: 'auto'
   }}>
@@ -637,7 +631,7 @@ cp ./chops-restore.db data/chops.db`}
     padding: 12,
     borderRadius: 'var(--radius-sm)',
     fontFamily: 'var(--font-code)',
-    fontSize: '13px',
+    fontSize: "0.8125rem",
     marginBottom: 16,
     overflowX: 'auto'
   }}>
@@ -665,7 +659,7 @@ install -m 600 ./crypto.salt data/crypto.salt`}
     padding: 12,
     borderRadius: 'var(--radius-sm)',
     fontFamily: 'var(--font-code)',
-    fontSize: '13px',
+    fontSize: "0.8125rem",
     marginBottom: 16,
     overflowX: 'auto'
   }}>
@@ -679,7 +673,7 @@ sudo systemctl start chops
 ./chops`}
   </pre>
 
-  <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+  <p style={{ color: 'var(--text-muted)', fontSize: "0.8125rem" }}>
     Restore the database and its matching crypto.salt from the same backup.
     Keep ENCRYPTION_SECRET unchanged. The salt is required to derive the
     original encryption key for stored credentials. ClickHouse data is not

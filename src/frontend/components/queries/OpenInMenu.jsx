@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../common/Icon.jsx";
+import { Button } from "../ui/index.jsx";
 
 // All three pages read ?qid= from the URL, so each link is /<route>?qid=<id>.
 export const OPEN_IN_DESTINATIONS = [
@@ -54,9 +55,9 @@ export default function OpenInMenu({ queryId }) {
 
   return (
     <>
-      <button ref={btnRef} className="btn btn-secondary btn-sm" onClick={toggle}>
+      <Button ref={btnRef} variant="secondary" size="sm" onClick={toggle}>
         <Icon className="ti ti-external-link"></Icon> Open in...
-      </button>
+      </Button>
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
@@ -79,22 +80,14 @@ export default function OpenInMenu({ queryId }) {
           }}
         >
           {OPEN_IN_DESTINATIONS.map((d) => (
-            <button
+            <Button
               key={d.key}
-              className="btn btn-ghost btn-sm"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                width: "100%",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                whiteSpace: "nowrap",
-              }}
+              variant="ghost" size="sm"
+              style={{ width: "100%", justifyContent: "flex-start", borderRadius: 6 }}
               onClick={() => go(d.route)}
             >
               <Icon className={`ti ${d.icon}`}></Icon> {d.label}
-            </button>
+            </Button>
           ))}
         </div>
       )}

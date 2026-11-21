@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import imageSrc from "../../assets/co.png";
 import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight";
 import { useTheme } from "../../App";
+import { Button } from "../ui/index.jsx";
 
 
 function ErrorClusterConnected({ title, message, mainRef }) {
@@ -48,7 +49,7 @@ function ErrorClusterConnected({ title, message, mainRef }) {
 
         <div>
           <h4>{title}</h4>
-          <span style={{ fontSize: "13px" }}>{message}</span>
+          <span style={{ fontSize: "0.8125rem" }}>{message}</span>
         </div>
 
         <div
@@ -61,14 +62,9 @@ function ErrorClusterConnected({ title, message, mainRef }) {
             gap: "10px",
           }}
         >
-          <button
-            style={{
-              width: "45%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            className="btn btn-primary"
+          <Button
+            style={{ width: "45%" }}
+            variant="primary"
             onClick={()=>navigateCluster()}
           >
             <svg
@@ -88,15 +84,10 @@ function ErrorClusterConnected({ title, message, mainRef }) {
               <path d="M5 12l14 0" />
             </svg>
             Add Cluster
-          </button>
-          <button
-            style={{
-              width: "45%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            className="btn btn-secondary"
+          </Button>
+          <Button
+            style={{ width: "45%" }}
+            variant="secondary"
             onClick={()=>{
               const currentURL = window?.location?.host || 'http://localhost:5344';
               window.location.href = currentURL + "/docs/#/guide/admin?id=cluster-management"
@@ -121,7 +112,7 @@ function ErrorClusterConnected({ title, message, mainRef }) {
               <path d="M7 16h10" />
             </svg>
             View Documentation
-          </button>
+          </Button>
         </div>
       </div>
     </div>

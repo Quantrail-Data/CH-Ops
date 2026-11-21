@@ -23,7 +23,9 @@ import OpenInMenu from "./OpenInMenu.jsx";
 import CurrentQueries from "./CurrentQueries.jsx";
 import AdvancedFilters from "../logs/AdvancedFilters.jsx";
 import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
 // Result names of the fixed SELECT in QueryLogSearch. The SQL dedupe uses this.
 const QUERY_LOG_SELECT_NAMES = [
@@ -309,7 +311,7 @@ function MetricBar({ label, value, max, color }) {
       <span
         style={{
           fontFamily: "var(--font-code, monospace)",
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           whiteSpace: "nowrap",
         }}
       >
@@ -337,12 +339,7 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
   }, [onClose]);
   if (!queryId) return null;
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1300 }}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 820, width: "92%" }}
-      >
+    <Modal onClose={onClose} overlayStyle={{ zIndex: 1300 }} style={{ maxWidth: 820, width: "92%" }}>
         <div
           style={{
             display: "flex",
@@ -355,7 +352,7 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
           <code
             style={{
               fontFamily: "var(--font-code, monospace)",
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--accent)",
               wordBreak: "break-all",
             }}
@@ -363,8 +360,8 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
             {queryId}
           </code>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={() => {
                 try {
                   navigator.clipboard?.writeText(fullText || preview || "");
@@ -375,10 +372,10 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
               }}
             >
               <Icon className="ti ti-copy"></Icon> Copy
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={onClose}>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               <Icon className="ti ti-x"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
         {loading ? (
@@ -405,8 +402,7 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
             {fullText || preview || "(query text not available)"}
           </pre>
         )}
-      </div>
-    </div>
+      </Modal>
   );
 }
 
@@ -563,7 +559,7 @@ function MetricCard({ label, value, danger }) {
     >
       <div
         style={{
-          fontSize: "12px",
+          fontSize: "0.75rem",
           color: "var(--text-muted)",
           marginBottom: 6,
         }}
@@ -678,19 +674,8 @@ function QueryAnalytics({isCN}) {
 
   return (
     <div>
-      <div
-        className="card"
-        style={{
-          padding: "16px",
-          marginBottom: "20px",
-          display: "flex",
-          gap: "14px",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-        }}
-      >
-        <div className="form-group">
-          <label className="form-label">Quick Range</label>
+      <div className="card search-form-row" style={{ padding: "16px", marginBottom: "20px" }}>
+        <FormField label="Quick Range">
           <div
             style={{
               display: "flex",
@@ -700,23 +685,18 @@ function QueryAnalytics({isCN}) {
             }}
           >
             {["1h", "6h", "24h", "48h", "7d", "30d"].map((d) => (
-              <button
+              <Button
                 key={d}
-                style={{
-                  padding: "10px",
-                  width: "50px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
+                variant={duration === d ? "primary" : "secondary"}
+                size="sm"
+                aria-pressed={duration === d}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
+        </FormField>
         <DateTimePicker
           label="From"
           value={from}
@@ -729,8 +709,7 @@ function QueryAnalytics({isCN}) {
           onChange={handleDateOnChange}
           name="To"
         />
-        <div className="form-group">
-          <label className="form-label">Query Kind</label>
+        <FormField label="Query Kind" className="search-field-select">
           <Select
             className="form-select"
             value={queryKind}
@@ -741,10 +720,10 @@ function QueryAnalytics({isCN}) {
               <option key={k}>{k}</option>
             ))}
           </Select>
-        </div>
-        <button
-        title={isCN() ? "No cluster nodes configured" : ""}
-          className="btn btn-primary"
+        </FormField>
+        <Button
+          title={isCN() ? "No cluster nodes configured" : ""}
+          variant="primary"
           onClick={runAnalytics}
           disabled={loading || isCN()}
         >
@@ -757,7 +736,7 @@ function QueryAnalytics({isCN}) {
               <Icon className="ti ti-chart-bar"></Icon> Analyze
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {summary && (
@@ -833,7 +812,7 @@ function QueryAnalytics({isCN}) {
 
       {slowData?.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", marginBottom: "12px" }}>
+          <h3 style={{ fontSize: "0.9375rem", marginBottom: "12px" }}>
             Top 100 Slowest Queries
           </h3>
           <DataTable
@@ -866,7 +845,7 @@ function QueryAnalytics({isCN}) {
       )}
       {memIntData?.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", marginBottom: "12px" }}>
+          <h3 style={{ fontSize: "0.9375rem", marginBottom: "12px" }}>
             Top 100 Memory-Intensive Queries
           </h3>
           <DataTable
@@ -1012,20 +991,20 @@ function QueryLogSearch({isCN}) {
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>Search
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
     {filtersOpen && (
   <div
@@ -1037,66 +1016,21 @@ function QueryLogSearch({isCN}) {
     }}
   >
     <form onSubmit={handleSearch}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "16px",
-          flexWrap: "wrap",
-          width: "100%",
-        }}
-      >
+      <div className="search-form-row">
+        <DateTimePicker
+          label="From (required)"
+          value={from}
+          onChange={handleDateOnChange}
+          name="From"
+        />
+        <DateTimePicker
+          label="To (required)"
+          value={to}
+          onChange={handleDateOnChange}
+          name="To"
+        />
 
-<div
-  style={{
-    display: "flex",
-    alignItems: "flex-end",
-    gap: "40px", // 
-    flex: "2 1 680px",
-    minWidth: "650px",
-    marginRight:"50px"
-  }}
->
-
-  <div
-    style={{
-      flex: "1 1 320px",
-      minWidth: "320px",
-      marginRight:"10px"
-    }}
-  >
-    <DateTimePicker
-      label="From (required)"
-      value={from}
-      onChange={handleDateOnChange}
-      name="From"
-    />
-  </div>
-
-
-  <div
-    style={{
-      flex: "1 1 320px",
-      minWidth: "320px",
-    }}
-  >
-    <DateTimePicker
-      label="To (required)"
-      value={to}
-      onChange={handleDateOnChange}
-      name="To"
-    />
-  </div>
-</div>
-
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 160px",
-            minWidth: "150px",
-          }}
-        >
-          <label className="form-label">Exception Code</label>
+        <FormField label="Exception Code" className="search-field-select">
           <Select
             className="form-select"
             value={exceptionCode}
@@ -1109,17 +1043,10 @@ function QueryLogSearch({isCN}) {
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
 
 
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 130px",
-            minWidth: "120px",
-          }}
-        >
-          <label className="form-label">Is Initial</label>
+        <FormField label="Is Initial" className="search-field-select">
           <Select
             className="form-select"
             value={isInitial}
@@ -1129,16 +1056,9 @@ function QueryLogSearch({isCN}) {
             <option value="yes">Yes</option>
             <option value="no">No</option>
           </Select>
-        </div>
+        </FormField>
 
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 160px",
-            minWidth: "150px",
-          }}
-        >
-          <label className="form-label">Initial User</label>
+        <FormField label="Initial User" className="search-field-select">
           <Select
             className="form-select"
             value={initialUser}
@@ -1151,16 +1071,9 @@ function QueryLogSearch({isCN}) {
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
 
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 120px",
-            minWidth: "110px",
-          }}
-        >
-          <label className="form-label">Direction</label>
+        <FormField label="Direction" className="search-field-select">
           <Select
             className="form-select"
             value={sortDir}
@@ -1169,17 +1082,10 @@ function QueryLogSearch({isCN}) {
             <option value="DESC">Desc</option>
             <option value="ASC">Asc</option>
           </Select>
-        </div>
+        </FormField>
 
 
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 150px",
-            minWidth: "140px",
-          }}
-        >
-          <label className="form-label">Sort By</label>
+        <FormField label="Sort By" className="search-field-select">
           <Select
             className="form-select"
             value={sortField}
@@ -1191,17 +1097,10 @@ function QueryLogSearch({isCN}) {
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
 
 
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 150px",
-            minWidth: "140px",
-          }}
-        >
-          <label className="form-label">Query Kind</label>
+        <FormField label="Query Kind" className="search-field-select">
           <Select
             className="form-select"
             value={queryKind}
@@ -1214,16 +1113,9 @@ function QueryLogSearch({isCN}) {
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
 
-        <div
-          className="form-group"
-          style={{
-            flex: "1 1 130px",
-            minWidth: "120px",
-          }}
-        >
-          <label className="form-label">Type</label>
+        <FormField label="Type" className="search-field-select">
           <Select
             className="form-select"
             value={queryType}
@@ -1236,43 +1128,22 @@ function QueryLogSearch({isCN}) {
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
 
-        <div
-          className="form-group"
-          style={{
-            flex: "1.5 1 180px",
-            minWidth: "170px",
-          }}
-        >
-          <label className="form-label">Exception</label>
-          <input
-            className="form-input"
+        <FormField label="Exception" className="search-field">
+          <Input
             value={exceptionText}
             onChange={(e) => setExceptionText(e.target.value)}
             placeholder="Search exception..."
           />
-        </div>
+        </FormField>
 
-        <div
-          style={{
-            flex: "0 0 120px",
-          }}
-        >
-          <button
-           title={isCN() ? "No cluster nodes configured" : ""}
-            className="btn btn-primary"
+        <div className="search-form-submit">
+          <Button
+            title={isCN() ? "No cluster nodes configured" : ""}
+            variant="primary"
             type="submit"
             disabled={searchQ.loading || isCN()}
-            style={{
-              width: "100%",
-              minHeight: "40px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              whiteSpace: "nowrap",
-            }}
           >
             {searchQ.loading ? (
               <>
@@ -1285,7 +1156,7 @@ function QueryLogSearch({isCN}) {
                   Search
                 </>
               )}
-               </button>
+               </Button>
               </div>
             </div>
           <AdvancedFilters table="query_log" value={adv} onChange={setAdv} />

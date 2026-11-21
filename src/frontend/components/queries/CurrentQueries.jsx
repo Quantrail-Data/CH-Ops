@@ -39,6 +39,7 @@ import {
   queriesPerUserOption,
   readBytesByUserOption,
 } from "./currentQueriesCharts.js";
+import { Input, Button, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
@@ -92,9 +93,9 @@ function FilterField({ label, htmlFor, children, grow }) {
 function MetricCard({ label, value, hint }) {
   return (
     <div className="card" style={{ padding: 14, flex: 1, minWidth: 128 }}>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: "1.4rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      {hint && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{hint}</div>}
     </div>
   );
 }
@@ -276,7 +277,7 @@ export default function CurrentQueries({isCN}) {
   const cellRenderers = useMemo(
     () => ({
       query_id: (v) => (
-        <span style={{ fontFamily: "var(--font-code, monospace)", fontSize: 11, color: "var(--text-secondary)" }}>
+        <span style={{ fontFamily: "var(--font-code, monospace)", fontSize: "0.6875rem", color: "var(--text-secondary)" }}>
           {v}
         </span>
       ),
@@ -322,7 +323,7 @@ export default function CurrentQueries({isCN}) {
         <span
           style={{
             fontFamily: "var(--font-code, monospace)",
-            fontSize: 12,
+            fontSize: "0.75rem",
             color: row.is_cancelled ? "var(--text-muted)" : undefined,
             display: "inline-block",
             maxWidth: 460,
@@ -361,10 +362,9 @@ export default function CurrentQueries({isCN}) {
   return (
     <div>
       {(error && !isCN()) && (
-        <div className="alert-banner danger" style={{ marginBottom: 12 }}>
-          <Icon className="ti ti-alert-triangle" />
+        <Notice tone="danger" icon="ti-alert-triangle" style={{ marginBottom: 12 }}>
           <span>{error}</span>
-        </div>
+        </Notice>
       )}
 
       {/* Drives the table, the charts and the metric strip, so it sits above all three. */}
@@ -423,9 +423,8 @@ export default function CurrentQueries({isCN}) {
         </FilterField>
 
         <FilterField label="Search" htmlFor="cq-search" grow>
-          <input
+          <Input
             id="cq-search"
-            className="form-input"
             placeholder={
               searchField
                 ? `Search ${(SEARCH_FIELDS.find((f) => f.value === searchField) || {}).label.toLowerCase()}`
@@ -442,12 +441,12 @@ export default function CurrentQueries({isCN}) {
         </FilterField>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 6 }}>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.75rem", cursor: "pointer" }}>
             <input type="checkbox" checked={hideInternal} onChange={(e) => setHideInternal(e.target.checked)} />
             Hide internal
           </label>
           <label
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.75rem", cursor: "pointer" }}
             title="Hide the secondary queries a distributed query spawns on other shards"
           >
             <input type="checkbox" checked={initialOnly} onChange={(e) => setInitialOnly(e.target.checked)} />
@@ -456,23 +455,23 @@ export default function CurrentQueries({isCN}) {
         </div>
 
         {filterActive && (
-          <button className="btn btn-ghost btn-sm" onClick={clearFilters} style={{ marginBottom: 4 }}>
+          <Button variant="ghost" size="sm" onClick={clearFilters} style={{ marginBottom: 4 }}>
             <Icon className="ti ti-x" /> Clear
-          </button>
+          </Button>
         )}
 
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "flex-end", gap: 6 }}>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setPaused((p) => !p)}
             title={paused ? "Resume auto refresh" : "Pause auto refresh"}
             style={{ marginBottom: 4 }}
           >
             <Icon className={`ti ${paused ? "ti-player-play" : "ti-player-pause"}`} />
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={refresh} title="Refresh now" style={{ marginBottom: 4 }}>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={refresh} title="Refresh now" style={{ marginBottom: 4 }}>
             <Icon className="ti ti-refresh" />
-          </button>
+          </Button>
           <FilterField label="Refresh" htmlFor="cq-refresh">
             <Select
               id="cq-refresh"
@@ -500,17 +499,17 @@ export default function CurrentQueries({isCN}) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: chartsOpen ? 12 : 0 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => setChartsOpen((v) => !v)}>
+        <Button variant="ghost" size="sm" onClick={() => setChartsOpen((v) => !v)}>
           <Icon className={`ti ${chartsOpen ? "ti-chevron-down" : "ti-chevron-right"}`} /> Workload
           breakdown
-        </button>
+        </Button>
         {!chartsOpen && (
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
             memory and read volume per user, longest running, concurrency over time
           </span>
         )}
         {chartsOpen && filterActive && (
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
             reflecting the current filter, not the whole server
           </span>
         )}
@@ -558,7 +557,7 @@ export default function CurrentQueries({isCN}) {
           minHeight: 32,
         }}
       >
-        <span style={{ fontSize: 13, color: selectedKeys.size ? "var(--text-primary)" : "var(--text-muted)" }}>
+        <span style={{ fontSize: "0.8125rem", color: selectedKeys.size ? "var(--text-primary)" : "var(--text-muted)" }}>
           {selectedKeys.size
             ? `${selectedKeys.size.toLocaleString()} selected`
             : "Select queries to kill"}
@@ -568,15 +567,15 @@ export default function CurrentQueries({isCN}) {
         </span>
 
         {selectedKeys.size > 0 && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelectedKeys(new Set())}>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedKeys(new Set())}>
             Clear selection
-          </button>
+          </Button>
         )}
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           {userFilter && (
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               disabled={!isAdmin || sorted.length === 0}
               style={!isAdmin || sorted.length === 0 ? { opacity: 0.35, cursor: "not-allowed" } : {}}
               onClick={() => openKill(sorted, `currently listed for ${userFilter}`)}
@@ -587,10 +586,10 @@ export default function CurrentQueries({isCN}) {
               }
             >
               <Icon className="ti ti-player-stop" /> Kill {sorted.length.toLocaleString()} listed from {userFilter}
-            </button>
+            </Button>
           )}
-          <button
-            className="btn btn-danger btn-sm"
+          <Button
+            variant="danger" size="sm"
             disabled={!isAdmin || selectedKeys.size === 0}
             style={!isAdmin || selectedKeys.size === 0 ? { opacity: 0.35, cursor: "not-allowed" } : {}}
             onClick={() => openKill(selectedRows, "you selected")}
@@ -598,7 +597,7 @@ export default function CurrentQueries({isCN}) {
           >
             <Icon className="ti ti-player-stop" />{" "}
             {selectedKeys.size ? `Kill ${selectedKeys.size.toLocaleString()} selected` : "Kill selected"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -625,7 +624,7 @@ export default function CurrentQueries({isCN}) {
         }
       />
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 2px", fontSize: 11, color: "var(--text-muted)" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 2px", fontSize: "0.6875rem", color: "var(--text-muted)" }}>
         <span>
           {sorted.length.toLocaleString()} shown
           {filterActive && total !== null && ` of ${total.toLocaleString()} running`}

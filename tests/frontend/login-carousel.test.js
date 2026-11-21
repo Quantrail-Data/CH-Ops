@@ -66,24 +66,102 @@ describe('Login carousel: image preview (lightbox)', () => {
   });
 });
 
-describe('Login layout: logo cannot overlap the form', () => {
+describe('Login layout: follows the Login design (Login.dc.html)', () => {
   const css = fs.readFileSync('src/frontend/styles/global.css', 'utf8');
-  const logoBox = css.slice(css.indexOf('.logo-img-container'), css.indexOf('}', css.indexOf('.logo-img-container')) + 1);
-  const leftCol = css.slice(css.indexOf('.left-container-login {'), css.indexOf('}', css.indexOf('.left-container-login {')) + 1);
+  const ruleOf = (selector) => css.slice(css.indexOf(selector + ' {'), css.indexOf('}', css.indexOf(selector + ' {')) + 1);
 
-  it('logo image is responsive (capped width, auto height), not a fixed 400px', () => {
-    expect(code).toContain('width: "100%"');
-    expect(code).toContain('maxWidth: "350px"');
-    expect(code).toContain('height: "auto"');
-    expect(code).not.toContain('width: "400px", pointerEvents');
+  it('has the product side on the left and the sign-in card on the right', () => {
+    expect(code.indexOf('className="login-showcase"')).toBeLessThan(code.indexOf('className="login-form-panel"'));
+    expect(code).toContain('className="login-card-shine"');
+    expect(code).toContain('className="login-card"');
   });
 
-  it('logo container no longer has a fixed height for a taller logo to overflow', () => {
-    expect(logoBox).not.toContain('height: 300px');
-    expect(logoBox).toContain('max-width: 400px');
+  it('puts both sides in one centered group, with the logo above the card', () => {
+    expect(code).toContain('className="login-layout"');
+    expect(ruleOf('.login-layout')).toContain('max-width: 77.5rem');
+    const panel = code.slice(code.indexOf('className="login-form-panel"'), code.indexOf('className="login-card-shine"'));
+    expect(panel).toContain('className="login-brand"');
   });
 
-  it('left column scrolls instead of clipping on short viewports', () => {
-    expect(leftCol).toContain('overflow-y: auto');
+  it('helps the browser to save the login details', () => {
+    expect(code).toContain('name="username"');
+    expect(code).toContain('name="password"');
+    expect(code).toContain('method="post"');
+    expect(code).toContain('navigator.credentials.store(credential)');
+  });
+
+  it('shows a small logo, not a 350px wide one', () => {
+    expect(code).toContain('className="login-brand"');
+    expect(ruleOf('.login-brand')).toContain('height: 2.5rem');
+    expect(code).not.toContain('maxWidth: "350px"');
+  });
+
+  it('the page can scroll on short windows', () => {
+    expect(ruleOf('.login-page')).toContain('overflow-x: hidden');
+    expect(ruleOf('.login-page')).not.toMatch(/overflow: hidden/);
+  });
+
+  it('has the Forgot password link in the password label row', () => {
+    const row = code.slice(code.indexOf('className="login-password-row"'), code.indexOf('<PasswordInput id="login-password"'));
+    expect(row).toContain('Forgot password?');
+  });
+
+  it('uses the design effects: Shine Border, no Shimmer Button, Aurora Text or Border Beam', () => {
+    expect(css).toContain('@keyframes login-shine-turn');
+    expect(code).not.toContain('ShimmerButton');
+    expect(code).not.toContain('AuroraText');
+    expect(code).not.toContain('BorderBeam');
+  });
+
+  it('stops the moving parts with reduced motion and with the Background animation switch', () => {
+    expect(css).toContain('html.motion-off .login-card-shine::before');
+    expect(css).toContain('html.motion-off .login-chips-track');
+  });
+
+  it('has no Google sign-in button (CHOps has no Google sign-in)', () => {
+    expect(code).not.toMatch(/Sign in with Google/);
+  });
+});
+
+describe('Login carousel: arrows, dots and text move together', () => {
+  it('has arrow buttons and one dot button for each screenshot', () => {
+    expect(code).toContain('aria-label="Previous screen"');
+    expect(code).toContain('aria-label="Next screen"');
+    expect(code).toContain('aria-label={`Show screen ${index + 1}`}');
+  });
+
+  it('moves the text when the screenshot changes, also by hand', () => {
+    expect(code).toContain('onRealIndexChange={onScreenshotChange}');
+    expect(code).toContain('swiperDatas[textIndex]');
+    // Only one Swiper: the text is not a second carousel with its own timer.
+    expect(code.match(/<Swiper\b/g)).toHaveLength(1);
+  });
+});
+
+describe('Login carousel: screenshots match the theme', () => {
+  it('shows dark screenshots on the dark theme and light ones on the light theme', () => {
+    expect(code).toContain('const leftImages = theme === "dark" ? darkThemeImages : lightThemeImages;');
+  });
+
+  it('has 10 light and 10 dark screenshots, each list with its own set', () => {
+    const lightList = code.slice(code.indexOf('const lightThemeImages'), code.indexOf('];', code.indexOf('const lightThemeImages')));
+    const darkList = code.slice(code.indexOf('const darkThemeImages'), code.indexOf('];', code.indexOf('const darkThemeImages')));
+    expect(lightList.match(/lightScreenshot\d\d/g)).toHaveLength(10);
+    expect(lightList).not.toContain('darkScreenshot');
+    expect(darkList.match(/darkScreenshot\d\d/g)).toHaveLength(10);
+    expect(darkList).not.toContain('lightScreenshot');
+  });
+
+  it('each screenshot file exists', () => {
+    for (const theme of ['light', 'dark']) {
+      for (let number = 1; number <= 10; number++) {
+        const file = `src/frontend/assets/login-${theme}-${String(number).padStart(2, '0')}.webp`;
+        expect(fs.existsSync(file), file).toBe(true);
+      }
+    }
+  });
+
+  it('loads only the first slide at once; the other slides load when needed', () => {
+    expect(code).toContain('loading={idx === 0 ? "eager" : "lazy"}');
   });
 });

@@ -10,7 +10,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from "../common/Icon.jsx";
 import { runQuery } from '../../utils/api.js';
-import { initChart, disposeChart } from '../../utils/echarts.js';
+import { initChart, disposeChart, disposeChartInstance } from '../../utils/echarts.js';
 import {useTheme} from "../../App.jsx";
 
 const pad = n => String(n).padStart(2, '0');
@@ -229,7 +229,7 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
     if (chartInst.current) setTimeout(() => chartInst.current?.resize(), 50);
   }, [fullscreen]);
 
-  useEffect(() => () => { if (chartRef.current) disposeChart(chartRef.current); }, []);
+  useEffect(() => () => { disposeChartInstance(chartInst.current); chartInst.current = null; }, []);
 
   function downloadChart() {
     if (!chartInst.current) return;

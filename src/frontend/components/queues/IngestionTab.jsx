@@ -15,6 +15,7 @@ import {
   loadIngestionHealth, loadThroughput, loadLatencySplit,
   loadFailureSummary, loadFiles, loadPerTableHealth, tableExists,
 } from "../../utils/queueQueries.js";
+import { Button, Input } from "../ui/index.jsx";
 
 // Preset time ranges, in seconds back from now.
 const RANGES = [
@@ -175,9 +176,9 @@ export default function IngestionTab({ source = "s3" }) {
             </button>
           ))}
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={loadAll} title="Refresh">
+        <Button variant="ghost" size="sm" onClick={loadAll} title="Refresh">
           <Icon className="ti ti-refresh"></Icon>
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -271,15 +272,15 @@ export default function IngestionTab({ source = "s3" }) {
             {searchOpen && (
               <div className="queue-search">
                 <div className="queue-search-row">
-                  <input className="form-input" placeholder="Table (db.table)"
+                  <Input  placeholder="Table (db.table)"
                     value={searchTable} onChange={(e) => setSearchTable(e.target.value)} />
-                  <input className="form-input" placeholder="File name contains"
+                  <Input  placeholder="File name contains"
                     value={searchFile} onChange={(e) => setSearchFile(e.target.value)} />
-                  <input className="form-input" placeholder="Exception contains"
+                  <Input  placeholder="Exception contains"
                     value={searchExc} onChange={(e) => setSearchExc(e.target.value)} />
-                  <button className="btn btn-primary btn-sm" onClick={runSearch} disabled={searching}>
+                  <Button variant="primary" size="sm" onClick={runSearch} disabled={searching}>
                     {searching ? "Searching..." : "Search"}
-                  </button>
+                  </Button>
                 </div>
                 {searchResults && (
                   <DataTable variant="fixed" rows={searchResults} />

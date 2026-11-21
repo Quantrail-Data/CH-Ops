@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "../common/Icon.jsx";
-import { SegmentedControl } from "../ui/index.jsx";
+import { SegmentedControl, Button, Input, FormField } from "../ui/index.jsx";
 import Select from "../common/Select.jsx";
 import MultiSelect from "../common/MultiSelect.jsx";
 import yaml from "js-yaml";
@@ -48,7 +48,7 @@ function Panel({ title, subtitle, children }) {
     <div style={{ marginBottom: 24 }}>
       {title && <h3 style={{ margin: "0 0 4px", fontSize: "1rem" }}>{title}</h3>}
       {subtitle && (
-        <div style={{ ...muted, fontSize: 13, marginBottom: 12 }}>{subtitle}</div>
+        <div style={{ ...muted, fontSize: "0.8125rem", marginBottom: 12 }}>{subtitle}</div>
       )}
       {children}
     </div>
@@ -68,7 +68,7 @@ function Banner({ tone = "info", children }) {
         padding: 12,
         borderRadius: "var(--radius-md)",
         background,
-        fontSize: 13,
+        fontSize: "0.8125rem",
         marginBottom: 16,
       }}
     >
@@ -85,7 +85,7 @@ export function ReadAtLine({ fetchedAt }) {
       style={{
         display: "flex",
         justifyContent: "flex-end",
-        fontSize: 12,
+        fontSize: "0.75rem",
         ...muted,
         marginBottom: 6,
       }}
@@ -103,9 +103,9 @@ export function LoadError({ message, onRetry, busy }) {
         <span style={{ flex: "1 1 260px" }}>
           <strong>Could not read this tab.</strong> {message}
         </span>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={onRetry} disabled={busy}>
+        <Button type="button" variant="secondary" size="sm" onClick={onRetry} disabled={busy}>
           <Icon className="ti ti-refresh" /> Retry
-        </button>
+        </Button>
       </div>
     </Banner>
   );
@@ -141,9 +141,9 @@ function CopyHealthReportButton({ data, clusterName }) {
   }
 
   return (
-    <button type="button" className="btn btn-secondary btn-sm" onClick={copyReport}>
+    <Button type="button" variant="secondary" size="sm" onClick={copyReport}>
       <Icon className="ti ti-copy" /> Copy report
-    </button>
+    </Button>
   );
 }
 
@@ -180,7 +180,7 @@ function HealthTab({ data, clusterName, clusterId }) {
                   />
                 </td>
                 <td style={{ fontWeight: c.ok === false ? 600 : "normal" }}>{c.name}</td>
-                <td style={{ ...muted, fontSize: 13 }}>{c.detail}</td>
+                <td style={{ ...muted, fontSize: "0.8125rem" }}>{c.detail}</td>
               </tr>
             ))}
           </tbody>
@@ -197,7 +197,7 @@ function HealthTab({ data, clusterName, clusterId }) {
 
       {data.unavailable?.length > 0 && (
         <Panel title="Not available on this deployment">
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, ...muted }}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem", ...muted }}>
             {data.unavailable.map((u) => (
               <li key={u.table}>{u.message}</li>
             ))}
@@ -270,12 +270,12 @@ function HealthAlertsPanel({ clusterId }) {
             placeholder="Choose channels..."
           />
         </div>
-        <button className="btn btn-primary btn-sm" onClick={save}>
+        <Button variant="primary" size="sm" onClick={save}>
           Save
-        </button>
+        </Button>
       </div>
       {channelOptions.length === 0 && (
-        <div style={{ ...muted, fontSize: 12, marginTop: 8 }}>
+        <div style={{ ...muted, fontSize: "0.75rem", marginTop: 8 }}>
           No notification channels exist yet. Create one under Custom Alerts first.
         </div>
       )}
@@ -308,10 +308,10 @@ function HostCell({ host, signalsUnreliable }) {
         minWidth: 160,
       }}
     >
-      <div style={{ fontWeight: 600, fontSize: 13 }}>replica {host.replica}</div>
-      <div style={{ ...muted, fontSize: 12 }}>{host.podName}</div>
+      <div style={{ fontWeight: 600, fontSize: "0.8125rem" }}>replica {host.replica}</div>
+      <div style={{ ...muted, fontSize: "0.75rem" }}>{host.podName}</div>
 
-      <div style={{ fontSize: 12, marginTop: 6 }}>
+      <div style={{ fontSize: "0.75rem", marginTop: 6 }}>
         {signalsUnreliable ? (
           <span title="Troubleshoot mode is on, so probes are disabled">
             readiness unknown
@@ -321,7 +321,7 @@ function HostCell({ host, signalsUnreliable }) {
         )}
       </div>
 
-      <div style={{ fontSize: 12 }}>
+      <div style={{ fontSize: "0.75rem" }}>
         {host.inRotation === null
           ? "not behind a service"
           : draining
@@ -332,7 +332,7 @@ function HostCell({ host, signalsUnreliable }) {
       </div>
 
       {host.restartCount > 0 && (
-        <div style={{ fontSize: 12, marginTop: 4 }}>
+        <div style={{ fontSize: "0.75rem", marginTop: 4 }}>
           {host.restartCount} restarts
           {host.lastTerminationReason ? ` (${host.lastTerminationReason})` : ""}
         </div>
@@ -347,7 +347,7 @@ function TopologyTab({ data }) {
   return (
     <div>
       {data.lastRefresh?.at && (
-        <div style={{ ...muted, fontSize: 12, marginBottom: 12 }}>
+        <div style={{ ...muted, fontSize: "0.75rem", marginBottom: 12 }}>
           Host list last refreshed {new Date(data.lastRefresh.at).toLocaleString()}
           {data.lastRefresh.ok === false ? " (last refresh failed)" : ""}
         </div>
@@ -406,7 +406,7 @@ function TopologyTab({ data }) {
         <Panel key={clusterName} title={clusterName}>
           {Object.entries(shards).map(([shard, replicas]) => (
             <div key={shard} style={{ marginBottom: 12 }}>
-              <div style={{ ...muted, fontSize: 12, marginBottom: 4 }}>
+              <div style={{ ...muted, fontSize: "0.75rem", marginBottom: 4 }}>
                 shard {shard}
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -432,7 +432,7 @@ function TopologyTab({ data }) {
               : `namespace ${data.keeper.namespace}`
           }
         >
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
             {data.keeper.hosts.map((h) => (
               <li key={h}>{h}</li>
             ))}
@@ -534,7 +534,7 @@ function ReconcileTab({ data }) {
 
       {data.errors?.length > 0 && (
         <Panel title="Errors reported by the operator">
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
             {data.errors.map((e, i) => (
               <li key={i}>{typeof e === "string" ? e : JSON.stringify(e)}</li>
             ))}
@@ -574,7 +574,7 @@ export function RolloutTab({ data }) {
         subtitle="A rollout is complete when the desired, current, ready and updated counts are equal and all pods run one revision."
       >
         {rows.length === 0 ? (
-          <div style={{ fontSize: 13, ...muted }}>
+          <div style={{ fontSize: "0.8125rem", ...muted }}>
             No StatefulSets were found for this installation.
           </div>
         ) : (
@@ -719,7 +719,7 @@ function KeeperTab({ data }) {
 
       {data.keeper?.hosts?.length > 0 && (
         <Panel title="Keeper hosts" subtitle="From the installation.">
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
             {data.keeper.hosts.map((keeperHost) => (
               <li key={keeperHost}>{keeperHost}</li>
             ))}
@@ -837,7 +837,7 @@ function StorageTab({ data }) {
 
       {info.length > 0 && (
         <Panel title="Worth knowing">
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, ...muted }}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem", ...muted }}>
             {info.map((w, i) => (
               <li key={i}>
                 <strong>{w.volume}:</strong> {w.message}
@@ -1003,7 +1003,7 @@ function NetworkTab({ data }) {
 
       <Panel title="Disruption budgets">
         {data.disruptionBudgets.length === 0 ? (
-          <div style={{ fontSize: 13, ...muted }}>
+          <div style={{ fontSize: "0.8125rem", ...muted }}>
             None. A node drain can evict several replicas at once.
           </div>
         ) : (
@@ -1063,7 +1063,7 @@ function ConfigTab({ data }) {
 
       {data.templates?.length > 0 && (
         <Panel title="Templates applied">
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
             {data.templates.map((t, i) => (
               <li key={i}>{t.name ?? JSON.stringify(t)}</li>
             ))}
@@ -1073,18 +1073,18 @@ function ConfigTab({ data }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <Panel title="Written" subtitle="The installation as submitted">
-          <pre style={{ fontSize: 12, maxHeight: 500, overflow: "auto" }}>
+          <pre style={{ fontSize: "0.75rem", maxHeight: 500, overflow: "auto" }}>
             {toYaml(data.written)}
           </pre>
         </Panel>
         <Panel title="Running" subtitle="After templates were merged in">
-          <pre style={{ fontSize: 12, maxHeight: 500, overflow: "auto" }}>
+          <pre style={{ fontSize: "0.75rem", maxHeight: 500, overflow: "auto" }}>
             {toYaml(data.running)}
           </pre>
         </Panel>
       </div>
 
-      <div style={{ fontSize: 12, ...muted }}>
+      <div style={{ fontSize: "0.75rem", ...muted }}>
         Anything password-shaped is removed before this leaves the server.
       </div>
     </div>
@@ -1112,13 +1112,13 @@ export function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
 
   return (
     <Panel title="Recent events">
-      <div style={{ display: "flex", gap: 16, fontSize: 13, marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 16, fontSize: "0.8125rem", marginBottom: 12 }}>
         <ToggleSwitch checked={warningsOnly} label="warnings only" onChange={(changeEvent) => setWarningsOnly(changeEvent.target.checked)}/> 
         <ToggleSwitch checked={autoReload} label="reload every 30 s" onChange={(changeEvent) => setAutoReload(changeEvent.target.checked)}/> 
       </div>
 
       {events.length === 0 ? (
-        <div style={{ fontSize: 13, ...muted }}>
+        <div style={{ fontSize: "0.8125rem", ...muted }}>
           {warningsOnly ? "No warnings." : "No recent events."}
         </div>
       ) : (
@@ -1140,14 +1140,14 @@ export function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
             // A pod that CHOps knows opens in the Logs tab.
             Object: (objectName) =>
               knownPodNames.has(objectName) ? (
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  variant="ghost" size="sm"
                   title="Open this pod in the Logs tab"
                   onClick={() => onOpenPodLogs(objectName)}
                 >
                   {objectName}
-                </button>
+                </Button>
               ) : (
                 objectName
               ),
@@ -1294,8 +1294,7 @@ function changeSince(v) {
           marginBottom: 12,
         }}
       >
-        <div className="form-group" style={{ flex: "1 1 260px", marginBottom: 0 }}>
-          <label className="form-label">Pod</label>
+        <FormField label="Pod" style={{ flex: "1 1 260px", marginBottom: 0 }}>
           <Select
             className="form-select"
             value={pod}
@@ -1318,12 +1317,10 @@ function changeSince(v) {
               </option>
             )}
           </Select>
-        </div>
+        </FormField>
 
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">From</label>
-          <input
-            className="form-input"
+        <FormField label="From" style={{ marginBottom: 0 }}>
+          <Input
             type="datetime-local"
             value={since}
             onChange={(e) => changeSince(e.target.value)}
@@ -1334,23 +1331,25 @@ function changeSince(v) {
                 : "Read from this time onward. There is no end bound."
             }
           />
-        </div>
+        </FormField>
 
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Lines</label>
+        <FormField label="Lines" style={{ marginBottom: 0 }}>
           <LineCountControl value={lineCount} onChange={changeLineCount} disabled={busy} />
+        </FormField>
+
+        {/* The box only frames the switch. It had its own click that toggled
+            "previous" a second time, so a click on the switch did nothing. */}
+        <div className="btn btn-secondary" style={{ height: "2.5rem" }}>
+          <ToggleSwitch checked={previous} label="Previous container" onChange={(e) => setPrevious(e.target.checked)} btnContainer={true} />
         </div>
 
-        <div className="btn btn-secondary" onClick={() => setPrevious(!previous)} style={{ height:"2.5rem" }}><ToggleSwitch checked={previous} label="Previous container"  onChange={(e) => setPrevious(e.target.checked)} btnContainer = {true}/></div>
-
-        <button
-          className="btn btn-secondary"
+        <Button
+          variant="secondary"
           onClick={load}
           disabled={busy}
-          style={{ height:"2.5rem" }}
         >
           {busy ? "Reading..." : "Read logs"}
-        </button>
+        </Button>
       </div>
 
       {/* Search filters what has already been fetched, so typing costs nothing
@@ -1364,18 +1363,15 @@ function changeSince(v) {
           marginBottom: 12,
         }}
       >
-        <div className="form-group" style={{ flex: "1 1 300px", marginBottom: 0 }}>
-          <label className="form-label">Search</label>
-          <input
-            className="form-input"
+        <FormField label="Search" style={{ flex: "1 1 300px", marginBottom: 0 }}>
+          <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Case-insensitive. Try Error, Warning, or a table name."
           />
-        </div>
+        </FormField>
 
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Context lines</label>
+        <FormField label="Context lines" style={{ marginBottom: 0 }}>
           <Select
             className="form-select"
             value={String(context)}
@@ -1388,14 +1384,14 @@ function changeSince(v) {
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
       </div>
 
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          fontSize: 12,
+          fontSize: "0.75rem",
           ...muted,
           marginBottom: 6,
         }}
@@ -1412,7 +1408,7 @@ function changeSince(v) {
 
       <pre
         style={{
-          fontSize: 12,
+          fontSize: "0.75rem",
           maxHeight: 600,
           overflow: "auto",
           background: "var(--bg-sunken)",
@@ -1591,12 +1587,12 @@ export default function KubernetesInsight({ cluster }) {
           onChange={setTab}
           options={TABS.map((t) => ({ value: t.id, label: t.label }))}
         />
-        <button className="btn btn-secondary btn-sm" onClick={refresh} disabled={busy}>
+        <Button variant="secondary" size="sm" onClick={refresh} disabled={busy}>
           <Icon className="ti ti-refresh" /> Refresh
-        </button>
+        </Button>
       </div>
 
-      {busy && <div style={{ ...muted, fontSize: 13 }}>Loading...</div>}
+      {busy && <div style={{ ...muted, fontSize: "0.8125rem" }}>Loading...</div>}
 
       {/* Logs shows its own read time and error. It needs the pod list from topology. */}
       {tab !== "logs" && loadErrors[tab] && (

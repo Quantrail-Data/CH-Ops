@@ -9,6 +9,7 @@ import UserManagement from '../../src/frontend/components/admin/UserManagement.j
 
 // Row actions live in the "..." menu (style guide User Management screen):
 // open it when the item is not on screen yet, then return the item.
+// A disabled menu item has aria-disabled="true" (Base UI), not the disabled attribute.
 function rowAction(title) {
   if (!screen.queryByTitle(title)) fireEvent.click(screen.getByLabelText(/^Actions for /));
   return screen.getByTitle(title);
@@ -427,8 +428,8 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(rowAction('Reset Password')).not.toHaveAttribute('disabled');
-    expect(rowAction('Delete')).toHaveAttribute('disabled');
+    expect(rowAction('Reset Password')).not.toHaveAttribute('aria-disabled', 'true');
+    expect(rowAction('Delete')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('does not ask an admin for the SMTP settings, which are for superadmins only', async () => {
@@ -449,7 +450,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(rowAction('Reset Password')).toHaveAttribute('disabled');
+    expect(rowAction('Reset Password')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('disables reset and delete for equal-level user', async () => {
@@ -461,8 +462,8 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(rowAction('Reset Password')).toHaveAttribute('disabled');
-    expect(rowAction('Delete')).toHaveAttribute('disabled');
+    expect(rowAction('Reset Password')).toHaveAttribute('aria-disabled', 'true');
+    expect(rowAction('Delete')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('resets user password successfully', async () => {
@@ -652,13 +653,15 @@ describe('UserManagement', () => {
 
     openChangePassword();
 
-    const showIcons = screen.getAllByTitle('show');
-    fireEvent.click(showIcons[0]);
+    // The show/hide control is a real button with a name (PasswordInput).
+    const showButtons = screen.getAllByRole('button', { name: 'Show password' });
+    fireEvent.click(showButtons[0]);
 
-    expect(screen.getAllByTitle('hide').length).toBeGreaterThan(0);
+    const hideButton = screen.getByRole('button', { name: 'Hide password' });
+    expect(hideButton).toHaveAttribute('aria-pressed', 'true');
 
-    fireEvent.click(screen.getAllByTitle('hide')[0]);
-    expect(screen.getAllByTitle('show').length).toBeGreaterThan(0);
+    fireEvent.click(hideButton);
+    expect(screen.queryByRole('button', { name: 'Hide password' })).toBeNull();
   });
 
   it('password fields clear after successful password change', async () => {

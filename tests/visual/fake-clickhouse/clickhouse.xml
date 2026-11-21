@@ -1,0 +1,18 @@
+<!-- Turns on the system log tables that CHOps reads. Used only by the fake ClickHouse for the visual check.
+     New log entries are never flushed and text_log keeps only fatal messages, so the seeded data stays fixed. -->
+<clickhouse>
+  <timezone>UTC</timezone>
+  <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></query_log>
+  <metric_log><database>system</database><table>metric_log</table><collect_interval_milliseconds>86400000</collect_interval_milliseconds><flush_interval_milliseconds>86400000</flush_interval_milliseconds></metric_log>
+  <asynchronous_metric_log><database>system</database><table>asynchronous_metric_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></asynchronous_metric_log>
+  <text_log><database>system</database><table>text_log</table><level>fatal</level><flush_interval_milliseconds>86400000</flush_interval_milliseconds></text_log>
+  <part_log><database>system</database><table>part_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></part_log>
+  <trace_log><database>system</database><table>trace_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></trace_log>
+  <crash_log><database>system</database><table>crash_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></crash_log>
+  <session_log><database>system</database><table>session_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></session_log>
+  <error_log><database>system</database><table>error_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></error_log>
+  <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></processors_profile_log>
+  <query_views_log><database>system</database><table>query_views_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></query_views_log>
+  <query_metric_log><database>system</database><table>query_metric_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></query_metric_log>
+  <azure_queue_log><database>system</database><table>azure_queue_log</table><flush_interval_milliseconds>86400000</flush_interval_milliseconds></azure_queue_log>
+</clickhouse>

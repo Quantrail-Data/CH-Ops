@@ -54,7 +54,7 @@ SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_strong_password_here
 SUPER_ADMIN_1_EMAIL=you@example.com
 ENCRYPTION_SECRET=paste_a_64_char_random_string_here
-PORT=3000
+PORT=7720
 NODE_ENV=production
 ```
 
@@ -77,7 +77,7 @@ Test that it starts:
 
 ```bash
 bun src/backend/server.js
-# Should print: CHOps v<version> listening on http://localhost:3000
+# Should print: CHOps v<version> listening on http://localhost:7720
 # Press Ctrl+C to stop
 ```
 
@@ -106,7 +106,7 @@ On the server:
 chmod +x /opt/chops/chops
 cd /opt/chops
 ./chops
-# Should print: CHOps v<version> listening on http://localhost:3000
+# Should print: CHOps v<version> listening on http://localhost:7720
 # Press Ctrl+C to stop
 ```
 
@@ -310,7 +310,7 @@ Replace the contents with:
 
 ```
 chops.example.com {
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -321,7 +321,7 @@ That is the entire configuration. Caddy will:
 1. Obtain a free TLS certificate from Let's Encrypt.
 2. Renew it automatically before it expires.
 3. Redirect HTTP (port 80) to HTTPS (port 443).
-4. Proxy all requests to CHOps on port 3000.
+4. Proxy all requests to CHOps on port 7720.
 
 Restart Caddy to apply:
 
@@ -344,7 +344,7 @@ If CHOps runs on a private network with no public domain, you do not need Let's 
 ```
 chops.internal.example {
     tls internal
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -353,7 +353,7 @@ Replace `chops.internal.example` with the internal DNS name your users resolve t
 ```
 10.0.0.5 {
     tls internal
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -363,11 +363,11 @@ On a trusted internal network where TLS is not needed, you can have Caddy serve 
 
 ```
 http://chops.internal.example {
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
-You can also skip Caddy entirely and expose CHOps directly on its port (`http://server-ip:3000`), though a reverse proxy is still useful for TLS and access control. For browser-trusted certificates on an internal domain without open ports 80 and 443, use a DNS-challenge certificate, which requires a Caddy build that includes your DNS provider's plugin.
+You can also skip Caddy entirely and expose CHOps directly on its port (`http://server-ip:7720`), though a reverse proxy is still useful for TLS and access control. For browser-trusted certificates on an internal domain without open ports 80 and 443, use a DNS-challenge certificate, which requires a Caddy build that includes your DNS provider's plugin.
 
 ---
 
@@ -382,7 +382,7 @@ chops.example.com {
     basicauth {
         admin $2a$14$yourhashedpasswordhere
     }
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -401,7 +401,7 @@ chops.example.com {
     @blocked not remote_ip 203.0.113.0/24 198.51.100.42
     respond @blocked 403
 
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -414,7 +414,7 @@ chops.example.com {
     header {
         X-Robots-Tag "noindex, nofollow"
     }
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -431,7 +431,7 @@ chops.example.com {
             window 1m
         }
     }
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -537,7 +537,7 @@ The server runs the database migration at each start. The migration is safe on a
 
 **Permission denied errors**: make sure the `chops` user owns the data directory: `sudo chown -R chops:chops /opt/chops/data`.
 
-**Port 3000 already in use**: change the `PORT` in `.env` to something else (for example, 3001) and update the Caddyfile `reverse_proxy` line to match.
+**Port 7720 already in use**: change the `PORT` in `.env` to something else (for example, 7730) and update the Caddyfile `reverse_proxy` line to match.
 
 ---
 
@@ -566,7 +566,7 @@ docker compose up -d
 docker compose logs -f
 ```
 
-CHOps is now at `http://localhost:3000`. The SQLite database persists in the `chops-data` Docker volume.
+CHOps is now at `http://localhost:7720`. The SQLite database persists in the `chops-data` Docker volume.
 
 Because the compose file reads from `.env`, put your values in that file. Exporting them only in your shell does not pass them to the container.
 
@@ -576,7 +576,7 @@ Because the compose file reads from `.env`, put your values in that file. Export
 docker build -t chops .
 docker run -d \
   --name chops \
-  -p 3000:3000 \
+  -p 7720:7720 \
   -e ENCRYPTION_SECRET=$(openssl rand -hex 32) \
   -e SUPER_ADMIN_1=admin \
   -e SUPER_ADMIN_1_PASSWORD=your_strong_password_here \
@@ -592,12 +592,12 @@ Pass environment variables through the `docker compose` env file or `docker run 
 - `ENCRYPTION_SECRET` (required): a random string that makes the key for stored credentials. You cannot change it after the first start.
 - `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL` (required): the first super admin, seeded on first startup.
 - `DISABLE_ENV_LOGIN=true` (optional): disable the .env login fallback in production.
-- `PORT=3000` (default): the HTTP port inside the container.
+- `PORT=7720` (default): the HTTP port inside the container.
 - `LOG_LEVEL=info` (default): debug, info, warn, error.
 - `FRONTEND_LINK` (optional): the address that users open. CHOps uses it in the one-time links that set a password.
 - `TRUST_PROXY` (optional): the number of reverse proxies in front of CHOps.
 
-The bundled `docker-compose.yml` loads your whole `.env` with `env_file: .env`, so every variable in the file reaches the container, including `SUPER_ADMIN_1_EMAIL` and `FRONTEND_LINK`. It then sets `NODE_ENV=production` and `PORT=3000` in its own `environment:` section, which override anything in `.env`. Because it reads from the file, put your values in `.env` rather than only in your shell.
+The bundled `docker-compose.yml` loads your whole `.env` with `env_file: .env`, so every variable in the file reaches the container, including `SUPER_ADMIN_1_EMAIL` and `FRONTEND_LINK`. It then sets `NODE_ENV=production` and `PORT=7720` in its own `environment:` section, which override anything in `.env`. Because it reads from the file, put your values in `.env` rather than only in your shell.
 
 ### Data Persistence
 

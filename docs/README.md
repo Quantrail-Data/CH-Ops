@@ -41,9 +41,9 @@ bun run db:migrate
 bun run dev
 ```
 
-Open http://localhost:5173 in your browser. Sign in with the super-admin user name and password that you set in `.env`. Then add your ClickHouse&reg; cluster in **Control panel > Cluster Management**.
+Open http://localhost:7721 in your browser. Sign in with the super-admin user name and password that you set in `.env`. Then add your ClickHouse&reg; cluster in **Control panel > Cluster Management**.
 
-The documentation is at http://localhost:5173/docs/ in development, and at http://localhost:3000/docs/ in production.
+The documentation is at http://localhost:7721/docs/ in development, and at http://localhost:7720/docs/ in production.
 
 ## License
 

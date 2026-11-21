@@ -7,6 +7,9 @@ import Icon from "../common/Icon.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import { runQuery, apiFetch } from "../../utils/api.js";
 import { resolveEffectiveSettings, describeSource } from "../../utils/effectiveSettings.js";
+import { Input, Button, Notice } from "../ui/index.jsx";
+import TreeGraph from "../common/TreeGraph.jsx";
+import { buildSettingsSourceTree } from "../../utils/settingsTree.js";
 
 // The system tables this tab reads. None of the SQL contains user input.
 const QUERIES = {
@@ -106,6 +109,17 @@ export default function SettingsView() {
     });
   }, [data, targetType, targetName, useAllGrantedRoles, config]);
 
+  const sourceTree = useMemo(
+    () =>
+      buildSettingsSourceTree({
+        targetType,
+        targetName,
+        result,
+        defaultProfileName: config.defaultProfileName,
+      }),
+    [targetType, targetName, result, config],
+  );
+
   const settingInfoByName = useMemo(
     () => new Map((data?.settings || []).map((setting) => [setting.name, setting])),
     [data],
@@ -141,7 +155,7 @@ export default function SettingsView() {
 
   return (
     <div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 14 }}>
+      <div className="search-form-row" style={{ alignItems: "center" }}>
         <Select className="form-select" value={targetType} onChange={(event) => changeTargetType(event.target.value)}>
           <option value="user">User</option>
           <option value="role">Role</option>
@@ -164,27 +178,25 @@ export default function SettingsView() {
             <option value="default">Default roles only (as at login)</option>
           </Select>
         )}
-        <input
-          className="form-input"
+        <Input
           placeholder="Search settings"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          style={{ width: 200 }}
+          style={{ width: "14rem" }}
         />
-        <button className="btn btn-secondary btn-sm" onClick={load} disabled={loading}>
+        <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
           <Icon className="ti ti-refresh"></Icon> Refresh
-        </button>
+        </Button>
       </div>
 
       {loadErrors.length > 0 && (
-        <div className="alert-banner warning" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-alert-triangle"></Icon>
+        <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 14 }}>
           <span>
             Some tables could not be read, so the result can be incomplete. Check that the CHOps
             service account has SHOW USERS, SHOW ROLES and SHOW SETTINGS PROFILES.{" "}
             {loadErrors.join(" ")}
           </span>
-        </div>
+        </Notice>
       )}
 
       {!targetName && (
@@ -196,22 +208,23 @@ export default function SettingsView() {
 
       {result && (
         <>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 10px" }}>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 10px" }}>
             {`CHOps applies the settings in the ClickHouse order: the default profile "${config.defaultProfileName}", ` +
               "the profiles with a TO clause, the roles, and then the settings of the user. A later source overrides an " +
               "earlier one. The default profile name and the constraint mode come from Control panel > App Config > DB RBAC."}
           </p>
 
           {result.missingProfiles.length > 0 && (
-            <div className="alert-banner warning" style={{ marginBottom: 10 }}>
-              <Icon className="ti ti-alert-triangle"></Icon>
+            <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 10 }}>
               <span>
                 These profiles do not exist, so ClickHouse skips them: {result.missingProfiles.join(", ")}.
               </span>
-            </div>
+            </Notice>
           )}
 
-          <h3 style={{ fontSize: 15, margin: "8px 0" }}>Effective settings</h3>
+          <h3 style={{ fontSize: "0.9375rem", margin: "8px 0" }}>Where the settings come from</h3>
+          <TreeGraph tree={sourceTree} fileName={`settings-${targetName}.png`} emptyMessage="No sources." />
+          <h3 style={{ fontSize: "0.9375rem", margin: "8px 0" }}>Effective settings</h3>
           <DataTable
             rows={effectiveRows}
             columns={["setting", "value", "min", "max", "writability", "source", "overrides"]}
@@ -248,8 +261,8 @@ export default function SettingsView() {
             }}
           />
 
-          <h3 style={{ fontSize: 15, margin: "16px 0 8px" }}>Sources, in the order ClickHouse applies them</h3>
-          <ol style={{ fontSize: 13, margin: "0 0 0 18px", lineHeight: 1.8 }}>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>Sources, in the order ClickHouse applies them</h3>
+          <ol style={{ fontSize: "0.8125rem", margin: "0 0 0 18px", lineHeight: 1.8 }}>
             <li>{`Default profile "${config.defaultProfileName}"`}</li>
             {result.profilesWithTo.map((profileName) => (
               <li key={`to-${profileName}`}>{`Profile "${profileName}" (TO clause)`}</li>
@@ -260,7 +273,7 @@ export default function SettingsView() {
             {targetType === "user" && <li>{`User "${targetName}"`}</li>}
           </ol>
 
-          <h3 style={{ fontSize: 15, margin: "16px 0 8px" }}>Rows of system.settings_profile_elements for {targetName}</h3>
+          <h3 style={{ fontSize: "0.9375rem", margin: "16px 0 8px" }}>Rows of system.settings_profile_elements for {targetName}</h3>
           <DataTable
             rows={directRows}
             columns={["index", "setting_name", "value", "min", "max", "writability", "inherit_profile"]}

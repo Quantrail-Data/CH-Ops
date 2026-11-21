@@ -29,7 +29,8 @@ import {
   extraSelectSql,
   loadAdvState,
 } from "../../utils/advancedFilters.js";
-import { useLiveOverview } from "../overview/LiveOverview.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 const ERROR_LOG_COLS = [
   "event_time",
   "error",
@@ -305,7 +306,7 @@ function Stat({ label, value, icon, color, small }) {
         <Icon
           className={`ti ${icon}`}
           style={{
-            fontSize: 28,
+            fontSize: "1.75rem",
             color: color || "var(--accent)",
             opacity: 0.9,
             flexShrink: 0,
@@ -315,7 +316,7 @@ function Stat({ label, value, icon, color, small }) {
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 4,
           }}
@@ -362,13 +363,13 @@ function SectionError({ title, message }) {
       >
         {title}
       </div>
-      <div className="alert-banner danger">
+      <Notice tone="danger">
         <Icon
           className="ti ti-alert-circle"
           style={{ flexShrink: 0, marginTop: 2 }}
         ></Icon>
         <span>{message}</span>
-      </div>
+      </Notice>
     </div>
   );
 }
@@ -583,7 +584,7 @@ function RateChart({ rows, from, to, rounding }) {
             >
               <span
                 style={{
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
@@ -592,20 +593,18 @@ function RateChart({ rows, from, to, rounding }) {
                 Series ({names.length})
               </span>
               <span style={{ display: "flex", gap: 4 }}>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                <Button
+                  variant="ghost" size="sm"
                   onClick={showAll}
                 >
                   All
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: "11px", padding: "2px 7px" }}
+                </Button>
+                <Button
+                  variant="ghost" size="sm"
                   onClick={hideAll}
                 >
                   None
-                </button>
+                </Button>
               </span>
             </div>
             <div
@@ -652,7 +651,7 @@ function RateChart({ rows, from, to, rounding }) {
                     />
                     <span
                       style={{
-                        fontSize: "12px",
+                        fontSize: "0.75rem",
                         color: "var(--text-secondary)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -813,29 +812,27 @@ function ErrorLogOverview() {
           alignItems: "flex-end",
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Quick</label>
+        <FormField label="Quick">
           <div style={{ display: "flex", gap: 4 }}>
             {PRESETS.map((d) => (
-              <button
+              <Button
                 key={d}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
-                style={{ padding: "8px 12px", minWidth: 48 }}
+                size="sm" variant={duration === d ? "primary" : "secondary"} aria-pressed={duration === d}
+                style={{ minWidth: 48 }}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
-        <button
+        </FormField>
+        <Button
           title={
             liveState?.isNotConnectedClusterNode()
               ? "No cluster nodes configured"
               : ""
           }
-          className="btn btn-primary btn-sm"
-          style={{ padding: "8px 14px" }}
+          variant="primary" size="sm"
           onClick={load}
           disabled={loading || liveState?.isNotConnectedClusterNode()}
         >
@@ -848,7 +845,7 @@ function ErrorLogOverview() {
               <Icon className="ti ti-player-play"></Icon> Load
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -949,7 +946,7 @@ function ErrorLogOverview() {
                 >
                   Top Error Types
                 </div>
-                <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
                   No errors in range.
                 </div>
               </div>
@@ -1104,36 +1101,29 @@ function ErrorLogSearch() {
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>
           Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
       {/* <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => setFiltersOpen(!filtersOpen)}><Icon className={`ti ${filtersOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`}></Icon> {filtersOpen ? 'Collapse' : 'Expand'} Filters</button>
+        <Button variant="ghost" size="sm" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}><Icon className={`ti ${filtersOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`}></Icon> {filtersOpen ? 'Collapse' : 'Expand'} Filters</Button>
       </div> */}
       {filtersOpen && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <form onSubmit={handleSearch}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-                marginBottom: 14,
-              }}
-            >
+            <div className="search-form-row">
               <DateTimePicker
                 label="From *"
                 value={from}
@@ -1146,17 +1136,43 @@ function ErrorLogSearch() {
                 onChange={handleDateOnChange}
                 name="To"
               />
+              <FormField label="Error Message (text)" className="search-field">
+                <Input
+                  value={errorMessage}
+                  onChange={(e) => setErrorMessage(e.target.value)}
+                  placeholder="partial..."
+                />
+              </FormField>
+              <FormField label="Row Limit" className="search-field-small">
+                <Input
+                  type="number"
+                  min={1}
+                  max={100000}
+                  value={rowLimit}
+                  onChange={(e) => setRowLimit(parseInt(e.target.value) || 500)}
+                />
+              </FormField>
+              <div className="search-form-submit">
+                <Button
+                  title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+                  variant="primary"
+                  type="submit"
+                  disabled={q.loading || liveState?.isNotConnectedClusterNode()}
+                >
+                  {q.loading ? (
+                    <>
+                      <span className="loading-spinner"></span> Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Icon className="ti ti-search"></Icon> Search
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-                marginBottom: 14,
-              }}
-            >
-              <div className="form-group">
-                <label className="form-label">Error Type (multi-select)</label>
+            <div className="search-form-row">
+              <FormField label="Error Type (multi-select)" className="search-form-wide">
                 <div
                   style={{
                     maxHeight: 140,
@@ -1175,7 +1191,7 @@ function ErrorLogSearch() {
                       style={{
                         display: "flex",
                         gap: 4,
-                        fontSize: "12px",
+                        fontSize: "0.75rem",
                         cursor: "pointer",
                         padding: "2px 6px",
                         alignItems: "center",
@@ -1207,61 +1223,15 @@ function ErrorLogSearch() {
                   ))}
                   {!errorsQ.data?.length && (
                     <span
-                      style={{ color: "var(--text-muted)", fontSize: "13px" }}
+                      style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}
                     >
                       Loading errors...
                     </span>
                   )}
                 </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Error Message (text)</label>
-                <input
-                  className="form-input"
-                  value={errorMessage}
-                  onChange={(e) => setErrorMessage(e.target.value)}
-                  placeholder="partial..."
-                />
-              </div>
+              </FormField>
             </div>
             <AdvancedFilters table="error_log" value={adv} onChange={setAdv} />
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 12,
-                alignItems: "flex-end",
-              }}
-            >
-              <div className="form-group">
-                <label className="form-label">Row Limit</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  min={1}
-                  max={100000}
-                  value={rowLimit}
-                  onChange={(e) => setRowLimit(parseInt(e.target.value) || 500)}
-                  style={{ width: 100 }}
-                />
-              </div>
-              <button
-              title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
-                className="btn btn-primary"
-                type="submit"
-                disabled={q.loading || liveState?.isNotConnectedClusterNode()}
-              >
-                {q.loading ? (
-                  <>
-                    <span className="loading-spinner"></span> Searching...
-                  </>
-                ) : (
-                  <>
-                    <Icon className="ti ti-search"></Icon> Search
-                  </>
-                )}
-              </button>
-            </div>
           </form>
         </div>
       )}

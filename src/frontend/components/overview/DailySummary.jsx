@@ -16,6 +16,7 @@ import {
 import DataTable from "../layout/DataTable.jsx";
 
 import { useTheme } from "../../App.jsx";
+import { Input, Button } from "../ui/index.jsx";
 
 // SECTION 1: Constants
 
@@ -403,7 +404,7 @@ function SummaryCard({
         />
         <div
           style={{
-            fontSize: "13px",
+            fontSize: "0.8125rem",
             fontWeight: 600,
             color: "var(--text-primary)",
             marginBottom: 2,
@@ -412,7 +413,7 @@ function SummaryCard({
           {title}
         </div>
         {subtitle && (
-          <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
             {subtitle}
           </div>
         )}
@@ -428,7 +429,7 @@ function MetricValue({ label, value, unit, small = false }) {
     <div style={{ display: "inline-flex", flexDirection: "column", gap: 2 }}>
       <span
         style={{
-          fontSize: "10px",
+          fontSize: "0.625rem",
           color: "var(--text-muted)",
           textTransform: "uppercase",
           letterSpacing: "0.03em",
@@ -926,7 +927,7 @@ export default function DailySummary() {
           <p
             style={{
               margin: "4px 0 0",
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--text-muted)",
             }}
           >
@@ -934,22 +935,21 @@ export default function DailySummary() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <input
+          <Input
             type="date"
             value={date}
             max={getYesterday()}
             onChange={(e) => setDate(e.target.value)}
-            className="form-input"
-            style={{ fontSize: "13px", width: 160 }}
+            style={{ fontSize: "0.8125rem", width: 160 }}
           />
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary" size="sm"
             onClick={fetchData}
             disabled={loading}
           >
             <Icon className="ti ti-refresh" style={{ marginRight: 4 }} />
             {loading ? "Loading..." : "Refresh"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -970,7 +970,7 @@ export default function DailySummary() {
           {/* Row 1: The Pulse */}
           <div
             style={{
-              fontSize: "11px",
+              fontSize: "0.6875rem",
               fontWeight: 600,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -1049,7 +1049,7 @@ export default function DailySummary() {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  fontSize: "10px",
+                  fontSize: "0.625rem",
                   color: "var(--text-muted)",
                 }}
               >
@@ -1094,7 +1094,7 @@ export default function DailySummary() {
           {/* Row 2: The Efficiency */}
           <div
             style={{
-              fontSize: "11px",
+              fontSize: "0.6875rem",
               fontWeight: 600,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -1136,7 +1136,7 @@ export default function DailySummary() {
                 <div>
                   <div
                     style={{
-                      fontSize: "10px",
+                      fontSize: "0.625rem",
                       color: "var(--text-muted)",
                       marginBottom: 4,
                     }}
@@ -1157,7 +1157,7 @@ export default function DailySummary() {
                   </div>
                   <div
                     style={{
-                      fontSize: "10px",
+                      fontSize: "0.625rem",
                       color: "var(--text-muted)",
                       marginTop: 4,
                     }}
@@ -1168,7 +1168,7 @@ export default function DailySummary() {
                 <div>
                   <div
                     style={{
-                      fontSize: "10px",
+                      fontSize: "0.625rem",
                       color: "var(--text-muted)",
                       marginBottom: 4,
                     }}
@@ -1189,7 +1189,7 @@ export default function DailySummary() {
                   </div>
                   <div
                     style={{
-                      fontSize: "10px",
+                      fontSize: "0.625rem",
                       color: "var(--text-muted)",
                       marginTop: 4,
                     }}
@@ -1228,7 +1228,7 @@ export default function DailySummary() {
           {/* Row 3: The Audit */}
           <div
             style={{
-              fontSize: "11px",
+              fontSize: "0.6875rem",
               fontWeight: 600,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -1289,7 +1289,7 @@ export default function DailySummary() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     color: "var(--text-muted)",
                   }}
                 >

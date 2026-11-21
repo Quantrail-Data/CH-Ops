@@ -7,6 +7,7 @@ import Icon from "../common/Icon.jsx";
 import ParamInput from "../common/ParamInput.jsx";
 import { labelFor, isHidden, orderFilters, hasValue }
   from "../../utils/dashboardParams.js";
+import { Button, Notice } from "../ui/index.jsx";
 
 export default function DashboardFilters({
   filters,
@@ -43,17 +44,16 @@ export default function DashboardFilters({
 
   if (conflicts.length) {
     return (
-      <div className="alert-banner danger" style={{ marginBottom: 12 }}>
-        <Icon className="ti ti-alert-circle" />
+      <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 12 }}>
         <div>
           <strong>This dashboard&apos;s filters cannot be built.</strong>
           <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
             {conflicts.map((c, i) => (
-              <li key={i} style={{ fontSize: "13px" }}>{c}</li>
+              <li key={i} style={{ fontSize: "0.8125rem" }}>{c}</li>
             ))}
           </ul>
         </div>
-      </div>
+      </Notice>
     );
   }
 
@@ -79,22 +79,21 @@ export default function DashboardFilters({
           borderBottom: open ? "1px solid var(--border-default)" : "none",
         }}
       >
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setOpen((v) => !v)}
           title={open ? "Hide filters" : "Show filters"}
           aria-expanded={open}
-          style={{ padding: "2px 6px" }}
         >
-          <Icon className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: 16 }} />
-        </button>
+          <Icon className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: "1rem" }} />
+        </Button>
 
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: "14px" }}>
-          <Icon className="ti ti-filter" style={{ fontSize: 16 }} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: "0.875rem" }}>
+          <Icon className="ti ti-filter" style={{ fontSize: "1rem" }} />
           Chart filters
         </span>
 
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
           {visible.length}
           {needingValue > 0 && (
             <span style={{ color: "var(--color-warning, #d98324)" }}>
@@ -105,22 +104,22 @@ export default function DashboardFilters({
 
         {dirty && (
           <span
-            style={{ fontSize: "12px", color: "var(--color-warning, #d98324)" }}
+            style={{ fontSize: "0.75rem", color: "var(--color-warning, #d98324)" }}
             title="The charts below still show the previously applied filters"
           >
-            <Icon className="ti ti-alert-triangle" style={{ fontSize: 13 }} /> Out of date
+            <Icon className="ti ti-alert-triangle" style={{ fontSize: "0.8125rem" }} /> Out of date
           </span>
         )}
 
         {canEdit && (
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={onOpenSettings}
             title="Filter settings: labels, order, defaults, visibility"
             style={{ marginLeft: "auto" }}
           >
             <Icon className="ti ti-adjustments" /> Filter settings
-          </button>
+          </Button>
         )}
       </div>
 
@@ -202,21 +201,21 @@ export default function DashboardFilters({
               marginTop: 12,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={onReset}
               title="Return every filter to its default"
             >
               <Icon className="ti ti-refresh" /> Reset
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
+            </Button>
+            <Button
+              variant="primary" size="sm"
               onClick={onApply}
               disabled={!dirty}
               title={dirty ? "Re-run the affected charts" : "Nothing has changed"}
             >
               <Icon className="ti ti-check" /> Apply
-            </button>
+            </Button>
           </div>
         </div>
       )}

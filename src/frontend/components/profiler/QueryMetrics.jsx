@@ -8,6 +8,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+import DateTimePicker from "../layout/DateTimePicker.jsx";
 import Icon from "../common/Icon.jsx";
 import {
   useState,
@@ -21,6 +22,7 @@ import ChartCard from "../layout/ChartCard.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useSearchParams } from "react-router-dom";
+import { Button, Input, Notice } from "../ui/index.jsx";
 
 // HELPERS
 
@@ -543,14 +545,14 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
       <div className="profiler-popup" onClick={(e) => e.stopPropagation()}>
         <div className="profiler-popup-header">
           <span style={{ fontWeight: 600 }}>Query Details</span>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
         <div style={{ marginBottom: 12 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query ID
           </label>
@@ -558,7 +560,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             <code
               style={{
                 flex: 1,
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
                 wordBreak: "break-all",
@@ -566,8 +568,8 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             >
               {query.query_id}
             </code>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               onClick={(e) => {
                 try {
                   navigator.clipboard.writeText(query.query_id);
@@ -584,7 +586,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
               title="Copy Query ID"
             >
               <Icon className="ti ti-copy"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
         <div
@@ -592,7 +594,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             display: "flex",
             gap: 20,
             marginBottom: 14,
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             flexWrap: "wrap",
           }}
@@ -610,7 +612,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
         <div style={{ marginBottom: 14 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query Text
           </label>
@@ -643,8 +645,8 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             flexWrap: "wrap",
           }}
         >
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary" size="sm"
             onClick={(e) => {
               try {
                 navigator.clipboard.writeText(
@@ -663,9 +665,9 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             }}
           >
             <Icon className="ti ti-copy" style={{ marginRight: 4 }}></Icon> Copy Query
-          </button>
-          <button
-            className="btn btn-primary"
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => {
               onSelect(query.query_id);
               onClose();
@@ -673,7 +675,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
           >
             <Icon className="ti ti-check" style={{ marginRight: 4 }}></Icon> Use This
             Query
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1033,7 +1035,7 @@ export default function QueryMetrics() {
         style={{
           padding: 14,
           marginBottom: 16,
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           color: "var(--text-secondary)",
           lineHeight: 1.6,
         }}
@@ -1047,39 +1049,24 @@ export default function QueryMetrics() {
       </div>
 
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "end",
-            marginBottom: 14,
-          }}
-        >
-          <div className="form-group" style={{ minWidth: 200 }}>
-            <label className="form-label">From</label>
-            <input
-              className="form-input"
-              type="datetime-local"
-              value={fromDt}
-              onChange={(e) => handleAutoAdjustTODate(e)}
-            />
-          </div>
-          <div className="form-group" style={{ minWidth: 200 }}>
-            <label className="form-label">To</label>
-            <input
-              className="form-input"
-              type="datetime-local"
-              value={toDt}
-              onChange={(e) => setToDt(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <button
-              className="btn btn-secondary"
+        <div className="search-form-row">
+          <DateTimePicker
+            label="From"
+            valueFormat="datetime-local"
+            value={fromDt}
+            onChange={(newValue) => handleAutoAdjustTODate({ target: { value: newValue } })}
+          />
+          <DateTimePicker
+            label="To"
+            valueFormat="datetime-local"
+            value={toDt}
+            onChange={(newValue) => setToDt(newValue)}
+          />
+          <div className="search-form-submit">
+            <Button
+              variant="secondary"
               onClick={fetchQueries}
               disabled={queriesLoading}
-              style={{ height: 40 }}
             >
               {queriesLoading ? (
                 <>
@@ -1095,14 +1082,14 @@ export default function QueryMetrics() {
                   Load Queries
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
         {rangeError && (
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--color-danger, #ef4444)",
               marginBottom: 10,
             }}
@@ -1134,15 +1121,14 @@ export default function QueryMetrics() {
             )}
           </label>
 
-          <input
-            className="form-input"
+          <Input
             placeholder="Search by query text or query_id..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             style={{
               marginBottom: 8,
               fontFamily: "var(--font-code)",
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               width: "100%",
               maxWidth: 480,
             }}
@@ -1151,7 +1137,7 @@ export default function QueryMetrics() {
           {queriesError && (
             <div
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--color-warning, #f59e0b)",
                 marginBottom: 8,
               }}
@@ -1201,7 +1187,7 @@ export default function QueryMetrics() {
             !rangeError && (
               <div
                 style={{
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   color: "var(--text-muted)",
                   padding: "12px 0",
                 }}
@@ -1217,7 +1203,7 @@ export default function QueryMetrics() {
           <div
             style={{
               marginBottom: 14,
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--text-secondary)",
               display: "flex",
               alignItems: "center",
@@ -1234,30 +1220,30 @@ export default function QueryMetrics() {
               style={{
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 wordBreak: "break-all",
               }}
             >
               {selectedQueryId}
             </code>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               onClick={() => {
                 setSelectedQueryId("");
                 setMetricsError("");
                 setGroupedCharts([]);
                 setChartLayoutKey((k) => k + 1);
               }}
-              style={{ marginLeft: 4, fontSize: "12px" }}
+              style={{ marginLeft: 4 }}
             >
               <Icon className="ti ti-x"></Icon> Clear
-            </button>
+            </Button>
           </div>
         )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={handleShowMetrics}
             disabled={metricsLoading || !selectedQueryId}
             style={{ minWidth: 200 }}
@@ -1276,7 +1262,7 @@ export default function QueryMetrics() {
                 Show Query Metrics
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1291,16 +1277,15 @@ export default function QueryMetrics() {
       )}
 
       {metricsError && (
-        <div className="alert-banner danger" style={{ marginBottom: 16 }}>
-          <Icon className="ti ti-alert-circle"></Icon> {metricsError}
-        </div>
+        <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 16 }}> {metricsError}
+        </Notice>
       )}
 
       {themedCharts.length > 0 && (
         <div
           style={{
             marginBottom: 16,
-            fontSize: "13px",
+            fontSize: "0.8125rem",
             color: "var(--text-muted)",
           }}
         >
@@ -1325,7 +1310,7 @@ export default function QueryMetrics() {
           >
             <h3
               style={{
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 fontWeight: 600,
                 color: "var(--text-secondary)",
                 marginBottom: 8,
@@ -1337,13 +1322,13 @@ export default function QueryMetrics() {
             >
               <Icon
                 className={`ti ${group.icon}`}
-                style={{ fontSize: "15px" }}
+                style={{ fontSize: "0.9375rem" }}
               ></Icon>
               {group.label}
               <span
                 style={{
                   fontWeight: 400,
-                  fontSize: "11px",
+                  fontSize: "0.6875rem",
                   color: "var(--text-muted)",
                 }}
               >
@@ -1376,7 +1361,7 @@ export default function QueryMetrics() {
           <Icon
             className="ti ti-chart-line"
             style={{
-              fontSize: 48,
+              fontSize: "3rem",
               opacity: 0.3,
               display: "block",
               marginBottom: 12,

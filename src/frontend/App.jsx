@@ -2,16 +2,18 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main application entry point managing global state, theme providers, and top-level routing layouts.
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, lazy, Suspense } from "react";
 import {
   setGlobalConnection,
   getActiveApiKey,
   logoutRequest,
 } from "./utils/api.js";
 import useIdleTimeout from "./hooks/useIdleTimeout.js";
-import LoginPage from "./components/layout/LoginPage.jsx";
-import MainLayout from "./components/layout/MainLayout.jsx";
-import SetupPassword from "./components/layout/SetupPassword.jsx";
+// Loaded on demand: a signed-in user does not download the Login page (and
+// its screenshot carousel), and the Login page does not load the app layout.
+const LoginPage = lazy(() => import("./components/layout/LoginPage.jsx"));
+const MainLayout = lazy(() => import("./components/layout/MainLayout.jsx"));
+const SetupPassword = lazy(() => import("./components/layout/SetupPassword.jsx"));
 import { apiFetch } from "./utils/api.js";
 
 // Each context defaults to an inert value with the SAME SHAPE the provider
@@ -349,13 +351,15 @@ export default function App() {
             switchCluster,
           }}
         >
-          {auth ? (
+          <Suspense fallback={<div className="app-loading" aria-busy="true" />}>
+            {auth ? (
               <MainLayout />
-          ) : token ? (
-            <SetupPassword token={token}/>
-          ) : (
-            <LoginPage />
-          )}
+            ) : token ? (
+              <SetupPassword token={token} />
+            ) : (
+              <LoginPage />
+            )}
+          </Suspense>
         </ConnectionContext.Provider>
       </ThemeContext.Provider>
     </AuthContext.Provider>

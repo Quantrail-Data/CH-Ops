@@ -29,3 +29,26 @@ if (typeof Blob !== 'undefined' && typeof Blob.prototype.text !== 'function') {
     });
   };
 }
+
+// jsdom has no ResizeObserver. React Flow (TreeGraph and other graphs) needs
+// it to measure nodes. This stub does nothing, which is enough for tests that
+// check what a page shows.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
+// jsdom has no IntersectionObserver either. Number Ticker (Magic UI) uses it
+// to start counting when it comes into view. This stub never reports a
+// change; the ticker's hidden text still gives the final value.
+if (typeof globalThis.IntersectionObserver === 'undefined') {
+  globalThis.IntersectionObserver = class IntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() { return []; }
+  };
+}

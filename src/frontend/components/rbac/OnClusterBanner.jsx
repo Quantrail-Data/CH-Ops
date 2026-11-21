@@ -47,7 +47,7 @@ export default function OnClusterBanner({ rbac, value }) {
         marginBottom: 12,
         borderRadius: "var(--radius-md)",
         background: "var(--color-warning-bg)",
-        fontSize: 13,
+        fontSize: "0.8125rem",
       }}
     >
       This cluster has {rbac.replicaCount} replicas. Without ON CLUSTER, this
@@ -68,7 +68,7 @@ export function SessionAffinityWarning({ rbac }) {
         marginBottom: 12,
         borderRadius: "var(--radius-md)",
         background: "var(--color-info-bg)",
-        fontSize: 13,
+        fontSize: "0.8125rem",
       }}
     >
       Queries from here can land on different replicas. Temporary tables and

@@ -9,17 +9,17 @@ import { apiFetch, runQuery } from "../../utils/api.js";
 import { useAuth } from "../../App.jsx";
 import { isMissingFileError } from "../../../shared/backupSql.js";
 import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const AlerteditComponent = () => {
   return (
-    <div className="alert-banner info" style={{ margin: "10px 0px" }}>
-      <Icon className="ti ti-info-circle" />
+    <Notice tone="info" icon="ti-info-circle" style={{ margin: "10px 0px" }}>
       <span>
         To update the Access Key, Access Key ID, or Endpoint, you need to delete
         the existing storage connection and create a new one, as these fields
         cannot be modified through the Edit option.
       </span>
-    </div>
+    </Notice>
   );
 };
 
@@ -233,12 +233,11 @@ export default function StorageProfiles({mainRef}) {
             <Icon className="ti ti-cloud"></Icon> Storage Profiles
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>
             Storage Profiles is only available for super administrators.
           </span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>Storage Profiles is only available for super administrators.</p>
@@ -518,33 +517,25 @@ export default function StorageProfiles({mainRef}) {
         <h2 className="section-title">
           <Icon className="ti ti-cloud"></Icon> Storage Profiles
         </h2>
-        <button
-          className="btn btn-primary btn-sm"
+        <Button
+          variant="primary" size="sm"
           onClick={() =>
             showForm ? (setShowForm(false), setEditing(null)) : startNew()
           }
         >
           <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
           {showForm ? "Cancel" : "New Profile"}
-        </button>
+        </Button>
       </div>
       {result && (
-        <div
-          className={`alert-banner ${result.ok ? "success" : "danger"}`}
+        <Notice
+          tone={result.ok ? "success" : "danger"}
+          icon={result.ok ? "ti-check" : "ti-alert-circle"}
+          onDismiss={() => setResult(null)}
           style={{ marginBottom: 14 }}
         >
-          <Icon
-            className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
-          ></Icon>{" "}
           {result.msg}
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginLeft: "auto" }}
-            onClick={() => setResult(null)}
-          >
-            <Icon className="ti ti-x"></Icon>
-          </button>
-        </div>
+        </Notice>
       )}
       {showForm && (
         <form
@@ -560,17 +551,14 @@ export default function StorageProfiles({mainRef}) {
               marginBottom: 14,
             }}
           >
-            <div className="form-group">
-              <label className="form-label">Name *</label>
-              <input
-                className="form-input"
+            <FormField label="Name *">
+              <Input
                 required
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Type</label>
+            </FormField>
+            <FormField label="Type">
               <Select
                 className="form-select"
                 value={form.type}
@@ -580,18 +568,14 @@ export default function StorageProfiles({mainRef}) {
                 <option value="azure">Azure Blob</option>
                 <option value="gcs">Google Cloud</option>
               </Select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {form.type === "azure" ? "Container" : "Bucket"} *
-              </label>
-              <input
-                className="form-input"
+            </FormField>
+            <FormField label={<>{form.type === "azure" ? "Container" : "Bucket"} *</>}>
+              <Input
                 required
                 value={form.bucket}
                 onChange={(e) => update("bucket", e.target.value)}
               />
-            </div>
+            </FormField>
           </div>
           <div
             style={{
@@ -602,10 +586,9 @@ export default function StorageProfiles({mainRef}) {
             }}
           >
             {(form.type === "s3" || form.type === "azure") && (
-              <div className="form-group">
-                <label className="form-label">Endpoint</label>
-                <input
-                  className="form-input input-read-disabled"
+              <FormField label="Endpoint">
+                <Input
+                  className="input-read-disabled"
                   value={form?.endpoint}
                   onChange={(e) => update("endpoint", e.target.value)}
                   placeholder={
@@ -617,26 +600,21 @@ export default function StorageProfiles({mainRef}) {
                   // disabled={editing}
                   onClick={() => showMessageAlertContainer()}
                 />
-              </div>
+              </FormField>
             )}
             {form.type !== "azure" && (
-              <div className="form-group">
-                <label className="form-label">Region</label>
-                <input
-                  className="form-input"
+              <FormField label="Region">
+                <Input
                   value={form.region}
                   onChange={(e) => update("region", e.target.value)}
                 />
-              </div>
+              </FormField>
             )}
-            <div className="form-group">
-              <label className="form-label">
-                {form.type === "azure"
+            <FormField label={<>{form.type === "azure"
                   ? "Account Name (not needed with a connection string)"
-                  : "Access Key ID *"}
-              </label>
-              <input
-                className="form-input input-read-disabled"
+                  : "Access Key ID *"}</>}>
+              <Input
+                className="input-read-disabled"
                 required={form.type !== "azure"}
                 value={form?.accessKeyId}
                 onChange={(e) => update("accessKeyId", e.target.value)}
@@ -644,17 +622,13 @@ export default function StorageProfiles({mainRef}) {
                 // disabled={editing}
                 onClick={() => showMessageAlertContainer()}
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {form.type === "azure"
+            </FormField>
+            <FormField label={<>{form.type === "azure"
                   ? "Account Key or Connection String *"
-                  : "Access Key (Secret) *"}
-              </label>
-
+                  : "Access Key (Secret) *"}</>}>
               <div className="" style={{ width: "100%", position: "relative" }}>
-                <input
-                  className="form-input input-read-disabled"
+                <Input
+                  className="input-read-disabled"
                   type={accessKeyView ? "text" : "password"}
                   style={{ width: "100%", paddingRight: "35px" }}
                   required
@@ -665,7 +639,7 @@ export default function StorageProfiles({mainRef}) {
                   onClick={() => showMessageAlertContainer()}
                 />
 
-                <div
+                <button type="button" aria-label={accessKeyView ? "Hide secret key" : "Show secret key"} aria-pressed={!!(accessKeyView)}
                   className="password-eye"
                   style={
                     editing
@@ -685,14 +659,14 @@ export default function StorageProfiles({mainRef}) {
                   ) : (
                     <Icon className="ti ti-eye" />
                   )}
-                </div>
+                </button>
               </div>
-            </div>
+            </FormField>
           </div>
-          <button className="btn btn-primary" type="submit">
+          <Button variant="primary" type="submit">
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update" : "Save"}
-          </button>
+          </Button>
 
           {isEditableMessage && <AlerteditComponent />}
         </form>
@@ -729,7 +703,7 @@ export default function StorageProfiles({mainRef}) {
                 </div>
                 <div
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-muted)",
                     fontFamily: "var(--font-table)",
                   }}
@@ -737,7 +711,7 @@ export default function StorageProfiles({mainRef}) {
                   <div>
                     <Icon
                       className="ti ti-bucket"
-                      style={{ fontSize: 14 }}
+                      style={{ fontSize: "0.875rem" }}
                     ></Icon>{" "}
                     {p.bucket}
                   </div>
@@ -745,13 +719,13 @@ export default function StorageProfiles({mainRef}) {
                     <div>
                       <Icon
                         className="ti ti-map-pin"
-                        style={{ fontSize: 14 }}
+                        style={{ fontSize: "0.875rem" }}
                       ></Icon>{" "}
                       {p.region}
                     </div>
                   )}
                   <div>
-                    <Icon className="ti ti-key" style={{ fontSize: 14 }}></Icon>{" "}
+                    <Icon className="ti ti-key" style={{ fontSize: "0.875rem" }}></Icon>{" "}
                     {"*".repeat("15")}
                   </div>
                 </div>
@@ -759,7 +733,7 @@ export default function StorageProfiles({mainRef}) {
                   <div
                     style={{
                       marginTop: 8,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       color: tr.loading
                         ? "var(--text-muted)"
                         : tr.ok
@@ -771,24 +745,24 @@ export default function StorageProfiles({mainRef}) {
                   </div>
                 )}
                 <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => testConnection(p)}
                   >
                     <Icon className="ti ti-plug-connected"></Icon> Test
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => startEdit(p)}
                   >
                     <Icon className="ti ti-edit"></Icon> Edit
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
+                  </Button>
+                  <Button
+                    variant="danger" size="sm"
                     onClick={() => remove(p.id)}
                   >
                     <Icon className="ti ti-trash"></Icon>
-                  </button>
+                  </Button>
                 </div>
               </div>
             );

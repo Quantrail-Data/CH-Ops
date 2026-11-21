@@ -34,6 +34,7 @@ vi.mock("../../src/frontend/App.jsx", () => ({
 vi.mock("../../src/frontend/utils/echarts.js", () => ({
   initChart: (...a) => initChart(...a),
   disposeChart: vi.fn(),
+  disposeChartInstance: vi.fn(),
   withZoomable: (o) => o,
 }));
 
@@ -69,6 +70,11 @@ vi.mock("../../src/frontend/components/overview/ClusterTopology.jsx", () => ({
   default: ({ rows, selectedHost }) => (
     <div data-testid="topology" data-rows={rows?.length ?? 0} data-selected={selectedHost} />
   ),
+}));
+
+vi.mock("../../src/frontend/components/overview/useLiveOverview.js", () => ({
+  useLiveOverview: () => ({ live: true, interval: 5, loaded: false,isNotConnectedClusterNode :() => false }),
+  INTERVALS: [5, 10, 30, 60],
 }));
 
 vi.mock("../../src/frontend/components/overview/LiveOverview.jsx", () => ({
