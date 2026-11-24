@@ -38,7 +38,7 @@ function readOptions(children) {
 
 export default function Select({
   value, onChange, children, className = "", disabled = false, required = false,isHigherZindex=4000,
-  id, name, style, placeholder,Title,type="default", "aria-label": ariaLabel, ...rest
+  id, name, style, placeholder,Title,type="default", "aria-label": ariaLabel,isOverwrittenStyle=false, ...rest
 }) {
   const options = readOptions(children);
   const current = options.find((o) => o.value === String(value ?? ""));
@@ -141,6 +141,7 @@ export default function Select({
         onRequestClose={close}
         listRef={menuRef}
         role="listbox"
+        
         // aria-hidden="true"
       >
         {options.length === 0 && <li className="cui-select-empty">No options</li>}

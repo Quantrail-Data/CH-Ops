@@ -206,6 +206,7 @@ function AIDDLModelComponent({
               maxHeight: "min(300px, 28vh)",
               alignItems: "start",
               gap: "10px",
+              overflowY:"auto"
             }} className="dbcard">
             {newSelection?.length > 0 ? (
               newSelection?.map((_b, i) => {
