@@ -52,7 +52,7 @@ export default function AlertMarquee() {
       Array.isArray(a?.nodes) && a?.nodes?.length > 0
         ? a?.nodes.join(", ")
         : "all nodes";
-    const cluster = clusterName || "Default";
+    const cluster = a?.clusterName || "Default";
     return {
       message: `${(a?.severity || "info").toUpperCase()}: ${a?.name} - value ${a?.lastValue ?? "?"} ${op} threshold ${a?.threshold} [${cluster} / ${nodes}]${ts ? ` (${ts})` : ""}`,
       type: a?.severity || "info",

@@ -22,7 +22,7 @@ import {
 import { getClusterNodes } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
 import { ALERT_TEMPLATES } from "../services/alertTemplates.js";
-import { alertEvents, alertRuleNodeStates } from "../db/schema.js";
+import { alertEvents, alertRuleNodeStates,clusters } from "../db/schema.js";
 import { selectRuleNodes } from "../services/alertNodeStates.js";
 import { decrypt, encrypt } from "../services/crypto.js";
 import { log } from "../services/logger.js";
@@ -199,7 +199,16 @@ export function listRules(req, res) {
 export function listActiveRules(req, res) {
   const all = rulesWithChannels(eq(alertRules.enabled, true), req);
   const active = all.filter((r) => r.isActive === true || r.isActive === 1);
-  res.json(active);
+  let final = [];
+  active.forEach((v) => {
+    const cluster = db
+      .select()
+      .from(clusters)
+      .where(eq(clusters?.id, v?.clusterId))
+      .get();
+    final?.push({ ...v, clusterName: cluster?.name });
+  });
+  res.json(final);
 }
 
 export function createRule(req, res) {
