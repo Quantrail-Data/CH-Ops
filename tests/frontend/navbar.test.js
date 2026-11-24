@@ -38,7 +38,7 @@ describe("Navbar: Font Scaling", () => {
     expect(code).toContain("step={5}");
   });
   it("Use Auto button brings back the screen-fit text size", () => {
-    expect(code).toContain("Use Auto (fits the screen)");
+    expect(code).toContain("Fit to Scale");
     expect(code).toContain('removeProperty("font-size")');
   });
   it("ti-text-resize icon", () => {

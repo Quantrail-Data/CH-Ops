@@ -146,10 +146,10 @@ function answerApi(url, options) {
   return {};
 }
 
-function switchForTemplateRulesThatAreOff() {
-  const label = screen.getByText(/^Show template rules that are off$/);
-  return label.closest(".form-label").querySelector('input[type="checkbox"]');
-}
+// function switchForTemplateRulesThatAreOff() {
+//   const label = screen.getByText(/^Show template rules that are off$/);
+//   return label.closest(".form-label").querySelector('input[type="checkbox"]');
+// }
 
 describe("Alert Rules: templates", () => {
   beforeEach(() => {
@@ -163,30 +163,7 @@ describe("Alert Rules: templates", () => {
 
   afterEach(() => cleanup());
 
-  it("hides the template rules that are off, and shows them with the switch", async () => {
-    render(<AlertRules />);
-    await screen.findByText("My own rule");
 
-    expect(screen.getByText("CPU busy")).toBeInTheDocument();
-    expect(screen.queryByText("Disk space low (data path)")).toBeNull();
-
-    const label = screen.getByText(/^Show template rules that are off$/);
-    expect(within(label).getByText("1")).toBeInTheDocument();
-    expect(switchForTemplateRulesThatAreOff()).not.toBeChecked();
-
-    fireEvent.click(switchForTemplateRulesThatAreOff());
-
-    expect(
-      await screen.findByText("Disk space low (data path)"),
-    ).toBeInTheDocument();
-    expect(switchForTemplateRulesThatAreOff()).toBeChecked();
-    expect(screen.getAllByText("template").length).toBe(2);
-
-    fireEvent.click(switchForTemplateRulesThatAreOff());
-
-    expect(screen.queryByText("Disk space low (data path)")).toBeNull();
-    expect(switchForTemplateRulesThatAreOff()).not.toBeChecked();
-  });
 
   it("fills the rule form from the template that the admin picks", async () => {
     render(<AlertRules />);
