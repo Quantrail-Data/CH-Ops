@@ -41,6 +41,7 @@ import {
   shapeStats,
 } from "../services/studioSource.js";
 import { completeDdl, getAiStatus } from "../services/studioAi.js";
+import { setEngine } from "node:crypto";
 
 const router = express.Router();
 
@@ -318,12 +319,23 @@ router.post("/create", async (req, res) => {
     const created = [];
     for (const s of statements) {
       await sessionQuery(sess, { query: s, jsonEachRow: false });
-      created.push(s.slice(0, 60));
+      created.push(s);
     }
+    console.log(created)
     res.json({ ok: true, created });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
 });
+
+router.get("/db",async (req,res)=>{
+  try {
+    const sess = requireSession(req);
+    const result = await sessionQuery(sess, {query:"SELECT name FROM system.databases ORDER BY name"});
+    res.status(201).json({dbs:result.rows})
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}) 
 
 export default router;

@@ -52,7 +52,7 @@ function sanitizeDdlCodecs(sql) {
   });
 }
 
-export default function StepGenerate({ columns, stats, sampleRows, form, onBack }) {
+export default function StepGenerate({ columns, stats, sampleRows, form, onBack ,clearForms,StepSource}) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [aiLoading,setAiLoading] = useState(false)
@@ -194,6 +194,8 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
       await createTables(statements);
       toast.success("Table created successfully.");
       setConfirming(false);
+      clearForms();
+      StepSource();
     } catch (e) {
       setCreateError(e.message);
     } finally {

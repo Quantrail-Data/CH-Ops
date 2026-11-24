@@ -12,7 +12,7 @@
 
 import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
-import { getGlobalConnection } from "../../utils/api.js";
+import { apiFetch, getGlobalConnection } from "../../utils/api.js";
 import { connect, connectionStatus, disconnect } from "../../utils/studioApi.js";
 import StepSource from "./StepSource.jsx";
 import StepSchema from "./StepSchema.jsx";
@@ -34,6 +34,7 @@ export default function SchemaStudio() {
   const [stats, setStats] = useState(null);
   const [sampleRows, setSampleRows] = useState(0);
   const [form, setForm] = useState(defaultForm());
+  const [dbs,setDbs] = useState([]);
 
   // Restore any existing session on entry.
   useEffect(() => {
@@ -42,6 +43,18 @@ export default function SchemaStudio() {
       .catch(() => setConn({ connected: false }))
       .finally(() => setChecked(true));
   }, []);
+
+  useEffect(() =>{
+    const loadDbs = async () =>{
+     try {
+       const res = await apiFetch("/api/schema-studio/db");
+      setDbs(res?.dbs)
+     } catch (e) {
+      console.log(e?.message)
+     }
+    }
+    loadDbs();
+  },[conn])
 
   const go = (n) => setStep(Math.max(0, Math.min(STEPS.length - 1, n)));
 
@@ -69,6 +82,13 @@ export default function SchemaStudio() {
         <ConnectPanel onConnected={(s) => setConn(s)} />
       </div>
     );
+  }
+
+  const clearForms = () =>{
+    setColumns([]);
+    setStats(null);
+    setSampleRows(0);
+    setForm(defaultForm());
   }
 
   return (
@@ -119,6 +139,7 @@ export default function SchemaStudio() {
         )}
         {step === 2 && (
           <StepEngine
+            dbs={dbs}
             columns={columns}
             form={form}
             setForm={setForm}
@@ -133,6 +154,8 @@ export default function SchemaStudio() {
             sampleRows={sampleRows}
             form={form}
             onBack={() => go(2)}
+            clearForms={() =>clearForms()}
+            StepSource={() =>go(0)}
           />
         )}
       </div>

@@ -20,7 +20,7 @@ import MultiSelect from "../common/MultiSelect.jsx";
 import KeyInput from "./KeyInput.jsx";
 import { Input, Button, Textarea } from "../ui/index.jsx";
 
-export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
+export default function StepEngine({dbs, columns, form, setForm, onBack, onNext }) {
   const [macros, setMacros] = useState({});
   const [clusters, setClusters] = useState([]);
 
@@ -82,8 +82,12 @@ export default function StepEngine({ columns, form, setForm, onBack, onNext }) {
 
       <div className="studio-field-row">
         <FieldLabel text="Database" tip="The database the table is created in." />
-        <Input  value={form.target.database}
-          onChange={(e) => set({ target: { ...form.target, database: e.target.value } })} />
+          <Select className="form-select" value={form.target.database} style={{width:"15rem"}}
+          onChange={(e) => set({ target: { ...form.target, database: e.target.value } })}>
+          {dbs.map((v,i) => (
+            <option key={i} value={v?.name}>{v?.name}</option>
+          ))}
+        </Select>
         <FieldLabel text="Table name" tip="Name of the new table." />
         <Input  value={form.target.table}
           onChange={(e) => set({ target: { ...form.target, table: e.target.value } })} />
