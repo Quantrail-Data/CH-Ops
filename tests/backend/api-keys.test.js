@@ -1,162 +1,166 @@
 /**
- * api-keys.test.js - Unit tests for API Keys Controller
+ * api-keys.test.js - Unit tests for the API key service (services/apiKeys.js)
  *
- * Tests Creating, Updating , Deleting and setting Active API Keys.
- * Verifies error generation
+ * Tests creating, reading, updating, deleting and activating API keys,
+ * and the errors for a duplicate name, too many keys and an unknown key.
+ *
+ * The test uses its own temporary database. It never reads or changes
+ * data/chops.db, so it does not delete the keys of a developer.
  *
  * Author: Syed Ashiq
  * Copyright (C) 2026 Quantrail™ Data Private Limited
  */
 
+import { afterAll, describe, expect, it } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { initCrypto } from "../../src/backend/services/crypto.js";
 
-import { afterAll, describe, expect, it } from "bun:test"
-import { createApiKey, deleteApiKey, getActiveApiKey, getAllApiKeys, getApiKeyById, getApiKeysWithValues, setActiveApiKey, updateApiKey } from "../../src/backend/services/apiKeys"
-import { initCrypto } from "../../src/backend/services/crypto"
+// Each file in tests/backend runs in its own process, so this DB_PATH is used
+// only by this file. It must be set before the database module is loaded.
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "chops-api-keys-"));
+process.env.DB_PATH = path.join(tempDir, "chops.db");
 
-try {
-
-    initCrypto(process.env.SESSION_SECRET)
-} catch {
-
+const migration = Bun.spawnSync([process.execPath, "src/backend/db/migrate.js"], {
+  env: {
+    ...process.env,
+    SUPER_ADMIN_1: "api-keys-test-admin",
+    SUPER_ADMIN_1_PASSWORD: "api-keys-test-password",
+    SUPER_ADMIN_1_EMAIL: "api-keys-admin@example.com",
+    ENCRYPTION_SECRET: "api-keys-test-encryption-secret-32-chars",
+  },
+});
+if (migration.exitCode !== 0) {
+  throw new Error(`migrate.js failed: ${migration.stderr.toString()}`);
 }
 
-let ActiveKey, SecondKey;
+initCrypto("api-keys-test-encryption-secret-32-chars");
 
-describe("Create Flow", () => {
-    it("Creates API Key and is Marked Active", () => {
-        ActiveKey = createApiKey("test API", "sk-test-key", "gpt-5.4")
-        expect(ActiveKey.key).toBe("sk-test-key")
-        expect(ActiveKey.isActive).toBe(true)
-    })
+const {
+  createApiKey,
+  deleteApiKey,
+  getActiveApiKey,
+  getAllApiKeys,
+  getApiKeyById,
+  getApiKeysWithValues,
+  setActiveApiKey,
+  updateApiKey,
+} = await import("../../src/backend/services/apiKeys.js");
 
-    it("Second key is created and not marked active by default", () => {
-        SecondKey = createApiKey("test API Key 2", "sk-test-key-2", "gemini-fast-2.5")
-        expect(SecondKey.key).toBe("sk-test-key-2")
-        expect(SecondKey.isActive).toBe(false)
-    })
-
-
-    it("key with duplicate name returns error", () => {
-        try {
-
-            createApiKey("test API", "sk-test-key", "gpt-5.4")
-            throw new Error("Failed.")
-
-        } catch (e) {
-            expect(e.message).toBe("An API key with this name already exists.")
-        }
-    })
-
-})
-
-describe("API Key Limits", () => {
-    it("Rejects when maximum keys have been created", () => {
-        try {
-            Array.from({ length: 3 }).forEach((_, i) => {
-                createApiKey(`test API ${i * 50}`, `sk-test-key${i}`, "gpt-5.4")
-
-            })
-            throw new Error("Failed.")
-        } catch (e) {
-            expect(e.message).toBe(`Maximum 4 API keys allowed.`)
-        }
-    })
-})
-
-describe("Get API Keys", () => {
-    it("Fetches All API Keys with expected fileds", () => {
-        const apiKeys = getAllApiKeys()
-        if (apiKeys.length === 0) throw new Error("Returned Empty.")
-        const fields = ["id", "name", "isActive", "createdAt", "updatedAt", "model"]
-        apiKeys.forEach(key => {
-            fields.forEach(field => {
-                if (key[field] == undefined) {
-                    throw new Error(`Missng Field ${field} in ${JSON.stringify(key)}.`)
-                }
-            })
-        })
-
-    })
-
-    it("Fetches Active API Key with decrypted key", () => {
-        const activeKey = getActiveApiKey()
-        expect(activeKey.isActive).toBe(true)
-        expect(activeKey.key).toBe(ActiveKey.key)
-    })
-
-    it("Fetches API Key by ID with null as fallback", () => {
-        const APIKey = getApiKeyById(ActiveKey.id)
-        expect(APIKey.id).toBe(ActiveKey.id)
-
-        const NULLAPIKey = getApiKeyById('')
-        expect(NULLAPIKey).toBe(null)
-
-    })
-
-    it('Fetches API Keys with decrypted values', () => {
-        const APIKeys = getApiKeysWithValues()
-        APIKeys.forEach(key => {
-            if (key.key === undefined) {
-                throw new Error(`Missng Field key in ${JSON.stringify(key)}.`)
-            }
-        })
-    })
-
-})
-
-describe("Updating API Key", () => {
-
-    it("Updates a valid key", () => {
-        ActiveKey = { ...ActiveKey, name: "API Key Updated", key: "sk-updated-keys", model: "gemini-4.5" }
-        const updatedKey = updateApiKey(ActiveKey.id, ActiveKey.name, ActiveKey.key, ActiveKey.model)
-        expect(updatedKey.name).toBe(ActiveKey.name)
-        expect(updatedKey.key).toBe(ActiveKey.key)
-        expect(updatedKey.model).toBe(ActiveKey.model)
-    })
-
-    it("Returns Duplicate Name error when updating", () => {
-        try {
-
-            updateApiKey(ActiveKey.id, "test API Key 2", ActiveKey.key, ActiveKey.model)
-            throw new Error('Failed to return Error.')
-        } catch (e) {
-            expect(e.message).toBe('An API key with this name already exists.')
-        }
-    })
-
-    it("Return API Key not found error", () => {
-
-        try {
-
-            updateApiKey('', ActiveKey.name, ActiveKey.key, ActiveKey.model)
-            throw new Error('Failed to return Error.')
-        } catch (e) {
-            expect(e.message).toBe('API key not found.')
-        }
-    })
-
-})
-
-
-describe("Set Acitve API Key", () => {
-
-    it("Active API Key is set", () => {
-        ActiveKey = setActiveApiKey(SecondKey.id)
-        expect(ActiveKey.id).toBe(SecondKey.id)
-    })
-
-    it("Returns Key not found", () => {
-        try {
-            ActiveKey = setActiveApiKey('')
-            throw new Error('Failed to return Error.')
-        } catch (e) {
-            expect(e.message).toBe('API key not found.')
-        }
-    })
-
-})
+const MAX_API_KEYS = 5;
 
 afterAll(() => {
-    const keys = getAllApiKeys()
-    keys.forEach(k => deleteApiKey(k.id))
-})
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+// The keys are made in order by the tests below.
+let firstKey;
+let secondKey;
+
+describe("createApiKey", () => {
+  it("makes the first key active and gives back the plain key", () => {
+    firstKey = createApiKey("Team OpenAI", "sk-test-key", "gpt-5.4", "OPEN AI");
+    expect(firstKey.key).toBe("sk-test-key");
+    expect(firstKey.model).toBe("gpt-5.4");
+    expect(firstKey.isActive).toBe(true);
+  });
+
+  it("does not make the second key active", () => {
+    secondKey = createApiKey("Team Gemini", "gm-test-key", "gemini-2.5-flash", "GEMINI");
+    expect(secondKey.key).toBe("gm-test-key");
+    expect(secondKey.isActive).toBe(false);
+  });
+
+  it("refuses a name that is already used, with other letter case and spaces", () => {
+    expect(() => createApiKey("  team openai ", "sk-other", "gpt-5.4", "OPEN AI")).toThrow(
+      "An API key with this name already exists.",
+    );
+  });
+
+  it(`refuses a key after ${MAX_API_KEYS} keys`, () => {
+    createApiKey("Key 3", "key-3", "model", "CLAUDE");
+    createApiKey("Key 4", "key-4", "model", "MISTRAL");
+    createApiKey("Key 5", "key-5", "model", "OLLAMA");
+    expect(() => createApiKey("Key 6", "key-6", "model", "GEMINI")).toThrow(
+      `Maximum ${MAX_API_KEYS} API keys allowed.`,
+    );
+    expect(getAllApiKeys()).toHaveLength(MAX_API_KEYS);
+  });
+});
+
+describe("reading keys", () => {
+  it("getAllApiKeys gives the fields, but never the key value", () => {
+    const keys = getAllApiKeys();
+    expect(keys).toHaveLength(MAX_API_KEYS);
+    for (const key of keys) {
+      for (const field of ["id", "name", "provider", "isActive", "createdAt", "updatedAt", "model"]) {
+        expect(key[field]).toBeDefined();
+      }
+      expect(key.key).toBeUndefined();
+    }
+  });
+
+  it("getActiveApiKey gives the active key with the plain key value", () => {
+    const activeKey = getActiveApiKey();
+    expect(activeKey.id).toBe(firstKey.id);
+    expect(activeKey.key).toBe("sk-test-key");
+  });
+
+  it("getApiKeyById gives the key, or null for an unknown id", () => {
+    expect(getApiKeyById(secondKey.id).name).toBe("Team Gemini");
+    expect(getApiKeyById(999999)).toBeNull();
+  });
+
+  it("getApiKeysWithValues gives the plain value of each key", () => {
+    const valuesByName = Object.fromEntries(getApiKeysWithValues().map((key) => [key.name, key.key]));
+    expect(valuesByName["Team OpenAI"]).toBe("sk-test-key");
+    expect(valuesByName["Team Gemini"]).toBe("gm-test-key");
+  });
+});
+
+describe("updateApiKey", () => {
+  it("changes the name, the key and the model", () => {
+    const updatedKey = updateApiKey(firstKey.id, "Team OpenAI 2", "sk-new-key", "gpt-5.5", "OPEN AI");
+    expect(updatedKey.name).toBe("Team OpenAI 2");
+    expect(updatedKey.key).toBe("sk-new-key");
+    expect(updatedKey.model).toBe("gpt-5.5");
+  });
+
+  it("refuses the name of another key", () => {
+    expect(() => updateApiKey(firstKey.id, "Team Gemini", "sk-new-key", "gpt-5.5", "OPEN AI")).toThrow(
+      "An API key with this name already exists.",
+    );
+  });
+
+  it("refuses an unknown id", () => {
+    expect(() => updateApiKey(999999, "Any name", "any-key", "model", "GEMINI")).toThrow("API key not found.");
+  });
+});
+
+describe("setActiveApiKey", () => {
+  it("makes the key active, and only that key", () => {
+    const activeKey = setActiveApiKey(secondKey.id);
+    expect(activeKey.id).toBe(secondKey.id);
+    const activeKeys = getAllApiKeys().filter((key) => key.isActive);
+    expect(activeKeys.map((key) => key.id)).toEqual([secondKey.id]);
+  });
+
+  it("refuses an unknown id", () => {
+    expect(() => setActiveApiKey(999999)).toThrow("API key not found.");
+  });
+});
+
+describe("deleteApiKey", () => {
+  it("makes another key active when the active key is deleted", () => {
+    expect(deleteApiKey(secondKey.id)).toEqual({ deleted: true });
+    expect(getApiKeyById(secondKey.id)).toBeNull();
+    const activeKey = getActiveApiKey();
+    expect(activeKey).not.toBeNull();
+    expect(activeKey.id).not.toBe(secondKey.id);
+  });
+
+  it("refuses an unknown id", () => {
+    expect(() => deleteApiKey(999999)).toThrow("API key not found.");
+  });
+});
