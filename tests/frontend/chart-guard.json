@@ -1,19 +1,19 @@
 {
   "files": {
-    "src/frontend/utils/echarts.js": "8b4943bf3e0c0d54a3d367d84feffd2a05b087fba868b8317c413c23e4d92533",
-    "src/frontend/utils/treeChart.js": "d5972c5689b5aee7e9a7bf6cea73e276bc615d5a25cd6db6fc84e62d370110fe",
-    "src/frontend/components/dashboards/chartTypes.js": "343048ebff0a9be7d7cc3917da4a8c319f768271a6611fc72ae87d92c90d4d68",
-    "src/frontend/components/overview/overviewChart.js": "69ab160c41f702aa4575508dc2072a0f49a0c06e0dbb224af81abc1f23aef87e",
-    "src/frontend/components/queries/currentQueriesCharts.js": "8e23482dd5ad796f6c6db1b490f367c51f72bdbce4b2ef7c1f02393ae71ff53c",
-    "src/frontend/components/layout/ChartCard.jsx": "e949efec8cb29c9a65cc66fd9188004d56ae65289458ac09539bc7074e2eb88f",
-    "src/frontend/components/common/ChartToolbar.jsx": "f9e86c9e8d52af61f9abae7b155f69d81eab2d51c50d3af5383ca71187320f69",
-    "src/frontend/components/layout/LogHeatmap.jsx": "17e393da08cb3a00a49d3b300bed77f330711e23c81ac49d0888ed8afcf2fa6e",
-    "src/frontend/components/queues/LatencySplitChart.jsx": "8ddedc2b6c71df2f261af5971f2f688b94e17351ea0906739772dbbe8086d3fa",
-    "src/frontend/components/queues/ThroughputChart.jsx": "937ebda3f9d28a4a0cdd271f27171a9d535d99089608a80ebd75c3e79b13752e",
-    "src/frontend/utils/theme.js": "26149f1a0d4b6874e89c7f2d3d4a1c45f3f5bde9190d619022e2da3f3aa9a81e"
+    "src/frontend/utils/echarts.js": "273925be9c2b5390fca6b8582b7667ae8d9e303fee32dd598fdb0d75c9a7841d",
+    "src/frontend/utils/treeChart.js": "0ff0610cfb3b323397986d85bd190275e8f369174722485df2725c0fe2db4025",
+    "src/frontend/components/dashboards/chartTypes.js": "f421a2f09c6431e7e03c092fbe8e23f7380489de7b4093ddea3fdb9a198500fd",
+    "src/frontend/components/overview/overviewChart.js": "bd986125361d1ebb1b1a5ebb5a2e1e4c76db501e263ba24f48cab72a0e91d428",
+    "src/frontend/components/queries/currentQueriesCharts.js": "c45c2fd08dd2d9182512ff0fecf981198c6fee42811b45ef6e91c613544cfb41",
+    "src/frontend/components/layout/ChartCard.jsx": "92d6c0af573c9e5bd56ed85fc1c16c900fe482715ad64b6aa4279c1e6ab925c5",
+    "src/frontend/components/common/ChartToolbar.jsx": "e0b665e11c419976acd8b28446716ab7ac5adbb1df3f9f0d89c7d77a7daea644",
+    "src/frontend/components/layout/LogHeatmap.jsx": "e74e6b5b016947b46ee872b52884243fd907d2149a77f1b5d76ed6dd3fde85ad",
+    "src/frontend/components/queues/LatencySplitChart.jsx": "302f6a2b99355e0d8ae8591484f5df3fa6b2f87e50b41e1af1e1d8cb2487dd41",
+    "src/frontend/components/queues/ThroughputChart.jsx": "c6e714f03a3a24b0e838f005d39891033bf8369991c71d829d50708124e6b4a3",
+    "src/frontend/utils/theme.js": "5667477d98aed7bc6b6c09dd183e6d927b9a2db4a51636b42cefc4994ba813e8"
   },
   "cssRuleCount": 17,
-  "cssRulesHash": "2d18638c34f757f6637f3a9b562512d9a54c2516a828b36fd48530bd4b824ec0",
+  "cssRulesHash": "e7e2a7c295a9d2b09aee5a733b23493d92651cd8f5f5d61d602950e62f404ae3",
   "approvedChanges": [
     "OSS testing f4e460a (PR #681, Midnight theme by the CHOps team): chart colors move to utils/theme.js; chart skeleton colors and no backdrop blur. Colors only. utils/theme.js added to the guard.",
     "Package 2: font name Red Hat Mono to Atkinson Hyperlegible Mono in echarts.js (tooltip) and overviewChart.js (fallback). Font name only.",
