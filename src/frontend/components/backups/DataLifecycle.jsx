@@ -3,38 +3,42 @@
 // Manages data retention policies and handles system backup and restoration procedures.
 
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
-import { runQuery, apiFetch } from "../../utils/api.js";
+import { runQuery, apiFetch, getGlobalConnection } from "../../utils/api.js";
+import {
+  previewStorage,
+  checkBackupRequest,
+  buildBackupSql,
+  makeBackupId,
+  backupTimestamp,
+} from "../../../shared/backupSql.js";
 import { SqlPreview } from "../layout/SharedComponents.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
-const pad = (n) => String(n).padStart(2, "0");
-function backupTimestamp() {
-  const d = new Date();
-  return `${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}_${pad(d.getMinutes())}_${pad(d.getSeconds())}`;
-}
-function escSql(str) {
-  return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
-// ClickHouse often echoes the failing query verbatim in its error message,
-// and these queries embed the storage profile's raw S3 secret key - strip
-// known secret values before the message reaches a log or a toast.
-function redactSecrets(text, ...secrets) {
-  if (typeof text !== "string") return text;
-  let redacted = text;
-  for (const secret of secrets) {
-    if (secret) redacted = redacted.split(secret).join("***");
-  }
-  return redacted;
+// Sends a backup page request as fields. The server builds the SQL and adds
+// the storage keys. It also removes the keys from error messages.
+function sendBackupRequest(fields) {
+  const conn = getGlobalConnection();
+  return apiFetch("/api/query", {
+    method: "POST",
+    body: JSON.stringify({
+      backup_sp: true,
+      backup: fields,
+      node: conn.nodeName,
+      clusterId: conn.clusterId,
+    }),
+  });
 }
 
-export default function DataLifecycle() {
+export default function DataLifecycle({mainRef}) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -91,10 +95,9 @@ export default function DataLifecycle() {
             <Icon className="ti ti-archive-filled"></Icon> Data Lifecycle
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>Data lifecycle management is only available for administrators.</span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>Data lifecycle management is only available for administrators.</p>
@@ -111,10 +114,9 @@ export default function DataLifecycle() {
         </h2>
       </div>
       {profiles.length === 0 && (
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-info-circle"></Icon> No storage profiles configured.
+        <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 14 }}> No storage profiles configured.
           Create one in Storage Profiles first.
-        </div>
+        </Notice>
       )}
       <div className="tab-bar">
         <div
@@ -139,33 +141,22 @@ export default function DataLifecycle() {
           clusters={clusters}
         />
       )}
-      {tab === "browse" && <AvailableBackupsTab profiles={profiles} />}
+      {tab === "browse" && <AvailableBackupsTab profiles={profiles} mainRef={mainRef} />}
     </div>
   );
 }
 
-function getS3Base(profile) {
-  if (!profile) return null;
-  if (profile.type === "gcs")
-    return {
-      endpoint: `https://storage.googleapis.com/${profile.bucket}`,
-      accessKeyId: profile.accessKeyId,
-      accessKey: profile.accessKey,
-    };
-  return {
-    endpoint: `${profile.endpoint || "https://s3.amazonaws.com"}${profile.bucket}`,
-    accessKeyId: profile.accessKeyId,
-    accessKey: profile.accessKey,
-  };
-}
-
-async function scanS3Manifests(s3, patterns) {
+// Each pattern is a path under backups/ that ends with manifest.json.
+async function scanS3Manifests(profile, patterns) {
   const allRows = [];
   const errors = [];
   for (const pattern of patterns) {
     try {
-      const sql = `SELECT _path, data FROM s3('${pattern}', '${escSql(s3.accessKeyId)}', '${escSql(s3.accessKey)}', 'RawBLOB', 'data String') LIMIT 500`;
-      const r = await runQuery(sql);
+      const r = await sendBackupRequest({
+        action: "list",
+        profileId: profile.id,
+        pattern,
+      });
       if (r.rows?.length) allRows.push(...r.rows);
     } catch (err) {
       const msg = err.message || "";
@@ -179,7 +170,7 @@ async function scanS3Manifests(s3, patterns) {
         msg.includes("TABLE_IS_READ_ONLY") ||
         msg.includes("CANNOT_EXTRACT_TABLE");
       if (!isExpectedEmpty) {
-        const shortPattern = pattern.split("/backups/")[1] || pattern;
+        const shortPattern = pattern;
         if (
           msg.includes("Unable to connect") ||
           msg.includes("Couldn't connect") ||
@@ -233,11 +224,8 @@ async function scanS3Manifests(s3, patterns) {
 }
 
 function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
-  const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const toast = useToast();
+  const [result , setResult] =useState(null)
   const [action, setAction] = useState("backup");
   const [isAsync, setIsAsync] = useState(false);
   const [scope, setScope] = useState("all");
@@ -248,6 +236,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   const [onCluster, setOnCluster] = useState("");
   const [profile, setProfile] = useState("");
   const [settingsStr, setSettingsStr] = useState("");
+  const [baseBackup, setBaseBackup] = useState("");
   const [selectedBackup, setSelectedBackup] = useState("");
   const [availableBackups, setAvailableBackups] = useState([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
@@ -262,181 +251,90 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         .then((r) => setTables((r.rows || []).map((r) => r.name)))
         .catch(() => setTables([]));
     else setTables([]);
-  }, [db, scope]);
+  }, [db, scope, setTables]);
 
   const selProfile = profiles.find((p) => p.name === profile);
-  const s3 = getS3Base(selProfile);
 
-  function buildBackupId() {
-    const ts = backupTimestamp();
-
-    if (scope === "table" && db && tbl) {
-      return `manual/TABLE/${db}.${tbl}/MANUAL_${db}.${tbl}__${ts}`;
-    }
-
-    if (scope === "database" && db) {
-      return `manual/DATABASE/${db}/MANUAL_${db}__${ts}`;
-    }
-
-    return `manual/ALL/MANUAL_ALL__${ts}`;
+  // The request fields. The page sends only the fields that fit the action and scope.
+  function requestFields() {
+    const isBackup = action === "backup";
+    return {
+      action,
+      scope,
+      database: scope === "all" ? "" : db,
+      table: scope === "table" ? tbl : "",
+      profileId: selProfile?.id,
+      onCluster,
+      async: isAsync,
+      exceptTables: isBackup && scope !== "table" ? exceptTables : "",
+      exceptDatabases: isBackup && scope === "all" ? exceptDatabases : "",
+      baseBackup: isBackup ? baseBackup : "",
+      backupId: isBackup ? "" : selectedBackup,
+      settings: settingsStr,
+    };
   }
 
-  function buildDestDisplay(path) {
-    if (!s3) return "'-- select profile --'";
-
-    return `S3('${s3.endpoint}/backups/${path}/', '${selProfile.accessKeyId}', '***')`;
-  }
-
-  function buildDestReal(path) {
-    if (!s3) return "'-- select profile --'";
-
-    return `S3(
-    '${s3.endpoint}/backups/${path}/',
-    '${escSql(s3.accessKeyId)}',
-    '${escSql(s3.accessKey)}'
-  )`;
-  }
-
-  function buildSqlParts(destFn) {
-    const parts = [action.toUpperCase()];
-
-    if (action === "backup") {
-      if (scope === "table" && db && tbl) {
-        parts.push(`TABLE ${db}.${tbl}`);
-      } else if (scope === "database" && db) {
-        parts.push(`DATABASE ${db}`);
-      } else {
-        parts.push("ALL");
-      }
-
-      if (exceptTables.trim()) {
-        parts.push(`EXCEPT TABLES ${exceptTables.trim()}`);
-      }
-
-      if (exceptDatabases.trim() && scope === "all") {
-        parts.push(`EXCEPT DATABASES ${exceptDatabases.trim()}`);
-      }
-
-      if (onCluster) {
-        parts.push(`ON CLUSTER '${onCluster}'`);
-      }
-
-      parts.push("TO");
-      parts.push(destFn(buildBackupId()));
-    } else {
-      if (scope === "table" && db && tbl) {
-        parts.push(`TABLE ${db}.${tbl}`);
-      } else if (scope === "database" && db) {
-        parts.push(`DATABASE ${db}`);
-      } else {
-        parts.push("ALL");
-      }
-
-      if (onCluster) {
-        parts.push(`ON CLUSTER '${onCluster}'`);
-      }
-
-      parts.push("FROM");
-
-      parts.push(
-        selectedBackup ? destFn(selectedBackup) : "'-- select backup --'",
-      );
-    }
-
-    if (settingsStr.trim()) {
-      parts.push(`SETTINGS ${settingsStr.trim()}`);
-    }
-
-    if (isAsync) parts.push("ASYNC");
-
-    return parts.join(" ");
-  }
-
+  // The preview uses the same fields and the same builder as the server, with masked keys.
   function buildSql() {
-    return buildSqlParts(buildDestDisplay);
-  }
-
-  function buildRealSql() {
-    return buildSqlParts(buildDestReal);
+    if (!selProfile) return "-- Select a storage profile.";
+    if (action === "restore" && !selectedBackup) return "-- Select a backup.";
+    try {
+      const clean = checkBackupRequest(requestFields());
+      const backupId =
+        action === "backup"
+          ? makeBackupId(clean.scope, clean.database, clean.table, backupTimestamp())
+          : clean.backupId;
+      return buildBackupSql(clean, previewStorage(selProfile), backupId);
+    } catch (err) {
+      return `-- ${err.message}`;
+    }
   }
 
   async function execute() {
-    const backupId = buildBackupId();
-
     try {
       setExecuting(true);
 
-      const sql = buildRealSql();
-
-      await runQuery(sql);
-
-      toast.success(`${action.toUpperCase()} executed successfully.`);
-
-      if (action === "backup" && s3) {
-        try {
-          await writeManifest(backupId);
-        } catch (err) {
-          const manifestMsg = redactSecrets(
-            err.message,
-            s3.accessKey,
-            s3.accessKeyId,
-          );
-          console.error("Manifest write failed:", manifestMsg);
-
-          toast.warning(
-            `Backup completed, but manifest write failed: ${manifestMsg}`,
-          );
-        }
+      const response = await sendBackupRequest(requestFields());
+      if (response?.manifest_error) {
+        console.error("Manifest write failed:", response.manifest_error);
+        setResult({ok:false, msg:`Backup completed, but manifest write failed: ${response.manifest_error}`})
+      } else {
+        setResult({
+          ok: true,
+          msg: `${action.toUpperCase()} executed successfully.`,
+        });
       }
     } catch (err) {
-      const msg =
-        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId) ||
-        "Unknown error";
+      const msg = err.message || "Unknown error";
       console.error(`${action.toUpperCase()} failed:`, msg);
 
       if (msg.includes("Access Denied") || msg.includes("403")) {
-        toast.error(
-          `S3 access denied. Check your storage profile credentials. Details: ${msg}`,
-        );
-      } else if (msg.includes("NoSuchBucket") || msg.includes("bucket")) {
-        toast.error(
-          `S3 bucket not found. Verify the bucket name in your storage profile. Details: ${msg}`,
-        );
+        setResult({ok:false, msg:`Storage access denied. Check your storage profile credentials. Details: ${msg}`})
+      } else if (msg.includes("NoSuchBucket") || msg.includes("bucket") || msg.includes("ContainerNotFound")) {
+        setResult({ok:false, msg:`Bucket or container not found. Verify the name in your storage profile. Details: ${msg}`})
       } else if (msg.includes("connect") || msg.includes("ECONNREFUSED")) {
-        toast.error(
-          `Cannot reach S3 endpoint. Check the endpoint URL in your storage profile. Details: ${msg}`,
-        );
+        setResult({ok:false, msg:`Cannot reach the storage endpoint. Check the endpoint in your storage profile. Details: ${msg}`})
       } else {
-        toast.error(`${action.toUpperCase()} failed: ${msg}`);
+        setResult({ok:false, msg:`${action.toUpperCase()} failed: ${msg}`})
       }
     } finally {
+      setScope("all");
+      setDb("");
+      setTbl("");
+      setExceptDatabases("");
+      setExceptTables("");
+      setBaseBackup("");
+      setOnCluster("");
+      setIsAsync(false);
+      setProfile("");
+      setSettingsStr("");
       setExecuting(false);
+            setAvailableBackups([])
     }
   }
 
-  async function writeManifest(backupId) {
-    const manifest = {
-      backup_id: backupId,
-      display_name: backupId.split("/").pop(),
-      backup_type: "manual",
-      scope,
-      database: db || null,
-      tables: tbl || null,
-      created_at: new Date().toISOString(),
-      s3_path: `${s3.endpoint}/backups/${backupId}/`,
-    };
-
-    const manifestJson = JSON.stringify(manifest);
-
-    const manifestKey = `backups/${backupId}/manifest.json`;
-
-    await runQuery(
-      `INSERT INTO FUNCTION s3('${s3.endpoint}/${manifestKey}', '${escSql(s3.accessKeyId)}', '${escSql(s3.accessKey)}', 'RawBLOB', 'data String') VALUES ('${escSql(manifestJson)}')`,
-    );
-  }
-
-  async function listBackups() {
-    if (!s3) {
+ async function listBackups() {
+    if (!selProfile) {
       toast.warning("Select a storage profile first.");
       return;
     }
@@ -445,56 +343,54 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
     setAvailableBackups([]);
     setScanErrors([]);
 
-    const base = `${s3.endpoint}/backups`;
-
     let patterns = [];
 
     if (scope === "all") {
       patterns = [
-        `${base}/manual/ALL/*/manifest.json`,
-        `${base}/manual/DATABASE/*/manifest.json`,
-        `${base}/manual/DATABASE/*/*/manifest.json`,
-        `${base}/manual/TABLE/*/*/manifest.json`,
-        `${base}/manual/TABLE/*/*/*/manifest.json`,
+        `manual/ALL/*/manifest.json`,
+        `manual/DATABASE/*/manifest.json`,
+        `manual/DATABASE/*/*/manifest.json`,
+        `manual/TABLE/*/*/manifest.json`,
+        `manual/TABLE/*/*/*/manifest.json`,
       ];
     } else if (scope === "database") {
       if (db) {
         patterns = [
-          `${base}/manual/DATABASE/${db}/manifest.json`,
-          `${base}/manual/DATABASE/${db}/*/manifest.json`,
-          `${base}/manual/TABLE/${db}.*/manifest.json`,
-          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
+          `manual/DATABASE/${db}/manifest.json`,
+          `manual/DATABASE/${db}/*/manifest.json`,
+          `manual/TABLE/${db}.*/manifest.json`,
+          `manual/TABLE/${db}.*/*/*/manifest.json`,
         ];
       } else {
         patterns = [
-          `${base}/manual/DATABASE/*/manifest.json`,
-          `${base}/manual/DATABASE/*/*/manifest.json`,
-          `${base}/manual/TABLE/*/manifest.json`,
-          `${base}/manual/TABLE/*/*/manifest.json`,
+          `manual/DATABASE/*/manifest.json`,
+          `manual/DATABASE/*/*/manifest.json`,
+          `manual/TABLE/*/manifest.json`,
+          `manual/TABLE/*/*/manifest.json`,
         ];
       }
     } else if (scope === "table") {
       if (db && tbl) {
         patterns = [
-          `${base}/manual/TABLE/${db}.${tbl}/manifest.json`,
-          `${base}/manual/TABLE/${db}.${tbl}/*/manifest.json`,
+          `manual/TABLE/${db}.${tbl}/manifest.json`,
+          `manual/TABLE/${db}.${tbl}/*/manifest.json`,
         ];
       } else if (db) {
         patterns = [
-          `${base}/manual/TABLE/${db}.*/manifest.json`,
-          `${base}/manual/TABLE/${db}.*/*/*/manifest.json`,
+          `manual/TABLE/${db}.*/manifest.json`,
+          `manual/TABLE/${db}.*/*/*/manifest.json`,
         ];
       } else {
         patterns = [
-          `${base}/manual/TABLE/*/manifest.json`,
-          `${base}/manual/TABLE/*/*/manifest.json`,
-          `${base}/manual/TABLE/*/*/*/manifest.json`,
+          `manual/TABLE/*/manifest.json`,
+          `manual/TABLE/*/*/manifest.json`,
+          `manual/TABLE/*/*/*/manifest.json`,
         ];
       }
     }
 
     try {
-      const { backups, errors } = await scanS3Manifests(s3, patterns);
+      const { backups, errors } = await scanS3Manifests(selProfile, patterns);
 
       const filtered = backups;
 
@@ -514,7 +410,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
 
       if (!filtered.length && !errors.length) {
         toast.info(
-          `No ${scope === "all" ? "" : scope + " "}backups found in S3.`,
+          `No ${scope === "all" ? "" : scope + " "}backups found in the storage.`,
         );
       } else if (!filtered.length && errors.length) {
         toast.warning("Scan completed with errors. No matching backups found.");
@@ -526,10 +422,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
         );
       }
     } catch (err) {
-      console.error(
-        "Backup scan failed:",
-        redactSecrets(err.message, s3?.accessKey, s3?.accessKeyId),
-      );
+      console.error("Backup scan failed:", err.message);
       toast.error("Failed to scan backups.");
     } finally {
       setLoadingBackups(false);
@@ -537,8 +430,19 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
   }
 
   return (
-    <div className="card" style={{ padding: 20 }}>
-      <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+    <>
+      {result && (
+        <Notice
+          tone={result.ok ? "success" : "danger"}
+          icon={result.ok ? "ti-check" : "ti-alert-circle"}
+          onDismiss={() => setResult(null)}
+          style={{ marginBottom: 14 }}
+        >
+          {result.msg}
+        </Notice>
+        )}
+      <div className="card" style={{ padding: 20 }}>
+      <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
         <Icon className="ti ti-settings-filled"></Icon> Manual Backup / Restore
       </h4>
       <div
@@ -549,8 +453,7 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
           marginBottom: 20,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Action *</label>
+        <FormField label="Action *">
           <Select
             className="form-select"
             value={action}
@@ -564,9 +467,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             <option value="backup">BACKUP</option>
             <option value="restore">RESTORE</option>
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Scope</label>
+        </FormField>
+        <FormField label="Scope">
           <Select
             className="form-select"
             value={scope}
@@ -579,10 +481,9 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
             <option value="database">DATABASE</option>
             <option value="table">TABLE</option>
           </Select>
-        </div>
+        </FormField>
         {(scope === "database" || scope === "table") && (
-          <div className="form-group">
-            <label className="form-label">Database</label>
+          <FormField label="Database">
             <Select
               className="form-select"
               value={db}
@@ -596,11 +497,10 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 <option key={d}>{d}</option>
               ))}
             </Select>
-          </div>
+          </FormField>
         )}
         {scope === "table" && (
-          <div className="form-group">
-            <label className="form-label">Table</label>
+          <FormField label="Table">
             <Select
               className="form-select"
               value={tbl}
@@ -611,10 +511,9 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                 <option key={t}>{t}</option>
               ))}
             </Select>
-          </div>
+          </FormField>
         )}
-        <div className="form-group">
-          <label className="form-label">Storage Profile *</label>
+        <FormField label="Storage Profile *">
           <Select
             className="form-select"
             value={profile}
@@ -627,9 +526,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">ON CLUSTER</label>
+        </FormField>
+        <FormField label="ON CLUSTER">
           <Select
             className="form-select"
             value={onCluster}
@@ -640,67 +538,52 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
-        </div>
-        <div
-          className="form-group"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            paddingTop: 22,
-            gap: 6,
-          }}
-        >
-          <label
-            style={{
-              display: "flex",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={isAsync}
-              onChange={(e) => setIsAsync(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />{" "}
-            ASYNC
-          </label>
-        </div>
+        </FormField>
+        <ToggleSwitch checked={isAsync}
+              onChange={(e) => setIsAsync(e.target.checked)} label="ASYNC"/>
       </div>
       {action === "backup" && (
         <div style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
-            <Icon className="ti ti-filter"></Icon> Exceptions
+          <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
+            <Icon className="ti ti-filter"></Icon> Exceptions and Base Backup
           </h4>
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
           >
-            <div className="form-group">
-              <label className="form-label">EXCEPT TABLES</label>
-              <input
-                className="form-input"
-                value={exceptTables}
-                onChange={(e) => setExceptTables(e.target.value)}
-                placeholder="db.table1, db.table2"
-              />
-            </div>
+            {scope !== "table" && (
+              <FormField label="EXCEPT TABLES">
+                <Input
+                  value={exceptTables}
+                  onChange={(e) => setExceptTables(e.target.value)}
+                  placeholder="db.table1, db.table2"
+                />
+              </FormField>
+            )}
             {scope === "all" && (
-              <div className="form-group">
-                <label className="form-label">EXCEPT DATABASES</label>
-                <input
-                  className="form-input"
+              <FormField label="EXCEPT DATABASES">
+                <Input
                   value={exceptDatabases}
                   onChange={(e) => setExceptDatabases(e.target.value)}
                 />
-              </div>
+              </FormField>
             )}
+            <div className="form-group">
+              <label className="form-label">BASE BACKUP</label>
+              <Input
+                value={baseBackup}
+                onChange={(e) => setBaseBackup(e.target.value)}
+                placeholder="manual/ALL/MANUAL_ALL__2026_01_01_02_00_00"
+              />
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                Backup ID of an earlier backup. Set it for an incremental backup.
+              </span>
+            </div>
           </div>
         </div>
       )}
       {action === "restore" && (
         <div style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+          <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
             <Icon className="ti ti-cloud-download"></Icon> Select Backup
           </h4>
           <div
@@ -711,8 +594,8 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               marginBottom: 12,
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={listBackups}
               disabled={loadingBackups || !profile}
             >
@@ -725,22 +608,15 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                   <Icon className="ti ti-refresh"></Icon> List Available Backups
                 </>
               )}
-            </button>
+            </Button>
           </div>
           {scanErrors.length > 0 && (
-            <div
-              className="alert-banner info"
-              style={{ marginBottom: 12, fontSize: "13px" }}
-            >
-              <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
+            <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 12, fontSize: "0.8125rem" }}> Some S3 paths could not be
               scanned: {scanErrors.join("; ")}
-            </div>
+            </Notice>
           )}
           {availableBackups.length > 0 && (
-            <div className="form-group">
-              <label className="form-label">
-                Available Backups ({availableBackups.length}, newest first)
-              </label>
+            <FormField label={<>Available Backups ({availableBackups.length}, newest first)</>}>
               <Select
                 className="form-select"
                 value={selectedBackup}
@@ -753,42 +629,34 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
                   </option>
                 ))}
               </Select>
-            </div>
+            </FormField>
           )}
         </div>
       )}
-      <h4 style={{ fontSize: "15px", marginBottom: 14 }}>
+      <h4 style={{ fontSize: "0.9375rem", marginBottom: 14 }}>
         <Icon className="ti ti-adjustments"></Icon> SETTINGS
       </h4>
       <div className="form-group" style={{ marginBottom: 20 }}>
-        <input
-          className="form-input"
+        <Input
           value={settingsStr}
           onChange={(e) => setSettingsStr(e.target.value)}
-          placeholder="base_backup = ..., compression_method = 'lz4'"
+          placeholder="compression_method = 'lz4', compression_level = 3"
         />
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-          base_backup, compression_method, s3_storage_class
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          Use name = value pairs, split by commas. A value is a number, a word or a quoted text. Set base_backup in the BASE BACKUP field.
         </span>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginBottom: 20 }}>
-        <div
-          className="alert-banner info"
-          style={{ marginTop: 10, marginBottom: 0, fontSize: "12px", padding: "6px" }}
-        >
-          <Icon
-            style={{ fontSize: "15px", paddingTop: "2px" }}
-            className="ti ti-info-circle"
-          ></Icon>
+        <Notice tone="info" icon="ti-info-circle" style={{ marginTop: 10, marginBottom: 0, fontSize: "0.75rem", padding: "6px" }}>
           <span>
             Backup duration varies depending on dataset size, number of files, network bandwidth, and object storage performance. Large backups may take several hours to complete.
           </span>
-        </div>
+        </Notice>
       </div>
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           onClick={execute}
           disabled={
             !profile ||
@@ -808,25 +676,28 @@ function ManualBackupTab({ profiles, databases, tables, setTables, clusters }) {
               Execute {action.toUpperCase()}
             </>
           )}
-        </button>
+        </Button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
-function AvailableBackupsTab({ profiles }) {
+function AvailableBackupsTab({ profiles,mainRef }) {
   const toast = useToast();
   const [profile, setProfile] = useState("");
   const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState("all");
+  const [filter] = useState("all");
   const [scanErrors, setScanErrors] = useState([]);
 
   const selProfile = profiles.find((p) => p.name === profile);
-  const s3 = getS3Base(selProfile);
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(500,mainRef)
 
-  async function loadBackups() {
-    if (!s3) {
+
+   async function loadBackups() {
+    if (!selProfile) {
       toast.warning("Select a storage profile first.");
       return;
     }
@@ -834,24 +705,23 @@ function AvailableBackupsTab({ profiles }) {
     setBackups([]);
     setScanErrors([]);
 
-    const base = `${s3.endpoint}/backups`;
     const patterns = [];
     if (filter === "all" || filter === "manual") {
-      patterns.push(`${base}/manual/*/manifest.json`);
-      patterns.push(`${base}/manual/*/*/manifest.json`);
-      patterns.push(`${base}/manual/*/*/*/manifest.json`);
-      patterns.push(`${base}/manual/*/*/*/*/manifest.json`);
-      patterns.push(`${base}/ALL/*/manifest.json`);
-      patterns.push(`${base}/DATABASE/*/*/manifest.json`);
-      patterns.push(`${base}/TABLE/*/*/manifest.json`);
+      patterns.push(`manual/*/manifest.json`);
+      patterns.push(`manual/*/*/manifest.json`);
+      patterns.push(`manual/*/*/*/manifest.json`);
+      patterns.push(`manual/*/*/*/*/manifest.json`);
+      patterns.push(`ALL/*/manifest.json`);
+      patterns.push(`DATABASE/*/*/manifest.json`);
+      patterns.push(`TABLE/*/*/manifest.json`);
     }
 
-    const { backups: found, errors } = await scanS3Manifests(s3, patterns);
+    const { backups: found, errors } = await scanS3Manifests(selProfile, patterns);
     setBackups(found);
     setScanErrors(errors);
     if (!found.length && !errors.length)
       toast.info(
-        "No backups found. The S3 bucket may be empty or the profile credentials may be incorrect.",
+        "No backups found. The bucket or container may be empty or the profile credentials may be incorrect.",
       );
     else if (!found.length && errors.length)
       toast.warning(
@@ -874,8 +744,7 @@ function AvailableBackupsTab({ profiles }) {
           flexWrap: "wrap",
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Storage Profile *</label>
+        <FormField label="Storage Profile *">
           <Select
             className="form-select"
             value={profile}
@@ -888,20 +757,9 @@ function AvailableBackupsTab({ profiles }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Filter</label>
-          <Select
-            className="form-select"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All Backups</option>
-            <option value="manual">Manual Only</option>
-          </Select>
-        </div>
-        <button
-          className="btn btn-primary btn-sm"
+        </FormField>
+        <Button
+          variant="primary" size="sm"
           onClick={loadBackups}
           disabled={loading || !profile}
         >
@@ -914,17 +772,13 @@ function AvailableBackupsTab({ profiles }) {
               <Icon className="ti ti-refresh"></Icon> Scan S3
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {scanErrors.length > 0 && (
-        <div
-          className="alert-banner info"
-          style={{ marginBottom: 14, fontSize: "13px" }}
-        >
-          <Icon className="ti ti-info-circle"></Icon> Some S3 paths could not be
+        <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 14, fontSize: "0.8125rem" }}> Some S3 paths could not be
           scanned: {scanErrors.join("; ")}
-        </div>
+        </Notice>
       )}
 
       {backups.length > 0 ? (
@@ -934,11 +788,9 @@ function AvailableBackupsTab({ profiles }) {
               <thead>
                 <tr>
                   <th>Backup ID</th>
-                  <th>Type</th>
                   <th>Scope</th>
                   <th>Created</th>
-                  <th>Incremental</th>
-                  <th>Retention</th>
+                  <th>Backup Type</th>
                 </tr>
               </thead>
               <tbody>
@@ -947,7 +799,8 @@ function AvailableBackupsTab({ profiles }) {
                     <td
                       style={{
                         fontFamily: "var(--font-code)",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
+                        wordBreak: "break-all",
                       }}
                     >
                       {b.display_name || b.backup_id}
@@ -969,7 +822,6 @@ function AvailableBackupsTab({ profiles }) {
                         <span className="badge badge-green">FULL</span>
                       )}
                     </td>
-                    <td>{b.retention_days ? `${b.retention_days}d` : "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -978,7 +830,7 @@ function AvailableBackupsTab({ profiles }) {
         </div>
       ) : (
         !loading && (
-          <div className="empty-state">
+           <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
             <Icon className="ti ti-cloud-off"></Icon>
             <p>Select a profile and click Scan S3 to discover backups.</p>
           </div>

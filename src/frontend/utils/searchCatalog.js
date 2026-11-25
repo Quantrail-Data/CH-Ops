@@ -1,18 +1,6 @@
-// Global search catalog.
-//
-// One entry per navigable page. Each entry carries a curated `keywords` list and
-// a short `description` in addition to its label, because a raw sidebar label
-// rarely contains the words a user actually types. For example "DDL queue block"
-// matches nothing against the label "DDL & Readonly", but matches strongly
-// against that page's keywords ("ddl queue", "on-cluster queue", "blocked",
-// "stuck"). The engine ranks what it is given; the quality lives in this list.
-//
-// Every `id` here must be a real route id (see CORE_ROUTES in MainLayout.jsx) so
-// navigating to it works. A test guards this both ways (no orphan entries, no
-// missing pages).
-//
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
+// Contributors -> Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// searchCatalog.js - global search catalog
 
 import { BREADCRUMB_MAP } from "./routeMeta.js";
 import { PAGE_HEADERS, PAGE_TEXT } from "./pageHeaders.generated.js";
@@ -20,6 +8,7 @@ import { PAGE_HEADERS, PAGE_TEXT } from "./pageHeaders.generated.js";
 // Top-level section -> sidebar icon, so a result row shows the same glyph as the
 // sidebar. Mirrors the icons in Sidebar.jsx CORE_NAV_ITEMS.
 export const SECTION_ICONS = {
+  Home: "ti-home",
   Overview: "ti-eye",
   Tools: "ti-terminal-2",
   Dashboards: "ti-chart-pie",
@@ -33,13 +22,22 @@ export const SECTION_ICONS = {
 };
 
 export const SEARCH_CATALOG = [
-  // Overview
+ // Home
+ {
+ id: "home",
+ title: "Home",
+ section: "Home",
+ description: "Landing page with a card for each main task in CHOps.",
+ keywords: ["home", "landing page", "start page", "start", "all sections", "main menu"],
+ },
+
+ // Overview
   {
     id: "overview/cluster",
     title: "Cluster Overview",
     section: "Overview",
     description: "Node health dashboard: status cards, disk, RAM, Keeper, readonly tables.",
-    keywords: ["node overview", "cluster health", "status cards", "disk", "ram", "memory", "keeper", "zookeeper", "replicas", "readonly tables", "uptime", "landing page", "home"],
+    keywords: ["node overview", "cluster health", "status cards", "disk", "ram", "memory", "keeper", "zookeeper", "replicas", "readonly tables", "uptime"],
   },
   {
     id: "overview/summary",
@@ -75,6 +73,13 @@ export const SEARCH_CATALOG = [
     section: "Overview",
     description: "Replication and distributed task queues, stuck tasks.",
     keywords: ["replication queue", "distributed queue", "task queue", "stuck tasks", "blocked queue", "queue backlog", "fetch queue"],
+  },
+  {
+    id: "overview/kubernetes",
+    title: "Kubernetes Insights",
+    section: "Overview",
+    description: "Topology, reconcile progress, storage, network, events and pod logs.",
+    keywords: ["kubernetes", "k8s", "operator", "pods", "shards", "replicas", "reconcile", "pod logs", "storage expansion", "topology", "keeper"],
   },
   {
     id: "overview/ddl",
@@ -319,6 +324,20 @@ export const SEARCH_CATALOG = [
     description: "Notification channels: email, Slack, Google Chat, Teams, PagerDuty.",
     keywords: ["alert channels", "notification channels", "email", "slack", "webhook", "pagerduty", "microsoft teams", "google chat", "notify", "integrations"],
   },
+    {
+    id: "admin/trusted-cas",
+    title: "Trusted CAs",
+    section: "Admin",
+    description: "Certificate authorities CHOps trusts when connecting to ClickHouse over TLS.",
+    keywords: ["certificate", "certificate authority", "ca", "tls", "ssl", "https", "self-signed", "internal ca", "unable to verify"],
+  },
+  {
+    id: "admin/app-config",
+    title: "App Config",
+    section: "Admin",
+    description: "Limits on exports, queries and other CHOps behaviour.",
+    keywords: ["config", "settings", "limits", "export limit", "quota", "storage", "concurrent"],
+  },
   {
     id: "admin/api-management",
     title: "AI API Keys",
@@ -329,13 +348,7 @@ export const SEARCH_CATALOG = [
 ];
 
 // Fold in already-existing constants (breadcrumb labels + scraped headers).
-// The curated `keywords` above carry intent and synonyms. On top of them we
-// merge two constant sources that already exist in the codebase, so they stay
-// in sync automatically:
-//   1. BREADCRUMB_MAP  - section, page, and sub-tab labels per route.
-//   2. PAGE_HEADERS     - constant in-page section headers scraped at build time.
-// Token search (with IDF) down-weights the generic labels this adds, so the
-// merge improves recall without drowning out the specific terms.
+
 
 function breadcrumbTerms(id) {
   const out = [];

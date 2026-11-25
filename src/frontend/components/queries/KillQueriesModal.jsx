@@ -1,0 +1,303 @@
+// KillQueriesModal.jsx - confirm, run and verify a kill of one or more queries
+// Contributors - Kathirmoorthy, Kathirdhasan, Praveen
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
+// One statement per id, never a predicate, so a kill cannot catch a newer query.
+
+// The kill response says nothing, so success comes from re-reading processes.
+
+import { useEffect, useRef, useState } from "react";
+import Icon from "../common/Icon.jsx";
+import { runQuery } from "../../utils/api.js";
+import {
+  buildKillSql,
+  diffKilled,
+  isSafeQueryId,
+  KILL_CONCURRENCY,
+  runBounded,
+  TYPED_CONFIRM_THRESHOLD,
+} from "./processesModel.js";
+import { Button, Input, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
+
+export default function KillQueriesModal({ targets, scopeLabel, defaultSync = false, onVerify, onClose, onFinished }) {
+  const [phase, setPhase] = useState("confirm"); // confirm | running | done
+  const [sync, setSync] = useState(!!defaultSync);
+  const [typed, setTyped] = useState("");
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [result, setResult] = useState(null);
+  const cancelled = useRef(false);
+
+  useEffect(() => () => {
+    cancelled.current = true;
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape" && phase !== "running") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, phase]);
+
+  // Re-checked here: query_id is client-settable in ClickHouse.
+  const ids = targets.map((t) => t.query_id).filter(isSafeQueryId);
+  const rejected = targets.length - ids.length;
+
+  const needsTyped = ids.length >= TYPED_CONFIRM_THRESHOLD;
+  const confirmWord = String(ids.length);
+  const canConfirm = ids.length > 0 && (!needsTyped || typed.trim() === confirmWord);
+
+  async function execute() {
+    setPhase("running");
+    setProgress({ done: 0, total: ids.length });
+
+    const outcomes = await runBounded(
+      ids,
+      (id) => runQuery(buildKillSql(id, { sync })),
+      {
+        limit: KILL_CONCURRENCY,
+        onProgress: (done, total) => {
+          if (!cancelled.current) setProgress({ done, total });
+        },
+      },
+    );
+
+    const failed = outcomes.filter((o) => !o.ok);
+
+    // ASYNC returns as soon as the flag is set, so give them a moment to notice.
+    await new Promise((r) => setTimeout(r, 600));
+
+    let gone = [];
+    let stillRunning = ids;
+    try {
+      const fresh = await onVerify();
+      ({ gone, stillRunning } = diffKilled(ids, fresh));
+    } catch {
+      // Unknown. Say so rather than claim success.
+      gone = [];
+      stillRunning = [];
+    }
+
+    if (cancelled.current) return;
+    setResult({ requested: ids.length, gone, stillRunning, failed, verified: gone.length + stillRunning.length > 0 });
+    setPhase("done");
+    onFinished?.();
+  }
+
+  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+
+  return (
+    <Modal onClose={phase === "running" ? undefined : onClose} overlayStyle={{ zIndex: 1700 }} style={{ maxWidth: 560, width: "92%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <Icon className="ti ti-alert-triangle" style={{ color: "var(--color-danger)" }} />
+          <span style={{ fontWeight: 600 }}>
+            {phase === "done" ? "Kill result" : `Kill queries (${sync ? "SYNC" : "ASYNC"})`}
+          </span>
+          {phase !== "running" && (
+            <Button variant="ghost" size="sm" style={{ marginLeft: "auto" }} onClick={onClose}>
+              <Icon className="ti ti-x" />
+            </Button>
+          )}
+        </div>
+
+        {phase === "confirm" && (
+          <>
+            <p style={{ fontSize: "0.875rem", marginBottom: 10 }}>
+              Kill <strong>{ids.length.toLocaleString()}</strong>{" "}
+              {ids.length === 1 ? "query" : "queries"} {scopeLabel}.
+            </p>
+
+            <Notice tone="info" icon="ti-info-circle" style={{ marginBottom: 12, fontSize: "0.75rem", alignItems: "flex-start" }}>
+              <span>
+                Only the queries listed here are killed, each by its own id. Anything started since
+                the last refresh is not affected, so you may need to run this again.
+              </span>
+            </Notice>
+
+            {rejected > 0 && (
+              <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 12, fontSize: "0.75rem" }}>
+                <span>
+                  {rejected} {rejected === 1 ? "query was" : "queries were"} skipped: the id contains
+                  characters that are not safe to send.
+                </span>
+              </Notice>
+            )}
+
+            <div
+              style={{
+                maxHeight: 140,
+                overflow: "auto",
+                fontFamily: "var(--font-code, monospace)",
+                fontSize: "0.6875rem",
+                color: "var(--text-muted)",
+                border: "1px solid var(--border-default, rgba(255,255,255,0.1))",
+                borderRadius: 6,
+                padding: 8,
+                marginBottom: 12,
+              }}
+            >
+              {targets.slice(0, 40).map((t) => (
+                <div key={t.query_id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {t.user} {t.query_id}
+                </div>
+              ))}
+              {targets.length > 40 && <div>and {targets.length - 40} more</div>}
+            </div>
+
+            <fieldset
+              style={{
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-sm, 6px)",
+                padding: "8px 12px 10px",
+                marginBottom: 12,
+              }}
+            >
+              <legend style={{ fontSize: "0.6875rem", color: "var(--text-muted)", padding: "0 4px" }}>Mode</legend>
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.75rem", cursor: "pointer", marginBottom: 6 }}>
+                <input type="radio" name="kill-mode" checked={!sync} onChange={() => setSync(false)} />
+                <span>
+                  <strong>ASYNC</strong>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {" "}
+                    flags each query and returns at once. The result below comes from re-reading
+                    system.processes afterwards.
+                  </span>
+                </span>
+              </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.75rem", cursor: "pointer" }}>
+                <input type="radio" name="kill-mode" checked={sync} onChange={() => setSync(true)} />
+                <span>
+                  <strong>SYNC</strong>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {" "}
+                    holds each request open until the query has actually stopped.
+                    {ids.length > 1 &&
+                      ` With ${ids.length.toLocaleString()} targets that waits on every one and will take a while.`}
+                    {" "}A query stuck in an uninterruptible stage can hold its request open for a long time.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+
+            {needsTyped && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Type <strong>{confirmWord}</strong> to confirm
+                </label>
+                <Input
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  placeholder={confirmWord}
+                  autoFocus
+                  style={{ width: 140 }}
+                />
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Button variant="secondary" size="sm" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger" size="sm"
+                onClick={execute}
+                disabled={!canConfirm}
+                style={!canConfirm ? { opacity: 0.4, cursor: "not-allowed" } : {}}
+              >
+                <Icon className="ti ti-player-stop" /> Kill {ids.length.toLocaleString()}{" "}
+                {sync ? "(SYNC)" : "(ASYNC)"}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {phase === "running" && (
+          <>
+            <p style={{ fontSize: "0.875rem", marginBottom: 10 }}>
+              Killing {progress.done.toLocaleString()} of {progress.total.toLocaleString()}...
+            </p>
+            <div style={{ height: 8, background: "var(--bg-page)", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: 8, width: `${pct}%`, background: "var(--color-danger)", transition: "width .2s" }} />
+            </div>
+            <p style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 8 }}>
+              {KILL_CONCURRENCY} at a time, {sync ? "SYNC" : "ASYNC"}. Refresh is paused until this finishes.
+            </p>
+          </>
+        )}
+
+        {phase === "done" && result && (
+          <>
+            {!result.verified ? (
+              <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 12, fontSize: "0.8125rem" }}>
+                <span>
+                  {result.requested.toLocaleString()} kill requests were sent, but the follow-up
+                  check did not complete, so the outcome is unconfirmed. Refresh to see the current
+                  state.
+                </span>
+              </Notice>
+            ) : (
+              <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                <Stat label="Requested" value={result.requested} />
+                <Stat label="Gone" value={result.gone.length} tone="success" />
+                <Stat label="Still running" value={result.stillRunning.length} tone={result.stillRunning.length ? "danger" : undefined} />
+              </div>
+            )}
+
+            {result.verified && (
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 10 }}>
+                Sent as {sync ? "SYNC" : "ASYNC"}. Gone counts queries no longer in
+                system.processes, and some of those may have finished on their own rather than been
+                killed.
+              </p>
+            )}
+
+            {result.stillRunning.length > 0 && (
+              <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 12, fontSize: "0.75rem" }}>
+                <span>
+                  {result.stillRunning.length} still running. A query can only stop at a
+                  cancellation point, so one in an uninterruptible stage may take longer or refuse.
+                </span>
+              </Notice>
+            )}
+
+            {result.failed.length > 0 && (
+              <div
+                style={{
+                  maxHeight: 120,
+                  overflow: "auto",
+                  fontSize: "0.6875rem",
+                  color: "var(--color-danger)",
+                  marginBottom: 12,
+                }}
+              >
+                {result.failed.slice(0, 10).map((f) => (
+                  <div key={f.item}>
+                    {f.item}: {f.error}
+                  </div>
+                ))}
+                {result.failed.length > 10 && <div>and {result.failed.length - 10} more</div>}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button variant="secondary" size="sm" onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
+  );
+}
+
+function Stat({ label, value, tone }) {
+  const color =
+    tone === "success" ? "var(--color-success, #34d399)" : tone === "danger" ? "var(--color-danger)" : "var(--text-primary)";
+  return (
+    <div style={{ flex: 1, minWidth: 110, background: "var(--bg-page)", borderRadius: 8, padding: "10px 12px" }}>
+      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: "1.25rem", fontWeight: 600, color }}>{value.toLocaleString()}</div>
+    </div>
+  );
+}

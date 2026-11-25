@@ -1,7 +1,8 @@
-// Navbar - Top navigation bar with cluster switching and user controls
+// Navbar - Top bar with breadcrumb, search, node switching and user controls
 //
-// The main navigation header that sits at the top of every page. It shows
-// the CHOps branding, cluster/node selection dropdowns, and a combined
+// Style guide shell: the top bar sits beside the full-height sidebar (which
+// holds the brand and cluster picker). It shows the breadcrumb, the command
+// palette search field, the node dropdown, and a combined
 // connection-status + live server clock: a green, ticking clock showing the
 // selected node's server time when connected, and a red, frozen clock-off
 // icon (no time) when disconnected.
@@ -9,56 +10,78 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useAuth, useTheme, useConnection } from "../../App.jsx";
-import { runQuery } from "../../utils/api.js";
+import { editorDisconnect, runQuery } from "../../utils/api.js";
+import Breadcrumb from "./Breadcrumb.jsx";
+import { Kbd, Badge, Button, shortcutLabel } from "../ui/index.jsx";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "../ui/dropdown-menu.jsx";
+import { Slider } from "../ui/slider.jsx";
+import { Switch } from "../ui/switch.jsx";
+import { AnimatedThemeToggler } from "../ui/animated-theme-toggler.jsx";
+import { useBackgroundMotion, setBackgroundMotion } from "../../utils/backgroundMotion.js";
+import { roleTone } from "../../utils/roles.js";
 
-import chopsLightLogo from "../../assets/chops-light.svg";
-import chopsDarkLogo from "../../assets/chops-dark.svg";
+// Text size limits for the user menu slider, in percent.
+const FONT_SCALE_MIN = 75;
+const FONT_SCALE_MAX = 200;
 
-// Dropdown is translucent (96% opaque) with a strong blur so you can barely
-// see through it, but it still feels like glass rather than a solid box.
-const dropdownStyle = {
-  position: "absolute",
-  top: "100%",
-  right: 0,
-  marginTop: 4,
-  background: "var(--glass-dropdown)",
-  backdropFilter: "blur(40px) saturate(1.8)",
-  WebkitBackdropFilter: "blur(40px) saturate(1.8)",
-  border: "1px solid var(--glass-border)",
-  borderRadius: "var(--radius-sm)",
-  boxShadow: "var(--shadow-lg)",
-  zIndex: 1200,
-};
+// The saved text size: a number in percent, or null for Auto.
+// No saved value means Auto.
+function readSavedFontScale() {
+  const saved = localStorage.getItem("chops_fontscale");
+  if (!saved || saved === "auto") return null;
+  const value = parseFloat(saved);
+  return Number.isFinite(value) ? value : null;
+}
 
-export default function Navbar({ onRefresh, onOpenSearch }) {
+// The size that the Auto CSS rule in global.css gives for this window width,
+// in percent of 16px. It uses the same formula as the CSS rule. Do not read the
+// computed font size: during the font-size transition it is a value in between.
+function readAutoFontScale() {
+  const fontSizePx = 16 + (window.innerWidth - 1920) * 0.00625;
+  const percent = Math.round((fontSizePx / 16) * 100);
+  return Math.min(150, Math.max(100, percent));
+}
+
+export default function Navbar({ route, onRefresh, onOpenSearch }) {
   const { auth, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const {
-    clusters,
     selectedClusterId,
     nodes,
     selectedNode,
-    user,
-    password,
     connected,
     error,
-    clusterName,
+    nodeName,
     setConnection,
     testConnection,
     reloadConfig,
-    switchCluster,
   } = useConnection();
-  const [connecting, setConnecting] = useState(false);
+  const [, setConnecting] = useState(false);
 
-  const [fontScale, setFontScale] = useState(() =>
-    parseFloat(localStorage.getItem("chops_fontscale") || "100"),
-  );
+  // Text size in percent, or null for "Auto". Auto is the default: global.css
+  // makes the text a little larger on wide screens. A number is a fixed size.
+  const [fontScale, setFontScale] = useState(() => readSavedFontScale());
+  // The shadcn DropdownMenu closes itself on an outside click and on Escape.
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const sliderRef = useRef(null);
+  const isBackgroundMotionOn = useBackgroundMotion();
+
+  // The Magic UI toggler animates the change. It needs the new theme on <html>
+  // at once, so set data-theme here; App.jsx then saves it as before.
+  function changeTheme(nextTheme) {
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    toggleTheme();
+  }
 
   // Server clock: the selected node's timezone plus a one-time skew correction
   // between the server clock and this browser, so the displayed time is the
@@ -70,23 +93,36 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
   const [clockTick, setClockTick] = useState(Date.now());
 
   function applyFontScale(val) {
-    const v = Math.min(200, Math.max(75, Math.round(val / 5) * 5));
+    const v = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(val / 5) * 5));
     setFontScale(v);
     localStorage.setItem("chops_fontscale", String(v));
     document.documentElement.style.fontSize = (v / 100) * 16 + "px";
   }
 
-  useEffect(() => {
-    document.documentElement.style.fontSize = (fontScale / 100) * 16 + "px";
-  }, []);
+  // Back to Auto: remove the fixed size, so the CSS size for the screen applies.
+  function switchToAutoFontScale() {
+    setFontScale(null);
+    localStorage.setItem("chops_fontscale", "auto");
+    document.documentElement.style.removeProperty("font-size");
+  }
 
-  // Close dropdown on outside click
+  // The size that Auto gives now, in percent, to show on the slider.
+  // Keep it current when the window size changes.
+  const [autoFontScale, setAutoFontScale] = useState(() => readAutoFontScale());
   useEffect(() => {
-    if (!userMenuOpen) return;
-    const close = () => setUserMenuOpen(false);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [userMenuOpen]);
+    function onResize() {
+      setAutoFontScale(readAutoFontScale());
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const shownFontScale = fontScale ?? autoFontScale;
+
+  useEffect(() => {
+    if (fontScale === null) document.documentElement.style.removeProperty("font-size");
+    else document.documentElement.style.fontSize = (fontScale / 100) * 16 + "px";
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
+  }, []);
 
   // Fetch the server timezone and the server's current instant whenever the
   // connected node (or cluster) changes. serverTimeZone() gives the IANA zone
@@ -161,57 +197,27 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
   function handleSliderWheel(e) {
     e.preventDefault();
     const delta = e.deltaY < 0 ? 5 : -5;
-    applyFontScale(fontScale + delta);
+    applyFontScale(shownFontScale + delta);
   }
 
-  // handlenodechange function for change the node in selection option and check the connection => (praveen kumar)
-  // async function handleNodeChange(host) {
-  //   const node = nodes.find((n) => n.host === host);
-  //   if (node) {
-  //     setConnecting(true);
-  //     setConnection((prev) => ({
-  //       ...prev,
-  //       selectedNode: host,
-  //       user: node.user || "default",
-  //       password: node.password || "",
-  //       port: node.port || 8123,
-  //     }));
-  //     await testConnection(node?.host, node?.user, node?.password, node?.port);
-  //     onRefresh();
-  //     setConnecting(false);
-  //   } else setConnection((prev) => ({ ...prev, selectedNode: host }));
-  // }
 
-  // storing the chops node details in localstorage => praveenkumar
-    async function handleNodeChange(host) {
-    const node = nodes.find((n) => n.host === host);
+    async function handleNodeChange(name) {
+    const node = nodes.find((n) => n.name === name);
     if (node) {
       localStorage?.setItem("chops_nodename",node?.name)
       setConnecting(true);
       setConnection((prev) => ({
         ...prev,
-        selectedNode: host,
+        selectedNode: node?.host,
         user: node.user || "default",
-        password: node.password || "",
         port: node.port || 8123,
-        nodeName:node?.name
+        nodeName:name
       }));
-      await testConnection(node?.host, node?.user, node?.password, node?.port);
+      await testConnection(node?.name, node?.user, node?.port);
       onRefresh();
       setConnecting(false);
-    } else setConnection((prev) => ({ ...prev, selectedNode: host }));
-  }
-
-  async function handleConnect() {
-    setConnecting(true);
-    const node = nodes.find((n) => n.host === selectedNode) || nodes[0];
-    await testConnection(
-      selectedNode || node?.host,
-      user,
-      password,
-      node?.port,
-    );
-    setConnecting(false);
+    }
+    await editorDisconnect();
   }
 
   function handleRefresh() {
@@ -219,88 +225,34 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
     onRefresh();
   }
 
-  async function handleChangeCluster(e) {
-    switchCluster(e.target.value);
-    if (nodes?.length > 0) {
-      const firstNode = nodes[0];
-      setConnecting(true);
-      await testConnection(
-        firstNode?.host,
-        firstNode?.user,
-        firstNode?.password,
-        firstNode?.port,
-      );
-      onRefresh();
-      setConnecting(false);
-    }
-  }
-
   return (
     <header className="navbar">
-      {/* Left: Brand */}
-      <a
-        href="https://www.ch-ops.io/"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="navbar-brand"
-        style={{ flex: "0 0 auto", minWidth: 0, textDecoration: "none" }}
-      >
-        {/* <Icon className="ti ti-database"></Icon>
-        <span className="navbar-title">CHOps</span> */}
+      {/* Left: where you are */}
+      <Breadcrumb route={route} />
 
-         <img
-          style={{ width: "100px",position:"relative",right:"10px" }}
-          src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
-        />
-      </a>
+      {/* Right: search, node, live clock, actions, account */}
+      <div className="navbar-actions" style={{ flex: "0 0 auto", minWidth: 0 }}>
+        <button
+          className="navbar-search"
+          onClick={onOpenSearch}
+          title={`Search pages (${shortcutLabel("K")})`}
+          aria-label="Search"
+        >
+          <Icon className="ti ti-search"></Icon>
+          <span className="navbar-search-label">Search pages, tables, queries</span>
+          <Kbd>{shortcutLabel("K")}</Kbd>
+        </button>
 
-      {/* Center: Connection */}
-      <div
-        className="navbar-connection"
-        style={{ flex: "1 1 auto", minWidth: 0, justifyContent: "center" }}
-      >
-        {clusters.length > 0 && (
-          <div className="conn-group">
-            <span className="conn-label">
-              <Icon className="ti ti-topology-star"></Icon>
-            </span>
-            <Select
-              className="form-select conn-select"
-              value={selectedClusterId}
-              onChange={(e) => handleChangeCluster(e)}
-              style={{
-                Width: 120,
-                fontWeight: 600,
-                height: "38px",
-                fontSize: "13px",
-              }}
-              title="Switch cluster"
-            >
-              {clusters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
         <div className="conn-group">
-          <span className="conn-label">
-            <Icon className="ti ti-server"></Icon>
-          </span>
           <Select
             className="form-select conn-select"
-            value={selectedNode || ""}
-            style={{
-              Width: 120,
-              fontWeight: 600,
-              height: "38px",
-              fontSize: "13px",
-            }}
+            value={nodeName || ""}
             onChange={(e) => handleNodeChange(e.target.value)}
+            aria-label="Node"
+            title="Switch node"
           >
             {nodes.map((n) => (
-              <option key={n.host} value={n.host}>
+              <option key={n.name} value={n.name}>
                 {n.name || n.host}
               </option>
             ))}
@@ -312,7 +264,7 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
             Connected    -> green ticking clock + server time.
             Disconnected -> red, frozen clock-off icon, no time shown. */}
         <div
-          className="conn-group"
+          className="conn-group navbar-clock"
           title={
             connected
               ? `Connected. Server time${serverTz ? ` in ${serverTz}` : ""}. Use this when setting time-range filters.`
@@ -333,290 +285,186 @@ export default function Navbar({ onRefresh, onOpenSearch }) {
             ></Icon>
           </span>
           {serverClock && (
-            <span
-              style={{
-                fontVariantNumeric: "tabular-nums",
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <span className="navbar-clock-time">
               {serverClock}{" "}
-              <span style={{ opacity: 0.6, fontWeight: 400 }}>{serverTz}</span>
+              <span className="navbar-clock-tz">{serverTz}</span>
             </span>
           )}
         </div>
-      </div>
 
-      {/* Right: Actions + User dropdown */}
-      <div className="navbar-actions" style={{ flex: "0 0 auto", minWidth: 0 }}>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={onOpenSearch}
-          title="Search pages (Ctrl/Cmd + K)"
-          aria-label="Search"
-        >
-          <Icon className="ti ti-search"></Icon>
-          <span className="navbar-btn-label">Search</span>
-        </button>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
           onClick={handleRefresh}
           title="Refresh"
           aria-label="Refresh"
         >
           <Icon className="ti ti-refresh"></Icon>
-          <span className="navbar-btn-label">Refresh</span>
-        </button>
-        <a
-          href="/docs/"
-          target="_blank"
-          className="btn btn-ghost btn-sm"
+          <span className="navbar-btn-label sr-only">Refresh</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          nativeButton={false}
+          render={<a href="/docs/" target="_blank" />}
           title="Documentation"
-          style={{ textDecoration: "none" }}
+          aria-label="Documentation"
         >
           <Icon className="ti ti-book"></Icon>
-          <span className="navbar-btn-label">Docs</span>
-        </a>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={toggleTheme}
-          title={theme === "dark" ? "Light mode" : "Dark mode"}
-          aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
-        >
-          <Icon className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}></Icon>
-          <span className="navbar-btn-label">
-            {theme === "dark" ? "Light" : "Dark"}
-          </span>
-        </button>
-        <a
-          href="https://github.com/Quantrail-Data/CH-Ops"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-ghost btn-sm"
+          <span className="navbar-btn-label sr-only">Docs</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          nativeButton={false}
+          render={<a href="https://github.com/Quantrail-Data/CH-Ops" target="_blank" rel="noopener noreferrer" />}
           title="GitHub repository"
           aria-label="GitHub repository"
-          style={{ textDecoration: "none" }}
         >
           <Icon className="ti ti-brand-github"></Icon>
-          <span className="navbar-btn-label">GitHub</span>
-        </a>
+          <span className="navbar-btn-label sr-only">GitHub</span>
+        </Button>
+        <AnimatedThemeToggler
+          theme={theme}
+          onThemeChange={changeTheme}
+          duration={450}
+          className="tw:inline-flex tw:size-7 tw:items-center tw:justify-center tw:rounded-[var(--radius-sm)] tw:border tw:border-[var(--border-strong)] tw:bg-[var(--bg-surface)] tw:text-[var(--text-primary)] tw:hover:bg-[var(--bg-hover)] tw:cursor-pointer"
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
+          aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
+        />
 
-        {/* User dropdown (rightmost) - contains Sign Out + Text Size */}
-        <div style={{ position: "relative", marginLeft: 4 }}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setUserMenuOpen(!userMenuOpen);
-            }}
-            style={{
-              cursor: "pointer",
-              border: "1px solid var(--accent-border)",
-              background: "var(--accent-soft)",
-              borderRadius: "var(--radius-sm)",
-              padding: "4px 10px",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              fontSize: "13px",
-              fontFamily: "var(--font-ui)",
-              color: "var(--text-primary)",
-            }}
+        {/* User menu (rightmost): who is signed in, text size, versions, Sign Out */}
+        <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
+          <DropdownMenuTrigger
+            render={<button type="button" className="navbar-user-btn" style={{ marginLeft: 4 }} />}
           >
-            <Icon
-              className="ti ti-user"
-              style={{ fontSize: 16, color: "var(--icon-color)" }}
-            ></Icon>
-            <span>{auth?.username}</span>
+            <span className="avatar" aria-hidden="true">
+              {String(auth?.username || "?").slice(0, 2).toUpperCase()}
+            </span>
+            <span className="navbar-user-name">{auth?.username}</span>
             <Icon
               className="ti ti-chevron-down"
-              style={{ fontSize: 12, opacity: 0.6 }}
+              style={{ fontSize: "0.75rem", opacity: 0.6 }}
             ></Icon>
-          </button>
-          {userMenuOpen && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ ...dropdownStyle, minWidth: 220, overflow: "hidden" }}
-            >
-              {/* User info */}
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderBottom: "1px solid var(--border-default)",
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                }}
-              >
-                Signed in as{" "}
-                <strong style={{ color: "var(--text-primary)" }}>
-                  {auth?.username}
-                </strong>
-                {auth?.role && (
-                  <span
-                    className={`badge ${auth.role === "superadmin" ? "badge-amber" : auth.role === "admin" ? "badge-purple" : auth.role === "editor" ? "badge-blue" : "badge-gray"}`}
-                    style={{ marginLeft: 6 }}
-                  >
-                    {auth.role}
-                  </span>
-                )}
-              </div>
-
-              {/* Text size control */}
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderBottom: "1px solid var(--border-default)",
-                }}
-                onWheel={handleSliderWheel}
-              >
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <Icon className="ti ti-text-resize" style={{ fontSize: 14 }}></Icon>{" "}
-                  Text Size
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => applyFontScale(fontScale - 5)}
-                    disabled={fontScale <= 75}
-                    style={{
-                      padding: "2px 6px",
-                      fontSize: "14px",
-                      lineHeight: 1,
-                    }}
-                  >
-                    -
-                  </button>
-                  <input
-                    ref={sliderRef}
-                    type="range"
-                    min={75}
-                    max={200}
-                    step={5}
-                    value={fontScale}
-                    onChange={(e) => applyFontScale(parseInt(e.target.value))}
-                    style={{
-                      flex: 1,
-                      accentColor: "var(--accent)",
-                      cursor: "pointer",
-                    }}
-                  />
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => applyFontScale(fontScale + 5)}
-                    disabled={fontScale >= 200}
-                    style={{
-                      padding: "2px 6px",
-                      fontSize: "14px",
-                      lineHeight: 1,
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "11px",
-                    color: "var(--text-muted)",
-                    marginTop: 2,
-                  }}
-                >
-                  <span>75%</span>
-                  <span
-                    style={{ color: "var(--text-primary)", fontWeight: 600 }}
-                  >
-                    {fontScale}%
-                  </span>
-                  <span>200%</span>
-                </div>
-                {fontScale !== 100 && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => applyFontScale(100)}
-                    style={{ width: "100%", marginTop: 4, fontSize: "12px" }}
-                  >
-                    Reset to 100%
-                  </button>
-                )}
-              </div>
-
-              {/* Version info (read-only) */}
-              <div
-                style={{
-                  padding: "8px 14px",
-                  borderBottom: "1px solid var(--border-default)",
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                  fontFamily: "var(--font-code)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 3,
-                  }}
-                >
-                  <span>App version</span>
-                  <span style={{ color: "var(--text-secondary)" }}>
-                    {typeof __APP_VERSION__ !== "undefined"
-                      ? __APP_VERSION__
-                      : "?"}
-                  </span>
-                </div>
-                <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <span>ClickHouse®</span>
-                  <span style={{ color: "var(--text-secondary)" }}>
-                    {typeof __CH_VERSION__ !== "undefined"
-                      ? __CH_VERSION__
-                      : "?"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Sign out */}
-              <button
-                onClick={logout}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "10px 14px",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  color: "var(--color-danger)",
-                  fontFamily: "var(--font-ui)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--bg-hover)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                <Icon className="ti ti-logout" style={{ fontSize: 16 }}></Icon> Sign
-                Out
-              </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="tw:w-[280px] tw:p-0 tw:rounded-[var(--radius-md)] tw:border tw:border-[var(--border-strong)] tw:bg-[var(--bg-raised)] tw:shadow-[var(--shadow-md)] tw:ring-0"
+          >
+            {/* User info */}
+            <div className="tw:px-3.5 tw:py-2.5 tw:text-xs tw:text-[var(--text-muted)]">
+              Signed in as{" "}
+              <strong className="tw:text-[var(--text-primary)]">{auth?.username}</strong>
+              {auth?.role && (
+                <Badge tone={roleTone(auth.role)} style={{ marginLeft: 6 }}>
+                  {auth.role}
+                </Badge>
+              )}
             </div>
-          )}
-        </div>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            {/* Text size. Arrow keys belong to the slider here, not to the menu. */}
+            <div
+              className="tw:px-3.5 tw:py-2.5"
+              onWheel={handleSliderWheel}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <div className="tw:mb-1.5 tw:flex tw:items-center tw:gap-1 tw:text-xs tw:font-semibold tw:text-[var(--text-secondary)]">
+                <Icon className="ti ti-text-resize" style={{ fontSize: "0.875rem" }}></Icon> Text Size
+              </div>
+              <div className="tw:flex tw:items-center tw:gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Smaller text"
+                  onClick={() => applyFontScale(shownFontScale - 5)}
+                  disabled={shownFontScale <= FONT_SCALE_MIN}
+                >
+                  -
+                </Button>
+                <Slider
+                  aria-label="Text size"
+                  min={75}
+                  max={200}
+                  step={5}
+                  value={shownFontScale}
+                  onValueChange={(value) => applyFontScale(Array.isArray(value) ? value[0] : value)}
+                  className="tw:flex-1"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Larger text"
+                  onClick={() => applyFontScale(shownFontScale + 5)}
+                  disabled={shownFontScale >= FONT_SCALE_MAX}
+                >
+                  +
+                </Button>
+              </div>
+              <div className="tw:mt-0.5 tw:flex tw:justify-between tw:text-[11px] tw:text-[var(--text-muted)]">
+                <span>{FONT_SCALE_MIN}%</span>
+                <span className="tw:font-semibold tw:text-[var(--text-primary)]">
+                  {fontScale === null ? `Auto (${shownFontScale}%)` : `${fontScale}%`}
+                </span>
+                <span>{FONT_SCALE_MAX}%</span>
+              </div>
+              {fontScale !== null && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={switchToAutoFontScale}
+                  className="tw:mt-1 tw:w-full tw:text-xs"
+                >
+                 {/* <i class="ti ti-maximize"></i> */}
+                 <Icon className="ti ti-maximize" />
+                 Fit to Scale
+                </Button>
+              )}
+            </div>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            {/* Animated page background (floating particles) on or off */}
+            <label className="tw:flex tw:cursor-pointer tw:items-center tw:justify-between tw:gap-3 tw:px-3.5 tw:py-2.5 tw:text-xs tw:font-semibold tw:text-[var(--text-secondary)]">
+              <span className="tw:flex tw:items-center tw:gap-1">
+                <Icon className="ti ti-sparkles-2" style={{ fontSize: "0.875rem" }}></Icon> Background animation
+              </span>
+              <Switch
+                checked={isBackgroundMotionOn}
+                onCheckedChange={(checked) => setBackgroundMotion(checked)}
+                aria-label="Background animation"
+              />
+            </label>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            {/* Version info (read-only) */}
+            <div className="tw:px-3.5 tw:py-2 tw:font-mono tw:text-xs tw:text-[var(--text-muted)]">
+              <div className="tw:mb-1 tw:flex tw:justify-between tw:gap-3">
+                <span className="tw:shrink-0">App version</span>
+                <span className="tw:text-right tw:text-[var(--text-secondary)]">
+                  {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}
+                </span>
+              </div>
+              <div className="tw:flex tw:justify-between tw:gap-3">
+                <span className="tw:shrink-0 tw:cursor-default" title={"Supported ClickHouse Versions"}>CH Versions</span>
+                <span className="tw:text-right tw:text-[var(--text-secondary)]">
+                  {typeof __CH_VERSION__ !== "undefined" ? __CH_VERSION__?.replaceAll("LTS","").replace(/\s/g, "") : "?"}
+                </span>
+              </div>
+            </div>
+            <DropdownMenuSeparator className="tw:m-0" />
+
+            <DropdownMenuGroup className="tw:p-1">
+              <DropdownMenuItem variant="destructive" onClick={logout} className="tw:gap-2 tw:px-2.5 tw:py-2">
+                <Icon className="ti ti-logout" style={{ fontSize: "1rem" }}></Icon> Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

@@ -1,0 +1,224 @@
+// DashboardFilters.jsx - the "Chart filters" bar above a dashboard.
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
+import { useMemo, useState } from "react";
+import Icon from "../common/Icon.jsx";
+import ParamInput from "../common/ParamInput.jsx";
+import { labelFor, isHidden, orderFilters, hasValue }
+  from "../../utils/dashboardParams.js";
+import { Button, Notice } from "../ui/index.jsx";
+
+export default function DashboardFilters({
+  filters,
+  settings,
+  draft,
+  applied,
+  onChange,
+  onApply,
+  onReset,
+  onHoverFilter,
+  hoveredFilter,
+  conflicts = [],
+  canEdit = false,
+  onOpenSettings,
+}) {
+  const [open, setOpen] = useState(true);
+
+  const visible = useMemo(
+    () => orderFilters(filters, settings).filter((f) => !isHidden(f.name, settings)),
+    [filters, settings],
+  );
+
+  // Compared against the applied values, not against the defaults: the question
+  // is whether what is on screen still matches what is shown.
+  const dirty = useMemo(
+    () => visible.some((f) => (draft[f.name] ?? "") !== (applied[f.name] ?? "")),
+    [visible, draft, applied],
+  );
+
+  const needingValue = useMemo(
+    () => visible.filter((f) => f.requiredBy.length > 0 && !hasValue(draft[f.name])).length,
+    [visible, draft],
+  );
+
+  if (conflicts.length) {
+    return (
+      <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 12 }}>
+        <div>
+          <strong>This dashboard&apos;s filters cannot be built.</strong>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {conflicts.map((c, i) => (
+              <li key={i} style={{ fontSize: "0.8125rem" }}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      </Notice>
+    );
+  }
+
+  if (!visible.length) return null;
+
+  // Enter applies from any control. Reaching for a button after typing is the
+  // thing people dislike about Apply buttons.
+  function onKeyDown(e) {
+    if (e.key === "Enter" && dirty) {
+      e.preventDefault();
+      onApply();
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: 12, overflow: "hidden" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 14px",
+          borderBottom: open ? "1px solid var(--border-default)" : "none",
+        }}
+      >
+        <Button
+          variant="ghost" size="sm"
+          onClick={() => setOpen((v) => !v)}
+          title={open ? "Hide filters" : "Show filters"}
+          aria-expanded={open}
+        >
+          <Icon className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: "1rem" }} />
+        </Button>
+
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: "0.875rem" }}>
+          <Icon className="ti ti-filter" style={{ fontSize: "1rem" }} />
+          Chart filters
+        </span>
+
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          {visible.length}
+          {needingValue > 0 && (
+            <span style={{ color: "var(--color-warning, #d98324)" }}>
+              {` \u00b7 ${needingValue} needs a value`}
+            </span>
+          )}
+        </span>
+
+        {dirty && (
+          <span
+            style={{ fontSize: "0.75rem", color: "var(--color-warning, #d98324)" }}
+            title="The charts below still show the previously applied filters"
+          >
+            <Icon className="ti ti-alert-triangle" style={{ fontSize: "0.8125rem" }} /> Out of date
+          </span>
+        )}
+
+        {canEdit && (
+          <Button
+            variant="ghost" size="sm"
+            onClick={onOpenSettings}
+            title="Filter settings: labels, order, defaults, visibility"
+            style={{ marginLeft: "auto" }}
+          >
+            <Icon className="ti ti-adjustments" /> Filter settings
+          </Button>
+        )}
+      </div>
+
+      {open && (
+        <div style={{ padding: "12px 14px" }} onKeyDown={onKeyDown}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 12,
+              alignItems: "end",
+            }}
+          >
+            {visible.map((f) => {
+              // Required by at least one chart, and currently blank. A warning
+              // rather than an error: nothing is broken, a value is missing.
+              const needed = f.requiredBy.length > 0 && !hasValue(draft[f.name]);
+              const isHovered = hoveredFilter === f.name;
+              return (
+                <label
+                  key={f.name}
+                  onMouseEnter={() => onHoverFilter?.(f.name)}
+                  onMouseLeave={() => onHoverFilter?.(null)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    minWidth: 0,
+                    padding: 6,
+                    borderRadius: 6,
+                    background: isHovered ? "var(--bg-sunken)" : "transparent",
+                    transition: "background 0.12s var(--ease, ease)",
+                  }}
+                  title={
+                    f.requiredBy.length
+                      ? `${f.name}:${f.type} - required by ${f.requiredBy.length} chart${f.requiredBy.length > 1 ? "s" : ""}`
+                      : `${f.name}:${f.type} - used by ${f.charts.length} chart${f.charts.length > 1 ? "s" : ""}`
+                  }
+                >
+                  <span
+                    style={{
+                      fontSize: "0.8125rem",
+                      color: "var(--text-secondary)",
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {labelFor(f.name, settings)}
+                    {f.requiredBy.length > 0 && (
+                      <span
+                        style={{ color: needed ? "var(--color-warning, #d98324)" : "var(--text-muted)" }}
+                        title="Required"
+                      >
+                        {" *"}
+                      </span>
+                    )}
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <ParamInput
+                      param={f}
+                      value={draft[f.name] ?? ""}
+                      onChange={(v) => onChange(f.name, v)}
+                      invalid={needed}
+                      fullWidth
+                    />
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              justifyContent: "flex-end",
+              marginTop: 12,
+            }}
+          >
+            <Button
+              variant="secondary" size="sm"
+              onClick={onReset}
+              title="Return every filter to its default"
+            >
+              <Icon className="ti ti-refresh" /> Reset
+            </Button>
+            <Button
+              variant="primary" size="sm"
+              onClick={onApply}
+              disabled={!dirty}
+              title={dirty ? "Re-run the affected charts" : "Nothing has changed"}
+            >
+              <Icon className="ti ti-check" /> Apply
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

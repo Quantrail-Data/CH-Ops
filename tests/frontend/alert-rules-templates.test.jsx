@@ -1,0 +1,465 @@
+// alert-rules-templates.test.jsx - The template features of the Alert Rules page.
+// Checks the hidden template rules, the picker, the rule test table and Reset to template.
+// author -> Sanjeev Kumar G
+// Copyright (C) 2026 Quantrail Data Private Limited
+
+import React from "react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+  cleanup,
+} from "@testing-library/react";
+import AlertRules from "../../src/frontend/components/alerting/AlertRules.jsx";
+
+const mockApiFetch = vi.fn();
+const mockUseAuth = vi.fn();
+
+vi.mock("../../src/frontend/utils/api.js", () => ({
+  apiFetch: (...args) => mockApiFetch(...args),
+  runQuery: vi.fn(async () => ({ rows: [] })),
+}));
+
+const CONNECTION = {
+  clusters: [
+    { id: "cluster_a", name: "cluster a", nodes: [{ host: "node-a1" }] },
+    {
+      id: "cluster_k8s",
+      name: "kubernetes cluster",
+      nodes: [
+        { name: "replica-1", host: "shared.example.com" },
+        { name: "replica-2", host: "shared.example.com" },
+      ],
+    },
+  ],
+};
+
+vi.mock("../../src/frontend/App.jsx", () => ({
+  useAuth: () => mockUseAuth(),
+  useConnection: () => CONNECTION,
+}));
+
+vi.mock("../../src/frontend/components/editor/SqlEditor.jsx", () => ({
+  default: ({ value, onChange }) => (
+    <textarea
+      aria-label="SQL"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
+const CPU_TEMPLATE = {
+  id: "cpu-busy",
+  category: "Resources",
+  name: "CPU busy",
+  description: "CPU time spent in user and kernel code.",
+  tuning: "Lower to 80 for latency-sensitive clusters.",
+  operator: "gt",
+  threshold: 90,
+  unit: "%",
+  severity: "warning",
+  schedule: "*/5 * * * *",
+  sql: "SELECT 1 AS cpu_busy_percent",
+};
+
+const DISK_TEMPLATE = {
+  id: "disk-space-low",
+  category: "Resources",
+  name: "Disk space low (data path)",
+  description: "Free space on the volume that holds the data path.",
+  operator: "lt",
+  threshold: 15,
+  unit: "%",
+  severity: "warning",
+  schedule: "*/5 * * * *",
+  sql: "SELECT 50 AS disk_free_percent",
+};
+
+function rule(fields) {
+  return {
+    description: "",
+    sql: "SELECT 1",
+    threshold: 0,
+    operator: "gt",
+    severity: "warning",
+    schedule: "*/5 * * * *",
+    enabled: false,
+    channels: [],
+    nodes: null,
+    cluster_id: "cluster_a",
+    notifyIntervalMinutes: 0,
+    breachRunsRequired: 1,
+    noRowsMeansBreach: false,
+    templateId: null,
+    templateEdited: false,
+    ...fields,
+  };
+}
+
+const RULES = [
+  rule({
+    id: 1,
+    name: "CPU busy",
+    sql: CPU_TEMPLATE.sql,
+    threshold: 90,
+    schedule: "* * * * *",
+    enabled: true,
+    templateId: "cpu-busy",
+    templateEdited: true,
+  }),
+  rule({
+    id: 2,
+    name: "Disk space low (data path)",
+    templateId: "disk-space-low",
+  }),
+  rule({ id: 3, name: "My own rule" }),
+  rule({
+    id: 5,
+    name: "Rule on all clusters",
+    cluster_id: null,
+    nodes: ["replica-2"],
+  }),
+  rule({
+    id: 4,
+    name: "Old rule with a host",
+    cluster_id: "cluster_k8s",
+    nodes: ["shared.example.com"],
+  }),
+];
+
+function answerApi(url, options) {
+  if (url === "/api/alerts/rules" && options?.method === "POST") {
+    return { id: 9 };
+  }
+  if (url === "/api/alerts/rules") return RULES;
+  if (url === "/api/alerts/channels") return [];
+  if (url === "/api/alerts/templates") return [CPU_TEMPLATE, DISK_TEMPLATE];
+  if (url === "/api/alerts/rules/test") {
+    return {
+      results: [{ node: "node-a1", value: 95.5, wouldFire: true, error: null }],
+    };
+  }
+  return {};
+}
+
+// function switchForTemplateRulesThatAreOff() {
+//   const label = screen.getByText(/^Show template rules that are off$/);
+//   return label.closest(".form-label").querySelector('input[type="checkbox"]');
+// }
+
+describe("Alert Rules: templates", () => {
+  beforeEach(() => {
+    cleanup();
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation(async (url, options) =>
+      answerApi(url, options),
+    );
+    mockUseAuth.mockReturnValue({ auth: { role: "admin" } });
+  });
+
+  afterEach(() => cleanup());
+
+
+
+  it("fills the rule form from the template that the admin picks", async () => {
+    render(<AlertRules />);
+    await screen.findByText("My own rule");
+
+    fireEvent.click(screen.getByRole("button", { name: /New from template/ }));
+    fireEvent.change(screen.getByPlaceholderText("Search templates"), {
+      target: { value: "disk" },
+    });
+
+    expect(screen.queryByRole("button", { name: /^CPU busy/ })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Disk space low \(data path\)/ }),
+    );
+
+    expect(
+      screen.getByDisplayValue("Disk space low (data path)"),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("15")).toBeInTheDocument();
+    expect(screen.getByLabelText("SQL")).toHaveValue(DISK_TEMPLATE.sql);
+  });
+
+  it("runs the rule test and shows one row for each node", async () => {
+    render(<AlertRules />);
+    await screen.findByText("My own rule");
+    fireEvent.click(screen.getByRole("button", { name: /New from template/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^CPU busy/ }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Test/ }));
+
+    expect(await screen.findByText("Would fire")).toBeInTheDocument();
+    const resultsTable = screen.getByRole("table");
+    expect(within(resultsTable).getByText("node-a1")).toBeInTheDocument();
+    expect(within(resultsTable).getByText("95.5%")).toBeInTheDocument();
+
+    const testCall = mockApiFetch.mock.calls.find(
+      ([url]) => url === "/api/alerts/rules/test",
+    );
+    const sentBody = JSON.parse(testCall[1].body);
+
+    expect(testCall[1].method).toBe("POST");
+    expect(sentBody.sql).toBe(CPU_TEMPLATE.sql);
+    expect(sentBody.threshold).toBe(90);
+  });
+
+  it("shows errors and non-firing results for tested nodes", async () => {
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === "/api/alerts/rules/test") {
+        return {
+          results: [
+            { node: "node-a1", value: 50, wouldFire: false, error: null },
+            { node: "node-a2", value: null, wouldFire: false, error: null },
+            { node: "node-a3", value: null, wouldFire: false, error: "Offline" },
+          ],
+        };
+      }
+      return answerApi(url, options);
+    });
+
+    render(<AlertRules />);
+    await screen.findByText("My own rule");
+    fireEvent.click(screen.getByRole("button", { name: /New from template/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^CPU busy/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Test/ }));
+
+    expect(await screen.findByText("OK. Would not fire.")).toBeInTheDocument();
+    expect(screen.getByText("No rows. Would not fire.")).toBeInTheDocument();
+    expect(screen.getByText("Error: Offline")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+  });
+
+  it("shows an error when the rule test request fails", async () => {
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === "/api/alerts/rules/test") {
+        throw new Error("Test request failed");
+      }
+      return answerApi(url, options);
+    });
+
+    render(<AlertRules />);
+    await screen.findByText("My own rule");
+    fireEvent.click(screen.getByRole("button", { name: /New from template/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^CPU busy/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Test/ }));
+
+    expect(await screen.findByText("Test request failed")).toBeInTheDocument();
+  });
+
+  it("shows the unit of a template rule on its card and in the threshold label", async () => {
+    render(<AlertRules />);
+    const cpuCard = (await screen.findByText("CPU busy")).closest(".card");
+
+    await waitFor(() =>
+      expect(within(cpuCard).getByText(/greater than\s+90%/)).toBeInTheDocument(),
+    );
+
+    fireEvent.click(cpuCard.querySelector(".btn-secondary.btn-sm"));
+    expect(screen.getByText("Threshold (%)")).toBeInTheDocument();
+  });
+
+  it("saves a rule from the picker with its template id, and offers Reset", async () => {
+    render(<AlertRules />);
+    await screen.findByText("My own rule");
+    fireEvent.click(screen.getByRole("button", { name: /New from template/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^CPU busy/ }));
+
+    expect(
+      screen.getByRole("button", { name: /Reset to template/ }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Create/ }));
+
+    await waitFor(() => {
+      const createCall = mockApiFetch.mock.calls.find(
+        ([url, options]) =>
+          url === "/api/alerts/rules" && options?.method === "POST",
+      );
+      expect(createCall).toBeDefined();
+      expect(JSON.parse(createCall[1].body).templateId).toBe("cpu-busy");
+    });
+  });
+
+  it("puts the template values back with Reset to template", async () => {
+    render(<AlertRules />);
+    await screen.findByText("My own rule");
+
+    const cpuCard = screen.getByText("CPU busy").closest(".card");
+    fireEvent.click(cpuCard.querySelector(".btn-secondary.btn-sm"));
+    expect(screen.getByDisplayValue("* * * * *")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Reset to template/ }));
+
+    expect(screen.getByDisplayValue("*/5 * * * *")).toBeInTheDocument();
+  });
+
+  it("does not show Reset to template for a rule written by hand", async () => {
+    render(<AlertRules />);
+    const ownCard = (await screen.findByText("My own rule")).closest(".card");
+
+    fireEvent.click(ownCard.querySelector(".btn-secondary.btn-sm"));
+
+    expect(screen.queryByRole("button", { name: /Reset to template/ })).toBeNull();
+  });
+
+  it("does not ask for the templates when the user is not an admin", async () => {
+    mockUseAuth.mockReturnValue({ auth: { role: "readonly" } });
+    render(<AlertRules />);
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith("/api/alerts/rules"),
+    );
+
+    const templateCalls = mockApiFetch.mock.calls.filter(
+      ([url]) => url === "/api/alerts/templates",
+    );
+
+    expect(templateCalls).toEqual([]);
+    expect(screen.getByRole("button", { name: /New from template/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /New Rule/ })).toBeDisabled();
+  });
+
+  it("closes the template picker with Escape and clears its search", async () => {
+    render(<AlertRules />);
+    await screen.findByText("My own rule");
+
+    fireEvent.click(screen.getByRole("button", { name: /New from template/ }));
+    fireEvent.change(screen.getByPlaceholderText("Search templates"), {
+      target: { value: "disk" },
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByPlaceholderText("Search templates")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /New from template/ }));
+    expect(screen.getByPlaceholderText("Search templates")).toHaveValue("");
+    expect(screen.getByRole("button", { name: /^CPU busy/ })).toBeInTheDocument();
+  });
+});
+
+describe("Alert Rules: schedule check", () => {
+  beforeEach(() => {
+    cleanup();
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation(async (url, options) =>
+      answerApi(url, options),
+    );
+    mockUseAuth.mockReturnValue({ auth: { role: "admin" } });
+  });
+
+  afterEach(() => cleanup());
+
+  async function typeSchedule(schedule) {
+    const ownCard = (await screen.findByText("My own rule")).closest(".card");
+    fireEvent.click(ownCard.querySelector(".btn-secondary.btn-sm"));
+    fireEvent.change(screen.getByDisplayValue("*/5 * * * *"), {
+      target: { value: schedule },
+    });
+  }
+
+  it("refuses day of week 7", async () => {
+    render(<AlertRules />);
+    await typeSchedule("0 9 * * 7");
+
+    expect(
+      screen.getByText(
+        "day-of-week must be a number from 0 to 6, or a comma list of numbers: 7",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Update/ })).toBeDisabled();
+  });
+
+  it("refuses a range, the same as the server", async () => {
+    render(<AlertRules />);
+    await typeSchedule("0 9 * * 1-5");
+
+    expect(
+      screen.getByText(/day-of-week must be a number from 0 to 6/),
+    ).toBeInTheDocument();
+  });
+
+  it("accepts a comma list of days", async () => {
+    render(<AlertRules />);
+    await typeSchedule("0 9 * * 0,6");
+
+    expect(screen.queryByText(/must be a number from/)).toBeNull();
+    expect(screen.getByRole("button", { name: /Update/ })).toBeEnabled();
+  });
+
+  it("clears the error when the schedule is corrected", async () => {
+    render(<AlertRules />);
+    await typeSchedule("0 9 * * 7");
+
+    const scheduleInput = screen.getByDisplayValue("0 9 * * 7");
+    expect(screen.getByRole("button", { name: /Update/ })).toBeDisabled();
+
+    fireEvent.change(scheduleInput, { target: { value: "0 9 * * 6" } });
+
+    expect(screen.queryByText(/day-of-week must be a number from/)).toBeNull();
+    expect(screen.getByRole("button", { name: /Update/ })).toBeEnabled();
+  });
+});
+
+describe("Alert Rules: node choice", () => {
+  beforeEach(() => {
+    cleanup();
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation(async (url, options) =>
+      answerApi(url, options),
+    );
+    mockUseAuth.mockReturnValue({ auth: { role: "admin" } });
+  });
+
+  afterEach(() => cleanup());
+
+  it("shows the nodes by name, and reads a host saved by an older version", async () => {
+    render(<AlertRules />);
+    const oldCard = (await screen.findByText("Old rule with a host")).closest(
+      ".card",
+    );
+
+    fireEvent.click(oldCard.querySelector(".btn-secondary.btn-sm"));
+
+    expect(screen.getByTitle("Unselect node replica-1")).toBeInTheDocument();
+    expect(screen.getByTitle("Unselect node replica-2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Unselect node replica-1"));
+    expect(screen.getByTitle("Select node replica-1")).toBeInTheDocument();
+  });
+
+  it("keeps the node choice of a rule that runs on all clusters", async () => {
+    render(<AlertRules />);
+    const card = (await screen.findByText("Rule on all clusters")).closest(".card");
+
+    fireEvent.click(card.querySelector(".btn-secondary.btn-sm"));
+
+    expect(screen.getByTitle("Unselect node replica-2")).toBeInTheDocument();
+  });
+
+  it("saves the selected node names after editing a legacy host", async () => {
+    render(<AlertRules />);
+    const oldCard = (await screen.findByText("Old rule with a host")).closest(
+      ".card",
+    );
+
+    fireEvent.click(oldCard.querySelector(".btn-secondary.btn-sm"));
+    fireEvent.click(screen.getByTitle("Unselect node replica-1"));
+    fireEvent.click(screen.getByRole("button", { name: /Update/ }));
+
+    await waitFor(() => {
+      const updateCall = mockApiFetch.mock.calls.find(
+        ([url, options]) =>
+          url === "/api/alerts/rules/4" && options?.method === "PUT",
+      );
+
+      expect(updateCall).toBeDefined();
+      expect(JSON.parse(updateCall[1].body).nodes).toEqual(["replica-2"]);
+    });
+  });
+});

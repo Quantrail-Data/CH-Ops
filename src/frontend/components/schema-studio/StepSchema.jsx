@@ -18,12 +18,15 @@ import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
 import FieldLabel from "./FieldLabel.jsx";
 import { DEFAULT_KINDS } from "../../utils/ddlCompose.js";
+import ConfirmModal from "../layout/ConfirmModal.jsx";
+import { Input, Button } from "../ui/index.jsx";
 
 const CODEC_SUGGESTIONS = ["ZSTD(3)", "ZSTD(1)", "LZ4", "Delta, ZSTD(3)", "DoubleDelta, ZSTD(3)", "Gorilla, ZSTD(3)", "T64, ZSTD(3)", "NONE"];
 const STAT_SUGGESTIONS = ["TDigest", "Uniq", "TDigest, Uniq", "MinMax", "CountMin"];
 
 export default function StepSchema({ columns, setColumns, stats, sampleRows, onBack, onNext }) {
   const [open, setOpen] = useState(() => new Set());
+  const [isBackModel,setIsBackModel] = useState(false);
 
   function updateCol(i, patch) {
     setColumns(columns.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
@@ -87,10 +90,10 @@ export default function StepSchema({ columns, setColumns, stats, sampleRows, onB
                 >
                   <Icon className={isOpen ? "ti ti-chevron-down" : "ti ti-chevron-right"} />
                 </button>
-                <input className="form-input" value={c.name}
+                <Input  value={c.name}
                   placeholder={c.custom ? "new_column" : ""}
                   onChange={(e) => updateCol(i, { name: e.target.value })} />
-                <input className="form-input mono" value={c.type}
+                <Input className="mono" value={c.type}
                   placeholder={c.custom ? "type (optional)" : ""}
                   onChange={(e) => updateCol(i, { type: e.target.value })} />
                 <span className="studio-stat">
@@ -118,27 +121,27 @@ export default function StepSchema({ columns, setColumns, stats, sampleRows, onB
                       <div className="studio-field studio-col-wide">
                         <FieldLabel text="Expression"
                           tip="An expression over other columns, for example price * quantity or toStartOfDay(event_time). Set the type and name in the row above; leave the type empty to let ClickHouse infer it (allowed for MATERIALIZED and ALIAS)." />
-                        <input className="form-input mono" value={c.defaultExpr || ""}
+                        <Input className="mono" value={c.defaultExpr || ""}
                           placeholder="price * quantity"
                           onChange={(e) => updateCol(i, { defaultExpr: e.target.value })} />
                       </div>
                       <div className="studio-field">
                         <FieldLabel text="Codec"
                           tip="Optional compression for this column, for example ZSTD(3). Applies to DEFAULT and MATERIALIZED columns (stored)." />
-                        <input className="form-input mono" list="studio-codec-suggestions"
+                        <Input className="mono" list="studio-codec-suggestions"
                           value={c.codec || ""} placeholder="ZSTD(3)"
                           onChange={(e) => updateCol(i, { codec: e.target.value })} />
                       </div>
                       <div className="studio-field">
                         <FieldLabel text="Comment"
                           tip="A description stored with the column." />
-                        <input className="form-input" value={c.comment || ""}
+                        <Input  value={c.comment || ""}
                           onChange={(e) => updateCol(i, { comment: e.target.value })} />
                       </div>
                       <div className="studio-col-remove">
-                        <button className="btn btn-ghost btn-sm studio-danger-btn" onClick={() => removeCol(i)}>
+                        <Button variant="ghost" size="sm" className="studio-danger-btn" onClick={() => removeCol(i)}>
                           <Icon className="ti ti-trash" /> Remove column
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -156,34 +159,34 @@ export default function StepSchema({ columns, setColumns, stats, sampleRows, onB
                       <div className="studio-field">
                         <FieldLabel text="Codec"
                           tip="Compression for this column. Common: ZSTD(3) general; Delta, ZSTD for monotonic integers and timestamps; Gorilla, ZSTD for slowly changing floats; wrap low-cardinality strings as LowCardinality(String) in the type instead." />
-                        <input className="form-input mono" list="studio-codec-suggestions"
+                        <Input className="mono" list="studio-codec-suggestions"
                           value={c.codec || ""} placeholder="ZSTD(3)"
                           onChange={(e) => updateCol(i, { codec: e.target.value })} />
                       </div>
                       <div className="studio-field">
                         <FieldLabel text="Statistics"
                           tip="Lightweight per-part statistics that help the optimizer, for example TDigest for percentiles or Uniq for distinct-count estimates." />
-                        <input className="form-input mono" list="studio-stat-suggestions"
+                        <Input className="mono" list="studio-stat-suggestions"
                           value={c.statistics || ""} placeholder="TDigest, Uniq"
                           onChange={(e) => updateCol(i, { statistics: e.target.value })} />
                       </div>
                       <div className="studio-field">
                         <FieldLabel text="Column TTL"
                           tip="Resets this column to its default after the expression's time, for example d + INTERVAL 30 DAY. Cannot be used on key columns." />
-                        <input className="form-input mono" value={c.ttl || ""}
+                        <Input className="mono" value={c.ttl || ""}
                           placeholder="d + INTERVAL 30 DAY"
                           onChange={(e) => updateCol(i, { ttl: e.target.value })} />
                       </div>
                       <div className="studio-field studio-col-wide">
                         <FieldLabel text="Comment"
                           tip="A description stored with the column." />
-                        <input className="form-input" value={c.comment || ""}
+                        <Input  value={c.comment || ""}
                           onChange={(e) => updateCol(i, { comment: e.target.value })} />
                       </div>
                       <div className="studio-field studio-col-wide">
                         <FieldLabel text="Column SETTINGS"
                           tip="Per-column settings as name = value, comma separated, for example min_compress_block_size = 16777216." />
-                        <input className="form-input mono" value={c.settings || ""}
+                        <Input className="mono" value={c.settings || ""}
                           placeholder="min_compress_block_size = 16777216"
                           onChange={(e) => updateCol(i, { settings: e.target.value })} />
                       </div>
@@ -208,20 +211,28 @@ export default function StepSchema({ columns, setColumns, stats, sampleRows, onB
       </div>
 
       <div className="studio-add-col">
-        <button className="btn btn-secondary btn-sm" onClick={addCustom}>
+        <Button variant="secondary" size="sm" onClick={addCustom}>
           <Icon className="ti ti-plus" /> Add derived column
-        </button>
+        </Button>
         <span className="studio-hint">
           A DEFAULT, MATERIALIZED, ALIAS, or EPHEMERAL column computed from an expression over other columns.
         </span>
       </div>
 
       <div className="studio-actions">
-        <button className="btn btn-ghost" onClick={onBack}>Back</button>
-        <button className="btn btn-primary" onClick={onNext} disabled={!columns.length}>
+        <Button variant="ghost" onClick={()=>setIsBackModel(true)}>Back</Button>
+        <Button variant="primary" onClick={onNext} disabled={!columns.length}>
           Next: engine
-        </button>
+        </Button>
       </div>
+
+        {isBackModel && <ConfirmModal 
+        message={"If you go back to Schema Upload, the schema form, engine configuration, and generation process will reset. Any progress made in the current step may be lost. Do you want to continue?"} 
+        title={"Confirm Schema Upload Navigation"} 
+        onCancel={()=>setIsBackModel(false)} 
+        onConfirm={()=>{onBack()}} 
+   
+        />}
     </div>
   );
 }

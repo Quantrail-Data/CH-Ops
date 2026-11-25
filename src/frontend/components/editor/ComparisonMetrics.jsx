@@ -9,7 +9,7 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { memo } from "react";
+import { memo } from "react";
 import { fmtBytes, fmtRows } from "../../utils/costEstimator.js";
 import { compareMetric, pctDelta } from "../../utils/queryCompare.js";
 

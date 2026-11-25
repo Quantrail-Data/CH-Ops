@@ -22,7 +22,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
   const styles = {
     disabledButton: {
       padding: "8px",
-      color: "#9CA3AF",
+      color: "var(--text-muted)",
       cursor: "not-allowed",
       border: "none",
       background: "transparent",
@@ -43,23 +43,23 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
     },
 
     listeningButton: {
-      color: "#fff",
-      backgroundColor: "#5D3FD3",
-      border: "1px solid #5D3FD3",
-      boxShadow: "0 10px 15px rgba(0,0,0,0.15)"
+      color: "var(--on-accent)",
+      backgroundColor: "var(--accent-solid)",
+      border: "1px solid var(--accent-solid)",
+      boxShadow: "var(--shadow-md)"
     },
 
     errorButton: {
-      color: "#9CA3AF",
-      backgroundColor: "#F9FAFB",
-      border: "1px solid #E5E7EB",
+      color: "var(--text-muted)",
+      backgroundColor: "var(--bg-sunken)",
+      border: "1px solid var(--border-default)",
       cursor: "not-allowed"
     },
 
     defaultButton: {
-      color: "#ffffffff",
-      backgroundColor: "#8b5cf6",
-      border: "1px solid #8b5cf6",
+      color: "var(--on-accent)",
+      backgroundColor: "var(--accent-solid)",
+      border: "1px solid var(--accent-solid)",
       cursor: "pointer"
     },
 
@@ -73,7 +73,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       right: "-4px",
       width: "8px",
       height: "8px",
-      backgroundColor: "#fff",
+      backgroundColor: "var(--bg-surface)",
       borderRadius: "50%"
     },
 
@@ -82,12 +82,12 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       top: "-48px",
       left: "-80px",
       transform: "translateX(-50%)",
-      backgroundColor: "#5D3FD3",
-      color: "#fff",
-      fontSize: "12px",
+      backgroundColor: "var(--accent-solid)",
+      color: "var(--on-accent)",
+      fontSize: "0.75rem",
       padding: "8px 12px",
       borderRadius: "8px",
-      boxShadow: "0 10px 15px rgba(0,0,0,0.15)",
+      boxShadow: "var(--shadow-md)",
       whiteSpace: "nowrap",
       zIndex: 50
     },
@@ -106,7 +106,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
     bar: {
       width: "4px",
       height: "16px",
-      backgroundColor: "#fff",
+      backgroundColor: "var(--bg-surface)",
       borderRadius: "9999px"
     },
 
@@ -115,9 +115,9 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       top: "-36px",
       left: "-29px",
       transform: "translateX(-50%)",
-      backgroundColor: "#5D3FD3",
-      color: "#fff",
-      fontSize: "12px",
+      backgroundColor: "var(--accent-solid)",
+      color: "var(--on-accent)",
+      fontSize: "0.75rem",
       padding: "4px 8px",
       borderRadius: "4px",
       whiteSpace: "nowrap",
@@ -130,7 +130,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
       left: "50%",
       width: "8px",
       height: "8px",
-      backgroundColor: "#5D3FD3",
+      backgroundColor: "var(--accent-solid)",
       transform: "translateX(-50%) rotate(45deg)"
     }
   };
@@ -147,7 +147,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         style={styles.disabledButton}
         title="Speech recognition not supported in this browser"
       >
-        <Icon className="ti ti-microphone-off" style={{ fontSize: 12 }} />
+        <Icon className="ti ti-microphone-off" style={{ fontSize: "0.75rem" }} />
       </button>
     );
   }
@@ -159,7 +159,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         style={styles.disabledButton}
         title="Microphone not available"
       >
-        <Icon className="ti ti-microphone-off" style={{ fontSize: 12 }} />
+        <Icon className="ti ti-microphone-off" style={{ fontSize: "0.75rem" }} />
       </button>
     );
   }
@@ -171,10 +171,10 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         disabled={disabled || hasError}
         style={{
           ...styles.button,
-          ...(listening
+          ...(disabled || hasError
+            ? styles.disabledButton
+            : listening
             ? styles.listeningButton
-            : hasError
-            ? styles.errorButton
             : styles.defaultButton)
         }}
         whileHover={!disabled && !hasError ? { scale: 1.05 } : {}}
@@ -209,7 +209,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
         >
           {listening ? (
             <div style={styles.micContainer}>
-              <Icon className="ti ti-microphone" style={{ fontSize: 14 }} />
+              <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem", color: "inherit" }} />
               <motion.div
                 style={styles.indicatorDot}
                 animate={{ opacity: [0, 1, 0] }}
@@ -217,7 +217,7 @@ const VoiceSearchButton = ({ onTranscript, disabled,setAutoFocus }) => {
               />
             </div>
           ) : (
-            <Icon className="ti ti-microphone" style={{ fontSize: 14 }} />
+            <Icon className="ti ti-microphone" style={{ fontSize: "0.875rem", color: "inherit" }} />
           )}
         </motion.div>
       </motion.button>

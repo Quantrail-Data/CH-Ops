@@ -1,22 +1,18 @@
 // StepGenerate.jsx - Step 4 and 5: build the DDL, edit, validate, create
-//
-// The CREATE TABLE is composed deterministically from the form, so it is exactly
-// what the user configured (no AI authoring). Validation errors are shown
-// inline. The user may optionally ask the AI to review the composed DDL given
-// the columns, statistics, and intent. Validate runs a server-side EXPLAIN AST
-// parse check; Create runs the statements (local table first for distributed),
-// with no data loaded.
-//
-// Author: Kathir Moorthy
+// Author: Kathir Moorthy, Praveen kumar, kathirdhasan
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
-import SqlInput from "../editor/SqlInput.jsx";
+import SqlEditor from "../editor/SqlEditor.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { composeEngine, composeDistributed } from "../../utils/engineModel.js";
 import { composeCreateTable, validateSpec } from "../../utils/ddlCompose.js";
 import { evaluate, validateDdl, createTables, aiStatus } from "../../utils/studioApi.js";
+import { keyList,joinKey } from "../../utils/ddlCompose.js";
+import { Button, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
+
 
 function mapColumns(columns) {
   return (columns || []).map((c) => ({
@@ -34,9 +30,32 @@ function mapColumns(columns) {
   }));
 }
 
-export default function StepGenerate({ columns, stats, sampleRows, form, onBack }) {
+function normalizeCodecChain(codecBody) {
+  const raw = String(codecBody || "").trim();
+  if (!raw) return raw;
+  const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return raw;
+
+  const hasCompressor = parts.some((p) => /^(LZ4HC|LZ4|ZSTD)\b/i.test(p));
+  const hasTransformOnly = parts.some((p) => /^(Delta|DoubleDelta|Gorilla)\s*\(/i.test(p));
+
+  if (hasTransformOnly && !hasCompressor) parts.push("LZ4");
+
+  return parts.join(", ");
+}
+
+function sanitizeDdlCodecs(sql) {
+  if (!sql || typeof sql !== "string") return sql;
+  return sql.replace(/CODEC\s*\(([^)]*(?:\)[^)]*)*)\)/gi, (full, inner) => {
+    const normalized = normalizeCodecChain(inner);
+    return `CODEC(${normalized})`;
+  });
+}
+
+export default function StepGenerate({ columns, stats, sampleRows, form, onBack ,clearForms,StepSource}) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [aiLoading,setAiLoading] = useState(false)
   const [error, setError] = useState(null);
   const [specErrors, setSpecErrors] = useState([]);
 
@@ -53,6 +72,18 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
     aiStatus().then(setAi).catch(() => setAi({ configured: false, executable: false }));
   }, []);
 
+  function reFormOrderBy(value) {
+    const tokens = keyList(value)
+    if (Array.isArray(tokens)) {
+      const changeValue = tokens?.map((v)=>{
+        return v.includes(' ') ? "`"+v+"`" : v
+      })
+      return joinKey(changeValue)
+    }
+    return value
+  }
+
+
   // Compose the DDL deterministically from the form.
   const build = useCallback(() => {
     setError(null); setValidation(null); setReview(null);
@@ -66,8 +97,8 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
         columns: cols,
         indexes: form.indexes || [],
         projections: form.projections || [],
-        orderBy: form.orderBy,
-        primaryKey: form.primaryKey,
+        orderBy: reFormOrderBy(form.orderBy),
+        primaryKey: reFormOrderBy(form.primaryKey),
         partitionBy: form.partitionBy,
         sampleBy: form.sampleBy,
         ttl: form.tableTtl,
@@ -110,16 +141,13 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
 
   useEffect(() => { build(); }, [build]);
 
-  // Manual rebuild from the button: recompose from the form and confirm, since a
-  // silent recompose looks like nothing happened when the DDL already matches the
-  // form (it discards any hand edits made in the editor below).
   function rebuildFromForm() {
     build();
     toast.success("DDL rebuilt from the form.");
   }
 
   async function doEvaluate() {
-    setBusy(true); setError(null); setReview(null);
+    setBusy(true); setError(null); setReview(null);setAiLoading(true);
     try {
       const res = await evaluate({
         columns: mapColumns(columns),
@@ -139,6 +167,7 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
       setError(e.message);
     } finally {
       setBusy(false);
+      setAiLoading(false);
     }
   }
 
@@ -165,6 +194,8 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
       await createTables(statements);
       toast.success("Table created successfully.");
       setConfirming(false);
+      clearForms();
+      StepSource();
     } catch (e) {
       setCreateError(e.message);
     } finally {
@@ -178,24 +209,29 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
     <div className="studio-step-pane">
       <div className="studio-gen-head">
         <h2 className="studio-step-title">Review the DDL</h2>
-        <button className="btn btn-secondary" onClick={rebuildFromForm} disabled={busy}>Rebuild from form</button>
+        <Button variant="secondary" onClick={rebuildFromForm} disabled={busy}>Rebuild from form</Button>
       </div>
 
       {error && (
-        <div className="alert-banner danger"><Icon className="ti ti-alert-circle" /><span>{error}</span></div>
+        <Notice tone="danger" icon="ti-alert-circle"><span>{error}</span></Notice>
       )}
 
       {specErrors.length > 0 && (
-        <div className="alert-banner danger">
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="danger" icon="ti-alert-circle">
           <span>{specErrors.join(" ")}</span>
-        </div>
+        </Notice>
       )}
 
       {form.distributed && (
         <div className="studio-editor-block">
           <label className="studio-editor-label">Local table (created on each shard)</label>
-          <SqlInput value={ddlLocal} onChange={setDdlLocal} acWords={[]} />
+          <SqlEditor
+            value={ddlLocal}
+            onChange={setDdlLocal}
+            variant="compact"
+            completions={[]}
+            height="180px"
+          />
         </div>
       )}
 
@@ -203,23 +239,29 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
         <label className="studio-editor-label">
           {form.distributed ? "Distributed table" : "Table DDL"}
         </label>
-        <SqlInput value={ddl} onChange={setDdl} acWords={[]} />
+        <SqlEditor
+          value={ddl}
+          onChange={setDdl}
+          variant="compact"
+          completions={[]}
+          height="220px"
+        />
       </div>
 
       {validation && (
         validation.ok ? (
           <div className="studio-valid-ok"><Icon className="ti ti-circle-check" /> Valid. Ready to create.</div>
         ) : (
-          <div className="alert-banner danger"><Icon className="ti ti-alert-circle" />
-            <span>{validation.error}</span></div>
+          <Notice tone="danger" icon="ti-alert-circle">
+            <span>{validation.error}</span></Notice>
         )
       )}
 
       <div className="studio-eval">
-        <button className="btn btn-secondary" onClick={doEvaluate}
+        <Button variant="secondary" onClick={doEvaluate}
           disabled={busy || !ddl.trim() || (ai && !ai.executable)}>
-          <Icon className="ti ti-bolt" /> Evaluate with AI
-        </button>
+          {(busy && aiLoading) ? <><div className="loading-spinner" style={{color:"white"}}> </div> Preparing ClickHouse syntax...</>  : <><Icon className="ti ti-bolt" /> Evaluate with AI</>}
+        </Button>
         {ai && !ai.executable && (
           <span className="studio-hint">
             {ai.configured
@@ -247,49 +289,50 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
             <div className="studio-ai-ddl">
               <strong>Suggested DDL:</strong>
               <pre className="mono" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflow: 'auto', margin: '6px 0', padding: 12, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-surface)' }}>{review.suggested_ddl}</pre>
-              <button className="btn btn-secondary btn-sm"
-                onClick={() => { setDdl(review.suggested_ddl); setValidation(null); }}>
+              <Button variant="secondary" size="sm"
+                onClick={() => {
+                  const nextDdl = sanitizeDdlCodecs(review.suggested_ddl);
+                  setDdl(nextDdl);
+                  setValidation(null);
+                }}>
                 <Icon className="ti ti-arrow-back-up" /> Apply to editor
-              </button>
+              </Button>
             </div>
           )}
         </div>
       )}
 
       <div className="studio-actions">
-        <button className="btn btn-ghost" onClick={onBack}>Back</button>
-        <button className="btn btn-secondary" onClick={doValidate} disabled={busy || blocked}>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button variant="secondary" onClick={doValidate} disabled={busy || blocked}>
           Validate
-        </button>
-        <button className="btn btn-primary"
+        </Button>
+        <Button variant="primary"
           onClick={() => { setCreateError(null); setConfirming(true); }}
           disabled={busy || blocked || (validation && !validation.ok)}>
           Create table
-        </button>
+        </Button>
       </div>
 
       {confirming && (
-        <div className="modal-overlay" onClick={() => { setConfirming(false); setCreateError(null); }}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+        <Modal onClose={() => { setConfirming(false); setCreateError(null); }} style={{ maxWidth: 560 }}>
             <h3 style={{ marginBottom: 12 }}>Create this table?</h3>
             <p className="studio-note">
               This runs the CREATE TABLE statement{form.distributed ? "s" : ""} on your cluster.
               No data is loaded. You can load data separately afterwards.
             </p>
             {createError && (
-              <div className="alert-banner danger studio-modal-error">
-                <Icon className="ti ti-alert-circle" />
+              <Notice tone="danger" icon="ti-alert-circle" className="studio-modal-error">
                 <span>{createError}</span>
-              </div>
+              </Notice>
             )}
             <div className="studio-actions">
-              <button className="btn btn-ghost" onClick={() => { setConfirming(false); setCreateError(null); }}>Cancel</button>
-              <button className="btn btn-primary" onClick={doCreate} disabled={busy}>
+              <Button variant="ghost" onClick={() => { setConfirming(false); setCreateError(null); }}>Cancel</Button>
+              <Button variant="primary" onClick={doCreate} disabled={busy}>
                 {busy ? "Creating..." : createError ? "Retry create" : "Confirm create"}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </div>
   );

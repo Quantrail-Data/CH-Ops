@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import {
@@ -8,6 +8,7 @@ import {
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import { useAuth } from "../../App.jsx";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 4 };
 const AI_PROVIDERS = ["GEMINI", "OPEN AI", "MISTRAL", "CLAUDE", "OLLAMA"];
@@ -20,11 +21,12 @@ export default function ApiManagement() {
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedKeyId, setSelectedKeyId] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [, setIsEditing] = useState(false);
   const [editingKey, setEditingKey] = useState(null);
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [formKeyName, setFormKeyName] = useState("");
+  const [formAPIName, setFormAPIName] = useState("");
+  const [formAIProvider, setFormAIProvider] = useState("");
   const [formKeyValue, setFormKeyValue] = useState("");
   const [formModelValue, setFormModelValue] = useState("");
   const [ollamaModels, setOllamaModels] = useState([]);
@@ -35,98 +37,30 @@ export default function ApiManagement() {
     keyId: null,
     keyName: "",
   });
-  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [isValidKey, setISvalidKey] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(false);
   const [keyValidationMessage, setKeyValidationMessage] = useState("");
   const [keyValidationStatus, setKeyValidationStatus] = useState(null); // 'success' | 'error' | null
 
-  const isOllama = formKeyName === "OLLAMA";
+  const isOllama = formAIProvider === "OLLAMA";
 
+  // Load the keys one time only. The Escape listener changes with the dialog.
+  // Thus the listener has its own effect.
   useEffect(() => {
     loadApiKeys();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
+  }, []);
 
-    const handleEscape = (e) => {
-      if (e.key === "Escape" && deleteConfirm.show) {
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape" && deleteConfirm.show) {
         cancelDelete();
       }
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [deleteConfirm.show]);
-
-  useEffect(() => {
-    const detectDarkMode = () => {
-      if (typeof document !== "undefined") {
-        const html = document.documentElement;
-        const body = document.body;
-        const htmlTheme =
-          html && html.getAttribute && html.getAttribute("data-theme");
-        const bodyTheme =
-          body && body.getAttribute && body.getAttribute("data-theme");
-        if (htmlTheme === "dark" || bodyTheme === "dark") return true;
-        if (htmlTheme === "light" || bodyTheme === "light") return false;
-        if (html && html.classList && html.classList.contains("dark"))
-          return true;
-        if (body && body.classList && body.classList.contains("dark"))
-          return true;
-        if (html && html.classList && html.classList.contains("light"))
-          return false;
-        if (body && body.classList && body.classList.contains("light"))
-          return false;
-        try {
-          const stored = window.localStorage
-            ? window.localStorage.getItem("theme")
-            : null;
-          if (stored === "dark") return true;
-          if (stored === "light") return false;
-        } catch (e) {}
-      }
-      if (typeof window !== "undefined" && window.matchMedia) {
-        return window.matchMedia("(prefers-color-scheme: dark)").matches;
-      }
-      return false;
-    };
-
-    setIsDarkMode(detectDarkMode());
-
-    let mq;
-    const mqHandler = () => setIsDarkMode(detectDarkMode());
-
-    if (typeof window !== "undefined" && window.matchMedia) {
-      mq = window.matchMedia("(prefers-color-scheme: dark)");
-      if (mq.addEventListener) {
-        mq.addEventListener("change", mqHandler);
-      } else if (mq.addListener) {
-        mq.addListener(mqHandler);
-      }
-    }
-
-    const observer =
-      typeof MutationObserver !== "undefined"
-        ? new MutationObserver(() => setIsDarkMode(detectDarkMode()))
-        : null;
-    if (observer && typeof document !== "undefined") {
-      observer.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["class", "data-theme"],
-      });
-      if (document.body)
-        observer.observe(document.body, {
-          attributes: true,
-          attributeFilter: ["class", "data-theme"],
-        });
-    }
-
-    return () => {
-      if (mq) {
-        if (mq.removeEventListener) mq.removeEventListener("change", mqHandler);
-        else if (mq.removeListener) mq.removeListener(mqHandler);
-      }
-      if (observer) observer.disconnect();
-    };
-  }, []);
 
   async function loadApiKeys() {
     try {
@@ -169,39 +103,9 @@ export default function ApiManagement() {
           apiKeyName: null,
         });
       }
-    } catch (err) {
+    } catch {
       console.log("Failed to update global API key");
     }
-  }
-
-  function validateApiKey(keyValue) {
-    if (isOllama) {
-      try {
-        const url = new URL(keyValue.trim());
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
-    } else if (keyValue.startsWith("sk-")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else if (keyValue.startsWith("AIza")) {
-      return keyValue.length >= 35 && keyValue.length <= 200;
-    } else if (keyValue.startsWith("xai-")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else if (keyValue.startsWith("hf_")) {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    } else {
-      return keyValue.length >= 20 && keyValue.length <= 500;
-    }
-  }
-
-  function getApiTypeMessage(keyValue) {
-    if (isOllama) return "Ollama base URL";
-    if (keyValue.startsWith("sk-")) return "OpenAI API key";
-    if (keyValue.startsWith("AIza")) return "Google Gemini API key";
-    if (keyValue.startsWith("xai-")) return "X.AI API key";
-    if (keyValue.startsWith("hf_")) return "Hugging Face API key";
-    return "Generic API key";
   }
 
   function isDuplicateName(name, excludeId = null) {
@@ -212,32 +116,13 @@ export default function ApiManagement() {
     );
   }
 
-  async function checkDuplicateValue(value, excludeId = null) {
-    try {
-      const response = await apiFetch("/api/qurioz/api-keys/with-values");
-      if (response && response.apiKeys) {
-        const duplicate = response.apiKeys.some(
-          (key) => key.key === value.trim() && key.id !== excludeId,
-        );
-        return duplicate;
-      }
-    } catch (err) {
-      console.log("Failed to check duplicate values");
-    }
-    return false;
-  }
-
   async function saveApiKey(e) {
     e.preventDefault();
-    if (!formKeyName.trim()) {
+    if (!formAPIName.trim()) {
       toast.warning("Please enter an API key name");
       return;
     }
-    if (!formModelValue.trim()) {
-      toast.warning("Please enter an API key name");
-      return;
-    }
-    if (formKeyName.length > 100) {
+    if (formAPIName.length > 100) {
       toast.warning("API key name must not exceed 100 characters");
       return;
     }
@@ -252,43 +137,44 @@ export default function ApiManagement() {
 
 
     const isDuplicateNameCheck = isDuplicateName(
-      formKeyName.trim(),
+      formAPIName.trim(),
       editingKey?.id,
     );
     if (isDuplicateNameCheck) {
       if (editingKey) {
         toast.warning(
-          `Cannot update: API key name "${formKeyName.trim()}" already exists`,
+          `Cannot update: API key name "${formAPIName.trim()}" already exists`,
         );
       } else {
         toast.warning(
-          `Cannot create: API key name "${formKeyName.trim()}" already exists`,
+          `Cannot create: API key name "${formAPIName.trim()}" already exists`,
         );
       }
       return;
     }
 
-    const isDuplicateValueCheck = await checkDuplicateValue(
-      formKeyValue.trim(),
-      editingKey?.id,
-    );
-    if (isDuplicateValueCheck) {
-      if (editingKey) {
-        toast.warning(
-          `Cannot update: This API key value already exists for another key`,
-        );
-      } else {
-        toast.warning(`Cannot create: This API key value already exists`);
-      }
-      return;
-    }
+    // const isDuplicateValueCheck = await checkDuplicateValue(
+    //   formKeyValue.trim(),
+    //   editingKey?.id,
+    // );
+    // if (isDuplicateValueCheck) {
+    //   if (editingKey) {
+    //     toast.warning(
+    //       `Cannot update: This API key value already exists for another key`,
+    //     );
+    //   } else {
+    //     toast.warning(`Cannot create: This API key value already exists`);
+    //   }
+    //   return;
+    // }
 
     try {
       if (editingKey) {
         await apiFetch(`/api/qurioz/api-keys/${editingKey.id}`, {
           method: "PUT",
           body: JSON.stringify({
-            name: formKeyName.trim(),
+            name:formAPIName.trim(),
+            provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
           }),
@@ -299,7 +185,8 @@ export default function ApiManagement() {
         await apiFetch("/api/qurioz/api-keys", {
           method: "POST",
           body: JSON.stringify({
-            name: formKeyName.trim(),
+            name:formAPIName.trim(),
+            provider: formAIProvider.trim(),
             apiKey: formKeyValue.trim(),
             model: formModelValue.trim(),
           }),
@@ -307,7 +194,8 @@ export default function ApiManagement() {
 
         toast.success("API key added successfully");
       }
-      setFormKeyName("");
+      setFormAPIName("")
+      setFormAIProvider("");
       setFormKeyValue("");
       setFormModelValue("");
       setIsEditing(false);
@@ -367,7 +255,8 @@ export default function ApiManagement() {
 
   async function editKey(key) {
     setEditingKey(key);
-    setFormKeyName(key.name);
+    setFormAPIName(key?.name)
+    setFormAIProvider(key?.provider);
     setFormModelValue(key?.model);
     setFormKeyValue("");
     setIsEditing(true);
@@ -383,7 +272,8 @@ export default function ApiManagement() {
   function cancelEdit() {
     setIsEditing(false);
     setEditingKey(null);
-    setFormKeyName("");
+    setFormAPIName("");
+    setFormAIProvider("");
     setFormKeyValue("");
     setFormModelValue("");
     setShowAddForm(false);
@@ -394,49 +284,22 @@ export default function ApiManagement() {
   }
 
   function startAddNew() {
+    // The server allows 5 keys (MAX_API_KEYS in services/apiKeys.js).
     if (apiKeys.length >= 5) {
-      toast.warning("Maximum 4 API keys allowed");
+      toast.warning("Maximum 5 API keys allowed");
       return;
     }
     setShowAddForm(true);
     setIsEditing(false);
     setEditingKey(null);
-    setFormKeyName("");
+    setFormAPIName("");
+    setFormAIProvider("");
     setFormKeyValue("");
     setFormModelValue("");
     setOllamaModels([]);
     setShowKey(false);
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
-  }
-
-  function maskApiKey(key) {
-    if (!key) return "";
-    if (key.startsWith("AIza")) {
-      if (key.length <= 40) {
-        return (
-          key.substring(0, 10) +
-          "••••••••••••••••••••" +
-          key.substring(key.length - 6)
-        );
-      }
-      return (
-        key.substring(0, 10) +
-        "•••••••••••••••••••••••••••" +
-        key.substring(key.length - 6)
-      );
-    }
-    if (key.startsWith("sk-")) {
-      return (
-        key.substring(0, 8) +
-        "•••••••••••••••••••••••••••" +
-        key.substring(key.length - 4)
-      );
-    }
-    if (key.length <= 30) {
-      return "•".repeat(20);
-    }
-    return "•".repeat(30);
   }
 
   if (loading) {
@@ -458,10 +321,9 @@ export default function ApiManagement() {
             API Key Management
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
           <span>API key management is only available for administrators.</span>
-        </div>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>API key management is only available for administrators.</p>
@@ -470,36 +332,20 @@ export default function ApiManagement() {
     );
   }
 
-  const themeStyles = {
-    light: {
-      overlay: "rgba(0, 0, 0, 0.25)",
-      modalBg: "#ffffff",
-      modalBorder: "1px solid #e5e7eb",
-      modalText: "#111827",
-      titleText: "#111827",
-      paragraphText: "#374151",
-      cancelBtnBg: undefined,
-      cancelBtnColor: undefined,
-      cancelBtnBorder: undefined,
-      modalBoxShadow:
-        "0 12px 18px -8px rgba(2,6,23,0.08), 0 8px 12px -8px rgba(2,6,23,0.06)",
-    },
-    dark: {
-      overlay: "rgba(2,6,23,0.6)",
-      modalBg: "#0b1220",
-      modalBorder: "1px solid rgba(255,255,255,0.04)",
-      modalText: "#E6EEF8",
-      titleText: "#F9FAFB",
-      paragraphText: "#D1D5DB",
-      cancelBtnBg: "rgba(255,255,255,0.03)",
-      cancelBtnColor: "#E6EEF8",
-      cancelBtnBorder: "1px solid rgba(255,255,255,0.06)",
-      modalBoxShadow:
-        "0 20px 25px -5px rgba(2,6,23,0.6), 0 10px 10px -5px rgba(2,6,23,0.5)",
-    },
+  // Modal colours resolve through the Midnight tokens, so they follow the
+  // theme by themselves; no theme detection is needed here.
+  const current = {
+    overlay: "var(--bg-overlay)",
+    modalBg: "var(--bg-surface)",
+    modalBorder: "1px solid var(--border-strong)",
+    modalText: "var(--text-primary)",
+    titleText: "var(--text-primary)",
+    paragraphText: "var(--text-secondary)",
+    cancelBtnBg: undefined,
+    cancelBtnColor: undefined,
+    cancelBtnBorder: undefined,
+    modalBoxShadow: "var(--shadow-lg)",
   };
-
-  const current = isDarkMode ? themeStyles.dark : themeStyles.light;
 
   const modalInnerStyle = {
     backgroundColor: current.modalBg,
@@ -520,7 +366,7 @@ export default function ApiManagement() {
   };
 
   const modalParagraphStyle = {
-    fontSize: "15px",
+    fontSize: "0.9375rem",
     color: current.paragraphText,
     marginBottom: "24px",
   };
@@ -587,9 +433,9 @@ export default function ApiManagement() {
     setISvalidKey(false)
     setKeyValidationMessage("");
     setKeyValidationStatus(null);
-    if (formKeyName.trim() && formKeyValue.trim() && formModelValue.trim()) {
+    if (formAIProvider.trim() && formKeyValue.trim() && formModelValue.trim()) {
       const apiKeys = {
-        name: formKeyName.trim(),
+        name: formAIProvider.trim(),
         apiKey: formKeyValue?.trim(),
         model: formModelValue?.trim(),
       };
@@ -661,20 +507,20 @@ export default function ApiManagement() {
           </h3>
           <p
             style={{
-              fontSize: "14px",
+              fontSize: "0.875rem",
               color: "var(--text-muted)",
               marginBottom: 0,
             }}
           >
-            Configure up to 4 API keys for AI-powered query assistance and
-            insights. Supports OpenAI, Google Gemini, Mistral, Claude
+            Configure up to 5 API keys for AI-powered query assistance and
+            insights. Supports OpenAI, Google Gemini, Mistral, Claude,Ollama
           </p>
         </div>
 
         {apiKeys.length > 0 && (
           <div style={{ marginBottom: 24 }}>
             <label className="form-label" style={{ marginBottom: 12 }}>
-              Saved API Keys ({apiKeys.length}/3)
+              Saved API Keys ({apiKeys.length}/5)
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {apiKeys.map((key) => (
@@ -706,10 +552,11 @@ export default function ApiManagement() {
                       {selectedKeyId === key.id && (
                         <span
                           style={{
-                            fontSize: "11px",
+                            fontSize: "0.6875rem",
                             padding: "2px 6px",
-                            backgroundColor: "var(--accent)",
-                            color: "white",
+                            backgroundColor: "var(--color-success-bg)",
+                            color: "var(--color-success)",
+                            fontWeight: 700,
                             borderRadius: "4px",
                           }}
                         >
@@ -719,7 +566,7 @@ export default function ApiManagement() {
                       <span
                         style={{
                           fontWeight: 600,
-                          fontSize: "14px",
+                          fontSize: "0.875rem",
                           color: "var(--text-primary)",
                         }}
                       >
@@ -737,35 +584,35 @@ export default function ApiManagement() {
                       </span>
                     </div>
                     <div
-                      style={{ fontSize: "11px", color: "var(--text-muted)" }}
+                      style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}
                     >
                       Added: {new Date(key.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginLeft: 12 }}>
                     {selectedKeyId !== key.id && (
-                      <button
-                        className="btn btn-secondary btn-sm"
+                      <Button
+                        variant="secondary" size="sm"
                         onClick={() => selectActiveKey(key.id)}
                         title="Set as active"
                       >
                         <Icon className="ti ti-check"></Icon>
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      className="btn btn-secondary btn-sm"
+                    <Button
+                      variant="secondary" size="sm"
                       onClick={() => editKey(key)}
                       title="Edit key"
                     >
                       <Icon className="ti ti-edit"></Icon>
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
+                    </Button>
+                    <Button
+                      variant="danger" size="sm"
                       onClick={() => confirmDelete(key.id, key.name)}
                       title="Delete key"
                     >
                       <Icon className="ti ti-trash"></Icon>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -775,18 +622,31 @@ export default function ApiManagement() {
 
         {showAddForm ? (
           <form>
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label">
-                API Key Name <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
+            <FormField label={<>Name{" "}
+                <span style={{ color: "var(--danger)" }}>*</span></>} style={{ marginBottom: 16 }}>
+              <Input
+                  type="text"
+                  value={formAPIName}
+                  onChange={(e) => setFormAPIName(e.target.value)}
+                  placeholder="Enter the Name"
+                  required
+                  autoFocus
+                  style={{
+                    width: "100%",
+                    maxWidth: 520,
+                    fontSize: "0.875rem",
+                  }}
+                />
+            </FormField>
+            <FormField label={<>AI Provider <span style={{ color: "var(--danger)" }}>*</span></>} style={{ marginBottom: 16 }}>
               <Select
                 className="form-input"
-                onChange={(e) => setFormKeyName(e?.target?.value)}
-                value={formKeyName || ""}
+                onChange={(e) => setFormAIProvider(e?.target?.value)}
+                value={formAIProvider || ""}
                 style={{
                   width: "100%",
                   maxWidth: 520,
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                 }}
               >
                 <option value={""} selected>
@@ -800,11 +660,12 @@ export default function ApiManagement() {
                   );
                 })}
               </Select>
-            </div>
+            </FormField>
+
 
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">
-                {formKeyName} Model Name{" "}
+                {formAIProvider} Model Name{" "}
                 <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               {isOllama ? (
@@ -816,7 +677,7 @@ export default function ApiManagement() {
                   style={{
                     width: "100%",
                     maxWidth: 520,
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                   }}
                 >
                   <option value="">Select a model</option>
@@ -827,18 +688,17 @@ export default function ApiManagement() {
                   ))}
                 </Select>
               ) : (
-                <input
-                  className="form-input"
+                <Input
                   type="text"
                   value={formModelValue}
                   onChange={(e) => setFormModelValue(e.target.value)}
-                  placeholder={`${ModelExamplesPlaceholder(formKeyName)}`}
+                  placeholder={`${ModelExamplesPlaceholder(formAIProvider)}`}
                   required
                   autoFocus
                   style={{
                     width: "100%",
                     maxWidth: 520,
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                   }}
                 />
               )}
@@ -864,8 +724,7 @@ export default function ApiManagement() {
                 <div
                   style={{ position: "relative", width: "100%", maxWidth: 520 }}
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     type={isOllama ? "text" : showKey ? "text" : "password"}
                     value={formKeyValue}
                     onChange={(e) => setFormKeyValue(e.target.value)}
@@ -878,7 +737,7 @@ export default function ApiManagement() {
                     style={{
                       width: "100%",
                       fontFamily: "var(--font-code)",
-                      fontSize: "14px",
+                      fontSize: "0.875rem",
                       paddingRight: isOllama ? "12px" : "46px",
                     }}
                   />
@@ -908,27 +767,19 @@ export default function ApiManagement() {
                       {showKey ? (
                         <Icon
                           className="ti ti-eye-off"
-                          style={{ fontSize: 20 }}
+                          style={{ fontSize: "1.25rem" }}
                         />
                       ) : (
-                        <Icon className="ti ti-eye" style={{ fontSize: 20 }} />
+                        <Icon className="ti ti-eye" style={{ fontSize: "1.25rem" }} />
                       )}
                     </button>
                   )}
                 </div>
                 {isOllama && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-secondary"
-                    style={{
-                      padding: "7px 10px",
-                      borderRadius: "5px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      alignSelf: "flex-start",
-                    }}
+                    variant="secondary"
+                    style={{ borderRadius: "5px", alignSelf: "flex-start" }}
                     onClick={fetchOllamaModels}
                     disabled={isFetchingOllamaModels}
                   >
@@ -937,26 +788,20 @@ export default function ApiManagement() {
                     ) : (
                       <>
                         <Icon className="ti ti-refresh"></Icon>
-                        <span style={{ fontSize: "13px" }}>Fetch Models</span>
+                        <span style={{ fontSize: "0.8125rem" }}>Fetch Models</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="btn btn-primary"
-                  style={{
-                    padding: "7px 10px",
-                    borderRadius: "5px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                <Button
+                  variant="primary" type="submit"
+                  style={{ borderRadius: "5px" }}
                   title={keyValidationMessage || "Test the API key"}
                   onClick={verifyAPIKeyHandler}
                 >
                   {isLoadingKey ? (
 
-                     <div className="loading-spinner"></div>
+                     <div className="loading-spinner" style={{borderTopColor:"white"}}></div>
 
                   ) : (
                     <>
@@ -967,19 +812,19 @@ export default function ApiManagement() {
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="icon icon-tabler icons-tabler-outline icon-tabler-rotate-rectangle"
                       >
                         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                         <path d="M10.09 4.01l.496 -.495a2 2 0 0 1 2.828 0l7.071 7.07a2 2 0 0 1 0 2.83l-7.07 7.07a2 2 0 0 1 -2.83 0l-7.07 -7.07a2 2 0 0 1 0 -2.83l3.535 -3.535h-3.988" />
                         <path d="M7.05 11.038v-3.988" />
                       </svg>
-                      <p style={{ fontSize: "13px" }}>Verify AI API Key</p>
+                      <p style={{ fontSize: "0.8125rem" }}>Verify AI API Key</p>
                     </>
                   )}
-                </button>
+                </Button>
               </div>
               {keyValidationMessage && (
                 <p
@@ -1003,7 +848,7 @@ export default function ApiManagement() {
                   marginTop: 6,
                 }}
               >
-                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...), Claude, and Mistral keys. Keys are encrypted before storage. {apiKeys.length}/4
+                Supports OpenAI (sk-...), Google Gemini (AIza...), X.AI (xai-...), Claude, and Mistral keys. Keys are encrypted before storage. {apiKeys.length}/5
                 keys used.
                 <br />
                 Verify the API key successfully before proceeding to add it
@@ -1011,29 +856,29 @@ export default function ApiManagement() {
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <button
-                className="btn btn-primary"
+              <Button
+                variant="primary" type="submit"
                 onClick={saveApiKey}
                 disabled={!isValidKey}
               >
                 <Icon className="ti ti-device-floppy"></Icon>{" "}
                 {editingKey ? "Update Key" : "Save Key"}
-              </button>
-              <button
-                className="btn btn-secondary"
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={cancelEdit}
               >
                 <Icon className="ti ti-x"></Icon> Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
-          apiKeys.length < 4 && (
+          apiKeys.length < 5 && (
             <div style={{ marginTop: apiKeys.length > 0 ? 16 : 0 }}>
-              <button className="btn btn-primary" onClick={startAddNew}>
+              <Button variant="primary" onClick={startAddNew}>
                 <Icon className="ti ti-plus"></Icon> Add API Key
-              </button>
+              </Button>
             </div>
           )
         )}
@@ -1044,7 +889,7 @@ export default function ApiManagement() {
               style={{
                 color: "var(--text-muted)",
                 marginBottom: 16,
-                fontSize: "14px",
+                fontSize: "0.875rem",
               }}
             >
               No API keys configured yet.
@@ -1062,7 +907,6 @@ export default function ApiManagement() {
             right: 0,
             bottom: 0,
             backgroundColor: current.overlay,
-            backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1074,8 +918,8 @@ export default function ApiManagement() {
             <h3 style={modalTitleStyle}>Confirm Delete</h3>
             <p style={modalParagraphStyle}>
               Are you sure you want to delete API key{" "}
-              <strong style={{ color: "#6366f1" }}>
-                "{deleteConfirm.keyName}"
+              <strong style={{ color: "var(--accent)" }}>
+                &quot;{deleteConfirm.keyName}&quot;
               </strong>
               ?
             </p>
@@ -1086,20 +930,20 @@ export default function ApiManagement() {
                 justifyContent: "flex-end",
               }}
             >
-              <button
-                className="btn btn-secondary"
+              <Button
+                variant="secondary"
                 onClick={cancelDelete}
                 style={cancelButtonStyle}
               >
                 No, Cancel
-              </button>
-              <button
-                className="btn btn-danger"
+              </Button>
+              <Button
+                variant="danger"
                 onClick={handleDeleteConfirm}
-                style={{ padding: "8px 16px", borderRadius: "8px" }}
+                style={{ borderRadius: "8px" }}
               >
                 Yes, Delete
-              </button>
+              </Button>
             </div>
           </div>
         </div>

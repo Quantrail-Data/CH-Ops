@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Dynamically renders configured data visualizations, charts, and metrics from query results.
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import {
@@ -15,19 +15,21 @@ import {
 import { initChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import DataTable from "../layout/DataTable";
-import { useQuriozChatContext, useAuth } from "../../App.jsx";
+import {  useAuth } from "../../App.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import { Input, Button, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
-function ChartVisualization({ editChart, data = [], chatMessage }) {
+function ChartVisualization({ editChart, data = [], chatMessage,replaceChat,updateChart,ToggleChart }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
 
-  const [columns, setColumns] = useState(
+  const [columns] = useState(
     data?.length > 0 ? Object.keys(data[0]) : [],
   );
   const [chartType, setChartType] = useState("bar");
@@ -41,22 +43,74 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
     chatMessage?.chart?.chartOption || null,
   );
   const [validationErrors, setValidationErrors] = useState({});
-  const [topOpen, setTopOpen] = useState(true);
   const [dashboards,setDashboards] = useState([])
   const [selDashboard, setSelDashboard] = useState("");
   const previewRef = useRef(null);
   const previewInst = useRef(null);
   const tools = useChartTools(() => previewInst.current, { filename: "chart" });
+  const [chartId,setChartId] = useState(null)
 
-  const { replaceChat } = useQuriozChatContext();
+  // const { replaceChat } = useQuriozChatContext();
   
+// console.log(chartOption,previewInst,previewRef)
+  function ChatVisiablePreview() {
+    return (Object.keys(chartOption ?? {}).length > 0 && previewInst && previewRef) ||  chartType === 'table'
+  }
+
   const toast = useToast();
 
-    useEffect(() => {
+      useEffect(() => {
       apiFetch("/api/dashboards")
         .then(setDashboards)
         .catch(() => {});
     }, []);
+
+    useEffect(() => {
+  
+  const fetchChartData = async () => {
+  
+    if (chatMessage?.dashId && chatMessage?.chartName) {
+      try {
+        const response = await apiFetch(`/api/dashboards/${chatMessage?.dashId}/charts/${chatMessage?.chartName}`);
+        const chartData = response?.["0"];
+        if (!chartData) {
+          return;
+        }
+
+        let parsedConfig = {};
+        if (chartData.config) {
+          try {
+            parsedConfig = typeof chartData.config === "string" 
+              ? JSON.parse(chartData.config) 
+              : chartData.config;
+          } catch (e) {
+            console.error( e.message);
+          }
+        }
+
+        const { xLabel, yLabel, legend = showLegend, category, value } = parsedConfig;
+
+        const mapping = { category, value };
+        setChartName(chartData.name);
+        setXLabel(xLabel);
+        setYLabel(yLabel);
+        setShowLegend(legend);
+        setChartSubtype(chartData.chartSubtype);
+        setChartType(chartData.chartType)
+        setMapping(mapping)
+        setSelDashboard(Number(chatMessage?.dashId || chartData?.dashboardId))
+        setChartId(chartData?.id)
+
+      } catch (error) {
+        console.error("Failed to fetch chart data:", error.message);
+      }
+    }
+  };
+
+  fetchChartData();
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load the saved chart only when the message points to another chart, not when the legend toggles.
+}, [chatMessage?.dashId, chatMessage?.chartName]); 
 
   useEffect(() => {
     if (editChart) {
@@ -78,6 +132,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
   const subtypeInfo = typeInfo?.subtypes.find(
     (s) => s.subtype === chartSubtype,
   );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const fields = subtypeInfo?.fields || [];
   const hasAxisLabels = typeInfo?.hasXLabel || false;
 
@@ -88,6 +143,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
       setYLabel(d.yLabel);
       setShowLegend(needsLegend(chartType, chartSubtype));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [chartType, chartSubtype]);
 
   useEffect(() => {
@@ -122,6 +178,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
         showLegend,
       }),
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [
     data,
     mapping,
@@ -133,46 +190,65 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
     showLegend,
   ]);
 
-  useEffect(() => {
-    if (!previewRef.current) return;
-    if (
-      !chartOption ||
-      chartOption._kpi ||
-      chartOption._table ||
-      chartOption._error
-    ) {
-      if (previewInst.current) {
-        previewInst.current = null;
-      }
-      return;
-    }
-    try {
-      if (!previewInst.current)
-        previewInst.current = initChart(previewRef.current);
-      previewInst.current.setOption(withZoomable({...chartOption, toolbox: { show: false }, grid: {
-      ...chartOption?.grid,
-      top: 'center',
-      left: 'center',
-      width:"80%",
-      height:"80%"
-    },}), true);
-      const updatedMessage = {
-        ...chatMessage,
-        chart: {
-          ...chatMessage?.chart,
 
-          chartOption: {
-            ...chartOption,
-            
-          },
-        },
-      };
-      replaceChat(updatedMessage);
-      setTimeout(() => previewInst.current?.resize(), 50);
-    } catch (err) {
-      setChartOption({ _error: true, message: err.message });
+useEffect(() => {
+  const element = previewRef.current;
+
+  if (!element) return;
+
+  if (
+    !chartOption ||
+    chartOption._kpi ||
+    chartOption._table ||
+    chartOption._error
+  ) {
+    previewInst.current?.clear();
+    return;
+  }
+
+  try {
+    if (
+      !previewInst.current ||
+      previewInst.current.isDisposed?.() ||
+      previewInst.current.getDom() !== element
+    ) {
+      previewInst.current?.dispose();
+      previewInst.current = initChart(element);
     }
-  }, [chartOption]);
+    previewInst.current.setOption(
+      withZoomable({
+        ...chartOption,
+        toolbox: { show: false },
+        grid: {
+          ...chartOption?.grid,
+          top: "center",
+          left: "center",
+          width: "80%",
+          height: "80%",
+        },
+      }),
+      true
+    );
+    requestAnimationFrame(() => {
+      previewInst.current?.resize();
+    });
+
+    const updatedMessage = {
+      ...chatMessage,
+      chart: {
+        ...chatMessage?.chart,
+        chartOption: { ...chartOption },
+      },
+    };
+
+    replaceChat(updatedMessage);
+
+  } catch (err) {
+    setChartOption({ _error: true, message: err.message });
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the chart option changes, as before.
+}, [chartOption]);
+
 
   useEffect(() => {
     setTimeout(() => previewInst.current?.resize(), 150);
@@ -183,6 +259,8 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
     const f = CHART_TYPES.find((x) => x.type === t)?.subtypes[0];
     setChartSubtype(f?.subtype || "");
     setMapping({});
+    previewRef.current = null
+    previewInst.current = null
   }
 
       async function saveChart() {
@@ -195,8 +273,8 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
       const dashId = parseInt(selDashboard, 10);
       const config = { ...mapping, xLabel, yLabel, showLegend };
       try {
-        if (editChart) {
-          await apiFetch(`/api/dashboards/charts/${editId}`, {
+        if (chartId) {
+          await apiFetch(`/api/dashboards/charts/${chartId}`, {
             method: "PUT",
             body: JSON.stringify({
               name: chartName || "Untitled",
@@ -207,6 +285,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
               config,
             }),
           });
+          ToggleChart(chatMessage)
           toast.success("Chart updated.");
         } else {
           const existing = await apiFetch(`/api/dashboards/${dashId}/charts`);
@@ -237,22 +316,19 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
               config,
             }),
           });
+
+          const updatedMessage = {
+            ...chatMessage,
+              chartName,dashId
+          };
+          updateChart(chartName,dashId,chatMessage?.chatId,chatMessage?.messageId)
+          // replaceChat(updatedMessage);
+          ToggleChart(updatedMessage)
           toast.success("Chart saved to dashboard.");
         }
       } catch (e) {
         toast.error(e.message);
-      } finally {
-        setChartType("bar");
-        setChartSubtype("simple_bar");
-        setChartName("");
-        setMapping({});
-        setXLabel("");
-        setYLabel("");
-        setShowLegend(true);
-        setChartOption(null);
-        previewRef.current = null;
-        previewInst.current = null;
-      }
+      } 
     }
 
       function SeperateNumericColumns(column) {
@@ -290,8 +366,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                 marginBottom: 12,
               }}
             >
-              <div className="form-group">
-                <label className="form-label">Chart Type</label>
+              <FormField label="Chart Type">
                 <Select
                   className="form-select"
                   value={chartType}
@@ -303,9 +378,8 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                     </option>
                   ))}
                 </Select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Subtype</label>
+              </FormField>
+              <FormField label="Subtype">
                 <Select
                   className="form-select"
                   value={chartSubtype}
@@ -320,16 +394,14 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                     </option>
                   ))}
                 </Select>
-              </div>
+              </FormField>
             </div>
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <label className="form-label">Chart Name</label>
-              <input
-                className="form-input"
+            <FormField label="Chart Name" style={{ marginBottom: 12 }}>
+              <Input
                 value={chartName}
                 onChange={(e) => setChartName(e.target.value)}
               />
-            </div>
+            </FormField>
             {fields.length > 0 && columns.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <label className="form-label" style={{ marginBottom: 6 }}>
@@ -348,7 +420,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                         <div key={f.key} className="form-group">
                           <label
                             className="form-label"
-                            style={{ fontSize: "12px" }}
+                            style={{ fontSize: "0.75rem" }}
                           >
                             {f.label}
                             {f.required ? " *" : ""} ({f.expect})
@@ -364,7 +436,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                                                             }))
                                                           }
                                                           style={{
-                                                            fontSize: "13px",
+                                                            fontSize: "0.8125rem",
                                                             borderColor: validationErrors[f.key]
                                                               ? "var(--color-danger)"
                                                               : undefined,
@@ -388,7 +460,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                                                             }))
                                                           }
                                                           style={{
-                                                            fontSize: "13px",
+                                                            fontSize: "0.8125rem",
                                                             borderColor: validationErrors[f.key]
                                                               ? "var(--color-danger)"
                                                               : undefined,
@@ -406,7 +478,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                             <span
                               style={{
                                 color: "var(--color-danger)",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                               }}
                             >
                               {validationErrors[f.key]}
@@ -428,46 +500,30 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                 }}
               >
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     X Label
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     value={xLabel}
                     onChange={(e) => setXLabel(e.target.value)}
-                    style={{ fontSize: "13px" }}
+                    style={{ fontSize: "0.8125rem" }}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Y Label
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     value={yLabel}
                     onChange={(e) => setYLabel(e.target.value)}
-                    style={{ fontSize: "13px" }}
+                    style={{ fontSize: "0.8125rem" }}
                   />
                 </div>
               </div>
             )}
-            <label
-              style={{
-                display: "flex",
-                gap: 6,
-                cursor: "pointer",
-                fontSize: "14px",
-                marginBottom: 12,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showLegend}
-                onChange={(e) => setShowLegend(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
-              />{" "}
-              Show Legend
-            </label>
+           <div style={{ display:"flex",alignItems:"center"}}>
+             <ToggleSwitch checked={showLegend} onChange={(e) => setShowLegend(e.target.checked)} label="Show Legend"/>
+           </div>
             {chartType === "gauge" && (
               <div
                 style={{
@@ -478,11 +534,10 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                 }}
               >
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Min
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     type="number"
                     value={mapping.min_val || 0}
                     onChange={(e) =>
@@ -491,11 +546,10 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "12px" }}>
+                  <label className="form-label" style={{ fontSize: "0.75rem" }}>
                     Max
                   </label>
-                  <input
-                    className="form-input"
+                  <Input
                     type="number"
                     value={mapping.max_val || 100}
                     onChange={(e) =>
@@ -506,10 +560,10 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
               </div>
             )}
           </div>
-          <div style={{ padding: 16, minHeight: 340 }}>
+          {ChatVisiablePreview() && <div style={{ padding: 16, minHeight: 340 }}>
             <div
               style={{
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 color: "var(--text-muted)",
                 marginBottom: 8,
               }}
@@ -517,12 +571,8 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
               Preview
             </div>
             {chartOption?._error && (
-              <div
-                className="alert-banner danger"
-                style={{ fontSize: "13px" }}
-              >
-                <Icon className="ti ti-alert-circle"></Icon> {chartOption.message}
-              </div>
+              <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}> {chartOption.message}
+              </Notice>
             )}
             {chartOption?._kpi && (
               <div
@@ -536,7 +586,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
               >
                 <div
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-muted)",
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
@@ -581,7 +631,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                     {!chartOption && !previewRef &&(
                       <div className="empty-state" style={{ padding: 24 }}>
                         <Icon className="ti ti-chart-dots"></Icon>
-                        <p style={{ fontSize: "13px" }}>
+                        <p style={{ fontSize: "0.8125rem" }}>
                           Map columns to see preview.
                         </p>
                       </div>
@@ -589,8 +639,7 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                 </div>
                   {chartOption && canAddToDashboard && (
                                       <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-                      <div className="form-group" style={{ flex: 1 }}>
-                        <label className="form-label">Dashboard *</label>
+                      <FormField label="Dashboard *" style={{ flex: 1 }}>
                         <Select
                           className="form-select"
                           value={selDashboard}
@@ -603,20 +652,20 @@ function ChartVisualization({ editChart, data = [], chatMessage }) {
                             </option>
                           ))}
                         </Select>
-                      </div>
-                      <button
-                        className="btn btn-primary"
+                      </FormField>
+                      <Button
+                        variant="primary"
                         onClick={saveChart}
                         disabled={!chartOption || !selDashboard}
                       >
                         <Icon className="ti ti-device-floppy"></Icon>{" "}
                        Save
-                      </button>
+                      </Button>
                     </div>
                     )}
                 </div>
               )}
-          </div>
+          </div>}
         </div>
       }
     </div>

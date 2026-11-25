@@ -1,13 +1,7 @@
-// appBackup.js - WAL-safe application data backup to S3
-//
-// Creates a consistent SQLite snapshot using VACUUM INTO (WAL-safe),
-// then uploads it to S3-compatible storage via ClickHouse's s3()
-// table function. Also uploads a JSON manifest with metadata. Supports
-// manual backups and scheduled automatic backups with configurable
-// frequency (hourly/daily/weekly) and retention policies.
-//
-// Author: Kathir Moorthy
+// Contributors -> kathir dhasan, kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// appBackup.js - WAL-safe application data backup to S3, GCS or Azure Blob storage
+
 import { log } from './logger.js';
 
 import { Database } from 'bun:sqlite';
@@ -17,16 +11,15 @@ import { eq } from 'drizzle-orm';
 import { db, appSettings, alertRules, alertChannels, dashboards, charts, appUsers } from '../db/index.js';
 import { executeQuery } from './clickhouse.js';
 import { getClusterNodes } from './clusterUtils.js';
+import { decrypt } from "./crypto.js";
+import { storageFromProfile, rawBlobFunction, insertFileSql, storageLocation, hideSecrets } from "../../shared/backupSql.js";
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, 'chops.db');
-const TEMP_DIR = path.join(DB_DIR, 'tmp');
+const TEMP_DIR = path.join(DB_DIR, "tmp");
+const CRYPTO_SALT_PATH = path.join(DB_DIR, "crypto.salt");
 
 function pad(n) { return String(n).padStart(2, '0'); }
-
-function escSql(str) {
-  return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\0/g, '').replace(/`/g, '\\`');
-}
 
 // Cluster nodes loaded from clusterUtils.getClusterNodes()
 
@@ -34,13 +27,32 @@ function getStorageProfiles() {
   try {
     const row = db.select().from(appSettings).where(eq(appSettings.key, 'backup_profiles')).get();
     if (row?.value) return JSON.parse(row.value);
-  } catch {}
+  } catch {
+    // No saved profiles. Use the default.
+  }
   return [];
 }
 
-function getS3Base(profile) {
-  if (profile.type === 'gcs') return { endpoint: `https://storage.googleapis.com/${profile.bucket}`, accessKeyId: profile.accessKeyId, accessKey: profile.accessKey };
-  return { endpoint: `${profile.endpoint || 'https://s3.amazonaws.com'}${profile.bucket}`, accessKeyId: profile.accessKeyId, accessKey: profile.accessKey };
+// Gives the storage details with decrypted keys. Never log or return them.
+function getStorage(profile) {
+  return storageFromProfile({
+    ...profile,
+    endpoint: decrypt(profile.endpoint),
+    accessKeyId: decrypt(profile.accessKeyId),
+    accessKey: decrypt(profile.accessKey),
+  });
+}
+
+// Runs SQL that has storage keys in it. The error message must not show the keys.
+async function runStorageQuery(sql, storage, node) {
+  try {
+    return await executeQuery({
+      host: node.host, port: node.port, secure: !!node.secure,
+      user: node.user, password: node.password, sql,
+    });
+  } catch (err) {
+    throw new Error(hideSecrets(err.message, storage));
+  }
 }
 
 function buildTimestamp(date) {
@@ -82,81 +94,140 @@ function createSnapshot() {
     source.close();
   }
 
+  // Kubernetes tokens are read-only cluster credentials, encrypted at rest with the same
+  if (excludeK8sCredentials()) {
+    const snapshot = new Database(tempPath);
+    try {
+      snapshot.exec("UPDATE k8s_connection SET token_enc = ''");
+    } catch {
+      // Table absent on a database that predates the Kubernetes feature.
+    } finally {
+      snapshot.close();
+    }
+  }
+
   const size = fs.statSync(tempPath).size;
   return { path: tempPath, size };
 }
 
-// Upload a file to S3 using ClickHouse®'s s3() function.
-// We read the file as base64, then use INSERT INTO FUNCTION s3() to write it.
-async function uploadToS3(filePath, s3Key, s3, node) {
-  const fileData = fs.readFileSync(filePath);
-  const base64 = fileData.toString('base64');
-
-  // Upload via ClickHouse®'s s3 table function using base64 encoding
-  const sql = `INSERT INTO FUNCTION s3('${s3.endpoint}/${escSql(s3Key)}', '${escSql(s3.accessKeyId)}', '${escSql(s3.accessKey)}', 'RawBLOB', 'data String') VALUES ('${escSql(base64)}')`;
-  await executeQuery({
-    host: node.host, port: node.port, secure: !!node.secure,
-    user: node.user, password: node.password, sql,
-  });
-}
-
-// Write a JSON manifest alongside the backup
-async function writeManifest(manifest, s3Key, s3, node) {
-  const json = JSON.stringify(manifest, null, 2);
-  const sql = `INSERT INTO FUNCTION s3('${s3.endpoint}/${escSql(s3Key)}', '${escSql(s3.accessKeyId)}', '${escSql(s3.accessKey)}', 'RawBLOB', 'data String') VALUES ('${escSql(json)}')`;
-  await executeQuery({
-    host: node.host, port: node.port, secure: !!node.secure,
-    user: node.user, password: node.password, sql,
-  });
-}
-
-// Create and upload a backup to the selected storage profile
-export async function createAppBackup(profileName,backupType) {
-  const profiles = getStorageProfiles();
-  const profile = profiles.find(p => p.name === profileName);
-  if (!profile) throw new Error(`Storage profile "${profileName}" not found`);
-
-  const nodes = getClusterNodes();
-  if (!nodes.length) throw new Error('No cluster nodes configured. Need at least one node to upload via ClickHouse® S3 function.');
-  const node = nodes[0];
-
-  const s3 = getS3Base(profile);
-  const now = new Date();
-  const ts = buildTimestamp(now);
-  const backupKey = `chops-app-backups/${ts}.db`;
-  const manifestKey = `chops-app-backups/${ts}.json`;
-
-  // Step 1: create WAL-safe snapshot
-  const snapshot = createSnapshot();
-
+// app_setting['backup.exclude_k8s_credentials'], read at snapshot time so a change takes
+function excludeK8sCredentials() {
   try {
-    // Step 2: upload the snapshot
-    await uploadToS3(snapshot.path, backupKey, s3, node);
-
-    // Step 3: write manifest
-    const manifest = {
-      backup_id: ts,
-      created_at: now.toISOString(),
-      app_version: getAppVersion().display || getAppVersion().version || 'unknown',
-      file_size_bytes: snapshot.size,
-      file_size_display: snapshot.size < 1024 * 1024
-        ? `${(snapshot.size / 1024).toFixed(1)} KB`
-        : `${(snapshot.size / (1024 * 1024)).toFixed(2)} MB`,
-      profile_name: profileName,
-      s3_path: `${s3.endpoint}/${backupKey}`,
-      table_counts: getTableCounts(),
-      backup_type:backupType
-    };
-    await writeManifest(manifest, manifestKey, s3, node);
-
-    return manifest;
-  } finally {
-    // Always clean up the temp file
-    try { fs.unlinkSync(snapshot.path); } catch {}
+    const row = db
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.key, 'backup.exclude_k8s_credentials'))
+      .get();
+    return row?.value === 'true';
+  } catch {
+    return false;
   }
 }
 
-// List existing app backups from S3 by reading manifests
+// Upload a file through ClickHouse®'s s3() or azureBlobStorage() table function.
+// The file is stored as base64 text, so a restore must decode it with base64 -d.
+async function uploadFile(filePath, fileKey, storage, node) {
+  const base64 = fs.readFileSync(filePath).toString('base64');
+  await runStorageQuery(insertFileSql(storage, fileKey, base64), storage, node);
+}
+
+// Write a JSON manifest alongside the backup
+async function writeManifest(manifest, manifestKey, storage, node) {
+  const json = JSON.stringify(manifest, null, 2);
+  await runStorageQuery(insertFileSql(storage, manifestKey, json), storage, node);
+}
+
+// Create and upload a backup to the selected storage profile
+export async function createAppBackup(profileName, backupType) {
+  const profiles = getStorageProfiles();
+  const profile = profiles.find((p) => p.name === profileName);
+
+  if (!profile) {
+    throw new Error(`Storage profile "${profileName}" not found`);
+  }
+
+  if (!fs.existsSync(CRYPTO_SALT_PATH)) {
+    throw new Error(
+      "Encryption salt file not found. Cannot create a restorable backup.",
+    );
+  }
+
+  const nodes = getClusterNodes();
+
+  if (!nodes.length) {
+    throw new Error(
+      "No cluster nodes configured. Need at least one node to upload via ClickHouse S3 function.",
+    );
+  }
+
+  const node = nodes[0];
+  const storage = getStorage(profile);
+  const now = new Date();
+  const ts = buildTimestamp(now);
+  const backupKey = `chops-app-backups/${ts}.db`;
+  const saltKey = `chops-app-backups/${ts}.salt`;
+  const manifestKey = `chops-app-backups/${ts}.json`;
+
+  // Create the WAL-safe database snapshot.
+  const snapshot = createSnapshot();
+
+  // Keep temporary files in the application's temp directory.
+  if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  }
+
+  const saltSnapshotPath = path.join(TEMP_DIR, `crypto-salt-${ts}.salt`);
+
+  try {
+    // Capture the matching salt before uploading either artifact.
+    fs.copyFileSync(CRYPTO_SALT_PATH, saltSnapshotPath);
+
+    const saltSize = fs.statSync(saltSnapshotPath).size;
+
+    // Upload database and salt.
+    await uploadFile(snapshot.path, backupKey, storage, node);
+    await uploadFile(saltSnapshotPath, saltKey, storage, node);
+
+    // Publish the manifest only after both uploads succeed.
+    const appVersion = getAppVersion();
+
+    const manifest = {
+      backup_id: ts,
+      created_at: now.toISOString(),
+      app_version: appVersion.display || appVersion.version || "unknown",
+      file_size_bytes: snapshot.size,
+      file_size_display:
+        snapshot.size < 1024 * 1024
+          ? `${(snapshot.size / 1024).toFixed(1)} KB`
+          : `${(snapshot.size / (1024 * 1024)).toFixed(2)} MB`,
+      profile_name: profileName,
+      s3_path: storageLocation(storage, backupKey),
+      crypto_salt_s3_path: storageLocation(storage, saltKey),
+      crypto_salt_size_bytes: saltSize,
+      table_counts: getTableCounts(),
+      backup_type: backupType,
+    };
+
+    await writeManifest(manifest, manifestKey, storage, node);
+
+    return manifest;
+  } finally {
+    // Always clean up both temporary files.
+    try {
+      fs.unlinkSync(snapshot.path);
+    } catch {
+      // The file is already gone.
+    }
+
+    try {
+      fs.unlinkSync(saltSnapshotPath);
+    } catch {
+      // The file is already gone.
+    }
+  }
+}
+
+// List existing app backups by reading their manifests
 export async function listAppBackups(profileName) {
   const profiles = getStorageProfiles();
   const profile = profiles.find(p => p.name === profileName);
@@ -166,14 +237,11 @@ export async function listAppBackups(profileName) {
   if (!nodes.length) throw new Error('No cluster nodes configured');
   const node = nodes[0];
 
-  const s3 = getS3Base(profile);
+  const storage = getStorage(profile);
 
   try {
-    const sql = `SELECT data FROM s3('${s3.endpoint}/chops-app-backups/*.json', '${escSql(s3.accessKeyId)}', '${escSql(s3.accessKey)}', 'RawBLOB', 'data String') ORDER BY _path DESC`;
-    const r = await executeQuery({
-      host: node.host, port: node.port, secure: !!node.secure,
-      user: node.user, password: node.password, sql,
-    });
+    const sql = `SELECT data FROM ${rawBlobFunction(storage, 'chops-app-backups/*.json')} ORDER BY _path DESC`;
+    const r = await runStorageQuery(sql, storage, node);
 
     if (!r.rows?.length) return [];
 
@@ -208,7 +276,7 @@ export function startAppBackupScheduler() {
       const day = now.getDay();
 
       // Check if it's time to run
-      if (hour !== (config.backupHour || 2)) return;
+      if (hour !== (Number.isInteger(config.backupHour) ? config.backupHour : 2)) return;
       if (config.frequency === 'weekly' && day !== (config.weekday || 0)) return;
 
       // Check if already ran this hour
@@ -234,7 +302,9 @@ export function startAppBackupScheduler() {
           const updated = { ...config, lastRunAt: now.toISOString(), lastRunStatus: 'error', lastRunError: err.message?.substring(0, 500) };
           db.update(appSettings).set({ value: JSON.stringify(updated) }).where(eq(appSettings.key, 'app_backup_config')).run();
         }
-      } catch {}
+      } catch {
+        // Saving the backup status is optional.
+      }
     }
   }
 

@@ -1,7 +1,6 @@
+// schema-routes.test.js - the SQLite schema, route mounting and auth coverage
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Backend suite validating schemas, router injection, multi-tier RBAC, secure crypto pipelines, SSRF blocks, and ClickHouse ingestion services.
-
+// Contributors - Kathir Moorthy
 
 import { describe, it, expect } from "vitest";
 import fs from "fs";
@@ -11,7 +10,8 @@ function read(f) {
 
 describe("Schema: 8 Tables", () => {
   const schema = read("src/backend/db/schema.js");
-  const migrate = read("src/backend/db/migrate.js");
+  // The CREATE TABLE statements are in the numbered migrations.
+  const migrate = read("src/backend/db/migrations.js");
   const idx = read("src/backend/db/index.js");
   [
     "app_setting",
@@ -87,7 +87,7 @@ describe("Routes: Auth", () => {
   it("has brute-force lockout", () => {
     expect(code).toContain("checkLockout");
     expect(code).toContain("recordFailure");
-    expect(code).toContain("MAX_FAILURES");
+    expect(code).toContain('getConfig("security.maxFailures")');
   });
   it("supports DISABLE_ENV_LOGIN", () => {
     expect(code).toContain("disableEnvLogin");
@@ -141,18 +141,17 @@ describe("Routes: Users RBAC (4-tier)", () => {
   const routes = read("src/backend/routes/users.js");
   it("defines 4 roles: superadmin, admin, editor, readonly", () => {
     expect(code).toContain("VALID_ROLES");
-    expect(code).toContain("\"superadmin\"");
-    expect(code).toContain("\"admin\"");
-    expect(code).toContain("\"editor\"");
-    expect(code).toContain("\"readonly\"");
+    expect(code).toContain('"superadmin"');
+    expect(code).toContain('"admin"');
+    expect(code).toContain('"editor"');
+    expect(code).toContain('"readonly"');
   });
   it("has ROLE_LEVEL hierarchy", () => {
     expect(code).toContain("readonly: 0");
     expect(code).toContain("superadmin: 3");
   });
-  it("exports requireAdmin, requireSuperAdmin, requireEditor", () => {
+  it("exports requireAdmin and requireEditor", () => {
     expect(code).toContain("export function requireAdmin");
-    expect(code).toContain("export function requireSuperAdmin");
     expect(code).toContain("export function requireEditor");
   });
   it("DELETE route uses requireAdmin", () => {
@@ -179,13 +178,11 @@ describe("Services: Alert Scheduler", () => {
   });
   it("uses clusterUtils for node credentials", () => {
     expect(code).toContain("getClusterNodes");
-    expect(code).toContain("from './clusterUtils.js'");
+    expect(code).toContain("from \"./clusterUtils.js\"");
   });
-  it("filters nodes by rule.nodes when set", () => {
-    expect(code).toContain("selected.includes(n.host)");
-  });
-  it("falls back to all nodes when rule.nodes is null", () => {
-    expect(code).toContain("let nodes = allNodes");
+  // The node choice itself is tested in tests/backend/alert-node-states.test.js.
+  it("chooses the nodes of a rule with selectRuleNodes", () => {
+    expect(code).toContain("selectRuleNodes(allNodes, selectedNodes)");
   });
   it("uses per-rule clusterId for node lookup", () => {
     expect(code).toContain("getClusterNodes(rule.clusterId");
@@ -264,8 +261,9 @@ describe("Services: App Data Backup", () => {
   it("uses VACUUM INTO for WAL-safe snapshot", () => {
     expect(code).toContain("VACUUM INTO");
   });
-  it("uploads via ClickHouse® S3 function", () => {
-    expect(code).toContain("s3('");
+  it("uploads via the ClickHouse® s3 or azureBlobStorage function", () => {
+    expect(code).toContain("insertFileSql(storage, fileKey, base64)");
+    expect(read("src/shared/backupSql.js")).toContain("s3(${sqlString(");
   });
   it("writes manifest JSON alongside backup", () => {
     expect(code).toContain("manifestKey = `chops-app-backups/");
@@ -282,7 +280,7 @@ describe("Services: App Data Backup", () => {
   });
 });
 
-describe("Routes: App Backup", () =>{
+describe("Routes: App Backup", () => {
   const code = read("src/backend/routes/appBackup.js");
   it("has create, list, and config endpoints", () => {
     expect(code).toContain('router.post("/create"');
@@ -291,7 +289,8 @@ describe("Routes: App Backup", () =>{
     expect(code).toContain('router.put("/config"');
   });
   it("requires superadmin for all routes", () => {
-    expect(code).toContain("requireSuperAdmin");
+    expect(code).toContain("requireSuperAdminOnly");
+    expect(code).not.toContain("requireAdmin");
   });
 });
 
@@ -310,8 +309,8 @@ describe("Services: Crypto", () => {
     expect(code).toContain("crypto.salt");
     expect(code).toContain("randomBytes(32)");
   });
-  it("requires 32+ character SESSION_SECRET", () => {
-    expect(code).toContain("sessionSecret.length < 32");
+  it("requires 32+ character ENCRYPTION_SECRET", () => {
+    expect(code).toContain("encryptionSecret.length < 32");
   });
 });
 
@@ -319,15 +318,15 @@ describe("Security: SSRF Prevention", () => {
   const queryCode = read("src/backend/controllers/query.js");
   it("query controller validates node against cluster config", () => {
     expect(queryCode).toContain("SSRF prevention");
-    expect(queryCode).toContain("Node not found in cluster configuration");
+    expect(queryCode).toContain("resolveNodeFromConfig(clusterId, node)");
   });
   it("query controller does not accept raw host from request", () => {
     expect(queryCode).toContain("host: targetNode.host");
     expect(queryCode).not.toContain("host: node ||");
   });
   it("query controller uses clusterUtils for SSRF-safe node lookup", () => {
-    expect(queryCode).toContain("from '../services/clusterUtils.js'");
-    expect(queryCode).toContain("getClusterNodes(clusterId)");
+    expect(queryCode).toContain("from \"../services/clusterUtils.js\"");
+    expect(queryCode).toContain("resolveNodeFromConfig(clusterId, node)");
   });
 
   const notifierCode = read("src/backend/services/notifier.js");
@@ -347,15 +346,22 @@ describe("Security: SSRF Prevention", () => {
 describe("Security: RBAC on Write Operations", () => {
   const alertRoutes = read("src/backend/routes/alerts.js");
   it("alert write routes require admin level", () => {
-    expect(alertRoutes).toContain("requireSuperAdmin, createRule");
-    expect(alertRoutes).toContain("requireSuperAdmin, createChannel");
+    expect(alertRoutes).toContain("requireAdmin, createRule");
+    expect(alertRoutes).toContain("requireAdmin, createChannel");
   });
 
   const dashRoutes = read("src/backend/routes/dashboards.js");
   it("dashboard write routes require editor level", () => {
     expect(dashRoutes).toContain("requireEditor, createDashboard");
     expect(dashRoutes).toContain("requireEditor, createChart");
-    expect(dashRoutes).toContain("requireEditor, deleteChart");
+    expect(dashRoutes).toContain("requireEditor, updateChart");
+  });
+  it("dashboard delete routes require admin", () => {
+    // Deleting a dashboard detaches every chart on it, and deleting a chart is
+    // unrecoverable, so both sit a level above create and edit.
+    expect(dashRoutes).toContain("requireAdmin, deleteDashboard");
+    expect(dashRoutes).toContain("requireAdmin, deleteChart");
+    expect(dashRoutes).not.toContain("requireEditor, deleteChart");
   });
   it("dashboard read routes are open", () => {
     const listLine = dashRoutes
@@ -365,10 +371,15 @@ describe("Security: RBAC on Write Operations", () => {
   });
 
   const settingsCode = read("src/backend/controllers/settings.js");
-  it("settings protects sensitive keys at admin level", () => {
-    expect(settingsCode).toContain("PROTECTED_KEYS");
+  it("settings allows writes only for allowlisted keys", () => {
+    expect(settingsCode).toContain("USER_WRITABLE");
+    expect(settingsCode).toContain("ADMIN_WRITABLE");
     expect(settingsCode).toContain("cluster.nodes");
-    expect(settingsCode).toContain("requireAdminForKey");
+    expect(settingsCode).toContain("requireWriteAccess");
+  });
+  it("settings reads use canReadSetting with server-only prefixes", () => {
+    expect(settingsCode).toContain("canReadSetting");
+    expect(settingsCode).toContain("SERVER_ONLY_PREFIXES");
   });
 
   const clusterCode = read("src/backend/controllers/cluster.js");
@@ -408,8 +419,9 @@ describe("Services: JWT", () => {
   it("has no default secret", () => {
     expect(code).not.toContain("secret = 'default'");
   });
-  it("throws if secret not set", () => {
-    expect(code).toContain("JWT secret not set");
+  it("makes its own signing key, so there is nothing to set", () => {
+    expect(code).toContain("signingKey()");
+    expect(code).not.toMatch(/export const setSecret|setSecret\s*\(/);
   });
   it("includes jti in tokens", () => {
     expect(code).toContain("jti");
@@ -418,8 +430,8 @@ describe("Services: JWT", () => {
     expect(code).toContain("revokeToken");
     expect(code).toContain("blocklist");
   });
-  it("2h token expiry", () => {
-    expect(code).toContain("'2h'");
+  it("token expiry comes from the session length setting", () => {
+    expect(code).toContain("getConfig('security.sessionTtlMs')");
   });
 });
 
@@ -442,20 +454,26 @@ describe("Server: Safety", () => {
   it("helpful error when not built", () => {
     expect(code).toContain("Frontend not built");
   });
-  it("initializes crypto from session secret", () => {
-    expect(code).toContain("initCrypto(env.sessionSecret)");
+  it("initializes crypto from encryption secret", () => {
+    expect(code).toContain("initCrypto(env.encryptionSecret)");
   });
-  it("query endpoint has 100kb body limit", () => {
-    expect(code).toContain("limit: '100kb'");
+  it("SQL endpoints have a 512kb body limit mounted before the global parser", () => {
+    const tight = code.indexOf("app.use(\"/api/query\", express.json({ limit: \"512kb\" }))");
+    const global = code.indexOf("app.use(express.json({ limit: \"2mb\" }))");
+    expect(tight).toBeGreaterThan(-1);
+    expect(code).toContain("app.use(\"/api/export\", express.json({ limit: \"512kb\" }))");
+    // Order is the whole point: body-parser skips once req._body is set, so a
+    // tighter limit mounted after the global one never applies.
+    expect(tight).toBeLessThan(global);
   });
   it("SPA catch-all skips /docs/ so Docsify can fetch .md files", () => {
-    expect(code).toContain("req.path.startsWith('/docs/')");
+    expect(code).toContain("req.path.startsWith(\"/docs/\")");
   });
   it("SPA catch-all skips /api/ routes", () => {
-    expect(code).toContain("req.path.startsWith('/api/')");
+    expect(code).toContain("req.path.startsWith(\"/api/\")");
   });
   it("serves docs directory as static files", () => {
-    expect(code).toContain("app.use('/docs', express.static(docsDir))");
+    expect(code).toContain("app.use(\"/docs\", express.static(docsDir))");
   });
 });
 
@@ -477,7 +495,7 @@ describe("Server: Auth middleware on all routes except login", () => {
   it("auth route has no authMiddleware", () => {
     const line = sv
       .split("\n")
-      .find((l) => (l.includes("'/api/auth'") || l.includes('"/api/auth"')) && l.includes("app.use"));
+      .find((l) => (l.includes("\"/api/auth\"") || l.includes('"/api/auth"')) && l.includes("app.use"));
     expect(line).not.toContain("authMiddleware");
   });
   [
@@ -490,10 +508,15 @@ describe("Server: Auth middleware on all routes except login", () => {
     "users",
   ].forEach((r) => {
     it(`/api/${r} requires authMiddleware`, () => {
-      const line = sv
+      // Some paths carry a body-size cap mounted ahead of the router on the
+      // same path, so take the line that mounts the route handler rather than
+      // the first line mentioning the path.
+      const lines = sv
         .split("\n")
-        .find((l) => (l.includes(`'/api/${r}'`) || l.includes(`"/api/${r}"`)) && l.includes("app.use"));
-      expect(line).toContain("authMiddleware");
+        .filter((l) => (l.includes(`"/api/${r}"`) || l.includes(`"/api/${r}"`)) && l.includes("app.use"));
+        expect(lines.length).toBeGreaterThan(0);
+      const mount = lines.find((l) => !/express\.json\([^)]*\)\s*\)\s*;?\s*$/.test(l)) || lines[lines.length - 1];
+      expect(mount).toContain("authMiddleware");
     });
   });
 });

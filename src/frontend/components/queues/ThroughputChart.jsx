@@ -3,7 +3,7 @@
 // Ingestion throughput over time. Stacked bars (processed/failed) + rows line.
 // Uses the shared ECharts wrapper so it matches the rest of CHOps.
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Icon from "../common/Icon.jsx";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
@@ -30,7 +30,7 @@ export default function ThroughputChart({ points }) {
     const grid = cssVar("--border-default", "#334155");
     const ok = cssVar("--color-success", "#22c55e");
     const bad = cssVar("--color-danger", "#ef4444");
-    const accent = cssVar("--accent", "#8b5cf6");
+    const accent = cssVar("--accent", "#9590FF");
 
     const labels = points.map((p) => p.bucket);
     // Show only 4 x-axis labels (first, last, and 2 evenly spaced between) so the
@@ -100,8 +100,10 @@ export default function ThroughputChart({ points }) {
   }, [points, has]);
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = elRef.current;
     return () => {
-      if (elRef.current) disposeChart(elRef.current);
+      disposeChart(chartEl);
       chartRef.current = null;
     };
   }, []);

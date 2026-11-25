@@ -261,8 +261,19 @@ describe('AppDataBackup', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Restoring replaces all app data/i)).toBeTruthy();
-      expect(screen.getByText(/Using AWS CLI/i)).toBeTruthy();
+      expect(screen.getByText(/Download the database and crypto salt from the storage/i)).toBeTruthy();
     });
+
+    // The steps must use the salt file that the backup writes, and decode it before the size check.
+    const steps = document.body.textContent;
+    expect(steps).toContain('chops-app-backups/BACKUP_ID.salt');
+    expect(steps).not.toContain('BACKUP_ID.crypto.salt');
+    const decodeAt = steps.indexOf('base64 -d ./crypto.salt.b64 > ./crypto.salt');
+    const checkAt = steps.indexOf('test "$(wc -c < ./crypto.salt)" -eq 32');
+    expect(decodeAt).toBeGreaterThan(-1);
+    expect(checkAt).toBeGreaterThan(decodeAt);
+    expect(steps).toContain('base64 -d ./chops-restore.db.b64 > ./chops-restore.db');
+    expect(steps).not.toContain('Decode only if');
 
     fireEvent.click(screen.getByRole('button', { name: /Hide/i }));
 
@@ -331,8 +342,8 @@ describe('AppDataBackup', () => {
     render(<AppDataBackup />);
     await screen.findByText('Scheduled Backup');
 
-    const enabledCheckbox = screen.getByRole('checkbox');
-    fireEvent.click(enabledCheckbox);
+    const toggle = document.querySelector('.toggle-switch');
+    fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('button', { name: /Save Schedule/i }));
 
     await waitFor(() => {

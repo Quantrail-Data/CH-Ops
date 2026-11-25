@@ -1,0 +1,237 @@
+import express from "express";
+import { rateLimiter } from "../middleware/rateLimiter.js";
+import { generateSql } from "../servicesAI/SQLGenerationService.js";
+import { normaliseTables, resolveContext } from "./aiRouteHelpers.js";
+import { TITLE_MAX_CHARS } from "../servicesAI/constants.js";
+import * as ChatStore from "../servicesAI/chatStore.js";
+import { getActiveApiKey } from "../services/apiKeys.js";
+
+const router = express.Router();
+
+router.post(
+  "/generate",
+  rateLimiter(60, 60, (req) => `ai-generate:${req.user?.username}`),
+  async (req, res) => {
+    let {
+      chatId = null,
+      instruction,
+      tables,
+      clusterId = null,
+      node = null,
+      previousInstruction = null,
+      previousSql = null,
+      forceRefreshDdl = false,
+      title = "",
+      messageId = null,
+    } = req.body || {};
+    // The server checks the API key itself. A value sent by the browser is not trusted.
+    const isApiConfigured = Boolean(getActiveApiKey());
+
+    try {
+      if (!chatId) {
+        const resolvedTitle =
+          (title && String(title).trim()) ||
+          String(instruction ?? "")
+            .trim()
+            .slice(0, TITLE_MAX_CHARS) ||
+          null;
+
+        const chat = await ChatStore.createChat(req.user?.username, {
+          title: resolvedTitle,
+          clusterId,
+          node,
+          selectedTables: normaliseTables(tables),
+        });
+
+        chatId = chat?.id;
+
+        if (!chatId) {
+          return res.status(500).json({
+            error: "Failed to create chat.",
+          });
+        }
+      }
+
+      const isFindChatId = await ChatStore.getChat(req.user?.username, chatId);
+
+      if (!isFindChatId) {
+        return res.status(409).json({
+          error: "An chatID is invalid.",
+        });
+      }
+
+      if (!isApiConfigured) {
+        const error = {
+          code: 422,
+          message: "No Api key configured yet",
+        };
+
+        const result = await ChatStore.insertError(
+          req.user?.username,
+          chatId,
+          messageId,
+          error,
+          instruction,
+        );
+
+        return res.json({
+          ...result,
+          chatId,
+        });
+      }
+
+      if (!instruction || !String(instruction).trim()) {
+        const error = {
+          code: 422,
+          message: "An instruction is required.",
+        };
+
+        const result = await ChatStore.insertError(
+          req.user?.username,
+          chatId,
+          messageId,
+          error,
+          instruction,
+        );
+
+        return res.json({
+          ...result,
+          chatId,
+        });
+      }
+
+      const normalisedTables = normaliseTables(tables);
+
+      if (normalisedTables.length === 0) {
+        const error = {
+          code: 422,
+          message: "A tables array is required.",
+        };
+
+        const result = await ChatStore.insertError(
+          req.user?.username,
+          chatId,
+          messageId,
+          error,
+          instruction,
+        );
+
+        return res.json({
+          ...result,
+          chatId,
+        });
+      }
+
+      const result = await generateSql({
+        jti: req.user?.jti,
+        context: resolveContext(),
+        appUser: req.user?.username,
+        chatId: isFindChatId.id,
+        clusterId,
+        node,
+        tables: normalisedTables,
+        instruction: String(instruction).trim(),
+        previousInstruction,
+        previousSql,
+        forceRefreshDdl: !!forceRefreshDdl,
+        messageId,
+        type: "chat",
+      });
+
+      return res.json(result);
+    } catch (e) {
+      const error = {
+        code: 500,
+        message: e.message,
+      };
+
+      const result = await ChatStore.insertError(
+        req.user?.username,
+        chatId,
+        messageId,
+        error,
+        instruction,
+      );
+
+      return res.json({
+        ...result,
+        chatId,
+      });
+    }
+  },
+);
+
+router.post(
+  "/editor/generate",
+  rateLimiter(60, 60, (req) => `ai-generate:${req.user?.username}`),
+  async (req, res) => {
+    let {
+      instruction,
+      tables,
+      clusterId = null,
+      node = null,
+      previousInstruction = null,
+      previousSql = null,
+      forceRefreshDdl = false,
+      messageId = null,
+    } = req.body || {};
+    // The server checks the API key itself. A value sent by the browser is not trusted.
+    const isApiConfigured = Boolean(getActiveApiKey());
+
+
+
+    if (!isApiConfigured) {
+      const error = {
+        code: 422,
+        message: "No Api key configured yet",
+      };
+      return res
+        .status(422)
+        .json({ error: error?.message, sql: null });
+    }
+
+    if (!instruction || !String(instruction).trim()) {
+      const error = {
+        code: 422,
+        message: "An instruction is required.",
+      };
+      return res
+        .status(422)
+        .json({ error: error?.message, sql: null });
+    }
+
+    const normalisedTables = normaliseTables(tables);
+
+    if (normalisedTables.length === 0) {
+      const error = {
+        code: 422,
+        message: "A tables array is required.",
+      };
+
+      return res
+        .status(422)
+        .json({ error: error?.message, sql: null });
+    }
+
+    const { sql } = await generateSql({
+      jti: req.user?.jti,
+      context: resolveContext(),
+      appUser: req.user?.username,
+      chatId:null,
+      clusterId,
+      node,
+      tables: normalisedTables,
+      instruction: String(instruction).trim(),
+      previousInstruction,
+      previousSql,
+      forceRefreshDdl: !!forceRefreshDdl,
+      messageId,
+      type: "editor",
+    });
+
+    return res
+      .status(201)
+      .json({ sql, error: null });
+  },
+);
+export default router;

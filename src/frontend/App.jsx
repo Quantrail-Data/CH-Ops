@@ -2,34 +2,76 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main application entry point managing global state, theme providers, and top-level routing layouts.
 
-import React, { useState, useEffect, createContext, useContext } from "react";
-import { setGlobalConnection, getActiveApiKey, logoutRequest } from "./utils/api.js";
+import { useState, useEffect, createContext, useContext, lazy, Suspense } from "react";
+import {
+  setGlobalConnection,
+  getActiveApiKey,
+  logoutRequest,
+} from "./utils/api.js";
 import useIdleTimeout from "./hooks/useIdleTimeout.js";
-import LoginPage from "./components/layout/LoginPage.jsx";
-import MainLayout from "./components/layout/MainLayout.jsx";
-import ForceChangePassword from "./components/layout/ForceChangePassword.jsx";
+// Loaded on demand: a signed-in user does not download the Login page (and
+// its screenshot carousel), and the Login page does not load the app layout.
+const LoginPage = lazy(() => import("./components/layout/LoginPage.jsx"));
+const MainLayout = lazy(() => import("./components/layout/MainLayout.jsx"));
+const SetupPassword = lazy(() => import("./components/layout/SetupPassword.jsx"));
+import { apiFetch } from "./utils/api.js";
 
-export const AuthContext = createContext(null);
+// Each context defaults to an inert value with the SAME SHAPE the provider
+// supplies, rather than to null.
+
+// Every consumer destructures immediately - `const { auth } = useAuth()`,
+// `const { theme } = useTheme()`, `const { selectedClusterId } = useConnection()`
+
+// The defaults below let such a component render in its logged-out, unconnected,
+// light-theme state instead.
+
+const NO_AUTH = Object.freeze({
+  auth: null,
+  login: () => {},
+  logout: () => {},
+});
+
+const NO_THEME = Object.freeze({
+  theme: "light",
+  toggleTheme: () => {},
+});
+
+// Mirrors the initial connection state plus the actions the provider adds.
+const NO_CONNECTION = Object.freeze({
+  clusters: [],
+  features: {},
+  selectedClusterId: "",
+  nodes: [],
+  selectedNode: "",
+  nodeName: "",
+  user: "",
+  port: 8123,
+  connected: false,
+  error: null,
+  clusterName: "",
+  serverVersion: null,
+  unavailable: [],
+  setConnection: () => {},
+  testConnection: () => {},
+  reloadConfig: () => {},
+  switchCluster: () => {},
+});
+
+export const AuthContext = createContext(NO_AUTH);
 export function useAuth() {
-  return useContext(AuthContext);
+  return useContext(AuthContext) ?? NO_AUTH;
 }
 
-export const ThemeContext = createContext(null);
+export const ThemeContext = createContext(NO_THEME);
 export function useTheme() {
-  return useContext(ThemeContext);
+  return useContext(ThemeContext) ?? NO_THEME;
 }
 
-export const ConnectionContext = createContext(null);
+export const ConnectionContext = createContext(NO_CONNECTION);
 export function useConnection() {
-  return useContext(ConnectionContext);
+  return useContext(ConnectionContext) ?? NO_CONNECTION;
 }
 
-export const QuriozChatContext = createContext(null);
-export function useQuriozChatContext() {
-  return useContext(QuriozChatContext);
-}
-
-const ContextChatKey = import.meta.env.VITE_QURIOZ_KEY;
 export default function App() {
   // Auth
   const [auth, setAuth] = useState(() => {
@@ -40,58 +82,6 @@ export default function App() {
     }
   });
 
-  // chat storage context
-  // Always resolve stored chat to an array: a legacy or corrupted value that
-  // parses to a non-array (object/null) otherwise makes .map/.filter throw
-  // ("quriozMessage.map is not a function").
-  const readStoredChat = () => {
-    try {
-      const v = JSON.parse(localStorage.getItem(ContextChatKey) || "[]");
-      return Array.isArray(v) ? v : [];
-    } catch {
-      return [];
-    }
-  };
-  const [quriozMessage, setQuriozMessage] = useState(readStoredChat);
-
-  function QURIOZLENGTH() {
-    return quriozMessage?.length;
-  }
-
-  const isNewChat = () => quriozMessage?.length === 0;
-
-  const insertMessage = (message) => {
-    if (message) {
-      const messages = [...readStoredChat(), message];
-      setQuriozMessage(messages);
-      localStorage.setItem(ContextChatKey, JSON.stringify(messages));
-    }
-  };
-
-  const deleteAllChatMessage = () => {
-    setQuriozMessage([]);
-    localStorage.setItem(ContextChatKey, JSON.stringify([]));
-  };
-
-  const replaceChat = (message) => {
-    if (message) {
-      const messages = readStoredChat().map((msg) =>
-        msg?.id === message?.id ? message : msg,
-      );
-      setQuriozMessage(messages);
-      localStorage.setItem(ContextChatKey, JSON.stringify(messages));
-    }
-  };
-
-  useEffect(() => {
-    const chat = localStorage.getItem(ContextChatKey);
-    if (!chat) {
-      localStorage.setItem(ContextChatKey, JSON.stringify([]));
-    } else {
-      setQuriozMessage(readStoredChat());
-    }
-  }, [auth]);
-
   async function loadActiveApiKey() {
     try {
       const activeKey = await getActiveApiKey();
@@ -101,7 +91,7 @@ export default function App() {
           apiKeyName: activeKey.name,
         });
       }
-    } catch (err) {
+    } catch {
       console.error("No active API key found");
     }
   }
@@ -151,14 +141,13 @@ export default function App() {
     selectedNode: "",
     nodeName: "",
     user: "",
-    password: "",
     port: 8123,
     connected: false,
     error: null,
     clusterName: "",
+    serverVersion: null,
+    unavailable: [],
   });
-
-
 
   // Keep global connection store in sync
   function setConnection(updater) {
@@ -169,10 +158,10 @@ export default function App() {
         node: next.selectedNode,
         nodeName: next.nodeName,
         user: next.user,
-        password: next.password,
         port: next.port,
         clusterId: next.selectedClusterId,
-        connected:true
+        connected: true,
+        unavailable: next.unavailable,
       });
       return next;
     });
@@ -203,11 +192,13 @@ export default function App() {
           // Keep current node selection if it still exists in the selected cluster
           const currentHost = prev.selectedNode;
           const stillExists = nodes.find((n) => n.host === currentHost);
-  
+
           return {
             ...prev,
             connected: nodes?.length > 0 ? true : false,
             clusters,
+            // Optional features this installation has switched on.
+            features: data.features || {},
             selectedClusterId: cluster?.id || "",
             nodeName: first.name,
             clusterName: cluster?.name || "",
@@ -217,7 +208,6 @@ export default function App() {
               : {
                   selectedNode: first.host || "",
                   user: first.user || "default",
-                  password: first.password || "",
                   port: first.port || 8123,
                 }),
           };
@@ -237,16 +227,8 @@ export default function App() {
           nodes[0] ||
           {};
 
-
         if (!connection.connected && first?.host) {
-          testConn(
-            first.host,
-            first.user,
-            first.password,
-            first.port,
-            token,
-            cluster?.id,
-          );
+          testConn(first.name, first.user, first.port, token, cluster?.id);
         }
       })
       .catch((err) => {
@@ -261,6 +243,7 @@ export default function App() {
   useEffect(() => {
     if (!auth) return;
     loadConfig(auth.token);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [auth]);
 
   // Switch active cluster
@@ -284,15 +267,44 @@ export default function App() {
         nodes,
         selectedNode: first.host || "",
         user: first.user || "default",
-        password: first.password || "",
         port: first.port || 8123,
         connected: Object?.keys(first)?.length > 0 ? true : false,
         error: null,
+        serverVersion: null,
+        unavailable: [],
       };
     });
   }
 
-  async function testConn(host, user, password, port, token, clusterId) {
+  useEffect(() => {
+    const clusterId = connection.selectedClusterId;
+    if (!clusterId) return;
+
+    let cancelled = false;
+
+    apiFetch(`/api/config/capabilities/${encodeURIComponent(clusterId)}`)
+      .then((r) => {
+        if (cancelled) return;
+        setConnection((prev) => ({
+          ...prev,
+          serverVersion: r.version ?? null,
+          unavailable: r.unavailable,
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setConnection((prev) => ({ ...prev, serverVersion: null }));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection.selectedClusterId]);
+
+  // No password argument: the browser does not hold one. The backend resolves
+  // the stored credential for this node from the cluster configuration.
+  async function testConn(name, user, port, token, clusterId) {
     try {
       const cid = clusterId || connection.selectedClusterId;
       const res = await fetch("/api/query/test-connection", {
@@ -302,9 +314,8 @@ export default function App() {
           Authorization: `Bearer ${token || auth?.token}`,
         },
         body: JSON.stringify({
-          node: host,
+          node: name,
           user,
-          password,
           port,
           clusterId: cid,
         }),
@@ -325,37 +336,32 @@ export default function App() {
       return { ok: false, message: err.message };
     }
   }
+  const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+  const token = params.get("token");
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
-      <QuriozChatContext.Provider
-        value={{
-          replaceChat,
-          quriozMessage,
-          insertMessage,
-          deleteAllChatMessage,
-          isNewChat,
-          QURIOZLENGTH,
-        }}
-      >
-        <ThemeContext.Provider value={{ theme: themeMode, toggleTheme }}>
-          <ConnectionContext.Provider
-            value={{
-              ...connection,
-              setConnection,
-              testConnection: testConn,
-              reloadConfig: () => loadConfig(),
-              switchCluster,
-            }}
-          >
+      <ThemeContext.Provider value={{ theme: themeMode, toggleTheme }}>
+        <ConnectionContext.Provider
+          value={{
+            ...connection,
+            setConnection,
+            testConnection: testConn,
+            reloadConfig: () => loadConfig(),
+            switchCluster,
+          }}
+        >
+          <Suspense fallback={<div className="app-loading" aria-busy="true" />}>
             {auth ? (
-              auth.mustChangePassword ? <ForceChangePassword /> : <MainLayout />
+              <MainLayout />
+            ) : token ? (
+              <SetupPassword token={token} />
             ) : (
               <LoginPage />
             )}
-          </ConnectionContext.Provider>
-        </ThemeContext.Provider>
-      </QuriozChatContext.Provider>
+          </Suspense>
+        </ConnectionContext.Provider>
+      </ThemeContext.Provider>
     </AuthContext.Provider>
   );
 }

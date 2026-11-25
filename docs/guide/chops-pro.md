@@ -1,59 +1,58 @@
 # CHOps Pro
 
-CHOps follows an open-core model. The core dashboard, everything documented in these guides, is the free Community edition and is fully functional on its own. For teams running ClickHouse® at scale, a commercial **Pro** edition layers additional operational features on top of that core.
+CHOps follows an open-core model. The core dashboard is the free Community edition, which these guides document in full and which operates fully on its own. A commercial **Pro** edition adds a small set of operational features on top of the core.
 
 ## Licensing
 
-CHOps is available under a dual-license arrangement for the core, with Pro sold separately.
+The core uses the Apache License 2.0. Pro is sold separately.
 
 | Edition | License | What it covers |
 |---------|---------|----------------|
-| Community (core) | AGPLv3 or Commercial | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, backups, and more. |
-| Pro | Commercial only | Advanced operational features layered on the core, plus priority support. |
+| Community (core) | Apache License 2.0 | The core dashboard: SQL editor, query profiling, monitoring, schema tools, logs, RBAC viewing, custom dashboards, alerting with email, Slack, Google Chat, Microsoft Teams and PagerDuty channels, backups, and more. |
+| Pro | Commercial only | The features in [What Pro adds](#what-pro-adds), on top of the core. |
 
-**The Community core is dual licensed.** By default it is offered under the GNU Affero General Public License, version 3.0 (AGPLv3), and the copy in this repository is AGPLv3: you may use, study, modify, and redistribute it under those terms (see the `LICENSE` file). If the AGPLv3 do not fit how you deploy , the same core is also available under a separate **commercial license**. You choose whichever of the two fits your situation; the software is the same either way.
+**The Community core uses the Apache License 2.0.** You can use, study, change, and redistribute it. You can also use it in commercial and closed-source products. Keep the license and the copyright notices. The full terms are in the `LICENSE` file.
 
-**Pro is commercial only.** The Pro features are not part of the open-source repository and are not offered under the AGPLv3. They are distributed separately under a commercial license that permits proprietary, non-source-disclosed use.
+**Pro is commercial only.** The Pro features are not part of the open-source repository, and they do not use the Apache License 2.0. They are distributed separately under a commercial license.
 
-For a commercial license of the core, or for Pro, visit [ch-ops.io](https://ch-ops.io) or contact Quantrail™ Data.
+For Pro, go to [ch-ops.io](https://ch-ops.io) or speak to Quantrail&trade; Data.
 
 ---
 
 ## What Pro adds
 
-Pro builds on the Community core rather than replacing it. Everything you already use stays the same; Pro adds capabilities aimed at fleets, compliance, and long-term data operations.
+Pro adds to the Community core rather than replacing it. All the features that you use now stay the same. Pro adds these features:
 
-- **Scheduled Archival**: recurring, hands-off archival of ClickHouse® data to S3-compatible object storage. See the section below.
-- **Audit logging**: a tamper-evident record of every DDL, DML, and login event, searchable and exportable, with retention policies for compliance reporting.
-- **Scheduled email reports**: dashboard snapshots and alert digests delivered on a schedule, with customizable templates.
-- **Extended alerting**: Adds out of the box support for Google Chat, Microsoft teams, Slack and Pagerduty alert channels.
-- **Remote Cluster management**: manage many ClickHouse® nodes from one place through lightweight sidecar agent.
-- **Priority support**: direct support with faster response commitments.
+- **Scheduled Archival**: moves ClickHouse&reg; data to object storage on a schedule. See the section below.
+- **Scheduled backups with retention**: runs ClickHouse&reg; backups on a schedule and removes the backups that are older than the retention you set. Manual backup and restore are in the Community core.
+- **Remote Admin**: lets CHOps do administration tasks on a ClickHouse&reg; server through a sidecar that runs next to the server.
+- **Audit Log**: records the actions that users do in CHOps, their sign-ins, and the requests that CHOps refused because the user did not have access. It does not record the SQL that users run.
+- **SSO with OpenID Connect**: lets users sign in to CHOps through your identity provider.
+- **Scheduled email reports**: runs a SQL query on a schedule and sends the result by email.
 
 ---
 
 ## Scheduled Archival
 
-Scheduled Archival is a Pro feature for moving data out to cheaper, long-term storage on a recurring schedule, without anyone running a SQL statement each time. It periodically writes ClickHouse® data to S3-compatible object storage using ClickHouse®'s `s3()` function, so aging or cold data can be offloaded on a cadence you define and kept for as long as your retention policy requires.
+Scheduled Archival is a Pro feature that moves data to less expensive, long-term storage on a schedule, so nobody has to run a SQL statement each time. It writes ClickHouse&reg; data to S3-compatible object storage with the ClickHouse&reg; `s3()` function, so you can move old or cold data out at intervals that you set and keep it for as long as your retention policy requires.
 
-**How it differs from Backups.** The Community edition's [Backups](backups.md) (Data Lifecycle) feature is built around native `BACKUP` and `RESTORE` for point-in-time recovery: it captures a consistent snapshot you can restore in a disaster. Scheduled Archival is complementary rather than a replacement. Its job is ongoing data lifecycle management, regularly exporting data to object storage for retention and cost control, on a schedule, rather than producing restore points on demand. Many teams use both: native backups for recovery, scheduled archival for long-term retention of data they want to keep out of hot storage.
+**How it is different from Backups.** The [Backups](backups.md) (Data Lifecycle) feature in the Community edition uses native `BACKUP` and `RESTORE` for point-in-time recovery, making a consistent snapshot that you can restore after a failure. Scheduled Archival adds to Backups rather than replacing them. It is for continuous data lifecycle management: it exports data to object storage at regular intervals for retention and cost control, and it does not make restore points on demand. Many teams use the two together: native backups for recovery, and scheduled archival for long-term retention of data that they do not want in hot storage.
 
-It reuses the same S3-compatible storage configuration that the rest of CHOps uses, so any provider that works for backups (Amazon S3, Google Cloud Storage, Azure Blob, or S3-compatible endpoints such as MinIO, Wasabi, or Cloudflare R2) works for archival too.
+Scheduled Archival writes to S3-compatible object storage, for example Amazon S3, Google Cloud Storage, MinIO, Wasabi, or Cloudflare R2.
 
-Scheduled Archival ships in the Pro edition. To enable it, see [ch-ops.io](https://ch-ops.io) or contact Quantrail™ Data.
+Scheduled Archival is part of the Pro edition. To get it, go to [ch-ops.io](https://ch-ops.io) or speak to Quantrail&trade; Data.
 
 ---
 
-## Choosing an edition
+## Select an edition
 
-- If the Community core meets your needs and the AGPLv3 terms are acceptable for your deployment, run the open-source build as-is under AGPLv3.
-- If you need the core without AGPLv3, take the core under the commercial license instead. The functionality is identical.
-- If you need audit trails, scheduled archival or reports, extended alerting, or multi-cluster fleet management, those are Pro, which is commercial only.
+- If the Community core does what you need, use the open-source build under the Apache License 2.0.
+- If you need one of the features in [What Pro adds](#what-pro-adds), use Pro. Pro is commercial only.
 
 ---
 
 ## Trademarks
 
-ClickHouse® is a registered trademark of ClickHouse, Inc. All references to the ClickHouse® mark in this documentation refer to the ClickHouse® database management system (the open-source server software and its protocol) and are used solely for identification and descriptive purposes under nominative fair use. Where the company is meant, it is written as "ClickHouse, Inc." CHOps is an independent project developed by Quantrail™ Data Private Limited and is not affiliated with, endorsed by, sponsored by, or otherwise associated with ClickHouse, Inc. All other trademarks are the property of their respective owners.
+ClickHouse&reg; is a registered trademark of ClickHouse, Inc. All references to the ClickHouse&reg; mark in this documentation refer to the ClickHouse&reg; database management system (the open-source server software and its protocol). We use the mark only for identification and description, under nominative fair use. Where we refer to the company, we write "ClickHouse, Inc." CHOps is an independent project of Quantrail&trade; Data Private Limited. It is not affiliated with, endorsed by, sponsored by, or otherwise associated with ClickHouse, Inc. All other trademarks are the property of their owners.
 
-Copyright © 2026 Quantrail™ Data Private Limited. The CHOps Community (core) edition is dual licensed under the GNU Affero General Public License v3.0 (AGPLv3) or a separate commercial license. The Pro edition is distributed separately under a commercial license.
+Copyright &copy; 2026 Quantrail&trade; Data Private Limited. The CHOps Community (core) edition uses the Apache License 2.0. The Pro edition is distributed separately under a commercial license.

@@ -2,12 +2,15 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Configures and displays the delivery channels (e.g., Email, Slack) for system alerts.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useAuth } from "../../App.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
+
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const TYPES = [
@@ -16,6 +19,30 @@ const TYPES = [
     label: "Email (SMTP)",
     icon: "ti-mail",
     fields: ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "from", "to"],
+  },
+  {
+    key: "slack",
+    label: "Slack",
+    icon: "ti-brand-slack",
+    fields: ["bot_token", "channel_id"],
+  },
+  {
+    key: "google_chat",
+    label: "Google Chat",
+    icon: "ti-message-circle",
+    fields: ["webhook_url"],
+  },
+  {
+    key: "teams",
+    label: "Microsoft Teams",
+    icon: "ti-brand-teams",
+    fields: ["webhook_url"],
+  },
+  {
+    key: "pagerduty",
+    label: "PagerDuty",
+    icon: "ti-bell-ringing",
+    fields: ["routing_key"],
   },
 ];
 
@@ -32,9 +59,9 @@ const LABELS = {
   routing_key: "Integration Key",
 };
 
-export default function NotificationChannels() {
+export default function NotificationChannels({mainRef}) {
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const [channels, setChannels] = useState([]);
@@ -51,11 +78,17 @@ export default function NotificationChannels() {
   });
   const [showKey, setShowKey] = useState(false);
 
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
+
   async function load() {
     try {
       const r = await apiFetch("/api/alerts/channels");
       setChannels(Array.isArray(r) ? r : []);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
     setLoaded(true);
   }
   useEffect(() => {
@@ -139,10 +172,11 @@ export default function NotificationChannels() {
             <Icon className="ti ti-send"></Icon> Notification Channels
           </h2>
         </div>
-        <div className="alert-banner info" style={{ marginBottom: 14 }}>
-          <Icon className="ti ti-lock"></Icon>
-          <span>Alert channels management is only available for administrators.</span>
-        </div>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
+          <span>
+            Alert channels management is only available for administrators.
+          </span>
+        </Notice>
         <div className="empty-state">
           <Icon className="ti ti-lock"></Icon>
           <p>Alert channels management is only available for administrators.</p>
@@ -158,11 +192,11 @@ export default function NotificationChannels() {
           <Icon className="ti ti-send"></Icon> Notification Channels
         </h2>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button className="btn btn-secondary btn-sm" onClick={load}>
+          <Button variant="secondary" size="sm" onClick={load}>
             <Icon className="ti ti-refresh"></Icon>
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
+          </Button>
+          <Button
+            variant="primary" size="sm"
             onClick={() => {
               reset();
               setShowForm(!showForm);
@@ -170,26 +204,18 @@ export default function NotificationChannels() {
           >
             <Icon className={`ti ${showForm ? "ti-x" : "ti-plus"}`}></Icon>{" "}
             {showForm ? "Cancel" : "New"}
-          </button>
+          </Button>
         </div>
       </div>
       {result && (
-        <div
-          className={`alert-banner ${result.ok ? "success" : "danger"}`}
+        <Notice
+          tone={result.ok ? "success" : "danger"}
+          icon={result.ok ? "ti-check" : "ti-alert-circle"}
+          onDismiss={() => setResult(null)}
           style={{ marginBottom: 14 }}
         >
-          <Icon
-            className={`ti ${result.ok ? "ti-check" : "ti-alert-circle"}`}
-          ></Icon>{" "}
           {result.msg}
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginLeft: "auto" }}
-            onClick={() => setResult(null)}
-          >
-            <Icon className="ti ti-x"></Icon>
-          </button>
-        </div>
+        </Notice>
       )}
       {showForm && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
@@ -201,16 +227,13 @@ export default function NotificationChannels() {
               marginBottom: 14,
             }}
           >
-            <div className="form-group">
-              <label className="form-label">Name</label>
-              <input
-                className="form-input"
+            <FormField label="Name">
+              <Input
                 value={f.name}
                 onChange={(e) => setF({ ...f, name: e.target.value })}
               />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Type</label>
+            </FormField>
+            <FormField label="Type">
               <Select
                 className="form-select"
                 value={f.type}
@@ -224,7 +247,7 @@ export default function NotificationChannels() {
                   </option>
                 ))}
               </Select>
-            </div>
+            </FormField>
           </div>
           <div
             style={{
@@ -235,8 +258,7 @@ export default function NotificationChannels() {
             }}
           >
             {selType.fields.map((fld) => (
-              <div key={fld} className="form-group">
-                <label className="form-label">{LABELS[fld] || fld}</label>
+              <FormField label={<>{LABELS[fld] || fld}</>} key={fld}>
                 <div
                   style={
                     fld.includes("pass") ||
@@ -246,12 +268,11 @@ export default function NotificationChannels() {
                       : {}
                   }
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     style={{
                       width: "100%",
                       fontFamily: "var(--font-code)",
-                      fontSize: "14px",
+                      fontSize: "0.875rem",
                       paddingRight: "46px",
                     }}
                     type={
@@ -298,26 +319,26 @@ export default function NotificationChannels() {
                       {showKey ? (
                         <Icon
                           className="ti ti-eye-off"
-                          style={{ fontSize: 20 }}
+                          style={{ fontSize: "1.25rem" }}
                         />
                       ) : (
-                        <Icon className="ti ti-eye" style={{ fontSize: 20 }} />
+                        <Icon className="ti ti-eye" style={{ fontSize: "1.25rem" }} />
                       )}
                     </button>
                   )}
                 </div>
-              </div>
+              </FormField>
             ))}
           </div>
-          <button className="btn btn-primary" onClick={save} disabled={!f.name}>
+          <Button variant="primary" onClick={save} disabled={!f.name}>
             <Icon className="ti ti-device-floppy"></Icon>{" "}
             {editing ? "Update" : "Create"}
-          </button>
+          </Button>
         </div>
       )}
       {channels.length === 0 ? (
-        <div className="empty-state">
-          <Icon className="ti ti-mail-forward" style={{ fontSize: 36 }}></Icon>
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
+          <Icon className="ti ti-mail-forward" style={{ fontSize: "2.25rem" }}></Icon>
           <p>No channels yet.</p>
         </div>
       ) : (
@@ -347,7 +368,7 @@ export default function NotificationChannels() {
                 >
                   <Icon
                     className={`ti ${ti?.icon || "ti-send"}`}
-                    style={{ fontSize: 20, color: "var(--accent)" }}
+                    style={{ fontSize: "1.25rem", color: "var(--accent)" }}
                   ></Icon>
                   <strong>{ch.name}</strong>
                 </div>
@@ -359,7 +380,7 @@ export default function NotificationChannels() {
                 </span>
                 <div
                   style={{
-                    fontSize: "13px",
+                    fontSize: "0.8125rem",
                     color: "var(--text-secondary)",
                     marginBottom: 10,
                   }}
@@ -385,9 +406,44 @@ export default function NotificationChannels() {
                     at {new Date(ch.lastTestAt).toLocaleString()}
                   </div>
                 )}
+                {ch?.lastSendAt && (
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--text-muted)",
+                      marginTop: 8,
+                    }}
+                  >
+                    Last notification:{" "}
+                    {ch.lastTestOk ? (
+                      <span style={{ color: "var(--color-success)" }}>OK</span>
+                    ) : (
+                      <span style={{ color: "var(--color-danger)" }}>FAIL</span>
+                    )}
+                    {new Date(ch?.lastSendAt).toLocaleString()}
+                  </div>
+                )}
+
+                {ch?.lastSendError && (
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--color-danger)",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      border: "1px solid rgba(239, 68, 68, 0.2)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 8px",
+                      marginTop: 6,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    <strong>Last notification failed:</strong>{" "}
+                    {ch?.lastSendError}
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => {
                       setF({
                         name: ch.name,
@@ -400,19 +456,19 @@ export default function NotificationChannels() {
                     }}
                   >
                     <Icon className="ti ti-edit"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => test(ch.id)}
                   >
                     <Icon className="ti ti-send"></Icon> Test
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
+                  </Button>
+                  <Button
+                    variant="danger" size="sm"
                     onClick={() => setDel(ch.id)}
                   >
                     <Icon className="ti ti-trash"></Icon>
-                  </button>
+                  </Button>
                 </div>
               </div>
             );

@@ -1,0 +1,105 @@
+// Route definitions for the Kubernetes connection, discovery and insight endpoints.
+// Contributors -> Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
+import { Router } from "express";
+import {
+  listK8sConnections,
+  listOperators,
+  createK8sConnection,
+  updateK8sConnection,
+  deleteK8sConnection,
+  testK8sConnection,
+  probeOperatorPod,
+  listNamespaces,
+  listInstallations,
+  getInstallation,
+  importInstallation,
+  verifyClusterConnection,
+  reresolveCluster,
+  refreshCluster,
+} from "../controllers/k8s.js";
+import {
+  getTopology,
+  getReconcile,
+  getConfig,
+  getStorage,
+  getResources,
+  getNetwork,
+  getEvents,
+  getRollout,
+  getLogs,
+  getOperatorPodInfo,
+  getHealth,
+  getKeeper,
+  getPermissions,
+  getHealthAlertConfig,
+  saveHealthAlertConfig,
+  getRbacContext,
+  refreshNow,
+} from "../controllers/k8sInsight.js";
+import { requireAdmin, requireEditor } from "../controllers/users.js";
+
+const router = Router();
+
+// Connections.
+router.get("/operators", listOperators);
+router.get("/connections", listK8sConnections);
+router.post("/connections", requireAdmin, createK8sConnection);
+router.put("/connections/:id", requireAdmin, updateK8sConnection);
+router.delete("/connections/:id", requireAdmin, deleteK8sConnection);
+
+// Testing reaches out to a caller-supplied address, so it is admin only.
+router.post("/test", requireAdmin, testK8sConnection);
+router.post("/operator-probe", requireAdmin, probeOperatorPod);
+
+// Discovery reads the cluster with the stored token, so it is admin only.
+router.get("/connections/:id/namespaces", requireAdmin, listNamespaces);
+router.get("/connections/:id/installations", requireAdmin, listInstallations);
+router.get(
+  "/connections/:id/installations/:name",
+  requireAdmin,
+  getInstallation,
+);
+
+// Import creates a CHOps cluster, so it matches cluster creation.
+router.post("/import", requireAdmin, importInstallation);
+
+// Manual refresh re-reads the host list.
+router.post("/clusters/:id/refresh", requireAdmin, refreshCluster);
+router.post("/clusters/:id/reresolve", requireAdmin, reresolveCluster);
+router.post("/clusters/verify", requireAdmin, verifyClusterConnection);
+
+// Insight.
+router.get("/insight/:clusterId/topology", requireAdmin, getTopology);
+router.get("/insight/:clusterId/reconcile", requireAdmin, getReconcile);
+router.get("/insight/:clusterId/config", requireAdmin, getConfig);
+router.get("/insight/:clusterId/storage", requireAdmin, getStorage);
+router.get("/insight/:clusterId/resources", requireAdmin, getResources);
+router.get("/insight/:clusterId/network", requireAdmin, getNetwork);
+router.get("/insight/:clusterId/events", requireAdmin, getEvents);
+router.get("/insight/:clusterId/rollout", requireAdmin, getRollout);
+router.get("/insight/:clusterId/logs/:pod", requireAdmin, getLogs);
+router.get(
+  "/insight/:clusterId/operator-pod",
+  requireAdmin,
+  getOperatorPodInfo,
+);
+router.get("/insight/:clusterId/health", requireAdmin, getHealth);
+router.get("/insight/:clusterId/keeper", requireAdmin, getKeeper);
+// Editors need the session affinity warning in the SQL editor. The handler gives them only that part.
+router.get("/insight/:clusterId/rbac-context", requireEditor, getRbacContext);
+router.get("/insight/:clusterId/permissions", requireAdmin, getPermissions);
+router.get(
+  "/insight/:clusterId/health-alerts",
+  requireAdmin,
+  getHealthAlertConfig,
+);
+router.put(
+  "/insight/:clusterId/health-alerts",
+  requireAdmin,
+  saveHealthAlertConfig,
+);
+router.post("/insight/:clusterId/refresh", requireAdmin, refreshNow);
+
+export default router;

@@ -8,11 +8,12 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
 import { useConnection } from "../../App.jsx";
 import {motion} from "motion/react";
+import { BorderBeam } from "../ui/border-beam.jsx";
 
 const OP = { gt: ">", gte: ">=", lt: "<", lte: "<=", eq: "=", neq: "!=" };
 
@@ -30,7 +31,9 @@ export default function AlertMarquee() {
         if (mounted && Array.isArray(d)) {
           setAlerts(d);
         }
-      } catch {}
+      } catch {
+        // Keep the current data when the request fails.
+      }
     }
     poll();
     const timer = setInterval(poll, 30000);
@@ -49,7 +52,7 @@ export default function AlertMarquee() {
       Array.isArray(a?.nodes) && a?.nodes?.length > 0
         ? a?.nodes.join(", ")
         : "all nodes";
-    const cluster = clusterName || "Default";
+    const cluster = a?.clusterName || "Default";
     return {
       message: `${(a?.severity || "info").toUpperCase()}: ${a?.name} - value ${a?.lastValue ?? "?"} ${op} threshold ${a?.threshold} [${cluster} / ${nodes}]${ts ? ` (${ts})` : ""}`,
       type: a?.severity || "info",
@@ -67,17 +70,15 @@ export default function AlertMarquee() {
           justifyContent: "center",
           gap: 6,
           background: "var(--glass-bg)",
-          backdropFilter: "var(--glass-blur)",
-          WebkitBackdropFilter: "var(--glass-blur)",
           borderBottom: "1px solid rgba(248,113,113,0.2)",
           cursor: "pointer",
-          fontSize: "12px",
+          fontSize: "0.75rem",
           fontWeight: 600,
           color: "var(--color-danger)",
           flexShrink: 0,
         }}
       >
-        <Icon className="ti ti-alert-triangle" style={{ fontSize: 16 }}></Icon>
+        <Icon className="ti ti-alert-triangle" style={{ fontSize: "1rem" }}></Icon>
         {alerts.length} active alert(s) - click to expand
       </div>
     );
@@ -100,14 +101,13 @@ export default function AlertMarquee() {
         height: 34,
         flexShrink: 0,
         background: "var(--glass-bg)",
-        backdropFilter: "var(--glass-blur)",
-        WebkitBackdropFilter: "var(--glass-blur)",
         borderBottom: `1px solid  var(--accent-soft)`,
         display: "flex",
         alignItems: "center",
       }}
-      duration={40000}
     >
+      {/* Magic UI Border Beam in the danger colors: an alert is firing. */}
+      <BorderBeam size={160} duration={7} colorFrom="var(--color-danger)" colorTo="var(--color-warning)" />
       <marquee
         style={{
           display: "inline-flex",
@@ -115,7 +115,7 @@ export default function AlertMarquee() {
           alignItems: "center",
           whiteSpace: "nowrap",
           paddingRight: "30px",
-          fontSize: "11px",
+          fontSize: "0.6875rem",
           fontWeight: 600,
           willChange: "transform",
         }}
@@ -141,7 +141,7 @@ export default function AlertMarquee() {
               >
                 <Icon
                   className="ti ti-alert-triangle"
-                  style={{ fontSize: 16, marginRight: 8, color: c }}
+                  style={{ fontSize: "1rem", marginRight: 8, color: c }}
                 />
                 {msg?.message}
               </div>
@@ -156,19 +156,18 @@ export default function AlertMarquee() {
           right: 6,
           top: "50%",
           transform: "translateY(-50%)",
-          backdropFilter: "blur(8px)",
           border: "1px solid var(--border-default)",
           borderRadius: 4,
           color: "var(--text-muted)",
           cursor: "pointer",
           padding: "2px 6px",
-          fontSize: 14,
+          fontSize: "0.875rem",
           lineHeight: 1,
         }}
         
         className="btn btn-danger"
       >
-        <Icon className="ti ti-x" style={{ fontSize: 14 }}></Icon>
+        <Icon className="ti ti-x" style={{ fontSize: "0.875rem" }}></Icon>
       </motion.button>
     </div>
   );

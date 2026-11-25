@@ -5,7 +5,7 @@
 
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
-import React, {
+import {
   useState,
   useRef,
   useEffect,
@@ -15,9 +15,11 @@ import React, {
 import ChartCard from "../layout/ChartCard.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
+import { themeColor } from "../../utils/theme.js";
 import { runQuery } from "../../utils/api.js";
 import DataTable from "../layout/DataTable.jsx";
-
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, FormField } from "../ui/index.jsx";
 // HELPERS
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -412,7 +414,7 @@ function buildBandOption(label, rows, frameT) {
       ? {
           silent: true,
           symbol: "none",
-          lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
+          lineStyle: { color: themeColor("--accent", "#9590FF"), width: 2, type: "solid" },
           data: [{ xAxis: frameT * 1000 }],
           label: { show: false },
           animation: false,
@@ -505,9 +507,9 @@ function buildBandOption(label, rows, frameT) {
         smooth: true,
         symbol: "none",
         data: minData,
-        lineStyle: { color: "#8b5cf6", width: 1 },
-        itemStyle: { color: "#8b5cf6" },
-        areaStyle: { color: "#8b5cf6", opacity: 0.08 },
+        lineStyle: { color: themeColor("--accent", "#9590FF"), width: 1 },
+        itemStyle: { color: themeColor("--accent", "#9590FF") },
+        areaStyle: { color: themeColor("--accent", "#9590FF"), opacity: 0.08 },
         markLine,
         animation: false,
       },
@@ -521,7 +523,7 @@ function buildStackedAreaOption(chart, rows, frameT) {
       ? {
           silent: true,
           symbol: "none",
-          lineStyle: { color: "#8b5cf6", width: 2, type: "solid" },
+          lineStyle: { color: themeColor("--accent", "#9590FF"), width: 2, type: "solid" },
           data: [{ xAxis: frameT * 1000 }],
           label: { show: false },
           animation: false,
@@ -547,7 +549,7 @@ function buildStackedAreaOption(chart, rows, frameT) {
         axisLabel: {
           ...baseChartOption()?.xAxis?.axisLabel,
           rotate: 0,
-          hideOverlap: true,
+          hideOverlap: false,
           margin: 14,
         },
         axisTick: { alignWithLabel: true },
@@ -556,8 +558,10 @@ function buildStackedAreaOption(chart, rows, frameT) {
       yAxis: {
         type: "value",
         name: chart.label,
+        nameGap: 34,
+        nameTextStyle: { padding: [0, 0, 0, 4] },
         scale: true,
-        axisLabel: { hideOverlap: true },
+        axisLabel: { hideOverlap: false, margin: 12 },
         splitLine: { show: true },
       },
       legend: { show: false },
@@ -578,10 +582,10 @@ function buildStackedAreaOption(chart, rows, frameT) {
         },
       },
       grid: {
-        left: 54,
-        right: 18,
-        top: 64,
-        bottom: 46,
+        left: 72,
+        right: 24,
+        top: 72,
+        bottom: 58,
         containLabel: true,
       },
       animation: false,
@@ -620,7 +624,7 @@ function buildStackedAreaOption(chart, rows, frameT) {
           axisLabel: {
             ...baseChartOption()?.xAxis?.axisLabel,
             rotate: 0,
-            hideOverlap: true,
+            hideOverlap: false,
             margin: 14,
           },
           axisTick: { alignWithLabel: true },
@@ -629,8 +633,10 @@ function buildStackedAreaOption(chart, rows, frameT) {
         yAxis: {
           type: "value",
           name: chart.label,
+          nameGap: 34,
+          nameTextStyle: { padding: [0, 0, 0, 4] },
           scale: true,
-          axisLabel: { hideOverlap: true },
+          axisLabel: { hideOverlap: false, margin: 12 },
           splitLine: { show: true },
         },
         legend: { show: false },
@@ -651,10 +657,10 @@ function buildStackedAreaOption(chart, rows, frameT) {
           },
         },
         grid: {
-          left: 54,
-          right: 18,
-          top: 64,
-          bottom: 46,
+          left: 72,
+          right: 24,
+          top: 72,
+          bottom: 58,
           containLabel: true,
         },
         animation: false,
@@ -778,7 +784,7 @@ function buildStackedAreaOption(chart, rows, frameT) {
         axisLabel: {
           ...baseChartOption()?.xAxis?.axisLabel,
           rotate: 0,
-          hideOverlap: true,
+          hideOverlap: false,
           margin: 14,
         },
         axisTick: { alignWithLabel: true },
@@ -787,8 +793,10 @@ function buildStackedAreaOption(chart, rows, frameT) {
       yAxis: {
         type: "value",
         name: chart.label,
+        nameGap: 34,
+        nameTextStyle: { padding: [0, 0, 0, 4] },
         scale: true,
-        axisLabel: { hideOverlap: true },
+        axisLabel: { hideOverlap: false, margin: 12 },
         splitLine: { show: true },
       },
       legend: { show: false },
@@ -809,10 +817,10 @@ function buildStackedAreaOption(chart, rows, frameT) {
         },
       },
       grid: {
-        left: 54,
-        right: 18,
-        top: 64,
-        bottom: 46,
+        left: 72,
+        right: 24,
+        top: 72,
+        bottom: 58,
         containLabel: true,
       },
       animation: false,
@@ -909,12 +917,6 @@ function buildChartOption(chart, rows, frameT) {
 
 // INSPECTION POPUP COMPONENT
 
-const LOG_LEVEL_COLORS = {
-  Error: "#ef4444",
-  Critical: "#dc2626",
-  Fatal: "#991b1b",
-};
-
 function InspectionPopup({
   type,
   rows,
@@ -923,7 +925,7 @@ function InspectionPopup({
   onClose,
   frameTimestamp,
 }) {
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [, setExpandedRow] = useState(null);
 
   useEffect(() => {
     setExpandedRow(null);
@@ -954,7 +956,7 @@ function InspectionPopup({
             <span style={{ fontWeight: 600 }}>{title}</span>
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 marginLeft: 8,
               }}
@@ -962,9 +964,9 @@ function InspectionPopup({
               at {frameTimestamp}
             </span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
 
         {loading && (
@@ -1112,7 +1114,7 @@ function InspectionPopup({
 
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             padding: "8px 0 0",
             textAlign: "right",
@@ -1153,6 +1155,8 @@ export default function Playback() {
   const fetchIdRef = useRef(0);
   const popupFetchRef = useRef(0);
   const mountedRef = useRef(true);
+
+  const liveState = useLiveOverview()
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1202,7 +1206,7 @@ export default function Playback() {
         const result = await runQuery(sql);
         if (fetchIdRef.current !== thisId || !mountedRef.current) return;
         results[chart.key] = result.rows || [];
-      } catch (err) {
+      } catch {
         if (fetchIdRef.current !== thisId || !mountedRef.current) return;
         results[chart.key] = [];
         errors.push(chart.label);
@@ -1424,6 +1428,7 @@ export default function Playback() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [dataReady, frameIndex, playing, allTimes.length]);
 
   return (
@@ -1443,7 +1448,7 @@ export default function Playback() {
         style={{
           padding: 14,
           marginBottom: 16,
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           color: "var(--text-secondary)",
           lineHeight: 1.6,
         }}
@@ -1457,18 +1462,10 @@ export default function Playback() {
       </div>
 
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "end",
-          }}
-        >
+        <div className="search-form-row" style={{ marginBottom: 0 }}>
           <DateTimePicker label="From" value={from} onChange={setFrom} />
           <DateTimePicker label="To" value={to} onChange={setTo} />
-          <div className="form-group" style={{ minWidth: 100,paddingBottom:"4px" }}>
-            <label className="form-label">Step</label>
+          <FormField label="Step" className="search-field-select">
             <Select
               className="form-select cui-sm"
               value={step}
@@ -1480,13 +1477,13 @@ export default function Playback() {
                 </option>
               ))}
             </Select>
-          </div>
-          <div className="form-group" style={{paddingBottom:"4px"}}>
-            <button
-              className="btn btn-primary"
+          </FormField>
+          <div className="search-form-submit">
+            <Button
+              title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+              variant="primary"
               onClick={handleFetch}
-              disabled={fetchLoading}
-              style={{ height: 36, minWidth: 140 }}
+              disabled={fetchLoading || liveState?.isNotConnectedClusterNode()}
             >
               {fetchLoading ? (
                 <>
@@ -1502,7 +1499,7 @@ export default function Playback() {
                   Fetch Data
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
         {fetchLoading && (
@@ -1526,7 +1523,7 @@ export default function Playback() {
             </div>
             <p
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 marginTop: 4,
               }}
@@ -1538,7 +1535,7 @@ export default function Playback() {
         {fetchError && (
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color:
                 failedCharts.length > 0
                   ? "var(--color-warning, #f59e0b)"
@@ -1572,7 +1569,7 @@ export default function Playback() {
             <span className="playback-timestamp">
               {currentT != null ? fmtTimestamp(currentT) : "--"}
             </span>
-            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+            <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
               {frameIndex + 1} / {allTimes.length}
             </span>
           </div>
@@ -1596,22 +1593,22 @@ export default function Playback() {
               flexWrap: "wrap",
             }}
           >
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={handleToStart}
               title="To Start (Home)"
             >
               <Icon className="ti ti-player-skip-back"></Icon>
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={handleStepBack}
               title="Back (←)"
             >
               <Icon className="ti ti-player-track-prev"></Icon>
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
+            </Button>
+            <Button
+              variant="primary" size="sm"
               onClick={handlePlayPause}
               style={{ minWidth: 70 }}
               title="Play/Pause (Space)"
@@ -1621,21 +1618,21 @@ export default function Playback() {
                 style={{ marginRight: 3 }}
               ></Icon>
               {playing ? "Pause" : "Play"}
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={handleStepForward}
               title="Forward (→)"
             >
               <Icon className="ti ti-player-track-next"></Icon>
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={handleToEnd}
               title="To End (End)"
             >
               <Icon className="ti ti-player-skip-forward"></Icon>
-            </button>
+            </Button>
 
             <div
               style={{
@@ -1647,21 +1644,16 @@ export default function Playback() {
             ></div>
 
             {SPEED_OPTIONS.map((s) => (
-              <button
+              <Button
                 key={s.value}
-                className={`btn btn-sm ${speed === s.value ? "btn-primary" : "btn-secondary"}`}
+                variant={speed === s.value ? "primary" : "secondary"}
+                size="sm"
+                aria-pressed={speed === s.value}
                 onClick={() => setSpeed(s.value)}
-                style={{
-                  minWidth: 36,
-                  padding: "2px 5px",
-                  fontSize: "11px",
-                  display:"flex",
-                  alignItems:"center",
-                  justifyContent:"center"
-                }}
+                style={{ minWidth: 36 }}
               >
                 {s.label}
-              </button>
+              </Button>
             ))}
 
             <div
@@ -1673,14 +1665,9 @@ export default function Playback() {
               }}
             ></div>
 
-            <button
-              className="btn btn-sm"
-              style={{
-                background: "#dc2626",
-                color: "#fff",
-                fontSize: "11px",
-                padding: "5px 15px",
-              }}
+            <Button
+              variant="secondary" size="sm"
+              style={{ background: "var(--danger-solid)", color: "#fff" }}
               onClick={handleShowFailedQueries}
               disabled={!currentT}
               title="View failed queries at this timestamp"
@@ -1690,22 +1677,17 @@ export default function Playback() {
                 style={{ marginRight: 3 }}
               ></Icon>{" "}
               Failed Queries
-            </button>
-            <button
-              className="btn btn-sm"
-              style={{
-                background: "#dc2626",
-                color: "#fff",
-                fontSize: "11px",
-                padding: "5px 15px",
-              }}
+            </Button>
+            <Button
+              variant="secondary" size="sm"
+              style={{ background: "var(--danger-solid)", color: "#fff" }}
               onClick={handleShowErrorLogs}
               disabled={!currentT}
               title="View Error/Critical/Fatal logs at this timestamp"
             >
               <Icon className="ti ti-bug" style={{ marginRight: 3 }}></Icon> Error
               Logs
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1728,7 +1710,7 @@ export default function Playback() {
             <div key={section} style={{ marginBottom: 24 }}>
               <h3
                 style={{
-                  fontSize: "15px",
+                  fontSize: "0.9375rem",
                   fontWeight: 600,
                   color: "var(--text-secondary)",
                   marginBottom: 12,
@@ -1767,12 +1749,13 @@ export default function Playback() {
             padding: "60px 20px",
             textAlign: "center",
             color: "var(--text-muted)",
+            height:"50vh"
           }}
         >
           <Icon
             className="ti ti-player-play"
             style={{
-              fontSize: 48,
+              fontSize: "3rem",
               opacity: 0.3,
               display: "block",
               marginBottom: 12,

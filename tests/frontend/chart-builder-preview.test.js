@@ -1,8 +1,6 @@
-// Guards for the Chart Builder preview: a bad chart configuration must surface
-// the exception in the preview area, never crash the page.
-//
-// Author: Kathir Moorthy
-// Copyright (C) 2026 Quantrail Data Private Limited
+// chart-builder-preview.test.js - the Chart Builder preview never taking the page down
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Kathir Moorthy
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
@@ -18,7 +16,7 @@ const code = file ? readFileSync(file, 'utf-8') : '';
 describe('ChartBuilder: preview never crashes the page', () => {
   it('wraps buildChartOption in try/catch and reports the error inline', () => {
     expect(code).toContain('buildChartOption(');
-    expect(code).toMatch(/try\s*\{[\s\S]*buildChartOption\([\s\S]*catch\s*\(err\)\s*\{[\s\S]*_error: true/);
+    expect(code).toMatch(/try\s*\{[\s\S]*buildChartOption\([\s\S]*catch\s*\(err\)\s*\{[\s\S]*_error:\s*true/);
   });
 
   it('wraps the preview subtree in an ErrorBoundary with a compact fallback that resets', () => {
@@ -30,7 +28,19 @@ describe('ChartBuilder: preview never crashes the page', () => {
 
   it('keeps the read-only guard on the query run', () => {
     expect(code).toContain('isReadOnlySql(sql)');
-    expect(code).toContain('runQuery(sql.trim(), { readOnly: true })');
+    expect(code).toContain('runQuery(sql.trim(), {');
+    expect(code).toContain('readOnly: true');
+  });
+
+  it('previews a parameterized chart with its defaults', () => {
+    expect(code).toContain('paramDefaults');
+    expect(code).toContain('findParameters');
+    expect(code).toContain('to preview this chart');
+  });
+
+  it('warns when a parameter sits outside an optional block', () => {
+    expect(code).toContain('outside an');
+    expect(code).toContain('<Notice tone="warning"');
   });
 
   it('has no leftover debug logging', () => {
@@ -42,8 +52,8 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toContain('<ChartToolbar');
     expect(code).toContain('onZoomIn={previewTools.zoomIn}');
     expect(code).toContain('onZoomOut={previewTools.zoomOut}');
-    expect(code).toContain('onZoomReset={previewTools.zoomReset}');
-    expect(code).toContain('onSave={previewTools.save}');
+    expect(code).toContain('onZoomReset={resetZoom}');
+    expect(code).toContain('onSave={saveFullChart}');
     expect(code).toContain('onToggleFullscreen={previewTools.toggleFullscreen}');
   });
 
@@ -58,8 +68,8 @@ describe('ChartBuilder: preview never crashes the page', () => {
   });
 
   it('resizes preview after chart render and layout toggles', () => {
-    expect(code).toContain('setTimeout(() => previewInst.current?.resize(), 50);');
-    expect(code).toContain('setTimeout(() => previewInst.current?.resize(), 150);');
+    expect(code).toMatch(/setTimeout\(\(\)\s*=>\s*\{[\s\S]*previewInst\.current[\s\S]*resize\(\)[\s\S]*\}\s*,\s*50\s*\);/);
+    expect(code).toMatch(/setTimeout\(\(\)\s*=>\s*\{[\s\S]*previewInst\.current[\s\S]*resize\(\)[\s\S]*\}\s*,\s*150\s*\);/);
   });
 
   it('keeps zoom reset support in the component', () => {
@@ -77,5 +87,429 @@ describe('ChartBuilder: preview never crashes the page', () => {
     expect(code).toContain('const chartControlsFlags = {');
     expect(code).toContain('zoomFun: true');
     expect(code).toContain('resetFun: true');
+  });
+
+  it('keeps fullscreen-aware preview toolbar wiring', () => {
+    expect(code).toContain('fullscreen={previewTools.fullscreen}');
+    expect(code).toContain('zoomable={!!chartOption?.xAxis || isTreemapChartType}');
+  });
+
+  it('keeps chart-change broadcast after save/update', () => {
+    expect(code).toContain("window.dispatchEvent(new Event(\"charts:changed\"))");
+  });
+
+  it('keeps KPI and table preview branches intact', () => {
+    expect(code).toContain('chartOption?._kpi');
+    expect(code).toContain('chartOption?._table');
+    expect(code).toContain('Current Value');
+    expect(code).toContain('<DataTable rows={chartOption.data} />');
+  });
+
+  it('keeps fullscreen body class lifecycle handling for preview mode', () => {
+    expect(code).toContain('chart-builder-preview-fullscreen');
+    expect(code).toContain('document.body.classList.add("chart-builder-preview-fullscreen")');
+    expect(code).toContain('document.body.classList.remove("chart-builder-preview-fullscreen")');
+  });
+
+  it('keeps chart instance lifecycle safety guards', () => {
+    expect(code).toContain('disposeChart(');
+    expect(code).toContain('previewRef.current');
+    expect(code).toContain('previewInst.current = null;');
+    expect(
+      code.includes('if (!previewRef.current || !isMountedRef.current)') ||
+      code.includes('if (!host || !host.isConnected) return;')
+    ).toBe(true);
+  });
+
+  it('cleans up chart on unmount with cleanupChart function', () => {
+    expect(code).toContain('const cleanupChart = () => {');
+    expect(code).toContain('chartEpochRef.current += 1');
+    expect(code).toContain('clearTimeout(initTimerRef.current)');
+    expect(code).toContain('clearTimeout(resizeTimerRef.current)');
+  });
+
+  it('handles chart instance disposal safely with try/catch', () => {
+    expect(code).toContain('try {');
+    expect(code).toContain('disposeChart(');
+    expect(code).toMatch(/catch\s*\(\s*e\s*\)\s*\{[\s\S]*\}/);
+  });
+
+  it('validates column types after data loads', () => {
+    expect(code).toContain('validateColumnType(data, mapping[f.key], f.expect)');
+    expect(code).toContain('setValidationErrors(errs)');
+  });
+
+  it('checks isMountedRef before state updates', () => {
+    expect(code).toContain('isMountedRef.current');
+    expect(code).toContain('if (isMountedRef.current)');
+  });
+
+  it('manages zoom with dataZoomIndex for multiple axes', () => {
+    expect(code).toContain('function zoomIn()');
+    expect(code).toContain('function zoomOut()');
+    expect(code).toContain('dataZoomIndex: 0');
+  });
+
+  it('handles treemap special case in resetZoom', () => {
+    expect(code).toContain('isTreemapNow');
+    expect(code).toContain('chartType === "treemap" || chartSubtype === "treemap"');
+    expect(
+      code.includes('previewInst.current.clear()') ||
+      code.includes('inst.setOption(stored') ||
+      code.includes('treemapRootToNode')
+    ).toBe(true);
+  });
+
+  it('separates numeric columns for field mapping', () => {
+    expect(code).toContain('function SeperateNumericColumns(column)');
+    expect(code).toContain('typeof data[0][find] === "number"');
+  });
+
+  it('maintains authorization check for chart building', () => {
+    expect(code).toContain('const canBuild = myLevel >= ROLE_LEVEL.admin');
+    expect(code).toContain('if (!canBuild)');
+    expect(code).toContain('Chart building is only available for administrators');
+  });
+
+  it('handles parameter defaults for dashboard filters', () => {
+    expect(code).toContain('paramDefaults[p.name]');
+    expect(code).toContain('setParamDefaults');
+    expect(code).toContain('Give a default for');
+  });
+
+  it('saves chart with proper config structure', () => {
+    expect(code).toContain('const config = {');
+    expect(code).toContain('...mapping');
+    expect(code).toContain('xLabel');
+    expect(code).toContain('yLabel');
+    expect(code).toContain('showLegend');
+  });
+
+  it('prevents duplicate chart names in the same dashboard', () => {
+    expect(code).toContain('const duplicate = (existing || []).find((c) => {');
+    expect(code).toContain('sameName && sameDashboard && !sameId');
+    expect(code).toContain('Chart name already exists in this dashboard');
+  });
+
+  it('handles horizontal bar chart axis label swapping', () => {
+    expect(code).toContain('chartSubtype === "horizontal_bar"');
+    expect(code).toContain('effectiveXLabel = yLabel');
+    expect(code).toContain('effectiveYLabel = xLabel');
+  });
+
+  it('applies responsive text and font sizing for density', () => {
+    expect(code).toContain('densityThreshold');
+    expect(code).toContain('tickCount > 80');
+    expect(code).toContain('axisFontSize');
+    expect(code).toContain('dataLabelFontSize');
+  });
+
+  it('manages grid and axis styling based on chart type', () => {
+    expect(code).toContain('usesCartesianGrid');
+    expect(code).toContain('gridLineColor');
+    expect(code).toContain('gridLineColorSubtle');
+    expect(code).toContain('splitLineStyle');
+  });
+
+  it('handles sunburst legend data collection', () => {
+    expect(code).toContain('collectSunburstNames');
+    expect(code).toContain('countSunburstNodes');
+    expect(code).toContain('isSunBurst');
+  });
+
+  it('applies theme-aware styling for dark mode', () => {
+    expect(code).toContain("theme === \"dark\"");
+    expect(code).toContain('isDarkColor');
+    expect(code).toContain('textBorderColor');
+  });
+
+  it('maintains legend visibility logic per chart type', () => {
+    expect(code).toContain('shouldShowLegend');
+    expect(code).toContain('needsLegend(chartType, chartSubtype)');
+    expect(code).toContain('legendVisible');
+  });
+
+  it('hides labels on pie charts when slice count exceeds threshold', () => {
+    expect(code).toContain('hidePieLabels');
+    expect(code).toContain('pieSliceCount > 16');
+  });
+
+  it('computes grid margins and spacing dynamically', () => {
+    expect(code).toContain('gridTop');
+    expect(code).toContain('gridLeft');
+    expect(code).toContain('gridBottomFinal');
+    expect(code).toContain('yNameGap');
+  });
+
+  it('manages chart epoch for concurrent renders', () => {
+    expect(code).toContain('chartEpochRef.current');
+    expect(code).toContain('epoch !== chartEpochRef.current');
+  });
+
+  it('initializes chart with proper host element check', () => {
+    expect(code).toContain('host.isConnected');
+    expect(code).toContain('initChart(host)');
+  });
+
+  it('formats axis labels with K/M notation for large numbers', () => {
+    expect(code).toContain('Math.abs(n) >= 1000000');
+    expect(code).toContain('toFixed(1)');
+    expect(code).toContain('(n / 1000000).toFixed(1)');
+  });
+
+  it('provides max rows control for query execution', () => {
+    expect(code).toContain('MaxRowsControl');
+    expect(code).toContain('maxRows');
+    expect(code).toContain('setMaxRows');
+    expect(code).toContain('clampMaxRows');
+  });
+
+  it('handles edit mode with proper data initialization', () => {
+    expect(code).toContain('if (editChart)');
+    expect(code).toContain('editChart.sqlQuery');
+    expect(code).toContain('editChart.chartType');
+    expect(code).toContain('editChart.config');
+  });
+
+  it('manages top and bottom panel collapse state', () => {
+    expect(code).toContain('topOpen');
+    expect(code).toContain('bottomOpen');
+    expect(code).toContain('setTopOpen');
+    expect(code).toContain('setBottomOpen');
+  });
+
+  it('implements role-based access control', () => {
+    expect(code).toContain('ROLE_LEVEL');
+    expect(code).toContain('readonly: 0');
+    expect(code).toContain('admin: 2');
+    expect(code).toContain('myRole = auth?.role');
+  });
+
+  it('fetches dashboards on component mount', () => {
+    expect(code).toContain('apiFetch("/api/dashboards")');
+    expect(code).toContain('setDashboards');
+  });
+
+  it('updates legend based on data series configuration', () => {
+    expect(code).toContain('hasLegendCheck');
+    expect(code).toContain('option.legend?.show');
+    expect(code).toContain('(s) => Array.isArray(s?.data) && s?.data.length > 0,');
+  });
+
+  it('supports sunburst restore actions in resetZoom when applicable', () => {
+    expect(code).toContain('isSunburstNow');
+    expect(
+      code.includes('sunburstRootToNode') ||
+      code.includes('chartType === "sunburst" || chartSubtype === "sunburst"')
+    ).toBe(true);
+  });
+
+  it('keeps enhanced option snapshot for restore flows', () => {
+    expect(code).toContain('enhancedOptionRef');
+    expect(code).toContain('enhancedOptionRef.current = enhancedOption');
+  });
+
+  it('preserves chart instance status tracking for toolbar reset button', () => {
+    expect(code).toContain('hasChartInstance');
+    expect(code).toContain('setHasChartInstance(true)');
+  });
+
+  it('retains fullscreen card shell style object', () => {
+    expect(code).toContain('const shellStyle = fullscreen');
+    expect(code).toContain('position: "fixed"');
+    expect(code).toContain('zIndex: 2000');
+  });
+
+  it('keeps preview fullscreen card pinned to viewport', () => {
+    expect(code).toContain('previewTools.fullscreen');
+    expect(code).toContain('width: "100vw"');
+    expect(code).toContain('height: "100vh"');
+  });
+
+  it('keeps preview container using absolute fill host for chart mount', () => {
+    expect(code).toContain('ref={previewRef}');
+    expect(code).toContain('position: "absolute"');
+    expect(code).toContain('inset: 0');
+  });
+
+  it('keeps run button and running guard wiring', () => {
+    expect(code).toContain('onClick={runSql}');
+    expect(code).toContain('disabled={running ||!sql.trim() || liveState?.isNotConnectedClusterNode()}');
+    expect(code).toContain('Running...');
+  });
+
+  it('keeps dashboard select required for save action', () => {
+    expect(code).toContain('Select a dashboard first');
+    expect(code).toContain('disabled={!selDashboard || !sql.trim()}');
+  });
+
+  it('keeps chart type and subtype switching logic', () => {
+    expect(code).toContain('function changeType(t)');
+    expect(code).toContain('setChartType(t)');
+    expect(code).toContain('setChartSubtype');
+  });
+
+  it('keeps duplicate cleanup path after update', () => {
+    expect(code).toContain("apiFetch(\"/api/dashboards/charts\")");
+    expect(code).toContain('same.length > 1');
+    expect(code).toContain('method: "DELETE"');
+  });
+
+  it('keeps localStorage persistence for max rows', () => {
+    expect(code).toContain('MAX_ROWS_KEY');
+    expect(code).toContain('localStorage.setItem(MAX_ROWS_KEY');
+    expect(code).toContain('readMaxRows()');
+  });
+
+  it('keeps default axis value logic when not editing', () => {
+    expect(code).toContain('if (!editChart)');
+    expect(code).toContain('getAxisDefaults(chartType, chartSubtype)');
+    expect(code).toContain('setXLabel(d.xLabel)');
+  });
+
+  it('keeps mapped-required-fields guard before chart option build', () => {
+    expect(code).toContain('const allMapped = fields');
+    expect(code).toContain('.filter((f) => f.required)');
+    expect(code).toContain('if (!allMapped && chartType !== "table")');
+  });
+
+  it('keeps responsive small-screen detector', () => {
+    expect(code).toContain('window.innerWidth <= 768');
+    expect(code).toContain("window.addEventListener(\"resize\", handleResize)");
+  });
+
+  it('uses saveFullChart as toolbar save handler', () => {
+    expect(code).toContain('function saveFullChart()');
+    expect(code).toContain('onSave={saveFullChart}');
+  });
+
+  it('keeps saveFullChart fallback to previewTools.save', () => {
+    expect(code).toContain('previewTools.save();');
+    expect(code).toContain('const storedOption = enhancedOptionRef.current;');
+  });
+
+  it('uses offscreen chart export flow for full chart download', () => {
+    expect(code).toContain('offscreenInst = initChart(container)');
+    expect(code).toContain('offscreenInst.getDataURL({');
+    expect(code).toContain('requestAnimationFrame(() => {');
+  });
+
+  it('keeps fullscreen page shell body class lifecycle handling', () => {
+    expect(code).toContain('chart-builder-page-fullscreen');
+    expect(code).toContain('document.body.classList.add("chart-builder-page-fullscreen")');
+    expect(code).toContain('document.body.classList.remove("chart-builder-page-fullscreen")');
+  });
+
+  it('keeps preview tools hook wiring and filename for exports', () => {
+    expect(code).toContain('const previewTools = useChartTools(() => previewInst.current, {');
+    expect(code).toContain('filename: "chart-preview"');
+  });
+
+  it('keeps cloneChartOption deep clone helper for export safety', () => {
+    expect(code).toContain('function cloneChartOption(value)');
+    expect(code).toContain('if (Array.isArray(value))');
+    expect(code).toContain("if (value && typeof value === \"object\")");
+    expect(code).toContain('Object.keys(value).forEach((key) => {');
+  });
+
+  it('keeps SQL parameter parsing memoization and parse-error surface', () => {
+    expect(code).toContain('const declaredParams = React.useMemo(() => {');
+    expect(code).toContain('findParameters(sql || "")');
+    expect(code).toContain('const paramError = React.useMemo(() => {');
+    expect(code).toContain('return e.message;');
+  });
+
+  it('keeps required parameter blocking before query execution', () => {
+    expect(code).toContain('const missing = declaredParams');
+    expect(code).toContain('(p) => p.required && !(paramDefaults[p.name] ?? "").toString().trim()');
+    expect(code).toContain('Required parameters have no value until a dashboard supplies one.');
+  });
+
+  it('keeps chart save payload fields for create and update paths', () => {
+    expect(code).toContain('sqlQuery: sql');
+    expect(code).toContain('chartType,');
+    expect(code).toContain('chartSubtype,');
+    expect(code).toContain('config,');
+    expect(code).toContain('method: "PUT"');
+    expect(code).toContain('method: "POST"');
+  });
+
+  it('keeps untitled name auto-generation and increment format', () => {
+    expect(code).toContain('if (!normalizedName)');
+    expect(code).toContain('if (!used.has("untitled"))');
+    expect(code).toContain('normalizedName = "Untitled"');
+    expect(code).toContain('const candidate = `Untitled ${String(idx).padStart(2, "00")}`');
+  });
+
+  it('keeps dashboard grid slot allocation loop for new charts', () => {
+    expect(code).toContain('const occupied = new Set(');
+    expect(code).toContain('while (occupied.has(`${row}-${col}`))');
+    expect(code).toContain('if (col >= cols)');
+  });
+
+  it('keeps filename sanitization before PNG download', () => {
+    expect(code).toContain('function sanitizeFilename(name)');
+    expect(code).toContain('.replace(/[\\\\/:*?"<>|]+/g, "")');
+    expect(code).toContain('.replace(/\\s+/g, "_")');
+    expect(code).toContain('return sanitized || "chart";');
+  });
+
+  it('keeps offscreen export cleanup and fallback path', () => {
+    expect(code).toContain('if (offscreenInst && !offscreenInst.isDisposed?.())');
+    expect(code).toContain('offscreenInst.dispose()');
+    expect(code).toContain('if (container && container.parentNode)');
+    expect(code).toContain('container.parentNode.removeChild(container)');
+    expect(code).toContain('previewTools.save();');
+  });
+
+  it('keeps reset button labels for treemap and sunburst restore mode', () => {
+    expect(code).toContain('resetTitle={isTreemapChartType || isSunBurstChartType ? "Restore view" : "Reset zoom"}');
+    expect(code).toContain('resetAriaLabel={isTreemapChartType || isSunBurstChartType ? "Restore view" : "Reset zoom"}');
+    expect(code).toContain('resetIcon={isSunBurstChartType ? "ti-arrow-back-up" : undefined}');
+  });
+
+  it('keeps specialized toolbar feature flags for sankey funnel sunburst and treemap', () => {
+    expect(code).toContain('const sankeyControlsFlags = {');
+    expect(code).toContain('const funnelControlsFlags = {');
+    expect(code).toContain('const sunburstControlsFlags = {');
+    expect(code).toContain('const treemapControlsFlags = {');
+    expect(code).toContain('isWantFeature={');
+  });
+
+  it('keeps chart option branch guards for non-echarts renderers', () => {
+    expect(code).toContain('chartOption._kpi');
+    expect(code).toContain('chartOption._table');
+    expect(code).toContain('chartOption._error');
+    expect(code).toContain('setChartOption(null);');
+  });
+
+  it('keeps SQL editor run binding and compact variant setup', () => {
+    expect(code).toContain('<SqlEditor');
+    expect(code).toContain('variant="compact"');
+    expect(code).toContain('onRun={runSql}');
+    expect(code).toContain('placeholder="SELECT ..."');
+  });
+
+  it('keeps dashboard fetch and non-fatal catch handling', () => {
+    expect(code).toContain('apiFetch("/api/dashboards")');
+    expect(code).toContain('.then(setDashboards)');
+    expect(code).toContain('.catch(() => {});');
+  });
+
+  it('keeps preview fullscreen class style gate for hiding floating search ui', () => {
+    expect(code).toContain('body.chart-builder-preview-fullscreen .global-search-fab');
+    expect(code).toContain('display: none !important;');
+    expect(code).toContain('pointer-events: none !important;');
+  });
+
+  it('keeps max rows state initializer fallback', () => {
+    expect(code).toContain('const [maxRows, setMaxRowsState] = useState(() => {');
+    expect(code).toContain('return readMaxRows();');
+    expect(code).toContain('return 5000;');
+  });
+
+  it('keeps numeric column helper used for numeric field mapping select options', () => {
+    expect(code).toContain('SeperateNumericColumns(columns).map(');
+    expect(code).toContain('f?.expect === "numeric"');
   });
 });

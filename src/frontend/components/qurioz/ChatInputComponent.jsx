@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Text input field with message submission, history scrolling, and AI command triggers.
 
-import React, { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import "../../styles/global.css";
 import { AnimatePresence, motion } from "motion/react";
@@ -58,10 +58,10 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
       onMouseLeave={()=>setInsideCon(false)}
       className={isStage() ? "input-container-search" : "bottom-search-bar"}
       style={{
-        zIndex: 10999,
+        zIndex: isStage() ? 0:10999,
         border: isFocus
-          ? `2px solid ${isDark() ? "#8b5cf6" : "#8b5cf6"}`
-          : "2px solid rgba(200,200,200,0.1)",
+          ? "2px solid var(--accent)"
+          : "2px solid var(--border-default)",
         position: "relative",
         ...styleReturnForchatInput(),
       }}
@@ -102,7 +102,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <VoiceSearchButton
                 onTranscript={handleVoiceTranscript}
-                disabled={!isSendDisabled}
+                disabled={isSendDisabled}
                 setAutoFocus={setAutoFocus}
               />
               <AnimatePresence>
@@ -119,10 +119,13 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
                       }
                     }}
                   >
-                    <div className="qur-chat-btn">
+                    {/* Disabled: a grey button with a muted icon, so it shows
+                        in both themes (a white icon on a transparent button did
+                        not show in the light theme). */}
+                    <div className={isSendDisabled ? "qur-chat-btn disabled" : "qur-chat-btn"}>
                       <Icon
                         className="ti ti-send"
-                        style={{ fontSize: 14, color: "white" }}
+                        style={{ fontSize: "0.875rem" }}
                       />
                     </div>
                   </motion.div>
@@ -135,7 +138,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
               position: "absolute",
               bottom: "1rem",
               textAlign: "center",
-              fontSize: "10px",
+              fontSize: "0.625rem",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -164,7 +167,7 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
           <p
             style={{
               margin: "0px 10px",
-              fontSize: "12px",
+              fontSize: "0.75rem",
               display: "flex",
               alignItems: "center",
               gap: "5px",
@@ -177,10 +180,10 @@ function ChatInputComponent({ stage, onSubmit, isSendDisabled }) {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="icon icon-tabler icons-tabler-outline icon-tabler-sparkle-2"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="icon icon-tabler icons-tabler-outline icon-tabler-sparkle-2"
             >
               <path stroke="none" d="M0 0h24v24H0z" fill="none" />
               <path d="M12 3c.375 0 .711 .231 .846 .581l1.65 4.29a2.85 2.85 0 0 0 1.632 1.633l4.291 1.65a.906 .906 0 0 1 0 1.692l-4.29 1.65a2.84 2.84 0 0 0 -1.633 1.632l-1.65 4.291a.906 .906 0 0 1 -1.692 0l-1.65 -4.29a2.84 2.84 0 0 0 -1.632 -1.633l-4.291 -1.65a.906 .906 0 0 1 0 -1.692l4.29 -1.65a2.84 2.84 0 0 0 1.633 -1.632l1.65 -4.291a.91 .91 0 0 1 .846 -.581" />

@@ -2,13 +2,14 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Implements 4-tier RBAC user management, restricting hierarchical role modifications and credential updates by access level.
 
-import { randomBytes } from "crypto";
-import { eq, desc } from "drizzle-orm";
+import crypto from "crypto";
+import { eq, desc, sql, ne } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { sendNotification } from "../services/notifier.js";
-import { revokeToken } from "../services/jwt.js";
+import { resolveSystemSmtp } from "../services/systemSmtp.js";
 import { loadEnv } from "../utils/env.js";
-import { getClusterById, getNodeByName } from "../services/clusterUtils.js";
+import { create } from "../services/jwt.js";
+import { log } from "../services/logger.js";
 
 const VALID_ROLES = ["superadmin", "admin", "editor", "readonly"];
 
@@ -21,10 +22,6 @@ async function hashPassword(pw) {
     memoryCost: 65536,
     timeCost: 2,
   });
-}
-
-function generatePassword() {
-  return randomBytes(16).toString("base64url");
 }
 
 // Returns true if the caller has admin-level access (superadmin or admin)
@@ -46,6 +43,74 @@ function canChangeRole(callerRole, targetCurrentRole, targetNewRole) {
   return true;
 }
 
+// Tells if the caller can reset the password of the target user or make a new setup link.
+// A superadmin can do this for all users. Other users can do it only below their own level.
+function canManageUser(callerRole, targetRole) {
+  if (callerRole === "superadmin") return true;
+  return (ROLE_LEVEL[targetRole] || 0) < (ROLE_LEVEL[callerRole] || 0);
+}
+
+// Returns only the fields of a user that the API can show.
+// It never returns the password hash, the setup token hash or the token version.
+export function toPublicUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    email: user.email,
+    mustChangePassword: user.mustChangePassword,
+    initUser: user.initUser,
+    lastLoginAt: user.lastLoginAt,
+    createdAt: user.createdAt,
+  };
+}
+
+const SETUP_LINK_MINUTES = 30;
+
+// Returns the address of the CHOps page. This is FRONTEND_LINK when it is set.
+// Otherwise it is the address of this request.
+function appAddress(req) {
+  const configured = loadEnv().frontendLink;
+  const address = configured || `${req.protocol}://${req.get("host")}`;
+  return address.replace(/\/+$/, "");
+}
+
+function setupLink(req, setupToken) {
+  return `${appAddress(req)}/#/set-password?token=${encodeURIComponent(setupToken)}`;
+}
+
+// Removes the password of a user and makes a one-time link to set a new one.
+// The link holds a random token. Only its hash is stored. Returns the link.
+// It also ends all sessions of the user.
+function startPasswordSetup(req, userId) {
+  const setupToken = crypto.randomBytes(32).toString("hex");
+  const setupTokenHash = crypto
+    .createHash("sha256")
+    .update(setupToken)
+    .digest("hex");
+  const expiresAt = new Date(Date.now() + SETUP_LINK_MINUTES * 60 * 1000);
+  db.update(appUsers)
+    .set({
+      passwordHash: null,
+      mustChangePassword: true,
+      passwordSetupTokenHash: setupTokenHash,
+      passwordSetupTokenExpiresAt: expiresAt.toISOString(),
+      tokenVersion: sql`${appUsers.tokenVersion} + 1`,
+    })
+    .where(eq(appUsers.id, userId))
+    .run();
+  return setupLink(req, setupToken);
+}
+
+const MAX_SUPERADMINS = 3;
+
+function countSuperadmins(tx) {
+  const rows = tx
+    ? tx.select().from(appUsers).all()
+    : db.select().from(appUsers).all();
+  return rows.filter((u) => u.role === "superadmin").length;
+}
+
 // -- Middleware --
 
 // Blocks anyone below admin level. Used on user management write routes.
@@ -55,11 +120,11 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
-// Blocks anyone below admin level. Kept for backward compatibility with
-// routes that already use this name (alerts, backups, cluster, settings).
-export function requireSuperAdmin(req, res, next) {
-  if (!isAdminLevel(req.user?.role))
-    return res.status(403).json({ error: "Admin access required." });
+// Allows only super admins to perform actions and access the features
+
+export function requireSuperAdminOnly(req, res, next) {
+  if (req.user?.role !== "superadmin")
+    return res.status(403).json({ error: "Superadmin access required." });
   next();
 }
 
@@ -75,19 +140,11 @@ export function requireEditor(req, res, next) {
 
 export function listUsers(req, res) {
   const users = db
-    .select({
-      id: appUsers.id,
-      username: appUsers.username,
-      role: appUsers.role,
-      email: appUsers.email,
-      mustChangePassword: appUsers.mustChangePassword,
-      lastLoginAt: appUsers.lastLoginAt,
-      createdAt: appUsers.createdAt,
-    })
+    .select()
     .from(appUsers)
     .orderBy(desc(appUsers.createdAt))
     .all();
-  res.json(users);
+  res.json(users.map(toPublicUser));
 }
 
 export async function createUser(req, res) {
@@ -99,14 +156,25 @@ export async function createUser(req, res) {
     const { username, email, role } = req.body;
     if (!username?.trim())
       return res.status(400).json({ error: "Username required." });
-
-    const existing = db
+    const userNameExist = db
       .select()
       .from(appUsers)
       .where(eq(appUsers.username, username.trim()))
       .get();
-    if (existing)
+
+    if (userNameExist)
       return res.status(409).json({ error: "Username already exists." });
+
+    if (!email?.trim())
+      return res.status(400).json({ error: "Email required." });
+
+    const existing = db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.email, email.trim()))
+      .get();
+    if (existing)
+      return res.status(409).json({ error: "Email already exists." });
 
     // Validate and constrain the role
     let newRole = VALID_ROLES.includes(role) ? role : "readonly";
@@ -123,66 +191,114 @@ export async function createUser(req, res) {
       // admins can create other admins - that's fine
     }
 
-    // Max 3 superadmins
-    if (newRole === "superadmin") {
-      const count = db
-        .select()
-        .from(appUsers)
-        .all()
-        .filter((u) => u.role === "superadmin").length;
-      if (count >= 3)
-        return res
-          .status(400)
-          .json({ error: "Maximum 3 super admins allowed." });
-    }
+    const setupToken = crypto.randomBytes(32).toString("hex");
 
-    const password = generatePassword();
-    const hash = await hashPassword(password);
-    const user = db
-      .insert(appUsers)
-      .values({
-        username: username.trim(),
-        passwordHash: hash,
-        role: newRole,
-        email: email || null,
-        mustChangePassword: true,
-      })
-      .returning()
-      .get();
+    const setupTokenHash = crypto
+      .createHash("sha256")
+      .update(setupToken)
+      .digest("hex");
 
-    // Email the generated password if SMTP is configured
-    if (email) {
-      try {
-        const env = loadEnv();
-        const smtp = env.smtp;
-        if (smtp.host) {
-          const emailConfig = {
-            type: "email",
-            smtp_host: smtp.host,
-            smtp_port: smtp.port,
-            smtp_user: smtp.user,
-            smtp_pass: smtp.pass,
-            from: smtp.from,
-            to: email,
-          };
-          sendNotification(emailConfig, {
-            name: "CHOps Account Created",
-            severity: "info",
-            description: `Your CHOps account has been created.\n\nUsername: ${username.trim()}\nPassword: ${password}\nRole: ${newRole}\n\nPlease change your password on first login.`,
-            sql: "",
-            schedule: "",
-            operator: "eq",
-            threshold: 0,
-            lastValue: 0,
-            lastRunAt: new Date().toISOString(),
-          }).catch(() => {});
+    const setupTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    let user;
+    try {
+      user = db.transaction((tx) => {
+        const racedUsername = tx
+          .select()
+          .from(appUsers)
+          .where(eq(appUsers.username, username.trim()))
+          .get();
+        if (racedUsername) {
+          const err = new Error("Username already exists.");
+          err.statusCode = 409;
+          throw err;
         }
-      } catch {}
+        const racedEmail = tx
+          .select()
+          .from(appUsers)
+          .where(eq(appUsers.email, email.trim()))
+          .get();
+        if (racedEmail) {
+          const err = new Error("Email already exists.");
+          err.statusCode = 409;
+          throw err;
+        }
+        if (newRole === "superadmin") {
+          const count = tx
+            .select()
+            .from(appUsers)
+            .all()
+            .filter((u) => u.role === "superadmin").length;
+          if (count >= MAX_SUPERADMINS) {
+            const err = new Error("Maximum 3 super admins allowed.");
+            err.statusCode = 400;
+            throw err;
+          }
+        }
+
+        return tx
+          .insert(appUsers)
+          .values({
+            username: username,
+            passwordHash: null,
+            role: newRole,
+            email: email,
+            mustChangePassword: true,
+
+            // One-time password setup information
+            passwordSetupTokenHash: setupTokenHash,
+            passwordSetupTokenExpiresAt: setupTokenExpiresAt.toISOString(),
+          })
+          .returning()
+          .get();
+      });
+    } catch (err) {
+      if (err.statusCode === 400 || err.statusCode === 409) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      throw err;
     }
 
-    res
-      .status(201)
-      .json({ ...user, generatedPassword: password, passwordHash: undefined });
+    const setPasswordUrl = setupLink(req, setupToken);
+
+    try {
+      const smtp = resolveSystemSmtp();
+
+      if (smtp?.host) {
+        const emailConfig = {
+          type: "email",
+          smtp_host: smtp.host,
+          smtp_port: smtp.port,
+          smtp_user: smtp.user,
+          smtp_pass: smtp.pass,
+          smtp_secure: smtp.secure,
+          from: smtp.from,
+          to: email,
+        };
+
+        sendNotification(emailConfig, {
+          name: "CHOps Account Created",
+          severity: "info",
+          description:
+            `Your CHOps account has been created.\n\n` +
+            `Set your password using the link below:\n` +
+            `${setPasswordUrl}\n\n` +
+            `This link will expire in 30 minutes and can only be used once.`,
+          sql: "",
+          schedule: "",
+          operator: "eq",
+          threshold: 0,
+          lastValue: 0,
+          lastRunAt: new Date().toISOString(),
+          setPasswordUrl: setPasswordUrl,
+          account: { username: user.username, role: user.role },
+        }).catch(() => {});
+      }
+    } catch {
+      // The notice email is optional.
+    }
+
+    return res.status(201).json({ ...toPublicUser(user), setPasswordUrl });
   } catch (error) {
     res.status(500).json(error.message);
   }
@@ -200,52 +316,139 @@ export async function updateUser(req, res) {
     if (!target) return res.status(404).json({ error: "User not found." });
 
     const updates = {};
-    if (req.body.email !== undefined) updates.email = req.body.email;
+    if (req.body.email !== undefined) {
+      const callerLevel = ROLE_LEVEL[req.user?.role] || 0;
+      const targetLevel = ROLE_LEVEL[target.role] || 0;
+      if (!isSelf && targetLevel >= callerLevel)
+        return res
+          .status(403)
+          .json({ error: "Cannot change this user's email." });
+
+      if (req.body.email?.trim() !== target.email) {
+        const emailTaken = db
+          .select()
+          .from(appUsers)
+          .where(eq(appUsers.email, req.body.email?.trim()))
+          .get();
+        if (emailTaken && emailTaken.id !== id)
+          return res.status(409).json({ error: "Email already exists." });
+      }
+
+      updates.email = req.body.email;
+    }
 
     // Role change: enforce hierarchy rules
     if (req.body.role !== undefined && req.body.role !== target.role) {
       const newRole = req.body.role;
       if (!VALID_ROLES.includes(newRole)) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`,
+        });
       }
       if (!canChangeRole(req.user?.role, target.role, newRole)) {
-        return res
-          .status(403)
-          .json({
-            error: "You do not have permission to change this user's role.",
-          });
-      }
-      // Max 3 superadmins
-      if (newRole === "superadmin") {
-        const count = db
-          .select()
-          .from(appUsers)
-          .all()
-          .filter((u) => u.role === "superadmin").length;
-        if (count >= 3)
-          return res
-            .status(400)
-            .json({ error: "Maximum 3 super admins allowed." });
+        return res.status(403).json({
+          error: "You do not have permission to change this user's role.",
+        });
       }
       updates.role = newRole;
     }
 
-    // Password reset: only admin-level users can reset others' passwords
-    if (req.body.resetPassword && callerIsAdmin && !isSelf) {
-      const pw = generatePassword();
-      updates.passwordHash = await hashPassword(pw);
-      updates.mustChangePassword = true;
-      db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
-      return res.json({ ok: true, generatedPassword: pw });
+    // password reset:self user cannot reset password
+    if (req.body.resetPassword && isSelf) {
+      return res.status(403).json({ error: "Cannot reset yourself" });
     }
 
-    if (Object.keys(updates).length > 0) {
-      db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+    // password reset:if init user cannot self reset
+    if (req.body.resetPassword && target.initUser) {
+      return res.status(403).json({ error: "Default user cannot self reset" });
     }
+
+    // Password reset: the user gets a one-time link to set a new password.
+    // CHOps does not make, show or send a password.
+    if (req.body.resetPassword && callerIsAdmin && !isSelf && !target.initUser) {
+      if (!canManageUser(req.user?.role, target.role)) {
+        return res.status(403).json({
+          error: "You cannot reset the password of a user at or above your level.",
+        });
+      }
+      if (Object.keys(updates).length > 0) {
+        db.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+      }
+      const setPasswordUrl = startPasswordSetup(req, id);
+
+      const smtp = resolveSystemSmtp();
+      if (smtp?.host && target.email) {
+        try {
+          await sendNotification(
+            {
+              type: "email",
+              smtp_host: smtp.host,
+              smtp_port: smtp.port,
+              smtp_user: smtp.user,
+              smtp_pass: smtp.pass,
+              smtp_secure: smtp.secure,
+              from: smtp.from,
+              to: target.email,
+            },
+            {
+              name: "CHOps Password Reset",
+              severity: "info",
+              description: "Your CHOps password was reset by an administrator.",
+              sql: "",
+              schedule: "",
+              operator: "eq",
+              threshold: 0,
+              lastValue: 0,
+              lastRunAt: new Date().toISOString(),
+              setPasswordUrl,
+              account: { username: target.username, role: target.role },
+            },
+          );
+        } catch (emailError) {
+          log.warn("Password reset email failed", { error: emailError.message });
+        }
+      }
+
+      return res.json({ ok: true, setPasswordUrl });
+    }
+
+    try {
+      db.transaction((tx) => {
+        if (updates.email !== undefined) {
+          const emailTaken = tx
+            .select()
+            .from(appUsers)
+            .where(eq(appUsers.email, updates.email?.trim()))
+            .get();
+          if (emailTaken && emailTaken.id !== id) {
+            const err = new Error("Email already exists.");
+            err.statusCode = 409;
+            throw err;
+          }
+        }
+        if (updates.role === "superadmin") {
+          const count = tx
+            .select()
+            .from(appUsers)
+            .all()
+            .filter((u) => u.role === "superadmin").length;
+          if (count >= MAX_SUPERADMINS) {
+            const err = new Error("Maximum 3 super admins allowed.");
+            err.statusCode = 400;
+            throw err;
+          }
+        }
+        if (Object.keys(updates).length > 0) {
+          tx.update(appUsers).set(updates).where(eq(appUsers.id, id)).run();
+        }
+      });
+    } catch (err) {
+      if (err.statusCode === 400 || err.statusCode === 409) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      throw err;
+    }
+
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json(error.message);
@@ -265,17 +468,151 @@ export function deleteUser(req, res) {
     // Can't delete someone at or above your level
     const callerLevel = ROLE_LEVEL[req.user?.role] || 0;
     const targetLevel = ROLE_LEVEL[target.role] || 0;
+
+    if (target.initUser)
+      return res.status(403).json({ error: "Cannot delete default user" });
+
     if (targetLevel >= callerLevel) {
-      return res
-        .status(403)
-        .json({
-          error: "Cannot delete a user with equal or higher privileges.",
-        });
+      return res.status(403).json({
+        error: "Cannot delete a user with equal or higher privileges.",
+      });
     }
 
     db.delete(appUsers).where(eq(appUsers.id, id)).run();
     res.json({ deleted: true });
   } catch (error) {
     res.status(500).json(error.message);
+  }
+}
+
+/** Handles the initial password setup for a user logging in for the first time. */
+export async function setPassword(req, res) {
+  try {
+    const { token, password, newPassword } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        error: "Password setup token is required.",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        error: "Password is required.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: "Password must be at least 8 characters.",
+      });
+    }
+
+    if (password !== newPassword) {
+      return res.status(400).json({
+        error: "Passwords do not match.",
+      });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.passwordSetupTokenHash, tokenHash))
+      .get();
+
+    if (!user) {
+      return res.status(400).json({
+        error: "Invalid or expired password setup link.",
+      });
+    }
+
+    if (user.passwordHash) {
+      return res.status(400).json({
+        error: "This account already has a password.",
+      });
+    }
+
+    if (
+      !user.passwordSetupTokenExpiresAt ||
+      new Date(user.passwordSetupTokenExpiresAt).getTime() < Date.now()
+    ) {
+      return res.status(400).json({
+        error: "Password setup link has expired.",
+      });
+    }
+
+    const passwordHash = await hashPassword(password);
+    // A new version ends all older sessions of the user. The new token below gets this version.
+    const newTokenVersion = (user.tokenVersion || 0) + 1;
+
+    db.update(appUsers)
+      .set({
+        passwordHash,
+        mustChangePassword: false,
+        passwordSetupTokenHash: null,
+        passwordSetupTokenExpiresAt: null,
+        tokenVersion: newTokenVersion,
+      })
+      .where(eq(appUsers.id, user.id))
+      .run();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password set successfully. You can now log in.",
+      user: {
+        username: user.username,
+        role: user.role,
+        token: create({
+          username: user.username,
+          role: user.role,
+          userId: user.id,
+          tokenVersion: newTokenVersion,
+        }),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message,
+    });
+  }
+}
+
+export async function reGenerateSetupLink(req, res) {
+  try {
+    const userId = parseInt(req.query.userId, 10);
+
+    const user = db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.id, userId))
+      .get();
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+      });
+    }
+
+    if (!canManageUser(req.user?.role, user.role)) {
+      return res.status(403).json({
+        error: "You cannot make a setup link for a user at or above your level.",
+      });
+    }
+
+    if (user.passwordHash) {
+      return res.status(400).json({
+        error: "User already setups a password",
+      });
+    }
+
+    const setPasswordUrl = startPasswordSetup(req, user.id);
+
+    return res.status(201).json({ setPasswordUrl });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 }

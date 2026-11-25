@@ -2,15 +2,16 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Displays an audit trail of active database privileges and explicit permission grants for a specific identity.
 
-
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '../../hooks/useQuery.js';
-import { initChart, disposeChart } from '../../utils/echarts.js';
-import { treeSize, treeSeries } from '../../utils/treeChart.js';
 import DataTable from '../layout/DataTable.jsx';
+import SettingsView from './SettingsView.jsx';
+import TreeGraph from '../common/TreeGraph.jsx';
+import { buildUserGrantTree, buildRoleGrantTree } from '../../utils/grantTrees.js';
+import { FormField } from "../ui/index.jsx";
 
 export default function RbacViewGrants() {
   const { tab: routeTab = 'users' } = useParams();
@@ -53,70 +54,22 @@ export default function RbacViewGrants() {
           <Icon className="ti ti-list"></Icon>
           Full Overview
         </div>
+
+        <div
+          className={`tab-item ${routeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => handleTabChange('settings')}
+        >
+          <Icon className="ti ti-adjustments"></Icon>
+          Settings
+        </div>
       </div>
 
       {routeTab === 'users' && <UserTree />}
       {routeTab === 'roles' && <RoleTree />}
       {routeTab === 'overview' && <FullOverview />}
+      {routeTab === 'settings' && <SettingsView />}
     </div>
   );
-}
-
-/* Recursive role tree builder */
-
-function buildRoleTree(
-  roleName,
-  roleGrants,
-  grantsMap,
-  visited = new Set()
-) {
-  if (visited.has(roleName)) {
-    return {
-      name: `${roleName} (circular)`,
-      itemStyle: { color: '#ef4444' },
-      children: [],
-    };
-  }
-
-  const nextVisited = new Set(visited);
-  nextVisited.add(roleName);
-
-  // find child roles
-  const childRoles = roleGrants
-    .filter(r => r.role_name === roleName)
-    .map(r => r.granted_role_name);
-
-  // ONLY recurse roles first (important fix)
-  const roleChildren = childRoles.map(child =>
-    buildRoleTree(child, roleGrants, grantsMap, nextVisited)
-  );
-
-  // attach grants ONLY if this is a leaf OR also show them separately
-  const grants = grantsMap
-    .filter(g => g.role_name === roleName)
-    .map(g => ({
-      name: `${g.access_type}.${g.database}.${g.table}`,
-      itemStyle: {
-        color: g.is_partial_revoke ? '#f87171' : '#34d399',
-      },
-      children: [],
-    }));
-
-  return {
-    name: roleName,
-    itemStyle: { color: '#f59e0b' },
-
-    children: [
-      ...roleChildren,
-      ...(grants.length
-        ? [{
-            name: 'grants',
-            itemStyle: { color: '#22c55e' },
-            children: grants,
-          }]
-        : []),
-    ],
-  };
 }
 
 /* USER TREE */
@@ -125,14 +78,7 @@ function UserTree() {
   const usersQ = useQuery();
   const grantsQ = useQuery();
   const roleGrantsQ = useQuery();
-
-  const [sel, setSel] = useState('');
-  const [fullscreen, setFullscreen] = useState(false);
-  const [themeKey, setThemeKey] = useState(0);
-  const [zoom, setZoom] = useState(1);
-
-  const chartRef = useRef(null);
-  const chartInst = useRef(null);
+  const [selectedUser, setSelectedUser] = useState('');
 
   // load users
   useEffect(() => {
@@ -141,12 +87,12 @@ function UserTree() {
       FROM system.users
       ORDER BY name
     `);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   // load ALL grants + ALL role grants
   useEffect(() => {
-    if (!sel) return;
-
+    if (!selectedUser) return;
     grantsQ.execute(`
       SELECT
         user_name,
@@ -158,7 +104,6 @@ function UserTree() {
         is_partial_revoke
       FROM system.grants
     `);
-
     roleGrantsQ.execute(`
       SELECT
         user_name,
@@ -166,316 +111,36 @@ function UserTree() {
         granted_role_name
       FROM system.role_grants
     `);
-  }, [sel]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
+  }, [selectedUser]);
 
-  // render chart
-  useEffect(() => {
-    if (
-      !sel ||
-      !grantsQ.data ||
-      !roleGrantsQ.data ||
-      !chartRef.current
-    ) return;
-
-    const isDark =
-      document.documentElement.getAttribute('data-theme') === 'dark';
-
-    // direct roles assigned to user
-    const directRoles = roleGrantsQ.data
-      .filter(r => r.user_name === sel)
-      .map(r => r.granted_role_name);
-
-    // direct grants assigned to user
-    const directUserGrants = grantsQ.data
-      .filter(g => g.user_name === sel)
-      .map(g => ({
-        name:
-          [
-            g.access_type,
-            g.database,
-            g.table,
-            g.column,
-          ]
-            .filter(Boolean)
-            .join('.') + ' (direct)',
-
-        itemStyle: {
-          color: g.is_partial_revoke
-            ? '#f87171'
-            : '#34d399',
-        },
-
-        children: [],
-      }));
-
-    const tree = {
-      name: sel,
-      itemStyle: { color: '#6366f1' },
-
-      children: [
-        ...(directRoles.length
-          ? [
-              {
-                name: 'Roles',
-                itemStyle: { color: '#f59e0b' },
-
-                children: directRoles.map(role =>
-                  buildRoleTree(
-                    role,
-                    roleGrantsQ.data,
-                    grantsQ.data
-                  )
-                ),
-              },
-            ]
-          : []),
-
-        ...(directUserGrants.length
-          ? [
-              {
-                name: 'Direct Grants',
-                itemStyle: { color: '#34d399' },
-                children: directUserGrants,
-              },
-            ]
-          : []),
-      ],
-    };
-
-    const size = treeSize(tree);
-
-    if (chartInst.current) {
-      disposeChart(chartRef.current);
-      chartInst.current = null;
-    }
-
-    chartRef.current.style.width =
-      Math.round(size.width * zoom) + 'px';
-
-    chartRef.current.style.height =
-      Math.round(size.height * zoom) + 'px';
-
-    chartInst.current = initChart(chartRef.current);
-
-    const series = treeSeries(tree, isDark);
-
-    series.symbolSize = Math.round(12 * zoom);
-
-    chartInst.current.setOption(
-      {
-        tooltip: {
-          trigger: 'item',
-          triggerOn: 'mousemove',
-        },
-
-        series: [series],
-      },
-      true
-    );
-
-    chartInst.current.resize();
-
-  }, [
-    sel,
-    grantsQ.data,
-    roleGrantsQ.data,
-    themeKey,
-    zoom,
-  ]);
-
-  // theme watcher
-  useEffect(() => {
-    const obs = new MutationObserver(() =>
-      setThemeKey(k => k + 1)
-    );
-
-    obs.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme'],
-    });
-
-    return () => obs.disconnect();
-  }, []);
-
-  // cleanup
-  useEffect(() => {
-    return () => {
-      if (chartRef.current) {
-        disposeChart(chartRef.current);
-      }
-    };
-  }, []);
-
-  function doZoom(f) {
-    setZoom(z =>
-      Math.max(0.3, Math.min(3, +(z * f).toFixed(2)))
-    );
-  }
-
-  function downloadChart() {
-    if (!chartInst.current) return;
-
-    const url = chartInst.current.getDataURL({
-      type: 'png',
-      pixelRatio: 2,
-      backgroundColor: 'transparent',
-    });
-
-    const a = document.createElement('a');
-
-    a.href = url;
-    a.download = 'user-grants.png';
-
-    a.click();
-  }
+  const tree = useMemo(() => {
+    if (!selectedUser || !grantsQ.data || !roleGrantsQ.data) return null;
+    return buildUserGrantTree(selectedUser, roleGrantsQ.data, grantsQ.data);
+  }, [selectedUser, grantsQ.data, roleGrantsQ.data]);
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 16,
-          alignItems: 'flex-end',
-        }}
-      >
-        <div className="form-group">
-          <label className="form-label">
-            User
-          </label>
-
+      <div className="search-form-row">
+        <FormField label="User" className="search-field">
           <Select
             className="form-select"
-            value={sel}
-            onChange={e => setSel(e.target.value)}
+            value={selectedUser}
+            onChange={e => setSelectedUser(e.target.value)}
           >
             <option value="">
               -- select --
             </option>
-
             {usersQ.data?.map(u => (
-              <option
-                key={u.name}
-                value={u.name}
-              >
+              <option key={u.name} value={u.name}>
                 {u.name}
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
       </div>
 
-      <div
-        className="card"
-        style={
-          fullscreen
-            ? {
-                position: 'fixed',
-                inset: 0,
-                zIndex: 9999,
-                background: 'var(--bg-page)',
-                borderRadius: 0,
-                display: 'flex',
-                flexDirection: 'column',
-              }
-            : {
-              padding: 16,
-          marginBottom: 20,
-          height:"35rem",
-          overflow:"auto",
-
-            }
-        }
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: 4,
-            padding: '8px 12px',
-            flexShrink: 0,
-          }}
-        >
-          <span
-            style={{
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              marginRight: 4,
-            }}
-          >
-            {Math.round(zoom * 100)}%
-          </span>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => doZoom(1.25)}
-          >
-            <Icon className="ti ti-zoom-in"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => doZoom(0.8)}
-          >
-            <Icon className="ti ti-zoom-out"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setZoom(1)}
-          >
-            <Icon className="ti ti-zoom-reset"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={downloadChart}
-          >
-            <Icon className="ti ti-download"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() =>
-              setFullscreen(!fullscreen)
-            }
-          >
-            <Icon
-              className={`ti ${
-                fullscreen
-                  ? 'ti-arrows-minimize'
-                  : 'ti-arrows-maximize'
-              }`}
-            ></Icon>
-          </button>
-        </div>
-
-        <div
-          style={
-            fullscreen
-              ? {
-                  overflow: 'auto',
-                  flex: 1,
-                  display: 'flex',
-                  justifyContent: 'center',
-                }
-              : {
-                  overflowX: 'auto',
-                  display: 'flex',
-                  justifyContent: 'center',
-                }
-          }
-        >
-          <div ref={chartRef}>
-            {!sel && (
-              <div className="empty-state">
-                <p>Select a user.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <TreeGraph tree={tree} fileName="user-grants.png" emptyMessage="Select a user." />
     </div>
   );
 }
@@ -486,14 +151,7 @@ function RoleTree() {
   const rolesQ = useQuery();
   const grantsQ = useQuery();
   const roleGrantsQ = useQuery();
-
-  const [sel, setSel] = useState('');
-  const [fullscreen, setFullscreen] = useState(false);
-  const [themeKey, setThemeKey] = useState(0);
-  const [zoom, setZoom] = useState(1);
-
-  const chartRef = useRef(null);
-  const chartInst = useRef(null);
+  const [selectedRole, setSelectedRole] = useState('');
 
   // load roles
   useEffect(() => {
@@ -502,12 +160,12 @@ function RoleTree() {
       FROM system.roles
       ORDER BY name
     `);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   // load all grants + role hierarchy
   useEffect(() => {
-    if (!sel) return;
-
+    if (!selectedRole) return;
     grantsQ.execute(`
       SELECT
         role_name,
@@ -518,267 +176,42 @@ function RoleTree() {
         is_partial_revoke
       FROM system.grants
     `);
-
     roleGrantsQ.execute(`
       SELECT
         role_name,
         granted_role_name
       FROM system.role_grants
     `);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
+  }, [selectedRole]);
 
-  }, [sel]);
-
-  // render chart
-  useEffect(() => {
-    if (
-      !sel ||
-      !grantsQ.data ||
-      !roleGrantsQ.data ||
-      !chartRef.current
-    ) return;
-
-    const isDark =
-      document.documentElement.getAttribute('data-theme') === 'dark';
-
-    const tree = buildRoleTree(
-      sel,
-      roleGrantsQ.data,
-      grantsQ.data
-    );
-
-    const size = treeSize(tree);
-
-    if (chartInst.current) {
-      disposeChart(chartRef.current);
-      chartInst.current = null;
-    }
-
-    chartRef.current.style.width =
-      Math.round(size.width * zoom) + 'px';
-
-    chartRef.current.style.height =
-      Math.round(size.height * zoom) + 'px';
-
-    chartInst.current = initChart(chartRef.current);
-
-    const series = treeSeries(tree, isDark);
-
-    series.symbolSize = Math.round(12 * zoom);
-
-    chartInst.current.setOption(
-      {
-        tooltip: {
-          trigger: 'item',
-          triggerOn: 'mousemove',
-        },
-
-        series: [series],
-      },
-      true
-    );
-
-    chartInst.current.resize();
-
-  }, [
-    sel,
-    grantsQ.data,
-    roleGrantsQ.data,
-    themeKey,
-    zoom,
-  ]);
-
-  // theme watcher
-  useEffect(() => {
-    const obs = new MutationObserver(() =>
-      setThemeKey(k => k + 1)
-    );
-
-    obs.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme'],
-    });
-
-    return () => obs.disconnect();
-  }, []);
-
-  // cleanup
-  useEffect(() => {
-    return () => {
-      if (chartRef.current) {
-        disposeChart(chartRef.current);
-      }
-    };
-  }, []);
-
-  function doZoom(f) {
-    setZoom(z =>
-      Math.max(0.3, Math.min(3, +(z * f).toFixed(2)))
-    );
-  }
-
-  function downloadChart() {
-    if (!chartInst.current) return;
-
-    const url = chartInst.current.getDataURL({
-      type: 'png',
-      pixelRatio: 2,
-      backgroundColor: 'transparent',
-    });
-
-    const a = document.createElement('a');
-
-    a.href = url;
-    a.download = 'role-grants.png';
-
-    a.click();
-  }
+  const tree = useMemo(() => {
+    if (!selectedRole || !grantsQ.data || !roleGrantsQ.data) return null;
+    return buildRoleGrantTree(selectedRole, roleGrantsQ.data, grantsQ.data);
+  }, [selectedRole, grantsQ.data, roleGrantsQ.data]);
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 16,
-          alignItems: 'flex-end',
-        }}
-      >
-        <div className="form-group">
-          <label className="form-label">
-            Role
-          </label>
-
+      <div className="search-form-row">
+        <FormField label="Role" className="search-field">
           <Select
             className="form-select"
-            value={sel}
-            onChange={e => setSel(e.target.value)}
+            value={selectedRole}
+            onChange={e => setSelectedRole(e.target.value)}
           >
             <option value="">
               -- select --
             </option>
-
             {rolesQ.data?.map(r => (
-              <option
-                key={r.name}
-                value={r.name}
-              >
+              <option key={r.name} value={r.name}>
                 {r.name}
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
       </div>
 
-      <div
-        className="card"
-        style={
-          fullscreen
-            ? {
-                position: 'fixed',
-                inset: 0,
-                zIndex: 9999,
-                background: 'var(--bg-page)',
-                borderRadius: 0,
-                display: 'flex',
-                flexDirection: 'column',
-              }
-            : {
-              padding: 16,
-          marginBottom: 20,
-          height:"35rem",
-          overflow:"auto"
-            }
-        }
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: 4,
-            padding: '8px 12px',
-            flexShrink: 0,
-          }}
-        >
-          <span
-            style={{
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              marginRight: 4,
-            }}
-          >
-            {Math.round(zoom * 100)}%
-          </span>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => doZoom(1.25)}
-          >
-            <Icon className="ti ti-zoom-in"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => doZoom(0.8)}
-          >
-            <Icon className="ti ti-zoom-out"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setZoom(1)}
-          >
-            <Icon className="ti ti-zoom-reset"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={downloadChart}
-          >
-            <Icon className="ti ti-download"></Icon>
-          </button>
-
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() =>
-              setFullscreen(!fullscreen)
-            }
-          >
-            <Icon
-              className={`ti ${
-                fullscreen
-                  ? 'ti-arrows-minimize'
-                  : 'ti-arrows-maximize'
-              }`}
-            ></Icon>
-          </button>
-        </div>
-
-        <div
-          style={
-            fullscreen
-              ? {
-                  overflow: 'auto',
-                  flex: 1,
-                  display: 'flex',
-                  justifyContent: 'center',
-                }
-              : {
-                  overflowX: 'auto',
-                  display: 'flex',
-                  justifyContent: 'center',
-                }
-          }
-        >
-          <div ref={chartRef}>
-            {!sel && (
-              <div className="empty-state">
-                <p>Select a role.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <TreeGraph tree={tree} fileName="role-grants.png" emptyMessage="Select a role." />
     </div>
   );
 }
@@ -824,13 +257,14 @@ function FullOverview() {
       ORDER BY user_name, role_name
     `);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   return (
     <div>
       <h3
         style={{
-          fontSize: '15px',
+          fontSize: "0.9375rem",
           margin: '16px 0 8px',
         }}
       >
@@ -840,10 +274,15 @@ function FullOverview() {
       <DataTable
         rows={uq.data || []}
         columns={[
+
           'name',
+
           'auth_type',
+
           'host_ip',
+
           'roles',
+
         ]}
         emptyMessage="No users."
         variant="fixed"
@@ -851,7 +290,7 @@ function FullOverview() {
 
       <h3
         style={{
-          fontSize: '15px',
+          fontSize: "0.9375rem",
           margin: '16px 0 8px',
         }}
       >
@@ -866,7 +305,7 @@ function FullOverview() {
 
       <h3
         style={{
-          fontSize: '15px',
+          fontSize: "0.9375rem",
           margin: '16px 0 8px',
         }}
       >
@@ -876,14 +315,21 @@ function FullOverview() {
       <DataTable
         rows={gq.data || []}
         columns={[
+
           'user_name',
+
           'role_name',
+
           'access_type',
+
           'database',
+
           'table',
+
         ]}
         emptyMessage="No grants."
         variant="fixed"
+        fixedWidth = {true}
       />
     </div>
   );

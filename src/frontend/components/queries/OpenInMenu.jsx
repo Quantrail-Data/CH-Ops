@@ -1,0 +1,96 @@
+// OpenInMenu.jsx - per-row "Open in..." menu for a query_id
+// Contributors - Kathirmoorthy, Kathirdhasan, Praveen
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
+// Moved out of QueriesSection.jsx unchanged. Importing it back would be a cycle.
+
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Icon from "../common/Icon.jsx";
+import { Button } from "../ui/index.jsx";
+
+// All three pages read ?qid= from the URL, so each link is /<route>?qid=<id>.
+export const OPEN_IN_DESTINATIONS = [
+  { key: "profiler", label: "Query Profiler", icon: "ti-flame", route: "tools/profiler" },
+  { key: "pipeline", label: "Processors Profile", icon: "ti-hierarchy-2", route: "tools/pipeline" },
+  { key: "metrics", label: "Query Metrics", icon: "ti-chart-line", route: "tools/metrics" },
+];
+
+// Popover is fixed-position so the table's overflow does not clip it.
+export default function OpenInMenu({ queryId }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("click", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", close);
+    };
+  }, [open]);
+
+  function toggle(e) {
+    e.stopPropagation();
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 200) });
+    setOpen((v) => !v);
+  }
+
+  function go(route) {
+    navigate(`/${route}?qid=${encodeURIComponent(queryId)}`);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <Button ref={btnRef} variant="secondary" size="sm" onClick={toggle}>
+        <Icon className="ti ti-external-link"></Icon> Open in...
+      </Button>
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            top: pos.top,
+            left: pos.left,
+            zIndex: 1200,
+            width: 210,
+            height: "auto",
+            maxHeight: "none",
+            display: "flex",
+            flexDirection: "column",
+            padding: 4,
+            background: "var(--bg-raised)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "var(--radius-md)",
+            boxShadow: "var(--shadow-md)",
+            overflow: "visible",
+          }}
+        >
+          {OPEN_IN_DESTINATIONS.map((d) => (
+            <Button
+              key={d.key}
+              variant="ghost" size="sm"
+              style={{ width: "100%", justifyContent: "flex-start", borderRadius: 6 }}
+              onClick={() => go(d.route)}
+            >
+              <Icon className={`ti ${d.icon}`}></Icon> {d.label}
+            </Button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}

@@ -1,15 +1,27 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Loads environment configs, requiring a super admin and SESSION_SECRET for seeding databases and auth fallbacks.
+// author -> kathir Moorthy, kathir dhasan, Praveen kumar
+// Loads environment configs. ENCRYPTION_SECRET makes the key that encrypts stored credentials, and must never change once set.
+
+import path from "node:path";
 
 export function loadEnv() {
   if (!process.env.SUPER_ADMIN_1 || !process.env.SUPER_ADMIN_1_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
     // Backward compat: check legacy single-admin format
-    if (!process.env.SUPER_ADMIN || !process.env.SUPER_ADMIN_PASSWORD || !process.env.SUPER_ADMIN_1_EMAIL) {
-      throw new Error('Missing required env: SUPER_ADMIN_1 and SUPER_ADMIN_1_PASSWORD');
+    if (!process.env.SUPER_ADMIN || !process.env.SUPER_ADMIN_PASSWORD || !process.env.SUPER_ADMIN_EMAIL) {
+      throw new Error('Missing required env: SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD and SUPER_ADMIN_1_EMAIL');
     }
   }
-  if (!process.env.SESSION_SECRET) throw new Error('Missing required env: SESSION_SECRET');
+  if (!process.env.ENCRYPTION_SECRET) {
+    if (process.env.SESSION_SECRET) {
+      throw new Error(
+        'SESSION_SECRET is now called ENCRYPTION_SECRET. Rename it in your .env file and keep the same value. ' +
+        'A different value makes stored ClickHouse and email passwords unreadable, and they cannot be recovered.',
+      );
+    }
+    throw new Error(
+      'Missing required env: ENCRYPTION_SECRET. Make one with: openssl rand -hex 32',
+    );
+  }
 
   // Collect up to 3 super admins from numbered env vars
   const superAdmins = [];
@@ -25,19 +37,21 @@ export function loadEnv() {
   }
 
   return {
+    exportCfg: {
+      dir: process.env.EXPORT_DIR || path.join(process.cwd(), "data", "exports"),
+      maxJobBytes: parseInt(process.env.EXPORT_MAX_JOB_BYTES || String(5 * 1024 * 1024 * 1024), 10),
+      maxTotalBytes: parseInt(process.env.EXPORT_MAX_TOTAL_BYTES || String(20 * 1024 * 1024 * 1024), 10),
+      maxConcurrent: parseInt(process.env.EXPORT_MAX_CONCURRENT || "5", 10),
+      maxPerUser: parseInt(process.env.EXPORT_MAX_PER_USER || "2", 10),
+      idleTtlMs: parseInt(process.env.EXPORT_IDLE_TTL_MS || String(15 * 60 * 1000), 10),
+      warnBytes: parseInt(process.env.EXPORT_WARN_BYTES || String(1024 * 1024 * 1024), 10),
+    },
     superAdmins,
-    sessionSecret: process.env.SESSION_SECRET,
-    port: parseInt(process.env.PORT || '3000', 10),
+    encryptionSecret: process.env.ENCRYPTION_SECRET,
+    port: parseInt(process.env.PORT || '7720', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
     disableEnvLogin: process.env.DISABLE_ENV_LOGIN === 'true',
     frontendLink:process.env.FRONTEND_LINK,
-    smtp: {
-      host: process.env.SMTP_HOST || '',
-      port: process.env.SMTP_PORT || '587',
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || '',
-      from: process.env.SMTP_FROM || 'CHOps <noreply@chops>',
-    },
     version: {
       clickhouseVersion: process?.env?.CLICKHOUSEVERSION,
       major: process?.env?.MAJOR,

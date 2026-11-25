@@ -2,7 +2,7 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Manages system user accounts, assigns security roles, and tracks authentication states.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
@@ -13,6 +13,8 @@ import { SqlPreview } from "../layout/SharedComponents.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import AlertBanner from "../layout/AlertBanner.jsx";
 import { useAuth } from "../../App.jsx";
+import OnClusterBanner, { useRbacContext } from "./OnClusterBanner.jsx";
+import { Input, Button, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 const ACCESS_TYPES = [
@@ -40,10 +42,14 @@ const AUTH_METHODS = [
   { v: "no_password", l: "No Password" },
 ];
 
+const quoteIdent = (s) => "`" + String(s).replace(/`/g, "``") + "`";
+const quoteStr = (s) => "'" + String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
+
 function useDbList() {
   const q = useQuery();
   useEffect(() => {
     q.execute("SELECT name FROM system.databases ORDER BY name");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
   return q;
 }
@@ -54,6 +60,7 @@ function useTableList(db) {
       q.execute(
         `SELECT name FROM system.tables WHERE database='${db}' ORDER BY name`,
       );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, [db]);
   return q;
 }
@@ -76,17 +83,28 @@ export default function RbacUsers() {
     rolesQ = useQuery(),
     clustersQ = useQuery();
   const [result, setResult] = useState(null);
+  // Tells the forms whether an ON CLUSTER value is needed, and which one. On a
+  // Kubernetes cluster CHOps already knows the name, so it can be filled in
+  // rather than left for the user to guess.
+  const rbac = useRbacContext();
 
   function load() {
-    usersQ.execute("SELECT name FROM system.users ORDER BY name");
+    // storage says who owns each user: users_xml means the operator wrote it
+    // from the installation spec, so an edit here is reverted on the next
+    // reconcile. See the banner below the tab bar.
+    usersQ.execute("SELECT name, storage FROM system.users ORDER BY name");
     rolesQ.execute("SELECT name FROM system.roles ORDER BY name");
     clustersQ.execute(
       "SELECT DISTINCT cluster FROM system.clusters WHERE cluster!='' ORDER BY cluster",
     );
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   useEffect(load, []);
 
   const users = (usersQ.data || []).map((r) => r.name);
+  const operatorOwned = (usersQ.data || [])
+    .filter((r) => r.storage === "users_xml")
+    .map((r) => r.name);
   const roles = (rolesQ.data || []).map((r) => r.name);
   const clusters = (clustersQ.data || []).map((r) => r.cluster);
   const tabs = [
@@ -127,14 +145,42 @@ export default function RbacUsers() {
         ))}
       </div>
       {routeTab === "list" && (
-        <DataTable
-          rows={usersQ.data || []}
-          emptyMessage="No users."
-          variant="single"
-        />
+        <>
+          {operatorOwned.length > 0 && (
+            <div
+              style={{
+                padding: 12,
+                marginBottom: 12,
+                borderRadius: "var(--radius-md)",
+                background: "var(--color-info-bg)",
+                fontSize: "0.8125rem",
+              }}
+            >
+              <strong>Managed elsewhere:</strong> {operatorOwned.join(", ")}.
+              These are defined in server configuration rather than created
+              through SQL. On an operator-managed cluster that means the
+              installation spec owns them, so changes made here are overwritten
+              on the next reconcile.
+              {operatorOwned.includes("clickhouse_operator") && (
+                <>
+                  {" "}
+                  <strong>clickhouse_operator</strong> is the operator&apos;s own
+                  account, restricted to the operator&apos;s pod, and cannot connect
+                  from CHOps.
+                </>
+              )}
+            </div>
+          )}
+          <DataTable
+            rows={usersQ.data || []}
+            emptyMessage="No users."
+            variant="single"
+          />
+        </>
       )}
       {routeTab === "create" && (
         <CreateUser
+          rbac={rbac}
           clusters={clusters}
           roles={roles}
           setResult={setResult}
@@ -143,6 +189,7 @@ export default function RbacUsers() {
       )}
       {routeTab === "alter" && (
         <AlterUser
+          rbac={rbac}
           users={users}
           clusters={clusters}
           roles={roles}
@@ -152,6 +199,7 @@ export default function RbacUsers() {
       )}
       {routeTab === "grant" && (
         <GrantRevoke
+          rbac={rbac}
           users={users}
           roles={roles}
           clusters={clusters}
@@ -160,6 +208,7 @@ export default function RbacUsers() {
       )}
       {routeTab === "drop" && (
         <DropUser
+          rbac={rbac}
           users={users}
           clusters={clusters}
           setResult={setResult}
@@ -170,7 +219,7 @@ export default function RbacUsers() {
   );
 }
 
-function CreateUser({ clusters, roles, setResult, onSuccess }) {
+function CreateUser({ clusters, roles, setResult, onSuccess, rbac }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -187,25 +236,34 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
     validUntil: "",
   });
   const u = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  // Fill the dropdown in on a Kubernetes cluster, where CHOps already knows the
+  // cluster name. Making the correct path the default does more than any banner
+  // will. Only applied while the field is untouched.
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+  //   }
+  // }, [rbac?.defaultOnCluster]);
   const [showPassword, setShowpassword] = useState(false);
 
   function buildSql() {
     if (!f.name.trim()) return "";
-    const p = ["CREATE USER IF NOT EXISTS", f.name.trim()];
+    const p = ["CREATE USER IF NOT EXISTS", quoteIdent(f.name.trim())];
     if (f.onCluster) p.push(`ON CLUSTER '${f.onCluster}'`);
     if (f.authMethod === "no_password") p.push("NOT IDENTIFIED");
     else if (f.password) p.push(`IDENTIFIED WITH ${f.authMethod} BY '***'`);
     if (f.validUntil)
-      p.push(`VALID UNTIL '${f.validUntil.replace("T", " ")}:00'`);
-    if (f.hostIp.trim()) p.push(`HOST IP '${f.hostIp.trim()}'`);
-    if (f.defaultDb) p.push(`DEFAULT DATABASE ${f.defaultDb}`);
-    if (f.defaultRole) p.push(`DEFAULT ROLE ${f.defaultRole}`);
+      p.push(`VALID UNTIL ${quoteStr(f.validUntil.replace("T", " ") + ":00")}`);
+    if (f.hostIp.trim()) p.push(`HOST IP ${quoteStr(f.hostIp.trim())}`);
+    if (f.defaultDb) p.push(`DEFAULT DATABASE ${quoteIdent(f.defaultDb)}`);
+    if (f.defaultRole) p.push(`DEFAULT ROLE ${quoteIdent(f.defaultRole)}`);
     return p.join(" ");
   }
   async function submit(e) {
     e.preventDefault();
     try {
-      await runQuery(buildSql().replace("'***'", `'${f.password}'`));
+      await runQuery(buildSql().replace("'***'", quoteStr(f.password)));
       setResult({ ok: true, msg: "User created." });
       onSuccess();
       setF({
@@ -236,19 +294,16 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Username *</label>
-          <input
-            className="form-input"
+        <FormField label="Username *">
+          <Input
             required
             value={f.name}
             onChange={(e) => u("name", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Auth Method</label>
+        </FormField>
+        <FormField label="Auth Method">
           <Select
             className="form-select"
             value={f.authMethod}
@@ -262,19 +317,17 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Password</label>
+        </FormField>
+        <FormField label="Password">
           <div className="" style={{ width: "100%", position: "relative" }}>
-            <input
-              className="form-input"
+            <Input
               type={showPassword ? "text" : "password"}
               style={{ width: "100%", paddingRight: "35px" }}
               value={f.password}
               onChange={(e) => u("password", e.target.value)}
               disabled={f.authMethod === "no_password" || !isAdmin}
             />
-            <div
+            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={!!(showPassword)}
               className="password-eye"
               style={{
                 position: "absolute",
@@ -286,9 +339,9 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
               onClick={() => setShowpassword(!showPassword)}
             >
               {showPassword ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
-            </div>
+            </button>
           </div>
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -299,6 +352,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
         }}
       >
         <div className="form-group">
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -312,9 +366,9 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={f.onCluster} />
         </div>
-        <div className="form-group">
-          <label className="form-label">Default Database</label>
+        <FormField label="Default Database">
           <Select
             className="form-select"
             value={f.defaultDb}
@@ -327,9 +381,8 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Default Role</label>
+        </FormField>
+        <FormField label="Default Role">
           <Select
             className="form-select"
             value={f.defaultRole}
@@ -342,7 +395,7 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
               <option key={r}>{r}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -352,40 +405,36 @@ function CreateUser({ clusters, roles, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Host IP</label>
-          <input
-            className="form-input"
+        <FormField label="Host IP">
+          <Input
             value={f.hostIp}
             onChange={(e) => u("hostIp", e.target.value)}
             placeholder="optional"
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Valid Until</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="Valid Until">
+          <Input
             type="datetime-local"
             value={f.validUntil}
             onChange={(e) => u("validUntil", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
+        </FormField>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-plus"></Icon> Create
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
 
-function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
+function AlterUser({ users, clusters, roles, setResult, onSuccess, rbac }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -411,40 +460,49 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
     dropProfiles: "",
   });
   const u = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  // Fill the dropdown in on a Kubernetes cluster, where CHOps already knows the
+  // cluster name. Making the correct path the default does more than any banner
+  // will. Only applied while the field is untouched.
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+  //   }
+  // }, [rbac?.defaultOnCluster]);
   const [showPassword, setShowpassword] = useState(false);
   const [openInfo, setOpenInfo] = useState(false);
 
   function buildSql() {
     if (!sel) return "";
-    const p = ["ALTER USER", sel];
+    const p = ["ALTER USER", quoteIdent(sel)];
     if (f.onCluster) p.push(`ON CLUSTER '${f.onCluster}'`);
-    if (f.rename.trim()) p.push(`RENAME TO ${f.rename.trim()}`);
+    if (f.rename.trim()) p.push(`RENAME TO ${quoteIdent(f.rename.trim())}`);
     if (f.resetAuth) p.push("RESET AUTHENTICATION METHODS TO NEW");
     else if (f.password && f.authMethod !== "no_password")
       p.push(`IDENTIFIED WITH ${f.authMethod} BY '***'`);
     else if (f.authMethod === "no_password") p.push("NOT IDENTIFIED");
     if (f.validUntil)
-      p.push(`VALID UNTIL '${f.validUntil.replace("T", " ")}:00'`);
+      p.push(`VALID UNTIL ${quoteStr(f.validUntil.replace("T", " ") + ":00")}`);
     if (f.hostAction === "add" && f.hostIp.trim())
-      p.push(`ADD HOST IP '${f.hostIp.trim()}'`);
+      p.push(`ADD HOST IP ${quoteStr(f.hostIp.trim())}`);
     else if (f.hostAction === "drop" && f.hostIp.trim())
-      p.push(`DROP HOST IP '${f.hostIp.trim()}'`);
-    if (f.defaultDb) p.push(`DEFAULT DATABASE ${f.defaultDb}`);
+      p.push(`DROP HOST IP ${quoteStr(f.hostIp.trim())}`);
+    if (f.defaultDb) p.push(`DEFAULT DATABASE ${quoteIdent(f.defaultDb)}`);
     if (f.defaultRole)
       p.push(
-        `DEFAULT ROLE ${f.defaultRoleAction === "all" ? "ALL" : f.defaultRole}`,
+        `DEFAULT ROLE ${f.defaultRoleAction === "all" ? "ALL" : quoteIdent(f.defaultRole)}`,
       );
     if (f.addSettings.trim()) p.push(`ADD SETTINGS ${f.addSettings.trim()}`);
     if (f.dropSettings.trim()) p.push(`DROP SETTINGS ${f.dropSettings.trim()}`);
-    if (f.addProfiles.trim()) p.push(`ADD PROFILES '${f.addProfiles.trim()}'`);
+    if (f.addProfiles.trim()) p.push(`ADD PROFILES ${quoteStr(f.addProfiles.trim())}`);
     if (f.dropProfiles.trim())
-      p.push(`DROP PROFILES '${f.dropProfiles.trim()}'`);
+      p.push(`DROP PROFILES ${quoteStr(f.dropProfiles.trim())}`);
     return p.join(" ");
   }
   async function submit(e) {
     e.preventDefault();
     try {
-      await runQuery(buildSql().replace("'***'", `'${f.password}'`));
+      await runQuery(buildSql().replace("'***'", quoteStr(f.password)));
       setResult({ ok: true, msg: "User altered." });
       onSuccess();
       setF({
@@ -485,8 +543,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">User *</label>
+        <FormField label="User *">
           <Select
             className="form-select"
             required
@@ -500,18 +557,17 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               <option key={u}>{u}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Rename To</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="Rename To">
+          <Input
             value={f.rename}
             onChange={(e) => u("rename", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
+        </FormField>
         <div className="form-group">
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -525,6 +581,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={f.onCluster} />
         </div>
       </div>
       <div
@@ -535,8 +592,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Auth Method</label>
+        <FormField label="Auth Method">
           <Select
             className="form-select"
             value={f.authMethod}
@@ -550,20 +606,17 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">New Password</label>
-
+        </FormField>
+        <FormField label="New Password">
           <div className="" style={{ width: "100%", position: "relative" }}>
-            <input
-              className="form-input"
+            <Input
               style={{ width: "100%", paddingRight: "35px" }}
               type={showPassword ? "text" : "password"}
               value={f.password}
               onChange={(e) => u("password", e.target.value)}
               disabled={f.authMethod === "no_password" || !isAdmin}
             />
-            <div
+            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={!!(showPassword)}
               className="password-eye"
               style={{
                 position: "absolute",
@@ -575,9 +628,9 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               onClick={() => setShowpassword(!showPassword)}
             >
               {showPassword ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
-            </div>
+            </button>
           </div>
-        </div>
+        </FormField>
         <div
           className="form-group"
           style={{ display: "flex", alignItems: "center", paddingTop: 22 }}
@@ -587,7 +640,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               display: "flex",
               gap: 6,
               cursor: isAdmin ? "pointer" : "not-allowed",
-              fontSize: "14px",
+              fontSize: "0.875rem",
             }}
           >
             <input
@@ -609,8 +662,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Default Database</label>
+        <FormField label="Default Database">
           <Select
             className="form-select"
             value={f.defaultDb}
@@ -623,7 +675,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <div className="form-group">
           <label
             className="form-label"
@@ -650,24 +702,20 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
           </Select>
           <div style={{ height: "22px" }}>
             {openInfo && (
-              <div
-                className="alert-banner info"
-                style={{ marginTop: "0px", fontSize: "12px",padding:"6px" }}
-              >
+              <Notice tone="info" style={{ marginTop: "0px", fontSize: "0.75rem",padding:"6px" }}>
                 <Icon
-                  style={{ fontSize: "15px",paddingTop:"2px" }}
+                  style={{ fontSize: "0.9375rem",paddingTop:"2px" }}
                   className="ti ti-info-circle"
                 ></Icon>
                 <span>
                   To set a default role to the user, The role must be granted to
                   the user
                 </span>
-              </div>
+              </Notice>
             )}
           </div>
         </div>
-        <div className="form-group">
-          <label className="form-label">Host Action</label>
+        <FormField label="Host Action">
           <Select
             className="form-select"
             value={f.hostAction}
@@ -679,7 +727,7 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
             <option value="add">ADD HOST</option>
             <option value="drop">DROP HOST</option>
           </Select>
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -690,28 +738,24 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
         }}
       >
         {f.hostAction && (
-          <div className="form-group">
-            <label className="form-label">Host IP</label>
-            <input
-              className="form-input"
+          <FormField label="Host IP">
+            <Input
               value={f.hostIp}
               onChange={(e) => u("hostIp", e.target.value)}
               disabled={!isAdmin}
               style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
             />
-          </div>
+          </FormField>
         )}
-        <div className="form-group">
-          <label className="form-label">Valid Until</label>
-          <input
-            className="form-input"
+        <FormField label="Valid Until">
+          <Input
             type="datetime-local"
             value={f.validUntil}
             onChange={(e) => u("validUntil", e.target.value)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
           />
-        </div>
+        </FormField>
       </div>
       <div
         style={{
@@ -721,60 +765,52 @@ function AlterUser({ users, clusters, roles, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">ADD SETTINGS</label>
-          <input
-            className="form-input"
+        <FormField label="ADD SETTINGS">
+          <Input
             value={f.addSettings}
             onChange={(e) => u("addSettings", e.target.value)}
             placeholder="var = value, ..."
             style={{ fontFamily: "var(--font-code)" }}
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">DROP SETTINGS</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="DROP SETTINGS">
+          <Input
             value={f.dropSettings}
             onChange={(e) => u("dropSettings", e.target.value)}
             placeholder="var, ..."
             style={{ fontFamily: "var(--font-code)" }}
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">ADD PROFILES</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="ADD PROFILES">
+          <Input
             value={f.addProfiles}
             onChange={(e) => u("addProfiles", e.target.value)}
             placeholder="profile_name"
             disabled={!isAdmin}
           />
-        </div>
-        <div className="form-group">
-          <label className="form-label">DROP PROFILES</label>
-          <input
-            className="form-input"
+        </FormField>
+        <FormField label="DROP PROFILES">
+          <Input
             value={f.dropProfiles}
             onChange={(e) => u("dropProfiles", e.target.value)}
             placeholder="profile_name"
             disabled={!isAdmin}
           />
-        </div>
+        </FormField>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!sel || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!sel || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-edit"></Icon> Alter
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
 
-function GrantRevoke({ users, roles, clusters, setResult }) {
+function GrantRevoke({ users, clusters, setResult, rbac }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -790,11 +826,22 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
   });
   const tblsQ = useTableList(f.database);
   const u = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  // Fill the dropdown in on a Kubernetes cluster, where CHOps already knows the
+  // cluster name. Making the correct path the default does more than any banner
+  // will. Only applied while the field is untouched.
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setF((p) => (p.onCluster ? p : { ...p, onCluster: rbac.defaultOnCluster }));
+  //   }
+  // }, [rbac?.defaultOnCluster]);
   function buildSql() {
     if (!f.user) return "";
     const verb = f.action === "grant" ? "GRANT" : "REVOKE";
     const dir = f.action === "grant" ? "TO" : "FROM";
-    return `${verb} ${f.accessType} ON ${f.database}.${f.table} ${dir} ${f.user}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ""}`;
+    const db = f.database === "*" ? "*" : quoteIdent(f.database);
+    const tbl = f.table === "*" ? "*" : quoteIdent(f.table);
+    return `${verb} ${f.accessType} ON ${db}.${tbl} ${dir} ${quoteIdent(f.user)}${f.onCluster ? ` ON CLUSTER '${f.onCluster}'` : ""}`;
   }
 
   async function submit(e) {
@@ -829,8 +876,7 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">User *</label>
+        <FormField label="User *">
           <Select
             className="form-select"
             value={f.user}
@@ -844,9 +890,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
               <option key={u}>{u}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Action</label>
+        </FormField>
+        <FormField label="Action">
           <Select
             className="form-select"
             value={f.action}
@@ -857,9 +902,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
             <option value="grant">Grant</option>
             <option value="revoke">Revoke</option>
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Privilege</label>
+        </FormField>
+        <FormField label="Privilege">
           <Select
             className="form-select"
             value={f.accessType}
@@ -871,9 +915,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
               <option key={a}>{a}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Database</label>
+        </FormField>
+        <FormField label="Database">
           <Select
             className="form-select"
             value={f.database}
@@ -889,9 +932,8 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Table</label>
+        </FormField>
+        <FormField label="Table">
           <Select
             className="form-select"
             value={f.table}
@@ -904,8 +946,9 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
               <option key={r.name}>{r.name}</option>
             ))}
           </Select>
-        </div>
-        <div className="form-group">
+        </FormField>
+        <div className="form-group" >
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -919,19 +962,20 @@ function GrantRevoke({ users, roles, clusters, setResult }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={f.onCluster} />
         </div>
       </div>
       <SqlPreview sql={buildSql()} />
       <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" type="submit" disabled={!f.user || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
+        <Button variant="primary" type="submit" disabled={!f.user || !isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}>
           <Icon className="ti ti-key"></Icon> Execute
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
 
-function DropUser({ users, clusters, setResult, onSuccess }) {
+function DropUser({ users, clusters, setResult, onSuccess, rbac }) {
   const { auth } = useAuth();
   const myRole = auth?.role || 'readonly';
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -942,10 +986,18 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
   const [confirmName, setConfirmName] = useState("");
   const [sql, setSql] = useState("");
 
+  // Same defaulting as the other forms. Dropping a user on one replica leaves
+  // it alive on the others, which is the more surprising half of this problem.
+  // useEffect(() => {
+  //   if (rbac?.defaultOnCluster) {
+  //     setOnCluster((prev) => prev || rbac.defaultOnCluster);
+  //   }
+  // }, [rbac?.defaultOnCluster]);
+
   useEffect(() => {
     setSql(
       sel
-        ? `DROP USER IF EXISTS ${sel}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
+        ? `DROP USER IF EXISTS ${quoteIdent(sel)}${onCluster ? ` ON CLUSTER '${onCluster}'` : ""}`
         : "",
     );
   }, [sel, onCluster]);
@@ -980,8 +1032,7 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
           marginBottom: 14,
         }}
       >
-        <div className="form-group">
-          <label className="form-label">User</label>
+        <FormField label="User">
           <Select
             className="form-select"
             value={sel}
@@ -994,8 +1045,9 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
               <option key={u}>{u}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
         <div className="form-group">
+          
           <label className="form-label">ON CLUSTER</label>
           <Select
             className="form-select"
@@ -1009,18 +1061,19 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
               <option key={c}>{c}</option>
             ))}
           </Select>
+          <OnClusterBanner rbac={rbac} value={onCluster} />
         </div>
       </div>
       <SqlPreview sql={sql} />
       <div style={{ marginTop: 16 }}>
-        <button
-          className="btn btn-danger"
+        <Button
+          variant="danger"
           disabled={!sel || !isAdmin}
           onClick={() => setConfirm(true)}
           style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
         >
           <Icon className="ti ti-trash"></Icon> Drop
-        </button>
+        </Button>
       </div>
       {confirm && (
         <ConfirmModal
@@ -1030,8 +1083,7 @@ function DropUser({ users, clusters, setResult, onSuccess }) {
               <p>
                 Type the username <strong>{sel}</strong> to confirm:
               </p>
-              <input
-                className="form-input"
+              <Input
                 style={{ marginTop: 8 }}
                 value={confirmName}
                 onChange={(e) => setConfirmName(e.target.value)}

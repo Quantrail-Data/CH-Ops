@@ -10,6 +10,26 @@
 import { useState, useCallback, useEffect } from 'react';
 import Icon from './Icon.jsx';
 
+// The picture of the whole chart, also when the user zoomed in. The zoom is
+// set to 100% for the picture and then put back, with the animation off, so
+// the picture shows the full range and the user sees no change. (Before, the
+// download had only the zoomed part.)
+export function fullChartDataURL(inst, imageOptions) {
+  const zoomWindows = (inst.getOption?.()?.dataZoom || []).map((zoom) => ({ start: zoom.start, end: zoom.end }));
+  const isZoomed = zoomWindows.some((zoom) => (zoom.start ?? 0) > 0 || (zoom.end ?? 100) < 100);
+  if (!isZoomed) return inst.getDataURL(imageOptions);
+
+  const animation = inst.getOption().animation;
+  inst.setOption({ animation: false });
+  zoomWindows.forEach((_, index) => inst.dispatchAction({ type: 'dataZoom', dataZoomIndex: index, start: 0, end: 100 }));
+  const url = inst.getDataURL(imageOptions);
+  zoomWindows.forEach((zoom, index) =>
+    inst.dispatchAction({ type: 'dataZoom', dataZoomIndex: index, start: zoom.start ?? 0, end: zoom.end ?? 100 }),
+  );
+  inst.setOption({ animation: animation ?? true });
+  return url;
+}
+
 // Save an ECharts instance as a PNG (retina). Uses the current theme's surface
 // colour as the export background so themed axis labels, legends, and in-canvas
 // titles stay visible (a forced white background hid light text in dark mode).
@@ -19,7 +39,7 @@ export function savePng(inst, filename = 'chart') {
   const bg =
     (cs.getPropertyValue('--bg-page') || cs.getPropertyValue('--bg-surface') || '').trim() ||
     '#ffffff';
-  const url = inst.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: bg });
+  const url = fullChartDataURL(inst, { type: 'png', pixelRatio: 2, backgroundColor: bg });
   const a = document.createElement('a');
   a.href = url;
   a.download = `${filename || 'chart'}.png`;
@@ -86,8 +106,6 @@ export default function ChartToolbar({
   onZoomReset,
   onSave,
   onToggleFullscreen,
-  onToggleLegend,
-  legendVisible = false,
   style,
   isWantFeature = {
     zoomFun: true,
@@ -96,6 +114,10 @@ export default function ChartToolbar({
     fullscreenFun: true,
     legendFun: true,
   },
+  resetEnabled = zoomable,
+  resetTitle,
+  resetAriaLabel,
+  resetIcon,
 }) {
   return (
     <div
@@ -137,11 +159,11 @@ export default function ChartToolbar({
         <button
           className="btn btn-ghost btn-sm"
           onClick={onZoomReset}
-          disabled={!zoomable}
-          title={zoomable ? "Reset zoom" : "Zoom not available for this chart"}
-          aria-label="Reset zoom"
+          disabled={!resetEnabled}
+          title={resetTitle || (resetEnabled ? "Reset zoom" : "Reset not available for this chart")}
+          aria-label={resetAriaLabel || "Reset zoom"}
         >
-          <Icon className="ti ti-zoom-reset"></Icon>
+          <Icon className={`ti ${resetIcon || "ti-zoom-reset"}`}></Icon>
         </button>
       )}
       {onSave && isWantFeature?.saveFun && (

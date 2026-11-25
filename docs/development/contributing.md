@@ -1,45 +1,46 @@
 # Contributing
 
-First of all, thank you for your interest in CHOps. The fact that you want to help make it better means a lot.
+Thank you for your interest in CHOps. We are grateful that you want to help make it better.
 
-CHOps is open source under the GNU Affero General Public License v3.0 (AGPLv3), and we are building it in the open. We would love for this to grow into a community project over time.
+CHOps is open source under the Apache License 2.0, and we develop it in public. We want it to become a community project over time.
 
-## A Note on Code Contributions
+## Code contributions and the CLA
 
-We are not accepting external code contributions (pull requests) just yet, and we want to be upfront about why.
+We accept code contributions (pull requests) through a Contributor License Agreement (CLA). You keep the copyright in your work. The CLA lets us ship your contribution in the open-source core and in the commercial Pro edition. Read the full [CLA](https://github.com/Quantrail-Data/CH-Ops/blob/main/CLA.md) before you accept it.
 
-CHOps is still in its early days. Before we can responsibly merge code from the community, we need a Contributor License Agreement (CLA) in place, and we have not finalized one yet. We would rather take the time to get it right than rush something out. Until it is ready, any pull requests opened may be closed without review. Please know that this is not a reflection on your work. It is simply that we are not yet in a position to incorporate outside code in a way that is fair and clear for everyone involved.
+When you open your first pull request, the CLA Assistant bot adds a comment and asks you to accept the CLA. Once you accept it, the bot records your acceptance and the CLA check on your pull request passes. You only do this once, and the bot does not ask again for pull requests from the same account unless we change the CLA terms.
 
-Once the CLA is in place, we will update this page with full contribution guidelines and open the project up to pull requests. We are genuinely looking forward to that.
+The CLA check is mandatory on the main branch, so we cannot merge a pull request until you accept the CLA. This protects you and the project, and it keeps the license clear for everyone involved.
 
-## What We Warmly Welcome Right Now
+## Other ways to help
 
-While code contributions are on hold, there is a lot you can do that we truly appreciate, and that genuinely shapes where CHOps goes next:
+You can also help without code. We are grateful for this help, and it shapes the future of CHOps.
 
-**Bug reports.** If something is not working the way you expect, please tell us. A good bug report includes:
+**Bug reports.** If something does not work as you expect, please tell us. A good bug report includes:
 
 - Your CHOps version
-- Your ClickHouse® database version
-- Clear steps to reproduce the problem, and what you expected to happen instead
+- Your ClickHouse&reg; database version
+- Clear steps to reproduce the problem, and the result that you expected
 
-**Feature requests.** If there is something you wish CHOps could do, we want to hear it. Describe the problem you are trying to solve or the workflow you have in mind, and we will take it seriously. Many of the best features come from people telling us what they actually need day to day.
+**Feature requests.** If you want CHOps to do something new, please tell us. Describe the problem that you want to solve, or the workflow that you have in mind. We read every request. Many of the best features come from people who tell us what they need in their daily work.
 
-You can open a bug report or feature request as an issue on our repository at [github.com/Quantrail-Data/CH-Ops](https://github.com/Quantrail-Data/CH-Ops). Every issue is read, and your input directly influences the roadmap.
+Open a bug report or a feature request as an issue in our repository at [github.com/Quantrail-Data/CH-Ops](https://github.com/Quantrail-Data/CH-Ops). We read all issues, and your input directly shapes the roadmap.
 
-## If You Maintain a Fork
+## Set up a development environment
 
-Because CHOps is licensed under the AGPLv3, you are free to run and modify your own copy. If you are doing that, here is how to get a development environment up and running:
+Because CHOps uses the Apache License 2.0, you can run and change your own copy. We test CHOps with Bun 1.4.2. To set up a development environment:
 
 ```bash
 git clone https://github.com/Quantrail-Data/CH-Ops.git
 cd CH-Ops
 cp .env.example .env
-# Edit .env with your test cluster credentials
+# In .env, set SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD,
+# SUPER_ADMIN_1_EMAIL, and ENCRYPTION_SECRET.
 bun install
 bun run db:migrate
 bun run dev
 ```
 
-The dev command starts both the backend and the frontend development server, with changes reloading automatically as you edit.
+The `dev` command starts the backend on port 7720 and the frontend development server on port 7721. Open `http://localhost:7721`. When you edit the code, the servers reload automatically. After you sign in, add your test cluster in **Control panel > Cluster Management**. To set up a local ClickHouse&reg; cluster for tests, see [Setting Up a Test Cluster](test-cluster-setup.md). Before you open a pull request, run `bun run test`, `bun run lint`, and `bun run check:sensitive-logging`. See [Testing](testing.md).
 
-Whatever brought you to this page, thank you again. We are glad you are here, and we hope to open the door to code contributions before long.
+Thank you again for your help. We are glad that you are here.

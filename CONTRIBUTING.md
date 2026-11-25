@@ -1,45 +1,81 @@
-# Contributing
+# Contributing to CHOps
 
-First of all, thank you for your interest in CHOps. The fact that you want to help make it better means a lot.
+Thank you for thinking about a contribution. CHOps is built by and for people who run ClickHouse&reg; clusters, and the project is better for every bug report, feature idea, and patch that comes from someone who uses it for real work.
 
-CHOps is open source under the GNU Affero General Public License v3.0 (AGPLv3), and we are building it in the open. We would love for this to grow into a community project over time.
+This guide covers how to get set up, what we look for, and how a change makes its way from your fork to a release.
 
-## A Note on Code Contributions
+## Ways to contribute
 
-We are not accepting external code contributions (pull requests) just yet, and we want to be upfront about why.
+You do not need to write code to help.
 
-CHOps is still in its early days. Before we can responsibly merge code from the community, we need a Contributor License Agreement (CLA) in place, and we have not finalized one yet. We would rather take the time to get it right than rush something out. Until it is ready, any pull requests opened may be closed without review. Please know that this is not a reflection on your work. It is simply that we are not yet in a position to incorporate outside code in a way that is fair and clear for everyone involved.
+- **Report a bug.** Open an issue with the bug report template.
+- **Request a feature.** Tell us the problem you hit, not just the fix you have in mind.
+- **Improve the docs.** Corrections to anything under `docs/` are always welcome.
+- **Write code.** Bug fixes, new ClickHouse&reg; system-table coverage, chart types, export formats, and editor improvements are all good places to start. We curate the issues tagged `good first issue` and `help wanted` for newcomers.
 
-Once the CLA is in place, we will update this page with full contribution guidelines and open the project up to pull requests. We are genuinely looking forward to that.
+Bug reports and feature requests need no agreement. Code contributions require a one-time CLA, described below.
 
-## What We Warmly Welcome Right Now
+## Sign the CLA
 
-While code contributions are on hold, there is a lot you can do that we truly appreciate, and that genuinely shapes where CHOps goes next:
+Before we can merge your first pull request, you need to sign the [Contributor License Agreement](CLA.md). A bot prompts you on the pull request, signing takes one comment, and you only do it once.
 
-**Bug reports.** If something is not working the way you expect, please tell us. A good bug report includes:
+The CHOps core is licensed under the [Apache License 2.0](LICENSE). A separate commercial Pro edition adds the features listed under [What is in scope](#what-is-in-scope). You retain copyright in your work. The CLA grants us the right to ship your contribution in the open core and in the Pro edition, and it includes a patent licence for your contribution. If your employer owns what you write, they sign the [Corporate CLA](CLA-CORPORATE.md) instead of you as an individual.
 
-- Your CHOps version
-- Your ClickHouse® database version
-- Clear steps to reproduce the problem, and what you expected to happen instead
+## What is in scope
 
-**Feature requests.** If there is something you wish CHOps could do, we want to hear it. Describe the problem you are trying to solve or the workflow you have in mind, and we will take it seriously. Many of the best features come from people telling us what they actually need day to day.
+CHOps follows an open-core model. We reserve the features below for the commercial Pro edition, which funds full-time work on the core, and we will decline pull requests that reimplement them in the open core:
 
-You can open a bug report or feature request as an issue on our repository at [github.com/Quantrail-Data/CH-Ops](https://github.com/Quantrail-Data/CH-Ops). Every issue is read, and your input directly influences the roadmap.
+- Audit logging
+- Scheduled reports
+- Extended alerting: escalation policies and on-call routing
+- Multi-cluster fleet management
+- Scheduled archival to S3-compatible storage
 
-## If You Maintain a Fork
+The rule of thumb is **doing a thing** against **doing it on a schedule, across a fleet, with a retained record**. The first is core. The second is Pro. When in doubt, open an issue before you write code, and we will tell you which side your idea falls on, quickly and honestly.
 
-Because CHOps is licensed under the AGPLv3, you are free to run and modify your own copy. If you are doing that, here is how to get a development environment up and running:
+## Making a change
+
+Fork the repository, make your change on a branch, and test it locally before you open a pull request. The README covers how to run CHOps for development. Use Bun 1.4.2, the version that CI uses.
+
+## Before you open a pull request
+
+Run the checks CI will run:
 
 ```bash
-git clone https://github.com/Quantrail-Data/CH-Ops.git
-cd CH-Ops
-cp .env.example .env
-# Edit .env with your test cluster credentials
-bun install
-bun run db:migrate
-bun run dev
+bun run test                     # backend and frontend suites
+bun run lint                     # lint errors fail CI, warnings do not
+bun run check:sensitive-logging  # blocks credentials reaching logs
 ```
 
-The dev command starts both the backend and the frontend development server, with changes reloading automatically as you edit.
+CI runs every backend suite and every frontend test file, and it also compiles the Linux binary and starts it.
 
-Whatever brought you to this page, thank you again. We are glad you are here, and we hope to open the door to code contributions before long.
+A reviewer will expect:
+
+- **A test for every bug fix**, one that fails before your change and passes after.
+- **Nothing sensitive in logs or errors.** Credentials, tokens, and raw upstream responses must not reach the console or an API error body. The `check:sensitive-logging` script enforces this, and CI fails on it.
+- **Read paths stay read-only.** They must keep passing ClickHouse&reg;'s own `readonly=1` setting rather than relying on a regex over the SQL.
+- **Parameterised queries.** Anything that reaches ClickHouse&reg; goes through the existing parameter path, never string concatenation.
+- **Trademark-safe naming.** See [TRADEMARKS.md](TRADEMARKS.md) before you name anything that touches ClickHouse&reg;, Altinity&reg;, or Kubernetes&reg;.
+- **A licence header** on new files: `SPDX-License-Identifier: Apache-2.0`.
+
+Keep each pull request to one concern. A fix bundled with a refactor is hard to review and hard to revert.
+
+## The pull request process
+
+1. For anything beyond a small fix, open an issue first, so we can agree on the approach before you invest time.
+2. Branch from `main` and push to your fork.
+3. Open the pull request and sign the CLA when the bot asks.
+4. CI runs the tests, the linter, the sensitive-logging check, and a binary build. All must pass.
+5. A maintainer reviews. We aim to respond within five working days.
+
+Write a clear commit message: a short imperative subject line, and a body that explains *why* where the reason is not obvious.
+
+## Reporting a bug
+
+Open an issue with the bug report template and include your CHOps version, your ClickHouse&reg; server version, how you deployed it, and the steps to reproduce.
+
+**Security vulnerabilities do not go in public issues.** Follow [SECURITY.md](SECURITY.md) instead.
+
+## Code of conduct
+
+Our [Code of Conduct](CODE_OF_CONDUCT.md) governs participation. In short: respect others.

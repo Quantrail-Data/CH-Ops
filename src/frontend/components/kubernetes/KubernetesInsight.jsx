@@ -1,0 +1,1649 @@
+// Eight read-only screens for a Kubernetes-managed ClickHouse® cluster.
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors -> Kathir Moorthy, Kathirdhasan
+
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Icon from "../common/Icon.jsx";
+import { SegmentedControl, Button, Input, FormField } from "../ui/index.jsx";
+import Select from "../common/Select.jsx";
+import MultiSelect from "../common/MultiSelect.jsx";
+import yaml from "js-yaml";
+import { apiFetch, apiFetchText } from "../../utils/api.js";
+import { formatBytes } from "../../utils/exportApi.js";
+import { useToast } from "../layout/Toast.jsx";
+import {
+  splitLines,
+  filterLines,
+  sinceSecondsFrom,
+  clampLines,
+  readLineCount,
+  writeLineCount,
+  readSince,
+  writeSince,
+  LOG_LINES_MIN,
+  LOG_LINES_MAX,
+  LOG_LINES_STEP,
+} from "../../utils/podLogs.js";
+import DataTable from "../layout/DataTable.jsx";
+import ToggleSwitch from "../common/ToggleSwitch.jsx";
+import { DateTimePicker } from "../layout/DateTimePicker.jsx";
+
+const TABS = [
+  { id: "health", label: "Health" },
+  { id: "topology", label: "Topology" },
+  { id: "reconcile", label: "Reconcile" },
+  { id: "rollout", label: "Rollout" },
+  { id: "keeper", label: "Keeper" },
+  { id: "storage", label: "Storage" },
+  { id: "resources", label: "Resources" },
+  { id: "network", label: "Network" },
+  { id: "config", label: "Configuration" },
+  { id: "events", label: "Events" },
+  { id: "logs", label: "Logs" },
+];
+
+const muted = { color: "var(--text-muted)" };
+
+function Panel({ title, subtitle, children }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      {title && <h3 style={{ margin: "0 0 4px", fontSize: "1rem" }}>{title}</h3>}
+      {subtitle && (
+        <div style={{ ...muted, fontSize: "0.8125rem", marginBottom: 12 }}>{subtitle}</div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function Banner({ tone = "info", children }) {
+  const background = {
+    info: "var(--color-info-bg)",
+    warn: "var(--color-warning-bg)",
+    bad: "var(--color-danger-bg)",
+  }[tone];
+
+  return (
+    <div
+      style={{
+        padding: 12,
+        borderRadius: "var(--radius-md)",
+        background,
+        fontSize: "0.8125rem",
+        marginBottom: 16,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// The time of the last good read, in the same form as the Logs tab.
+export function ReadAtLine({ fetchedAt }) {
+  if (!fetchedAt) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "flex-end",
+        fontSize: "0.75rem",
+        ...muted,
+        marginBottom: 6,
+      }}
+    >
+      <span>read at {fetchedAt.toLocaleTimeString()}</span>
+    </div>
+  );
+}
+
+// Shown in the tab when the last read failed.
+export function LoadError({ message, onRetry, busy }) {
+  return (
+    <Banner tone="bad">
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ flex: "1 1 260px" }}>
+          <strong>Could not read this tab.</strong> {message}
+        </span>
+        <Button type="button" variant="secondary" size="sm" onClick={onRetry} disabled={busy}>
+          <Icon className="ti ti-refresh" /> Retry
+        </Button>
+      </div>
+    </Banner>
+  );
+}
+
+// Health
+
+function buildHealthReportText(data, clusterName) {
+  const lines = [
+    `CHOps Kubernetes health: ${clusterName}`,
+    data.unknown
+      ? `${data.passing} of ${data.total} checks passing, ${data.unknown} could not run`
+      : `${data.passing} of ${data.total} checks passing`,
+    "",
+  ];
+  for (const check of data.checks) {
+    const mark = check.ok === true ? "PASS   " : check.ok === null ? "UNKNOWN" : "FAIL   ";
+    lines.push(`${mark} ${check.name}: ${check.detail}`);
+  }
+  return lines.join("\n");
+}
+
+function CopyHealthReportButton({ data, clusterName }) {
+  const toast = useToast();
+
+  async function copyReport() {
+    try {
+      await navigator.clipboard.writeText(buildHealthReportText(data, clusterName));
+      toast.success("Health report copied.");
+    } catch {
+      toast.error("Could not copy. Copy from the table instead.");
+    }
+  }
+
+  return (
+    <Button type="button" variant="secondary" size="sm" onClick={copyReport}>
+      <Icon className="ti ti-copy" /> Copy report
+    </Button>
+  );
+}
+
+function HealthTab({ data, clusterName, clusterId }) {
+  if (!data) return null;
+  const failing = data.checks.filter((c) => c.ok === false);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <CopyHealthReportButton data={data} clusterName={clusterName} />
+      </div>
+      <Panel
+        title={
+          data.unknown
+            ? `${data.passing} of ${data.total} checks passing, ${data.unknown} could not run`
+            : `${data.passing} of ${data.total} checks passing`
+        }
+        subtitle="Each of these is small on its own. Together they are the reason to open this screen daily rather than during an incident."
+      >
+        <table className="data-table" style={{ width: "100%" }}>
+          <tbody>
+            {data.checks.map((c) => (
+              <tr key={c.name}>
+                <td style={{ width: 24 }}>
+                  {/* Green check: passed. Red question mark: could not run.
+                      Red triangle: failed. */}
+                  <Icon
+                    className={
+                      c.ok === true
+                        ? "ti ti-circle-check check-status-ok"
+                        : c.ok === null
+                          ? "ti ti-help-circle check-status-unknown"
+                          : "ti ti-alert-triangle check-status-failed"
+                    }
+                    title={c.ok === true ? "Passed" : c.ok === null ? "Could not run" : "Failed"}
+                  />
+                </td>
+                <td style={{ fontWeight: c.ok === false ? 600 : "normal" }}>{c.name}</td>
+                <td style={{ ...muted, fontSize: "0.8125rem" }}>{c.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      {failing.length > 0 && (
+        <Banner tone="warn">
+          {failing.length} check{failing.length > 1 ? "s" : ""} need attention. None
+          of these stops the cluster serving queries right now; they are the things
+          that turn into an incident later.
+        </Banner>
+      )}
+
+      {data.unavailable?.length > 0 && (
+        <Panel title="Not available on this deployment">
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem", ...muted }}>
+            {data.unavailable.map((u) => (
+              <li key={u.table}>{u.message}</li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      <HealthAlertsPanel clusterId={clusterId} />
+    </div>
+  );
+}
+
+function HealthAlertsPanel({ clusterId }) {
+  const toast = useToast();
+  const [enabled, setEnabled] = useState(false);
+  const [selectedChannelIds, setSelectedChannelIds] = useState([]);
+  const [channelOptions, setChannelOptions] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch(`/api/k8s/insight/${clusterId}/health-alerts`),
+      apiFetch("/api/alerts/channels"),
+    ])
+      .then(([config, channels]) => {
+        setEnabled(Boolean(config.enabled));
+        setSelectedChannelIds((config.channels || []).map(String));
+        setChannelOptions(
+          (channels || []).map((channel) => ({
+            value: String(channel.id),
+            label: channel.name,
+          })),
+        );
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(false));
+  }, [clusterId]);
+
+  async function save() {
+    try {
+      await apiFetch(`/api/k8s/insight/${clusterId}/health-alerts`, {
+        method: "PUT",
+        body: { enabled, channels: selectedChannelIds.map(Number) },
+      });
+      toast.success("Health alert settings saved.");
+    } catch (error) {
+      toast.error(error.message);
+    }
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Panel
+      title="Health alerts"
+      subtitle="Sends a notification when a check fails two times in a row, and again when it recovers. Runs every 15 minutes."
+    >
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <ToggleSwitch
+          checked={enabled}
+          onChange={(changeEvent) => setEnabled(changeEvent.target.checked)}
+          label="Alert on health check failures"
+          btnContainer={true}
+        />
+        <div style={{ flex: "1 1 260px" }}>
+          <MultiSelect
+            options={channelOptions}
+            value={selectedChannelIds}
+            onChange={setSelectedChannelIds}
+            placeholder="Choose channels..."
+          />
+        </div>
+        <Button variant="primary" size="sm" onClick={save}>
+          Save
+        </Button>
+      </div>
+      {channelOptions.length === 0 && (
+        <div style={{ ...muted, fontSize: "0.75rem", marginTop: 8 }}>
+          No notification channels exist yet. Create one under Custom Alerts first.
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+// Topology
+
+function describeZoneRisks(zoneRisks) {
+  const riskTexts = zoneRisks.map(
+    (risk) => `shard ${risk.shard} has ${risk.replicas} replicas in ${risk.zone}`,
+  );
+  return riskTexts.join("; ");
+}
+
+function HostCell({ host, signalsUnreliable }) {
+  // OCKO has no operator readiness label, so fall back to pod readiness.
+  const hostReady = host.operatorReady === null ? host.podReady : host.operatorReady;
+  const bad = !hostReady || host.inRotation?.ready === false;
+  const draining = host.inRotation?.terminating;
+
+  return (
+    <div
+      style={{
+        padding: 8,
+        borderRadius: "var(--radius-sm)",
+        border: "1px solid var(--border-default)",
+        background: bad ? "var(--color-danger-bg)" : "transparent",
+        minWidth: 160,
+      }}
+    >
+      <div style={{ fontWeight: 600, fontSize: "0.8125rem" }}>replica {host.replica}</div>
+      <div style={{ ...muted, fontSize: "0.75rem" }}>{host.podName}</div>
+
+      <div style={{ fontSize: "0.75rem", marginTop: 6 }}>
+        {signalsUnreliable ? (
+          <span title="Troubleshoot mode is on, so probes are disabled">
+            readiness unknown
+          </span>
+        ) : (
+          <span>{hostReady ? "ready" : "not ready"}</span>
+        )}
+      </div>
+
+      <div style={{ fontSize: "0.75rem" }}>
+        {host.inRotation === null
+          ? "not behind a service"
+          : draining
+            ? "draining, still serving"
+            : host.inRotation.ready
+              ? "in rotation"
+              : "out of rotation"}
+      </div>
+
+      {host.restartCount > 0 && (
+        <div style={{ fontSize: "0.75rem", marginTop: 4 }}>
+          {host.restartCount} restarts
+          {host.lastTerminationReason ? ` (${host.lastTerminationReason})` : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopologyTab({ data }) {
+  if (!data) return null;
+
+  return (
+    <div>
+      {data.lastRefresh?.at && (
+        <div style={{ ...muted, fontSize: "0.75rem", marginBottom: 12 }}>
+          Host list last refreshed {new Date(data.lastRefresh.at).toLocaleString()}
+          {data.lastRefresh.ok === false ? " (last refresh failed)" : ""}
+        </div>
+      )}
+      {data.healthSignalsUnreliable && (
+        <Banner tone="warn">
+          <strong>Troubleshoot mode is on.</strong> The operator has disabled
+          liveness and readiness probes for this installation, so a pod can report
+          Ready while ClickHouse® is not serving. Treat every health indicator on
+          this page as unverified until the flag is removed.
+        </Banner>
+      )}
+
+      {data.versionSkew && (
+        <Banner tone="warn">
+          <strong>Hosts are running different versions.</strong>{" "}
+          {data.versionSkew.join(", ")}. This is what a rolling update looks like
+          when it stopped part way; the operator does not roll back the hosts it
+          already finished.
+        </Banner>
+      )}
+
+      {data.placementRisks?.length > 0 && (
+        <Banner tone="warn">
+          <strong>Replicas sharing a node.</strong>{" "}
+          {data.placementRisks
+            .map((r) => `shard ${r.shard} has ${r.replicas} replicas on ${r.node}`)
+            .join("; ")}
+          . Losing that node loses more than one copy.
+        </Banner>
+      )}
+
+      {data.zoneRisks?.length > 0 && (
+        <Banner tone="warn">
+          <strong>Replicas sharing an availability zone.</strong>{" "}
+          {describeZoneRisks(data.zoneRisks)}
+          . A zone outage takes more than one copy with it.
+        </Banner>
+      )}
+
+      {data.drainProtection && !data.drainProtection.protected && (
+        <Banner tone="warn">
+          <strong>No pod disruption budget.</strong> Nothing stops a node drain
+          evicting several replicas at once during routine maintenance.
+        </Banner>
+      )}
+
+      {data.drainProtection?.blocked && (
+        <Banner tone="info">
+          A pod disruption budget currently allows no disruptions, so anybody
+          trying to drain a node is blocked.
+        </Banner>
+      )}
+
+      {Object.entries(data.grid || {}).map(([clusterName, shards]) => (
+        <Panel key={clusterName} title={clusterName}>
+          {Object.entries(shards).map(([shard, replicas]) => (
+            <div key={shard} style={{ marginBottom: 12 }}>
+              <div style={{ ...muted, fontSize: "0.75rem", marginBottom: 4 }}>
+                shard {shard}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {replicas.map((h) => (
+                  <HostCell
+                    key={h.id}
+                    host={h}
+                    signalsUnreliable={data.healthSignalsUnreliable}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </Panel>
+      ))}
+
+      {data.keeper && (
+        <Panel
+          title="Keeper"
+          subtitle={
+            data.keeper.namespaceUncertain
+              ? "The namespace could not be determined from the configured host, so Keeper details are unavailable."
+              : `namespace ${data.keeper.namespace}`
+          }
+        >
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
+            {data.keeper.hosts.map((h) => (
+              <li key={h}>{h}</li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+// Reconcile
+
+function ReconcileTab({ data }) {
+  if (!data) return null;
+
+  const everyHost = [
+    ...new Set([...(data.tablesCreated || []), ...(data.replicasCaughtUp || [])]),
+  ];
+
+  return (
+    <div>
+      {data.unmanaged && (
+        <Banner tone="warn">
+          <strong>This installation is not being reconciled.</strong> It exists,
+          and nothing is acting on it. The usual cause is an operator configured
+          to watch other namespaces.
+        </Banner>
+      )}
+
+      {data.suspended && (
+        <Banner tone="info">
+          Reconciliation is paused for this installation. The status may read
+          Aborted; that reflects the pause, not a failure.
+        </Banner>
+      )}
+
+      {data.stopped && (
+        <Banner tone="info">
+          This installation is stopped. Pods and services are removed and the
+          volumes are kept, so setting it back will bring it up with its data
+          intact.
+        </Banner>
+      )}
+
+      {!data.operator?.reachable && (
+        <Banner tone="bad">
+          <strong>The operator is not reachable.</strong> The cluster will keep
+          serving queries, and nothing you change will be applied.
+        </Banner>
+      )}
+
+      <Panel title="Current state">
+        <table className="data-table" style={{ width: "100%" }}>
+          <tbody>
+            <tr>
+              <td>Status</td>
+              <td>{data.status ?? "unknown"}</td>
+            </tr>
+            <tr>
+              <td>Task</td>
+              <td>{data.taskID ?? "-"}</td>
+            </tr>
+            <tr>
+              <td>Hosts</td>
+              <td>
+                {data.hosts.completed ?? 0} of {data.hosts.total ?? 0} completed
+                {data.hosts.failed ? `, ${data.hosts.failed} failed` : ""}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </Panel>
+
+      {everyHost.length > 0 && (
+        <Panel
+          title="Replica readiness"
+          subtitle="After a scale-out this is the question people answer by hand, polling system.replicas until it settles."
+        >
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Tables created</th>
+                <th>Caught up</th>
+              </tr>
+            </thead>
+            <tbody>
+              {everyHost.map((h) => (
+                <tr key={h}>
+                  <td>{h}</td>
+                  <td>{data.tablesCreated?.includes(h) ? "yes" : "no"}</td>
+                  <td>{data.replicasCaughtUp?.includes(h) ? "yes" : "not yet"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+
+      {data.errors?.length > 0 && (
+        <Panel title="Errors reported by the operator">
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
+            {data.errors.map((e, i) => (
+              <li key={i}>{typeof e === "string" ? e : JSON.stringify(e)}</li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+// Rollout
+
+function describeRevision(row) {
+  if (!row.updateRevision || row.currentRevision === row.updateRevision) {
+    return row.currentRevision ?? "-";
+  }
+  return `${row.currentRevision ?? "-"} to ${row.updateRevision}`;
+}
+
+export function RolloutTab({ data }) {
+  if (!data) return null;
+  const rows = data.statefulSets || [];
+  const stuckRows = rows.filter((row) => row.status === "stuck");
+
+  return (
+    <div>
+      {stuckRows.length > 0 && (
+        <Banner tone="bad">
+          <strong>A rollout is stuck.</strong>{" "}
+          {stuckRows.map((row) => row.stuckReason).join("; ")}. Fix the pod to
+          let the rollout continue.
+        </Banner>
+      )}
+
+      <Panel
+        title="StatefulSets"
+        subtitle="A rollout is complete when the desired, current, ready and updated counts are equal and all pods run one revision."
+      >
+        {rows.length === 0 ? (
+          <div style={{ fontSize: "0.8125rem", ...muted }}>
+            No StatefulSets were found for this installation.
+          </div>
+        ) : (
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Desired</th>
+                <th>Current</th>
+                <th>Ready</th>
+                <th>Updated</th>
+                <th>Revision</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.name}>
+                  <td>{row.name}</td>
+                  <td>{row.desired}</td>
+                  <td>{row.current}</td>
+                  <td>{row.ready}</td>
+                  <td>{row.updated}</td>
+                  <td>{describeRevision(row)}</td>
+                  <td>{row.status === "stuck" ? <strong>stuck</strong> : row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+// Keeper
+
+function formatSeconds(totalSeconds) {
+  const seconds = Number(totalSeconds);
+  if (!Number.isFinite(seconds)) return "-";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h`;
+  return `${Math.floor(seconds / 86400)} days`;
+}
+
+function KeeperTab({ data }) {
+  if (!data) return null;
+
+  const readonlyHosts = (data.replicas || []).filter(
+    (replica) => Number(replica.readonly_tables) > 0,
+  );
+  const expiredSessions = (data.connections || []).filter((connection) => connection.is_expired);
+
+  return (
+    <div>
+      {readonlyHosts.length > 0 && (
+        <Banner tone="bad">
+          <strong>Read-only tables.</strong>{" "}
+          {readonlyHosts
+            .map((replica) => `${replica.ch_host}: ${replica.readonly_tables} of ${replica.total_tables} tables`)
+            .join("; ")}
+          . A replicated table goes read-only when its Keeper session is lost.
+          Writes to those tables fail right now.
+        </Banner>
+      )}
+
+      {expiredSessions.length > 0 && (
+        <Banner tone="warn">
+          <strong>Expired Keeper sessions.</strong>{" "}
+          {expiredSessions.map((connection) => connection.ch_host).join(", ")}. These hosts must
+          reconnect before replication recovers.
+        </Banner>
+      )}
+
+      {!data.connectionsChecked && (
+        <Banner tone="info">
+          system.zookeeper_connection was not readable from this endpoint, so
+          session details are unavailable. This is normal on a cluster without
+          replication.
+        </Banner>
+      )}
+
+      {data.connectionsChecked && (
+        <Panel
+          title="Keeper sessions"
+          subtitle="One row per ClickHouse host, reported by the host itself."
+        >
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Keeper address</th>
+                <th>Session uptime</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.connections.map((connection, index) => (
+                <tr key={index}>
+                  <td>{connection.ch_host}</td>
+                  <td>
+                    {connection.keeper_address}:{connection.keeper_port}
+                  </td>
+                  <td>{formatSeconds(connection.session_uptime_elapsed_seconds)}</td>
+                  <td style={connection.is_expired ? { fontWeight: 600 } : undefined}>
+                    {connection.is_expired ? "expired" : "connected"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+
+      {data.replicasChecked && (
+        <Panel
+          title="Replicated tables"
+          subtitle="A read-only count above zero is the symptom users feel: inserts fail."
+        >
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Replicated tables</th>
+                <th>Read-only</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.replicas.map((replica, index) => (
+                <tr key={index}>
+                  <td>{replica.ch_host}</td>
+                  <td>{replica.total_tables}</td>
+                  <td style={Number(replica.readonly_tables) > 0 ? { fontWeight: 600 } : undefined}>
+                    {replica.readonly_tables}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+
+      {data.keeper?.hosts?.length > 0 && (
+        <Panel title="Keeper hosts" subtitle="From the installation.">
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
+            {data.keeper.hosts.map((keeperHost) => (
+              <li key={keeperHost}>{keeperHost}</li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+// Storage
+
+function formatGrowthPerDay(bytesPerDay) {
+  if (!Number.isFinite(bytesPerDay)) return "-";
+  if (bytesPerDay <= 0) return "not growing";
+  return `${(bytesPerDay / 1073741824).toFixed(2)} GiB`;
+}
+
+function StorageTab({ data }) {
+  if (!data) return null;
+
+  const high = data.warnings.filter((w) => w.severity === "high");
+  const info = data.warnings.filter((w) => w.severity !== "high");
+
+  return (
+    <div>
+      {high.map((w, i) => (
+        <Banner key={i} tone="bad">
+          <strong>{w.volume}:</strong> {w.message}
+        </Banner>
+      ))}
+
+      <Panel title="Volumes">
+        <table className="data-table" style={{ width: "100%" }}>
+          <thead>
+            <tr>
+              <th>Volume</th>
+              <th>Shard/Replica</th>
+              <th>Requested</th>
+              <th>Actual</th>
+              <th>Class</th>
+              <th>Can grow</th>
+              <th>Resize</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.volumes.map((v) => (
+              <tr key={v.name}>
+                <td>{v.name}</td>
+                <td>
+                  {v.shard}/{v.replica}
+                </td>
+                <td>{v.requested ?? "-"}</td>
+                <td>
+                  {v.actual ?? "-"}
+                  {v.allocated && v.allocated !== v.actual && (
+                    <span style={muted}> (allocating {v.allocated})</span>
+                  )}
+                </td>
+                <td>{v.storageClass ?? "-"}</td>
+                <td>{v.expandable === null ? "unknown" : v.expandable ? "yes" : "no"}</td>
+                <td>{v.resizeState ?? "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      {data.capabilities?.disks === false ? (
+        <Banner tone="info">{data.capabilities.disksMessage}</Banner>
+      ) : (
+        <Panel
+          title="Free space"
+          subtitle="Reported by ClickHouse®. Compare against the capacity above; neither number means much on its own."
+        >
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Disk</th>
+                <th>Free</th>
+                <th>Total</th>
+                <th>Used</th>
+                <th>Growth per day</th>
+                <th>Full in</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.disks.map((d, i) => {
+                const used = d.total_space
+                  ? Math.round(((d.total_space - d.free_space) / d.total_space) * 100)
+                  : null;
+                const diskForecast = data.forecast?.[`${d.host}|${d.name}`];
+                const daysUntilFull = diskForecast?.daysUntilFull ?? null;
+                return (
+                  <tr key={i}>
+                    <td>{d.host}</td>
+                    <td>{d.name}</td>
+                    <td>{d.free_space}</td>
+                    <td>{d.total_space}</td>
+                    <td style={used > 80 ? { fontWeight: 600 } : undefined}>
+                      {used === null ? "-" : `${used}%`}
+                    </td>
+                    <td>{formatGrowthPerDay(diskForecast?.growthBytesPerDay)}</td>
+                    <td style={daysUntilFull !== null && daysUntilFull <= 14 ? { fontWeight: 600 } : undefined}>
+                      {daysUntilFull === null ? "-" : `about ${daysUntilFull} days`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+
+      {info.length > 0 && (
+        <Panel title="Worth knowing">
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem", ...muted }}>
+            {info.map((w, i) => (
+              <li key={i}>
+                <strong>{w.volume}:</strong> {w.message}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+// Resources
+
+function formatClickHouseMemory(row) {
+  if (row.memoryTracking == null) return "-";
+  const memoryText = formatBytes(row.memoryTracking);
+  if (row.memoryUsagePercent == null) return memoryText;
+  return `${memoryText} (${Math.round(row.memoryUsagePercent)}% of limit)`;
+}
+
+function ResourcesTab({ data }) {
+  if (!data) return null;
+
+  const podsWithoutMemoryLimit = data.rows.filter((row) => !row.memoryLimit);
+
+  return (
+    <div>
+      {podsWithoutMemoryLimit.length > 0 && (
+        <Banner tone="warn">
+          <strong>Pods without a memory limit.</strong>{" "}
+          {podsWithoutMemoryLimit.map((row) => row.podName).join(", ")}. A pod
+          without a limit can use all the memory of its node.
+        </Banner>
+      )}
+
+      {(data.warnings || []).map((warning) => (
+        <Banner key={warning.podName} tone="warn">
+          <strong>{warning.podName}.</strong> {warning.message}
+        </Banner>
+      ))}
+
+      {data.memoryChecked === false && (
+        <Banner tone="info">
+          system.metrics was not readable from this endpoint, so ClickHouse
+          memory usage is unavailable.
+        </Banner>
+      )}
+
+      {data.liveChecked === false && (
+        <Banner tone="info">
+          The Kubernetes metrics API is not available on this cluster, so live
+          usage is unknown. Install metrics-server to turn it on.
+        </Banner>
+      )}
+
+      <Panel
+        title="Requests, limits and usage"
+        subtitle="A request is what the scheduler reserves for the pod. A limit is where the kernel stops it."
+      >
+        <table className="data-table" style={{ width: "100%" }}>
+          <thead>
+            <tr>
+              <th>Pod</th>
+              <th>CPU request</th>
+              <th>CPU limit</th>
+              <th>Memory request</th>
+              <th>Memory limit</th>
+              <th>ClickHouse memory</th>
+              <th>Live CPU</th>
+              <th>Live memory</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.map((row) => (
+              <tr key={row.podName}>
+                <td>{row.podName}</td>
+                <td>{row.cpuRequest ?? "-"}</td>
+                <td>{row.cpuLimit ?? "-"}</td>
+                <td>{row.memoryRequest ?? "-"}</td>
+                <td style={!row.memoryLimit ? { fontWeight: 600 } : undefined}>
+                  {row.memoryLimit ?? "none"}
+                </td>
+                <td
+                  style={
+                    row.memoryUsagePercent >= 80 ? { fontWeight: 600 } : undefined
+                  }
+                >
+                  {formatClickHouseMemory(row)}
+                </td>
+                <td>{row.liveCpu ?? "-"}</td>
+                <td>{row.liveMemory ?? "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+    </div>
+  );
+}
+
+// Network
+
+function NetworkTab({ data }) {
+  if (!data) return null;
+  const check = data.topologyCheck;
+
+  return (
+    <div>
+      {check?.checked && check.missingFromClickHouse?.length > 0 && (
+        <Banner tone="warn">
+          <strong>Configured but not in ClickHouse®.</strong> Shard/replica{" "}
+          {check.missingFromClickHouse.join(", ")} exist in the installation and
+          not in remote_servers. A reconcile has not propagated.
+        </Banner>
+      )}
+
+      {check?.checked && check.notRoutable?.length > 0 && (
+        <Banner tone="warn">
+          <strong>In ClickHouse® but not routable.</strong> Shard/replica{" "}
+          {check.notRoutable.join(", ")} are configured and not receiving traffic.
+        </Banner>
+      )}
+
+      {check && !check.checked && (
+        <Banner tone="info">
+          The three-way topology check could not run, because system.clusters was
+          not readable from this endpoint.
+        </Banner>
+      )}
+
+      {data.networkPolicies?.length > 0 && (
+        <Banner tone="info">
+          {data.networkPolicies.length} network polic
+          {data.networkPolicies.length === 1 ? "y" : "ies"} restrict traffic to
+          these pods. If a connection times out with correct credentials, this is
+          the usual reason.
+        </Banner>
+      )}
+
+      <Panel title="Services">
+        <table className="data-table" style={{ width: "100%" }}>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>External address</th>
+              <th>Ports</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.services.map((s) => (
+              <tr key={s.name}>
+                <td>{s.name}</td>
+                <td>{s.type}</td>
+                <td>{s.externalAddress ?? "-"}</td>
+                <td>{s.ports.map((p) => p.port).join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      <Panel title="Disruption budgets">
+        {data.disruptionBudgets.length === 0 ? (
+          <div style={{ fontSize: "0.8125rem", ...muted }}>
+            None. A node drain can evict several replicas at once.
+          </div>
+        ) : (
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Allowed</th>
+                <th>Healthy</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.disruptionBudgets.map((b) => (
+                <tr key={b.name}>
+                  <td>{b.name}</td>
+                  <td>{b.disruptionsAllowed}</td>
+                  <td>
+                    {b.currentHealthy} of {b.desiredHealthy}
+                  </td>
+                  <td>{b.reason ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+// Configuration
+
+// Installations are written in YAML and kubectl prints YAML
+function toYaml(value) {
+  if (value === null || value === undefined) return "";
+  try {
+    return yaml.dump(value, { noRefs: true, lineWidth: 100, sortKeys: false });
+  } catch {
+    // A cyclic or otherwise undumpable object should show something rather than take the panel down.
+    return JSON.stringify(value, null, 2);
+  }
+}
+
+function ConfigTab({ data }) {
+  if (!data) return null;
+
+  return (
+    <div>
+      {data.drift && (
+        <Banner tone="info">
+          What was written and what is running differ. Templates are merged into
+          the running form, so this is usually expected rather than a problem, and
+          it is the most common reason a setting appears not to take hold.
+        </Banner>
+      )}
+
+      {data.templates?.length > 0 && (
+        <Panel title="Templates applied">
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.8125rem" }}>
+            {data.templates.map((t, i) => (
+              <li key={i}>{t.name ?? JSON.stringify(t)}</li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <Panel title="Written" subtitle="The installation as submitted">
+          <pre style={{ fontSize: "0.75rem", maxHeight: 500, overflow: "auto" }}>
+            {toYaml(data.written)}
+          </pre>
+        </Panel>
+        <Panel title="Running" subtitle="After templates were merged in">
+          <pre style={{ fontSize: "0.75rem", maxHeight: 500, overflow: "auto" }}>
+            {toYaml(data.running)}
+          </pre>
+        </Panel>
+      </div>
+
+      <div style={{ fontSize: "0.75rem", ...muted }}>
+        Anything password-shaped is removed before this leaves the server.
+      </div>
+    </div>
+  );
+}
+
+// Events and logs
+
+export function EventsTab({ data, onReload, onOpenPodLogs, podNames }) {
+  const [warningsOnly, setWarningsOnly] = useState(false);
+  const [autoReload, setAutoReload] = useState(false);
+
+  useEffect(() => {
+    if (!autoReload) return undefined;
+    const timer = setInterval(onReload, 30000);
+    return () => clearInterval(timer);
+  }, [autoReload, onReload]);
+
+  if (!data) return null;
+
+  const events = warningsOnly
+    ? data.events.filter((event) => event.type === "Warning")
+    : data.events;
+  const knownPodNames = new Set(podNames || []);
+
+  return (
+    <Panel title="Recent events">
+      <div style={{ display: "flex", gap: 16, fontSize: "0.8125rem", marginBottom: 12 }}>
+        <ToggleSwitch checked={warningsOnly} label="warnings only" onChange={(changeEvent) => setWarningsOnly(changeEvent.target.checked)}/> 
+        <ToggleSwitch checked={autoReload} label="reload every 30 s" onChange={(changeEvent) => setAutoReload(changeEvent.target.checked)}/> 
+      </div>
+
+      {events.length === 0 ? (
+        <div style={{ fontSize: "0.8125rem", ...muted }}>
+          {warningsOnly ? "No warnings." : "No recent events."}
+        </div>
+      ) : (
+        <DataTable
+          rows={events.map((event) => ({
+            When: event.lastSeen,
+            Type: event.type,
+            Object: event.object,
+            Reason: event.reason,
+            Message: event.message,
+            count: event.count,
+          }))}
+          columns={["When", "Type", "Object", "Reason", "Message"]}
+          cellRenderers={{
+            // Show warnings in bold. Then they are easy to see in a long list.
+            Type: (type) => (type === "Warning" ? <strong>Warning</strong> : type),
+            Reason: (reason, row) =>
+              row.Type === "Warning" ? <strong>{reason}</strong> : reason,
+            // A pod that CHOps knows opens in the Logs tab.
+            Object: (objectName) =>
+              knownPodNames.has(objectName) ? (
+                <Button
+                  type="button"
+                  variant="ghost" size="sm"
+                  title="Open this pod in the Logs tab"
+                  onClick={() => onOpenPodLogs(objectName)}
+                >
+                  {objectName}
+                </Button>
+              ) : (
+                objectName
+              ),
+            Message: (message, row) => (
+              <span style={{ whiteSpace: "normal", display: "inline-block", minWidth: 320 }}>
+                {message}
+                {row.count > 1 && <span style={muted}> ({row.count} times)</span>}
+              </span>
+            ),
+          }}
+          maxHeight="67vh"
+        />
+      )}
+    </Panel>
+  );
+}
+
+// A date and time such as "21 Nov 2026, 16:42:05", the same form as the
+// date picker.
+function formatReadTime(date) {
+  return date.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+}
+
+function LogsTab({ clusterId, hosts, initialPod }) {
+  const toast = useToast();
+  const [pod, setPod] = useState(hosts?.[0]?.podName ?? "");
+  const [previous, setPrevious] = useState(false);
+  const [raw, setRaw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState(null);
+  // When the tab opened, shown until the first read.
+  const [openedAt] = useState(() => new Date());
+  const [loadError, setLoadError] = useState(null);
+
+  // Line count and time range persist, because somebody who wants 5000 lines wants them every time.
+  const [lineCount, setLineCount] = useState(readLineCount);
+  const [since, setSince] = useState(readSince);
+  const [query, setQuery] = useState("");
+  const [context, setContext] = useState(3);
+
+  useEffect(() => {
+    if (!pod && hosts?.length) setPod(hosts[0].podName);
+  }, [hosts, pod]);
+
+  useEffect(() => {
+    if (initialPod) setPod(initialPod);
+  }, [initialPod]);
+
+  // The operator pod, when the connection has an operator namespace.
+  const [operatorPod, setOperatorPod] = useState(null);
+
+  useEffect(() => {
+    apiFetch(`/api/k8s/insight/${clusterId}/operator-pod`)
+      .then(setOperatorPod)
+      .catch(() => setOperatorPod(null));
+  }, [clusterId]);
+
+  function changeLineCount(n) {
+    const v = clampLines(n);
+    setLineCount(v);
+    writeLineCount(v);
+  }
+
+function changeSince(v) {
+  const getLocalISOString = (date) => {
+    const tzOffset = date.getTimezoneOffset() * 60000; 
+    const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+    return localISOTime;
+  };
+
+  if (!v) {
+    const now = new Date();
+    const localNow = getLocalISOString(now);
+    setSince(localNow);
+    writeSince(localNow);
+    return;
+  }
+
+  const since = new Date(v);
+  const now = new Date();
+
+  if (since > now) {
+    toast.error("Only select current time or before");
+    const localNow = getLocalISOString(now);
+    
+    setSince(localNow);
+    writeSince(localNow);
+    return;
+  }
+
+  setSince(v);
+  writeSince(v);
+}
+
+
+
+  async function load() {
+    if (!pod) return;
+    setBusy(true);
+    try {
+      const params = new URLSearchParams({
+        previous: String(previous),
+        tailLines: String(lineCount),
+      });
+      if (operatorPod?.found && pod === operatorPod.podName) {
+        params.set("operator", "true");
+      }
+      // A dead container has no logs in the last N minutes
+      const seconds = previous ? undefined : sinceSecondsFrom(since);
+      if (seconds) params.set("sinceSeconds", String(seconds));
+
+      setRaw(
+        await apiFetchText(
+          `/api/k8s/insight/${clusterId}/logs/${encodeURIComponent(pod)}?${params}`,
+        ),
+      );
+      setFetchedAt(new Date());
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e.message);
+      toast.error("Could not read logs: " + e.message);
+    }
+    setBusy(false);
+  }
+
+  const lines = useMemo(() => splitLines(raw), [raw]);
+  const result = useMemo(
+    () => filterLines(lines, query, context),
+    [lines, query, context],
+  );
+
+  const crashing = (hosts ?? []).find((h) => h.podName === pod)?.restartCount > 0;
+
+  return (
+    <div>
+      {loadError && <LoadError message={loadError} onRetry={load} busy={busy} />}
+
+      {crashing && !previous && (
+        <Banner tone="info">
+          This pod has restarted. Turn on <strong>previous container</strong> to
+          read what it printed before it died; a live read of a crash-looping pod
+          usually returns almost nothing.
+        </Banner>
+      )}
+
+      {/* One compact row: every field and button has the same height. */}
+      <div className="search-form-row k8s-logs-row">
+        <FormField label="Pod" className="search-field" style={{ marginBottom: 0 }}>
+          <Select
+            className="form-select"
+            value={pod}
+            onChange={(e) => setPod(e.target.value)}
+          >
+            {(hosts ?? []).map((h) => (
+              <option key={h.podName} value={h.podName}>
+                {h.podName}
+                {h.restartCount > 0 ? ` (${h.restartCount} restarts)` : ""}
+              </option>
+            ))}
+            {operatorPod?.found && (
+              <option value={operatorPod.podName}>
+                Operator: {operatorPod.podName}
+              </option>
+            )}
+            {operatorPod && !operatorPod.found && (
+              <option value="operator-unavailable" disabled>
+                Operator logs: {operatorPod.message}
+              </option>
+            )}
+          </Select>
+        </FormField>
+
+        <DateTimePicker
+          label="From"
+          value={since}
+          valueFormat="datetime-local"
+          onChange={(value) => changeSince(value)}
+          disabled={previous}
+          title={
+            previous
+              ? "Not used when reading the previous container, which stopped before now."
+              : "Read from this time onward. There is no end bound."
+          }
+        />
+
+        <FormField label="Lines" style={{ marginBottom: 0 }}>
+          <LineCountControl value={lineCount} onChange={changeLineCount} disabled={busy} />
+        </FormField>
+
+        {/* The box only frames the switch. It had its own click that toggled
+            "previous" a second time, so a click on the switch did nothing. */}
+        <div className="btn btn-secondary k8s-logs-previous">
+          <ToggleSwitch checked={previous} label="Previous container" onChange={(e) => setPrevious(e.target.checked)} btnContainer={true} />
+        </div>
+
+        <Button
+          variant="secondary"
+          onClick={load}
+          disabled={busy}
+        >
+          {busy ? "Reading..." : "Read logs"}
+        </Button>
+      </div>
+
+      {/* When the logs were read. Before the first read: when the tab opened. */}
+      <p className="k8s-logs-read-at">
+        <Icon className="ti ti-clock" />
+        {fetchedAt
+          ? `Read at ${formatReadTime(fetchedAt)}`
+          : `Tab opened at ${formatReadTime(openedAt)}. No logs read yet: click Read logs.`}
+      </p>
+
+      {/* Search filters what has already been fetched, so typing costs nothing
+          and needs no round trip. Line count and From do require one. */}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "flex-end",
+          flexWrap: "wrap",
+          marginBottom: 12,
+        }}
+      >
+        <FormField label="Search" style={{ flex: "1 1 300px", marginBottom: 0 }}>
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Case-insensitive. Try Error, Warning, or a table name."
+          />
+        </FormField>
+
+        <FormField label="Context lines" style={{ marginBottom: 0 }}>
+          <Select
+            className="form-select"
+            value={String(context)}
+            onChange={(e) => setContext(Number(e.target.value))}
+            style={{ width: 90 }}
+          >
+            {[0, 1, 3, 5, 10].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: "0.75rem",
+          ...muted,
+          marginBottom: 6,
+        }}
+      >
+        <span>
+          {raw
+            ? query
+              ? `${result.matched} of ${result.total} lines match`
+              : `${result.total} lines`
+            : ""}
+        </span>
+      </div>
+
+      <pre
+        style={{
+          fontSize: "0.75rem",
+          maxHeight: 600,
+          overflow: "auto",
+          background: "var(--bg-sunken)",
+          padding: 12,
+          borderRadius: "var(--radius-sm)",
+          margin: 0,
+        }}
+      >
+        {!raw
+          ? "No logs loaded."
+          : result.lines.length === 0
+            ? `Nothing matches "${query}" in the ${result.total} lines read.`
+            : result.lines.map((l) =>
+                l.gap ? (
+                  <div key={l.i} style={{ ...muted, userSelect: "none" }}>
+                    ---
+                  </div>
+                ) : (
+                  <div
+                    key={l.i}
+                    style={l.hit ? { background: "var(--color-warning-bg)" } : undefined}
+                  >
+                    {l.text}
+                  </div>
+                ),
+              )}
+      </pre>
+    </div>
+  );
+}
+
+// Same shape as the editor's Max rows control: minus, editable field, plus.
+function LineCountControl({ value, onChange, disabled }) {
+  const step = (delta) => onChange(value + delta);
+
+  return (
+    <span className="mx-rows">
+      <span className="mx-rows-group">
+        <button
+          type="button"
+          className="mx-rows-btn"
+          onClick={() => step(-LOG_LINES_STEP)}
+          disabled={disabled || value <= LOG_LINES_MIN}
+          aria-label="Fewer lines"
+        >
+          &minus;
+        </button>
+        <input
+          className="mx-rows-input"
+          type="number"
+          min={LOG_LINES_MIN}
+          max={LOG_LINES_MAX}
+          step={LOG_LINES_STEP}
+          defaultValue={value}
+          key={value}
+          onBlur={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            e.stopPropagation();
+          }}
+          aria-label="Lines to read"
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          className="mx-rows-btn"
+          onClick={() => step(LOG_LINES_STEP)}
+          disabled={disabled || value >= LOG_LINES_MAX}
+          aria-label="More lines"
+        >
+          +
+        </button>
+      </span>
+    </span>
+  );
+}
+
+export default function KubernetesInsight({ cluster }) {
+  const toast = useToast();
+  const [tab, setTab] = useState("health");
+  const [data, setData] = useState({});
+  const [permissions, setPermissions] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [logsPod, setLogsPod] = useState(null);
+  // Per tab: the time of the last good read, and the message of the last failed read.
+  const [fetchedAt, setFetchedAt] = useState({});
+  const [loadErrors, setLoadErrors] = useState({});
+  // Refresh increments this, so the open tab reads again.
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  const load = useCallback(
+    async (which) => {
+      setBusy(true);
+      try {
+        const r = await apiFetch(`/api/k8s/insight/${cluster.id}/${which}`);
+        setData((p) => ({ ...p, [which]: r }));
+        setFetchedAt((p) => ({ ...p, [which]: new Date() }));
+        setLoadErrors((p) => ({ ...p, [which]: null }));
+      } catch (e) {
+        setLoadErrors((p) => ({ ...p, [which]: e.message }));
+        toast.error(e.message);
+      }
+      setBusy(false);
+    },
+    [cluster.id, toast],
+  );
+
+  useEffect(() => {
+    if (tab !== "logs" && !data[tab]) load(tab);
+    // Logs and the event-to-log links need the pod list from topology.
+    if ((tab === "logs" || tab === "events") && !data.topology) load("topology");
+    // `data` is deliberately not a dependency: including it would refetch on every state
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
+  }, [tab, load, refreshCount]);
+
+  useEffect(() => {
+    apiFetch(`/api/k8s/insight/${cluster.id}/permissions`)
+      .then(setPermissions)
+      .catch(() => setPermissions(null));
+  }, [cluster.id]);
+
+  // These features need the grants that the new setup script adds.
+  const featuresThatNeedNewGrants = ["Zone awareness", "Live pod resource usage"];
+  const featuresWithMissingGrant = (permissions?.degraded || [])
+    .map((permission) => permission.feature)
+    .filter((feature) => featuresThatNeedNewGrants.includes(feature));
+
+  async function refresh() {
+    setBusy(true);
+    try {
+      await apiFetch(`/api/k8s/insight/${cluster.id}/refresh`, {
+        method: "POST",
+        body: {},
+      });
+      setData({});
+      setFetchedAt({});
+      setLoadErrors({});
+      setRefreshCount((count) => count + 1);
+      toast.success("Refreshed.");
+    } catch (e) {
+      toast.error(e.message);
+    }
+    setBusy(false);
+  }
+
+  function openPodLogs(podName) {
+    setLogsPod(podName);
+    setTab("logs");
+  }
+
+  // Stable between renders, so the Events tab's 30 second timer does not restart.
+  const reloadEvents = useCallback(() => load("events"), [load]);
+
+  return (
+    <div>
+      {featuresWithMissingGrant.length > 0 && (
+        <Banner tone="info">
+          <strong>Optional permissions are missing.</strong> These features
+          are not available until the setup script runs again:{" "}
+          {featuresWithMissingGrant.join(", ")}. Run
+          scripts/chops-k8s-setup.sh again against this cluster to grant them.
+        </Banner>
+      )}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+          gap: 8,
+        }}
+      >
+        <SegmentedControl
+          ariaLabel="Kubernetes insight sections"
+          value={tab}
+          onChange={setTab}
+          options={TABS.map((t) => ({ value: t.id, label: t.label }))}
+        />
+        <Button variant="secondary" size="sm" onClick={refresh} disabled={busy}>
+          <Icon className="ti ti-refresh" /> Refresh
+        </Button>
+      </div>
+
+      {busy && <div style={{ ...muted, fontSize: "0.8125rem" }}>Loading...</div>}
+
+      {/* Logs shows its own read time and error. It needs the pod list from topology. */}
+      {tab !== "logs" && loadErrors[tab] && (
+        <LoadError message={loadErrors[tab]} onRetry={() => load(tab)} busy={busy} />
+      )}
+      {tab === "logs" && loadErrors.topology && (
+        <LoadError
+          message={`The pod list could not be read. ${loadErrors.topology}`}
+          onRetry={() => load("topology")}
+          busy={busy}
+        />
+      )}
+      {tab !== "logs" && <ReadAtLine fetchedAt={fetchedAt[tab]} />}
+
+      {tab === "health" && (
+        <HealthTab data={data.health} clusterName={cluster.name} clusterId={cluster.id} />
+      )}
+      {tab === "topology" && <TopologyTab data={data.topology} />}
+      {tab === "reconcile" && <ReconcileTab data={data.reconcile} />}
+      {tab === "rollout" && <RolloutTab data={data.rollout} />}
+      {tab === "keeper" && <KeeperTab data={data.keeper} />}
+      {tab === "storage" && <StorageTab data={data.storage} />}
+      {tab === "resources" && <ResourcesTab data={data.resources} />}
+      {tab === "network" && <NetworkTab data={data.network} />}
+      {tab === "config" && <ConfigTab data={data.config} />}
+      {tab === "events" && (
+        <EventsTab
+          data={data.events}
+          onReload={reloadEvents}
+          onOpenPodLogs={openPodLogs}
+          podNames={(data.topology?.hosts || []).map((host) => host.podName)}
+        />
+      )}
+      {tab === "logs" && (
+        <LogsTab
+          clusterId={cluster.id}
+          hosts={data.topology?.hosts}
+          initialPod={logsPod}
+        />
+      )}
+    </div>
+  );
+}

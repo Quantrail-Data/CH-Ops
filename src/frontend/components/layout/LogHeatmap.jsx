@@ -7,11 +7,12 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from "../common/Icon.jsx";
 import { runQuery } from '../../utils/api.js';
-import { initChart, disposeChart } from '../../utils/echarts.js';
+import { initChart, disposeChart, disposeChartInstance } from '../../utils/echarts.js';
 import {useTheme} from "../../App.jsx";
+import { fullChartDataURL } from "../common/ChartToolbar.jsx";
 
 const pad = n => String(n).padStart(2, '0');
 const fmtAgo = h => { const d = new Date(Date.now() - h * 3600000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
@@ -45,8 +46,6 @@ function interpolateScale(anchors, steps) {
 const HEATMAP_SCALE = interpolateScale(ANCHORS, 1000);
 
 // Legacy exports for backward compat
-const DARK_COLORS = HEATMAP_SCALE;
-const LIGHT_COLORS = HEATMAP_SCALE;
 const PLASMA_COLORS = HEATMAP_SCALE;
 const VIRIDIS_COLORS = HEATMAP_SCALE;
 const HEATMAP_COLORS = HEATMAP_SCALE;
@@ -215,6 +214,7 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
       axisLine: { show: false }
     }}, true);
     chartInst.current.resize();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [data, countCol, themeKey]);
 
   useEffect(() => { renderChart(); }, [renderChart]);
@@ -230,11 +230,12 @@ export default function LogHeatmap({ table, countCol = 'crash_count', extraFilte
     if (chartInst.current) setTimeout(() => chartInst.current?.resize(), 50);
   }, [fullscreen]);
 
-  useEffect(() => () => { if (chartRef.current) disposeChart(chartRef.current); }, []);
+  useEffect(() => () => { disposeChartInstance(chartInst.current); chartInst.current = null; }, []);
 
   function downloadChart() {
     if (!chartInst.current) return;
-    const url = chartInst.current.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: 'transparent' });
+    // The whole chart, also when zoomed in.
+    const url = fullChartDataURL(chartInst.current, { type: 'png', pixelRatio: 2, backgroundColor: 'transparent' });
     const a = document.createElement('a');
     a.href = url; a.download = `heatmap-${countCol}.png`; a.click();
   }

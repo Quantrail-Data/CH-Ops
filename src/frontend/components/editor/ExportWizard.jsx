@@ -1,0 +1,714 @@
+// ExportWizard - Three step export dialog for the SQL Editor.
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// author -> Sanjeev Kumar G
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Icon from "../common/Icon.jsx";
+import { useToast } from "../layout/Toast.jsx";
+import {
+  FORMATS,
+  FORMAT_GROUPS,
+  COMPRESSIONS,
+  SELF_COMPRESSED,
+  findFormat,
+  findCompression,
+  optionsForFormat,
+} from "../../../shared/exportFormats.js";
+import {
+  isSelectLike,
+  hasMultipleStatements,
+} from "../../../shared/sqlExport.js";
+import { findParameters } from "../../../shared/sqlParams.js";
+import {
+  estimateExport,
+  startExport,
+  exportProgress,
+  cancelExport,
+  downloadExport,
+  formatBytes,
+  formatRows,
+} from "../../utils/exportApi.js";
+import { beginBusy, endBusy } from "../../hooks/useIdleTimeout.js";
+import { Button, Input } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
+
+// A running export outlives the browser:
+const ACTIVE_EXPORT_KEY = "chops_active_export";
+
+function rememberExport(job, fileName) {
+  try {
+    localStorage.setItem(
+      ACTIVE_EXPORT_KEY,
+      JSON.stringify({ jobId: job.jobId, fileName, startedAt: Date.now() }),
+    );
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
+}
+
+function forgetExport() {
+  try {
+    localStorage.removeItem(ACTIVE_EXPORT_KEY);
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
+}
+
+function recallExport() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_EXPORT_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    return v && typeof v.jobId === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function isThereExport() {
+  return localStorage?.getItem(ACTIVE_EXPORT_KEY) !== null
+}
+
+
+
+function defaultFileName(username) {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp =
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const who =
+    String(username || "user")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "user";
+  return `${who}-export-${stamp}`;
+}
+
+export default function ExportWizard({ sql, username, onClose }) {
+  const toast = useToast();
+  const [step, setStep] = useState(1);
+
+  const [estimating, setEstimating] = useState(false);
+  const [estimate, setEstimate] = useState(null);
+  const [tried, setTried] = useState(false);
+  const [estimateError, setEstimateError] = useState(null);
+
+  const [format, setFormat] = useState("CSVWithNames");
+  const [compression, setCompression] = useState("zip");
+  const [fileName, setFileName] = useState(() => defaultFileName(username));
+  const [bom, setBom] = useState(true);
+  const [settings, setSettings] = useState({});
+  const [advOpen, setAdvOpen] = useState(false);
+
+  const [job, setJob] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const pollRef = useRef(null);
+
+  const selectLike = useMemo(() => isSelectLike(sql), [sql]);
+  const multiple = useMemo(() => hasMultipleStatements(sql), [sql]);
+
+  const [isEstimated,setIsEstimated] = useState(isThereExport())
+
+  // Export does not carry parameter values (see routes/export.js). An OPTIONAL
+  // parameter degrades acceptably: its /*[ ]*/ block is dropped and the export
+  // widens. A REQUIRED one does not - the placeholder reaches ClickHouse unset
+  // and the job fails with "Substitution 'x' is not set", which surfaces as a
+  // raw database error partway through an export the user has already waited
+  // for. Blocking here turns that into something explainable.
+  const requiredParams = useMemo(() => {
+    try {
+      return findParameters(sql).filter((p) => p.required);
+    } catch {
+      // Malformed SQL is not this dialog's problem to report; the editor
+      // already surfaces parameter errors.
+      return [];
+    }
+  }, [sql]);
+  const blockedByParams = requiredParams.length > 0;
+  const fmt = findFormat(format);
+  const comp = findCompression(compression);
+  const advanced = useMemo(() => optionsForFormat(format), [format]);
+  const isText = !!fmt?.text;
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      endBusy();
+    };
+  }, []);
+
+  async function runEstimate() {
+    if (blockedByParams) {
+      toast.error("Cannot estimate: Required parameters need values.");
+      return;
+    }
+    setEstimating(true);
+    setEstimateError(null);
+    setEstimate(null);
+    try {
+      const result = await estimateExport({ sql, format, settings });
+      if (result && typeof result === 'object') {
+        setEstimate(result);
+        setTried(true);
+        if (result.rows !== null && result.rows !== undefined) {
+          toast.success(`Estimate complete: ~${formatRows(result.rows)} rows`);
+        } else {
+          toast.info("Estimate complete, but row count could not be determined.");
+        }
+      } else {
+        throw new Error("Invalid response from estimate service");
+      }
+    } catch (err) {
+      const errorMsg = err.message || "Could not estimate this query.";
+      setEstimateError(errorMsg);
+      setEstimate(null);
+      toast.error(errorMsg);
+    } finally {
+      setEstimating(false);
+      setIsEstimated(true);
+      // The estimate ran, also if it failed. The export can continue with a warning.
+      setTried(true);
+    }
+  }
+
+  function goToStep2() {
+    if (blockedByParams) return;
+    if (estimate?.bytes && estimate.bytes > (estimate.warnBytes || 0)) {
+      const ok = window.confirm(
+        `This export is about ${formatBytes(estimate.bytes)} before compression. ` +
+          "It may take a long time and use a lot of disk space. Continue?",
+      );
+      if (!ok) return;
+    }
+    setStep(2);
+  }
+
+  const startPolling = React.useCallback((jobId) => {
+    beginBusy();
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const p = await exportProgress(jobId);
+        setProgress(p);
+        if (p.state !== "running") {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          endBusy();
+          // A failed export has no file to collect, so nothing is left to
+          // come back to.
+          if (p.state !== "ready") forgetExport();
+        }
+      } catch {
+        // The job is gone: collected by the sweeper, or lost to a restart,
+        // which wipes both the registry and the export directory. Stop asking.
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        endBusy();
+        forgetExport();
+      }
+    }, 1000);
+  }, []);
+
+  // Pick up an export left running by a previous visit.
+  useEffect(() => {
+    const saved = recallExport();
+    if (!saved) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const p = await exportProgress(saved.jobId);
+        if (cancelled) return;
+        if (p.state === "failed" || p.state === "cancelled") {
+          forgetExport();
+          return;
+        }
+        setJob({ jobId: saved.jobId, fileName: saved.fileName });
+        setProgress(p);
+        setStep(3);
+        if (p.state === "running") startPolling(saved.jobId);
+      } catch {
+        // 404: the job is gone. Clear the pointer and start clean.
+        forgetExport();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [startPolling]);
+
+  async function begin() {
+    try {
+      const started = await startExport({
+        sql,
+        format,
+        compression,
+        filename: fileName,
+        bom: isText && bom,
+        settings,
+        estimatedBytes: estimate?.bytes || 0,
+      });
+      setJob(started);
+      setStep(3);
+      // Written BEFORE polling starts, so a crash a moment later still leaves a
+      // way back to the job.
+      rememberExport(started, started.fileName || fileName);
+      startPolling(started.jobId);
+    } catch (err) {
+      toast.error(err.message || "Could not start the export.");
+    }
+  }
+
+  async function handleClose() {
+    if (job && progress?.state === "running") {
+      // The offer is now true. Leaving it running keeps the stored pointer, so
+      // reopening the wizard comes back to this progress view.
+      const stop = window.confirm(
+        "This export is still running.\n\n" +
+          "OK cancels it.\n" +
+          "Cancel leaves it running; reopen Export to come back to it.",
+      );
+      if (stop) {
+        try {
+          await cancelExport(job.jobId);
+        } catch {
+          // The export is already finished or gone.
+        }
+        forgetExport();
+      }
+    }
+    // A READY job is deliberately left alone.
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+    endBusy();
+    onClose();
+  }
+
+  function setOption(key, value) {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function resetOptions() {
+    setSettings({});
+  }
+
+  const percent = progress?.percent;
+
+  return (
+    <Modal className="xw-box" label="Export query results">
+        <h3 style={{ marginBottom: 12, fontSize: "1.125rem" }}>
+          <Icon className="ti ti-download" /> Export query results
+        </h3>
+
+        <div className="xw-steps">
+          <span className={`xw-step ${step === 1 ? "active" : ""}`}>
+            1. Query
+          </span>
+          <span className={`xw-step ${step === 2 ? "active" : ""}`}>
+            2. Format
+          </span>
+          <span className={`xw-step ${step === 3 ? "active" : ""}`}>
+            3. Download
+          </span>
+        </div>
+
+        {step === 1 && (
+          <div>
+            <div className="xw-label">This SQL will be exported</div>
+            <div className="xw-sql">{sql}</div>
+
+            {!selectLike && (
+              <div className="xw-note xw-warn" style={{ marginTop: 12 }}>
+                This does not look like a SELECT query. The size cannot be
+                estimated, and the export may not produce what you expect.
+                Continue only if you are sure.
+              </div>
+            )}
+            {multiple && (
+              <div className="xw-note" style={{ marginTop: 12 }}>
+                The editor holds more than one statement. Only the first one is
+                exported.
+              </div>
+            )}
+            {blockedByParams && (
+              <div className="xw-note xw-warn" style={{ marginTop: 12 }}>
+                This query needs a value for{" "}
+                {requiredParams.map((p, i) => (
+                  <span key={p.name}>
+                    {i > 0 &&
+                      (i === requiredParams.length - 1 ? " and " : ", ")}
+                    <strong>{p.name}</strong>
+                  </span>
+                ))}
+                , and export does not carry parameter values. Wrap the filter in
+                an optional block so it can be left out, or replace the
+                placeholder with a literal value before exporting.
+              </div>
+            )}
+            <div className="xw-note" style={{ marginTop: 12 }}>
+              The export runs this SQL again on the server, so it always returns
+              the full result. If you have not run it yet, consider running it
+              once first to check it does what you expect.
+            </div>
+
+            {estimateError && (
+              <div className="xw-note xw-warn" style={{ marginTop: 12 }}>
+                <Icon className="ti ti-alert-circle" style={{ marginRight: 6 }} />
+                {estimateError}
+              </div>
+            )}
+
+            {estimate && (
+              <div className="xw-note" style={{ marginTop: 12 }}>
+                {estimate.rows === null || estimate.rows === undefined ? (
+                  <>The size of this query could not be estimated.</>
+                ) : (
+                  <>
+                    About <strong>{formatRows(estimate.rows)}</strong> rows
+                    {estimate.bytes ? (
+                      <>
+                        {" "}
+                        and roughly{" "}
+                        <strong>{formatBytes(estimate.bytes)}</strong> before
+                        compression
+                      </>
+                    ) : null}
+                    .{" "}
+                    {estimate.exact
+                      ? "This is an exact count."
+                      : "This is an estimate based on rows scanned, so it can be much higher than the number returned."}{" "}
+                    The final file size depends on the compression you choose
+                    and cannot be predicted.
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="xw-actions">
+              <Button variant="secondary" onClick={handleClose}>
+                Close
+              </Button>
+              <button
+                className={isEstimated ? "btn btn-primary" : "btn btn-secondary"}
+                onClick={runEstimate}
+                disabled={estimating || blockedByParams || isEstimated}
+                style={{ minWidth: "140px" }}
+              >
+                {estimating ? (
+                  <>
+                    <span className="loading-spinner" style={{ marginRight: 6 }} />
+                    Estimating...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="icon icon-tabler icons-tabler-outline icon-tabler-filter-2-search"
+                      style={{ marginRight: 4 }}
+                    >
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                      <path d="M4 6h16" />
+                      <path d="M6 12h8.5" />
+                      <path d="M9 18h2" />
+                      <path d="M15 18c0 .796 .316 1.559 .879 2.121c.563 .563 1.326 .879 2.121 .879c.796 0 1.559 -.316 2.121 -.879c.563 -.563 .879 -1.326 .879 -2.121c0 -.796 -.316 -1.559 -.879 -2.121c-.563 -.563 -1.326 -.879 -2.121 -.879c-.796 0 -1.559 .316 -2.121 .879c-.563 .563 -1.326 1.326 -1.326 2.121" />
+                      <path d="M20.2 20.2l1.8 1.8" />
+                    </svg>
+                    Estimate rows
+                  </>
+                )}
+              </button>
+              <Button
+                variant="primary"
+                onClick={goToStep2}
+                disabled={!tried || blockedByParams}
+              >
+                Next →
+              </Button>
+            </div>
+            {!tried && !estimating && (
+              <div className="xw-help" style={{ textAlign: "right" }}>
+                Run the estimate once before continuing.
+              </div>
+            )}
+            {tried && !estimate && !estimateError && (
+              <div className="xw-help" style={{ textAlign: "right", color: "var(--color-warning)" }}>
+                No estimate data available. Try running the estimate again.
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <div className="xw-row">
+              <div className="xw-field">
+                <label className="xw-label">Format</label>
+                <select
+                  className="form-select"
+                  value={format}
+                  onChange={(e) => {
+                    setFormat(e.target.value);
+                    setSettings({});
+                  }}
+                  style={{ width: "100%", backgroundColor: "var(--bg-page)" }}
+                >
+                  {FORMAT_GROUPS.map((group) => (
+                    <optgroup key={group} label={group} style={{ padding: "10px 0px", fontSize: "0.875rem" }}>
+                      {FORMATS.filter((f) => f.group === group).map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              <div className="xw-field">
+                <label className="xw-label">Compression</label>
+                <select
+                  className="form-select"
+                  value={compression}
+                  onChange={(e) => setCompression(e.target.value)}
+                  style={{ width: "100%" }}
+                >
+                  {COMPRESSIONS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="xw-row">
+              <div className="xw-field" style={{ flex: "1 1 100%" }}>
+                <label className="xw-label">File name</label>
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  <Input
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <span className="xw-ext">
+                    .{fmt?.ext}
+                    {comp?.ext}
+                  </span>
+                </span>
+                <div className="xw-help">The ending is added for you.</div>
+              </div>
+            </div>
+
+            {isText && (
+              <div className="xw-row">
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={bom}
+                    onChange={(e) => setBom(e.target.checked)}
+                  />
+                  Add a byte order mark so Excel on Windows reads accents
+                  correctly
+                </label>
+              </div>
+            )}
+
+            {SELF_COMPRESSED.includes(format) && compression !== "none" && (
+              <div className="xw-note">
+                {fmt.label} files already compress their own contents, so adding{" "}
+                {comp.label} on top saves very little.
+              </div>
+            )}
+
+            <div className="xw-adv">
+              <Button
+                variant="ghost" size="sm"
+                onClick={() => setAdvOpen(!advOpen)}
+              >
+                <Icon
+                  className={`ti ti-chevron-${advOpen ? "down" : "right"}`}
+                />{" "}
+                Advanced options
+              </Button>
+
+              {advOpen && (
+                <div style={{ marginTop: 10 }}>
+                  {advanced.length === 0 && (
+                    <div className="xw-help">
+                      This format has no extra options.
+                    </div>
+                  )}
+                  {advanced.map((opt) => (
+                    <div
+                      key={opt.key}
+                      className="xw-field"
+                      style={{ marginBottom: 10 }}
+                    >
+                      <label className="xw-label">{opt.label}</label>
+                      {opt.type === "bool" && (
+                        <input
+                          type="checkbox"
+                          checked={
+                            settings[opt.key] !== undefined
+                              ? settings[opt.key] === 1
+                              : opt.def
+                          }
+                          onChange={(e) =>
+                            setOption(opt.key, e.target.checked ? 1 : 0)
+                          }
+                        />
+                      )}
+                      {opt.type === "select" && (
+                        <select
+                          className="form-select"
+                          value={settings[opt.key] ?? opt.def}
+                          onChange={(e) => setOption(opt.key, e.target.value)}
+                        >
+                          {opt.choices.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {opt.type === "text" && (
+                        <Input
+                          value={settings[opt.key] ?? opt.def}
+                          onChange={(e) => setOption(opt.key, e.target.value)}
+                        />
+                      )}
+                      {opt.type === "number" && (
+                        <Input
+                          type="number"
+                          value={settings[opt.key] ?? opt.def}
+                          onChange={(e) =>
+                            setOption(opt.key, Number(e.target.value))
+                          }
+                        />
+                      )}
+                      {opt.help && <div className="xw-help">{opt.help}</div>}
+                    </div>
+                  ))}
+                  {advanced.length > 0 && (
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={resetOptions}
+                    >
+                      Reset to defaults
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="xw-actions">
+              <Button variant="secondary" onClick={() => setStep(1)}>
+                Back
+              </Button>
+              <Button variant="secondary" onClick={handleClose}>
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                onClick={begin}
+                disabled={!fileName.trim()}
+              >
+                Start export
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div>
+            <div className="xw-label">
+              {progress?.state === "ready"
+                ? "Your file is ready"
+                : progress?.state === "failed"
+                  ? "The export failed"
+                  : "Preparing your file"}
+            </div>
+
+            <div className="xw-bar">
+              <span
+                style={{
+                  width: `${progress?.state === "ready" ? 100 : percent || 3}%`,
+                }}
+              />
+            </div>
+            <div className="xw-help">
+              {progress?.state === "running" && (
+                <>
+                  Running the query and compressing,{" "}
+                  {formatBytes(progress.bytesRead)} so far
+                  {percent ? ` (about ${percent}%)` : ""}.
+                </>
+              )}
+              {progress?.state === "ready" && (
+                <>
+                  {progress.fileName}, {formatBytes(progress.bytesWritten)}.
+                </>
+              )}
+              {progress?.state === "failed" && <>{progress.error}</>}
+              {!progress && <>Starting.</>}
+            </div>
+
+            {progress?.state === "ready" && (
+              <div className="xw-note" style={{ marginTop: 12 }}>
+                Once the download starts, your browser takes over. Closing this
+                window after that removes the copy on the server but does not
+                stop the download.
+              </div>
+            )}
+
+            <div className="xw-actions">
+              {progress?.state === "running" && (
+                <Button variant="secondary" onClick={onClose}>
+                  Run in background
+                </Button>
+              )}
+              <Button variant="secondary" onClick={handleClose}>
+                {progress?.state === "running" ? "Cancel export" : "Close"}
+              </Button>
+              {progress?.state === "ready" && (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    downloadExport(job.jobId);
+                    // Collected. Nothing left to come back to.
+                    forgetExport();
+                  }}
+                >
+                  <Icon className="ti ti-download" /> Download
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+  );
+}

@@ -1,54 +1,58 @@
 # CHOps Documentation
 
-CHOps is a web-based administration and monitoring dashboard for ClickHouse® clusters. It provides database administrators with a single interface for cluster health monitoring, query analysis, access control management, log inspection, and alerting.
+CHOps is a web-based administration and monitoring dashboard for ClickHouse&reg; clusters. Database administrators use one interface to monitor cluster health, analyze queries, manage access control, examine logs, and set alerts.
 
-## What CHOps Does
+## What CHOps does
 
-CHOps connects to your ClickHouse® cluster over the HTTP interface and provides the following capabilities:
+CHOps connects to your ClickHouse&reg; cluster through the HTTP interface and gives you these capabilities:
 
 - Real-time cluster health monitoring with automatic refresh
-- Query management including running queries, analytics, and query log search
+- Kubernetes insights for clusters that run under the Altinity&reg; Kubernetes Operator for ClickHouse&reg; (AKOC) or the official ClickHouse&reg; Kubernetes Operator (OCKO)
+- Query management: running queries, analytics, and query-log search
+- Deep query analysis: a flame-graph query profiler, a processors pipeline view, per-query metric timelines, and side-by-side query comparison
 - Table and part inspection with compression statistics
-- Merge, mutation, and replication queue monitoring
-- A full SQL editor with autocomplete, syntax highlighting, and a database explorer
-- Log viewers for crash, error, and text logs with datetime filtering
-- Monitoring dashboards covering queries, CPU, memory, disk, network, and more
-- SQL-based alerting with cron scheduling and multi-channel notifications
-- Role-based access control management with visual grant trees
-- Backup storage profile configuration
+- Merge, mutation, replication, and ingestion queue monitoring
+- A full SQL editor with autocomplete, syntax highlighting, a database explorer, and saved queries for each user
+- Schema tools: a schema visualizer, a guided table designer (Schema Studio), data-skipping indexes, and projections
+- Qurioz, an assistant that turns natural language into SQL
+- Log viewers for crash, error, text, and session logs, with datetime filters
+- Monitoring dashboards for queries, CPU, memory, disk, network, and more, with playback and a memory-allocator view
+- SQL-based alerts with cron schedules, a separate state for each node, and notifications by email, Slack, Google Chat, Microsoft Teams, or PagerDuty
+- Role-based access-control management with visual grant trees
+- Backup storage-profile configuration and data-lifecycle management
+- CHOps user management with four roles, one-time password setup links, and a system email server
 
 ## Requirements
 
-- Bun runtime (v1.0 or later)
-- A ClickHouse® cluster accessible over HTTP (port 8123 by default)
-- A modern web browser (Chrome, Firefox, Safari, Edge)
+- Bun 1.4.2. We test CHOps with this version.
+- A ClickHouse&reg; cluster that you can reach over HTTP (port 8123 by default). Tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested.
+- A modern web browser (Chrome, Firefox, Safari, or Edge)
 
-## Quick Start
+## Quick start
 
 ```bash
-git clone https://github.com/quantrail/chops.git
-cd chops
+git clone https://github.com/Quantrail-Data/CH-Ops.git
+cd CH-Ops
 cp .env.example .env
-# Edit .env with your cluster credentials
+# In .env, set SUPER_ADMIN_1, SUPER_ADMIN_1_PASSWORD,
+# SUPER_ADMIN_1_EMAIL, and ENCRYPTION_SECRET.
 bun install
 bun run db:migrate
 bun run dev
 ```
 
-Open http://localhost:5173 in your browser. Sign in with the credentials you set in `.env`.
+Open http://localhost:7721 in your browser. Sign in with the super-admin user name and password that you set in `.env`. Then add your ClickHouse&reg; cluster in **Control panel > Cluster Management**.
 
-Documentation is available at http://localhost:5173/docs/ during development, or http://localhost:3000/docs/ in production.
+The documentation is at http://localhost:7721/docs/ in development, and at http://localhost:7720/docs/ in production.
 
 ## License
 
-CHOps follows an open-core model. The community edition is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**, and is free to use, modify, and self-host. A separate **Pro edition** adds audit logging, scheduled email reports, extended alerting, and multi-cluster fleet management under a commercial license. See [ch-ops.io](https://ch-ops.io) for details, and the `LICENSE` file for the full AGPLv3 terms.
+CHOps follows an open-core model. The community edition uses the **Apache License 2.0**. You can use, change, and self-host it free of charge. A separate **Pro edition** adds Scheduled Archival, scheduled backups with retention, Remote Admin through a sidecar, an Audit Log, SSO with OpenID Connect, and scheduled email reports, under a commercial license. See [CHOps Pro](guide/chops-pro.md) and [ch-ops.io](https://ch-ops.io) for more information, and the `LICENSE` file for the full terms of the Apache License 2.0.
 
-Copyright © 2026 Quantrail™ Data Private Limited. All rights reserved.
-
-ClickHouse® is a registered trademark of ClickHouse, Inc. CHOps refers to the ClickHouse® database management system and is not affiliated with, endorsed by, or sponsored by ClickHouse, Inc.
+Copyright &copy; 2026 Quantrail&trade; Data Private Limited.
 
 ---
 
 ## Trademarks
 
-ClickHouse® is a registered trademark of ClickHouse, Inc. All references to the ClickHouse® mark in this documentation refer to the ClickHouse® database management system (the open-source server software and its protocol) and are used solely for identification and descriptive purposes under nominative fair use. Where the company is meant, it is written as "ClickHouse, Inc." CHOps is an independent project developed by Quantrail™ Data Private Limited and is not affiliated with, endorsed by, sponsored by, or otherwise associated with ClickHouse, Inc. All other trademarks are the property of their respective owners.
+ClickHouse&reg; is a registered trademark of ClickHouse, Inc. All references to the ClickHouse&reg; mark in this documentation refer to the ClickHouse&reg; database management system (the open-source server software and its protocol). We use the mark only for identification and description, under nominative fair use. Where we refer to the company, we write "ClickHouse, Inc." Altinity&reg; is a registered trademark of Altinity, Inc. CHOps is an independent project of Quantrail&trade; Data Private Limited. It is not affiliated with, endorsed by, sponsored by, or otherwise associated with ClickHouse, Inc. or Altinity, Inc. All other trademarks are the property of their owners.

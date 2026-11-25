@@ -65,7 +65,7 @@ describe("StepEngine: table clauses", () => {
   });
   it("uses the full-width card layout (no cramped horizontal rows)", () => {
     expect(code).toContain("studio-builder-item");
-    expect(code).toContain("form-textarea");
+    expect(code).toContain("<Textarea");
     expect(code).not.toContain("studio-idx-row");
   });
 });

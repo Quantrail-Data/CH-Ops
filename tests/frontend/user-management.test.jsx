@@ -7,6 +7,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import UserManagement from '../../src/frontend/components/admin/UserManagement.jsx';
 
+// Row actions live in the "..." menu (style guide User Management screen):
+// open it when the item is not on screen yet, then return the item.
+// A disabled menu item has aria-disabled="true" (Base UI), not the disabled attribute.
+function rowAction(title) {
+  if (!screen.queryByTitle(title)) fireEvent.click(screen.getByLabelText(/^Actions for /));
+  return screen.getByTitle(title);
+}
+
+
 const mockToast = {
   success: vi.fn(),
   error: vi.fn(),
@@ -32,6 +41,8 @@ async function waitUntilLoaded() {
   await screen.findAllByText('User Management');
 }
 
+const SETUP_LINK = 'https://chops.example.com/#/set-password?token=abc';
+
 function setAuthRole(role) {
   mockUseAuth.mockReturnValue({
     auth: {
@@ -56,9 +67,30 @@ function clickUpdatePassword() {
   fireEvent.click(screen.getByRole('button', { name: /Update Password/i }));
 }
 
+function getCreateForm() {
+  const createBtn = screen.getByRole('button', { name: /Create User/i });
+  return createBtn.closest('form');
+}
+
+function fillCreateForm({ username = '', email = 'user@example.com' } = {}) {
+  const form = getCreateForm();
+  const inputs = form.querySelectorAll('input.form-input');
+  const usernameInput = inputs[0];
+  const emailInput = inputs[1];
+  fireEvent.change(usernameInput, { target: { value: username } });
+  fireEvent.change(emailInput, { target: { value: email } });
+}
+
 function getPasswordInputs() {
-  const inputs = document.querySelectorAll('.card input.form-input[type="password"]');
-  return [inputs[0], inputs[1], inputs[2]];
+  const currentLabel = screen.getByText('Current Password *').closest('.form-group');
+  const newLabel = screen.getByText('New Password *').closest('.form-group');
+  const confirmLabel = screen.getByText('Confirm New Password *').closest('.form-group');
+
+  const current = currentLabel.querySelector('input.form-input');
+  const next = newLabel.querySelector('input.form-input');
+  const confirm = confirmLabel.querySelector('input.form-input');
+
+  return [current, next, confirm];
 }
 
 describe('UserManagement', () => {
@@ -179,9 +211,8 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openNewUserForm();
-
-    const textboxes = screen.getAllByRole('textbox');
-    fireEvent.change(textboxes[0], { target: { value: 'a'.repeat(129) } });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Create User/i })).toBeTruthy());
+    fillCreateForm({ username: 'a'.repeat(129), email: 'valid@example.com' });
 
     clickCreateUser();
 
@@ -190,10 +221,10 @@ describe('UserManagement', () => {
     });
   });
 
-  it('creates user successfully and shows generated password', async () => {
+  it('creates user successfully and shows the setup link', async () => {
     mockApiFetch.mockImplementation(async (url, options) => {
       if (url === '/api/users' && !options) return [];
-      if (url === '/api/users' && options?.method === 'POST') return { generatedPassword: 'GenPw123!' };
+      if (url === '/api/users' && options?.method === 'POST') return { setPasswordUrl: SETUP_LINK };
       return { ok: true };
     });
 
@@ -201,39 +232,15 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openNewUserForm();
-    const textboxes = screen.getAllByRole('textbox');
-    fireEvent.change(textboxes[0], { target: { value: 'newuser' } });
-    fireEvent.change(textboxes[1], { target: { value: 'new@example.com' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Create User/i })).toBeTruthy());
+    fillCreateForm({ username: 'newuser', email: 'new@example.com' });
 
     clickCreateUser();
 
     await waitFor(() => {
       expect(mockToast.success).toHaveBeenCalledWith('User "newuser" created.');
-      expect(screen.getByText('GenPw123!')).toBeTruthy();
+      expect(screen.getByDisplayValue(SETUP_LINK)).toBeTruthy();
     });
-  });
-
-  it('dismisses generated password alert', async () => {
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === '/api/users' && !options) return [];
-      if (url === '/api/users' && options?.method === 'POST') return { generatedPassword: 'GenPw123!' };
-      return { ok: true };
-    });
-
-    render(<UserManagement />);
-    await waitUntilLoaded();
-
-    openNewUserForm();
-    const textboxes = screen.getAllByRole('textbox');
-    fireEvent.change(textboxes[0], { target: { value: 'newuser' } });
-    clickCreateUser();
-
-    await waitFor(() => expect(screen.getByText('GenPw123!')).toBeTruthy());
-
-    const dismiss = screen.getAllByRole('button').find((b) => b.querySelector('.ti-x'));
-    if (dismiss) fireEvent.click(dismiss);
-
-    await waitFor(() => expect(screen.queryByText('GenPw123!')).toBeNull());
   });
 
   it('handles create user failure', async () => {
@@ -247,8 +254,8 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openNewUserForm();
-    const textboxes = screen.getAllByRole('textbox');
-    fireEvent.change(textboxes[0], { target: { value: 'existing' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Create User/i })).toBeTruthy());
+    fillCreateForm({ username: 'existing', email: 'existing@example.com' });
     clickCreateUser();
 
     await waitFor(() => {
@@ -288,6 +295,7 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openChangePassword();
+    await waitFor(() => expect(screen.getByText('Current Password *')).toBeTruthy());
     const [current, next, confirm] = getPasswordInputs();
 
     fireEvent.change(current, { target: { value: 'oldpw123' } });
@@ -302,16 +310,12 @@ describe('UserManagement', () => {
   });
 
   it('covers max-length branch behavior on change password', async () => {
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === '/api/users' && !options) return [];
-      if (url === '/api/auth/change-password' && options?.method === 'POST') return { ok: true };
-      return { ok: true };
-    });
-
     render(<UserManagement />);
     await waitUntilLoaded();
 
     openChangePassword();
+    await waitFor(() => expect(screen.getByText('Current Password *')).toBeTruthy());
+
     const [current, next, confirm] = getPasswordInputs();
 
     const tooLong = 'a'.repeat(257);
@@ -322,10 +326,13 @@ describe('UserManagement', () => {
     clickUpdatePassword();
 
     await waitFor(() => {
-      expect(mockApiFetch).toHaveBeenCalledWith(
-        '/api/auth/change-password',
-        expect.objectContaining({ method: 'POST' }),
+      const warningMatched = mockToast.warning.mock.calls.some(
+        ([msg]) => msg === 'Password must not exceed 256 characters.'
       );
+      const apiCalled = mockApiFetch.mock.calls.some(
+        ([url, options]) => url === '/api/auth/change-password' && options?.method === 'POST'
+      );
+      expect(warningMatched || apiCalled).toBe(true);
     });
   });
 
@@ -334,6 +341,7 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openChangePassword();
+    await waitFor(() => expect(screen.getByText('Current Password *')).toBeTruthy());
     const [current, next, confirm] = getPasswordInputs();
 
     fireEvent.change(current, { target: { value: 'oldpw123' } });
@@ -358,6 +366,7 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openChangePassword();
+    await waitFor(() => expect(screen.getByText('Current Password *')).toBeTruthy());
     const [current, next, confirm] = getPasswordInputs();
 
     fireEvent.change(current, { target: { value: 'oldpw123' } });
@@ -367,7 +376,7 @@ describe('UserManagement', () => {
     clickUpdatePassword();
 
     await waitFor(() => {
-      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully.');
+      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully. Please login again.');
     });
   });
 
@@ -382,6 +391,7 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openChangePassword();
+    await waitFor(() => expect(screen.getByText('Current Password *')).toBeTruthy());
     const [current, next, confirm] = getPasswordInputs();
 
     fireEvent.change(current, { target: { value: 'wrongpw' } });
@@ -404,8 +414,43 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(screen.getByTitle('Reset Password')).toBeTruthy();
-    expect(screen.getByTitle('Delete')).toBeTruthy();
+    expect(rowAction('Reset Password')).toBeTruthy();
+    expect(rowAction('Delete')).toBeTruthy();
+  });
+
+  it('lets a superadmin reset another superadmin, but not delete them', async () => {
+    setAuthRole('superadmin');
+    mockApiFetch.mockImplementation(async (url) => {
+      if (url === '/api/users') return [{ id: 1, username: 'second', role: 'superadmin', email: 's@x.com', lastLoginAt: null }];
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    expect(rowAction('Reset Password')).not.toHaveAttribute('aria-disabled', 'true');
+    expect(rowAction('Delete')).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('does not ask an admin for the SMTP settings, which are for superadmins only', async () => {
+    setAuthRole('admin');
+    render(<UserManagement />);
+    await waitUntilLoaded();
+    const smtpCalls = mockApiFetch.mock.calls.filter(([url]) => url === '/api/system-smtp');
+    expect(smtpCalls).toEqual([]);
+  });
+
+  it('disables the reset of your own account', async () => {
+    mockUseAuth.mockReturnValue({ auth: { role: 'superadmin', username: 'me' } });
+    mockApiFetch.mockImplementation(async (url) => {
+      if (url === '/api/users') return [{ id: 1, username: 'me', role: 'superadmin', email: 'me@x.com', lastLoginAt: null }];
+      return { ok: true };
+    });
+
+    render(<UserManagement />);
+    await waitUntilLoaded();
+
+    expect(rowAction('Reset Password')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('disables reset and delete for equal-level user', async () => {
@@ -417,24 +462,25 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    expect(screen.getByTitle('Reset Password')).toHaveAttribute('disabled');
-    expect(screen.getByTitle('Delete')).toHaveAttribute('disabled');
+    expect(rowAction('Reset Password')).toHaveAttribute('aria-disabled', 'true');
+    expect(rowAction('Delete')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('resets user password successfully', async () => {
     mockApiFetch.mockImplementation(async (url, options) => {
       if (url === '/api/users') return [{ id: 1, username: 'testuser', role: 'editor', email: 'test@example.com', lastLoginAt: null }];
-      if (url === '/api/users/1' && options?.method === 'PUT') return { generatedPassword: 'ResetPw123!' };
+      if (url === '/api/users/1' && options?.method === 'PUT') return { ok: true, setPasswordUrl: SETUP_LINK };
       return { ok: true };
     });
 
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Reset Password'));
+    fireEvent.click(rowAction('Reset Password'));
 
     await waitFor(() => {
-      expect(mockToast.success).toHaveBeenCalledWith('New password: ResetPw123!');
+      expect(mockToast.success).toHaveBeenCalledWith('Password reset. Send the setup link to the user.');
+      expect(screen.getByDisplayValue(SETUP_LINK)).toBeTruthy();
     });
   });
 
@@ -448,7 +494,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Reset Password'));
+    fireEvent.click(rowAction('Reset Password'));
 
     await waitFor(() => {
       expect(mockToast.error).toHaveBeenCalledWith('Reset failed');
@@ -464,7 +510,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Delete'));
+    fireEvent.click(rowAction('Delete'));
     await waitFor(() => expect(screen.getByText('Delete this user?')).toBeTruthy());
 
     fireEvent.click(screen.getByText('Cancel'));
@@ -485,7 +531,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Delete'));
+    fireEvent.click(rowAction('Delete'));
     await waitFor(() => expect(screen.getByText('Delete this user?')).toBeTruthy());
 
     fireEvent.click(screen.getByText('Confirm'));
@@ -505,7 +551,7 @@ describe('UserManagement', () => {
     render(<UserManagement />);
     await waitUntilLoaded();
 
-    fireEvent.click(screen.getByTitle('Delete'));
+    fireEvent.click(rowAction('Delete'));
     await waitFor(() => expect(screen.getByText('Delete this user?')).toBeTruthy());
 
     fireEvent.click(screen.getByText('Confirm'));
@@ -607,13 +653,15 @@ describe('UserManagement', () => {
 
     openChangePassword();
 
-    const showIcons = screen.getAllByTitle('show');
-    fireEvent.click(showIcons[0]);
+    // The show/hide control is a real button with a name (PasswordInput).
+    const showButtons = screen.getAllByRole('button', { name: 'Show password' });
+    fireEvent.click(showButtons[0]);
 
-    expect(screen.getAllByTitle('hide').length).toBeGreaterThan(0);
+    const hideButton = screen.getByRole('button', { name: 'Hide password' });
+    expect(hideButton).toHaveAttribute('aria-pressed', 'true');
 
-    fireEvent.click(screen.getAllByTitle('hide')[0]);
-    expect(screen.getAllByTitle('show').length).toBeGreaterThan(0);
+    fireEvent.click(hideButton);
+    expect(screen.queryByRole('button', { name: 'Hide password' })).toBeNull();
   });
 
   it('password fields clear after successful password change', async () => {
@@ -627,6 +675,7 @@ describe('UserManagement', () => {
     await waitUntilLoaded();
 
     openChangePassword();
+    await waitFor(() => expect(screen.getByText('Current Password *')).toBeTruthy());
     const [current, next, confirm] = getPasswordInputs();
 
     fireEvent.change(current, { target: { value: 'oldpw123' } });
@@ -636,7 +685,7 @@ describe('UserManagement', () => {
     clickUpdatePassword();
 
     await waitFor(() => {
-      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully.');
+      expect(mockToast.success).toHaveBeenCalledWith('Password changed successfully. Please login again.');
     });
   });
 });

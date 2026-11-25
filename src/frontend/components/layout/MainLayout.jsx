@@ -1,17 +1,8 @@
-// MainLayout - CHOps dashboard shell (React Router + lazy loading)
-// Shell layout: navbar, sidebar, alert marquee, breadcrumb, and content area.
-// Author: Kathir Moorthy
+// MainLayout.jsx - CHOps dashboard shell with routing and lazy loading
+// Contributors -> kathir Moorthy, kathir dhasan
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 
-import Icon from "../common/Icon.jsx";
-import React, {
-  useState,
-  useCallback,
-  lazy,
-  Suspense,
-  useMemo,
-  useRef,
-} from "react";
+import { useState, useCallback, lazy, Suspense, useMemo, useRef } from "react";
 import {
   HashRouter,
   Routes,
@@ -19,14 +10,18 @@ import {
   Navigate,
   useNavigate,
   useLocation,
+  matchPath,
 } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import Sidebar from "./Sidebar.jsx";
+import AppBackground from "./AppBackground.jsx";
 import GlobalSearch from "./GlobalSearch.jsx";
+import BugReportButton from "./BugReportButton.jsx";
 import { ToastProvider } from "./Toast.jsx";
 import AlertMarquee from "./AlertMarquee.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-import { BREADCRUMB_MAP } from "../../utils/routeMeta.js";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import MiniErrorClusterConnected from "../common/MiniErrorClusterConnected.jsx";
 
 // Core lazy-loaded page components
 const ClusterOverview = lazy(() => import("../overview/ClusterOverview.jsx"));
@@ -51,7 +46,11 @@ const MonitoringDashboards = lazy(
 const Playback = lazy(() => import("../monitoring/Playback.jsx"));
 const MemoryAllocator = lazy(() => import("../monitoring/MemoryAllocator.jsx"));
 const AlertRules = lazy(() => import("../alerting/AlertRules.jsx"));
-const NotificationChannels = lazy(() => import("../admin/NotificationChannels.jsx"),);
+const NotificationChannels = lazy(
+  () => import("../admin/NotificationChannels.jsx"),
+);
+const TrustedCas = lazy(() => import("../admin/TrustedCas.jsx"));
+const AppConfig = lazy(() => import("../admin/AppConfig.jsx"));
 const RbacViewGrants = lazy(() => import("../rbac/RbacViewGrants.jsx"));
 const RbacUsers = lazy(() => import("../rbac/RbacUsers.jsx"));
 const RbacRoles = lazy(() => import("../rbac/RbacRoles.jsx"));
@@ -74,8 +73,13 @@ const QuriozChatComponent = lazy(
 );
 const QueuesPage = lazy(() => import("../queues/QueuesPage.jsx"));
 const SchemaStudio = lazy(() => import("../schema-studio/SchemaStudio.jsx"));
+const KubernetesInsightPage = lazy(
+  () => import("../kubernetes/KubernetesInsightPage.jsx"),
+);
+const HomePage = lazy(() => import("../home/HomePage.jsx"));
 
 const CORE_ROUTES = [
+  ["home", HomePage],
   ["overview/cluster", ClusterOverview],
   ["overview/summary", DailySummary],
   ["overview/queries/:tab?", QueriesSection],
@@ -83,6 +87,7 @@ const CORE_ROUTES = [
   ["overview/operations", MergesMutations],
   ["overview/ddl", DistributedDDL],
   ["overview/queues", QueuesPage],
+  ["overview/kubernetes", KubernetesInsightPage],
   ["editor/query", SqlEditorPage],
   ["tools/profiler", QueryProfiler],
   ["tools/pipeline", ProcessorsProfile],
@@ -113,55 +118,16 @@ const CORE_ROUTES = [
   ["admin/app-backup", AppDataBackup],
   ["admin/api-management", ApiManagement],
   ["admin/channels", NotificationChannels],
+  ["admin/trusted-cas", TrustedCas],
+  ["admin/app-config", AppConfig],
   ["/qurioz", QuriozChatComponent],
-  
-  // ["/qurioz/:session_id?", QuriozChatComponent],
+  ["/qurioz/:session_id?", QuriozChatComponent],
 ];
-
-
-function Breadcrumb({ route }) {
-  const crumbs = BREADCRUMB_MAP[route];
-  if (!crumbs || route.startsWith("editor/")) return null; // hide on SQL editor (no section header)
-  return (
-    <div
-      style={{
-        padding: "8px 0px 0",
-        fontSize: "0.75rem",
-        color: "var(--text-muted)",
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        marginBottom: "10px",
-      }}
-    >
-      <Icon className="ti ti-home" style={{ fontSize: 13 }}></Icon>
-      {crumbs.map((c, i) => (
-        <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {i > 0 && (
-            <Icon
-              className="ti ti-chevron-right"
-              style={{ fontSize: 10, opacity: 0.5 }}
-            ></Icon>
-          )}
-          <span
-            style={
-              i === crumbs.length - 1
-                ? { color: "var(--text-secondary)", fontWeight: 500 }
-                : {}
-            }
-          >
-            {c}
-          </span>
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function MainLayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
-  const route = location.pathname.replace(/^\//, "") || "overview/cluster";
+  const route = location.pathname.replace(/^\//, "") || "home";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [editChart, setEditChart] = useState(null);
@@ -169,9 +135,21 @@ function MainLayoutInner() {
 
   const mainRef = useRef();
 
+  const livestate = useLiveOverview();
+
+  // eslint-disable-next-line no-unused-vars -- tests/frontend/sidebar-routing.test.js checks this line.
   const isEditorRoute = route.includes("qurioz");
 
+  const isClusterConfig = route?.includes("cluster");
+
+  const isAdminConfig = route?.includes("admin");
+
   const allRoutes = useMemo(() => [...CORE_ROUTES], []);
+  // The route pattern of the open page, for example "rbac/view/:tab?". It
+  // stays the same when only the tab changes, so the page fade-in plays only
+  // when another page opens.
+  const pagePattern =
+    allRoutes.map(([path]) => path).find((path) => matchPath("/" + path, location.pathname)) || route;
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -184,10 +162,9 @@ function MainLayoutInner() {
 
   function ScrollBottomAuto() {
     mainRef?.current?.scrollTo({
-      top: mainRef?.current?.scrollHeight ,
+      top: mainRef?.current?.scrollHeight,
       behavior: "smooth",
     });
-
   }
 
   const fallback = (
@@ -198,21 +175,36 @@ function MainLayoutInner() {
 
   return (
     <ToastProvider>
+      {/* Style guide shell: a full-height sidebar (brand, cluster, nav) beside
+          a column holding the top bar (breadcrumb, search, node, account),
+          the page and the footer. */}
       <div className="app-shell">
-        <Navbar onRefresh={handleRefresh} onOpenSearch={() => setSearchOpen(true)} />
+        <Sidebar
+          currentRoute={route}
+          onNavigate={handleNavigate}
+          collapsed={sidebarCollapsed}
+          forceCollapsed={false}
+          onToggle={() => setSidebarCollapsed((v) => !v)}
+          onRefresh={handleRefresh}
+        />
+        <div className="app-column">
+        <Navbar
+          route={route}
+          onRefresh={handleRefresh}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
         <AlertMarquee />
         <div className="app-body">
-          <Sidebar
-            currentRoute={route}
-            onNavigate={handleNavigate}
-            collapsed={sidebarCollapsed}
-            forceCollapsed={false}
-            onToggle={() => setSidebarCollapsed((v) => !v)}
-          />
-          <main className="app-main" ref={mainRef}>
-            <Breadcrumb route={route} />
+          <AppBackground />
+          <main
+            className="app-main"
+            ref={mainRef}
+            style={route === "editor/query" ? { padding: "0px" } : {}}
+          >
             <ErrorBoundary>
               <Suspense fallback={fallback}>
+                {/* A short fade-in when a page opens (after Magic UI Blur Fade). */}
+                <div key={pagePattern} className="page-enter">
                 <Routes>
                   {allRoutes.map(([path, Comp]) => (
                     <Route
@@ -223,6 +215,7 @@ function MainLayoutInner() {
                           key={refreshKey}
                           sidebar={sidebarCollapsed}
                           ScrollBottomAuto={ScrollBottomAuto}
+                          mainRef={mainRef}
                         />
                       }
                     />
@@ -252,22 +245,27 @@ function MainLayoutInner() {
                       />
                     }
                   />
-                  <Route
-                    path="/"
-                    element={<Navigate to="/overview/cluster" replace />}
-                  />
+                  <Route path="/" element={<Navigate to="/home" replace />} />
                   {/* Channels moved to Administration. Keep old links working. */}
                   <Route
                     path="alerting/channels"
                     element={<Navigate to="/admin/channels" replace />}
                   />
-                  <Route
-                    path="*"
-                    element={<Navigate to="/overview/cluster" replace />}
-                  />
+                  <Route path="*" element={<Navigate to="/home" replace />} />
                 </Routes>
+                </div>
               </Suspense>
             </ErrorBoundary>
+            {livestate?.isNotConnectedClusterNode() &&
+              !isClusterConfig &&
+              !isAdminConfig && (
+                <MiniErrorClusterConnected
+                  title={"No Cluster Connected"}
+                  message={
+                    "Connect a ClickHouse cluster to view nodes, queries, and real-time performance metrics"
+                  }
+                />
+              )}
           </main>
         </div>
         <div
@@ -280,12 +278,14 @@ function MainLayoutInner() {
             v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}
           </span>
         </div>
+        </div>
         <GlobalSearch
           open={searchOpen}
           onOpen={() => setSearchOpen(true)}
           onClose={() => setSearchOpen(false)}
           onNavigate={handleNavigate}
         />
+        <BugReportButton />
       </div>
     </ToastProvider>
   );

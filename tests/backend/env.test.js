@@ -1,15 +1,7 @@
-/**
- * env.test.js - Unit tests for environment variable loader
- *
- * Tests the loadEnv() function with various environment configurations.
- * Verifies that multiple super admins are collected from numbered env vars
- * (SUPER_ADMIN_1, SUPER_ADMIN_2, etc.), legacy SUPER_ADMIN fallback works,
- * SMTP config is read correctly, and validation throws errors when required
- * variables (super admin, SESSION_SECRET) are missing.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// env.test.js - unit tests for environment variable loader
+
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test';
 import { loadEnv } from '../../src/backend/utils/env.js';
 
@@ -20,9 +12,7 @@ beforeAll(() => {
   process.env.SUPER_ADMIN_2 = 'admin2';
   process.env.SUPER_ADMIN_2_PASSWORD = 'pass2';
     process.env.SUPER_ADMIN_2_EMAIL = 'admin@gmail.com'
-  process.env.SESSION_SECRET = 'long_random_secret_32_chars_min!';
-  process.env.SMTP_HOST = 'smtp.example.com';
-  process.env.SMTP_PORT = '465';
+  process.env.ENCRYPTION_SECRET = 'long_random_secret_32_chars_min!';
 });
 
 describe('Env Loader - super admins', () => {
@@ -65,10 +55,44 @@ describe('Env Loader - super admins', () => {
     process.env.SUPER_ADMIN_2_PASSWORD = saved2p;
   });
 
-  it('reads SMTP config from env', () => {
+  it('accepts a purely legacy configuration', () => {
+    // The legacy branch checked SUPER_ADMIN_1_EMAIL instead of
+    // SUPER_ADMIN_EMAIL, so a config using only the old variable names threw
+    // even though it was complete.
+    const saved = {
+      u1: process.env.SUPER_ADMIN_1,
+      p1: process.env.SUPER_ADMIN_1_PASSWORD,
+      e1: process.env.SUPER_ADMIN_1_EMAIL,
+      u2: process.env.SUPER_ADMIN_2,
+      p2: process.env.SUPER_ADMIN_2_PASSWORD,
+      e2: process.env.SUPER_ADMIN_2_EMAIL,
+    };
+    delete process.env.SUPER_ADMIN_1;
+    delete process.env.SUPER_ADMIN_1_PASSWORD;
+    delete process.env.SUPER_ADMIN_1_EMAIL;
+    delete process.env.SUPER_ADMIN_2;
+    delete process.env.SUPER_ADMIN_2_PASSWORD;
+    delete process.env.SUPER_ADMIN_2_EMAIL;
+
+    process.env.SUPER_ADMIN = 'legacy_admin';
+    process.env.SUPER_ADMIN_PASSWORD = 'legacy_pass';
+    process.env.SUPER_ADMIN_EMAIL = 'legacy@example.com';
+
+    expect(() => loadEnv()).not.toThrow();
     const env = loadEnv();
-    expect(env.smtp.host).toBe('smtp.example.com');
-    expect(env.smtp.port).toBe('465');
+    expect(env.superAdmins.length).toBe(1);
+    expect(env.superAdmins[0].username).toBe('legacy_admin');
+    expect(env.superAdmins[0].email).toBe('legacy@example.com');
+
+    delete process.env.SUPER_ADMIN;
+    delete process.env.SUPER_ADMIN_PASSWORD;
+    delete process.env.SUPER_ADMIN_EMAIL;
+    process.env.SUPER_ADMIN_1 = saved.u1;
+    process.env.SUPER_ADMIN_1_PASSWORD = saved.p1;
+    process.env.SUPER_ADMIN_1_EMAIL = saved.e1;
+    process.env.SUPER_ADMIN_2 = saved.u2;
+    process.env.SUPER_ADMIN_2_PASSWORD = saved.p2;
+    process.env.SUPER_ADMIN_2_EMAIL = saved.e2;
   });
 });
 
@@ -83,10 +107,21 @@ describe('Env Loader - validation', () => {
     process.env.SUPER_ADMIN_1_PASSWORD = saved1p;
   });
 
-  it('throws on missing SESSION_SECRET', () => {
-    const saved = process.env.SESSION_SECRET;
-    delete process.env.SESSION_SECRET;
-    expect(() => loadEnv()).toThrow();
-    process.env.SESSION_SECRET = saved;
-  });
+  it('throws on missing ENCRYPTION_SECRET', () => {
+      const saved = process.env.ENCRYPTION_SECRET;
+      delete process.env.ENCRYPTION_SECRET;
+      expect(() => loadEnv()).toThrow(/ENCRYPTION_SECRET/);
+      process.env.ENCRYPTION_SECRET = saved;
+    });
+
+    it('tells a person who is upgrading to rename the value', () => {
+      const saved = process.env.ENCRYPTION_SECRET;
+      delete process.env.ENCRYPTION_SECRET;
+      process.env.SESSION_SECRET = 'the-old-value-at-least-32-characters-long';
+
+      expect(() => loadEnv()).toThrow(/keep the same value/);
+
+      delete process.env.SESSION_SECRET;
+      process.env.ENCRYPTION_SECRET = saved;
+    });
 });

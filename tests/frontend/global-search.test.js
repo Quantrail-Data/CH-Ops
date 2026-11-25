@@ -183,20 +183,25 @@ describe("Global search: wiring", () => {
     expect(gs).toContain("SEARCH_ENTRIES"); // the merged index, not raw catalog
     expect(gs).toContain("useTokenSearch: true");
     expect(gs).toContain("ignoreLocation: true");
-    expect(gs).toMatch(/threshold:\s*0\.4/);
+    expect(gs).toMatch(/threshold:\s*0\.3/);
   });
 
-  it("renders a floating bubble and an overlay panel", () => {
-    expect(gs).toContain("global-search-fab");
-    expect(gs).toContain("global-search-overlay");
+  it("has no floating bubble (only the navbar search) and a shadcn command dialog", () => {
+    expect(gs).not.toContain('className="global-search-fab"');
+    expect(gs).toContain("<CommandDialog");
     expect(gs).toContain("global-search-results");
   });
 
   it("closes on Escape, backdrop click, and the close button", () => {
-    expect(gs).toContain('e.key === "Escape"'); // keyboard
+    // The dialog reports Escape and a backdrop click through onOpenChange.
+    expect(gs).toContain("onOpenChange={onOpenChange}");
+    expect(gs).toMatch(/if \(!nextOpen\) onClose\(\)/);
     expect(gs).toContain("global-search-close"); // close button element
-    // backdrop overlay + close button both call onClose directly
-    expect(gs.match(/onClick=\{onClose\}/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(gs).toContain("onClick={onClose}");
+  });
+
+  it("keeps the Fuse ranking: the cmdk filter is off", () => {
+    expect(gs).toContain("shouldFilter={false}");
   });
 
   it("opens via Ctrl/Cmd+K", () => {

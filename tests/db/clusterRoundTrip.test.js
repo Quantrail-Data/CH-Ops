@@ -1,0 +1,232 @@
+// clusterRoundTrip.test.js - cluster settings survive a save and a load
+// Contributors - Kathirmoorthy, Kathirdhasan, Praveen, Sanjeev Kumar G
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
+
+import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import * as schema from "../../src/backend/db/schema.js";
+import { databaseModuleMock } from "./databaseModuleMock.js";
+import { initCrypto } from "../../src/backend/services/crypto.js";
+
+initCrypto("cluster-round-trip-test-secret-at-least-32-chars");
+
+const sqlite = new Database(":memory:");
+sqlite.exec(`
+  CREATE TABLE app_setting (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT,
+    category TEXT NOT NULL DEFAULT 'general',
+    created_at TEXT, updated_at TEXT
+  );
+  CREATE TABLE cluster (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'direct',
+    version INTEGER NOT NULL DEFAULT 1,
+    ch_user TEXT,
+    ch_password_enc TEXT,
+    port INTEGER,
+    secure INTEGER NOT NULL DEFAULT 0,
+    endpoint TEXT,
+    k8s_connection_id TEXT,
+    k8s_namespace TEXT,
+    k8s_installation TEXT,
+    k8s_operator TEXT NOT NULL DEFAULT 'akoc',
+    k8s_addressing TEXT,
+    last_refreshed_at TEXT,
+    created_at TEXT, updated_at TEXT
+  );
+  CREATE TABLE cluster_node (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 8123,
+    user TEXT,
+    password_enc TEXT,
+    secure INTEGER NOT NULL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'manual',
+    shard INTEGER, replica INTEGER, pod_name TEXT,
+    last_seen_at TEXT, created_at TEXT, updated_at TEXT,
+    UNIQUE (cluster_id, name)
+  );
+`);
+
+const db = drizzle(sqlite, { schema });
+
+mock.module("../../src/backend/db/index.js", () => databaseModuleMock(db, sqlite));
+
+
+sqlite.exec(
+  "INSERT INTO app_setting (key, value, category) VALUES ('clusters.storage', 'tables', 'cluster')",
+);
+
+const { getAllClusters, saveClusters, maskClusterPasswords } = await import(
+  "../../src/backend/services/clusterUtils.js"
+);
+
+
+function k8sCluster() {
+  return {
+    id: "k8s_akoc_demo_demo",
+    name: "demo",
+    kind: "k8s",
+    chUser: "chops",
+    chPassword: "s3cret-password",
+    endpoint: "clickhouse-demo.akoc-demo.svc.cluster.local",
+    port: 8123,
+    secure: false,
+    k8s: {
+      connectionId: "conn1",
+      namespace: "akoc-demo",
+      installation: "demo",
+      operator: "akoc",
+    },
+    nodes: [
+      {
+        name: "main-0-0",
+        host: "chi-demo-main-0-0.akoc-demo.svc.cluster.local",
+        port: 8123,
+        podName: "chi-demo-main-0-0-0",
+        shard: 0,
+        replica: 0,
+        secure: false,
+      },
+      {
+        name: "main-1-0",
+        host: "chi-demo-main-1-0.akoc-demo.svc.cluster.local",
+        port: 8123,
+        podName: "chi-demo-main-1-0-0",
+        shard: 1,
+        replica: 0,
+        secure: false,
+      },
+    ],
+  };
+}
+
+beforeEach(() => {
+  sqlite.exec("DELETE FROM cluster_node");
+  sqlite.exec("DELETE FROM cluster");
+  sqlite.exec("DELETE FROM app_setting WHERE key != 'clusters.storage'");
+});
+
+describe("cluster round trip", () => {
+  it("keeps every cluster-level setting through a save and a load", () => {
+    const original = k8sCluster();
+    const data = saveClusters([original]);
+
+    const loaded = getAllClusters().find((c) => c.id === original.id);
+
+
+    expect(loaded.endpoint).toBe(original.endpoint);
+    expect(loaded.chPassword).toBe(original.chPassword);
+    expect(loaded.port).toBe(original.port);
+    expect(loaded.secure).toBe(original.secure);
+
+    expect(loaded.name).toBe(original.name);
+    expect(loaded.chUser).toBe(original.chUser);
+    expect(loaded.k8s.namespace).toBe(original.k8s.namespace);
+    expect(loaded.k8s.installation).toBe(original.k8s.installation);
+  });
+
+  it("survives a second save, which is what an edit does", () => {
+
+    saveClusters([k8sCluster()]);
+
+    const first = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    first.name = "demo-renamed";
+    saveClusters([first]);
+
+    const second = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+
+    expect(second.name).toBe("demo-renamed");
+    expect(second.endpoint).toBe(k8sCluster().endpoint);
+    expect(second.chPassword).toBe(k8sCluster().chPassword);
+    expect(second.port).toBe(k8sCluster().port);
+  });
+
+  it("does not send the cluster password to the browser", () => {
+    saveClusters([k8sCluster()]);
+    const loaded = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+
+    const masked = maskClusterPasswords(loaded);
+
+    expect(masked.chPassword).toBeUndefined();
+    expect(masked.hasChPassword).toBe(true);
+    for (const node of masked.nodes) {
+      expect(node.password).toBeUndefined();
+    }
+
+    expect(masked.endpoint).toBe(k8sCluster().endpoint);
+  });
+});
+
+describe("kubernetes node addresses", () => {
+  it("keeps a distinct host per node", () => {
+    saveClusters([k8sCluster()]);
+
+    const loaded = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    const hosts = new Set(loaded.nodes.map((n) => n.host));
+
+
+    expect(hosts.size).toBe(loaded.nodes.length);
+  });
+
+  it("still has a distinct host per node after an edit", () => {
+    saveClusters([k8sCluster()]);
+
+    const first = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    first.name = "demo-renamed";
+    saveClusters([first]);
+
+    const second = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    const hosts = new Set(second.nodes.map((n) => n.host));
+
+    expect(hosts.size).toBe(second.nodes.length);
+  });
+
+  it("keeps each node's pod name, shard and replica", () => {
+  
+    saveClusters([k8sCluster()]);
+
+    const loaded = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    const byName = Object.fromEntries(loaded.nodes.map((n) => [n.name, n]));
+
+    expect(byName["main-0-0"].podName).toBe("chi-demo-main-0-0-0");
+    expect(byName["main-0-0"].shard).toBe(0);
+    expect(byName["main-1-0"].shard).toBe(1);
+  });
+});
+
+describe("saving an existing cluster", () => {
+  it("increases the version, so a background refresh that read the old version retries", () => {
+    saveClusters([k8sCluster()]);
+    const before = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+
+    saveClusters([before]);
+
+    const after = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    expect(after.version).toBe(before.version + 1);
+  });
+
+  it("keeps the lastSeenAt of a node that did not change", () => {
+    saveClusters([k8sCluster()]);
+    const oldTime = "2020-01-01T00:00:00.000Z";
+    sqlite.exec(`UPDATE cluster_node SET last_seen_at = '${oldTime}'`);
+
+    const loaded = getAllClusters().find((c) => c.id === "k8s_akoc_demo_demo");
+    loaded.nodes.push({ name: "main-2-0", host: "chi-demo-main-2-0.akoc-demo.svc.cluster.local", port: 8123 });
+    saveClusters([loaded]);
+
+    const lastSeenByName = Object.fromEntries(
+      sqlite.query("SELECT name, last_seen_at FROM cluster_node").all().map((row) => [row.name, row.last_seen_at]),
+    );
+    expect(lastSeenByName["main-0-0"]).toBe(oldTime);
+    expect(lastSeenByName["main-1-0"]).toBe(oldTime);
+    expect(lastSeenByName["main-2-0"] > oldTime).toBe(true);
+  });
+});

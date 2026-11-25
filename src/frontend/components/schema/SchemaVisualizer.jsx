@@ -2,22 +2,14 @@
 // author -> (kathir Moorthy,  Sanjeev Kumar G)
 // Interactive diagram that visualizes database tables, column relationships, and foreign key mappings.
 
-
 import Icon from "../common/Icon.jsx";
 import Select from "../common/Select.jsx";
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   Controls,
-  MiniMap,
   MarkerType,
   useNodesState,
   useEdgesState,
@@ -30,20 +22,20 @@ import {
   getEdgeColors,
   fmtBytes,
   fmtRows,
-  formatLoadValue,
   loadIntensity,
   loadColour,
-  loadBadgeTextColor,
 } from "../../utils/schemaParser.js";
 import { layoutGraph } from "../../utils/schemaLayout.js";
 import SchemaNode from "./SchemaNode.jsx";
 import { useTheme } from "../../App.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Input, Button, Notice } from "../ui/index.jsx";
 
 const nodeTypes = { schemaNode: SchemaNode };
 
 function SchemaFlow() {
   const { fitView } = useReactFlow();
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState("");
   const [graphData, setGraphData] = useState(null);
@@ -66,7 +58,9 @@ function SchemaFlow() {
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
   const mountedRef = useRef(true);
   const adjRef = useRef({ incoming: new Map(), outgoing: new Map() });
-  const { theme } = useTheme()
+  const { theme } = useTheme();
+
+  const liveState = useLiveOverview();
 
   // heatmap interactive button boolean
   const [isInteractive, setIsInteractive] = useState(true);
@@ -126,6 +120,7 @@ function SchemaFlow() {
     (async () => {
       if (loadDays > 0) {
         const hm = await fetchViewsLoad(graphData.nodes, loadDays);
+
         if (cancelled || !mountedRef.current) return;
         setHeatmap(hm);
       } else {
@@ -283,7 +278,7 @@ function SchemaFlow() {
           if (v > 0) {
             const intensity = loadIntensity(v, edgeMax);
             stroke = loadColour(intensity);
-            sw = 1.5 + 3 * intensity;
+            sw = 1.6;
             op = 0.55 + 0.45 * intensity;
           }
         }
@@ -326,6 +321,7 @@ function SchemaFlow() {
 
     setRfNodes(nodes);
     setRfEdges(edgeList);
+
     adjRef.current = { incoming, outgoing };
   }, [
     graphData,
@@ -338,6 +334,8 @@ function SchemaFlow() {
     debouncedSearch,
     showColumns,
     themeVersion,
+    setRfNodes,
+    setRfEdges,
   ]);
 
   // Derived values.
@@ -388,24 +386,37 @@ function SchemaFlow() {
     setTimeout(() => fitView({ padding: 0.15 }), 150);
   }, [graphData, visibleKeys, showColumns, fitView]);
 
-      function isDark() {
-    return theme === "dark"
+  function isDark() {
+    return theme === "dark";
   }
 
-  if (error)
+  if (error && !liveState?.isNotConnectedClusterNode())
     return (
       <div style={{ padding: 20 }}>
-        <div className="alert-banner danger" style={{ margin: 0 }}>
-          <Icon className="ti ti-alert-circle" />
+        <Notice tone="danger" icon="ti-alert-circle" style={{ margin: 0 }}>
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Failed to load schema
             </div>
-            <div style={{ fontSize: "13px" }}>{error}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
           </div>
-        </div>
+        </Notice>
       </div>
     );
+  if (liveState?.isNotConnectedClusterNode()) {
+    return (
+      <div style={{ padding: 20 }}>
+        <Notice tone="info" icon="ti-alert-circle" style={{ margin: 0 }}>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              Failed to load schema
+            </div>
+            <div style={{ fontSize: "0.8125rem" }}>{error}</div>
+          </div>
+        </Notice>
+      </div>
+    );
+  }
   if (!graphData)
     return (
       <div
@@ -452,11 +463,16 @@ function SchemaFlow() {
           <Select
             className="form-select"
             value={tableFilter}
-            onChange={(e) => setTableFilter(e.target.value)}
+            onChange={(e) => {
+              setTableFilter(e.target.value);
+              setSelectedKey((prev) =>
+                prev === e.target.value ? null : e.target.value,
+              );
+            }}
             style={{
               width: 240,
               fontFamily: "var(--font-code)",
-              fontSize: "12px",
+              fontSize: "0.75rem",
             }}
           >
             <option value="">Select table...</option>
@@ -469,9 +485,8 @@ function SchemaFlow() {
         )}
         {graphDrawn && (
           <>
-            <input
+            <Input
               type="text"
-              className="form-input"
               placeholder="Search table or column..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -479,15 +494,15 @@ function SchemaFlow() {
               style={{
                 width: 200,
                 fontFamily: "var(--font-code)",
-                fontSize: "13px",
+                fontSize: "0.8125rem",
               }}
             />
-            <button
-              className={`btn btn-sm ${showColumns ? "btn-primary" : "btn-secondary"}`}
+            <Button
+              size="sm" variant={showColumns ? "primary" : "secondary"} aria-pressed={showColumns}
               onClick={() => setShowColumns(!showColumns)}
             >
               Columns
-            </button>
+            </Button>
             <Select
               className="form-select"
               value={loadDays}
@@ -515,18 +530,18 @@ function SchemaFlow() {
                 <option value="executions">Executions</option>
               </Select>
             )}
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={handleRelayout}
             >
               Re-layout
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               onClick={() => fitView({ padding: 0.15 })}
             >
               Fit
-            </button>
+            </Button>
           </>
         )}
         <span
@@ -550,7 +565,7 @@ function SchemaFlow() {
             display: "flex",
             gap: 14,
             alignItems: "center",
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             flexWrap: "wrap",
             paddingBottom: 6,
@@ -636,7 +651,9 @@ function SchemaFlow() {
               top: 0,
               bottom: 0,
               width: 380,
-              background:isDark() ? 'rgba(11, 19, 35,0.96)' : 'rgba(244, 245, 247,0.96)',
+              background: isDark()
+                ? "rgba(11, 19, 35,0.96)"
+                : "rgba(244, 245, 247,0.96)",
               borderLeft: "3px solid var(--accent)",
               padding: "16px 20px",
               overflowY: "auto",
@@ -659,7 +676,7 @@ function SchemaFlow() {
                 style={{
                   fontWeight: 700,
                   fontFamily: "var(--font-code)",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                   flex: 1,
                   minWidth: 0,
                   overflowWrap: "anywhere",
@@ -676,7 +693,7 @@ function SchemaFlow() {
                   border: "none",
                   cursor: "pointer",
                   color: "var(--text-muted)",
-                  fontSize: "19px",
+                  fontSize: "1.1875rem",
                   lineHeight: 1,
                   flexShrink: 0,
                   padding: 0,
@@ -687,14 +704,14 @@ function SchemaFlow() {
                   height: 24,
                 }}
               >
-                <Icon className="ti ti-x" style={{ fontSize: '19px' }} />
+                <Icon className="ti ti-x" style={{ fontSize: "1.1875rem" }} />
               </button>
             </div>
             <table
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 tableLayout: "fixed",
               }}
             >
@@ -773,7 +790,7 @@ function SchemaFlow() {
                     <>
                       <div
                         style={{
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
@@ -791,7 +808,7 @@ function SchemaFlow() {
                             cursor: "pointer",
                             color: "var(--accent)",
                             fontFamily: "var(--font-code)",
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             padding: "2px 0",
                             wordBreak: "break-word",
                             overflowWrap: "anywhere",
@@ -812,7 +829,7 @@ function SchemaFlow() {
                     <>
                       <div
                         style={{
-                          fontSize: "12px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
@@ -830,7 +847,7 @@ function SchemaFlow() {
                             cursor: "pointer",
                             color: "var(--accent)",
                             fontFamily: "var(--font-code)",
-                            fontSize: "12px",
+                            fontSize: "0.75rem",
                             padding: "2px 0",
                             wordBreak: "break-word",
                             overflowWrap: "anywhere",
@@ -854,7 +871,7 @@ function SchemaFlow() {
               <>
                 <div
                   style={{
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
                     color: "var(--text-muted)",
                     textTransform: "uppercase",
@@ -884,7 +901,7 @@ function SchemaFlow() {
             )}
           </aside>
         )}
-        
+
         {!graphDrawn ? (
           <div
             style={{
@@ -899,9 +916,9 @@ function SchemaFlow() {
           >
             <Icon
               className="ti ti-database-search"
-              style={{ fontSize: 48, opacity: 0.3 }}
+              style={{ fontSize: "3rem", opacity: 0.3 }}
             />
-            <div style={{ fontSize: "14px" }}>
+            <div style={{ fontSize: "0.875rem" }}>
               {!dbFilter
                 ? "Select a database to begin"
                 : "Select a table to visualize its relationships"}
@@ -964,9 +981,7 @@ function SchemaFlow() {
             >
               <Controls
                 showInteractive={true}
-                onInteractiveChange={(newStatus) =>
-                  setIsInteractive(newStatus)
-                }
+                onInteractiveChange={(newStatus) => setIsInteractive(newStatus)}
                 style={{
                   background: "var(--bg-card)",
                   border: "1px solid var(--border-default)",

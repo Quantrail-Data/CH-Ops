@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Main container managing state, message history, and UI layouts for the AI chat interface.
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import ChatInputComponent from "./ChatInputComponent";
@@ -10,65 +10,733 @@ import IntroChatComponent from "./IntroChatComponent.jsx";
 import AILoaderComponent from "./AILoaderComponent";
 import ChatRenderComponent from "./ChatRenderComponent";
 import { useParams } from "react-router-dom";
-import { useConnection, useQuriozChatContext, useTheme } from "../../App.jsx";
+import { useConnection, useTheme } from "../../App.jsx";
 import { apiFetch, runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
 import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useNavigate } from "react-router-dom";
 import { isMessageFinders } from "../../utils/AIGreetsHandler.js";
+import { AnimatePresence, motion } from "motion/react";
+import { createPortal } from "react-dom";
+import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
+import { Button, Input } from "../ui/index.jsx";
 
-// VITE_SELECTEDAID_DBS=aiselectedid
-const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
+const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
-const chat_length = 1000;
-const CHAT_LIMIT = chat_length * 2;
+const createHisMsgArr = async (messages = [], RunSqlQueryhandler) => {
+  const timestamp = Date.now();
 
-function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
+  const result = await Promise.all(
+    messages.map(async (chat, index) => {
+      let tablesData = [];
+      let error;
+      let aiError;
+      if (chat?.errorCode) {
+        let err = JSON.parse(chat?.errorCode);
+        error = { status: true, message: err.message };
+        aiError = { status: true, message: err.message };
+      } else {
+        error = { status: false, message: null };
+        aiError = { status: false, message: null };
+      }
+
+      if (chat?.sql) {
+        try {
+          const QueryResult = await RunSqlQueryhandler(chat.sql);
+
+          if (QueryResult.success) {
+            tablesData = QueryResult?.rows || [];
+          }
+        } catch {
+          tablesData = [];
+        }
+      }
+
+      return [
+        {
+          id: `${timestamp}-${index}-user`,
+          ai_id: chat?.id,
+          chatId: chat?.chatId,
+          type: "user",
+          userQuestion: chat?.instruction,
+          showResponse: true,
+          messageId: chat?.id,
+        },
+        {
+          id: `${timestamp}-${index}-bot`,
+          ai_id: chat?.id,
+          messageId: chat?.id,
+          chatId: chat?.chatId,
+          type: "bot",
+          sql: chat?.sql ? chat.sql : chat?.responseText,
+          sqlFlag: !!chat?.sql,
+          tableData: tablesData,
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: error,
+          aiError: aiError,
+          dashId:chat?.dashId ?? null,
+          chartName:chat?.chartName ?? null
+        },
+      ];
+    }),
+  );
+
+  return result.flat();
+};
+
+function responseBodyStructTableDatabase(genTables) {
+  if (!genTables) return [];
+
+  let result = [];
+  Object.keys(genTables)?.forEach((_v) => {
+    const tables = genTables[_v];
+    if (tables) {
+      tables?.forEach((_t) => {
+        if (_t?.isSelected) {
+          result.push({
+            database: _v,
+            table: _t?.table,
+          });
+        }
+      });
+    }
+  });
+  return result ? result : [];
+}
+
+function HistoryShowBubbleComponent({ replaceChat, RunSqlQueryhandler }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [chats, setChats] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingChatId, setEditingChatId] = useState(null);
+  const [title, setTitle] = useState("");
+  const [menuPosition, setMenuPosition] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const menuRef = useRef(null);
+
+  const toast = useToast();
+  const navigate = useNavigate();
+
+  const loadHistory = async () => {
+    setIsLoading(true);
+
+    try {
+      const response = await apiFetch("/api/ai/chats", {
+        method: "GET",
+      });
+
+      setChats(Array.isArray(response?.chats) ? response.chats : []);
+    } catch (error) {
+      console.error("Failed to load chat history:", error.message);
+
+      setChats([]);
+
+      toast.error(error?.message || "Failed to load chat history");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    loadHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (openMenuId === null) return;
+
+    const closeMenu = (event) => {
+      if (!menuRef.current?.contains(event.target)) {
+        setOpenMenuId(null);
+        setMenuPosition(null);
+      }
+    };
+    document.addEventListener("mousedown", closeMenu);
+
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+    };
+  }, [openMenuId]);
+
+  useEffect(() => {
+    if (openMenuId === null) return;
+
+    const closeMenu = () => {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    };
+
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [openMenuId]);
+
+  const startEditing = (event, chat) => {
+    event?.stopPropagation();
+
+    setTitle(chat?.title || "");
+    setEditingChatId(chat.id);
+
+    setOpenMenuId(null);
+    setMenuPosition(null);
+  };
+
+  const cancelEditing = () => {
+    setEditingChatId(null);
+    setTitle("");
+  };
+
+  const saveTitle = async (chatId) => {
+    const nextTitle = title.trim();
+
+    if (!nextTitle) {
+      toast.error("Chat title cannot be empty");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await apiFetch(`/api/ai/chats/${chatId}`, {
+        method: "PATCH",
+        body: {
+          title: nextTitle,
+        },
+      });
+
+      setChats((currentChats) =>
+        currentChats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                title: nextTitle,
+              }
+            : chat,
+        ),
+      );
+
+      toast.success("Chat title updated");
+    } catch (error) {
+      console.error("Chat title update failed:", error.message);
+
+      toast.error(error?.message || "Chat title update failed");
+    } finally {
+      setIsSaving(false);
+      setEditingChatId(null);
+      setTitle("");
+    }
+  };
+
+  const handleTitleKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.currentTarget.blur();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEditing();
+    }
+  };
+
+  const deleteChat = async (event, chatId) => {
+    event?.stopPropagation();
+
+    try {
+      await apiFetch(`/api/ai/chats/${chatId}`, {
+        method: "DELETE",
+      });
+
+      setChats((currentChats) =>
+        currentChats.filter((chat) => chat.id !== chatId),
+      );
+
+      toast.success("Chat deleted successfully");
+
+      replaceChat([]);
+      navigate("/qurioz");
+    } catch (error) {
+      console.error("Chat delete failed:", error.message);
+
+      toast.error(error?.message || "Chat delete failed");
+    } finally {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    }
+  };
+
+  const handleOpenHistMsg = async (event, chatId) => {
+    event?.stopPropagation();
+
+    if (!chatId) {
+      toast.error("Invalid chat");
+      return;
+    }
+
+    setOpenMenuId(null);
+    setMenuPosition(null);
+
+    try {
+      const response = await apiFetch(`/api/ai/chats/${chatId}`, {
+        method: "GET",
+      });
+
+      const messageHistory = await createHisMsgArr(
+        response?.messages,
+        RunSqlQueryhandler,
+      );
+
+      replaceChat(messageHistory);
+
+      navigate(`/qurioz/${chatId}`);
+
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Failed to open chat:", error.message);
+
+      toast.error(error?.message || "Failed to open chat");
+    }
+  };
+
+  const handleNewChat = () => {
+    replaceChat([]);
+
+    setEditingChatId(null);
+    setTitle("");
+    setOpenMenuId(null);
+    setMenuPosition(null);
+
+    navigate("/qurioz");
+
+    setIsOpen(false);
+  };
+
+  const handleMenuToggle = (event, chatId) => {
+    event.stopPropagation();
+    if (openMenuId === chatId) {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+
+    const menuWidth = 128;
+    const menuHeight = 88;
+    const spacing = 4;
+
+    let left = bounds.right - menuWidth;
+
+    left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+    const shouldOpenAbove =
+      window.innerHeight - bounds.bottom < menuHeight + spacing;
+
+    const top = shouldOpenAbove
+      ? bounds.top - menuHeight - spacing
+      : bounds.bottom + spacing;
+
+    setMenuPosition({
+      left,
+      top,
+    });
+
+    setOpenMenuId(chatId);
+  };
+
+  const isNewSession = chats.length === 0;
+
+  return (
+    <AnimatePresence>
+      {!isOpen && (
+        <motion.div
+          style={{
+            position: "absolute",
+            top: "0rem",
+            width: "50px",
+          }}
+          title="History"
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          exit={{
+            opacity: 0,
+          }}
+          transition={{
+            duration: 1,
+            ease: "easeInOut",
+          }}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsOpen(true)}
+            aria-label="Open chat history"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="icon icon-tabler icons-tabler-outline icon-tabler-history-toggle"
+            >
+              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+              <path d="M10 20.777a8.942 8.942 0 0 1 -2.48 -.969" />
+              <path d="M14 3.223a9.003 9.003 0 0 1 0 17.554" />
+              <path d="M4.579 17.093a8.961 8.961 0 0 1 -1.227 -2.592" />
+              <path d="M3.124 10.5c.16 -.95 .468 -1.85 .9 -2.675l.169 -.305" />
+              <path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356" />
+              <path d="M12 8v4l3 3" />
+            </svg>
+          </Button>
+        </motion.div>
+      )}
+
+      {isOpen && (
+        <motion.div
+          style={{
+            position: "absolute",
+            border: "1px solid var(--border-default)",
+            top: "0rem",
+            borderRadius: "10px",
+            padding: "10px",
+            backgroundColor: "var(--bg-page)",
+            zIndex: 99999,
+          }}
+          initial={{
+            opacity: 0,
+            width: "0rem",
+            height: "0vh",
+          }}
+          animate={{
+            opacity: 1,
+            width: "20rem",
+            height: "70vh",
+          }}
+          exit={{
+            opacity: 0,
+            width: "0rem",
+            height: "0vh",
+          }}
+        >
+          <div className="header-history">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setIsOpen(false);
+                setOpenMenuId(null);
+                setMenuPosition(null);
+              }}
+              aria-label="Close chat history"
+            >
+              <Icon className="ti ti-chevron-left" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleNewChat}
+            >
+              <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
+              <span style={{ fontSize: "0.625rem" }}>New Chat</span>
+            </Button>
+          </div>
+          <div className="chat-sesion-body">
+            {isLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "70%",
+                }}
+              >
+                <span
+                  style={{
+                    color: "var(--text-secondary)",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  Loading chats...
+                </span>
+              </div>
+            ) : isNewSession ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  height: "70%",
+                }}
+              >
+                <Icon className="ti ti-info-circle" />
+
+                <span
+                  style={{
+                    color: "var(--text-secondary)",
+                    fontSize: "0.75rem",
+                    margin: "10px 0px",
+                  }}
+                >
+                  No chats found
+                </span>
+              </div>
+            ) : (
+              chats.map((chat) => (
+                <div className="chat-session-tab" key={chat.id}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      cursor: editingChatId === chat.id ? "default" : "pointer",
+                    }}
+                    onClick={(event) => {
+                      if (editingChatId !== chat.id) {
+                        handleOpenHistMsg(event, chat.id);
+                      }
+                    }}
+                  >
+                    {editingChatId === chat.id ? (
+                      <Input
+                        autoFocus
+                        disabled={isSaving}
+                        style={{
+                          width: "100%",
+                          height: "30px",
+                          minHeight: 0,
+                          padding: "2px 6px",
+                          boxSizing: "border-box",
+                          fontSize: "0.8125rem",
+                          lineHeight: "18px",
+                        }}
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        onBlur={() => saveTitle(chat.id)}
+                        onKeyDown={(event) =>
+                          handleTitleKeyDown(event)
+                        }
+                        onClick={(event) => event.stopPropagation()}
+                      />
+                    ) : (
+                      <span title={chat?.title || "Untitled chat"}>
+                        {chat?.title || "Untitled chat"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      title="More options"
+                      aria-label={`More options for ${
+                        chat?.title || "Untitled chat"
+                      }`}
+                      aria-expanded={openMenuId === chat.id}
+                      onClick={(event) => handleMenuToggle(event, chat.id)}
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M12 10a2 2 0 1 0 2 2 2 2 0 0 0-2-2m-7 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2m14 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2" />
+                      </svg>
+                    </Button>
+
+                    {openMenuId === chat.id &&
+                      menuPosition &&
+                      createPortal(
+                        <ul
+                          ref={menuRef}
+                          className="cui-select-menu"
+                          style={{
+                            position: "fixed",
+                            left: menuPosition.left,
+                            top: menuPosition.top,
+                            zIndex: 4000,
+                            minWidth: "120px",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <li
+                            className="cui-select-opt"
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => startEditing(event, chat)}
+                          >
+                            <Icon className="ti ti-edit" />
+                            <span>Edit</span>
+                          </li>
+                          <li
+                            className="cui-select-opt"
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => deleteChat(event, chat.id)}
+                            style={{
+                              color: "var(--color-danger, #e5484d)",
+                            }}
+                          >
+                            <Icon className="ti ti-trash" />
+                            <span>Delete</span>
+                          </li>
+                        </ul>,
+                        document.body,
+                      )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function QuriozChatComponent({ ScrollBottomAuto }) {
   const {
-    quriozMessage,
-    insertMessage,
-    deleteAllChatMessage,
-    isNewChat,
-    replaceChat,
-    QURIOZLENGTH,
-  } = useQuriozChatContext();
-  const {
-    clusters,
-    clusterName,
     selectedClusterId,
     user,
     password,
     port,
-    connected,
     selectedNode,
     nodeName,
   } = useConnection();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState({ status: false, message: null });
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { theme } = useTheme();
   const { session_id } = useParams();
+  const editorCredsRef = useRef(null);
+
+  const [isLoading, setIsLoading] = useState(false);
   const [showConfrirmDelete, setShowConfrimDelete] = useState(false);
-  const [dbs, setDbs] = useState([]);
+  const [, setDbs] = useState([]);
+  const [genTables, setGenTables] = useState({});
+  const [estimateScore, setEstimateScore] = useState(null);
   const [apikey, setApiKey] = useState({
     status: false,
     id: null,
     serviceName: null,
+    model: null,
   });
   const [apikeys, setApikeys] = useState([]);
+  const [showDBModel, setShowDBModel] = useState(false);
+  const [newSelection, setNewSelection] = useState([]);
+  const [isNewSelectAll, setIsNewSelectAll] = useState(false);
+  const [updateSelection, setUpdateSelection] = useState([]);
+  const [isUpdateSelectAll, setIsUpdateSelectAll] = useState(false);
+  const [dbLoading, setDBLoading] = useState({ flag: false, message: null });
+  const [alertMessage, setAlertMessage] = useState({
+    flag: false,
+    message: null,
+  });
+  const [editorCreds, setEditorCreds] = useState(null);
+  const [connUser, setConnUser] = useState("");
+  const [connPassword, setConnPassword] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [, setConnError] = useState(null);
+  const [isViewFlag, setIsViewFlag] = useState(false);
+  const [chatSession] = useState([]);
+  const [quriozMessage, setQuriozMessage] = useState([]); // chat messages store state
 
-  const { theme } = useTheme();
+  const editorConnected = !!editorCreds;
+
+  const isNewChat = () => quriozMessage?.length === 0;
+
+  const insertMessage = (message) => {
+    if (Object.keys(message)?.length > 0) {
+      setQuriozMessage((prev) => [...prev, message]);
+    }
+  };
+
+  const deleteAllChatMessage = () => {
+    setQuriozMessage([]);
+  };
+
+  const replaceChat = (message) => {
+    if (Array.isArray(message)) {
+      setQuriozMessage(message);
+    } else {
+      setQuriozMessage((prev) =>
+        prev.map((msg) => (msg?.id === message?.id ? message : msg)),
+      );
+    }
+  };
 
   function isDark() {
     return theme === "dark";
   }
 
-  const [selectDb, setSelectDb] = useState(null);
-  const [aiDatabase_id, setAIDatabase_id] = useState(null);
+  useEffect(() => {
+    const loadMessage = async () => {
+      try {
+        if (session_id) {
+          const response = await apiFetch(`/api/ai/chats/${session_id}`, {
+            method: "GET",
+          });
+          const messageHis = await createHisMsgArr(
+            response?.messages,
+            RunSqlQueryhandler,
+          );
+          setQuriozMessage(messageHis);
+        }
+      } catch {
+        // Keep the current data when the request fails.
+      }
+    };
+    loadMessage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
+  }, [session_id]);
 
-  const toast = useToast();
+  useEffect(() => {
+    function setupDDLLS() {
+      const isThere = localStorage.getItem(DDLTABLE_DATABASE_KEY);
+      if (isThere) {
+        const { selectdbDDL, estimate } = JSON.parse(isThere);
+        setGenTables(selectdbDDL);
+        setEstimateScore(estimate);
+        return;
+      }
 
-  const isConnected = (selectDb && aiDatabase_id) || !isLoading;
+      localStorage.setItem(
+        DDLTABLE_DATABASE_KEY,
+        JSON.stringify({ selectdbDDL: {}, estimate: null }),
+      );
+      setGenTables({});
+      setEstimateScore(null);
+      return;
+    }
 
-  const navigate = useNavigate();
+    setupDDLLS();
+  }, []);
 
   useEffect(() => {
     const fetchAPIKEY_Details = async () => {
@@ -80,8 +748,9 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           status: apiKey?.id ? true : false,
           id: apiKey?.id || null,
           serviceName: apiKey?.name || null,
+          model: apiKey?.model || null,
         });
-      } catch (err) {
+      } catch {
         setApiKey({
           status: false,
           id: null,
@@ -93,180 +762,90 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     fetchAPIKEY_Details();
   }, []);
 
-  const loadDbs = useCallback(() => {
-    runQuery("SELECT name FROM system.databases ORDER BY name")
-      .then((r) => {
-        return setDbs((r.rows || []).map((r) => r.name));
-      })
-      .catch(() => {});
-  }, []);
-
-  async function initSetup() {
-    const isExits = localStorage?.getItem(SELECTLSKEY);
-    loadDbs();
-
-    if (clusters?.length === 0) {
-      localStorage?.setItem(SELECTLSKEY, JSON.stringify({}));
-      deleteAllChatMessage();
-      return;
-    }
-
-    if (isExits === undefined || isExits === null) {
-      let clusterAiId = {};
-      clusters?.forEach((value) => {
-        let nodeObj = {};
-        value?.nodes?.forEach((node) => {
-          nodeObj[node?.name] = [];
-        });
-        clusterAiId[value?.id] = nodeObj;
-      });
-
-      localStorage.setItem(SELECTLSKEY, JSON.stringify(clusterAiId));
-      return;
-    }
-
-    const selectDB = JSON.parse(localStorage?.getItem(SELECTLSKEY));
-    let updateCluster = { ...selectDB };
-
-    clusters.forEach((value) => {
-      const find = Object?.keys(selectDB).includes(value?.id);
-      if (find) {
-        let newNodes = {};
-        value?.nodes?.forEach((node) => {
-          const isInOldNodes = Object.keys(updateCluster[value?.id]).find(
-            (val) => val === node?.name,
-          );
-          if (!isInOldNodes) {
-            newNodes[node?.name] = [];
-          }
-        });
-        updateCluster[value?.id] = { ...selectDB[value?.id], ...newNodes };
-      } else {
-        let nodeObj = {};
-        value?.nodes?.forEach((node) => {
-          nodeObj[node?.name] = [];
-        });
-        updateCluster[value?.id] = nodeObj;
-      }
-    });
-    localStorage?.setItem(SELECTLSKEY, JSON.stringify(updateCluster));
-
-    if (Object.keys(updateCluster).length > 0) {
-      const SelectedClusterAndNode = updateCluster[selectedClusterId][nodeName];
-      SelectedClusterAndNode?.forEach((dbsConnections) => {
-        if (dbsConnections?.isSelected) {
-          setSelectDb(dbsConnections?.dbName);
-          setAIDatabase_id(dbsConnections?.ai_id);
-        }
-      });
-
-      return;
-    }
-
-    setSelectDb(null);
-    setAIDatabase_id(null);
-
-    return;
-  }
-
-  async function selectHandler(event) {
-    try {
-      const localStorageData = JSON.parse(localStorage?.getItem(SELECTLSKEY));
-      const selected = event?.target?.value;
-
-      if (selected !== "Select Database") {
-        let SelectedClusterAndNode =
-          localStorageData[selectedClusterId][nodeName];
-
-        const find = SelectedClusterAndNode?.filter(
-          (db) => db?.dbName === selected,
-        );
-
-        if (find?.length === 0) {
-          const responseData = await await apiFetch(
-            `/api/ai/database/connect`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                database_type: "clickhouse",
-                credentials: {
-                  host: selectedNode,
-                  port: port,
-                  username: user,
-                  password: password,
-                  database: selected,
-                },
-                llm_provider: "string",
-                model_name: "string",
-              }),
-              headers: {
-                "Content-Type": "application/json",
-              },
-            },
-          );
-
-          if (responseData?.success) {
-            const obj = {
-              dbName: selected,
-              ai_id: responseData?.database_id,
-              isSelected: true,
-            };
-
-            let filtered = SelectedClusterAndNode?.map((db) => ({
-              ...db,
-              isSelected: false,
-            }));
-
-            filtered?.push(obj);
-
-            let filterData = { ...localStorageData };
-            filterData[selectedClusterId][nodeName] = filtered;
-
-            localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
-            setSelectDb(selected);
-            setAIDatabase_id(responseData?.database_id);
-            toast.success(`Successfully AI database id generated!`);
-          } else {
-            toast.error("Failed to load database ID. Please retry.");
-          }
-        } else {
-          const filtered = localStorageData[selectedClusterId][nodeName].map(
-            (db) => {
-              if (db?.dbName === selected) {
-                return { ...db, isSelected: true };
-              }
-              return { ...db, isSelected: false };
-            },
-          );
-          let filterData = { ...localStorageData };
-          filterData[selectedClusterId][nodeName] = filtered;
-          localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
-          setSelectDb(selected);
-          setAIDatabase_id(find[0]?.ai_id);
-        }
-      } else {
-        setSelectDb(null);
-        setAIDatabase_id(null);
-      }
-    } catch (err) {
-      toast?.error(`Failed to load database ID. Please retry.`);
-    }
+  // Without a ClickHouse connection there is no session, and the request gets a 401.
+  async function loadDbs() {
+    if (!editorCreds) return [];
+    const response = await apiFetch("/api/ai/databases", { method: "GET" });
+    return response?.databases || [];
   }
 
   useEffect(() => {
+    async function initSetup() {
+      editorCredsRef.current = editorCreds;
+      try {
+        const databases = await loadDbs();
+        setNewSelection(
+          databases?.map((_v) => ({
+            name: _v,
+            id: null,
+            isSelected: false,
+            isAllowForRequest: true,
+          })) || [],
+        );
+      } catch {
+        setNewSelection([]);
+      }
+    }
     initSetup();
-  }, [clusters, clusterName, selectedClusterId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
+  }, [editorCreds]);
 
-  const editingContentHandler = (quest, id) => {
-    setChatMessage((prev) =>
-      prev?.map((value) => {
-        if (value?.id === id) {
-          return { ...value, question: quest };
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/ai/connect", { method: "GET" })
+      .then((s) => {
+        if (!cancelled && s?.connected && s.chUser) {
+          setEditorCreds({ user: s.chUser });
         }
-        return value;
-      }),
-    );
-  };
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleConnect() {
+    if (!connUser.trim()) {
+      toast.error("Username is required.");
+      return;
+    }
+    setConnecting(true);
+    setConnError(null);
+    const candidate = { user: connUser.trim(), password: connPassword };
+    try {
+      // await editorConnect(candidate);
+      await apiFetch("/api/ai/connect", {
+        method: "POST",
+        body: JSON.stringify({
+          clusterId: selectedClusterId,
+          node: nodeName,
+          user: connUser,
+          password: connPassword,
+        }),
+      });
+
+      setEditorCreds({ user: candidate.user });
+      setConnPassword("");
+      toast.success("DB connected successfully");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    try {
+      await apiFetch("/api/ai/connect", { method: "DELETE" });
+    } catch {
+      // Ignore a failed disconnect.
+    }
+    setEditorCreds(null);
+    setConnUser("");
+    setConnPassword("");
+    setConnError(null);
+    setDbs([]);
+  }
 
   const ToggelChartHandler = (message) => {
     if (message) {
@@ -280,10 +859,14 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
   };
 
   const RunSqlQueryhandler = async (sql) => {
+    if(!editorConnected){
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
     try {
-      if (connected && sql) {
+      if (sql) {
         const connectionOption = {
-          node: selectedNode,
+          node: nodeName,
           user,
           password,
           port,
@@ -297,263 +880,159 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   };
 
-  const userSubmitMessagehandler = async (userQuestion) => {
-    if (apikey?.id) {
-      if (QURIOZLENGTH() <= CHAT_LIMIT) {
-        setIsLoading(true);
-        try {
-          if (userQuestion?.length > 0) {
-            if (selectDb && aiDatabase_id) {
-              if (isNewChat()) {
-                const userQuestionMessage = {
-                  id: Date.now(),
-                  type: "user",
-                  userQuestion: userQuestion,
-                };
-                insertMessage(userQuestionMessage);
-                ScrollBottomAuto();
+  const requestBodyChat = (
+    session_id,
+    userQuestion,
+    result,
+    selectedClusterId,
+    nodeName,
+    isApiConfigured,
+    messageId = null,
+  ) => {
+    return isNewChat()
+      ? {
+          method: "POST",
+          body: JSON.stringify({
+            chatId: session_id ?? null,
+            instruction: userQuestion,
+            tables: result,
+            clusterId: selectedClusterId,
+            node: nodeName,
+            previousInstruction: null,
+            previousSql: null,
+            forceRefreshDdl: false,
+            messageId: messageId,
+            isApiConfigured: isApiConfigured,
+          }),
+        }
+      : {
+          method: "POST",
+          body: JSON.stringify({
+            chatId: session_id ?? null,
+            instruction: userQuestion,
+            tables: result,
+            clusterId: selectedClusterId,
+            node: nodeName,
+            previousInstruction: null,
+            previousSql: null,
+            forceRefreshDdl: false,
+            messageId: messageId,
+            isApiConfigured: isApiConfigured,
+          }),
+        };
+  };
 
-                const responseAIQuery = await await apiFetch(
-                  `/api/ai/sql/generate-sql`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON?.stringify({
-                      database_id: aiDatabase_id,
-                      user_question: userQuestion?.trim(),
-                    }),
-                  },
-                );
+  const currentSubmitMessageHandler = async (userQuestion) => {
+    // split the database value and selected tables data
+    const result = responseBodyStructTableDatabase(genTables);
 
-                if (responseAIQuery?.success) {
-                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
-                  //   "--Unable to generate SQL",
-                  // );
-                  const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
+    //  checking the database or node connected to the application by using auth of database
+    if (!editorCreds) {
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
 
-                  if (responseSQL) {
-                    insertMessage({
-                      id: Date.now(),
-                      type: "bot",
-                      isLoading: false,
-                      sql: responseAIQuery?.generated_sql,
-                      showResponse: true,
-                      tableData: [],
-                      chart: {
-                        isOpen: false,
-                        chartOption: {},
-                        error: { status: false, message: "" },
-                        editorOption: {},
-                      },
-                      error: { status: false, message: null },
-                      aiError: { status: false, message: null },
-                    });
-                    setIsLoading(false);
-                  } else {
-                    const SQL = responseAIQuery?.generated_sql
-                      ?.toLowerCase()
-                      .includes("limit")
-                      ? responseAIQuery?.generated_sql
-                      : `${responseAIQuery?.generated_sql} limit 10`;
+    if (userQuestion?.length === 0) return; // return empty the user container is empty
 
-                    const QueryResult = await RunSqlQueryhandler(SQL);
+    // checking the apikey config not selected or inserted
+    let isApiConfigured = apikey?.id ? true : false;
 
-                    if (QueryResult?.success) {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: QueryResult?.rows || [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: false, message: null },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    } else {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: QueryResult?.rows || [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: true, message: QueryResult?.message },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    }
-                  }
-                } else {
-                  insertMessage({
-                    id: Date.now(),
-                    type: "bot",
-                    isLoading: false,
-                    sql: "",
-                    showResponse: true,
-                    tableData: [],
-                    chart: {
-                      isOpen: false,
-                      chartOption: {},
-                      error: { status: false, message: "" },
-                      editorOption: {},
-                    },
-                    error: { status: false, message: null },
-                    aiError: {
-                      status: true,
-                      message:
-                        responseAIQuery?.message ||
-                        "Error occurs on generating the query!",
-                    },
-                  });
-                  setIsLoading(false);
-                }
-              } else {
-                const userQuestionMessage = {
-                  id: Date.now(),
-                  type: "user",
-                  userQuestion: userQuestion,
-                };
-                insertMessage(userQuestionMessage);
-                ScrollBottomAuto();
+    // checking the user select the tables and database for ddl and estimated scores
+    if (result?.length === 0) {
+      toast.warning("Select Database and generate the ID!");
+      return;
+    }
 
-                const responseAIQuery = await await apiFetch(
-                  `/api/ai/sql/generate-sql`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON?.stringify({
-                      database_id: aiDatabase_id,
-                      user_question: userQuestion?.trim(),
-                    }),
-                  },
-                );
+    setIsLoading(true);
 
-                if (responseAIQuery?.success) {
-                  // const responseSQL = responseAIQuery?.generated_sql?.includes(
-                  //   "--Unable to generate SQL",
-                  // );
+    try {
+      // user using the new session or new chat and containue chat qurioz
 
-                  const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
+      const userQuestionMessage = {
+        id: Date.now(),
+        type: "user",
+        userQuestion: userQuestion,
+      };
+      insertMessage(userQuestionMessage);
+      ScrollBottomAuto();
 
-                  if (responseSQL) {
-                    insertMessage({
-                      id: Date.now(),
-                      type: "bot",
-                      isLoading: false,
-                      sql: responseAIQuery?.generated_sql,
-                      showResponse: true,
-                      tableData: [],
-                      chart: {
-                        isOpen: false,
-                        chartOption: {},
-                        error: { status: false, message: "" },
-                        editorOption: {},
-                      },
-                      error: { status: false, message: null },
-                      aiError: { status: false, message: null },
-                    });
-                    setIsLoading(false);
-                  } else {
-                    const SQL = responseAIQuery?.generated_sql
-                      ?.toLowerCase()
-                      .includes("limit")
-                      ? responseAIQuery?.generated_sql
-                      : `${responseAIQuery?.generated_sql} limit 10`;
+      // generate the object or json for request body based the new chat or old chat
+      const requestBody = requestBodyChat(
+        session_id,
+        userQuestion,
+        result,
+        selectedClusterId,
+        nodeName,
+        isApiConfigured,
+      );
 
-                    const QueryResult = await RunSqlQueryhandler(SQL);
+      const responseAIQuery = await await apiFetch(
+        "/api/ai/generate",
+        requestBody,
+      );
 
-                    if (QueryResult?.success) {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: QueryResult?.rows || [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: false, message: null },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    } else {
-                      insertMessage({
-                        id: Date.now(),
-                        type: "bot",
-                        isLoading: false,
-                        sql: SQL,
-                        showResponse: true,
-                        tableData: [],
-                        chart: {
-                          isOpen: false,
-                          chartOption: {},
-                          error: { status: false, message: "" },
-                          editorOption: {},
-                        },
-                        error: { status: false, message: null },
-                        aiError: { status: false, message: null },
-                      });
-                      setIsLoading(false);
-                    }
-                  }
-                } else {
-                  insertMessage({
-                    id: Date.now(),
-                    type: "bot",
-                    isLoading: false,
-                    sql: "",
-                    showResponse: true,
-                    tableData: [],
-                    chart: {
-                      isOpen: false,
-                      chartOption: {},
-                      error: { status: false, message: "" },
-                      editorOption: {},
-                    },
-                    error: { status: false, message: null },
-                    aiError: {
-                      status: true,
-                      message:
-                        responseAIQuery?.message ||
-                        "Failed to fetch the generating the response",
-                    },
-                  });
-                  setIsLoading(false);
-                }
-              }
-            } else {
-              toast?.warning(`Select Database and generate the ID!`);
-            }
-          }
-        } catch (err) {
-          insertMessage({
+      if (responseAIQuery?.chatId && isNewChat()) {
+        setIsLoading(false);
+        navigate(`/qurioz/${responseAIQuery?.chatId}`);
+        return;
+      }
+
+      // check the normal chat like greeting or anyother like hello hi etc........
+      const responseSQL = isMessageFinders(responseAIQuery?.sql);
+
+      if (responseAIQuery?.errorCode) {
+        const error = JSON.parse(responseAIQuery?.errorCode);
+
+        insertMessage({
+          id: Date.now(),
+          type: "bot",
+          isLoading: false,
+          sql: null,
+          showResponse: true,
+          tableData: [],
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: { status: true, message: error?.message },
+          aiError: { status: true, message: error?.message },
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (responseSQL || responseAIQuery?.sql === null) {
+        insertMessage({
+          id: Date.now(),
+          type: "bot",
+          isLoading: false,
+          sql: responseAIQuery?.responseText,
+          showResponse: true,
+          tableData: [],
+          chart: {
+            isOpen: false,
+            chartOption: {},
+            error: { status: false, message: "" },
+            editorOption: {},
+          },
+          error: { status: false, message: null },
+          aiError: { status: false, message: null },
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const QueryResult = await RunSqlQueryhandler(responseAIQuery?.sql);
+      QueryResult?.success
+        ? insertMessage({
             id: Date.now(),
             type: "bot",
             isLoading: false,
-            sql: "",
+            sql: responseAIQuery?.sql,
             showResponse: true,
-            tableData: [],
+            tableData: QueryResult?.rows || [],
             chart: {
               isOpen: false,
               chartOption: {},
@@ -561,89 +1040,13 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
               editorOption: {},
             },
             error: { status: false, message: null },
-            aiError: {
-              status: true,
-              message:
-                err?.message === "Failed to fetch"
-                  ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
-                  : err?.message ||
-                    "Request failed to load. Please check your internet connection and try again.",
-            },
-          });
-        } finally {
-          setIsLoading(false);
-          setTimeout(() => {
-            ScrollBottomAuto();
-          }, 500);
-        }
-      } else {
-        insertMessage({
-          id: Date.now(),
-          type: "bot",
-          isLoading: false,
-          aiError: {
-            status: true,
-            message:
-              "The chat limit has been exceeded. Please clear the old chat and continue the conversation.",
-          },
-        });
-      }
-    } else {
-      const userQuestionMessage = {
-        id: Date.now(),
-        type: "user",
-        userQuestion: userQuestion,
-      };
-      insertMessage(userQuestionMessage);
-
-      insertMessage({
-        id: Date.now(),
-        type: "bot",
-        isLoading: false,
-        aiError: {
-          status: true,
-          message:
-            "AI model and token configuration is missing or invalid. Please configure a valid model and token limit to continue.",
-        },
-      });
-      ScrollBottomAuto();
-    }
-  };
-
-  const ReFormQuestionSQLGenerating = async (updatedQuestion, UserIndex) => {
-    let BotMessagesResponseBelowUser = (quriozMessage || []).filter(
-      (value, indx) => indx === UserIndex + 1,
-    );
-
-    try {
-      let UpdatedMessage = null;
-
-      replaceChat({ ...BotMessagesResponseBelowUser[0], isLoading: true });
-
-      const responseAIQuery = await await apiFetch(`/api/ai/sql/generate-sql`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON?.stringify({
-          database_id: aiDatabase_id,
-          user_question: updatedQuestion?.trim(),
-        }),
-      });
-
-      if (responseAIQuery?.success) {
-        // const responseSQL = responseAIQuery?.generated_sql?.includes(
-        //   "--Unable to generate SQL",
-        // );
-
-        const responseSQL = isMessageFinders(responseAIQuery?.generated_sql)
-
-        if (responseSQL) {
-          UpdatedMessage = {
-            id: BotMessagesResponseBelowUser[0]?.id,
+            aiError: { status: false, message: null },
+          })
+        : insertMessage({
+            id: Date.now(),
             type: "bot",
             isLoading: false,
-            sql: responseAIQuery?.generated_sql,
+            sql: responseAIQuery?.sql,
             showResponse: true,
             tableData: [],
             chart: {
@@ -654,53 +1057,117 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             },
             error: { status: false, message: null },
             aiError: { status: false, message: null },
-          };
-        } else {
-          const SQL = responseAIQuery?.generated_sql
-            ?.toLowerCase()
-            .includes("LIMIT")
-            ? responseAIQuery?.generated_sql
-            : `${responseAIQuery?.generated_sql} limit 10`;
+          });
+      setIsLoading(false);
+    } catch (servererror) {
+      insertMessage({
+        id: Date.now(),
+        type: "bot",
+        isLoading: false,
+        sql: "",
+        showResponse: true,
+        tableData: [],
+        chart: {
+          isOpen: false,
+          chartOption: {},
+          error: { status: false, message: "" },
+          editorOption: {},
+        },
+        error: { status: false, message: null },
+        aiError: {
+          status: true,
+          message:
+            servererror?.message === "Failed to fetch"
+              ? "Sorry, we couldn't load your request at the moment. Please try again in a few seconds."
+              : servererror?.message ||
+                "Request failed to load. Please check your internet connection and try again.",
+        },
+      });
+      setIsLoading(false);
+    } finally {
+      isLoading && setIsLoading(false);
+      setTimeout(() => {
+        ScrollBottomAuto();
+      }, 500);
+    }
+  };
 
-          const QueryResult = await RunSqlQueryhandler(SQL);
+  const ReFormQuestionSQLGenerating = async (
+    updatedQuestion,
+    UserIndex,
+    messageId,
+  ) => {
+    if (!editorCreds) {
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
+
+    const result = responseBodyStructTableDatabase(genTables);
+
+    let BotMessagesResponseBelowUser = (quriozMessage || []).filter(
+      (value, indx) => indx === UserIndex + 1,
+    );
+
+    if (!BotMessagesResponseBelowUser) return;
+
+    // checking the apikey config not selected or inserted
+    let isApiConfigured = apikey?.id ? true : false;
+
+    try {
+      replaceChat({ ...BotMessagesResponseBelowUser[0], isLoading: true });
+
+      const requestBody = requestBodyChat(
+        session_id,
+        updatedQuestion,
+        result,
+        selectedClusterId,
+        nodeName,
+        isApiConfigured,
+        messageId,
+      );
+
+      const responseAIQuery = await await apiFetch(
+        "/api/ai/generate",
+        requestBody,
+      );
+
+      if (responseAIQuery?.chatId && responseAIQuery?.messageId) {
+        if (!responseAIQuery?.sql) {
+          replaceChat({
+            ...BotMessagesResponseBelowUser[0],
+            sql: responseAIQuery?.responseText,
+            isLoading: false,
+          });
+          return;
+        }
+
+        const responseSQL = isMessageFinders(responseAIQuery?.sql);
+        if (responseSQL) {
+          replaceChat({
+            ...BotMessagesResponseBelowUser[0],
+            isLoading: false,
+            sql: responseAIQuery?.sql
+              ? responseAIQuery?.sql
+              : responseAIQuery?.responseText,
+          });
+        } else {
+          const QueryResult = await RunSqlQueryhandler(responseAIQuery?.sql);
 
           if (QueryResult?.success) {
-            UpdatedMessage = {
-              id: BotMessagesResponseBelowUser[0]?.id,
-              type: "bot",
+            replaceChat({
+              ...BotMessagesResponseBelowUser[0],
               isLoading: false,
-              sql: SQL,
+              sql: responseAIQuery?.sql,
               showResponse: true,
               tableData: QueryResult?.rows || [],
-              chart: {
-                isOpen: false,
-                chartOption: {},
-                error: { status: false, message: "" },
-                editorOption: {},
-              },
-              error: { status: false, message: null },
-              aiError: { status: false, message: null },
-            };
+            });
           } else {
-            UpdatedMessage = {
-              id: BotMessagesResponseBelowUser[0]?.id,
-              type: "bot",
+            replaceChat({
+              ...BotMessagesResponseBelowUser[0],
               isLoading: false,
-              sql: SQL,
-              showResponse: true,
-              tableData: [],
-              chart: {
-                isOpen: false,
-                chartOption: {},
-                error: { status: false, message: "" },
-                editorOption: {},
-              },
-              error: { status: true, message: QueryResult?.message },
-              aiError: { status: false, message: null },
-            };
+              sql: responseAIQuery?.sql,
+            });
           }
-
-          replaceChat(UpdatedMessage);
         }
       }
     } catch (err) {
@@ -731,57 +1198,359 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
     }
   };
 
-  const DeleteDatabaseConnectionID = async () => {
-    let findClusterNode = JSON.parse(localStorage?.getItem(SELECTLSKEY));
-    if (
-      findClusterNode &&
-      selectedClusterId &&
-      nodeName &&
-      selectDb &&
-      aiDatabase_id
-    ) {
-      const removedData = findClusterNode[selectedClusterId][nodeName]?.filter(
-        (dbs) => {
-          return dbs?.ai_id !== aiDatabase_id;
-        },
-      );
-      findClusterNode[selectedClusterId][nodeName] = removedData;
-      setAIDatabase_id(null);
-      setSelectDb(null);
-
-      try {
-        await apiFetch(`/api/ai/database/delete`, {
-          method: "DELETE",
-          body: JSON.stringify({ database_id: aiDatabase_id }),
-        });
-
-        localStorage.setItem(SELECTLSKEY, JSON.stringify(findClusterNode));
-
-        toast?.success(`Database connection removed successfully.`);
-      } catch (err) {
-        toast?.error(err?.message);
-      }
-    }
-  };
-
-  async function SelectAIProvider(e) {
-    const llm_provider = e?.target?.value;
-    const { id } = apikeys?.find((val_) => val_?.name === llm_provider);
+  async function SelectAIProvider(event) {
+    const llm_provider = event?.target?.value;
+    const selectedKey = apikeys?.find((keyItem) => keyItem?.name === llm_provider);
+    if (!selectedKey) return;
+    const { id } = selectedKey;
 
     try {
-      const res = await apiFetch(`/api/qurioz/api-keys/select`, {
+      const response = await apiFetch(`/api/qurioz/api-keys/select`, {
         method: "POST",
         body: JSON.stringify({ keyId: id }),
       });
       setApiKey({
         status: true,
-        id: res?.id,
-        serviceName: res?.name,
+        id: response?.id,
+        serviceName: response?.name,
+        model: response?.model,
       });
-      toast?.success(`${res?.name} selected successfully.`);
+      toast?.success(`${response?.name} selected successfully.`);
     } catch (err) {
       setApiKey({ status: false, id: null, serviceName: null });
       toast?.error(err?.message);
+    }
+  }
+
+  async function selectDBGenerateID(database, type) {
+    if (type === "new") {
+      isNewSelectAll && setIsNewSelectAll(false);
+      // const tablesGen = await apiFetch(`/api/ai/tables`,{method:'GET'})
+      setNewSelection((prev) =>
+        prev?.map((_v) => {
+          if (_v?.name === database) {
+            return {
+              ..._v,
+              isSelected: !_v?.isSelected,
+            };
+          }
+          return _v;
+        }),
+      );
+    }
+  }
+
+  function isSelectDb(database, type) {
+    return type === "new"
+      ? newSelection?.some((_v) => _v?.name === database && _v?.isSelected)
+      : updateSelection?.some((_v) => _v?.name === database && _v?.isSelected);
+  }
+
+  function isDisableSelectDb(database) {
+    const dbSelected = Object.keys(genTables)?.find((_v) => _v === database);
+    return dbSelected ? true : false;
+  }
+
+  function isSelectTable(database, table) {
+    const value = genTables[database];
+    if (!value) return false;
+    return value?.find((_v) => _v?.table === table)?.isSelected ?? false;
+  }
+
+  function SetterLSDDL(data, estimate) {
+    localStorage.setItem(
+      DDLTABLE_DATABASE_KEY,
+      JSON.stringify({ selectdbDDL: data, estimate: estimate }),
+    );
+  }
+
+  async function databaseSchemaSetterHandler(type) {
+    if (type === "refresh") {
+      setDBLoading({
+        flag: true,
+        message: "Refreshing the database schema ID. Please wait...",
+      });
+      try {
+        const req = updateSelection
+          ?.filter((_v) => _v?.isSelected)
+          ?.map((_v) => _v?.id);
+
+        const requestBody = JSON.stringify({
+          database_ids: req || [],
+        });
+
+        const responseRefresh = await apiFetch(
+          "/api/ai/database/refresh-schema",
+          {
+            method: "POST",
+            body: requestBody,
+          },
+        );
+        if (responseRefresh?.success) {
+          setUpdateSelection((prev) =>
+            prev?.map((_v) => ({
+              ..._v,
+              isSelected: false,
+            })),
+          );
+        }
+        setAlertMessage({
+          flag: true,
+          message: `Refreshing the database schema is completed successfully!`,
+        });
+        return;
+      } catch (err) {
+        setAlertMessage({
+          flag: true,
+          message: err?.message,
+        });
+      } finally {
+        setDBLoading({ flag: false, message: null });
+        isUpdateSelectAll && setIsUpdateSelectAll(false);
+        setTimeout(() => {
+          setAlertMessage({ flag: false, message: null });
+        }, 2000);
+      }
+    }
+    setDBLoading({
+      flag: true,
+      message: "Getting table information. Please wait…",
+    });
+    try {
+      const req = newSelection
+        ?.filter((_v) => _v?.isSelected)
+        ?.map((_v) => _v?.name);
+
+      const findDB =
+        Object.keys(genTables)?.length > 0
+          ? req?.filter((v) => {
+              const find = Object.keys(genTables)?.find((b) => b === v);
+
+              return find === undefined;
+            })
+          : req;
+
+      if (findDB?.length === 0) return;
+
+      const responseInsert = await apiFetch(
+        `/api/ai/tables?databases=${findDB?.join(",")}`,
+        {
+          method: "GET",
+        },
+      );
+
+      if (responseInsert?.tables) {
+        const { tables } = responseInsert;
+
+        const splitDatabaseTables = { ...genTables };
+        tables.forEach((_v) => {
+          const isFind = Object.keys(splitDatabaseTables).find(
+            (_key) => _key === _v?.database,
+          );
+          if (isFind) {
+            splitDatabaseTables[_v?.database] = [
+              ...splitDatabaseTables[_v?.database],
+              { isSelected: false, table: _v?.table },
+            ];
+          } else {
+            splitDatabaseTables[_v?.database] = [
+              { isSelected: false, table: _v?.table },
+            ];
+          }
+        });
+        setGenTables(splitDatabaseTables);
+        SetterLSDDL(splitDatabaseTables, estimateScore);
+      }
+    } catch (err) {
+      setAlertMessage({
+        flag: true,
+        message: err?.message,
+      });
+    } finally {
+      setDBLoading({ flag: false, message: null });
+      setTimeout(() => {
+        setAlertMessage({ flag: false, message: null });
+      }, 2000);
+      isNewSelectAll && setIsNewSelectAll(false);
+    }
+  }
+
+  async function GenerateDDL_EsitmateHandler() {
+    setDBLoading({
+      flag: true,
+      message: "Getting table information. Please wait…",
+    });
+    try {
+      const result = responseBodyStructTableDatabase(genTables);
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(genTables, tokensEstimated);
+    } catch (err) {
+      setAlertMessage({
+        flag: true,
+        message: err?.message,
+      });
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
+    }
+  }
+
+  function selectAllHandler(type) {
+    if (type === "new") {
+      if (!isNewSelectAll) {
+        setNewSelection((prev) =>
+          prev?.map((_v) => ({ ..._v, isSelected: true })),
+        );
+        setIsNewSelectAll(true);
+        return;
+      }
+
+      setNewSelection((prev) =>
+        prev?.map((_v) => ({ ..._v, isSelected: false })),
+      );
+      setIsNewSelectAll(false);
+      return;
+    }
+    if (!isUpdateSelectAll) {
+      setUpdateSelection((prev) =>
+        prev?.map((_v) => ({ ..._v, isSelected: true })),
+      );
+      setIsUpdateSelectAll(true);
+      return;
+    }
+    setUpdateSelection((prev) =>
+      prev?.map((_v) => ({ ..._v, isSelected: false })),
+    );
+    setIsUpdateSelectAll(false);
+    return;
+  }
+
+  function isEnableAddButton() {
+    return newSelection?.length > 0
+      ? newSelection?.some((_v) => _v?.isSelected)
+      : false;
+  }
+
+  function isAllowForRequestHandler() {
+    return updateSelection?.length > 0
+      ? updateSelection.some((item) => item?.isAllowForRequest)
+      : false;
+  }
+
+  function isEmptyTableAndDatabase() {
+    return Object.keys(genTables)?.length === 0;
+  }
+
+  function SelectTablehandler(db, table) {
+    const setter = { ...genTables };
+    setter[db] = setter[db]?.map((_v) => {
+      if (_v?.table === table) {
+        return { ..._v, isSelected: !_v?.isSelected };
+      }
+      return _v;
+    });
+    // SetterLSDDL(setter);
+    setGenTables(setter);
+  }
+
+  async function updateChart(chartName,dashId,chatId,messageId) {
+    try {
+
+      const response = await apiFetch(`/api/ai/chats/${chatId}/messages/${messageId}`
+        ,{
+          method:"PATCH",
+          body: {
+          isUpdateChart:true,
+          chartName,
+          dashId
+        },
+        }
+
+      )
+      console.log(response)
+      
+    } catch (error) {
+      console.log(error.message)
+    }
+  }
+
+  async function DeleteDatabaseDDLHandler(db) {
+    setDBLoading({
+      flag: true,
+      message: "Deleting table and refreshing estimate information…",
+    });
+
+    const setter = { ...genTables };
+    delete setter[db];
+
+    try {
+      let result = [];
+      Object.keys(setter)?.forEach((_v) => {
+        const tables = genTables[_v];
+        if (tables) {
+          tables?.forEach((_t) => {
+            if (_t?.isSelected) {
+              result.push({
+                database: _v,
+                table: _t?.table,
+              });
+            }
+          });
+        }
+      });
+
+      setNewSelection((prev) =>
+        prev.map((_v) => {
+          const db = Object.keys(setter).find((_b) => _b === _v?.name);
+          if (!db) {
+            return { ..._v, isSelected: false };
+          }
+          return _v;
+        }),
+      );
+
+      if (!result) {
+        return;
+      }
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(setter, tokensEstimated);
+      setGenTables(setter);
+    } catch (err) {
+      if (err?.message === "empty") {
+        SetterLSDDL(setter, 0);
+        setGenTables(setter);
+        setEstimateScore(0);
+      } else {
+        setAlertMessage({
+          flag: true,
+          message: err?.message,
+        });
+      }
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
     }
   }
 
@@ -797,147 +1566,250 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
           zIndex: 10,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexDirection: "row",
-            gap: "10px",
-            // left: !sidebar ? "15rem" : "0rem",
-          }}
-        >
-          <button
-            className="btn btn-ghost"
-            title="Clear All Chats"
-            disabled={isNewChat()}
-            onClick={() => {
-              setShowConfrimDelete(true);
-            }}
-          >
-            <Icon className="ti ti-eraser"></Icon>
-          </button>
-
-          <div
-            className="form-group"
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: "20px",
-            }}
-          >
-            <Select
-              className="form-input"
-              value={selectDb || "Select Database"}
-              onChange={(e) => selectHandler(e)}
-              style={{
-                width: "150px",
-                padding: "5px",
-                paddingLeft: "10px",
-                fontSize: "12px",
-              }}
-            >
-              <option value="Select Database">Select Database</option>
-              {dbs?.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </Select>
-
-            {selectDb && aiDatabase_id ? (
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <div className="conn-indicator connected"> </div>
-                <button
-                  className="btn btn-ghost"
-                  title="Remove the database connection permanently"
-                  onClick={() => DeleteDatabaseConnectionID()}
-                >
-                  <Icon className="ti ti-plug-connected-x"></Icon>
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="conn-indicator disconnected"> </div>
-              </div>
-            )}
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <HistoryShowBubbleComponent
+            chatSession={chatSession}
+            replaceChat={replaceChat}
+            RunSqlQueryhandler={RunSqlQueryhandler}
+          />
         </div>
 
-        {apikeys?.length > 0 ? (
-          <div>
-            <Select
-              className="form-input"
-              value={apikey?.serviceName}
-              onChange={SelectAIProvider}
-              style={{
-                width: "150px",
-                padding: "5px",
-                paddingLeft: "10px",
-                fontSize: "10px",
-              }}
-            >
-              {apikeys?.map((u) => (
-                <option
-                  key={u?.id}
-                  value={u?.name}
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          {!editorConnected ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon
+                  className="ti ti-user"
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
+                  // aria-hidden="true"
+                ></Icon>
+                <Input
                   style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    fontSize: "12px",
+                    height: 28,
+                    width: 150,
+                    fontSize: "0.75rem",
+                    padding: "0 6px",
+                  }}
+                  placeholder="user"
+                  title="ClickHouse username"
+                  aria-label="ClickHouse username"
+                  value={connUser}
+                  onChange={(e) => setConnUser(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleConnect();
+                  }}
+                  autoComplete="off"
+                />
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon
+                  className="ti ti-lock"
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
+                  // aria-hidden="true"
+                ></Icon>
+                <div
+                  style={{
+                    position: "relative",
                   }}
                 >
-                  {u?.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        ) : (
-          <div
-            className={`api-details alert-banner danger `}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              cursor: "pointer",
-              borderRadius: "5px",
-              gap: "10px",
-              padding: "5px 15px",
-            }}
-            title={
-              apikey?.status
-                ? `Active API key: ${apikey?.serviceName}`
-                : "No AI API key selected."
-            }
-            onClick={() => navigate("/admin/api-management")}
-          >
-            <Icon className="ti ti-key" style={{ fontSize: "13px" }}></Icon>
-            <div className="details">
-              <h6 style={{ fontSize: "10px" }}>{"NO API KEY"} </h6>
+                  <Input
+                    type={isViewFlag ? "text" : "password"}
+                    style={{
+                      height: 28,
+                      width: 150,
+                      fontSize: "0.75rem",
+                      padding: "0 6px",
+                      paddingRight: "30px",
+                    }}
+                    placeholder="password"
+                    title="ClickHouse password"
+                    aria-label="ClickHouse password"
+                    value={connPassword}
+                    onChange={(e) => setConnPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleConnect();
+                    }}
+                    autoComplete="off"
+                  />
+                  <button type="button" className="password-eye" aria-label={isViewFlag ? "Hide password" : "Show password"} aria-pressed={!!(isViewFlag)} onClick={() => setIsViewFlag(!isViewFlag)}>
+                    <Icon
+                      className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "17%",
+                        fontSize: "1.0625rem",
+                      }}
+                    />
+                  </button>
+                </div>
+              </span>
+              <Button
+                variant="primary" size="sm"
+                onClick={handleConnect}
+                disabled={connecting || !connUser.trim()}
+                title={`Connect to ${selectedNode || "node"}:${port}`}
+              >
+                {connecting ? (
+                  <span className="loading-spinner"></span>
+                ) : (
+                  <Icon className="ti ti-plug"></Icon>
+                )}{" "}
+                Go
+              </Button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: "0.75rem",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <Button
+                variant="ghost"
+                onClick={() => setShowDBModel(true)}
+              >
+                <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }} />
+              </Button>
+              <Icon
+                className="ti ti-plug-connected"
+                style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
+              ></Icon>
+              <span>
+                <strong style={{ color: "var(--text-primary)" }}>
+                  {editorCreds.user}
+                </strong>
+                <span style={{ color: "var(--text-muted)" }}>
+                  {" "}
+                  @{" "}
+                  {selectedNode === "localhost"
+                    ? "lh"
+                    : selectedNode.slice(0, 10)}
+                  :{port}
+                </span>
+              </span>
+
+              <Button
+                variant="ghost" size="sm"
+                onClick={handleDisconnect}
+                title="Disconnect and clear credentials"
+              >
+                <Icon className="ti ti-logout"></Icon>
+              </Button>
+            </div>
+          )}
+
+          {apikeys?.length > 0 ? (
+            <div>
+              <Select
+                className="form-input"
+                value={
+                  <h3 style={{ fontSize: "0.625rem" }}>
+                    {apikey?.serviceName}{" "}
+                    <span
+                      style={{
+                        fontSize: "0.625rem",
+                        color: "ligthgray",
+                        marginLeft: "3px",
+                      }}
+                    >
+                      {apikey?.model}
+                    </span>
+                  </h3>
+                }
+                onChange={SelectAIProvider}
+                style={{
+                  width: "150px",
+                  padding: "5px",
+                  paddingLeft: "10px",
+                  fontSize: "0.625rem",
+                }}
+                type="chat"
+                Title={() => `${apikey?.serviceName} | ${apikey?.model}`}
+              >
+                {apikeys?.map((u) => (
+                  <option
+                    key={u?.id}
+                    value={u?.name}
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    {u?.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <button
+                type="button"
+                className="api-details alert-banner danger"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  font: "inherit",
+                  borderRadius: "5px",
+                  gap: "10px",
+                  padding: "5px 15px",
+                }}
+                title={
+                  apikey?.status
+                    ? `Active API key: ${apikey?.serviceName}`
+                    : "No AI API key selected."
+                }
+                onClick={() => navigate("/admin/api-management")}
+              >
+                <Icon className="ti ti-key" style={{ fontSize: "0.8125rem" }}></Icon>
+                <div className="details">
+                  <h6 style={{ fontSize: "0.625rem" }}>{"NO API KEY"} </h6>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {isNewChat() ? (
         <IntroChatComponent
-          inputSubmitHandler={userSubmitMessagehandler}
-          isSendDisabled={isConnected}
+          inputSubmitHandler={currentSubmitMessageHandler}
+          // The same rule as the chat screen: disabled while an answer loads.
+          // ("!isLoading" disabled the send and voice buttons all the time.)
+          isSendDisabled={isAllowForRequestHandler() || isLoading}
         />
       ) : (
         <>
-          <div className="chat-area">
+          <div className="chat-area" style={{ height: "auto" }}>
             {quriozMessage?.map((message, index) => {
               return (
                 <ChatRenderComponent
                   chatMessage={message}
                   key={message?.id}
-                  ToggelChart={ToggelChartHandler}
+                  ToggleChart={ToggelChartHandler}
                   RunSqlQueryhandler={RunSqlQueryhandler}
                   index={index}
                   ReFormQuestionSQLGenerating={ReFormQuestionSQLGenerating}
+                  replaceChat={replaceChat}
+                  updateChart={updateChart}
                 />
               );
             })}
@@ -954,8 +1826,8 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             >
               <ChatInputComponent
                 stage={"non-inital"}
-                onSubmit={userSubmitMessagehandler}
-                isSendDisabled={isConnected}
+                onSubmit={currentSubmitMessageHandler}
+                isSendDisabled={isAllowForRequestHandler() || isLoading}
               />
             </div>
           </div>
@@ -978,6 +1850,491 @@ function QuriozChatComponent({ ScrollBottomAuto, sidebar }) {
             setShowConfrimDelete(false);
             toast.success(`Successfully deleted!`);
           }}
+        />
+      )}
+
+      {showDBModel && (
+        // <div
+        //   className="modal-overlay"
+        //   style={{ zIndex: "100000", padding: "0px" }}
+        // >
+        //   <motion.div
+        //     initial={{ scale: 0.99 }}
+        //     animate={{ scale: 1 }}
+        //     style={{
+        //       width: "50rem",
+        //       backgroundColor: "var(--bg-page)",
+        //       borderRadius: "10px",
+        //       padding: "15px",
+        //       position: "relative",
+        //       maxHeight: "80vh",
+        //     }}
+        //   >
+        //     <div
+        //       style={{
+        //         display: "flex",
+        //         alignItems: "center",
+        //         justifyContent: "space-between",
+        //         marginBottom: "30px",
+        //       }}
+        //     >
+        //       <div
+        //         style={{ display: "flex", alignItems: "center", gap: "10px" }}
+        //       >
+        //         <div
+        //           style={{ display: "flex", alignItems: "center", gap: "10px" }}
+        //         >
+        //           <Icon className="ti ti-database" />
+        //           <h5>Database Schema & Estimate Generator</h5>
+        //         </div>
+        //       </div>
+        //       <div
+        //         style={{
+        //           display: "flex",
+        //           alignItems: "center",
+        //         }}
+        //       >
+        //         <button
+        //           className="btn btn-ghost"
+        //           onClick={() => setShowDBModel(false)}
+        //         >
+        //           <Icon className="ti ti-x" />
+        //         </button>
+        //       </div>
+        //     </div>
+        //     {alertMessage?.flag && (
+        //       <div
+        //         className={`alert-banner info`}
+        //         style={{ fontSize: "12px", margin: "10px 0px" }}
+        //       >
+        //         {alertMessage?.message}
+        //       </div>
+        //     )}
+        //     {/* non-selected */}
+        //     <div>
+        //       <div
+        //         style={{
+        //           display: "flex",
+        //           alignItems: "center",
+        //           justifyContent: "space-between",
+        //         }}
+        //       >
+        //         <h5>Databases</h5>{" "}
+        //         <div
+        //           style={{ display: "flex", alignItems: "center", gap: "10px" }}
+        //         >
+        //           <button
+        //             onClick={() => selectAllHandler("new")}
+        //             className={`btn btn-ghost`}
+        //             style={{
+        //               display: "flex",
+        //               alignItems: "center",
+        //               justifyContent: "center",
+        //               backgroundColor: isNewSelectAll
+        //                 ? "var(--accent)"
+        //                 : undefined,
+        //               color: isNewSelectAll && "white",
+        //               ...{
+        //                 fontSize: "11px",
+        //                 padding: "5px 10px",
+        //                 height: "30px",
+        //               },
+        //             }}
+        //           >
+        //             {!isNewSelectAll ? (
+        //               <svg
+        //                 xmlns="http://www.w3.org/2000/svg"
+        //                 width="17"
+        //                 height="17"
+        //                 viewBox="0 0 24 24"
+        //                 fill="none"
+        //                 stroke="currentColor"
+        //                 strokeWidth="2"
+        //                 strokeLinecap="round"
+        //                 strokeLinejoin="round"
+        //                 className="icon icon-tabler icons-tabler-outline icon-tabler-select-all"
+        //               >
+        //                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        //                 <path d="M8 9a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1l0 -6" />
+        //                 <path d="M12 20v.01" />
+        //                 <path d="M16 20v.01" />
+        //                 <path d="M8 20v.01" />
+        //                 <path d="M4 20v.01" />
+        //                 <path d="M4 16v.01" />
+        //                 <path d="M4 12v.01" />
+        //                 <path d="M4 8v.01" />
+        //                 <path d="M4 4v.01" />
+        //                 <path d="M8 4v.01" />
+        //                 <path d="M12 4v.01" />
+        //                 <path d="M16 4v.01" />
+        //                 <path d="M20 4v.01" />
+        //                 <path d="M20 8v.01" />
+        //                 <path d="M20 12v.01" />
+        //                 <path d="M20 16v.01" />
+        //                 <path d="M20 20v.01" />
+        //               </svg>
+        //             ) : (
+        //               <svg
+        //                 xmlns="http://www.w3.org/2000/svg"
+        //                 width="17"
+        //                 height="17"
+        //                 viewBox="0 0 24 24"
+        //                 fill="none"
+        //                 stroke="currentColor"
+        //                 strokeWidth="2"
+        //                 strokeLinecap="round"
+        //                 strokeLinejoin="round"
+        //                 className="icon icon-tabler icons-tabler-outline icon-tabler-deselect"
+        //               >
+        //                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        //                 <path d="M12 8h3a1 1 0 0 1 1 1v3" />
+        //                 <path d="M16 16h-7a1 1 0 0 1 -1 -1v-7" />
+        //                 <path d="M12 20v.01" />
+        //                 <path d="M16 20v.01" />
+        //                 <path d="M8 20v.01" />
+        //                 <path d="M4 20v.01" />
+        //                 <path d="M4 16v.01" />
+        //                 <path d="M4 12v.01" />
+        //                 <path d="M4 8v.01" />
+        //                 <path d="M8 4v.01" />
+        //                 <path d="M12 4v.01" />
+        //                 <path d="M16 4v.01" />
+        //                 <path d="M20 4v.01" />
+        //                 <path d="M20 8v.01" />
+        //                 <path d="M20 12v.01" />
+        //                 <path d="M20 16v.01" />
+        //                 <path d="M3 3l18 18" />
+        //               </svg>
+        //             )}
+        //             <span style={{ fontSize: "11px" }}>
+        //               {isNewSelectAll ? "Deselect All" : "Select All"}
+        //             </span>
+        //           </button>
+        //           <button
+        //             className="btn btn-primary"
+        //             onClick={() => {
+        //               databaseSchemaSetterHandler("add");
+        //             }}
+        //             style={{
+        //               fontSize: "11px",
+        //               padding: "5px 10px",
+        //               height: "30px",
+        //             }}
+        //             disabled={
+        //               newSelection?.length === 0 || !isEnableAddButton()
+        //             }
+        //           >
+        //             <>
+        //               {" "}
+        //               <Icon className="ti ti-plus" />
+        //               Get Tables
+        //             </>
+        //           </button>
+        //         </div>
+        //       </div>
+        //       <div
+        //         style={{
+        //           display: "flex",
+        //           flexWrap: "wrap",
+        //           width: "100%",
+        //           margin: "20px auto",
+        //           minHeight: "100px",
+        //           maxHeight: "300px",
+        //           alignItems: "start",
+        //           gap: "10px",
+        //         }}
+        //         className="alert-banner dbcard"
+        //       >
+        //         {newSelection?.length > 0 ? (
+        //           newSelection?.map((_b, i) => {
+        //             return (
+        //               <div
+        //                 key={i}
+        //                 onClick={() => selectDBGenerateID(_b?.name, "new")}
+        //                 className="db-select-model"
+        //                 style={{
+        //                   cursor: "pointer",
+        //                   margin: "3px",
+        //                   padding: "5px 15px",
+        //                   borderRadius: "5px",
+        //                   border: "1px solid var(--border-default)",
+        //                   display: "flex",
+        //                   alignItems: "center",
+        //                   backgroundColor:
+        //                     isSelectDb(_b?.name, "new") ||
+        //                     isDisableSelectDb(_b?.name)
+        //                       ? "var(--accent)"
+        //                       : "transparent",
+        //                   color:
+        //                     isSelectDb(_b?.name, "new") ||
+        //                     isDisableSelectDb(_b?.name)
+        //                       ? "white"
+        //                       : isDark()
+        //                         ? "lightgray"
+        //                         : "gray",
+        //                   gap: "10px",
+        //                 }}
+        //               >
+        //                 <span style={{ fontSize: "12px", fontWeight: "700" }}>
+        //                   {_b?.name}
+        //                 </span>
+        //               </div>
+        //             );
+        //           })
+        //         ) : (
+        //           <div></div>
+        //         )}
+        //       </div>
+        //     </div>
+        //     <div
+        //       style={{
+        //         width: "100%",
+        //         height: "1px",
+        //         backgroundColor: "var(--border-default)",
+        //         margin: "30px 0px",
+        //       }}
+        //     ></div>
+
+        //     {/* selected */}
+        //     <div style={{ width: "100%" }}>
+        //       <div
+        //         style={{
+        //           display: "flex",
+        //           alignItems: "center",
+        //           justifyContent: "space-between",
+        //         }}
+        //       >
+        //         <h5>Database & Tables</h5>
+        //         <div style={{ gap: "10px", display: "flex" }}>
+        //           <div
+        //             style={{
+        //               display: "flex",
+        //               alignItems: "center",
+        //               gap: "10px",
+        //             }}
+        //             className="btn btn-ghost"
+        //           >
+        //             <svg
+        //               xmlns="http://www.w3.org/2000/svg"
+        //               width="20"
+        //               height="20"
+        //               viewBox="0 0 24 24"
+        //               fill="none"
+        //               stroke="orange"
+        //               stroke-width="2"
+        //               stroke-linecap="round"
+        //               stroke-linejoin="round"
+        //               class="icon icon-tabler icons-tabler-outline icon-tabler-chart-column"
+        //             >
+        //               <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        //               <path d="M4 20h3" />
+        //               <path d="M17 20h3" />
+        //               <path d="M10.5 20h3" />
+        //               <path d="M4 16h3" />
+        //               <path d="M17 16h3" />
+        //               <path d="M10.5 16h3" />
+        //               <path d="M4 12h3" />
+        //               <path d="M17 12h3" />
+        //               <path d="M10.5 12h3" />
+        //               <path d="M4 8h3" />
+        //               <path d="M17 8h3" />
+        //               <path d="M4 4h3" />
+        //             </svg>
+        //             <span style={{ fontSize: "10px" }}>
+        //               Estimate : {estimateScore ? estimateScore : 0}
+        //             </span>
+        //           </div>
+        //           <button
+        //             className="btn btn-primary"
+        //             // disabled={!isEnableRefreshSchema()}
+        //             onClick={() => GenerateDDL_EsitmateHandler()}
+        //             style={{
+        //               fontSize: "11px",
+        //               padding: "5px 10px",
+        //               height: "30px",
+        //             }}
+        //           >
+        //             <>
+        //               <Icon className="ti ti-refresh" />
+        //               Generate DDL & Estimate
+        //             </>
+        //           </button>
+        //         </div>
+        //       </div>
+        //       <div
+        //         style={{
+        //           display: "flex",
+        //           flexWrap: "wrap",
+        //           width: "100%",
+        //           margin: "20px auto",
+        //           minHeight: "100px",
+        //           maxHeight: "300px",
+        //           alignItems: "start",
+        //           overflowY: "auto",
+        //         }}
+        //         className=""
+        //       >
+        //         {isEmptyTableAndDatabase() ? (
+        //           <div
+        //             style={{
+        //               display: "flex",
+        //               alignItems: "center",
+        //               justifyContent: "center",
+        //               width: "100%",
+        //             }}
+        //           >
+        //             <div
+        //               style={{
+        //                 display: "flex",
+        //                 alignItems: "center",
+        //                 flexDirection: "column",
+        //               }}
+        //             >
+        //               <Icon className="ti ti-info-circle" />
+        //               <span style={{ fontSize: "10px" }}>
+        //                 No Table and DDL info founded!
+        //               </span>
+        //             </div>
+        //           </div>
+        //         ) : (
+        //           <div style={{ width: "100%" }}>
+        //             {Object.keys(genTables)?.map((_v, idx) => {
+        //               return (
+        //                 <div style={{ width: "100%" }}>
+        //                   <div
+        //                     style={{
+        //                       width: "100%",
+        //                       display: "flex",
+        //                       alignItems: "center",
+        //                       justifyContent: "space-between",
+        //                     }}
+        //                   >
+        //                     <h3
+        //                       style={{
+        //                         fontSize: "13px",
+        //                         paddingBottom: "8px",
+        //                         margin: "5px 0px",
+        //                         display: "flex",
+        //                         alignItems: "center",
+        //                         gap: "5px",
+        //                       }}
+        //                     >
+        //                       {" "}
+        //                       <Icon
+        //                         className="ti ti-database"
+        //                         style={{ fontSize: "13px" }}
+        //                       />
+        //                       {_v}
+        //                     </h3>
+        //                     <button
+        //                       className="btn btn-ghost"
+        //                       title={`Delete the DDL of ${_v}`}
+        //                       onClick={() => DeleteDatabaseDDLHandler(_v)}
+        //                     >
+        //                       <Icon className="ti ti-trash" />
+        //                     </button>
+        //                   </div>
+        //                   <div
+        //                     style={{
+        //                       width: "100%",
+        //                       display: "flex",
+        //                       flexWrap: "wrap",
+        //                     }}
+        //                   >
+        //                     {genTables[_v]?.map((_t, idx) => {
+        //                       return (
+        //                         <div
+        //                           onClick={() =>
+        //                             SelectTablehandler(_v, _t?.table)
+        //                           }
+        //                           key={`tables_${idx}_${_t?.table}`}
+        //                           className="db-select-model"
+        //                           style={{
+        //                             cursor: "pointer",
+        //                             margin: "3px",
+        //                             padding: "5px 15px",
+        //                             borderRadius: "5px",
+        //                             border: "1px solid var(--border-default)",
+        //                             display: "flex",
+        //                             alignItems: "center",
+        //                             backgroundColor: isSelectTable(
+        //                               _v,
+        //                               _t?.table,
+        //                             )
+        //                               ? "var(--accent)"
+        //                               : "transparent",
+        //                             color: isSelectTable(_v, _t?.table)
+        //                               ? "white"
+        //                               : isDark()
+        //                                 ? "lightgray"
+        //                                 : "gray",
+        //                             gap: "10px",
+        //                           }}
+        //                         >
+        //                           <Icon
+        //                             className="ti ti-table"
+        //                             style={{ fontSize: "13px" }}
+        //                           />
+        //                           <span
+        //                             style={{
+        //                               fontSize: "12px",
+        //                               fontWeight: "700",
+        //                             }}
+        //                           >
+        //                             {_t?.table}
+        //                           </span>
+        //                         </div>
+        //                       );
+        //                     })}
+        //                   </div>
+        //                 </div>
+        //               );
+        //             })}
+        //           </div>
+        //         )}
+        //       </div>
+        //     </div>
+
+        //     {dbLoading?.flag && (
+        //       <div
+        //         className="model-loading-schema"
+        //         style={{
+        //           display: "flex",
+        //           alignItems: "center",
+        //           justifyContent: "center",
+        //           flexDirection: "column",
+        //           gap: "20px",
+        //         }}
+        //       >
+        //         <div
+        //           className="loading-spinner"
+        //           style={{ width: "30px", height: "30px" }}
+        //         ></div>
+        //         <h5>{dbLoading?.message}</h5>
+        //       </div>
+        //     )}
+        //   </motion.div>
+        // </div>
+
+        <AIDDLModelComponent
+          SelectTablehandler={SelectTablehandler}
+          dbLoading={dbLoading}
+          newSelection={newSelection}
+          genTables={genTables}
+          setShowDBModel={setShowDBModel}
+          selectAllHandler={selectAllHandler}
+          databaseSchemaSetterHandler={databaseSchemaSetterHandler}
+          isNewSelectAll={isNewSelectAll}
+          isEnableAddButton={isEnableAddButton}
+          estimateScore={estimateScore}
+          GenerateDDL_EsitmateHandler={GenerateDDL_EsitmateHandler}
+          isEmptyTableAndDatabase={isEmptyTableAndDatabase}
+          DeleteDatabaseDDLHandler={DeleteDatabaseDDLHandler}
+          alertMessage={alertMessage}
+          isSelectDb={isSelectDb}
+          isDisableSelectDb={isDisableSelectDb}
+          isSelectTable={isSelectTable}
+          selectDBGenerateID={selectDBGenerateID}
         />
       )}
     </div>

@@ -1,9 +1,6 @@
 {
-  "clickhouseVersion": "26.3",
-  "major": 0,
-  "minor": 1,
-  "patch": 6,
-  "display": "26.3-0.1.6",
-  "version": "26.3-0.1.6",
-  "codename": "chops"
+  "version": "2.0.0-beta",
+  "codename": "chops",
+  "clickhouseVersion": "26.3 LTS, 26.8 LTS",
+  "clickhouseCompat": "Older and newer versions should work, but they are not tested."
 }

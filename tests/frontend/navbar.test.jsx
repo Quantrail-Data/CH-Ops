@@ -7,7 +7,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
 
-// --- Mocks -----------------------------------------------------------------
+// Mocks
 
 const mockUseAuth = vi.fn();
 const mockUseTheme = vi.fn();
@@ -22,6 +22,7 @@ vi.mock('../../src/frontend/App.jsx', () => ({
 
 vi.mock('../../src/frontend/utils/api.js', () => ({
   runQuery: (...args) => mockRunQuery(...args),
+  editorDisconnect: vi.fn(() => Promise.resolve()), 
 }));
 
 // Icon renders as a span that exposes its Tabler class, so we can assert which
@@ -47,8 +48,9 @@ vi.mock('../../src/frontend/assets/chops-dark.svg', () => ({ default: 'dark.svg'
 
 // Import AFTER the mocks are registered.
 import Navbar from '../../src/frontend/components/layout/Navbar.jsx';
+import ClusterSwitcher from '../../src/frontend/components/layout/ClusterSwitcher.jsx';
 
-// --- Helpers ---------------------------------------------------------------
+// Helpers
 
 function connState(overrides = {}) {
   return {
@@ -98,7 +100,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// --- Tests -----------------------------------------------------------------
+// Tests
 
 describe('Navbar server clock - disconnected', () => {
   it('shows a red clock-off icon, no time, and does not query the server', () => {
@@ -186,25 +188,44 @@ describe('Navbar core', () => {
     expect(screen.getByText('admin')).toBeTruthy();
   });
 
-  it('renders cluster and node options', () => {
+  it('renders node options (the cluster picker lives in the sidebar)', () => {
     renderNavbar();
-    expect(screen.getByText('Production')).toBeTruthy();
+    expect(screen.queryByText('Production')).toBeNull();
     expect(screen.getByText('node-1')).toBeTruthy();
     expect(screen.getByText('node-2')).toBeTruthy();
   });
 
+  it('ClusterSwitcher renders the clusters and switches on change', async () => {
+    const state = connState({ clusters: [{ id: 'c1', name: 'Production' }, { id: 'c2', name: 'Staging' }] });
+    mockUseConnection.mockReturnValue(state);
+    const onRefresh = vi.fn();
+    render(<ClusterSwitcher onRefresh={onRefresh} />);
+    expect(screen.getByText('Production')).toBeTruthy();
+    expect(screen.getByText('Staging')).toBeTruthy();
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'c2' } });
+    expect(state.switchCluster).toHaveBeenCalledWith('c2');
+    await waitFor(() => expect(state.testConnection).toHaveBeenCalled());
+    expect(onRefresh).toHaveBeenCalled();
+  });
+
+  it('ClusterSwitcher renders nothing without clusters', () => {
+    mockUseConnection.mockReturnValue(connState({ clusters: [] }));
+    const { container } = render(<ClusterSwitcher />);
+    expect(container.innerHTML).toBe('');
+  });
+
   it('reconnects when a different node is selected', async () => {
-    const state = connState();
+    const state = connState({ nodeName: 'node-1' });
     mockUseConnection.mockReturnValue(state);
     renderNavbar();
 
-    // The node <select> is the one whose value is the selected host.
+    // The node <select> chooses by node name, so nodes that share one host stay apart.
     const selects = screen.getAllByRole('combobox');
-    const nodeSelect = selects.find((s) => s.value === '10.0.0.1');
-    fireEvent.change(nodeSelect, { target: { value: '10.0.0.2' } });
+    const nodeSelect = selects.find((s) => s.value === 'node-1');
+    fireEvent.change(nodeSelect, { target: { value: 'node-2' } });
 
     await waitFor(() => expect(state.testConnection).toHaveBeenCalled());
-    expect(state.testConnection.mock.calls[0][0]).toBe('10.0.0.2');
+    expect(state.testConnection.mock.calls[0][0]).toBe('node-2');
     expect(localStorage.getItem('chops_nodename')).toBe('node-2');
   });
 });

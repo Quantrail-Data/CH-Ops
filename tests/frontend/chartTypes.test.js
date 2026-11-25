@@ -1,14 +1,15 @@
+// Contributors - Kathirdhasan, Praveen kumar
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> kathir Moorthy
-// Suite validating chart registries, column types, SQL string/graph transformations, and auto-layout algorithms.
+// chartTypes.test.js - the chart type registry, column validation and axis defaults
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   CHART_TYPES,
   buildChartOption,
   validateColumnType,
   getAxisDefaults,
   needsLegend,
+  yAxisNameGap,
 } from "../../src/frontend/components/dashboards/chartTypes.js";
 
 describe("Chart Type Registry", () => {
@@ -67,6 +68,26 @@ describe("validateColumnType", () => {
   it("returns null for string expectation with string sample", () => {
     expect(validateColumnType([{ v: "abc" }], "v", "string")).toBeNull();
   });
+  it("returns null when first five samples are null/undefined", () => {
+    expect(
+      validateColumnType(
+        [{ v: null }, { v: undefined }, { v: null }, { v: undefined }, { v: null }],
+        "v",
+        "numeric",
+      ),
+    ).toBeNull();
+  });
+  it("validates only first five rows", () => {
+    const data = [
+      { v: 1 },
+      { v: 2 },
+      { v: 3 },
+      { v: 4 },
+      { v: 5 },
+      { v: "bad-after-sample" },
+    ];
+    expect(validateColumnType(data, "v", "numeric")).toBeNull();
+  });
 });
 
 describe("getAxisDefaults", () => {
@@ -95,6 +116,12 @@ describe("getAxisDefaults", () => {
     expect(getAxisDefaults("sunburst", "simple_sunburst")).toEqual({
       xLabel: "",
       yLabel: "",
+    });
+  });
+  it("returns X/Y for heatmap", () => {
+    expect(getAxisDefaults("heatmap", "matrix")).toEqual({
+      xLabel: "X",
+      yLabel: "Y",
     });
   });
 });
@@ -153,6 +180,33 @@ describe("buildChartOption - bar", () => {
     expect(Array.isArray(o.dataZoom)).toBe(true);
     expect(o.dataZoom.some((z) => z.type === "inside")).toBe(true);
   });
+  it("grouped bar creates one series per group", () => {
+    const o = buildChartOption(
+      "bar",
+      "grouped_bar",
+      [
+        { c: "A", s: "S1", v: 10 },
+        { c: "A", s: "S2", v: 20 },
+        { c: "B", s: "S1", v: 30 },
+      ],
+      { category: "c", series: "s", value: "v" },
+    );
+    expect(o.series.length).toBe(2);
+    expect(o.series[0].stack).toBeUndefined();
+  });
+  it("stacked bar enables stack and inside labels", () => {
+    const o = buildChartOption(
+      "bar",
+      "stacked_bar",
+      [
+        { c: "A", st: "X", v: 10 },
+        { c: "A", st: "Y", v: 20 },
+      ],
+      { category: "c", stack: "st", value: "v" },
+    );
+    expect(o.series.every((s) => s.stack === "total")).toBe(true);
+    expect(o.series.every((s) => s.label.position === "inside")).toBe(true);
+  });
 });
 
 describe("buildChartOption - line", () => {
@@ -188,6 +242,31 @@ describe("buildChartOption - line", () => {
     );
     expect(o.series.length).toBe(2);
     expect(o.legend.show).toBe(true);
+  });
+  it("stacked area sets stack and areaStyle", () => {
+    const o = buildChartOption(
+      "line",
+      "stacked_area",
+      [
+        { t: "1", s: "A", v: 5 },
+        { t: "1", s: "B", v: 7 },
+      ],
+      { time: "t", series: "s", value: "v" },
+    );
+    expect(o.series.every((s) => s.stack === "total")).toBe(true);
+    expect(o.series.every((s) => s.areaStyle)).toBe(true);
+  });
+  it("time axis label formatter returns compact labels", () => {
+    const o = buildChartOption(
+      "line",
+      "simple_line",
+      [{ t: "2026-01-01 10:00:00", v: 1 }, { t: "2026-01-01 11:00:00", v: 2 }],
+      { time: "t", value: "v" },
+    );
+    expect(typeof o.xAxis.axisLabel.formatter).toBe("function");
+    const sample = o.xAxis.axisLabel.formatter("2026-01-01 10:00:00");
+    expect(typeof sample).toBe("string");
+    expect(sample.length).toBeGreaterThan(0);
   });
 });
 
@@ -243,6 +322,27 @@ describe("buildChartOption - scatter", () => {
     );
     expect(o.series.length).toBe(2);
     expect(o.legend.show).toBe(true);
+  });
+
+  it("bubble symbolSize has minimum floor", () => {
+    const o = buildChartOption(
+      "scatter",
+      "bubble",
+      [{ x1: 1, y1: 2, size1: 0, cat: "A" }],
+      { x: "x1", y: "y1", size: "size1", category: "cat" },
+    );
+    expect(o.series[0].symbolSize([1, 2, 0])).toBeGreaterThanOrEqual(6);
+  });
+
+  it("basic scatter supports mapping.size symbol function", () => {
+    const o = buildChartOption(
+      "scatter",
+      "basic_scatter",
+      [{ x1: 1, y1: 2, z1: 9 }],
+      { x: "x1", y: "y1", size: "z1" },
+    );
+    expect(o.series[0].data[0]).toEqual([1, 2, 9]);
+    expect(o.series[0].symbolSize([1, 2, 9])).toBeGreaterThan(5);
   });
 });
 
@@ -314,6 +414,21 @@ describe("buildChartOption - special", () => {
     expect(o.series.length).toBeGreaterThanOrEqual(1);
     expect(o.series[0].type).toBe("boxplot");
   });
+  it("boxplot simple emits outlier scatter when present", () => {
+    const o = buildChartOption(
+      "boxplot",
+      "simple_box",
+      [
+        { c: "A", v: 10 },
+        { c: "A", v: 11 },
+        { c: "A", v: 12 },
+        { c: "A", v: 200 },
+      ],
+      { category: "c", value: "v" },
+    );
+    expect(o.series.length).toBeGreaterThanOrEqual(1);
+    expect(o.series[0].type).toBe("boxplot");
+  });
   it("sunburst simple", () => {
     const o = buildChartOption(
       "sunburst",
@@ -369,6 +484,17 @@ describe("buildChartOption - special", () => {
     );
     expect(o.series[0].type).toBe("treemap");
   });
+  it("treemap tooltip formatter returns html", () => {
+    const o = buildChartOption(
+      "treemap",
+      "hierarchical",
+      [{ name: "rootA", parent: "", value: 100 }],
+      { name: "name", parent: "parent", value: "value" },
+    );
+    const html = o.tooltip.formatter({ name: "rootA", value: 100 });
+    expect(html).toContain("rootA");
+    expect(html).toContain("100");
+  });
   it("heatmap includes visualMap", () => {
     const o = buildChartOption(
       "heatmap",
@@ -391,6 +517,55 @@ describe("buildChartOption - special", () => {
     );
     expect(o.series[0].type).toBe("candlestick");
     expect(o.series[0].data[0]).toEqual([10, 12, 8, 15]);
+  });
+  it("radar builds indicator and entity series", () => {
+    const o = buildChartOption(
+      "radar",
+      "multi_metric",
+      [
+        { m: "speed", e: "A", v: 10 },
+        { m: "speed", e: "B", v: 20 },
+        { m: "quality", e: "A", v: 30 },
+      ],
+      { metric: "m", entity: "e", value: "v" },
+    );
+    expect(o.radar.indicator.length).toBe(2);
+    expect(o.series[0].data.length).toBe(2);
+  });
+  it("kpi array payload returns array error shape", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const o = buildChartOption(
+      "kpi",
+      "single",
+      [{ l: "QPS", v: "1" }, { l: "QPS2", v: "2" }],
+      { label: "l", value: "v" },
+    );
+    expect(o._kpi).toBe(true);
+    expect(o.isArray).toBe(true);
+    expect(o.message).toContain("does not support arrays");
+    spy.mockRestore();
+  });
+  it("kpi fallback label/value works", () => {
+    const o = buildChartOption("kpi", "single", [{}], { label: "l", value: "v" }, "Fallback");
+    expect(o.label).toBe("Fallback");
+    expect(o.value).toBe("-");
+  });
+  it("returns null for unknown chart type", () => {
+    const o = buildChartOption("unknown", "x", [{ a: 1 }], { a: "a" });
+    expect(o).toBeNull();
+  });
+  it("returns _error object when mapping access throws", () => {
+    const badMapping = new Proxy(
+      {},
+      {
+        get() {
+          throw new Error("boom");
+        },
+      },
+    );
+    const o = buildChartOption("bar", "simple_bar", [{ a: 1 }], badMapping);
+    expect(o._error).toBe(true);
+    expect(o.message).toContain("boom");
   });
   it("null data", () => {
     expect(buildChartOption("bar", "simple_bar", null, {})).toBeNull();
@@ -600,5 +775,81 @@ describe("DOT graph parser", () => {
   it("keeps explicit node labels when edges also exist", () => {
     const g = parseDotGraph('n1 [label = "Scan"]\nn1 -> n2');
     expect(g.nodes.find((n) => n.id === "n1").name).toBe("Scan");
+  });
+});
+
+describe('yAxisNameGap', () => {
+  // nameLocation:'middle' rotates the axis name and places it nameGap pixels
+  // out from the axis line, measured THROUGH the tick labels. The gap was
+  // hardcoded to 42, so a count axis reaching 120,000,000 drew the name on top
+  // of its own numbers.
+  const withData = (data, yAxis = { type: 'value', name: 'Value' }) => ({ yAxis, series: [{ data }] });
+
+  it('grows with the magnitude of the data', () => {
+    const small = yAxisNameGap(withData([3, 7, 10]));
+    const mid = yAxisNameGap(withData([1200, 4300]));
+    const large = yAxisNameGap(withData([115000000]));
+    expect(small).toBeLessThan(mid);
+    expect(mid).toBeLessThan(large);
+  });
+
+  it('clears wide labels on the axis that reported the bug', () => {
+    // 120,000,000 renders at roughly 90px; the old fixed 42 did not clear it.
+    expect(yAxisNameGap(withData([115000000]))).toBeGreaterThan(70);
+  });
+
+  it('never returns less than the minimum', () => {
+    expect(yAxisNameGap(withData([1]))).toBeGreaterThanOrEqual(42);
+    expect(yAxisNameGap(withData([]))).toBeGreaterThanOrEqual(42);
+  });
+
+  it('is capped so it cannot eat the plot area', () => {
+    expect(yAxisNameGap(withData([9.9e18]))).toBeLessThanOrEqual(150);
+  });
+
+  it('returns the minimum when there is no axis name to place', () => {
+    expect(yAxisNameGap(withData([115000000], { type: 'value' }))).toBe(42);
+  });
+
+  it('does not guess for a category axis or a custom formatter', () => {
+    // Neither is predictable from the data; grid.containLabel reserves the room.
+    expect(yAxisNameGap({ yAxis: { type: 'category', name: 'V' }, series: [{ data: ['a'] }] })).toBe(42);
+    expect(yAxisNameGap({
+      yAxis: { type: 'value', name: 'V', axisLabel: { formatter: () => 'x' } },
+      series: [{ data: [115000000] }],
+    })).toBe(42);
+  });
+
+  it('reads [x, y] pairs and { value } objects, not just bare numbers', () => {
+    expect(yAxisNameGap({ yAxis: { type: 'value', name: 'Y' }, series: [{ data: [[1, 250000]] }] }))
+      .toBeGreaterThan(42);
+    expect(yAxisNameGap({ yAxis: { type: 'value', name: 'Y' }, series: [{ data: [{ value: 75000000 }] }] }))
+      .toBeGreaterThan(60);
+  });
+
+  it('accounts for the axis maximum being rounded up past the data', () => {
+    // 98,000,000 becomes a 100,000,000 axis - one digit wider than the data.
+    expect(yAxisNameGap(withData([98000000]))).toEqual(yAxisNameGap(withData([100000000])));
+  });
+
+  it('survives malformed input rather than throwing', () => {
+    expect(() => yAxisNameGap({})).not.toThrow();
+    expect(() => yAxisNameGap(null)).not.toThrow();
+    expect(() => yAxisNameGap({ yAxis: { name: 'V' }, series: [{ data: [null, undefined, 'x'] }] })).not.toThrow();
+  });
+
+  it('supports yAxis as array and custom min/max/fontSize', () => {
+    const gap = yAxisNameGap(
+      { yAxis: [{ type: "value", name: "Y" }], series: [{ data: [5000] }] },
+      { fontSize: 10, min: 30, max: 60 },
+    );
+    expect(gap).toBeGreaterThanOrEqual(30);
+    expect(gap).toBeLessThanOrEqual(60);
+  });
+
+  it('handles negative values by absolute magnitude', () => {
+    const neg = yAxisNameGap(withData([-1200000]));
+    const pos = yAxisNameGap(withData([1200000]));
+    expect(neg).toBe(pos);
   });
 });

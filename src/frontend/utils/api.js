@@ -1,17 +1,11 @@
-// api.js - Core API client with connection state management
-//
-// Maintains a module-level singleton for ClickHouse connection credentials
-// (node, user, password, port, clusterId) that is shared across all API calls.
-// Provides runQuery() for executing SQL against ClickHouse and apiFetch() for
-// generic backend endpoints with automatic JWT token injection and audit
-// context.
-//
-// Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors -> kathir Moorthy, Praveen kumar
+// api.js - core API client with connection state management
+
 let _connection = {
   node: "",
+  nodeName: "",
   user: "",
-  password: "",
   port: 8123,
   clusterId: "",
   apiKey: null,
@@ -38,7 +32,7 @@ export async function getActiveApiKey() {
       return response.apiKey;
     }
     return null;
-  } catch (err) {
+  } catch {
     console.log('No active API key found');
     return null;
   }
@@ -96,6 +90,11 @@ export async function apiFetch(path, options = {}, type = false) {
   }
 
   if (res.status === 401) {
+    if (path === '/api/auth/change-password') {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || "Invalid current password.");
+    }
+    
     // A ClickHouse credential-session expiry (editor/schema-studio) is NOT an app
     // auth failure: surface it so the feature can prompt to reconnect, without
     // logging the user out of the app.
@@ -116,7 +115,7 @@ export async function apiFetch(path, options = {}, type = false) {
   }
   if (res?.status === 400) {
     const d = await res.json().catch(() => ({}));
-    throw new Error(d.error || "Rate limited. Wait and retry.");
+    throw new Error(d.error || "Bad request.");
   }
 
   let data = null;
@@ -132,47 +131,99 @@ export async function apiFetch(path, options = {}, type = false) {
   return data;
 }
 
+// apiFetchText - authenticated GET for endpoints that return plain text.
+export async function apiFetchText(path) {
+  const token = getToken();
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(path, { headers });
+  } catch {
+    throw new Error("Network error. Check your connection.");
+  }
+
+  if (res.status === 401) {
+    localStorage.removeItem("chops_session");
+    window.location.reload();
+    throw new Error("Session expired.");
+  }
+
+  const body = await res.text().catch(() => "");
+
+  if (!res.ok) {
+    // Success is text, but an error from these routes is still JSON.
+    let message = `Request failed (${res.status})`;
+    try {
+      message = JSON.parse(body).error || message;
+    } catch { /* not JSON, keep the status message */ }
+    throw new Error(message);
+  }
+
+  return body;
+}
+
+// The editor's row limit, applied to every SQL surface.
+const MAX_ROWS_KEY = "chops_max_rows";
+const MAX_ROWS_FALLBACK = 5000;
+
+function rowLimitSettings(options) {
+  // A caller that genuinely needs every row says so.
+  if (options?.noRowLimit) return undefined;
+  let n = Number(localStorage.getItem(MAX_ROWS_KEY));
+  if (!Number.isFinite(n) || n < 1) n = MAX_ROWS_FALLBACK;
+  return {
+    // One more than the limit, so the caller can tell a full result from a
+    // truncated one without asking a second time.
+    max_result_rows: Math.floor(n) + 1,
+    result_overflow_mode: "break",
+  };
+}
+
 // ClickHouse® query - always sends current connection credentials
 
-export async function runQuery(sql, overrides = {}) {
+export async function runQuery(sql, overrides = {},sp=false,backup_sp=false) {
   if (!sql || typeof sql !== "string") throw new Error("SQL is required.");
   const conn = getGlobalConnection();
   return apiFetch("/api/query", {
     method: "POST",
     body: JSON.stringify({
       sql,
-      node: overrides.node || conn.node,
-      user: overrides.user || conn.user,
-      password: overrides.password ?? conn.password,
+      node: overrides.node || conn.nodeName,
       port: overrides.port || conn.port,
       clusterId: overrides.clusterId || conn.clusterId,
       readOnly: !!overrides.readOnly,
+      // Typed query parameters ({name:Type} placeholders). Omitted entirely
+      // when absent, so the existing callers send a request body identical to
+      // before this was added. The backend materializes optional /*[ ]*/
+      // blocks and sends the survivors as param_<name> arguments; values are
+      // never interpolated into the SQL.
+      params: overrides.params || undefined,
+      sp,
+      backup_sp,
+      settings: { ...rowLimitSettings(overrides), ...(overrides.settings || {}) },
     }),
   });
 }
 
 
 // ClickHouse® query for the SQL Editor only.
-// Sends the user-entered credentials exactly as given (no fallback to the
-// configured connection) and marks the request strict so the backend will
-// refuse rather than fall back. Host/port/cluster still come from the navbar.
-// SQL Editor / Query Comparison query.
-//
-// Two modes, chosen by whether the caller supplies a password:
-//  - Session mode (SQL Editor): creds carry no password (e.g. { user }). The
-//    password was sent once to editorConnect() and is resolved server-side from
-//    the (jti, 'editor') credential session. Nothing sensitive is sent here.
-//  - Strict mode (Query Comparison): creds carry an explicit password, sent
-//    per-request under strictAuth. That feature keeps its own per-request model.
 export async function runEditorQuery(sql, creds, options = {}) {
   if (!sql || typeof sql !== "string") throw new Error("SQL is required.");
   const conn = getGlobalConnection();
   const base = {
     sql,
-    node: conn.node, // from navbar
+    node: conn.nodeName, // from navbar
     port: conn.port, // from navbar
     clusterId: conn.clusterId, // from navbar
     readOnly: !!options.readOnly,
+    // Omitted entirely when absent, so the eleven existing callers send a
+    // request body byte-identical to before this change.
+    params: options.params || undefined,
+    // The caller's settings win, so the editor's own Max rows value overrides
+    // the default read from storage.
+    settings: { ...rowLimitSettings(options), ...(options.settings || {}) },
   };
 
   if (creds && creds.password !== undefined) {
@@ -189,7 +240,7 @@ export async function runEditorQuery(sql, creds, options = {}) {
 
   return apiFetch("/api/query", {
     method: "POST",
-    body: JSON.stringify({ ...base, useSession: true, context: "editor" }),
+    body: JSON.stringify({ ...base, useSession: true, context: "editor-qurioz" }),
   });
 }
 
@@ -203,7 +254,7 @@ export async function editorConnect({ user, password }) {
     body: JSON.stringify({
       user,
       password: password ?? "",
-      node: conn.node,
+      node: conn.nodeName,
       port: conn.port,
       clusterId: conn.clusterId,
     }),

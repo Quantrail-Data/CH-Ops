@@ -3,7 +3,7 @@
 // Where does ingestion time go? Fetch (object storage) vs Process (ClickHouse)
 // vs Commit (Keeper), at p50 and p95. Unavailable stages are labeled, not zeroed.
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Icon from "../common/Icon.jsx";
 import { initChart, disposeChart } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
@@ -38,7 +38,7 @@ export default function LatencySplitChart({ latency }) {
 
     const axis = cssVar("--text-muted", "#94a3b8");
     const grid = cssVar("--border-default", "#334155");
-    const c50 = cssVar("--accent", "#8b5cf6");
+    const c50 = cssVar("--accent", "#9590FF");
     const c95 = cssVar("--color-warning", "#f59e0b");
 
     const avail = (s) => stageAvail(latency, s.key);
@@ -87,8 +87,10 @@ export default function LatencySplitChart({ latency }) {
   }, [latency, hasAny]);
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = elRef.current;
     return () => {
-      if (elRef.current) disposeChart(elRef.current);
+      disposeChart(chartEl);
       chartRef.current = null;
     };
   }, []);

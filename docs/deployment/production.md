@@ -1,8 +1,8 @@
 # Production Deployment
 
-This guide walks you through deploying CHOps on a Linux server with automatic HTTPS (via Caddy) and automatic startup (via systemd). By the end, CHOps will be running as a background service at `https://your-domain.com`, restarting automatically if it crashes or the server reboots.
+This guide walks you through deploying CHOps on a Linux server with automatic HTTPS (via Caddy) and automatic startup (via systemd). At the end, CHOps runs as a background service at `https://your-domain.com`, and restarts automatically if it crashes or the server reboots.
 
-If you are new to Linux servers, read every step - nothing is skipped.
+If you are new to Linux servers, read every step. Nothing is skipped.
 
 ---
 
@@ -10,23 +10,29 @@ If you are new to Linux servers, read every step - nothing is skipped.
 
 You need:
 
-- A Linux server (Ubuntu 22.04/24.04, Debian 12, or similar)
-- A hostname for the server. A public domain (e.g., `chops.example.com`) if you are exposing CHOps to the internet, or an internal DNS name or plain IP address if you are running it on a private network. A domain is not required.
-- SSH access to the server
-- If you expose CHOps publicly with automatic HTTPS: ports 80 and 443 reachable from the internet, which Let's Encrypt needs to issue certificates. On a private network this is not required; see the internal TLS options in Step 5.
-- Port 8123 accessible from the server to your ClickHouse® host (not from the internet)
+- A Linux server (tested on Ubuntu 24.04 and 26.04, and Debian 13; other modern distributions should also work).
+- A hostname for the server. Use a public domain (for example, `chops.example.com`) if you expose CHOps to the internet, or an internal DNS name or plain IP address if you run it on a private network. A domain is not required.
+- SSH access to the server.
+- If you expose CHOps publicly with automatic HTTPS: ports 80 and 443 reachable from the internet, which Let's Encrypt needs to issue certificates. On a private network this is not required. See the internal TLS options in Step 5.
+- Port 8123 reachable from the server to your ClickHouse&reg; host (not from the internet).
 
 ---
 
 ## Step 1: Install Bun
 
 ```bash
-curl -fsSL https://bun.com/install | bash -s "bun-v1.3.13"
+curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
 source ~/.bashrc
 bun --version
 ```
 
-If you are building a binary instead, you only need Bun on your build machine, not on the production server.
+The service user in Step 3 cannot read your home directory. For a source install, copy Bun to a shared path:
+
+```bash
+sudo cp "$(which bun)" /usr/local/bin/bun
+```
+
+If you build a binary instead, you only need Bun on your build machine, not on the production server.
 
 ---
 
@@ -35,9 +41,8 @@ If you are building a binary instead, you only need Bun on your build machine, n
 ### Option A: Run from source
 
 ```bash
-cd /opt
-git clone https://github.com/Quantrail-Data/CH-Ops.git
-cd CH-Ops
+git clone https://github.com/Quantrail-Data/CH-Ops.git /opt/chops
+cd /opt/chops
 bun install
 cp .env.example .env
 ```
@@ -48,20 +53,20 @@ Edit `/opt/chops/.env`:
 SUPER_ADMIN_1=admin
 SUPER_ADMIN_1_PASSWORD=your_strong_password_here
 SUPER_ADMIN_1_EMAIL=you@example.com
-SESSION_SECRET=paste_a_64_char_random_string_here
-PORT=3000
+ENCRYPTION_SECRET=paste_a_64_char_random_string_here
+PORT=7720
 NODE_ENV=production
 ```
 
-`SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `SESSION_SECRET` are all required; the server exits on startup if any is missing. See [Configuration](../getting-started/configuration.md) for the full list.
+`SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, and `ENCRYPTION_SECRET` are all required. The server exits on startup if any is missing. See [Configuration](../getting-started/configuration.md) for the full list.
 
-Generate a strong SESSION_SECRET (must be at least 32 characters):
+Generate a strong ENCRYPTION_SECRET (it must be at least 32 characters):
 
 ```bash
 openssl rand -hex 32
 ```
 
-Run the database migration and build the frontend:
+Build the frontend. The `db:migrate` step is optional, because the server also runs the migration at each start:
 
 ```bash
 bun run db:migrate
@@ -72,15 +77,15 @@ Test that it starts:
 
 ```bash
 bun src/backend/server.js
-# Should print: CHOps v<version> listening on http://localhost:3000
+# Should print: CHOps v<version> listening on http://localhost:7720
 # Press Ctrl+C to stop
 ```
 
 ### Option B: Run from binary
 
-You can download a prebuilt binary instead of building one. Prebuilt binaries and builds for Linux, macOS, and Windows are published on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases); download `chops-linux-x64` and skip to "Copy the binary and `.env` to your server" below (the copy step already renames it to `/opt/chops/chops`).
+You can download a prebuilt binary instead of building your own. We publish prebuilt binaries for Linux, macOS, and Windows on the [Releases page](https://github.com/Quantrail-Data/CH-Ops/releases). Download `chops-linux-x64` and skip to "Copy the binary and `.env` to your server" below (the copy step already renames it to `/opt/chops/chops`).
 
-To build it yourself, do so on your development machine. Run `bun install` first: it installs dependencies and applies the `@xenova/transformers` patch that keeps the compiled binary self-contained. Building without it produces a binary that crashes at startup on native modules. See [Building a Binary](../development/binary-build.md) for details.
+To build it yourself, do so on your development machine, and run `bun install` first to install the dependencies. See [Building a Binary](../development/binary-build.md) for details.
 
 ```bash
 bun install
@@ -90,6 +95,7 @@ bun run build:binary:linux
 Copy the binary and `.env` to your server:
 
 ```bash
+ssh your-server 'sudo mkdir -p /opt/chops && sudo chown "$USER" /opt/chops'
 scp chops-linux-x64 your-server:/opt/chops/chops
 scp .env your-server:/opt/chops/.env
 ```
@@ -100,7 +106,7 @@ On the server:
 chmod +x /opt/chops/chops
 cd /opt/chops
 ./chops
-# Should print: CHOps v<version> listening on http://localhost:3000
+# Should print: CHOps v<version> listening on http://localhost:7720
 # Press Ctrl+C to stop
 ```
 
@@ -108,9 +114,9 @@ cd /opt/chops
 
 ## Step 3: Create a systemd Service
 
-systemd is the process manager built into Linux. It will start CHOps automatically on boot, restart it if it crashes, and let you manage it with simple commands.
+systemd is the process manager built into Linux. It starts CHOps automatically on boot, restarts it if it crashes, and lets you manage it with simple commands.
 
-Create a dedicated system user (no login, no home directory - just for running the service):
+Create a dedicated system user (no login, no home directory, only to run the service):
 
 ```bash
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin chops
@@ -136,7 +142,7 @@ Type=simple
 User=chops
 Group=chops
 WorkingDirectory=/opt/chops
-ExecStart=/home/chops/.bun/bin/bun src/backend/server.js
+ExecStart=/usr/local/bin/bun src/backend/server.js
 Restart=on-failure
 RestartSec=5
 
@@ -197,15 +203,15 @@ WantedBy=multi-user.target
 
 **What each setting does:**
 
-- `After=network.target` - wait for networking before starting
-- `User=chops` - run as the dedicated user, not root
-- `Restart=on-failure` - restart automatically if CHOps crashes
-- `RestartSec=5` - wait 5 seconds between restarts
-- `EnvironmentFile` - loads your `.env` variables into the process
-- `NoNewPrivileges=true` - process cannot gain extra permissions
-- `ProtectSystem=strict` - makes the filesystem read-only except for allowed paths
-- `ReadWritePaths=/opt/chops/data` - CHOps can only write to its data directory
-- `PrivateTmp=true` - gives the service its own /tmp (isolated from other processes)
+- `After=network.target`: wait for networking before starting.
+- `User=chops`: run as the dedicated user, not root.
+- `Restart=on-failure`: restart automatically if CHOps crashes.
+- `RestartSec=5`: wait 5 seconds between restarts.
+- `EnvironmentFile`: loads your `.env` variables into the process.
+- `NoNewPrivileges=true`: the process cannot gain extra permissions.
+- `ProtectSystem=strict`: makes the filesystem read-only except for allowed paths.
+- `ReadWritePaths=/opt/chops/data`: CHOps can only write to its data directory. This directory holds `chops.db`, `crypto.salt`, the export files, and the backups.
+- `PrivateTmp=true`: gives the service its own /tmp (isolated from other processes).
 
 Enable and start the service:
 
@@ -215,7 +221,7 @@ sudo systemctl enable chops
 sudo systemctl start chops
 ```
 
-Check that it is running:
+Check that it runs:
 
 ```bash
 sudo systemctl status chops
@@ -240,7 +246,7 @@ sudo journalctl -u chops -f     # Follow logs in real time
 
 ### Logging
 
-CHOps outputs structured JSON logs to stdout/stderr, which systemd's journald captures automatically. Each log entry is a single JSON line with timestamp, level, message, and context:
+CHOps outputs structured JSON logs to stdout and stderr, which systemd's journald captures automatically. Each log entry is a single JSON line with timestamp, level, message, and context:
 
 ```json
 {"ts":"2026-05-18T10:30:00.000Z","level":"info","msg":"GET /api/alerts/rules 200 12ms","ctx":{"method":"GET","path":"/api/alerts/rules","status":200,"duration":12,"user":"admin","ip":"::1"}}
@@ -262,17 +268,17 @@ sudo journalctl -u chops -f | grep '"level":"error"'
 sudo journalctl -u chops --since "1 hour ago"
 ```
 
-**Log levels:** Set `LOG_LEVEL=debug` in your `.env` file to enable debug-level logging. Default is `info`. Levels: debug, info, warn, error.
+**Log levels:** set `LOG_LEVEL=debug` in your `.env` file to enable debug-level logging. The default is `info`. Levels: debug, info, warn, error.
 
-**What is logged:** Every API request (method, path, status, duration, username, IP). Scheduler events (backup started/completed/failed, alert notifications). Server startup. Errors.
+**What is logged:** CHOps logs every API request (method, path, status, duration, username, IP), scheduler events (backup started, completed, failed, and alert notifications), server startup, and errors.
 
-**What is NOT logged by the request logger:** passwords, tokens, request bodies, or response bodies. Note that unhandled errors and some diagnostic output are still written directly to stdout/stderr outside the structured logger, so treat the journal as potentially containing raw error detail.
+**What is NOT logged by the request logger:** passwords, tokens, request bodies, or response bodies. Unhandled errors and some diagnostic output still go directly to stdout and stderr, outside the structured logger, so treat the journal as content that may contain raw error detail.
 
 ---
 
 ## Step 4: Install Caddy
 
-Caddy is a web server that automatically handles HTTPS certificates (via Let's Encrypt). You do not need to manually generate or renew SSL certificates. Automatic public certificates require the server to be reachable from the internet; for a private-network deployment, Caddy can instead issue certificates from its own local certificate authority, or serve plain HTTP (see Step 5).
+Caddy is a web server that handles HTTPS certificates automatically (via Let's Encrypt). You do not need to generate or renew SSL certificates by hand. Automatic public certificates require the server to be reachable from the internet. For a private-network deployment, Caddy can instead issue certificates from its own local certificate authority, or serve plain HTTP (see Step 5).
 
 ### Ubuntu/Debian
 
@@ -284,7 +290,7 @@ sudo apt update
 sudo apt install caddy
 ```
 
-Verify installation:
+Verify the installation:
 
 ```bash
 caddy version
@@ -304,7 +310,7 @@ Replace the contents with:
 
 ```
 chops.example.com {
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -312,10 +318,10 @@ Replace `chops.example.com` with your actual domain name.
 
 That is the entire configuration. Caddy will:
 
-1. Obtain a free TLS certificate from Let's Encrypt
-2. Automatically renew it before it expires
-3. Redirect HTTP (port 80) to HTTPS (port 443)
-4. Proxy all requests to CHOps on port 3000
+1. Obtain a free TLS certificate from Let's Encrypt.
+2. Renew it automatically before it expires.
+3. Redirect HTTP (port 80) to HTTPS (port 443).
+4. Proxy all requests to CHOps on port 7720.
 
 Restart Caddy to apply:
 
@@ -323,7 +329,7 @@ Restart Caddy to apply:
 sudo systemctl restart caddy
 ```
 
-Check that Caddy is running:
+Check that Caddy runs:
 
 ```bash
 sudo systemctl status caddy
@@ -333,12 +339,12 @@ Open `https://chops.example.com` in your browser. You should see the CHOps login
 
 ### Running without a public domain (private networks)
 
-If CHOps runs on a private network with no public domain, you do not need Let's Encrypt. Caddy can serve an internal DNS name or an IP address using a certificate from its own local certificate authority. Use `tls internal`:
+If CHOps runs on a private network with no public domain, you do not need Let's Encrypt. Caddy can serve an internal DNS name or an IP address with a certificate from its own local certificate authority. Use `tls internal`:
 
 ```
 chops.internal.example {
     tls internal
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -347,21 +353,21 @@ Replace `chops.internal.example` with the internal DNS name your users resolve t
 ```
 10.0.0.5 {
     tls internal
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
-With `tls internal`, Caddy generates its own root CA and issues the certificate locally. Browsers will warn that the certificate is untrusted until you distribute and trust Caddy's root CA on client machines. It lives under Caddy's data directory, typically at `/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt`.
+With `tls internal`, Caddy generates its own root CA and issues the certificate locally. Browsers warn that the certificate is untrusted until you distribute and trust Caddy's root CA on client machines. It lives under Caddy's data directory, typically at `/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt`.
 
-On a trusted internal network where TLS is not needed, you can have Caddy serve plain HTTP by prefixing the address with `http://` (this also disables the automatic HTTP-to-HTTPS redirect):
+On a trusted internal network where TLS is not needed, you can have Caddy serve plain HTTP. Prefix the address with `http://` (this also disables the automatic HTTP-to-HTTPS redirect):
 
 ```
 http://chops.internal.example {
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
-You can also skip Caddy entirely and expose CHOps directly on its port (`http://server-ip:3000`), though a reverse proxy is still useful for TLS and access control. For browser-trusted certificates on an internal domain without opening ports 80 and 443, use a DNS-challenge certificate, which requires a Caddy build that includes your DNS provider's plugin.
+You can also skip Caddy entirely and expose CHOps directly on its port (`http://server-ip:7720`), though a reverse proxy is still useful for TLS and access control. For browser-trusted certificates on an internal domain without open ports 80 and 443, use a DNS-challenge certificate, which requires a Caddy build that includes your DNS provider's plugin.
 
 ---
 
@@ -376,7 +382,7 @@ chops.example.com {
     basicauth {
         admin $2a$14$yourhashedpasswordhere
     }
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -388,27 +394,27 @@ caddy hash-password --plaintext 'your-password'
 
 ### IP allowlisting
 
-Restrict access to specific IP addresses (e.g., your office network):
+Restrict access to specific IP addresses (for example, your office network):
 
 ```
 chops.example.com {
     @blocked not remote_ip 203.0.113.0/24 198.51.100.42
     respond @blocked 403
 
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
 ### Custom headers
 
-Add extra security headers or override ones set by CHOps:
+Add extra security headers, or override ones set by CHOps:
 
 ```
 chops.example.com {
     header {
         X-Robots-Tag "noindex, nofollow"
     }
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
@@ -425,25 +431,28 @@ chops.example.com {
             window 1m
         }
     }
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:7720
 }
 ```
 
 Note: the `rate_limit` directive requires the `caddy-ratelimit` plugin.
 
-### Multiple CHOps instances behind load balancer
+### Run one CHOps instance only
 
-```
-chops.example.com {
-    reverse_proxy localhost:3000 localhost:3001 {
-        lb_policy round_robin
-        health_uri /api/health
-        health_interval 10s
-    }
-}
-```
+Run exactly one CHOps process for one database. Do not put two CHOps instances behind a load balancer, and that includes Kubernetes `replicas: 2` or more. CHOps keeps these items in the memory of its process:
 
-Note: CHOps uses SQLite which does not support multiple writers. Only use this for read scaling or active/standby setups.
+- password reset codes and reset tokens,
+- failed login counts and rate limits,
+- the alert scheduler and the Kubernetes health alerts.
+
+Two instances cause these problems:
+
+- A reset code from one instance does not work on the other instance.
+- The login limits count only half of the attempts.
+- CHOps sends each alert two times.
+- SQLite does not support two writers.
+
+For high availability, use a standby instance that you start only when the first instance stops. It must use the same database file and the same `data/crypto.salt`. For example, use a systemd service on a second server that you start manually, or a Kubernetes Deployment with `replicas: 1` and `strategy: Recreate`.
 
 ---
 
@@ -451,11 +460,11 @@ Note: CHOps uses SQLite which does not support multiple writers. Only use this f
 
 Run through this checklist:
 
-1. Open your CHOps address (`https://chops.example.com`, an internal DNS name, or the server IP). It should load the login page. With a public domain you get a trusted certificate; with `tls internal` you will see a certificate warning until Caddy's root CA is trusted on the client.
+1. Open your CHOps address (`https://chops.example.com`, an internal DNS name, or the server IP). It should load the login page. With a public domain you get a trusted certificate. With `tls internal` you see a certificate warning until Caddy's root CA is trusted on the client.
 2. If you configured public HTTPS, `http://chops.example.com` should redirect to HTTPS automatically.
-3. Log in with your super admin credentials
-4. Go to Administration > Cluster Management, add a ClickHouse® node, test the connection
-5. Reboot the server (`sudo reboot`) and verify CHOps comes back automatically
+3. Log in with your super admin credentials.
+4. Go to Control panel > Cluster Management, add a ClickHouse&reg; node, and test the connection.
+5. Reboot the server (`sudo reboot`) and check that CHOps comes back automatically.
 
 ---
 
@@ -470,21 +479,23 @@ sudo crontab -u chops -e
 Add this line:
 
 ```
-0 2 * * * cd /opt/chops && /home/chops/.bun/bin/bun run db:backup
+0 2 * * * cd /opt/chops && /usr/local/bin/bun run db:backup
 ```
 
-This runs `bun run db:backup` every day at 2:00 AM. Backups are saved to `/opt/chops/data/backups/` as `chops-<timestamp>.db`. The binary does not expose a `db:backup` subcommand (running `./chops` only starts the server), so for binary installs use either the in-app **Administration > App Data Backup** (super admin), or a SQLite backup on a schedule:
+This runs `bun run db:backup` every day at 2:00 AM. Each run saves two files to `/opt/chops/data/backups/`: `chops-<timestamp>.db` and `chops-<timestamp>.salt`. To restore, you need both files and the same `ENCRYPTION_SECRET`.
+
+The binary does not have a `db:backup` subcommand. `./chops` only starts the server. For binary installs, use the in-app **Control panel > App Data Backup** (admin), which uploads the database and the salt to an S3 storage profile. Or use a SQLite backup on a schedule:
 
 ```
 0 2 * * * sqlite3 /opt/chops/data/chops.db ".backup '/opt/chops/data/backups/chops-$(date +\%Y\%m\%d).db'"
 ```
 
-This requires `sqlite3` on the host and that `/opt/chops/data/backups/` exists.
+This needs `sqlite3` on the host, and `/opt/chops/data/backups/` must exist. The command does not copy `data/crypto.salt`, so keep a copy of that file too. It does not change after the first start.
 
-To keep only the last 30 backups, add a cleanup line:
+To delete backups that are older than 30 days, add a cleanup line:
 
 ```
-5 2 * * * find /opt/chops/data/backups -name "chops-*.db" -mtime +30 -delete
+5 2 * * * find /opt/chops/data/backups -name "chops-*" -mtime +30 -delete
 ```
 
 ---
@@ -498,7 +509,6 @@ sudo systemctl stop chops
 cd /opt/chops
 git pull
 bun install
-bun run db:migrate
 bun run build
 sudo systemctl start chops
 ```
@@ -511,50 +521,54 @@ sudo systemctl stop chops
 sudo systemctl start chops
 ```
 
-The database migration is safe to run on an existing database - it only creates tables that do not already exist.
+The server runs the database migration at each start. The migration is safe on an existing database. At the first start of a new version, CHOps also encrypts any secret that an older version stored in plain text, such as the login signing keys, notification channel secrets, and storage profile keys.
 
 ---
 
 ## Troubleshooting
 
-**Caddy shows "connection refused"** - CHOps is not running. Check `sudo systemctl status chops` and `sudo journalctl -u chops -n 20`.
+**Caddy shows "connection refused"**: CHOps is not running. Check `sudo systemctl status chops` and `sudo journalctl -u chops -n 20`.
 
-**Certificate errors** - Make sure your domain's DNS A record points to your server's public IP. Caddy needs ports 80 and 443 open to complete the ACME challenge.
+**Certificate errors**: make sure your domain's DNS A record points to your server's public IP. Caddy needs ports 80 and 443 open to complete the ACME challenge.
 
-**"SESSION_SECRET must be at least 32 characters"** - Your `.env` file has a SESSION_SECRET shorter than 32 characters. Generate a new one with `openssl rand -hex 32`.
+**"ENCRYPTION_SECRET must be at least 32 characters"**: your `.env` file has a ENCRYPTION_SECRET shorter than 32 characters. Generate a new one with `openssl rand -hex 32`.
 
-**"Missing required env" on startup** - One of `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, or `SESSION_SECRET` is unset. Under systemd, confirm they are in the `EnvironmentFile`; under Docker, confirm they are passed to the container.
+**"Missing required env" on startup**: one of `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL`, or `ENCRYPTION_SECRET` is unset. Under systemd, confirm they are in the `EnvironmentFile`. Under Docker, confirm they are passed to the container.
 
-**Permission denied errors** - Make sure the `chops` user owns the data directory: `sudo chown -R chops:chops /opt/chops/data`.
+**Permission denied errors**: make sure the `chops` user owns the data directory: `sudo chown -R chops:chops /opt/chops/data`.
 
-**Port 3000 already in use** - Change the `PORT` in `.env` to something else (e.g., 3001) and update the Caddyfile `reverse_proxy` line to match.
+**Port 7720 already in use**: change the `PORT` in `.env` to something else (for example, 7730) and update the Caddyfile `reverse_proxy` line to match.
 
 ---
 
 ## Docker Deployment
 
-CHOps ships with a Dockerfile and docker-compose.yml for containerized deployment. The image uses `oven/bun:1.3.13-alpine` with a multi-stage build.
+CHOps ships with a Dockerfile and docker-compose.yml for a containerized deployment. The image uses `oven/bun:1.4.2-alpine` with a multi-stage build. Published images are also on Docker Hub (`quantrailadmin1/ch-ops`) and GitHub Container Registry (`ghcr.io/quantrail-data/ch-ops`).
 
 ### Quick Start
+
+The bundled docker-compose.yml reads your configuration from a `.env` file (through `env_file: .env`), so create that file first.
 
 ```bash
 # Clone or extract the project
 cd CH-Ops
 
-# Set the required variables
-export SESSION_SECRET=$(openssl rand -hex 32)
-export SUPER_ADMIN_1=admin
-export SUPER_ADMIN_1_PASSWORD=your_strong_password_here
-export SUPER_ADMIN_1_EMAIL=you@example.com
+# Create your .env file and edit it
+cp .env.example .env
+nano .env
+# Set ENCRYPTION_SECRET (openssl rand -hex 32), SUPER_ADMIN_1,
+# SUPER_ADMIN_1_PASSWORD, and SUPER_ADMIN_1_EMAIL
 
 # Build and run
 docker compose up -d
 
-# Check it's running
+# Check that it runs
 docker compose logs -f
 ```
 
-CHOps is now at `http://localhost:3000`. The SQLite database persists in the `chops-data` Docker volume.
+CHOps is now at `http://localhost:7720`. The SQLite database persists in the `chops-data` Docker volume.
+
+Because the compose file reads from `.env`, put your values in that file. Exporting them only in your shell does not pass them to the container.
 
 ### Build Only (without Compose)
 
@@ -562,8 +576,8 @@ CHOps is now at `http://localhost:3000`. The SQLite database persists in the `ch
 docker build -t chops .
 docker run -d \
   --name chops \
-  -p 3000:3000 \
-  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -p 7720:7720 \
+  -e ENCRYPTION_SECRET=$(openssl rand -hex 32) \
   -e SUPER_ADMIN_1=admin \
   -e SUPER_ADMIN_1_PASSWORD=your_strong_password_here \
   -e SUPER_ADMIN_1_EMAIL=you@example.com \
@@ -573,24 +587,29 @@ docker run -d \
 
 ### Environment Variables
 
-Pass environment variables via `docker compose` environment section or `docker run -e`:
+Pass environment variables through the `docker compose` env file or `docker run -e`:
 
-- `SESSION_SECRET` (required) - random string for JWT signing and credential encryption
-- `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL` (required) - the first super admin, seeded on first startup
-- `DISABLE_ENV_LOGIN=true` (optional) - disable .env login fallback in production
-- `PORT=3000` (default) - HTTP port inside the container
-- `LOG_LEVEL=info` (default) - debug, info, warn, error
+- `ENCRYPTION_SECRET` (required): a random string that makes the key for stored credentials. You cannot change it after the first start.
+- `SUPER_ADMIN_1`, `SUPER_ADMIN_1_PASSWORD`, `SUPER_ADMIN_1_EMAIL` (required): the first super admin, seeded on first startup.
+- `DISABLE_ENV_LOGIN=true` (optional): disable the .env login fallback in production.
+- `PORT=7720` (default): the HTTP port inside the container.
+- `LOG_LEVEL=info` (default): debug, info, warn, error.
+- `FRONTEND_LINK` (optional): the address that users open. CHOps uses it in the one-time links that set a password.
+- `TRUST_PROXY` (optional): the number of reverse proxies in front of CHOps.
 
-The bundled `docker-compose.yml` only forwards `SESSION_SECRET`, `SUPER_ADMIN_1`, and `SUPER_ADMIN_1_PASSWORD`. Because `SUPER_ADMIN_1_EMAIL` is also required, add it to the service's `environment:` list or point the service at your full `.env` with `env_file: .env`.
+The bundled `docker-compose.yml` loads your whole `.env` with `env_file: .env`, so every variable in the file reaches the container, including `SUPER_ADMIN_1_EMAIL` and `FRONTEND_LINK`. It then sets `NODE_ENV=production` and `PORT=7720` in its own `environment:` section, which override anything in `.env`. Because it reads from the file, put your values in `.env` rather than only in your shell.
 
 ### Data Persistence
 
-The SQLite database is stored at `/app/data/chops.db` inside the container. The `docker-compose.yml` maps this to a named volume (`chops-data`) so data survives container restarts and rebuilds.
+Inside the container, CHOps stores the SQLite database at `/app/data/chops.db` and the encryption salt at `/app/data/crypto.salt`. The `docker-compose.yml` maps `/app/data` to a named volume (`chops-data`), so the data survives container restarts and rebuilds.
 
-To back up the database:
+To back up the database, stop the container first. A copy of a running database can miss data that is still in the WAL file. Copy the salt file too:
 
 ```bash
+docker stop chops
 docker cp chops:/app/data/chops.db ./chops-backup.db
+docker cp chops:/app/data/crypto.salt ./chops-backup.salt
+docker start chops
 ```
 
 ### Updating
@@ -601,11 +620,11 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-The database volume is not deleted during rebuild. Your data, users, alerts, dashboards, and cluster config persist across updates.
+A rebuild does not delete the database volume, so your data, users, alerts, dashboards, and cluster config persist across updates.
 
 ### Health Check
 
-The container has a built-in health check that pings `/api/health` every 30 seconds. Check status with:
+The container has a built-in health check that pings `/api/health` every 30 seconds. Check the status with:
 
 ```bash
 docker inspect --format='{{.State.Health.Status}}' chops
@@ -613,7 +632,41 @@ docker inspect --format='{{.State.Health.Status}}' chops
 
 ### Image Details
 
-- Base: `oven/bun:1.3.13-alpine` (Alpine Linux + Bun runtime)
-- Multi-stage build: dependencies + frontend build in stage 1, slim runtime in stage 2
-- Non-root user (`chops`) for security
-- Includes: built React frontend, backend source, production node_modules, docs
+- Base: `oven/bun:1.4.2-alpine` (Alpine Linux and the Bun runtime).
+- Multi-stage build: dependencies and the frontend build in stage 1, a slim runtime in stage 2.
+- Non-root user (`chops`) for security.
+- Includes: the built React frontend, the backend source, the shared source (`src/shared`), production node_modules, and the docs.
+- Health check: `/api/health` answers when the server runs. `/api/ready` also checks that the database can be read.
+
+---
+
+## Kubernetes Deployment
+
+The repository has example manifests in its root folder: `configmap.yaml`, `statefulset.yaml`, `service.yaml`, and `ingress.yaml`. They run one CHOps pod with a persistent disk for `/app/data`.
+
+1. Put the image in a registry that your cluster can pull from. Then set the `image:` field in `statefulset.yaml`. The manifest names the published image `quantrailadmin1/ch-ops:<version>`, with the version of this release from `version.json` (for example `quantrailadmin1/ch-ops:1.4.0`). The tag must match the CHOps release that you deploy.
+2. Make a Secret named `chops-secrets` with the four required values:
+
+   ```bash
+   kubectl create secret generic chops-secrets \
+     --from-literal=ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
+     --from-literal=SUPER_ADMIN_1=admin \
+     --from-literal=SUPER_ADMIN_1_PASSWORD=your_strong_password_here \
+     --from-literal=SUPER_ADMIN_1_EMAIL=you@example.com
+   ```
+
+   Keep a copy of `ENCRYPTION_SECRET`. A new value makes the stored passwords unreadable.
+3. Apply the manifests:
+
+   ```bash
+   kubectl apply -f configmap.yaml -f statefulset.yaml -f service.yaml
+   ```
+
+4. Change the host name in `ingress.yaml`. Then apply it with `kubectl apply -f ingress.yaml`. The ingress example is for the NGINX ingress controller.
+
+What the manifests set:
+
+- `replicas: 1`. Do not raise it. See [Run one CHOps instance only](#run-one-chops-instance-only).
+- `DB_PATH=/app/data/chops.db` on the persistent disk. `crypto.salt` is also in `/app/data`.
+- `EXPORT_DIR=/app/exports` on an `emptyDir` volume with an 8Gi limit. Export files do not survive a pod restart. Keep `EXPORT_MAX_TOTAL_BYTES` below the volume limit.
+- A liveness probe and a startup probe on `/api/health`, and a readiness probe on `/api/ready`.

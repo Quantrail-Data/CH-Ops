@@ -1,16 +1,7 @@
-/**
- * schema-studio-routes.test.js - RBAC gate tests for the Schema Studio router
- *
- * Schema Studio's /connect lets the caller authenticate as any ClickHouse
- * user of their choosing (independent of the CHOps app role), and /create
- * is its only write action (a guarded CREATE TABLE). Both must reject the
- * app's 'readonly' role server-side, mirroring the same enforcement already
- * covered for query.js. This does not re-test the full feature (inference,
- * AI generation, etc.) - see schema-studio.test.js for the pure-logic helpers.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// schema-studio-routes.test.js - RBAC gate tests for the Schema Studio router
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// Contributors - Praveen kumar, Kathir Moorthy
+
 import { describe, test, expect, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -24,8 +15,42 @@ const mockExecuteQueryWithBody = mock();
 
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
   getClusterNodes: mockGetClusterNodes,
+  //add
+  resolveTargetNode: (clusterId, selector) => {
+  const nodes = mockGetClusterNodes(clusterId) || [];
+
+  if (!nodes.length) {
+    throw Object.assign(new Error("No cluster nodes configured"), {
+      status: 400,
+    });
+  }
+
+  const target = selector
+    ? nodes.find((n) => n.name === selector || n.host === selector)
+    : nodes[0];
+
+  if (!target) {
+    throw Object.assign(
+      new Error("Node not found in cluster configuration."),
+      { status: 400 },
+    );
+  }
+
+  return target;
+},
+  //add here
   getAllClusters: () => [], getClusterById: () => null, getNodeByName: () => null,
   getDefaultCluster: () => null, saveClusters: () => {}, migrateClusterData: () => {},
+  // bun's mock.module replaces this module for the whole test process, not just
+  // this file - stub every real export so whichever test file's mock.module
+  // call happens to win doesn't break other files that need this one.
+  maskClusterPasswords: (cluster) => ({
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  }),
   MAX_CLUSTERS: 3, MAX_TOTAL_NODES: 18,
 }));
 
@@ -67,6 +92,7 @@ function createRes() {
 }
 
 describe("POST /schema-studio/connect - role gate", () => {
+  
   const handler = getHandler("post", "/connect");
 
   test("rejects readonly role with 403, never touches ClickHouse", async () => {
@@ -89,6 +115,23 @@ describe("POST /schema-studio/connect - role gate", () => {
     await handler(req, res);
     expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
     expect(res.statusCode).toBe(200);
+  });
+
+  test("stores the node name, not the node host", async () => {
+    mockGetClusterNodes.mockReturnValue([
+      { name: "node-1", host: "shared-host", port: 8123, secure: false },
+      { name: "node-2", host: "shared-host", port: 8124, secure: false },
+    ]);
+    mockExecuteQuery.mockResolvedValue({ rows: [{ 1: 1 }] });
+    const req = {
+      user: { role: "editor", jti: "j-node-name", username: "alice" },
+      body: { clusterId: "c1", node: "node-2", user: "ch_user", password: "ch_pw" },
+    };
+    const res = createRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.node).toBe("node-2");
+    expect(res.body.port).toBe(8124);
   });
 });
 

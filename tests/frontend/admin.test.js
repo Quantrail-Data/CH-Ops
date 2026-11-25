@@ -9,7 +9,11 @@ function read(f) { return fs.readFileSync(f, 'utf8'); }
 
 describe('UserManagement: RBAC', () => {
   const code = read('src/frontend/components/admin/UserManagement.jsx');
-  it('disabled buttons for non-admin (opacity 0.35, not-allowed)', () => { expect(code).toContain('disabled={!canManage}'); expect(code).toContain('opacity: 0.35'); expect(code).toContain('not-allowed'); });
+  it('row actions are disabled for non-admins (styled by the shared .menu-item:disabled rule)', () => {
+    expect(code).toContain('disabled: !canManage || u.initUser');
+    const css = read('src/frontend/styles/global.css');
+    expect(css).toMatch(/\.menu-item:disabled \{[^}]*cursor: not-allowed/);
+  });
   it('self password change button', () => { expect(code).toContain('Change My Password'); });
   it('mutual exclusion: opening one panel closes the other', () => { expect(code).toContain('setShowCreate(false)'); expect(code).toContain('show: false'); });
   it('dt-single scrollbar variant', () => { expect(code).toContain('dt-single'); });
@@ -25,7 +29,7 @@ describe('ClusterManagement: Validation', () => {
 describe('DDL & Readonly', () => {
   const code = read('src/frontend/components/overview/DistributedDDL.jsx');
   it('Promise.allSettled for single-node compat', () => { expect(code).toContain('Promise.allSettled'); });
-  it('fallback 0 values', () => { expect(code).toContain("?? '0'"); });
+  it('fallback 0 values', () => { expect(code).toContain("?? \"0\""); });
   it('info banner for single-node', () => { expect(code).toContain('single-node'); });
   it('is_readonly=1 query', () => { expect(code).toContain('is_readonly=1'); });
   it('fixed variant for tables', () => { expect(code).toContain('variant="fixed"'); });

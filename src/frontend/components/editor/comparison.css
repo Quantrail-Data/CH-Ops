@@ -45,7 +45,7 @@
 }
 .cmp-pane-header {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-secondary);
 }
 .cmp-pane-buttons {
@@ -67,7 +67,7 @@
 }
 .cmp-rows-note {
   margin: 6px 2px 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -100,11 +100,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 .cmp-connect-error {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--color-danger);
   max-width: 240px;
   overflow: hidden;
@@ -113,7 +113,7 @@
 }
 .cmp-connect-hint {
   margin: 0 0 12px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
@@ -122,14 +122,14 @@
   margin-top: 20px;
 }
 .cmp-metrics-title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
   margin-bottom: 8px;
 }
 .cmp-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .cmp-table th,
 .cmp-table td {
@@ -153,7 +153,7 @@
 }
 .cmp-badge {
   margin-left: 8px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--color-success);
@@ -161,7 +161,7 @@
 }
 .cmp-delta {
   margin-left: 8px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--color-success);
 }
 .cmp-delta-bad {
@@ -175,11 +175,11 @@
 }
 .cmp-error {
   color: var(--color-danger);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .cmp-note {
   margin-top: 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -209,14 +209,16 @@
 
 /* Mild tint so the left (current) and right (experimental) result tables read
    as visually distinct. Headers carry the stronger tint, cells a faint wash. */
+/* The tint lies over the solid header color: --accent-soft is see-through,
+   so the rows showed through the sticky header while scrolling. */
 .cmp-pane-left .cmp-pane-results .data-table thead th {
-  background: var(--accent-soft, rgba(124, 58, 237, 0.1));
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--th-bg);
 }
 .cmp-pane-right .cmp-pane-results .data-table thead th {
-  background: var(--bg-hover);
+  background: linear-gradient(var(--bg-hover), var(--bg-hover)), var(--th-bg);
 }
 .cmp-pane-left .cmp-pane-results .data-table-wrap {
-  border-top: 2px solid var(--accent, #7c3aed);
+  border-top: 2px solid var(--accent);
 }
 .cmp-pane-right .cmp-pane-results .data-table-wrap {
   border-top: 2px solid var(--border-strong, var(--text-muted));

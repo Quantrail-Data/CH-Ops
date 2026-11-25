@@ -12,7 +12,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "../common/Icon.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -21,6 +21,12 @@ import DataTable from "../layout/DataTable.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import ChartCard from "../layout/ChartCard.jsx";
+import { useConnection } from "../../App.jsx";
+import AdvancedFilters from "./AdvancedFilters.jsx";
+import { buildWhere, extraColumns, loadAdvState } from "../../utils/advancedFilters.js";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
+
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -32,8 +38,9 @@ const fmtNow = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
-export default function CrashLog({ sidebar }) {
+export default function CrashLog() {
   const { tab: routeTab = "overview" } = useParams();
+  const conn = useConnection();
   const navigate = useNavigate();
 
   const handleTabChange = (newTab) => {
@@ -61,8 +68,12 @@ export default function CrashLog({ sidebar }) {
           <Icon className="ti ti-search"></Icon> Search
         </div>
       </div>
-      {routeTab === "overview" && <CrashLogOverview />}
-      {routeTab === "search" && <CrashLogSearch sidebar={sidebar} />}
+      {routeTab === "overview" && (
+        <CrashLogOverview unavailable={conn.unavailable} />
+      )}
+      {routeTab === "search" && (
+        <CrashLogSearch unavailable={conn.unavailable} />
+      )}
     </div>
   );
 }
@@ -187,7 +198,7 @@ function Stat({ label, value, icon, color, small }) {
         <Icon
           className={`ti ${icon}`}
           style={{
-            fontSize: 28,
+            fontSize: "1.75rem",
             color: color || "var(--accent)",
             opacity: 0.9,
             flexShrink: 0,
@@ -197,7 +208,7 @@ function Stat({ label, value, icon, color, small }) {
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 4,
           }}
@@ -223,6 +234,9 @@ function Stat({ label, value, icon, color, small }) {
 }
 
 function SectionError({ title, message }) {
+
+ 
+
   return (
     <div
       className="card"
@@ -243,28 +257,18 @@ function SectionError({ title, message }) {
       >
         {title}
       </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 8,
-          color: "var(--color-danger)",
-          fontSize: "13px",
-          lineHeight: 1.5,
-          wordBreak: "break-word",
-        }}
-      >
+      { <Notice tone="danger">
         <Icon
           className="ti ti-alert-circle"
-          style={{ flexShrink: 0, marginTop: 2 }}
+          style={{ flexShrink: 0, marginTop: 1 }}
         ></Icon>
         <span>{message}</span>
-      </div>
+      </Notice>}
     </div>
   );
 }
 
-function CrashLogOverview() {
+function CrashLogOverview({ unavailable }) {
   const [duration, setDuration] = useState("30d");
   const [from, setFrom] = useState(fmtAgo(720));
   const [to, setTo] = useState(fmtNow());
@@ -281,6 +285,9 @@ function CrashLogOverview() {
   });
   const [errs, setErrs] = useState({});
   const [themeKey, setThemeKey] = useState(0);
+  const liveState = useLiveOverview();
+
+
 
   useEffect(() => {
     const obs = new MutationObserver(() => setThemeKey((k) => k + 1));
@@ -430,6 +437,24 @@ function CrashLogOverview() {
     signal: (v) => signalLabel(v),
   };
 
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === "system.crash_log");
+    return match ? match.message : null;
+  };
+
+  const unavailableMessage = getUnavailableMessage();
+
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div
@@ -443,26 +468,25 @@ function CrashLogOverview() {
           alignItems: "flex-end",
         }}
       >
-        <div className="form-group">
-          <label className="form-label">Quick</label>
+        <FormField label="Quick">
           <div style={{ display: "flex", gap: 4 }}>
             {PRESETS.map((d) => (
-              <button
+              <Button
                 key={d}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
-                style={{ padding: "8px 12px", minWidth: 48 }}
+                size="sm" variant={duration === d ? "primary" : "secondary"} aria-pressed={duration === d}
+                style={{ minWidth: 48 }}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
-        <button
-          className="btn btn-primary btn-sm"
-          style={{ padding: "8px 14px" }}
+        </FormField>
+        <Button
+          title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+          variant="primary" size="sm"
           onClick={load}
-          disabled={loading}
+          disabled={loading || liveState?.isNotConnectedClusterNode()}
         >
           {loading ? (
             <>
@@ -473,7 +497,7 @@ function CrashLogOverview() {
               <Icon className="ti ti-player-play"></Icon> Load
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -481,7 +505,7 @@ function CrashLogOverview() {
           <span className="loading-spinner"></span>
         </div>
       ) : !loaded ? (
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh"}}>
           <Icon
             className="ti ti-player-play"
             style={{ color: "#fb923c" }}
@@ -623,26 +647,28 @@ async function runQueryProbe() {
   return new Set((res.rows || []).map((r) => r.name).filter(Boolean));
 }
 
-function CrashLogSearch({ sidebar }) {
+function CrashLogSearch({ unavailable }) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());
   const [queryText, setQueryText] = useState("");
   const [signalDesc, setSignalDesc] = useState("");
   const [exceptionTrace, setExceptionTrace] = useState("");
+  const [adv, setAdv] = useState(() => loadAdvState("crash_log"));
   const [rowLimit, setRowLimit] = useState(500);
   const [submitted, setSubmitted] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const q = useQuery();
 
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const liveState =  useLiveOverview()
+
   useEffect(() => {
     if (error) toast.error(error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [error]);
-
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -681,6 +707,9 @@ function CrashLogSearch({ sidebar }) {
         selectCols.push("current_exception_trace_full");
       if (available("current_exception_trace"))
         selectCols.push("current_exception_trace");
+      for (const pickedColumn of extraColumns(selectCols, adv.columns)) {
+        if (available(pickedColumn)) selectCols.push(pickedColumn);
+      }
 
       if (selectCols.length === 0) {
         toast.error(
@@ -732,7 +761,8 @@ function CrashLogSearch({ sidebar }) {
         }
       }
 
-      const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+      const combined = buildWhere(conds, adv.filters);
+      const where = combined ? `WHERE ${combined}` : "";
       const select = selectCols.join(", ");
 
       setSubmitted(true);
@@ -740,13 +770,11 @@ function CrashLogSearch({ sidebar }) {
 
       const sql = `SELECT ${select} FROM system.crash_log ${where} ORDER BY ${available("event_time") ? "event_time" : available("timestamp_ns") ? "timestamp_ns" : selectCols[0]} DESC LIMIT ${rowLimit}`;
 
-      await q.execute(sql);
+      await q.execute(sql, { readOnly: true });
     } catch (err) {
-    setLoading(false);
-    setError(err?.message || err);
-      
-    }
-    finally{
+      setLoading(false);
+      setError(err?.message || err);
+    } finally {
       setLoading(false);
     }
   }
@@ -770,9 +798,23 @@ function CrashLogSearch({ sidebar }) {
     }
   };
 
-  const widthStyle = {
-    width: `${(window?.innerWidth - (sidebar ? 650 : 900)) / (sidebar ? 5 : 5)}px`,
+  const getUnavailableMessage = () => {
+    const match = unavailable.find((item) => item.table === "system.crash_log");
+    return match ? match.message : null;
   };
+
+  const unavailableMessage = getUnavailableMessage();
+
+  if (unavailableMessage) {
+    return (
+      <div className="unavailable-container">
+        <div className="unavailable-icon-wrapper">
+          <Icon className="ti-git-branch" />
+        </div>
+        <div className="unavailable-text">{unavailableMessage}</div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -790,108 +832,75 @@ function CrashLogSearch({ sidebar }) {
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>
           Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
 
       {filtersOpen && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <form onSubmit={handleSearch}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 5,
-                marginBottom: 14,
-              }}
-            >
-              <div>
-                <DateTimePicker
-                  label="From *"
-                  value={from}
-                  onChange={handleDateOnChange}
-                  name="From"
-                />
-              </div>
-              <div>
-                {" "}
-                <DateTimePicker
-                  label="To *"
-                  value={to}
-                  onChange={handleDateOnChange}
-                  name="To"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Query (text)</label>
-                <input
-                  className="form-input"
-                  style={widthStyle}
+            <div className="search-form-row">
+              <DateTimePicker
+                label="From *"
+                value={from}
+                onChange={handleDateOnChange}
+                name="From"
+              />
+              <DateTimePicker
+                label="To *"
+                value={to}
+                onChange={handleDateOnChange}
+                name="To"
+              />
+              <FormField label="Query (text)" className="search-field">
+                <Input
                   value={queryText}
                   onChange={(e) => setQueryText(e.target.value)}
                   placeholder="partial..."
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Signal Description</label>
-                <input
-                  className="form-input"
+              </FormField>
+              <FormField label="Signal Description" className="search-field">
+                <Input
                   value={signalDesc}
-                  style={widthStyle}
                   onChange={(e) => setSignalDesc(e.target.value)}
                   placeholder="partial..."
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Exception Trace</label>
-                <input
-                  className="form-input"
+              </FormField>
+              <FormField label="Exception Trace" className="search-field">
+                <Input
                   value={exceptionTrace}
-                  style={widthStyle}
                   onChange={(e) => setExceptionTrace(e.target.value)}
                   placeholder="partial..."
                 />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Row Limit</label>
-                <input
-                  className="form-input"
+              </FormField>
+              <FormField label="Row Limit" className="search-field-small">
+                <Input
                   type="number"
                   min={1}
                   max={100000}
                   value={rowLimit}
                   onChange={(e) => setRowLimit(parseInt(e.target.value) || 500)}
-                  style={{ width: 100 }}
                 />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  justifyContent: "flex-end",
-                  height: "60px",
-                  marginLeft: "10px",
-                }}
-              >
-                <button
-                  className="btn btn-primary"
+              </FormField>
+              <div className="search-form-submit">
+                <Button
+                  title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+                  variant="primary"
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || liveState?.isNotConnectedClusterNode()}
                 >
                   {loading ? (
                     <>
@@ -902,24 +911,18 @@ function CrashLogSearch({ sidebar }) {
                       <Icon className="ti ti-search"></Icon> Search
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 12,
-                alignItems: "flex-end",
-              }}
-            ></div>
-          </form>
+            <AdvancedFilters table="crash_log" value={adv} onChange={setAdv} />
+            </form>
         </div>
       )}
       {submitted && !q.loading && (
-        <DataTable
-          rows={q.data || []}
+         <DataTable
+            rows={q.data || []}
+            columns={q.columns || []}
           emptyMessage="No crash entries found."
           variant="single"
           s_no={true}

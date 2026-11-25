@@ -1,12 +1,12 @@
+// components.test.jsx - shared components: SqlPreview, StatCard and DateTimePicker
+// Contributors - Praveen kumar, Kathirdhasan, Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Unit tests verifying core UI components including error boundaries, date-time pickers, stat cards, and SQL previews.
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { SqlPreview, StatCard } from '../../src/frontend/components/layout/SharedComponents.jsx';
-import { DateTimePicker } from '../../src/frontend/components/layout/DateTimePicker.jsx';
+import { DateTimePicker, formatDateTime, parseDateTime } from '../../src/frontend/components/layout/DateTimePicker.jsx';
 import ErrorBoundary from '../../src/frontend/components/layout/ErrorBoundary.jsx';
 
 describe('SqlPreview', () => {
@@ -67,11 +67,14 @@ describe('StatCard', () => {
 });
 
 describe('DateTimePicker', () => {
-  it('renders date input and three time selects', () => {
-    const { container } = render(<DateTimePicker value="2025-01-15 09:30:00" onChange={() => {}} />);
-    expect(container.querySelector('input[type="date"]')).toBeTruthy();
-    const selects = container.querySelectorAll('select');
-    expect(selects.length).toBe(3);
+  // The picker is one field. A click opens the calendar and the time field.
+  function openPicker(label) {
+    fireEvent.click(screen.getByRole('button', { name: label }));
+  }
+
+  it('shows the date and time as one text, the same in every language', () => {
+    render(<DateTimePicker value="2025-06-20 14:30:45" onChange={() => {}} label="From" />);
+    expect(screen.getByRole('button', { name: 'From' })).toHaveTextContent('20 Jun 2025, 14:30:45');
   });
 
   it('renders label when provided', () => {
@@ -79,37 +82,43 @@ describe('DateTimePicker', () => {
     expect(screen.getByText('Start Time')).toBeInTheDocument();
   });
 
-  it('parses value into date and time parts', () => {
-    const { container } = render(<DateTimePicker value="2025-06-20 14:30:45" onChange={() => {}} />);
-    const dateInput = container.querySelector('input[type="date"]');
-    expect(dateInput.value).toBe('2025-06-20');
-    const selects = container.querySelectorAll('select');
-    expect(selects[0].value).toBe('14');
-    expect(selects[1].value).toBe('30');
-    expect(selects[2].value).toBe('45');
+  it('formats and parses the parts', () => {
+    expect(formatDateTime('2025-12-25', '10:00:00')).toBe('25 Dec 2025, 10:00:00');
+    expect(parseDateTime('2025-06-20 14:30:45')).toEqual({ date: '2025-06-20', time: '14:30:45' });
+    expect(parseDateTime('2025-06-20T14:30')).toEqual({ date: '2025-06-20', time: '14:30:00' });
   });
 
-  it('calls onChange when hour changes', () => {
+  it('calls onChange when the time changes', () => {
     const fn = vi.fn();
-    const { container } = render(<DateTimePicker value="2026-05-23 15:15:00" onChange={fn} name="From"/>);
-    const hourSelect = container.querySelectorAll('select')[1];
-    fireEvent.change(hourSelect, { target: { value: '15' } });
-    expect(fn).toHaveBeenCalledWith('2026-05-23 15:15:00',"From");
+    render(<DateTimePicker value="2026-05-23 15:15:00" onChange={fn} name="From" label="From" />);
+    openPicker('From');
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '16:20:05' } });
+    expect(fn).toHaveBeenCalledWith('2026-05-23 16:20:05', 'From');
   });
 
-  it('calls onChange when date changes', () => {
+  it('calls onChange when a day is picked in the calendar', () => {
     const fn = vi.fn();
-    const { container } = render(<DateTimePicker value="2025-01-01 10:00:00" onChange={fn} name="To" />);
-    const dateInput = container.querySelector('input[type="date"]');
-    fireEvent.change(dateInput, { target: { value: '2025-12-25' } });
-    expect(fn).toHaveBeenCalledWith('2025-12-25 10:00:00',"To");
+    render(<DateTimePicker value="2025-12-01 10:00:00" onChange={fn} name="To" label="To" />);
+    openPicker('To');
+    fireEvent.click(screen.getByRole('button', { name: /December 25th, 2025/ }));
+    expect(fn).toHaveBeenCalledWith('2025-12-25 10:00:00', 'To');
+  });
+
+  it('gives the datetime-local format when asked', () => {
+    const fn = vi.fn();
+    render(
+      <DateTimePicker value="2026-07-10T08:15" valueFormat="datetime-local" onChange={fn} label="From" />,
+    );
+    expect(screen.getByRole('button', { name: 'From' })).toHaveTextContent('10 Jul 2026, 08:15');
+    openPicker('From');
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '09:45' } });
+    expect(fn).toHaveBeenCalledWith('2026-07-10T09:45', undefined);
   });
 
   it('uses current time when value is empty', () => {
-    const { container } = render(<DateTimePicker value="" onChange={() => {}} />);
-    const dateInput = container.querySelector('input[type="date"]');
-    // Should be today's date
-    expect(dateInput.value).toBeTruthy();
+    render(<DateTimePicker value="" onChange={() => {}} label="From" />);
+    const year = String(new Date().getFullYear());
+    expect(screen.getByRole('button', { name: 'From' })).toHaveTextContent(year);
   });
 });
 

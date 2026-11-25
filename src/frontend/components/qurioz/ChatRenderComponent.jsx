@@ -2,7 +2,7 @@
 // author -> Praveen kumar
 // Iterates through and renders conversational message threads, markdown text, and embedded code blocks.
 
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "../common/Icon.jsx";
 import quriozImage from "../../assets/qurioz.png";
 import DataTable from "../layout/DataTable";
@@ -10,37 +10,37 @@ import SQLQueryEditorComponent from "./SQLQueryEditorComponent";
 import { AnimatePresence, motion } from "motion/react";
 import ChartVisualization from "./ChartVisualization";
 import { useToast } from "../layout/Toast";
-import { apiFetch } from "../../utils/api";
-import { useQuriozChatContext, useAuth } from "../../App";
 import AILoaderComponent from "./AILoaderComponent";
+import { Button, Notice } from "../ui/index.jsx";
 
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
-
-function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,index,ReFormQuestionSQLGenerating }) {
-  const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const canAddToDashboard = myLevel >= ROLE_LEVEL.editor;
-
-  const [showDownloadOption, setShowDownloadingOption] = useState(false);
+function ChatRenderComponent({
+  chatMessage,
+  ToggleChart,
+  RunSqlQueryhandler,
+  index,
+  ReFormQuestionSQLGenerating,
+  replaceChat,
+  updateChart,
+}) {
   const [showQuestionOption, setShowQuestionOption] = useState(false);
   const [isEditable, setIsEditable] = useState(false);
   const [editMessage, setEditMessage] = useState(null);
 
-  const [chatReformLoading,setchatReformLoading] = useState(false);
+  const [chatReformLoading, setchatReformLoading] = useState(false);
 
   const [retryLoading, setRetryLoading] = useState(false);
 
-  const { replaceChat } = useQuriozChatContext();
-
-  
+  // const {  } = useQuriozChatContext();
 
   const toast = useToast();
+  const textareaRef = useRef(null);
 
-  const downloadingFilesDataOptionSetting = [
-    { id: 1, title: "JSON", icon: "ti-file-code-2" },
-    { id: 2, title: "CSV", icon: "ti-file-spreadsheet" },
-  ];
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [editMessage]);
 
   const editHandler = () => {
     setEditMessage(chatMessage?.userQuestion);
@@ -58,12 +58,13 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
       ...chatMessage,
       id: chatMessage?.id,
       userQuestion: editMessage,
+    
     };
-    ReFormQuestionSQLGenerating(editMessage,index)
+    ReFormQuestionSQLGenerating(editMessage, index,chatMessage?.messageId);
     replaceChat(updatedUserQuestion);
     setIsEditable(false);
     setEditMessage(null);
-    setchatReformLoading(false)
+    setchatReformLoading(false);
   };
 
   const copyTable = () => {
@@ -73,43 +74,7 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
     }
   };
 
-  const downloadDatatable = async (format) => {
-    try {
-      const response = await apiFetch(
-        "/api/table/download/multiple/file",
-        {
-          method: "POST",
-          body: {
-            data: chatMessage?.tableData,
-            tablename: "datatable",
-            type: format?.toLowerCase(),
-          },
-          Accept: format === "JSON" ? "application/json" : "text/csv",
-        },
-        true,
-      );
-
-      let url = null;
-
-      if (format?.toLowerCase() === "csv") {
-        url = window.URL.createObjectURL(new Blob([response]));
-      } else if (format?.toLowerCase() === "json") {
-        const blob = new Blob([response], { type: "application/json" });
-        url = window.URL.createObjectURL(blob);
-      }
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Datatable.${format?.toLowerCase()}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setShowDownloadingOption(false);
-      toast.success(`Successfully ${format?.toUpperCase()} file downloaded `);
-    } catch {
-      toast.error(`Failed to ${format?.toUpperCase()} download `);
-    }
-  };
+  const isTablePresent = (message) => message?.tableData?.length > 0;
 
   const retryHandler = async () => {
     setRetryLoading(true);
@@ -169,37 +134,48 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                     paddingTop: "10px",
                   }}
                 >
-                  {
-                    chatReformLoading ? <div>
-                      <button className="btn btn-ghost">
-                          <div className="loading-spinner">
-                            <Icon className="ti ti-loader-2"></Icon>
-                          </div>
-                      </button>
-                    </div> : 
+                  {chatReformLoading ? (
+                    <div>
+                      <Button variant="ghost">
+                        <div className="loading-spinner">
+                          <Icon className="ti ti-loader-2"></Icon>
+                        </div>
+                      </Button>
+                    </div>
+                  ) : (
                     <>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      if (
-                        navigator?.clipboard &&
-                        navigator?.clipboard.writeText
-                      ) {
-                        navigator?.clipboard?.writeText(
-                          chatMessage?.userQuestion,
-                        );
-                      }
-                      toast.success("User question copied");
-                    }}
-                  >
-                    <Icon className="ti ti-copy" style={{ fontSize: "13px" }}></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => editHandler()}
-                  >
-                   { <Icon className="ti ti-edit" style={{ fontSize: "13px" }}></Icon>}
-                  </button></>}
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          if (
+                            navigator?.clipboard &&
+                            navigator?.clipboard.writeText
+                          ) {
+                            navigator?.clipboard?.writeText(
+                              chatMessage?.userQuestion,
+                            );
+                          }
+                          toast.success("User question copied");
+                        }}
+                      >
+                        <Icon
+                          className="ti ti-copy"
+                          style={{ fontSize: "0.8125rem" }}
+                        ></Icon>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => editHandler()}
+                      >
+                        {
+                          <Icon
+                            className="ti ti-edit"
+                            style={{ fontSize: "0.8125rem" }}
+                          ></Icon>
+                        }
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -210,8 +186,8 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
               style={{ position: "relative" }}
               className="editor-container"
             >
-              <input
-                type="text"
+              <textarea
+                ref={textareaRef}
                 value={editMessage}
                 onChange={(e) => {
                   setEditMessage(e.target.value);
@@ -221,8 +197,8 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                     reformUserQuestionhandler();
                   }
                 }}
+                style={{ resize: "none", maxWidth: "700px" }}
               />
-
               <div
                 style={{
                   position: "absolute",
@@ -231,20 +207,18 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                   bottom: "-2.9rem",
                   paddingTop: "10px",
                   right: "0rem",
-                  gap:"5px",
+                  gap: "5px",
                 }}
               >
-                <button onClick={cancelEditHandler} className="btn btn-danger">
-                  {" "}
-                  <Icon className="ti ti-x"></Icon> 
-                </button>
-                <button
-                  className="btn btn-primary"
+                <Button onClick={cancelEditHandler} variant="danger">
+                  <Icon className="ti ti-x"></Icon>
+                </Button>
+                <Button
+                  variant="primary"
                   onClick={() => reformUserQuestionhandler()}
                 >
-                  {" "}
-                  <Icon className="ti ti-send-2"></Icon> 
-                </button>
+                  <Icon className="ti ti-send-2"></Icon>
+                </Button>
               </div>
             </motion.div>
           )}
@@ -252,25 +226,38 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
       </div>
     );
   else if (chatMessage?.type === "bot")
-    return chatMessage?.isLoading ? (<AILoaderComponent />) :(chatMessage?.aiError?.status ? (
-    <div style={{display:"flex",flexDirection:"column",width:"100%"}}>
-    <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "100%",
-              height: "60px",
-            }}
-          >
-            <img src={quriozImage} style={{ width: "30px" }} />
-          </div>
-           <div className="alert-banner danger" style={{width:"90%",overflow:"auto",display:"flex",alignItems:"start"}}>
-        <Icon className="ti ti-info-triangle" style={{fontSize:"15px"}}></Icon>
-      <code style={{ fontSize: "12px" }}>{chatMessage?.aiError?.message}</code>
-    </div>
-    </div>
-   ) : ( <div id="chat-bot-render">
+    return chatMessage?.isLoading ? (
+      <AILoaderComponent />
+    ) : (chatMessage?.aiError?.status && chatMessage?.sql === null) ? (
+      <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+            height: "60px",
+          }}
+        >
+          <img src={quriozImage} style={{ width: "30px" }} />
+        </div>
+        <Notice tone="danger" style={{
+            width: "90%",
+            overflow: "auto",
+            display: "flex",
+            alignItems: "start",
+          }}>
+          <Icon
+            className="ti ti-info-triangle"
+            style={{ fontSize: "0.9375rem" }}
+          ></Icon>
+          <code style={{ fontSize: "0.75rem" }}>
+            {chatMessage?.aiError?.message}
+          </code>
+        </Notice>
+      </div>
+    ) : (
+      <div id="chat-bot-render">
         <div style={{ width: "100%" }}>
           <div
             style={{
@@ -297,28 +284,33 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                 <SQLQueryEditorComponent
                   chat={chatMessage}
                   RunSqlQueryhandler={RunSqlQueryhandler}
+                  replaceChat={replaceChat}
                 />
               </motion.div>
 
               {chatMessage?.error?.status ? (
-                <div
-                  className=" alert-banner danger"
-                  style={{
+                <Notice tone="danger" style={{
                     width: "90%",
                     display: "flex",
                     flexDirection: "column",
-                  }}
-                >
+                  }}>
                   {retryLoading ? (
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",width:"100%"}}>
-                      <div
-                      className="loading-spinner"
+                    <div
                       style={{
-                        borderTopColor: "white",
-                        margin:"15px auto"
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "100%",
                       }}
-                    ></div>
-                      </div>
+                    >
+                      <div
+                        className="loading-spinner"
+                        style={{
+                          borderTopColor: "white",
+                          margin: "15px auto",
+                        }}
+                      ></div>
+                    </div>
                   ) : (
                     <>
                       <div
@@ -340,8 +332,8 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                           <h5>Error occurs while executing the query</h5>
                         </div>
                         <div>
-                          <button
-                            className="btn btn-ghost"
+                          <Button
+                            variant="ghost"
                             title="copy"
                             onClick={() => {
                               if (
@@ -357,13 +349,13 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                           >
                             <Icon
                               className="ti ti-copy"
-                              style={{ fontSize: "14px" }}
+                              style={{ fontSize: "0.875rem" }}
                             ></Icon>
-                          </button>
+                          </Button>
                         </div>
                       </div>
 
-                      <code style={{ fontSize: "12px" }}>
+                      <code style={{ fontSize: "0.75rem" }}>
                         {chatMessage?.error?.message}
                       </code>
                       <div
@@ -374,22 +366,20 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                           margin: "10px 0px",
                         }}
                       >
-                        <button
-                          className="btn btn-danger"
-                          style={{ fontSize: "12px" }}
-                          onClick={()=>retryHandler()}
+                        <Button
+                          variant="danger"
+                          onClick={() => retryHandler()}
                         >
-                          
                           <Icon
                             className="ti ti-refresh-alert"
-                            style={{ color: "white", fontSize: "12px" }}
+                            style={{ color: "white", fontSize: "0.75rem" }}
                           ></Icon>
-                           Retry
-                        </button>
+                          Retry
+                        </Button>
                       </div>
                     </>
                   )}
-                </div>
+                </Notice>
               ) : (
                 <>
                   <motion.div
@@ -397,14 +387,39 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease: "easeIn", delay: 0.6 }}
                     className="data-table-ai-con"
-                
                   >
-                    <DataTable
-                      rows={chatMessage?.tableData}
-                      columns={chatMessage?.tableData?.length  > 0 ? Object.keys(chatMessage?.tableData[0]) : []}
-                      maxRows={chatMessage?.tableData?.length || 10}
-                      QuriozFlag={true}
-                    />
+                    {isTablePresent(chatMessage) ? (
+                      <DataTable
+                        rows={chatMessage?.tableData}
+                        columns={
+                          chatMessage?.tableData?.length > 0
+                            ? Object.keys(chatMessage?.tableData[0])
+                            : []
+                        }
+                        maxRows={chatMessage?.tableData?.length || 10}
+                        QuriozFlag={true}
+                      />
+                    ) : (
+                      <div
+                        className="empty-state"
+                        style={{
+                          padding: "32px 16px",
+                          height: "auto",
+                          margin: "20px 0px",
+                          border: "1px solid var(--border-default)",
+                        }}
+                      >
+                        <Icon
+                          className="ti ti-inbox"
+                          style={{ fontSize: "1.4375rem" }}
+                        ></Icon>
+                        <p>
+                          {
+                            "No data found. Please check the SQL query and try again."
+                          }
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                   <motion.div
                     initial={{ opacity: 0, y: 0 }}
@@ -417,65 +432,33 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                       margin: "10px 0px",
                     }}
                   >
-                    <div
-                      className="icon-action-bot"
-                      title="Copy Table Data"
+                    <Button
+                      variant="ghost" className="icon-action-bot"
+                      title={
+                        !isTablePresent(chatMessage)
+                          ? "Empty data"
+                          : "Copy Table Data"
+                      }
                       onClick={() => copyTable()}
+                      disabled={!isTablePresent(chatMessage)}
                     >
                       <Icon className="ti ti-copy" />
-                    </div>
-                    <div
-                      className="icon-action-bot"
-                      title="Download Table Data"
-                      onClick={() =>
-                        setShowDownloadingOption(!showDownloadOption)
+                    </Button>
+                    
+
+                    <Button
+                      variant="ghost" className="icon-action-bot"
+                      title={
+                        chatMessage?.tableData?.length > 0
+                          ? "View the visualization"
+                          : "Unable to display the chart as the data table is empty."
                       }
-                    >
-                      {showDownloadOption ? (
-                        <Icon className="ti ti-x"></Icon>
-                      ) : (
-                        <Icon className="ti ti-download" style={{ fontSize: 20 }} />
-                      )}
-                    </div>
-
-                    <AnimatePresence>
-                      {showDownloadOption && (
-                        <motion.div
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          className="download-container"
-                        >
-                          {downloadingFilesDataOptionSetting?.map(
-                            (downloadOpt, indx) => (
-                              <div
-                                className="downloading-btn-table"
-                                key={indx}
-                                onClick={() =>
-                                  downloadDatatable(downloadOpt?.title)
-                                }
-                                title={`Download ${downloadOpt?.title}`}
-                              >
-                                <Icon
-                                  className={`ti ${downloadOpt?.icon}`}
-                                  style={{ color: "white", fontSize: "18px" }}
-                                ></Icon>
-                              </div>
-                            ),
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    <button
-                      className="icon-action-bot btn btn-ghost"
-                      title={chatMessage?.tableData?.length > 0 ? "View the visualization" : "Unable to display the chart as the data table is empty."}
-                      onClick={() => ToggelChart(chatMessage)}
-                      style={{ gap: "10px" }}
+                      onClick={() => ToggleChart(chatMessage)}
                       disabled={chatMessage?.tableData?.length === 0}
                     >
-                      <Icon className="ti ti-chart-bar" /> <span>Chart View</span>
-                    </button>
+                      <Icon className="ti ti-chart-bar" />{" "}
+                      <span>Chart View</span>
+                    </Button>
                   </motion.div>
 
                   <AnimatePresence>
@@ -489,13 +472,16 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
                           ease: "easeIn",
                           delay: 0.2,
                         }}
-                        style={{width:"90%"}}
+                        style={{ width: "90%" }}
                       >
                         <ChartVisualization
                           editChart={null}
                           ChartData={chatMessage?.tableData}
                           data={chatMessage?.tableData}
                           chatMessage={chatMessage}
+                          replaceChat={replaceChat}
+                          updateChart={updateChart}
+                          ToggleChart={ToggleChart}
                         />
                       </motion.div>
                     )}
@@ -505,8 +491,8 @@ function ChatRenderComponent({ chatMessage, ToggelChart, RunSqlQueryhandler,inde
             </motion.div>
           </AnimatePresence>
         </div>
-      </div>))
-    ;
+      </div>
+    );
 
   return <div></div>;
 }

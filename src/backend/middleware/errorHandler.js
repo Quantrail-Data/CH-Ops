@@ -1,23 +1,22 @@
-// Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Global middleware that catches application errors, logs stack traces, and returns standardized JSON error responses.
+// errorHandler.js - The last Express error handler.
+// Copyright (C) 2026 Quantrail Data Private Limited
 
+import { log } from "../services/logger.js";
 
-
-const ApplicationError = require("../exceptions/AppError");
-
-function errorHandler(err, req, res, next) {
-  if (err instanceof ApplicationError) {
-    return res.status(err?.statusCode || err?.code || 500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-  let status = err?.statusCode || err?.code || 500
-  return res.status(status).json({
-    success: false,
-    message: err.message,
+// The details of a server error go to the log, not to the client.
+// Express finds an error handler by its four arguments, so next must stay.
+// eslint-disable-next-line no-unused-vars
+export function handleRequestError(err, req, res, next) {
+  const status = err?.status || err?.statusCode || 500;
+  log.error("Unhandled request error", {
+    error: err?.message,
+    status,
+    path: req.path,
+    method: req.method,
   });
+  // A client error (for example JSON that cannot be read) can tell the client what is wrong.
+  const isClientError = status < 500 && err?.expose !== false;
+  let message = "Internal server error";
+  if (isClientError && err?.message) message = err.message;
+  res.status(status).json({ error: message });
 }
-
-module.exports = errorHandler;

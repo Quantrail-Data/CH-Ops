@@ -2,10 +2,10 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Application bootstrap file that mounts the root React component to the DOM and initializes global styles.
 
-import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import './styles/global.css';
+import './styles/tailwind.css';
 import { SPRITE } from './assets/iconSprite.js';
 
 // Inject the inlined Tabler icon sprite once, before render, so every

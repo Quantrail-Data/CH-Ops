@@ -1,0 +1,387 @@
+// AppConfig.jsx - settings an administrator can change without a restart.
+// Contributors - Kathirmoorthy, Kathirdhasan, Praveen, Sanjeev Kumar G
+// Copyright (C) 2026 Quantrail Data pvt Ltd
+
+import { useState, useEffect } from "react";
+import Icon from "../common/Icon.jsx";
+import { SegmentedControl, Input, Button, Notice } from "../ui/index.jsx";
+import Select from "../common/Select.jsx";
+import { apiFetch } from "../../utils/api.js";
+import { useToast } from "../layout/Toast.jsx";
+import { useAuth } from "../../App.jsx";
+
+const GB = 1024 * 1024 * 1024;
+const MB = 1024 * 1024;
+const MIN = 60 * 1000;
+
+const TABS = [
+  { id: "export", label: "Exports" },
+  { id: "query", label: "Queries" },
+  { id: "security", label: "Security" },
+  { id: "k8s", label: "Kubernetes" },
+  { id: "rbac", label: "DB RBAC" },
+];
+
+const FIELDS = {
+  "export.maxTotalBytes": {
+    label: "Total export storage",
+    unit: "GB",
+    scale: GB,
+    help: "All export files together. Bounded by the disk CHOps writes to.",
+  },
+  "export.maxJobBytes": {
+    label: "Largest single export",
+    unit: "GB",
+    scale: GB,
+    help: "One export is stopped when it passes this.",
+  },
+  "export.maxConcurrent": {
+    label: "Exports running at once",
+    unit: "",
+    scale: 1,
+    help: "Across all users.",
+  },
+  "export.maxPerUser": {
+    label: "Exports per user",
+    unit: "",
+    scale: 1,
+    help: "How many one person may run at the same time.",
+  },
+  "export.warnBytes": {
+    label: "Warn above",
+    unit: "GB",
+    scale: GB,
+    help: "Shown to the user as a warning. Not enforced.",
+  },
+  "export.idleTtlMs": {
+    label: "Delete idle files after",
+    unit: "minutes",
+    scale: MIN,
+    help: "An export nobody downloads is cleaned up after this.",
+  },
+
+  "query.maxResultBytes": {
+    label: "Maximum result size",
+    unit: "MB",
+    scale: MB,
+    help: "A query returning more than this to CHOps is stopped. Exports are not affected.",
+  },
+  "query.statsRowLimit": {
+    label: "Schema Studio sample rows",
+    unit: "rows",
+    scale: 1,
+    help: "How many rows column statistics are calculated from.",
+  },
+
+  "security.maxFailures": {
+    label: "Failed logins before lockout",
+    unit: "",
+    scale: 1,
+    help: "Counted within the window below.",
+  },
+  "security.lockoutMs": {
+    label: "Lockout lasts",
+    unit: "minutes",
+    scale: MIN,
+    help: "How long an account stays locked, and the window failures are counted in.",
+  },
+  "security.sessionTtlMs": {
+    label: "Session length",
+    unit: "minutes",
+    scale: MIN,
+    help: "How long a login lasts. Also how long a saved ClickHouse credential lives, deliberately.",
+  },
+
+  "k8s.syncIntervalMs": {
+    label: "Refresh the host list every",
+    unit: "minutes",
+    scale: MIN,
+    help: "How often CHOps re-reads pods from the operator.",
+  },
+  "k8s.missesBeforeRemoval": {
+    label: "Missed refreshes before removing a host",
+    unit: "",
+    scale: 1,
+    help: "Too low and a rolling restart drops nodes. Too high and a scale-down leaves stale entries.",
+  },
+  "k8s.timeoutMs": {
+    label: "Kubernetes API timeout",
+    unit: "seconds",
+    scale: 1000,
+    help: "Per request to the Kubernetes API.",
+  },
+  "k8s.probeTimeoutMs": {
+    label: "Pod address probe timeout",
+    unit: "seconds",
+    scale: 1000,
+    help: "How long CHOps waits when checking whether a pod is reachable on its own address.",
+  },
+
+  "rbac.defaultProfileName": {
+    label: "ClickHouse default profile",
+    kind: "text",
+    help: "The default_profile of the ClickHouse servers. View Grants > Settings starts with this profile. Change it only when your servers use another name.",
+  },
+  "rbac.settingsConstraintsReplacePrevious": {
+    label: "A constraint replaces the previous one",
+    kind: "onOff",
+    help: "The ClickHouse server option settings_constraints_replace_previous. It is on by default in ClickHouse.",
+  },
+};
+
+// The text in the input box for a stored value.
+function valueAsText(row, field) {
+  if (field.kind === "text" || field.kind === "onOff") return String(row.value);
+  return String(row.value / field.scale);
+}
+
+// The value to send to the server for the text in the input box.
+function valueToSave(typed, field) {
+  if (field.kind === "text") return typed;
+  if (field.kind === "onOff") return Number(typed);
+  return Math.round(Number(typed) * field.scale);
+}
+
+// The line under the help text, with the source and the allowed values.
+function rangeText(row, field) {
+  if (field.kind === "text") return `default "${row.default}"`;
+  if (field.kind === "onOff") return `default ${row.default === 1 ? "on" : "off"}`;
+  const unit = field.unit ? ` ${field.unit}` : "";
+  return `${Math.round(row.min / field.scale)} to ${Math.round(row.max / field.scale)}${unit}`;
+}
+
+export default function AppConfig() {
+  const toast = useToast();
+  const [tab, setTab] = useState("export");
+  const [rows, setRows] = useState([]);
+  const [edits, setEdits] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(null);
+
+  const { auth } = useAuth();
+
+  const isAdmins = () => auth?.role !== "readonly" && auth?.role !== "editor";
+
+  useEffect(() => {
+    if (isAdmins()) {
+      load();
+    } else {
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
+  }, []);
+
+  async function load() {
+    try {
+      setRows(await apiFetch("/api/app-config"));
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function save(row) {
+    const field = FIELDS[row.key];
+    const typed = edits[row.key];
+    if (typed === undefined || typed === "") return;
+
+    setBusy(row.key);
+    try {
+      setRows(
+        await apiFetch("/api/app-config", {
+          method: "PUT",
+          body: JSON.stringify({ key: row.key, value: valueToSave(typed, field) }),
+        }),
+      );
+      setEdits((p) => ({ ...p, [row.key]: undefined }));
+      toast.success("Saved.");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reset(row) {
+    setBusy(row.key);
+    try {
+      setRows(
+        await apiFetch(`/api/app-config/${encodeURIComponent(row.key)}`, {
+          method: "DELETE",
+        }),
+      );
+      setEdits((p) => ({ ...p, [row.key]: undefined }));
+      toast.success("Reset to the default.");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function sourceText(row) {
+    if (row.source === "setting") return "set here";
+    if (row.source === "environment")
+      return `from ${row.env} in the server environment`;
+    return "the built-in default";
+  }
+
+  if (loading)
+    return (
+      <div className="page-content">
+        <div className="loading-spinner" />
+      </div>
+    );
+
+  if (!isAdmins())
+    return (
+      <div className="page-content">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Icon className="ti ti-adjustments-horizontal"></Icon> App Config
+          </h2>
+        </div>
+        <Notice tone="info" icon="ti-lock" style={{ marginBottom: 14 }}>
+          <span>App Config is only available for administrators.</span>
+        </Notice>
+        <div className="empty-state">
+          <Icon className="ti ti-lock"></Icon>
+          <p> App Config is only available for administrators.</p>
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="page-content">
+      <div className="section-header">
+        <h2 className="section-title">
+          <Icon className="ti ti-adjustments-horizontal" /> App Config
+        </h2>
+      </div>
+
+      <p
+        style={{
+          fontSize: "0.8125rem",
+          color: "var(--text-muted)",
+          marginBottom: 20,
+          maxWidth: 700,
+        }}
+      >
+        Limits on how CHOps behaves. A change takes effect immediately, with no
+        restart. Anything not set here falls back to the server environment, and
+        then to a built-in default.
+      </p>
+
+      <SegmentedControl
+        ariaLabel="App config sections"
+        style={{ marginBottom: 20 }}
+        value={tab}
+        onChange={setTab}
+        options={TABS.map((t) => ({ value: t.id, label: t.label }))}
+      />
+
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        {rows
+          .filter((r) => r.key.startsWith(`${tab}.`))
+          .map((row, i) => {
+            const field = FIELDS[row.key];
+            if (!field) return null;
+            const shown = edits[row.key] ?? valueAsText(row, field);
+            const dirty = edits[row.key] !== undefined;
+
+            return (
+              <div
+                key={row.key}
+                className="appconfig-row"
+                style={{
+                  borderTop:
+                    i === 0 ? "none" : "1px solid var(--border-default)",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.8125rem" }}>
+                    {field.label}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--text-muted)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {field.help}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.6875rem",
+                      color: "var(--text-muted)",
+                      marginTop: 4,
+                    }}
+                  >
+                    {sourceText(row)}
+                    {" \u00b7 "}
+                    {rangeText(row, field)}
+                  </div>
+                </div>
+
+                <div className="appconfig-controls">
+                  {field.kind === "onOff" ? (
+                    <Select
+                      className="form-select"
+                      style={{ width: 110 }}
+                      value={shown}
+                      onChange={(event) =>
+                        setEdits((previous) => ({ ...previous, [row.key]: event.target.value }))
+                      }
+                    >
+                      <option value="1">On</option>
+                      <option value="0">Off</option>
+                    </Select>
+                  ) : (
+                    <Input
+                      type={field.kind === "text" ? "text" : "number"}
+                      maxLength={field.kind === "text" ? row.maxLength : undefined}
+                      style={{ width: field.kind === "text" ? 180 : 110, textAlign: field.kind === "text" ? "left" : "right" }}
+                      value={shown}
+                      onChange={(event) =>
+                        setEdits((previous) => ({ ...previous, [row.key]: event.target.value }))
+                      }
+                    />
+                  )}
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--text-muted)",
+                      minWidth: 56,
+                    }}
+                  >
+                    {field.unit}
+                  </span>
+                  <Button
+                    variant="primary" size="sm"
+                    disabled={busy === row.key || !dirty}
+                    onClick={() => save(row)}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="secondary" size="sm"
+                    disabled={busy === row.key || row.source !== "setting"}
+                    onClick={() => reset(row)}
+                    title={
+                      row.source === "setting"
+                        ? "Back to the default"
+                        : "Not set here"
+                    }
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+      </div>
+    </div>
+  );
+}

@@ -10,15 +10,16 @@
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail Data Private Limited
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
-import { getGlobalConnection } from "../../utils/api.js";
+import { apiFetch, getGlobalConnection } from "../../utils/api.js";
 import { connect, connectionStatus, disconnect } from "../../utils/studioApi.js";
 import StepSource from "./StepSource.jsx";
 import StepSchema from "./StepSchema.jsx";
 import StepEngine from "./StepEngine.jsx";
 import StepGenerate from "./StepGenerate.jsx";
 import "./studio.css";
+import { Button, Input, Notice } from "../ui/index.jsx";
 
 const STEPS = ["Source", "Schema", "Engine", "Generate"];
 
@@ -33,6 +34,7 @@ export default function SchemaStudio() {
   const [stats, setStats] = useState(null);
   const [sampleRows, setSampleRows] = useState(0);
   const [form, setForm] = useState(defaultForm());
+  const [dbs,setDbs] = useState([]);
 
   // Restore any existing session on entry.
   useEffect(() => {
@@ -41,6 +43,18 @@ export default function SchemaStudio() {
       .catch(() => setConn({ connected: false }))
       .finally(() => setChecked(true));
   }, []);
+
+  useEffect(() =>{
+    const loadDbs = async () =>{
+     try {
+       const res = await apiFetch("/api/schema-studio/db");
+      setDbs(res?.dbs)
+     } catch (e) {
+      console.log(e?.message)
+     }
+    }
+    loadDbs();
+  },[conn])
 
   const go = (n) => setStep(Math.max(0, Math.min(STEPS.length - 1, n)));
 
@@ -70,6 +84,13 @@ export default function SchemaStudio() {
     );
   }
 
+  const clearForms = () =>{
+    setColumns([]);
+    setStats(null);
+    setSampleRows(0);
+    setForm(defaultForm());
+  }
+
   return (
     <div className="studio-page">
       <div className="studio-header">
@@ -78,7 +99,7 @@ export default function SchemaStudio() {
           <div className="studio-conn">
             <Icon className="ti ti-plug" />
             <span>{conn.chUser}@{conn.node}{conn.port ? `:${conn.port}` : ""}</span>
-            <button className="btn btn-ghost studio-conn-btn" onClick={handleDisconnect}>Disconnect</button>
+            <Button variant="ghost" className="studio-conn-btn" onClick={handleDisconnect}>Disconnect</Button>
           </div>
         </div>
         <ol className="studio-steps">
@@ -118,6 +139,7 @@ export default function SchemaStudio() {
         )}
         {step === 2 && (
           <StepEngine
+            dbs={dbs}
             columns={columns}
             form={form}
             setForm={setForm}
@@ -132,6 +154,8 @@ export default function SchemaStudio() {
             sampleRows={sampleRows}
             form={form}
             onBack={() => go(2)}
+            clearForms={() =>clearForms()}
+            StepSource={() =>go(0)}
           />
         )}
       </div>
@@ -178,7 +202,7 @@ function ConnectPanel({ onConnected }) {
       </p>
 
       {error && (
-        <div className="alert-banner danger"><Icon className="ti ti-alert-circle" /><span>{error}</span></div>
+        <Notice tone="danger" icon="ti-alert-circle"><span>{error}</span></Notice>
       )}
 
       {!ready ? (
@@ -194,29 +218,29 @@ function ConnectPanel({ onConnected }) {
 
       <div className="studio-field">
         <label>ClickHouse user</label>
-        <input className="form-input" value={user}
+        <Input  value={user}
           onChange={(e) => setUser(e.target.value)} placeholder="default" />
       </div>
       <div className="studio-field">
         <label>Password</label>
         <div style={{ width: "100%", position: "relative" }}>
-          <input className="form-input" style={{ width: "100%", paddingRight: "35px" }} type={showPassword ? "text" : "password"} value={password}
+          <Input  style={{ width: "100%", paddingRight: "35px" }} type={showPassword ? "text" : "password"} value={password}
             onChange={(e) => setPassword(e.target.value)} />
-          <div
+          <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={!!(showPassword)}
             className="password-eye"
             style={{ position: "absolute", right: "15px", top: "22%", cursor: "pointer" }}
             title={showPassword ? "hide" : "show"}
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
-          </div>
+          </button>
         </div>
       </div>
 
       <div className="studio-actions">
-        <button className="btn btn-primary" onClick={doConnect} disabled={busy || !ready || !user}>
+        <Button variant="primary" onClick={doConnect} disabled={busy || !ready || !user}>
           {busy ? "Connecting..." : "Connect"}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -2,25 +2,103 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Main container component that layout and renders all dashboard widgets and analytics charts.
 
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
-import { apiFetch, runQuery } from '../../utils/api.js';
-import { buildChartOption } from './chartTypes.js';
-import { initChart, disposeChart, withZoomable } from '../../utils/echarts.js';
-import ChartToolbar, { savePng } from '../common/ChartToolbar.jsx';
-import DataTable from '../layout/DataTable.jsx';
-import ConfirmModal from '../layout/ConfirmModal.jsx';
-import { useToast } from '../layout/Toast.jsx';
+import { apiFetch, runQuery } from "../../utils/api.js";
+import DashboardFilters from "./DashboardFilters.jsx";
+import DashboardSettings from "./DashboardSettings.jsx";
+import {
+  discoverFilters,
+  describeConflict,
+  resolveValues,
+  chartsAffectedBy,
+  missingRequired,
+  waitingMessage,
+} from "../../utils/dashboardParams.js";
+import { buildChartOption, yAxisNameGap, needsLegend } from "./chartTypes.js";
+import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
+import ChartToolbar, { savePng } from "../common/ChartToolbar.jsx";
+import DataTable from "../layout/DataTable.jsx";
+import ConfirmModal from "../layout/ConfirmModal.jsx";
+import { useToast } from "../layout/Toast.jsx";
 import { useTheme, useAuth } from "../../App.jsx";
+import useEmptyContainerHeight from "../../hooks/useEmptyContainerHeight.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
 
-export default function DashboardView({sidebar}) {
+// Filter values live in the URL so a dashboard link is shareable as you are
+// looking at it. The app uses HashRouter, so the router's query string is
+// already inside the fragment and never reaches a server log.
+//
+// Filter names are namespaced. A parameter may legitimately be called `d`
+// (names match [A-Za-z_][A-Za-z0-9_]*), and without a prefix such a chart would
+// silently break dashboard selection - an unpleasant thing to debug.
+const DASH_KEY = "d";
+const FILTER_PREFIX = "f.";
+
+function readFilterParams(searchParams) {
+  const out = {};
+  for (const [k, v] of searchParams.entries()) {
+    if (k.startsWith(FILTER_PREFIX)) out[k.slice(FILTER_PREFIX.length)] = v;
+  }
+  return out;
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="chart-skeleton-card">
+      <div className="chart-skeleton-title">
+        <div className="animate-shimmer" />
+      </div>
+      <div className="chart-skeleton-chart">
+        <div className="animate-shimmer" />
+      </div>
+      <div className="chart-skeleton-footer">
+        <div className="animate-shimmer" />
+      </div>
+    </div>
+  );
+}
+
+function DashboardSkeletonGrid({ cols, count }) {
+  const colCount = Math.max(1, Math.min(cols || 2, 4));
+  const cardCount = Math.max(count || 4, colCount);
+  return (
+    <div
+      className="dashboard-skeleton-grid"
+      style={{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }}
+    >
+      {Array.from({ length: cardCount }).map((_, i) => (
+        <ChartSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
+function cloneChartOption(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneChartOption);
+  }
+
+  if (value && typeof value === "object") {
+    const result = {};
+    Object.keys(value).forEach((key) => {
+      result[key] = cloneChartOption(value[key]);
+    });
+    return result;
+  }
+
+  return value;
+}
+
+export default function DashboardView({ sidebar,mainRef }) {
   const toast = useToast();
   const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
+  const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
   const isAdmin = myLevel >= ROLE_LEVEL.admin;
   const canEdit = myLevel >= ROLE_LEVEL.editor;
@@ -28,52 +106,502 @@ export default function DashboardView({sidebar}) {
   const [selDash, setSelDash] = useState(null);
   const [charts, setCharts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [newCols, setNewCols] = useState(2);
   const [showCreate, setShowCreate] = useState(false);
   const [del, setDel] = useState(null);
+  const [delChart, setDelChart] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
-  const [fs,setFs] = useState(false)
+  const [fs, setFs] = useState(false);
+  const [showLegends, setShowLegends] = useState(true);
+  const [renameId, setRenameId] = useState(null);
+  const [renameName, setRenameName] = useState("");
 
-  async function loadDashboards() { try { setDashboards(await apiFetch('/api/dashboards')); } catch { } }
-  useEffect(() => { loadDashboards(); }, []);
+  // Filter state.
+  //   params  - discovery result for the loaded charts
+  //   applied - the values the charts on screen were run with
+  //   draft   - what the controls currently hold; only Apply promotes it
+  const [params, setParams] = useState({
+    filters: [],
+    byChart: new Map(),
+    conflicts: [],
+    errors: [],
+  });
+  const [applied, setApplied] = useState({});
+  const [draft, setDraft] = useState({});
+  const [hoveredFilter, setHoveredFilter] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  // Page-level full screen. A CSS overlay rather than the browser's F11 mode,
+  // matching how ChartToolbar and the editor do it, so app chrome and theming
+  // survive and Escape can leave.
+  const [pageFs, setPageFs] = useState(false);
 
-  async function loadCharts(dashId) {
-    setLoading(true); setCharts([]); setHasUnsaved(false);
-    try {
-      const c = await apiFetch(`/api/dashboards/${dashId}/charts`);
-      const enriched = [];
-      for (const chart of c) {
-        let data = null, error = null;
-        try { const r = await runQuery(chart.sqlQuery); data = r.rows || []; }
-        catch (e) { error = e.message; }
-        const cfg = typeof chart.config === 'string' ? JSON.parse(chart.config) : chart.config || {};
-        const opt = error ? { _error: true, message: error } : buildChartOption(chart.chartType, chart.chartSubtype, data, cfg, chart.name, { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend });
-        enriched.push({ ...chart, data, chartOption: opt });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+    // calculate the Height of application main container app-main
+  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
+
+
+  // rerunAffected patches individual tiles, so it needs the current list without
+  // taking a dependency on it (which would rebuild the callback on every run).
+  const chartsRef = useRef(charts);
+  useEffect(() => {
+    chartsRef.current = charts;
+  }, [charts]);
+
+  // Which dashboard has actually been loaded. The load effect has to watch
+  // `dashboards` so it can resolve an id that arrives from the URL before the
+  // list does - but any change to that array's identity would otherwise re-run
+  // it. Saving a filter label replaces the array, so without this guard
+  // renaming "region" to "Region" silently reloaded the dashboard and re-ran
+  // every chart on it.
+  const loadedDashRef = useRef(null);
+  const [transitioning, setTransitioning] = useState(false);
+  const [, setTransitionPhase] = useState("idle"); // 'idle' | 'exiting' | 'entering'
+  const transitionTimerRef = useRef(null);
+  const mountedRef = useRef(true);
+
+  const settings = selDash?.filters || {};
+
+  useEffect(() => {
+    if (!pageFs) return undefined;
+    function onKey(e) {
+      if (e.key === "Escape") setPageFs(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [pageFs]);
+
+  // ECharts sizes to its container, so every tile has to be told to re-measure
+  // once the overlay has changed the layout.
+  useEffect(() => {
+    const t = setTimeout(() => window.dispatchEvent(new Event("resize")), 180);
+    return () => clearTimeout(t);
+  }, [pageFs]);
+
+  // config.paramDefaults from the charts that declare each name. First chart to
+  // declare it wins, which matches how the type is resolved.
+  const chartDefaults = useMemo(() => {
+    const out = {};
+    for (const c of charts) {
+      const cfg =
+        typeof c.config === "string"
+          ? (() => {
+              try {
+                return JSON.parse(c.config);
+              } catch {
+                return {};
+              }
+            })()
+          : c.config || {};
+      for (const [k, v] of Object.entries(cfg.paramDefaults || {})) {
+        if (out[k] === undefined) out[k] = v;
       }
-      enriched.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
-      setCharts(enriched);
-    } catch { }
-    setLoading(false);
+    }
+    return out;
+  }, [charts]);
+
+  const conflictMessages = useMemo(
+    () => params.conflicts.map(describeConflict),
+    [params.conflicts],
+  );
+
+  async function loadDashboards() {
+    try {
+      setDashboards(await apiFetch("/api/dashboards"));
+    } catch {
+      /* Keep the current data when the request fails. */
+    }
+  }
+  useEffect(() => {
+    loadDashboards();
+  }, []);
+
+  const renderChart = useCallback((chart, data, error) => {
+    const cfg =
+      typeof chart.config === "string"
+        ? (() => {
+            try {
+              return JSON.parse(chart.config);
+            } catch {
+              return {};
+            }
+          })()
+        : chart.config || {};
+    if (error) return { _error: true, message: error };
+    return buildChartOption(
+      chart.chartType,
+      chart.chartSubtype,
+      data,
+      cfg,
+      chart.name,
+      { xLabel: cfg?.xLabel, yLabel: cfg?.yLabel, showLegend: cfg?.showLegend },
+    );
+  }, []);
+
+  const runChart = useCallback(
+    async (chart, values, params) => {
+      const missing = missingRequired(chart.id, params.byChart, values);
+      if (missing.length) {
+        return {
+          ...chart,
+          _rerunning: false,
+          data: null,
+          chartOption: { _waiting: true, message: waitingMessage(missing) },
+        };
+      }
+
+      const mine = {};
+      for (const p of params.byChart.get(chart.id) || []) {
+        if (values[p.name] !== undefined) mine[p.name] = values[p.name];
+      }
+
+      try {
+        const r = await runQuery(
+          chart.sqlQuery,
+          Object.keys(mine).length ? { params: mine } : {},
+        );
+        return {
+          ...chart,
+          _rerunning: false,
+          data: r.rows || [],
+          chartOption: renderChart(chart, r.rows || [], null),
+        };
+      } catch (e) {
+        return {
+          ...chart,
+          _rerunning: false,
+          data: null,
+          chartOption: renderChart(chart, null, e.message),
+        };
+      }
+    },
+    [renderChart],
+  );
+
+  async function loadCharts(dashId, values, params, prefetched) {
+    setLoading(true);
+    setTransitioning(true);
+    setTransitionPhase("exiting");
+
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+
+    try {
+      const c =
+        prefetched || (await apiFetch(`/api/dashboards/${dashId}/charts`));
+      const discovered = params || discoverFilters(c);
+      const vals = values || {};
+      const enriched = await Promise.all(
+        c.map((chart) => runChart(chart, vals, discovered)),
+      );
+      enriched.sort((a, b) =>
+        a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol,
+      );
+
+      const byId = new Map();
+      for (const ch of enriched) byId.set(String(ch.id), ch);
+      const deduped = Array.from(byId.values());
+      deduped.sort((a, b) =>
+        a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol,
+      );
+
+      transitionTimerRef.current = setTimeout(() => {
+        if (!mountedRef.current) return;
+        setTransitionPhase("entering");
+        setCharts(deduped);
+        setParams(discovered);
+
+        setTimeout(() => {
+          if (!mountedRef.current) return;
+          setTransitioning(false);
+          setTransitionPhase("idle");
+          setLoading(false);
+        }, 400);
+
+        transitionTimerRef.current = null;
+      }, 200);
+
+      return discovered;
+    } catch {
+      if (!mountedRef.current) return;
+      setTransitioning(false);
+      setTransitionPhase("idle");
+      setLoading(false);
+      return (
+        params || { filters: [], byChart: new Map(), conflicts: [], errors: [] }
+      );
+    }
   }
 
-  function selectDash(d) { setSelDash(d); loadCharts(d.id); }
-  async function createDash() { if (!newName.trim()) return; try { const d = await apiFetch('/api/dashboards', { method: 'POST', body: JSON.stringify({ name: newName.trim(), columns: newCols }) }); setDashboards(p => [d, ...p]); setNewName(''); setShowCreate(false); toast.success(`Dashboard "${d.name}" created.`); } catch (e) { toast.error(e.message); } }
-  async function deleteDash(id) { try { await apiFetch(`/api/dashboards/${id}`, { method: 'DELETE',body:{} }); loadDashboards(); setSelDash(null); setCharts([]); toast.success('Dashboard deleted.'); } catch (e) { toast.error(e.message); } setDel(null); }
-  async function deleteChart(id) { try { await apiFetch(`/api/dashboards/charts/${id}`, { method: 'DELETE',body:{} }); if (selDash) loadCharts(selDash.id); toast.success('Chart removed.'); } catch { } }
+  const rerunAffected = useCallback(
+    async (changedNames, values, params) => {
+      const ids = new Set(chartsAffectedBy(changedNames, params.byChart));
+      if (!ids.size) return;
+      setCharts((prev) =>
+        prev.map((c) => (ids.has(c.id) ? { ...c, _rerunning: true } : c)),
+      );
+      const targets = chartsRef.current.filter((c) => ids.has(c.id));
+      const done = await Promise.all(
+        targets.map((c) => runChart(c, values, params)),
+      );
+      const byId = new Map(done.map((c) => [c.id, c]));
+      setCharts((prev) => prev.map((c) => byId.get(c.id) || c));
+    },
+    [runChart],
+  );
 
-  function onDragStart(e, i) { e.dataTransfer.effectAllowed = 'move'; setDragIdx(i); }
-  function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+  function selectDash(d) {
+    setShowLegends(true);
+    setShowSettings(false);
+    const next = new URLSearchParams();
+    next.set(DASH_KEY, String(d.id));
+    setSearchParams(next, { replace: false });
+  }
+
+  const urlDashId = searchParams.get(DASH_KEY);
+  useEffect(() => {
+    if (!dashboards.length) return;
+    const d = dashboards.find((x) => String(x.id) === String(urlDashId));
+    if (!d) {
+      if (urlDashId) setSelDash(null);
+      loadedDashRef.current = null;
+      return;
+    }
+    if (selDash?.id !== d.id) {
+      setSelDash(d);
+      setTransitionPhase("exiting");
+      setTransitioning(true);
+    }
+    if (loadedDashRef.current === d.id) {
+      if (transitioning) {
+        setTransitionPhase("entering");
+        setTimeout(() => {
+          setTransitioning(false);
+          setTransitionPhase("idle");
+        }, 400);
+      }
+      return;
+    }
+    loadedDashRef.current = d.id;
+
+    let cancelled = false;
+    (async () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+
+      const fetched = await apiFetch(`/api/dashboards/${d.id}/charts`).catch(
+        () => [],
+      );
+      if (cancelled || !mountedRef.current) return;
+      const discovered = discoverFilters(fetched);
+      const chartDefs = {};
+      for (const c of fetched) {
+        const cfg =
+          typeof c.config === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(c.config);
+                } catch {
+                  return {};
+                }
+              })()
+            : c.config || {};
+        for (const [k, v] of Object.entries(cfg.paramDefaults || {})) {
+          if (chartDefs[k] === undefined) chartDefs[k] = v;
+        }
+      }
+      const values = resolveValues(discovered.filters, {
+        selected: readFilterParams(searchParams),
+        dashboardDefaults: d.filters || {},
+        chartDefaults: chartDefs,
+      });
+      setParams(discovered);
+      setApplied(values);
+      setDraft(values);
+      await loadCharts(d.id, values, discovered, fetched);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
+  }, [urlDashId, dashboards]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  function changeFilter(name, value) {
+    setDraft((p) => ({ ...p, [name]: value }));
+  }
+
+  async function applyFilters() {
+    const changed = Object.keys(draft).filter(
+      (k) => (draft[k] ?? "") !== (applied[k] ?? ""),
+    );
+    if (!changed.length) return;
+
+    const next = new URLSearchParams();
+    if (urlDashId) next.set(DASH_KEY, urlDashId);
+    for (const [k, v] of Object.entries(draft)) {
+      if (v !== undefined && String(v) !== "")
+        next.set(FILTER_PREFIX + k, String(v));
+    }
+    setSearchParams(next, { replace: true });
+
+    setApplied(draft);
+    await rerunAffected(changed, draft, params);
+  }
+
+  async function resetFilters() {
+    const defaults = resolveValues(params.filters, {
+      selected: {},
+      dashboardDefaults: settings,
+      chartDefaults,
+    });
+    const changed = Object.keys(defaults).filter(
+      (k) => (defaults[k] ?? "") !== (applied[k] ?? ""),
+    );
+    setDraft(defaults);
+    if (!changed.length) return;
+
+    const next = new URLSearchParams();
+    if (urlDashId) next.set(DASH_KEY, urlDashId);
+    setSearchParams(next, { replace: true });
+    setApplied(defaults);
+    await rerunAffected(changed, defaults, params);
+  }
+
+  async function saveSettings(nextSettings) {
+    try {
+      const updated = await apiFetch(`/api/dashboards/${selDash.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ filters: nextSettings }),
+      });
+      setSelDash(updated);
+      setDashboards((prev) =>
+        prev.map((d) => (d.id === updated.id ? updated : d)),
+      );
+      setShowSettings(false);
+      toast.success("Filter settings saved.");
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
+
+  async function createDash() {
+    if (!newName.trim()) return;
+    try {
+      const d = await apiFetch("/api/dashboards", {
+        method: "POST",
+        body: JSON.stringify({ name: newName.trim(), columns: newCols }),
+      });
+      setDashboards((p) => [d, ...p]);
+      setNewName("");
+      setShowCreate(false);
+      toast.success(`Dashboard "${d.name}" created.`);
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
+
+  async function renameDash(id, name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const duplicate = dashboards.some(
+      (d) =>
+        d.id !== id &&
+        String(d.name || "")
+          .trim()
+          .toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (duplicate) {
+      toast.error("A dashboard with this name already exists.");
+      return;
+    }
+    try {
+      const updated = await apiFetch(`/api/dashboards/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: trimmed }),
+      });
+      setDashboards((prev) =>
+        prev.map((d) => (d.id === updated.id ? updated : d)),
+      );
+      if (selDash?.id === updated.id) setSelDash(updated);
+      setRenameId(null);
+      setRenameName("");
+      toast.success("Dashboard renamed.");
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
+
+  async function deleteDash(id) {
+    try {
+      await apiFetch(`/api/dashboards/${id}`, { method: "DELETE", body: {} });
+      loadDashboards();
+      setSelDash(null);
+      setCharts([]);
+      setSearchParams(new URLSearchParams(), { replace: true });
+      toast.success("Dashboard deleted.");
+    } catch (e) {
+      toast.error(e.message);
+    }
+    setDel(null);
+  }
+
+  async function deleteChart(id) {
+    try {
+      await apiFetch(`/api/dashboards/charts/${id}`, {
+        method: "DELETE",
+        body: {},
+      });
+      if (selDash) await loadCharts(selDash.id, applied);
+      toast.success("Chart removed.");
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
+
+  function onDragStart(e, i) {
+    e.dataTransfer.effectAllowed = "move";
+    setDragIdx(i);
+  }
+  function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
   function onDrop(e, targetIdx) {
     e.preventDefault();
-    if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); return; }
-    setCharts(prev => {
+    if (dragIdx === null || dragIdx === targetIdx) {
+      setDragIdx(null);
+      return;
+    }
+    setCharts((prev) => {
       const next = [...prev];
-      const aRow = next[dragIdx].gridRow, aCol = next[dragIdx].gridCol;
-      next[dragIdx] = { ...next[dragIdx], gridRow: next[targetIdx].gridRow, gridCol: next[targetIdx].gridCol };
+      const aRow = next[dragIdx].gridRow,
+        aCol = next[dragIdx].gridCol;
+      next[dragIdx] = {
+        ...next[dragIdx],
+        gridRow: next[targetIdx].gridRow,
+        gridCol: next[targetIdx].gridCol,
+      };
       next[targetIdx] = { ...next[targetIdx], gridRow: aRow, gridCol: aCol };
-      next.sort((a, b) => a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol);
+      next.sort((a, b) =>
+        a.gridRow !== b.gridRow ? a.gridRow - b.gridRow : a.gridCol - b.gridCol,
+      );
       return next;
     });
     setHasUnsaved(true);
@@ -82,213 +610,933 @@ export default function DashboardView({sidebar}) {
 
   async function saveLayout() {
     try {
-      for (const c of charts) {
-        await apiFetch(`/api/dashboards/charts/${c.id}`, { method: 'PUT', body: JSON.stringify({ gridRow: c.gridRow, gridCol: c.gridCol }) });
-      }
+      await Promise.all(
+        charts.map((c) =>
+          apiFetch(`/api/dashboards/charts/${c.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ gridRow: c.gridRow, gridCol: c.gridCol }),
+          }),
+        ),
+      );
       setHasUnsaved(false);
-      toast.success('Layout saved.');
-    } catch (e) { toast.error(e.message); }
+      toast.success("Layout saved.");
+    } catch (e) {
+      toast.error(e.message);
+    }
   }
 
   const cols = selDash?.columns || 2;
 
+  const legendSupportedTypes = [
+    "grouped_bar",
+    "stacked_bar",
+    "multi_line",
+    "stacked_line",
+    "pie",
+    "donut",
+    "rose",
+    "nested_pie",
+    "bubble",
+    "multi_category",
+    "funnel",
+    "radar",
+  ];
+
+  const legendSupportedChartTypes = [
+    "bar",
+    "line",
+    "pie",
+    "bubble",
+    "funnel",
+    "radar",
+    "scatter",
+  ];
+
+  const hasLegendCharts = charts.some(
+    (c) =>
+      legendSupportedTypes.includes(c.chartSubtype) ||
+      legendSupportedChartTypes.includes(c.chartType),
+  );
+
+  const gridClassName = [
+    "dashboard-grid",
+    transitioning ? "dashboard-grid-loading" : "dashboard-grid-loaded",
+    !transitioning && charts.length > 0 ? "dashboard-grid-staggered" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const skeletonCount =
+    charts.length > 0 ? charts.length : Math.max(4, cols * 2);
+
   return (
-    <div className="page-content">
+    <div
+      className="page-content"
+      style={
+        pageFs
+          ? {
+              position: "fixed",
+              inset: 0,
+              zIndex: 9000,
+              background: "var(--bg-page)",
+              overflow: "auto",
+              padding: 16,
+              margin: 0,
+            }
+          : undefined
+      }
+    >
+      {selDash && showSettings && canEdit && (
+        <DashboardSettings
+          filters={params.filters}
+          settings={settings}
+          onSave={saveSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
       <div className="section-header">
-        <h2 className="section-title"><Icon className="ti ti-layout-dashboard"></Icon> Dashboards</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {selDash && <button className="btn btn-secondary btn-sm" onClick={() => loadCharts(selDash.id)}><Icon className="ti ti-refresh"></Icon></button>}
-          <button className="btn btn-primary btn-sm" onClick={() => showCreate ? (setShowCreate(false)) : setShowCreate(true)} disabled={!isAdmin} style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}><Icon className={`ti ${showCreate ? 'ti-x' : 'ti-plus'}`}></Icon> {showCreate ? 'Cancel' : 'New'}</button>
+        <h2 className="section-title">
+          <Icon className="ti ti-layout-dashboard"></Icon> Dashboards
+        </h2>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {selDash && hasLegendCharts && (
+            <Button
+              size="sm" variant={showLegends ? "primary" : "secondary"} aria-pressed={showLegends}
+              onClick={() => setShowLegends(!showLegends)}
+              title={showLegends ? "Hide legends" : "Show legends"}
+            >
+              <Icon
+                className={`ti ${showLegends ? "ti-eye" : "ti-eye-off"}`}
+              ></Icon>
+              <span style={{ fontSize: "0.75rem" }}>Legends</span>
+            </Button>
+          )}
+          {selDash && (
+            <Button
+              variant="secondary" size="sm"
+              onClick={() => loadCharts(selDash.id, applied, params)}
+              title="Reload every chart"
+            >
+              <Icon className="ti ti-refresh"></Icon>
+            </Button>
+          )}
+          {selDash && (
+            <Button
+              variant="ghost" size="sm"
+              onClick={() => setPageFs((v) => !v)}
+              title={pageFs ? "Exit full screen" : "Full screen"}
+              aria-label={pageFs ? "Exit full screen" : "Full screen"}
+            >
+              <Icon
+                className={`ti ${pageFs ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
+                style={{ fontSize: "0.875rem" }}
+              ></Icon>
+            </Button>
+          )}
+          {/* Editors may create and edit; only admins may delete. The button
+              used to be gated on isAdmin while the route accepted any editor. */}
+          <Button
+            variant="primary" size="sm"
+            onClick={() =>
+              showCreate ? setShowCreate(false) : setShowCreate(true)
+            }
+            disabled={!canEdit}
+            style={!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}}
+          >
+            <Icon className={`ti ${showCreate ? "ti-x" : "ti-plus"}`}></Icon>{" "}
+            {showCreate ? "Cancel" : "New"}
+          </Button>
         </div>
       </div>
 
-      {showCreate && isAdmin && <div className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-        <div className="form-group"><label className="form-label">Name *</label><input className="form-input" value={newName} onChange={e => setNewName(e.target.value)} /></div>
-        <div className="form-group"><label className="form-label">Columns</label><Select className="form-select" value={newCols} onChange={e => setNewCols(parseInt(e.target.value))}>{[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}</Select></div>
-        <button className="btn btn-primary btn-sm" onClick={createDash} disabled={!newName.trim()}><Icon className="ti ti-plus"></Icon> Create</button>
-      </div>}
-
-      {dashboards.length > 0 && <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {dashboards.map(d => <div key={d.id} className="card" style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, border: selDash?.id === d.id ? '2px solid var(--accent)' : undefined }} onClick={() => selectDash(d)}>
-          <Icon className="ti ti-layout-dashboard" style={{ color: selDash?.id === d.id ? 'var(--accent)' : 'var(--icon-color)' }}></Icon>
-          <span style={{ fontWeight: selDash?.id === d.id ? 700 : 500 }}>{d.name}</span>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{d.columns}col</span>
-          <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setDel(d.id); }} style={{ padding: 2, marginLeft: 'auto', opacity: !isAdmin ? 0.35 : 1, cursor: !isAdmin ? 'not-allowed' : 'pointer' }} disabled={!isAdmin}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
-        </div>)}
-      </div>}
-
-      {dashboards.length === 0 && !showCreate && <div className="empty-state"><Icon className="ti ti-layout-dashboard"></Icon><p>No dashboards. Create one to get started.</p></div>}
-
-      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><span className="loading-spinner"></span></div>}
-      {selDash && !loading && charts.length === 0 && <div className="empty-state"><Icon className="ti ti-chart-dots"></Icon><p>No charts. Use Chart Builder to add some.</p></div>}
-
-      {selDash && charts.length > 0 && <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Drag charts to swap positions.</span>
-          {hasUnsaved && isAdmin && <button className="btn btn-primary btn-sm" onClick={saveLayout}><Icon className="ti ti-device-floppy"></Icon> Save Layout</button>}
+      {showCreate && canEdit && (
+        <div
+          className="card"
+          style={{
+            padding: 16,
+            marginBottom: 16,
+            display: "flex",
+            gap: 12,
+            alignItems: "flex-end",
+          }}
+        >
+          <FormField label="Name *">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Columns">
+            <Select
+              className="form-select"
+              value={newCols}
+              onChange={(e) => setNewCols(parseInt(e.target.value))}
+            >
+              {[1, 2, 3, 4].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <Button
+            variant="primary" size="sm"
+            onClick={createDash}
+            disabled={!newName.trim()}
+          >
+            <Icon className="ti ti-plus"></Icon> Create
+          </Button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 5 }}>
-          {charts.map((chart, i) => (
-            <div key={chart.id} draggable={!fs && canEdit} onDragStart={e => !fs && canEdit && onDragStart(e, i)} onDragOver={onDragOver} onDrop={e => canEdit && onDrop(e, i)}
-              style={{ opacity: dragIdx === i ? 0.4 : 1, cursor: !fs && canEdit ? 'grab' : 'default', transition: 'opacity 0.2s' }}>
-              <ChartTile setFss={setFs} sidebar={sidebar} chart={chart} onDelete={() => deleteChart(chart.id)} cols={cols} isAdmin={isAdmin} canEdit={canEdit} />
+      )}
+
+      {dashboards.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          {dashboards.map((d) => (
+            <div
+              key={d.id}
+              className="card"
+              style={{
+                padding: "10px 16px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                border:
+                  selDash?.id === d.id ? "2px solid var(--accent)" : undefined,
+              }}
+              onClick={() => selectDash(d)}
+            >
+              <Icon
+                className="ti ti-layout-dashboard"
+                style={{
+                  color:
+                    selDash?.id === d.id
+                      ? "var(--accent)"
+                      : "var(--icon-color)",
+                }}
+              ></Icon>
+              {renameId === d.id ? (
+                <Input
+                  value={renameName}
+                  onChange={(e) => setRenameName(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.stopPropagation();
+                      renameDash(d.id, renameName);
+                    }
+                    if (e.key === "Escape") {
+                      e.stopPropagation();
+                      setRenameId(null);
+                      setRenameName("");
+                    }
+                  }}
+                  autoFocus
+                  style={{
+                    fontSize: "0.8125rem",
+                    padding: "2px 6px",
+                    minWidth: 120,
+                  }}
+                />
+              ) : (
+                <span style={{ fontWeight: selDash?.id === d.id ? 700 : 500 }}>
+                  {d.name}
+                </span>
+              )}
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                {d.columns}col
+              </span>
+              {renameId === d.id ? (
+                <>
+                  <Button
+                    variant="ghost" size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      renameDash(d.id, renameName);
+                    }}
+                    title="Save name"
+                  >
+                    <Icon
+                      className="ti ti-check"
+                      style={{ fontSize: "0.875rem" }}
+                    ></Icon>
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRenameId(null);
+                      setRenameName("");
+                    }}
+                    title="Cancel"
+                  >
+                    <Icon className="ti ti-x" style={{ fontSize: "0.875rem" }}></Icon>
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRenameId(d.id);
+                    setRenameName(d.name || "");
+                  }}
+                  style={{ marginLeft: "auto", opacity: !canEdit ? 0.35 : 1, cursor: !canEdit ? "not-allowed" : "pointer" }}
+                  disabled={!canEdit}
+                  title="Rename"
+                >
+                  <Icon className="ti ti-edit" style={{ fontSize: "0.875rem" }}></Icon>
+                </Button>
+              )}
+              <Button
+                variant="ghost" size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDel(d.id);
+                }}
+                style={{ marginLeft: renameId === d.id ? 0 : "auto", opacity: !isAdmin ? 0.35 : 1, cursor: !isAdmin ? "not-allowed" : "pointer" }}
+                disabled={!isAdmin}
+              >
+                <Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon>
+              </Button>
             </div>
           ))}
         </div>
-      </div>}
+      )}
 
-      {del && isAdmin && <ConfirmModal title="Delete Dashboard" message="Delete this dashboard? Charts will be unassigned." onConfirm={() => deleteDash(del)} onCancel={() => setDel(null)} danger />}
+      {dashboards.length === 0 && !showCreate && (
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
+          <Icon className="ti ti-layout-dashboard"></Icon>
+          <p>No dashboards. Create one to get started.</p>
+        </div>
+      )}
+
+      {selDash && (
+        <DashboardFilters
+          filters={params.filters}
+          settings={settings}
+          draft={draft}
+          applied={applied}
+          onChange={changeFilter}
+          onApply={applyFilters}
+          onReset={resetFilters}
+          onHoverFilter={setHoveredFilter}
+          hoveredFilter={hoveredFilter}
+          conflicts={conflictMessages}
+          canEdit={canEdit}
+          onOpenSettings={() => setShowSettings(true)}
+        />
+      )}
+
+      {selDash && !!params.errors.length && (
+        <Notice tone="warning" icon="ti-alert-triangle" style={{ marginBottom: 12, fontSize: "0.8125rem" }}>
+          {params.errors.map((e) => `"${e.chartName}": ${e.message}`).join(" ")}
+        </Notice>
+      )}
+
+      {(loading || transitioning) && selDash && (
+        <DashboardSkeletonGrid cols={cols} count={skeletonCount} />
+      )}
+
+      {selDash && !loading && charts.length === 0 && !transitioning && (
+         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
+          <Icon className="ti ti-chart-dots"></Icon>
+          <p>No charts. Use Chart Builder to add some.</p>
+        </div>
+      )}
+
+      {selDash && charts.length > 0 && !loading && !transitioning && (
+        <div
+          className={gridClassName}
+          style={{
+            transition:
+              "opacity 0.35s ease-in-out, transform 0.35s ease-in-out",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              Drag charts to swap positions.
+            </span>
+            {hasUnsaved && canEdit && (
+              <Button variant="primary" size="sm" onClick={saveLayout}>
+                <Icon className="ti ti-device-floppy"></Icon> Save Layout
+              </Button>
+            )}
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${cols}, 1fr)`,
+              gap: 16,
+              alignItems: "stretch",
+              gridAutoRows: "minmax(460px, auto)",
+            }}
+          >
+            {charts.map((chart, i) => (
+              <div
+                key={chart.id}
+                className="chart-tile-wrapper"
+                style={{
+                  opacity: 1,
+                  animationDelay: `${i * 40}ms`,
+                  minWidth: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignSelf: "stretch",
+                  minHeight: 0,
+                  height: "100%",
+                }}
+                draggable={!fs && canEdit}
+                onDragStart={(e) => !fs && canEdit && onDragStart(e, i)}
+                onDragOver={onDragOver}
+                onDrop={(e) => canEdit && onDrop(e, i)}
+              >
+                <ChartTile
+                  setFss={setFs}
+                  sidebar={sidebar}
+                  chart={chart}
+                  onDelete={() =>
+                    setDelChart({ id: chart.id, name: chart.name })
+                  }
+                  cols={cols}
+                  isAdmin={isAdmin}
+                  canEdit={canEdit}
+                  showLegends={showLegends}
+                  setShowLegends={setShowLegends}
+                  legendSupportedTypes={legendSupportedTypes}
+                  highlighted={
+                    !!hoveredFilter &&
+                    (params.byChart.get(chart.id) || []).some(
+                      (p) => p.name === hoveredFilter,
+                    )
+                  }
+                  filterNames={(params.byChart.get(chart.id) || []).map(
+                    (p) => p.name,
+                  )}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {del && isAdmin && (
+        <ConfirmModal
+          title="Delete Dashboard"
+          message="Delete this dashboard? Charts will be unassigned."
+          onConfirm={() => deleteDash(del)}
+          onCancel={() => setDel(null)}
+          danger
+        />
+      )}
+
+      {delChart && isAdmin && (
+        <ConfirmModal
+          title="Delete Chart"
+          message={`Delete "${delChart.name}"?`}
+          onConfirm={async () => {
+            await deleteChart(delChart.id);
+            setDelChart(null);
+          }}
+          onCancel={() => setDelChart(null)}
+          danger
+        />
+      )}
     </div>
   );
 }
 
-function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit }) {
+function ChartTile({
+  chart,
+  onDelete,
+  cols,
+  setFss,
+  isAdmin,
+  canEdit,
+  showLegends,
+  legendSupportedTypes,
+  highlighted = false,
+  filterNames = [],
+  setShowLegends,
+}) {
   const ref = useRef(null);
   const inst = useRef(null);
   const [fs, setFs] = useState(false);
-  const [showLegend, setShowLegend] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const { theme } = useTheme();
-  const isDarkColor = theme === 'dark' ? 'white' : 'black';
+  const isDarkColor = theme === "dark" ? "white" : "black";
+  const [hasChartInstance, setHasChartInstance] = useState(false);
+  const appliedOptionRef = useRef(null);
+  const restoreTimerRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsSmallScreen(window.innerWidth <= 768);
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!fs) return undefined;
+    function onKey(e) {
+      if (e.key === "Escape") {
+        setFs(false);
+        setFss(false);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [fs, setFss]);
+
+  useEffect(() => {
+    if (!fs) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [fs]);
 
   const hasLegend = useMemo(() => {
     const legend = chart?.chartOption?.legend;
     const series = chart?.chartOption?.series;
     if (legend?.show === false) return false;
     if (!Array.isArray(series) || series.length === 0) return false;
-    return series.some(s => Array.isArray(s?.data) && s?.data.length > 0);
+    return series.some((s) => Array.isArray(s?.data) && s?.data?.length > 0);
   }, [chart]);
 
-  useEffect(() => {
-    if (fs) setShowLegend(true);
-    else if (!isSmallScreen) setShowLegend(true);
-    else setShowLegend(false);
-  }, [fs, isSmallScreen, chart?.id]);
+  const supportsLegend =
+    legendSupportedTypes.includes(chart.chartSubtype) ||
+    needsLegend(chart.chartType, chart.chartSubtype);
 
-  function ChartWidthBasedCols(cols) {
-    if (fs) return "100%";
-    if (isSmallScreen) return "100%";
-    return cols === 4 ? "350px" : "100%";
+  function getChartHeight() {
+    if (fs) return "calc(100vh - 120px)";
+    if (chart?.chartOption?._table) return isSmallScreen ? "320px" : "300px";
+    return "100%";
   }
 
-  function ColsWidthMethod(col) {
-    if (fs) return "100%";
-    if (isSmallScreen) return "100%";
-    switch (col) {
-      case 4:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 4}px`;
-      case 3:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 3}px`;
-      case 2:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 2}px`;
-      case 1:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 1}px`;
+  const barChartTypes = ["simple_bar", "grouped_bar", "stacked_bar"];
+  const lineChartSubtypes = [
+    "simple_line",
+    "multi_line",
+    "stacked_line",
+    "step_line",
+    "smooth_line",
+    "area_line",
+    "stacked_area",
+  ];
+  const isBarChart = barChartTypes.includes(chart.chartSubtype);
+  const isLineChart =
+    chart.chartType === "line" ||
+    lineChartSubtypes.includes(chart.chartSubtype);
+  const isHorizontalBar =
+    chart.chartType === "bar" &&
+    chart.chartOption?.xAxis?.type === "value" &&
+    chart.chartOption?.yAxis?.type === "category";
+  const isVerticalBar =
+    isBarChart ||
+    (chart.chartType === "bar" &&
+      chart.chartOption?.xAxis?.type === "category");
+  const isHeatmap =
+    chart.chartType === "heatmap" || chart.chartSubtype === "heatmap";
+  const isScatterLike =
+    chart.chartSubtype === "scatter" ||
+    chart.chartSubtype === "basic_scatter" ||
+    chart.chartSubtype === "bubble" ||
+    chart.chartType === "scatter" ||
+    chart.chartType === "bubble";
+  const pieChartTypes = ["pie", "donut", "rose", "nested_pie"];
+  const isPieChart = pieChartTypes.includes(chart.chartSubtype);
+  const funnelChartTypes = ["funnel"];
+  const isFunnelChart =
+    funnelChartTypes.includes(chart.chartSubtype) ||
+    chart.chartType === "funnel";
+  const isTreemapChart =
+    chart.chartType === "treemap" || chart.chartSubtype === "treemap";
+  const isSunburstChart =
+    chart.chartType === "sunburst" || chart.chartSubtype === "sunburst";
+  const isCandlestick =
+    chart.chartType === "candlestick" ||
+    chart.chartSubtype === "candlestick" ||
+    (Array.isArray(chart?.chartOption?.series) &&
+      chart.chartOption.series.some((s) => s.type === "candlestick"));
+  const isRadar = chart.chartType === "radar" || chart.chartSubtype === "radar";
+  const isBoxplot =
+    chart.chartType === "boxplot" || chart.chartSubtype === "boxplot";
+  const isGraph = chart.chartType === "graph" || chart.chartSubtype === "graph";
+  const isSankeyChart =
+    chart.chartType === "sankey" || chart.chartSubtype === "sankey";
+  const isGaugeChart =
+    chart.chartType === "gauge" || chart.chartSubtype === "gauge";
 
-      default:
-        return `${(window?.innerWidth - (sidebar ? 150 : 300)) / 4}px`
-    }
-  }
+  const usesCartesianGrid =
+    !isPieChart &&
+    !isFunnelChart &&
+    !isSunburstChart &&
+    !isRadar &&
+    !isGraph &&
+    !isSankeyChart &&
+    !isTreemapChart &&
+    !isGaugeChart &&
+    (isBarChart ||
+      isLineChart ||
+      isHeatmap ||
+      isScatterLike ||
+      isCandlestick ||
+      isBoxplot ||
+      chart.chartType === "bar" ||
+      chart.chartType === "line" ||
+      chart.chartType === "scatter" ||
+      chart.chartType === "heatmap" ||
+      chart.chartType === "candlestick" ||
+      chart.chartType === "boxplot");
 
-  function ColsHeigthMethod(col) {
-    if (fs) return "calc(100vh - 32px)";
-    if (isSmallScreen) {
-      if (hasLegend && showLegend) return "560px";
-      return "460px";
-    }
-    switch (col) {
-      case 4:
-        return "350px";
-      case 3:
-        return 450;
-      case 2:
-        return "350px";
-      case 1:
-        return "100%";
+  const gridLineColor =
+    theme === "dark" ? "rgba(255, 255, 255, 0.28)" : "rgba(0, 0, 0, 0.22)";
 
-      default:
-        return "350px"
-    }
-  }
+  const tooltipWidth = fs ? 420 : isSmallScreen ? 220 : 300;
+  const tooltipMaxHeight = fs ? 320 : 240;
+  const tooltipExtraCss = `max-height: ${tooltipMaxHeight}px; overflow: auto; -webkit-overflow-scrolling: touch; width: ${tooltipWidth}px; pointer-events: auto;`;
 
   const resolvedLegend = fs
     ? {
         ...chart?.chartOption?.legend,
-        show: hasLegend,
-        type: 'scroll',
-        orient: 'vertical',
+        show: supportsLegend && hasLegend && showLegends,
+        type: "scroll",
+        orient: "vertical",
         left: 0,
         top: 8,
         bottom: 8,
-        width: 220,
-        textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+        width: 260,
+        textStyle: {
+          ...(chart?.chartOption?.legend?.textStyle || {}),
+          color: isDarkColor,
+          fontSize: 16,
+        },
+        itemStyle: {
+          ...(chart?.chartOption?.legend?.itemStyle || {}),
+          borderColor: "transparent",
+          borderWidth: 0,
+        },
       }
     : isSmallScreen
       ? {
           ...chart?.chartOption?.legend,
-          show: hasLegend ? showLegend : false,
-          type: 'scroll',
-          orient: 'horizontal',
+          show: supportsLegend && hasLegend && showLegends,
+          type: "scroll",
+          orient: "horizontal",
           left: 0,
           right: 0,
           top: 0,
-          width: '100%',
+          width: "100%",
           pageIconColor: isDarkColor,
-          pageIconInactiveColor: 'var(--text-muted)',
+          pageIconInactiveColor: "var(--text-muted)",
           pageTextStyle: { color: isDarkColor },
-          textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+          textStyle: {
+            ...(chart?.chartOption?.legend?.textStyle || {}),
+            color: isDarkColor,
+          },
+          itemStyle: {
+            ...(chart?.chartOption?.legend?.itemStyle || {}),
+            borderColor: "transparent",
+            borderWidth: 0,
+          },
         }
       : cols === 4
         ? {
             ...chart?.chartOption?.legend,
-            show: hasLegend,
-            type: 'scroll',
+            show: supportsLegend && hasLegend && showLegends,
+            type: "scroll",
             left: 0,
             top: 0,
             bottom: 0,
             orient: "vertical",
             width: 135,
             pageIconColor: isDarkColor,
-            pageIconInactiveColor: 'var(--text-muted)',
+            pageIconInactiveColor: "var(--text-muted)",
             pageTextStyle: { color: isDarkColor },
-            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+            textStyle: {
+              ...(chart?.chartOption?.legend?.textStyle || {}),
+              color: isDarkColor,
+            },
+            itemStyle: {
+              ...(chart?.chartOption?.legend?.itemStyle || {}),
+              borderColor: "transparent",
+              borderWidth: 0,
+            },
           }
         : {
             ...chart?.chartOption?.legend,
-            show: hasLegend,
-            type: 'scroll',
+            show: supportsLegend && hasLegend && showLegends,
+            type: "scroll",
             left: 0,
             right: 0,
             top: 0,
             orient: "horizontal",
             pageIconColor: isDarkColor,
-            pageIconInactiveColor: 'var(--text-muted)',
+            pageIconInactiveColor: "var(--text-muted)",
             pageTextStyle: { color: isDarkColor },
-            textStyle: { ...(chart?.chartOption?.legend?.textStyle || {}), color: isDarkColor }
+            textStyle: {
+              ...(chart?.chartOption?.legend?.textStyle || {}),
+              color: isDarkColor,
+            },
+            itemStyle: {
+              ...(chart?.chartOption?.legend?.itemStyle || {}),
+              borderColor: "transparent",
+              borderWidth: 0,
+            },
           };
 
+  const tickCount = useMemo(() => {
+    const opt = chart?.chartOption;
+    if (!opt) return 0;
+    if (Array.isArray(opt.xAxis)) {
+      const ax = opt.xAxis[0];
+      if (ax?.data?.length) return ax.data.length;
+    } else if (opt.xAxis?.data?.length) return opt.xAxis.data.length;
+    if (Array.isArray(opt.series) && opt.series[0]?.data?.length)
+      return opt.series[0].data.length;
+    return 0;
+  }, [chart]);
+
+  const isFullscreen = fs;
+  const axisFontSize = isFullscreen
+    ? tickCount > 80
+      ? 11
+      : tickCount > 60
+        ? 12
+        : tickCount > 40
+          ? 13
+          : tickCount > 24
+            ? 14
+            : 15
+    : tickCount > 80
+      ? 7
+      : tickCount > 60
+        ? 8
+        : tickCount > 40
+          ? 9
+          : tickCount > 24
+            ? 10
+            : 11;
+  const dataLabelFontSize = isFullscreen
+    ? tickCount > 80
+      ? 11
+      : tickCount > 60
+        ? 12
+        : tickCount > 40
+          ? 12
+          : tickCount > 24
+            ? 13
+            : 14
+    : tickCount > 80
+      ? 7
+      : tickCount > 60
+        ? 8
+        : tickCount > 40
+          ? 8
+          : tickCount > 24
+            ? 9
+            : 10;
+  const xRotate =
+    isVerticalBar ||
+    isHeatmap ||
+    isLineChart ||
+    isCandlestick ||
+    isBoxplot ||
+    isScatterLike
+      ? tickCount > 80
+        ? 65
+        : tickCount > 40
+          ? 55
+          : tickCount > 20
+            ? 45
+            : 35
+      : tickCount > 40
+        ? 30
+        : tickCount > 24
+          ? 20
+          : 0;
+  const axisNameGapX =
+    isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot
+      ? tickCount > 50
+        ? 132
+        : 120
+      : isScatterLike
+        ? 58
+        : 48;
+  const axisMarginX =
+    isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot
+      ? tickCount > 50
+        ? 16
+        : 20
+      : tickCount > 40
+        ? 10
+        : 12;
+  const seriesLabelWidth = isFullscreen
+    ? tickCount > 80
+      ? 60
+      : tickCount > 60
+        ? 72
+        : tickCount > 40
+          ? 84
+          : tickCount > 24
+            ? 96
+            : 108
+    : tickCount > 80
+      ? 36
+      : tickCount > 60
+        ? 42
+        : tickCount > 40
+          ? 48
+          : tickCount > 24
+            ? 56
+            : 64;
+
   const gridTop = fs
-    ? 24
+    ? Math.max(28, tickCount > 40 ? 40 : 28)
     : isSmallScreen
-      ? (hasLegend && showLegend ? 72 : 24)
+      ? supportsLegend && hasLegend && showLegends
+        ? 76
+        : Math.max(22, tickCount > 40 ? 28 : 22)
       : cols === 4
-        ? 20
-        : hasLegend
-          ? 56
-          : 20;
+        ? supportsLegend && hasLegend && showLegends
+          ? 24
+          : 22
+        : supportsLegend && hasLegend && showLegends
+          ? Math.max(62, tickCount > 40 ? 68 : 62)
+          : Math.max(24, tickCount > 40 ? 30 : 24);
 
   const gridLeft = fs
-    ? (hasLegend ? 240 : 20)
-    : !isSmallScreen && cols === 4 && hasLegend
-      ? 145
-      : 20;
+    ? isHorizontalBar
+      ? 50
+      : 20
+    : isHorizontalBar
+      ? 50
+      : !isSmallScreen &&
+          cols === 4 &&
+          supportsLegend &&
+          hasLegend &&
+          showLegends
+        ? 145
+        : 20;
 
+  const gridBottomAuto =
+    isVerticalBar || isHeatmap || isLineChart || isCandlestick || isBoxplot
+      ? tickCount > 80
+        ? 180
+        : tickCount > 60
+          ? 160
+          : tickCount > 40
+            ? 140
+            : tickCount > 24
+              ? 120
+              : 110
+      : isScatterLike
+        ? tickCount > 40
+          ? 108
+          : 94
+        : tickCount > 40
+          ? 116
+          : 98;
+
+  const gridRight = isHorizontalBar ? 60 : 24;
+
+  const isLine =
+    Array.isArray(chart?.chartOption?.series) &&
+    chart.chartOption.series.some((s) => s.type === "line");
+  const isStackedArea =
+    Array.isArray(chart?.chartOption?.series) &&
+    chart.chartOption.series.some(
+      (s) => s.stack && (s.areaStyle || s.type === "line"),
+    );
+
+  const shouldShowDataLabels = (() => {
+    if (isHeatmap) {
+      const totalHeatmapCells = Array.isArray(chart?.chartOption?.series)
+        ? chart.chartOption.series.reduce((acc, s) => {
+            if (s.type === "heatmap" && Array.isArray(s.data)) {
+              return acc + s.data.length;
+            }
+            return acc;
+          }, 0)
+        : 0;
+      if (totalHeatmapCells > 15) return false;
+      return true;
+    }
+    if (isPieChart) return true;
+    if (fs) {
+      if (tickCount > 150) return false;
+      if (isVerticalBar && tickCount > 35) return false;
+      if (!isVerticalBar && tickCount > 40) return false;
+      return true;
+    }
+
+    if (isLine) {
+      if (isSmallScreen) {
+        return tickCount <= 20;
+      }
+      return tickCount <= 25;
+    }
+    if (isSmallScreen) {
+      if (tickCount > 20) return false;
+      if ((isVerticalBar || isLineChart) && tickCount > 15) return false;
+      if (!(isVerticalBar || isLineChart) && tickCount > 25) return false;
+    }
+    if (!isSmallScreen && !fs) {
+      if (tickCount > 50) return false;
+      if ((isVerticalBar || isLineChart) && tickCount > 35) return false;
+      if (!(isVerticalBar || isLineChart) && tickCount > 40) return false;
+    }
+    return true;
+  })();
+
+  const shouldShowFunnelLabels = (() => {
+    if (fs) return true;
+    if (!isFunnelChart) return true;
+    const funnelCount = Array.isArray(chart?.chartOption?.series)
+      ? chart.chartOption.series
+          .filter((s) => s?.type === "funnel")
+          .reduce(
+            (acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0),
+            0,
+          )
+      : 0;
+    if (isSmallScreen && funnelCount > 10) return false;
+    if (!isSmallScreen && funnelCount > 16) return false;
+    return true;
+  })();
+
+  function countSunburstNodes(dataNode) {
+    if (!dataNode) return 0;
+    if (Array.isArray(dataNode)) {
+      return dataNode.reduce((acc, n) => acc + countSunburstNodes(n), 0);
+    }
+    let count = 1;
+    if (Array.isArray(dataNode.children)) {
+      count += dataNode.children.reduce(
+        (acc, c) => acc + countSunburstNodes(c),
+        0,
+      );
+    }
+    return count;
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const opt = {
     ...chart.chartOption,
     responsive: true,
@@ -297,58 +1545,1087 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit })
       ...chart?.chartOption?.grid,
       top: gridTop,
       left: gridLeft,
-      right: 24,
-      bottom: 45,
-      containLabel: true,
+      right: gridRight,
+      bottom: gridBottomAuto,
+      containLabel: false,
       width: fs ? undefined : undefined,
-      height: fs ? undefined : undefined
+      height: fs ? undefined : undefined,
     },
     toolbox: { show: false },
     legend: resolvedLegend,
-    xAxis: {
-      ...chart?.chartOption?.xAxis,
-      nameGap: 40,
-      position: 'bottom',
-      axisLabel: {
-        ...chart?.chartOption?.xAxis?.axisLabel,
-        rotate: isSmallScreen ? 20 : 0,
-        align: 'left',
-        color: isDarkColor,
-
-      },
-      axisLine: { show: false },
-      nameTextStyle: {
-        color: isDarkColor,
-        fontSize: 10,
-        fontWeight: 'bold'
-      }
-
-    },
-    yAxis: {
-      ...chart?.chartOption?.yAxis,
-      position: 'bottom',
-      axisLabel: {
-        ...chart?.chartOption?.yAxis?.axisLabel,
-        rotate: 0,
-        align: 'right',
-        color: isDarkColor
-      },
-      nameTextStyle: {
-        color: isDarkColor,
-        fontSize: 10,
-        fontWeight: 'bold'
-      },
-      axisLine: { show: false }
-    }
+    xAxis: Array.isArray(chart?.chartOption?.xAxis)
+      ? chart.chartOption.xAxis.map((axis) => {
+          return {
+            ...axis,
+            type: isVerticalBar || isHeatmap ? "category" : axis?.type,
+            nameGap: axisNameGapX,
+            nameLocation: "middle",
+            position: "bottom",
+            splitLine: usesCartesianGrid
+              ? {
+                  ...(axis?.splitLine || {}),
+                  show: isHeatmap ? false : true,
+                  lineStyle: {
+                    ...(axis?.splitLine?.lineStyle || {}),
+                    color: gridLineColor,
+                    width: 1,
+                    type: "solid",
+                    opacity: 1,
+                  },
+                }
+              : axis?.splitLine,
+            axisLine: usesCartesianGrid
+              ? {
+                  ...(axis?.axisLine || {}),
+                  show: true,
+                  lineStyle: {
+                    ...(axis?.axisLine?.lineStyle || {}),
+                    color: gridLineColor,
+                    width: 1,
+                    opacity: 1,
+                  },
+                }
+              : { show: false },
+            axisTick: usesCartesianGrid
+              ? {
+                  ...(axis?.axisTick || {}),
+                  show: true,
+                  lineStyle: {
+                    ...(axis?.axisTick?.lineStyle || {}),
+                    color: gridLineColor,
+                    opacity: 1,
+                  },
+                }
+              : axis?.axisTick,
+            axisLabel: {
+              ...axis?.axisLabel,
+              rotate: xRotate,
+              align:
+                isVerticalBar ||
+                isHeatmap ||
+                isLineChart ||
+                isCandlestick ||
+                isBoxplot ||
+                isScatterLike ||
+                xRotate > 0
+                  ? "right"
+                  : "left",
+              color: isDarkColor,
+              margin: Math.max(axis?.axisLabel?.margin || 8, axisMarginX),
+              hideOverlap: false,
+              showMinLabel: true,
+              showMaxLabel: true,
+              interval: 0,
+              fontSize: axisFontSize,
+              formatter: (v) => {
+                try {
+                  const n = Number(v);
+                  if (Number.isFinite(n)) {
+                    if (Math.abs(n) >= 1000000)
+                      return `${(n / 1000000).toFixed(1)}M`;
+                    if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                  }
+                  const s = String(v);
+                  const maxLen =
+                    tickCount > 80
+                      ? 8
+                      : tickCount > 60
+                        ? 10
+                        : tickCount > 40
+                          ? 12
+                          : 16;
+                  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+                } catch {
+                  return v;
+                }
+              },
+            },
+            nameTextStyle: {
+              ...(axis?.nameTextStyle || {}),
+              color: isDarkColor,
+              fontSize: Math.max(8, axisFontSize - 1),
+              fontWeight: "bold",
+            },
+          };
+        })
+      : {
+          ...chart?.chartOption?.xAxis,
+          type:
+            isVerticalBar || isHeatmap
+              ? "category"
+              : chart?.chartOption?.xAxis?.type,
+          nameGap: axisNameGapX,
+          nameLocation: "middle",
+          position: "bottom",
+          splitLine: usesCartesianGrid
+            ? {
+                ...(chart?.chartOption?.xAxis?.splitLine || {}),
+                show: isHeatmap ? false : true,
+                lineStyle: {
+                  ...(chart?.chartOption?.xAxis?.splitLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  type: "solid",
+                  opacity: 1,
+                },
+              }
+            : chart?.chartOption?.xAxis?.splitLine,
+          axisLine: usesCartesianGrid
+            ? {
+                ...(chart?.chartOption?.xAxis?.axisLine || {}),
+                show: true,
+                lineStyle: {
+                  ...(chart?.chartOption?.xAxis?.axisLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  opacity: 1,
+                },
+              }
+            : { show: false },
+          axisTick: usesCartesianGrid
+            ? {
+                ...(chart?.chartOption?.xAxis?.axisTick || {}),
+                show: true,
+                lineStyle: {
+                  ...(chart?.chartOption?.xAxis?.axisTick?.lineStyle || {}),
+                  color: gridLineColor,
+                  opacity: 1,
+                },
+              }
+            : chart?.chartOption?.xAxis?.axisTick,
+          axisLabel: {
+            ...chart?.chartOption?.xAxis?.axisLabel,
+            rotate: xRotate,
+            align:
+              isVerticalBar ||
+              isHeatmap ||
+              isLineChart ||
+              isCandlestick ||
+              isBoxplot ||
+              isScatterLike ||
+              xRotate > 0
+                ? "right"
+                : "left",
+            color: isDarkColor,
+            margin: Math.max(
+              chart?.chartOption?.xAxis?.axisLabel?.margin || 8,
+              axisMarginX,
+            ),
+            hideOverlap: false,
+            showMinLabel: true,
+            showMaxLabel: true,
+            interval: 0,
+            fontSize: axisFontSize,
+            formatter: (v) => {
+              try {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  if (Math.abs(n) >= 1000000)
+                    return `${(n / 1000000).toFixed(1)}M`;
+                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                }
+                const s = String(v);
+                const maxLen =
+                  tickCount > 80
+                    ? 8
+                    : tickCount > 60
+                      ? 10
+                      : tickCount > 40
+                        ? 12
+                        : 16;
+                return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+              } catch {
+                return v;
+              }
+            },
+          },
+          nameTextStyle: {
+            ...(chart?.chartOption?.xAxis?.nameTextStyle || {}),
+            color: isDarkColor,
+            fontSize: Math.max(8, axisFontSize - 1),
+            fontWeight: "bold",
+          },
+        },
+    yAxis: Array.isArray(chart?.chartOption?.yAxis)
+      ? chart.chartOption.yAxis.map((axis) => ({
+          ...axis,
+          position: isHorizontalBar ? "left" : "left",
+          nameLocation: axis?.nameLocation || "middle",
+          nameGap: isHorizontalBar
+            ? Math.max(axis?.nameGap || 25, 50)
+            : Math.max(axis?.nameGap || 25, yAxisNameGap(chart?.chartOption)),
+          splitLine: usesCartesianGrid
+            ? {
+                ...(axis?.splitLine || {}),
+                show: isHeatmap ? false : true,
+                lineStyle: {
+                  ...(axis?.splitLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  type: "solid",
+                  opacity: 1,
+                },
+              }
+            : axis?.splitLine,
+          axisLine: usesCartesianGrid
+            ? {
+                ...(axis?.axisLine || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  opacity: 1,
+                },
+              }
+            : { show: false },
+          axisTick: usesCartesianGrid
+            ? {
+                ...(axis?.axisTick || {}),
+                show: true,
+                lineStyle: {
+                  ...(axis?.axisTick?.lineStyle || {}),
+                  color: gridLineColor,
+                  opacity: 1,
+                },
+              }
+            : axis?.axisTick,
+          axisLabel: {
+            ...axis?.axisLabel,
+            rotate: 0,
+            align: isHorizontalBar ? "right" : "right",
+            color: isDarkColor,
+            hideOverlap: isHorizontalBar
+              ? false
+              : (axis?.axisLabel?.hideOverlap ?? false),
+            showMinLabel: true,
+            showMaxLabel: true,
+            interval: isHorizontalBar ? 0 : (axis?.axisLabel?.interval ?? 0),
+            fontSize: axisFontSize,
+            margin: isHorizontalBar ? 8 : (axis?.axisLabel?.margin ?? 0),
+            formatter: (v) => {
+              try {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  if (Math.abs(n) >= 1000000)
+                    return `${(n / 1000000).toFixed(1)}M`;
+                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                }
+                return v;
+              } catch {
+                return v;
+              }
+            },
+          },
+          nameTextStyle: {
+            ...(axis?.nameTextStyle || {}),
+            color: isDarkColor,
+            fontSize: Math.max(8, axisFontSize - 1),
+            fontWeight: "bold",
+          },
+        }))
+      : {
+          ...chart?.chartOption?.yAxis,
+          position: isHorizontalBar ? "left" : "left",
+          nameLocation: chart?.chartOption?.yAxis?.nameLocation || "middle",
+          nameGap: isHorizontalBar
+            ? Math.max(chart?.chartOption?.yAxis?.nameGap || 25, 50)
+            : Math.max(
+                chart?.chartOption?.yAxis?.nameGap || 25,
+                yAxisNameGap(chart?.chartOption),
+              ),
+          splitLine: usesCartesianGrid
+            ? {
+                ...(chart?.chartOption?.yAxis?.splitLine || {}),
+                show: isHeatmap ? false : true,
+                lineStyle: {
+                  ...(chart?.chartOption?.yAxis?.splitLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  type: "solid",
+                  opacity: 1,
+                },
+              }
+            : chart?.chartOption?.yAxis?.splitLine,
+          axisLine: usesCartesianGrid
+            ? {
+                ...(chart?.chartOption?.yAxis?.axisLine || {}),
+                show: true,
+                lineStyle: {
+                  ...(chart?.chartOption?.yAxis?.axisLine?.lineStyle || {}),
+                  color: gridLineColor,
+                  width: 1,
+                  opacity: 1,
+                },
+              }
+            : { show: false },
+          axisTick: usesCartesianGrid
+            ? {
+                ...(chart?.chartOption?.yAxis?.axisTick || {}),
+                show: true,
+                lineStyle: {
+                  ...(chart?.chartOption?.yAxis?.axisTick?.lineStyle || {}),
+                  color: gridLineColor,
+                  opacity: 1,
+                },
+              }
+            : chart?.chartOption?.yAxis?.axisTick,
+          axisLabel: {
+            ...chart?.chartOption?.yAxis?.axisLabel,
+            rotate: 0,
+            align: isHorizontalBar ? "right" : "right",
+            color: isDarkColor,
+            hideOverlap: isHorizontalBar
+              ? false
+              : (chart?.chartOption?.yAxis?.axisLabel?.hideOverlap ?? false),
+            showMinLabel: true,
+            showMaxLabel: true,
+            interval: isHorizontalBar
+              ? 0
+              : (chart?.chartOption?.yAxis?.axisLabel?.interval ?? 0),
+            fontSize: axisFontSize,
+            margin: isHorizontalBar
+              ? 8
+              : (chart?.chartOption?.yAxis?.axisLabel?.margin ?? 0),
+            formatter: (v) => {
+              try {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  if (Math.abs(n) >= 1000000)
+                    return `${(n / 1000000).toFixed(1)}M`;
+                  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                }
+                return v;
+              } catch {
+                return v;
+              }
+            },
+          },
+          nameTextStyle: {
+            ...(chart?.chartOption?.yAxis?.nameTextStyle || {}),
+            color: isDarkColor,
+            fontSize: Math.max(8, axisFontSize - 1),
+            fontWeight: "bold",
+          },
+        },
   };
 
-  useEffect(() => {
-    if (!ref.current || !opt || opt._kpi || opt._table || opt._error) return;
-    try { inst.current = initChart(ref.current); inst.current.setOption(withZoomable(opt), true); setTimeout(() => inst.current?.resize(), 50); } catch { }
-    return () => { if (ref.current) disposeChart(ref.current); };
-  }, [opt]);
+  if (usesCartesianGrid) {
+    if (opt.grid && !Array.isArray(opt.grid)) {
+      opt.grid = {
+        ...opt.grid,
+        borderColor: gridLineColor,
+        borderWidth: 1,
+        show: true,
+      };
+    } else if (Array.isArray(opt.grid)) {
+      opt.grid = opt.grid.map((g) => ({
+        ...g,
+        borderColor: gridLineColor,
+        borderWidth: 1,
+        show: true,
+      }));
+    }
+  }
 
-  useEffect(() => { setTimeout(() => inst.current?.resize(), 150); }, [fs, showLegend, isSmallScreen, cols]);
+  opt.tooltip = {
+    ...(opt.tooltip || {}),
+    confine: true,
+    enterable: true,
+    extraCssText: tooltipExtraCss,
+  };
+
+  if (isHeatmap) {
+    if (Array.isArray(opt.series)) {
+      opt.series = opt.series.map((s) => {
+        if (!s || s.type !== "heatmap") return s;
+
+        const totalHeatmapCells = Array.isArray(s.data) ? s.data.length : 0;
+        const shouldHideHeatmapLabels = totalHeatmapCells > 15;
+
+        return {
+          ...s,
+          label: {
+            ...(s.label || {}),
+            show: shouldHideHeatmapLabels
+              ? false
+              : s.label?.show !== undefined
+                ? s.label.show
+                : true,
+            color: isDarkColor,
+            fontSize: fs
+              ? Math.min(14, axisFontSize + 3)
+              : Math.min(10, axisFontSize),
+            formatter: (params) => {
+              if (params && params.value && params.value.length >= 3) {
+                const val = params.value[2];
+                if (typeof val === "number") {
+                  if (Math.abs(val) >= 1000000)
+                    return `${(val / 1000000).toFixed(1)}M`;
+                  if (Math.abs(val) >= 1000)
+                    return `${(val / 1000).toFixed(1)}K`;
+                  return val;
+                }
+                return val;
+              }
+              return "";
+            },
+          },
+          emphasis: {
+            ...(s.emphasis || {}),
+            label: {
+              ...((s.emphasis && s.emphasis.label) || {}),
+              show: true,
+              color: isDarkColor,
+              fontSize: fs ? 16 : 12,
+            },
+          },
+        };
+      });
+    }
+  }
+
+  if (Array.isArray(opt.series) && opt.series.length) {
+    opt.series = opt.series.map((s) => {
+      if (!s || !s.type) return s;
+      if (
+        s.type !== "bar" &&
+        s.type !== "line" &&
+        s.type !== "scatter" &&
+        s.type !== "candlestick" &&
+        s.type !== "boxplot"
+      )
+        return s;
+
+      const labelFont = fs
+        ? Math.max(13, dataLabelFontSize + 3)
+        : dataLabelFontSize;
+      const labelWidth = fs
+        ? tickCount > 80
+          ? 60
+          : tickCount > 60
+            ? 72
+            : tickCount > 40
+              ? 84
+              : tickCount > 24
+                ? 96
+                : 108
+        : seriesLabelWidth;
+
+      return {
+        ...s,
+        clip: true,
+        labelLayout: {
+          hideOverlap: true,
+          moveOverlap: "shiftY",
+        },
+        label: {
+          ...(s.label || {}),
+          show: shouldShowDataLabels,
+          position: isHorizontalBar ? "right" : "top",
+          distance: isHorizontalBar ? 8 : tickCount > 50 ? 5 : 8,
+          color: isDarkColor,
+          overflow: "truncate",
+          width: labelWidth,
+          hideOverlap: true,
+          fontSize: labelFont,
+          formatter: (p) => {
+            try {
+              const raw = Array.isArray(p?.value)
+                ? p.value[p.value.length - 1]
+                : p?.value;
+              const n = Number(raw);
+              if (Number.isFinite(n)) {
+                if (Math.abs(n) >= 1000000)
+                  return `${(n / 1000000).toFixed(1)}M`;
+                if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}K`;
+                return `${n}`;
+              }
+              const t = String(raw ?? "");
+              const maxLen =
+                tickCount > 80
+                  ? 5
+                  : tickCount > 60
+                    ? 6
+                    : tickCount > 40
+                      ? 7
+                      : 8;
+              return t.length > maxLen ? t.slice(0, maxLen - 1) + "…" : t;
+            } catch {
+              return p?.value;
+            }
+          },
+        },
+        emphasis: {
+          ...(s.emphasis || {}),
+          label: {
+            ...((s.emphasis && s.emphasis.label) || {}),
+            show: true,
+            position: isHorizontalBar ? "right" : "top",
+            distance: fs ? 16 : 10,
+            color: isDarkColor,
+            hideOverlap: false,
+            fontSize: fs ? 16 : 12,
+          },
+        },
+      };
+    });
+  }
+
+  const pieSubtypes = ["pie", "donut", "rose", "nested_pie"];
+
+  if (
+    Array.isArray(opt.series) &&
+    (opt.series.some((s) => s.type === "pie") ||
+      pieSubtypes.includes(chart.chartSubtype))
+  ) {
+    const pieSeries = opt.series.filter((s) => s.type === "pie");
+    const pieSliceCount = pieSeries.reduce(
+      (acc, s) => acc + (Array.isArray(s?.data) ? s.data.length : 0),
+      0,
+    );
+    const hidePieLabels = pieSliceCount > 16;
+
+    opt.series = (opt.series || []).map((s) => {
+      if (s.type !== "pie") return s;
+      const finalRadius = fs
+        ? chart.chartSubtype === "pie"
+          ? ["0%", "72%"]
+          : ["40%", "72%"]
+        : isSmallScreen
+          ? chart.chartSubtype === "pie"
+            ? ["0%", "56%"]
+            : ["30%", "56%"]
+          : chart.chartSubtype === "pie"
+            ? ["0%", "54%"]
+            : ["28%", "54%"];
+      const finalCenter = fs
+        ? s.center || ["50%", "50%"]
+        : isSmallScreen
+          ? s.center || ["50%", "55%"]
+          : s.center || ["50%", "57%"];
+      return {
+        ...s,
+        avoidLabelOverlap: true,
+        label: {
+          ...(s.label || {}),
+          show: !hidePieLabels && shouldShowDataLabels,
+          formatter:
+            s.label?.formatter ||
+            function (params) {
+              return params.name
+                ? `${params.name}\n${params.percent}%`
+                : `${params.percent}%`;
+            },
+          color: isDarkColor,
+          fontSize: fs ? 15 : 11,
+          overflow: "truncate",
+          width: fs ? 340 : isSmallScreen ? 160 : 220,
+          lineHeight: fs ? 26 : 18,
+          distanceToLabelLine: fs ? 24 : 14,
+          bleedMargin: fs ? 20 : 12,
+        },
+        labelLine: {
+          ...(s.labelLine || {}),
+          length: fs ? 24 : 14,
+          length2: fs ? 20 : 12,
+          smooth: false,
+          distance: fs ? 8 : 4,
+        },
+        radius: finalRadius,
+        center: finalCenter,
+      };
+    });
+
+    opt.legend = {
+      ...(opt.legend || {}),
+      textStyle: {
+        ...(opt.legend?.textStyle || {}),
+        fontSize: fs ? 16 : isSmallScreen ? 10 : 12,
+        color: isDarkColor,
+      },
+      itemGap: fs ? 18 : 12,
+      pageIconColor: isDarkColor,
+      itemStyle: {
+        ...(opt.legend?.itemStyle || {}),
+        borderColor: "transparent",
+        borderWidth: 0,
+      },
+    };
+
+    opt.grid = {
+      ...(opt.grid || {}),
+      top: fs ? opt.grid?.top || gridTop : isSmallScreen ? 72 : 80,
+    };
+  }
+
+  if (isStackedArea) {
+    opt.tooltip = {
+      ...(opt.tooltip || {}),
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      confine: true,
+      enterable: true,
+      extraCssText: tooltipExtraCss,
+      formatter: function (params) {
+        try {
+          if (!Array.isArray(params)) return params?.name || "";
+          const axisLabel = params[0]?.axisValue ?? params[0]?.name ?? "";
+          const total = params.reduce(
+            (s, p) => s + (Number(p?.value ?? 0) || 0),
+            0,
+          );
+          const lines = [];
+          lines.push(axisLabel);
+          for (const p of params) {
+            const value = Number(p?.value ?? 0) || 0;
+            const pct = total ? ((value / total) * 100).toFixed(1) + "%" : "";
+            lines.push(
+              `${p.seriesName}: ${value}${pct ? " (" + pct + ")" : ""}`,
+            );
+          }
+          return lines.join("<br/>");
+        } catch {
+          return "";
+        }
+      },
+    };
+  } else if (
+    Array.isArray(opt.series) &&
+    opt.series.some((s) => s.type === "line" && s.data?.length > 50)
+  ) {
+    opt.tooltip = {
+      ...(opt.tooltip || {}),
+      trigger: "axis",
+      confine: true,
+      enterable: true,
+      extraCssText: tooltipExtraCss,
+      formatter: function (params) {
+        try {
+          if (!Array.isArray(params)) return params?.name || "";
+          const lines = [];
+          for (const p of params) {
+            const value = Number(p?.value ?? 0) || 0;
+            lines.push(`${p.seriesName}: ${value}`);
+          }
+          return lines.join("<br/>");
+        } catch {
+          return "";
+        }
+      },
+    };
+  } else {
+    opt.tooltip = {
+      ...(opt.tooltip || {}),
+      confine: true,
+      enterable: true,
+      extraCssText: tooltipExtraCss,
+    };
+  }
+
+  if (Array.isArray(opt.series)) {
+    opt.series = opt.series.map((s) => {
+      if (!s || s.type !== "funnel") return s;
+      return {
+        ...s,
+        minSize: s.minSize ?? "0%",
+        maxSize: s.maxSize ?? "100%",
+        gap: Math.max(0, s.gap ?? 1),
+        left:
+          fs && supportsLegend && hasLegend && showLegends
+            ? "22%"
+            : (s.left ?? "10%"),
+        top:
+          fs && supportsLegend && hasLegend && showLegends
+            ? "8%"
+            : (s.top ?? "10%"),
+        width:
+          fs && supportsLegend && hasLegend && showLegends
+            ? "74%"
+            : (s.width ?? "80%"),
+        height:
+          fs && supportsLegend && hasLegend && showLegends
+            ? "84%"
+            : (s.height ?? "80%"),
+        labelLayout: { hideOverlap: true, moveOverlap: "shiftY" },
+        label: {
+          ...(s.label || {}),
+          show: shouldShowFunnelLabels,
+          color: isDarkColor,
+          overflow: "truncate",
+          width: fs ? 320 : isSmallScreen ? 110 : 160,
+          fontSize: fs ? 16 : isSmallScreen ? 10 : 11,
+        },
+        labelLine: {
+          ...(s.labelLine || {}),
+          show: shouldShowFunnelLabels,
+          lineStyle: {
+            ...(s.labelLine?.lineStyle || {}),
+            color: isDarkColor,
+            opacity: 1,
+          },
+        },
+        itemStyle: {
+          ...(s.itemStyle || {}),
+          borderColor: isDarkColor,
+          borderWidth: 0.5,
+        },
+        emphasis: {
+          ...(s.emphasis || {}),
+          label: {
+            ...((s.emphasis && s.emphasis.label) || {}),
+            show: true,
+            color: isDarkColor,
+            fontSize: fs ? 18 : 12,
+          },
+          labelLine: {
+            ...((s.emphasis && s.emphasis.labelLine) || {}),
+            show: true,
+            lineStyle: {
+              ...((s.emphasis &&
+                s.emphasis.labelLine &&
+                s.emphasis.labelLine.lineStyle) ||
+                {}),
+              color: isDarkColor,
+              opacity: 1,
+            },
+          },
+          itemStyle: {
+            ...((s.emphasis && s.emphasis.itemStyle) || {}),
+            borderColor: isDarkColor,
+            borderWidth: 0.5,
+          },
+        },
+      };
+    });
+  }
+
+  const isSankey =
+    Array.isArray(opt.series) && opt.series.some((s) => s.type === "sankey");
+
+  if (isSankey) {
+    opt.series = opt.series.map((s) => {
+      if (s.type !== "sankey") return s;
+      return {
+        ...s,
+        label: {
+          ...(s.label || {}),
+          color: isDarkColor,
+          fontSize: fs ? 18 : 14,
+        },
+      };
+    });
+  }
+
+  if (theme === "dark") {
+    const shadowlessSeriesTypes = ["sankey", "sunburst", "graph", "tree"];
+    if (Array.isArray(opt.series)) {
+      const borderColor = "rgba(0,0,0,0.65)";
+      opt.series = opt.series.map((s) => {
+        if (!s || !s.type) return s;
+        if (s.type === "sankey") {
+          return {
+            ...s,
+            label: {
+              ...(s.label || {}),
+              color: isDarkColor,
+              fontSize: fs ? 18 : 14,
+            },
+            itemStyle: {
+              ...(s.itemStyle || {}),
+              borderColor: "rgba(255,255,255,0.08)",
+              borderWidth: 1,
+            },
+            emphasis: {
+              ...(s.emphasis || {}),
+              focus: "adjacency",
+              itemStyle: {
+                ...(s.emphasis?.itemStyle || {}),
+                borderColor: "rgba(255,255,255,0.18)",
+                borderWidth: 1.5,
+              },
+            },
+            lineStyle: {
+              ...(s.lineStyle || {}),
+              color: "rgba(255,255,255,0.12)",
+              opacity: 0.8,
+              curveness: s.lineStyle?.curveness ?? 0.2,
+            },
+          };
+        }
+        if (!shadowlessSeriesTypes.includes(s.type)) return s;
+        const enhanceLabelStyling = (lbl) => {
+          const baseTextStyle = {
+            ...(lbl?.textStyle || {}),
+            color: isDarkColor,
+            textBorderColor: borderColor,
+            textBorderWidth: 2,
+            textShadowColor: "transparent",
+            textShadowBlur: 0,
+            fontSize: fs
+              ? lbl?.fontSize
+                ? lbl.fontSize + 4
+                : 16
+              : lbl?.fontSize || 12,
+          };
+          if (!lbl) return { textStyle: baseTextStyle };
+          return { ...lbl, textStyle: baseTextStyle };
+        };
+        return {
+          ...s,
+          label: enhanceLabelStyling(s.label),
+          emphasis: s.emphasis
+            ? { ...s.emphasis, label: enhanceLabelStyling(s.emphasis.label) }
+            : s.emphasis,
+          lineStyle: s.lineStyle
+            ? {
+                ...(s.lineStyle || {}),
+                textStyle: {
+                  ...(s.lineStyle?.textStyle || {}),
+                  color: isDarkColor,
+                  textBorderColor: borderColor,
+                  textBorderWidth: 2,
+                  textShadowColor: "transparent",
+                  textShadowBlur: 0,
+                },
+              }
+            : s.lineStyle,
+          itemStyle: s.itemStyle
+            ? {
+                ...(s.itemStyle || {}),
+                textStyle: {
+                  ...(s.itemStyle?.textStyle || {}),
+                  color: isDarkColor,
+                  textBorderColor: borderColor,
+                  textBorderWidth: 2,
+                  textShadowColor: "transparent",
+                  textShadowBlur: 0,
+                },
+              }
+            : s.itemStyle,
+        };
+      });
+      opt.legend = {
+        ...(opt.legend || {}),
+        textStyle: {
+          ...(opt.legend?.textStyle || {}),
+          color: isDarkColor,
+          textBorderColor: "rgba(0,0,0,0.65)",
+          textBorderWidth: 2,
+          textShadowColor: "transparent",
+          textShadowBlur: 0,
+          fontSize: fs ? 16 : 12,
+        },
+        itemStyle: {
+          ...(opt.legend?.itemStyle || {}),
+          borderColor: "transparent",
+          borderWidth: 0,
+        },
+      };
+    }
+  }
+
+  const isSunBurst =
+    Array.isArray(opt.series) && opt.series.some((s) => s.type === "sunburst");
+  const isSunBurstVisualmap = Object.keys(opt?.visualMap || {})?.length > 0;
+
+  if (isSunBurst) {
+    opt.series = opt.series.map((s) => {
+      if (s.type !== "sunburst") return s;
+      const nodeCount = Array.isArray(s.data)
+        ? s.data.reduce((a, n) => a + countSunburstNodes(n), 0)
+        : countSunburstNodes(s.data);
+      const hideSunburst = nodeCount > 15;
+      return {
+        ...s,
+        radius: isSunBurstVisualmap ? ["3%", "70%"] : ["5%", "90%"],
+        levels: [
+          {},
+          {
+            label: {
+              position: "outside",
+              distance: fs ? 20 : 10,
+              rotate: 0,
+              show: !hideSunburst,
+              fontSize: fs ? 16 : 11,
+            },
+            labelLine: {
+              show: true,
+              length: fs ? 30 : 20,
+              length2: fs ? 20 : 10,
+              smooth: false,
+            },
+          },
+          {
+            label: {
+              position: "outside",
+              distance: fs ? 20 : 10,
+              rotate: 0,
+              silent: true,
+              show: !hideSunburst,
+              fontSize: fs ? 14 : 10,
+            },
+            labelLine: {
+              show: true,
+              length: fs ? 30 : 20,
+              length2: fs ? 20 : 10,
+              smooth: false,
+            },
+          },
+        ],
+      };
+    });
+
+    const sunburstNodes = [];
+    const collectNames = (node) => {
+      if (!node) return;
+      if (Array.isArray(node)) {
+        node.forEach(collectNames);
+        return;
+      }
+      if (node.name) sunburstNodes.push(node.name);
+      if (Array.isArray(node.children)) {
+        node.children.forEach(collectNames);
+      }
+    };
+    opt.series.forEach((s) => {
+      if (!s || s.type !== "sunburst") return;
+      if (Array.isArray(s.data)) s.data.forEach(collectNames);
+      else collectNames(s.data);
+    });
+    const uniqueLegendData = Array.from(new Set(sunburstNodes)).slice(0, 200);
+    if (!opt.legend) opt.legend = {};
+    if (uniqueLegendData.length) {
+      opt.legend.data = uniqueLegendData;
+      opt.legend.show =
+        supportsLegend &&
+        hasLegend &&
+        showLegends &&
+        uniqueLegendData.length > 0;
+      if (!opt.legend.orient)
+        opt.legend.orient = fs
+          ? "vertical"
+          : isSmallScreen
+            ? "horizontal"
+            : cols === 4
+              ? "vertical"
+              : "vertical";
+      opt.legend.textStyle = {
+        ...(opt.legend.textStyle || {}),
+        color: isDarkColor,
+        fontSize: fs ? 16 : 12,
+      };
+      opt.legend.type = opt.legend.type || "scroll";
+      opt.legend.pageIconColor = isDarkColor;
+      opt.legend.pageIconInactiveColor =
+        opt.legend.pageIconInactiveColor || "var(--text-muted)";
+      opt.legend.pageTextStyle = {
+        ...(opt.legend.pageTextStyle || {}),
+        fontSize: fs ? 14 : 11,
+      };
+      opt.legend.itemStyle = {
+        ...(opt.legend?.itemStyle || {}),
+        borderColor: "transparent",
+        borderWidth: 0,
+      };
+    } else {
+      opt.legend.show = supportsLegend && hasLegend && showLegends;
+    }
+  }
+
+  useEffect(() => {
+    if (
+      !ref.current ||
+      !opt ||
+      opt._kpi ||
+      opt._error ||
+      opt._table ||
+      opt._waiting
+    ) {
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
+      if (inst.current) {
+        try {
+          disposeChart(ref.current);
+        } catch {
+          // The chart is already gone.
+        }
+
+        inst.current = null;
+      }
+
+      appliedOptionRef.current = null;
+      setHasChartInstance(false);
+      return undefined;
+    }
+
+    const host = ref.current;
+
+    try {
+      if (inst.current) {
+        try {
+          disposeChart(host);
+        } catch {
+          // The chart is already gone.
+        }
+
+        inst.current = null;
+      }
+
+      const nextInstance = initChart(host);
+      const finalOpt = withZoomable(opt);
+
+      appliedOptionRef.current = cloneChartOption(finalOpt);
+      inst.current = nextInstance;
+
+      nextInstance.setOption(finalOpt, {
+        notMerge: true,
+        lazyUpdate: false,
+        silent: false,
+      });
+
+      setHasChartInstance(true);
+
+      setTimeout(() => {
+        if (inst.current && !inst.current.isDisposed?.() && host.isConnected) {
+          try {
+            inst.current.resize();
+          } catch {
+            // The chart is already gone. Skip the resize.
+          }
+        }
+      }, 50);
+    } catch {
+      inst.current = null;
+      appliedOptionRef.current = null;
+      setHasChartInstance(false);
+    }
+
+    return () => {
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
+      if (host) {
+        try {
+          disposeChart(host);
+        } catch {
+          // The chart is already gone.
+        }
+      }
+
+      inst.current = null;
+      setHasChartInstance(false);
+    };
+  }, [opt, theme, fs]);
+
+  useEffect(() => {
+    setTimeout(() => inst.current?.resize(), 150);
+  }, [fs, isSmallScreen, cols, showLegends]);
 
   function zoomIn() {
     if (inst.current) {
@@ -361,13 +2638,18 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit })
         const newStart = Math.max(0, start + range * 0.1);
         const newEnd = Math.min(100, end - range * 0.1);
         inst.current.dispatchAction({
-          type: 'dataZoom',
+          type: "dataZoom",
           start: newStart,
           end: newEnd,
-          dataZoomIndex: 0
+          dataZoomIndex: 0,
         });
       } else {
-        inst.current.dispatchAction({ type: 'dataZoom', start: 0, end: 50, dataZoomIndex: 0 });
+        inst.current.dispatchAction({
+          type: "dataZoom",
+          start: 0,
+          end: 50,
+          dataZoomIndex: 0,
+        });
       }
     }
   }
@@ -383,90 +2665,566 @@ function ChartTile({ chart, onDelete, sidebar, cols, setFss, isAdmin, canEdit })
         const newStart = Math.max(0, start - range * 0.1);
         const newEnd = Math.min(100, end + range * 0.1);
         inst.current.dispatchAction({
-          type: 'dataZoom',
+          type: "dataZoom",
           start: newStart,
           end: newEnd,
-          dataZoomIndex: 0
+          dataZoomIndex: 0,
         });
       } else {
-        inst.current.dispatchAction({ type: 'dataZoom', start: 50, end: 100, dataZoomIndex: 0 });
+        inst.current.dispatchAction({
+          type: "dataZoom",
+          start: 50,
+          end: 100,
+          dataZoomIndex: 0,
+        });
       }
     }
   }
 
   function resetZoom() {
-    if (inst.current) {
+    const currentInstance = inst.current;
+    const host = ref.current;
+    const storedOption = appliedOptionRef.current;
+
+    if (!host || !storedOption) return;
+
+    if (currentInstance && currentInstance.isDisposed?.()) {
+      inst.current = null;
+    }
+
+    if (isTreemapChart || isSunburstChart) {
+      if (restoreTimerRef.current) {
+        cancelAnimationFrame(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+
+      try {
+        if (inst.current && !inst.current.isDisposed?.()) {
+          inst.current.clear();
+        }
+      } catch {
+        // The chart is already gone.
+      }
+
+      restoreTimerRef.current = requestAnimationFrame(() => {
+        restoreTimerRef.current = null;
+
+        if (!host.isConnected) return;
+
+        let restoredInstance = inst.current;
+
+        try {
+          if (!restoredInstance || restoredInstance.isDisposed?.()) {
+            restoredInstance = initChart(host);
+            inst.current = restoredInstance;
+          }
+
+          const restoreOption = cloneChartOption(appliedOptionRef.current);
+
+          restoredInstance.clear();
+
+          restoredInstance.setOption(restoreOption, {
+            notMerge: true,
+            lazyUpdate: false,
+            silent: false,
+          });
+
+          try {
+            restoredInstance.dispatchAction({
+              type: isSunburstChart
+                ? "sunburstRootToNode"
+                : "treemapRootToNode",
+              targetNode: null,
+            });
+          } catch {
+            // The chart is already gone. Keep the current view.
+          }
+
+          try {
+            restoredInstance.resize();
+          } catch {
+            // The chart is already gone. Skip the resize.
+          }
+
+          setHasChartInstance(true);
+        } catch {
+          try {
+            if (host.isConnected) {
+              if (restoredInstance && !restoredInstance.isDisposed?.()) {
+                restoredInstance.dispose();
+              }
+
+              const recreatedInstance = initChart(host);
+              const restoreOption = cloneChartOption(appliedOptionRef.current);
+
+              recreatedInstance.setOption(restoreOption, {
+                notMerge: true,
+                lazyUpdate: false,
+                silent: false,
+              });
+
+              recreatedInstance.resize();
+              inst.current = recreatedInstance;
+              setHasChartInstance(true);
+            }
+          } catch {
+            inst.current = null;
+            setHasChartInstance(false);
+          }
+        }
+      });
+
+      return;
+    }
+
+    if (!inst.current || inst.current.isDisposed?.()) return;
+
+    try {
       inst.current.dispatchAction({
-        type: 'dataZoom',
+        type: "dataZoom",
         start: 0,
         end: 100,
-        dataZoomIndex: 0
+        dataZoomIndex: 0,
       });
+
+      inst.current.resize();
+    } catch {
+      // The chart is already gone. Skip the resize.
     }
   }
 
-  const wrap = fs ? { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-page)', padding: 16, overflow: 'auto',cursor:"default" } :
-    { width: ColsWidthMethod(cols), overflow: "auto", height: ColsHeigthMethod(cols), paddingRight: isSmallScreen ? 8 : 0 };
+  function sanitizeFilename(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "chart";
+    const sanitized = trimmed
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return sanitized || "chart";
+  }
+
+  function saveFullChart() {
+    const sourceInst = inst.current;
+    const storedOption = appliedOptionRef.current;
+
+    if (!sourceInst || sourceInst.isDisposed?.() || !storedOption) {
+      savePng(inst.current, chart.name);
+      return;
+    }
+
+    const downloadName = `${sanitizeFilename(chart.name)}.png`;
+
+    let container = null;
+    let offscreenInst = null;
+
+    try {
+      container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-10000px";
+      container.style.top = "0";
+      container.style.width = `${sourceInst.getWidth()}px`;
+      container.style.height = `${sourceInst.getHeight()}px`;
+      container.style.visibility = "hidden";
+      container.style.pointerEvents = "none";
+      document.body.appendChild(container);
+
+      offscreenInst = initChart(container);
+
+      const fullOption = cloneChartOption(storedOption);
+
+      if (Array.isArray(fullOption.dataZoom)) {
+        fullOption.dataZoom = fullOption.dataZoom.map((dz) => ({
+          ...dz,
+          start: 0,
+          end: 100,
+          startValue: undefined,
+          endValue: undefined,
+        }));
+      }
+
+      if (fullOption.animation === undefined) fullOption.animation = false;
+      fullOption.animationDuration = 0;
+      fullOption.animationDurationUpdate = 0;
+
+      offscreenInst.setOption(fullOption, true);
+
+      if (isTreemapChart || isSunburstChart) {
+        try {
+          offscreenInst.dispatchAction({
+            type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode",
+          });
+        } catch {
+          // The chart is already gone. Keep the current view.
+        }
+      }
+
+      offscreenInst.resize();
+
+      const finish = () => {
+        let dataURL = null;
+        try {
+          dataURL = offscreenInst.getDataURL({
+            type: "png",
+            pixelRatio: 2,
+            backgroundColor: theme === "dark" ? "#0f1115" : "#ffffff",
+            excludeComponents: ["toolbox"],
+          });
+        } catch {
+          dataURL = null;
+        }
+
+        if (dataURL) {
+          try {
+            const link = document.createElement("a");
+            link.download = downloadName;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch {
+            // The download failed. Do not stop the page.
+          }
+        }
+
+        try {
+          if (offscreenInst && !offscreenInst.isDisposed?.()) {
+            offscreenInst.dispose();
+          }
+        } catch {
+          // The chart is already gone.
+        }
+        try {
+          if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+        } catch {
+          // The container is already gone.
+        }
+      };
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(finish, 150);
+        });
+      });
+    } catch {
+      try {
+        if (offscreenInst && !offscreenInst.isDisposed?.()) {
+          offscreenInst.dispose();
+        }
+      } catch {
+        // The chart is already gone.
+      }
+      try {
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      } catch {
+        // The container is already gone.
+      }
+      savePng(inst.current, chart.name);
+    }
+  }
+
+  const wrap = fs
+    ? {
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: 2147483647,
+        background: "var(--bg-page)",
+        padding: 16,
+        overflow: "hidden",
+        cursor: "default",
+        display: "flex",
+        flexDirection: "column",
+        margin: 0,
+        borderRadius: 0,
+        boxSizing: "border-box",
+      }
+    : {
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 0,
+        minHeight: 0,
+        boxSizing: "border-box",
+      };
 
   const pieChartControlsFlags = {
     zoomFun: false,
     resetFun: false,
     saveFun: true,
     fullscreenFun: true,
-    legendFun: isSmallScreen && hasLegend,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
   };
   const chartControlsFlags = {
     zoomFun: true,
     resetFun: true,
     saveFun: true,
     fullscreenFun: true,
-    legendFun: isSmallScreen && hasLegend,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
+  const sankeyControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
+  const funnelControlsFlags = {
+    zoomFun: false,
+    resetFun: false,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
+  const treemapControlsFlags = {
+    zoomFun: false,
+    resetFun: true,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
+  };
+  const sunburstControlsFlags = {
+    zoomFun: false,
+    resetFun: true,
+    saveFun: true,
+    fullscreenFun: true,
+    legendFun: isSmallScreen && supportsLegend && hasLegend,
   };
 
-  return (
-    <div className="card" style={{ padding: 16, ...wrap }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 }}>
-        <span style={{ fontSize: '14px', fontWeight: 600, minWidth: 0, flex: 1, paddingRight: 8 }}>{chart.name}</span>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
-          {opt && !opt._error && !opt._kpi && !opt._table && (
+  const tableScrollMaxHeight = fs
+    ? "calc(100vh - 240px)"
+    : isSmallScreen
+      ? 300
+      : 360;
+
+  const errorMinHeight = isSmallScreen ? 160 : 220;
+
+  const tileContent = (
+    <div
+      className="card"
+      style={{
+        padding: 16,
+        minWidth: 0,
+        ...wrap,
+        ...(highlighted
+          ? { outline: "2px solid var(--accent)", outlineOffset: -2 }
+          : {}),
+        ...(chart._rerunning ? { opacity: 0.6 } : {}),
+        ...(opt?._error || opt?._waiting ? { minHeight: errorMinHeight } : {}),
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 8,
+          gap: 8,
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            minWidth: 0,
+            flex: 1,
+            paddingRight: 8,
+          }}
+          title={
+            filterNames.length
+              ? `Filters: ${filterNames.join(", ")}`
+              : "No filters affect this chart"
+          }
+        >
+          {chart.name}
+          {chart._rerunning && (
+            <span className="loading-spinner" style={{ marginLeft: 8 }} />
+          )}
+        </span>
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            alignItems: "center",
+            flexWrap: "nowrap",
+            justifyContent: "flex-end",
+            flexShrink: 0,
+          }}
+        >
+          {opt && !opt._error && !opt._waiting && !opt._kpi && !opt._table && (
             <ChartToolbar
-              zoomable={!!opt?.xAxis}
+              zoomable={!!opt?.xAxis || isTreemapChart}
               fullscreen={fs}
               onZoomIn={zoomIn}
               onZoomOut={zoomOut}
               onZoomReset={resetZoom}
-              onSave={() => savePng(inst.current, chart.name)}
-              onToggleFullscreen={() => { setFs(!fs); setFss(!fs); }}
-              onToggleLegend={() => setShowLegend(v => !v)}
-              legendVisible={showLegend}
-              style={{ flexWrap: 'nowrap' }}
-              isWantFeature={chart.chartType === 'pie' ? pieChartControlsFlags : chartControlsFlags}
+              onSave={saveFullChart}
+              onToggleFullscreen={() => {
+                setFs((prev) => {
+                  const next = !prev;
+                  setFss(next);
+                  return next;
+                });
+              }}
+              onToggleLegend={() => {
+                if (setShowLegends) setShowLegends((prev) => !prev);
+              }}
+              legendVisible={showLegends}
+              style={{ flexWrap: "nowrap" }}
+              resetEnabled={hasChartInstance}
+              resetTitle={
+                isTreemapChart || isSunburstChart
+                  ? "Restore view"
+                  : "Reset zoom"
+              }
+              resetAriaLabel={
+                isTreemapChart || isSunburstChart
+                  ? "Restore view"
+                  : "Reset zoom"
+              }
+              resetIcon={isSunburstChart ? "ti-arrow-back-up" : undefined}
+              isWantFeature={
+                isSunburstChart
+                  ? sunburstControlsFlags
+                  : isTreemapChart
+                    ? treemapControlsFlags
+                    : chart.chartType === "pie"
+                      ? pieChartControlsFlags
+                      : chart.chartType === "funnel" ||
+                          chart.chartSubtype === "funnel"
+                        ? funnelControlsFlags
+                        : chart.chartType === "sankey"
+                          ? sankeyControlsFlags
+                          : chartControlsFlags
+              }
             />
           )}
-          {opt && (opt._error || opt._kpi || opt._table) && (
-            <button className="btn btn-ghost btn-sm" onClick={() => { setFs(!fs); setFss(!fs); }} title={fs ? 'Exit full screen' : 'Full screen'}><Icon className={`ti ${fs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 14 }}></Icon></button>
-          )}
-          {canEdit && (
-            <button className="btn btn-ghost btn-sm" onClick={onDelete}><Icon className="ti ti-trash" style={{ fontSize: 14 }}></Icon></button>
+          {isAdmin && (
+            <Button
+              variant="ghost" size="sm"
+              onClick={onDelete}
+              title="Delete chart (admin only)"
+              disabled={!canEdit}
+              style={!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}}
+            >
+              <Icon className="ti ti-trash" style={{ fontSize: "0.875rem" }}></Icon>
+            </Button>
           )}
         </div>
       </div>
-      {opt?._error && <div className="alert-banner danger" style={{ fontSize: '13px' }}><Icon className="ti ti-alert-circle"></Icon> {opt.message}</div>}
-      {opt?._kpi && <div style={{ textAlign: 'center', padding: 24 }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{opt.label}</div><div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-table)' }}>{opt.value}</div></div>}
-      {opt?._table && <DataTable rows={opt.data} maxRows={fs ? opt?.data?.length || 10 : 5} />}
-      {!opt?._kpi && !opt?._table && !opt?._error &&
+      {opt?._error && (
+        <Notice tone="danger" icon="ti-alert-circle" style={{ fontSize: "0.8125rem" }}> {opt.message}
+        </Notice>
+      )}
+      {opt?._waiting && (
+        <Notice tone="warning" icon="ti-clock" style={{ fontSize: "0.8125rem" }}> {opt.message}
+        </Notice>
+      )}
+      {opt?._kpi && (
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              textAlign: "center",
+              padding: 24,
+              height: "100%",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                marginBottom: 6,
+              }}
+            >
+              {opt.label}
+            </div>
+            <div
+              style={{
+                fontSize: "2rem",
+                fontWeight: 800,
+                color: "var(--accent)",
+                fontFamily: "var(--font-table)",
+              }}
+            >
+              {opt.value}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {opt?._table && (
+        <div
+          style={{
+            width: "100%",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            minWidth: 0,
+          }}
+        >
+          <div style={{ overflowX: "auto", width: "100%", minWidth: 0 }}>
+            <div
+              style={{
+                maxHeight: tableScrollMaxHeight,
+                overflowY: "auto",
+                overflowX: "auto",
+                minWidth: 0,
+              }}
+            >
+              <div style={{ display: "block", minWidth: 0 }}>
+                <DataTable
+                  rows={opt.data}
+                  maxRows={opt?.data?.length || (fs ? 10 : 5)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!opt?._kpi && !opt?._table && !opt?._error && !opt?._waiting && (
         <div
           ref={ref}
           style={{
-            height: fs ? 'calc(100vh - 100px)' : cols === 4 ? "480px" : `480px`,
-            minHeight: isSmallScreen ? (hasLegend && showLegend ? '440px' : '390px') : undefined,
-            width: fs ? '100%' : ChartWidthBasedCols(cols),
+            height: getChartHeight(),
+            width: "100%",
+            flex: 1,
             position: "relative",
-            top: "10px",
             display: "flex",
-            paddingRight: isSmallScreen ? 6 : 0
+            paddingRight: 0,
+            minWidth: 0,
           }}
-        />}
+        />
+      )}
     </div>
   );
+
+  if (fs) return createPortal(tileContent, document.body);
+  return tileContent;
 }

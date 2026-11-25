@@ -297,6 +297,7 @@ export const CHART_TYPES = [
   {
     type: "funnel",
     label: "Funnel",
+    hasLegend: true,
     subtypes: [
       {
         subtype: "standard",
@@ -445,11 +446,6 @@ export function validateColumnType(data, colName, expect) {
     const allNumeric = sample.every((v) => !isNaN(parseFloat(v)));
     if (!allNumeric)
       return `Column "${colName}" should be numeric but contains non-numeric values`;
-  }
-  if (expect === "string") {
-    const allString = sample.every(
-      (v) => typeof v === "string" || isNaN(parseFloat(v)),
-    );
   }
   return null;
 }
@@ -1026,6 +1022,7 @@ export function buildChartOption(
       return {
         tooltip: { trigger: "item", formatter: "{b}: {c}" },
         toolbox,
+        legend,
         series: [
           {
             type: "funnel",
@@ -1276,7 +1273,67 @@ export function buildChartOption(
     }
 
     if (chartType === "treemap") {
-      return { tooltip: {}, toolbox, series: [{ type: "treemap", data: buildTree(data, mapping) }] };
+      return {
+        tooltip: {
+          trigger: 'item',
+          renderMode: 'html', 
+          padding: 0, 
+          
+          formatter: function (info) {
+            const value = info.value;
+            const name = info.name;
+            return `
+              <div style="font-size: 14px; padding: 10px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                <strong style="color: #333;">${name}</strong><br/>
+                <span style="color: #666;">Value:</span> 
+                <strong style="color: #2a4858;">${value}</strong>
+              </div>
+            `;
+          },
+          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+          borderWidth: 1,
+          borderColor: '#ccc',
+          textStyle: {
+            color: '#000'
+          }
+        },
+        toolbox: {
+          show: false,
+          orient: 'horizontal',      
+          left: 'right',            
+          top: 'top',                
+          itemSize: 18,            
+          itemGap: 12,               
+          showTitle: true,        
+
+          iconStyle: {
+            borderColor: '#006d75',  
+            borderWidth: 1.5,       
+            color: 'none'           
+          },
+
+          emphasis: {
+            iconStyle: {
+              borderColor: '#ff7a45',
+              borderWidth: 2
+            }
+        }},
+        visualMap: {
+          show: false, 
+          min: 0, 
+          max: 100, 
+          inRange: { color: ["#2a4858", "#006d75", "#00a2ae", "#73d13d", "#ffe58f", "#ff7a45", "#cf1322"] },
+        },
+        series: [{ 
+          type: "treemap", 
+          data: buildTree(data, mapping),
+          label: {
+            show: true,
+            fontSize: 16 ,
+            color:"black"
+          }
+        }]
+      };
     }
 
     if (chartType === "sunburst") {
@@ -1309,7 +1366,7 @@ export function buildChartOption(
           series: [{
             type: "sunburst",
             data: treeData,
-            radius: ["10%", "90%"],
+            radius: ["0%", "90%"],
             label: { rotate: "radial", fontSize: 11 },
             emphasis: { focus: "ancestor" },
             levels: [{}, { r0: "10%", r: "35%", label: { fontSize: 13 } }, { r0: "35%", r: "65%" }, { r0: "65%", r: "90%", label: { fontSize: 9 } }],
@@ -1331,15 +1388,81 @@ export function buildChartOption(
       };
     }
 
-    if (chartType === "kpi")
+    if (chartType === "kpi")  {
+      if (Array.isArray(data) && data.length > 1) {
+        return { _kpi: true, isArray: true, message: "The KPI card does not support arrays." };
+      }
       return {
         _kpi: true,
         label: data[0]?.[mapping.label] || chartTitle,
         value: data[0]?.[mapping.value] || "-",
       };
+    }
     if (chartType === "table") return { _table: true, data };
   } catch (err) {
     return { _error: true, message: err.message };
   }
   return null;
+}
+
+// yAxisNameGap - how far to push a rotated y-axis name clear of its tick labels.
+//
+// nameLocation:'middle' rotates the axis name and places it nameGap pixels out
+// from the axis line, measured through the tick labels. A fixed gap therefore
+// only works while the labels stay narrow: a count axis reaching 120,000,000
+// renders labels around 90px wide, and a hardcoded 42 dropped the name straight
+// on top of them.
+//
+// ECharts does not expose its computed tick labels before render, so this
+// estimates from the data: take the largest magnitude in the series, round it up
+// the way ECharts rounds an axis maximum, format it the way the axis will, and
+// measure. Deliberately an over-estimate - a slightly wide gutter costs a few
+// pixels, an under-estimate costs legibility.
+//
+// Returns a pixel gap, clamped so a tiny chart keeps a sane minimum and a huge
+// one cannot eat the plot area.
+export function yAxisNameGap(option, { fontSize = 12, min = 42, max = 150 } = {}) {
+  const yAxis = Array.isArray(option?.yAxis) ? option.yAxis[0] : option?.yAxis;
+  if (!yAxis || !yAxis.name) return min;
+
+  // A category axis shows strings, and a custom formatter can produce anything.
+  // Neither is predictable from the data, so fall back to the minimum and let
+  // grid.containLabel reserve the room.
+  if (yAxis.type === "category") return min;
+  if (typeof yAxis.axisLabel?.formatter === "function") return min;
+
+  let biggest = 0;
+  const consider = (v) => {
+    const n = typeof v === "number" ? v : Number(v);
+    if (Number.isFinite(n)) biggest = Math.max(biggest, Math.abs(n));
+  };
+
+  for (const s of option?.series || []) {
+    for (const d of s?.data || []) {
+      if (d == null) continue;
+      if (typeof d === "number" || typeof d === "string") consider(d);
+      // [x, y] pairs (scatter, bubble) and { value } objects.
+      else if (Array.isArray(d)) consider(d[1]);
+      else if (Array.isArray(d?.value)) consider(d.value[1]);
+      else if (d?.value !== undefined) consider(d.value);
+    }
+  }
+
+  if (!biggest) return min;
+
+  // ECharts extends the axis to a round number above the data, which can add a
+  // digit (98,000,000 -> 100,000,000). Round up to the next leading digit so the
+  // estimate covers the label that will actually be drawn.
+  const magnitude = Math.pow(10, Math.floor(Math.log10(biggest)));
+  const axisMax = Math.ceil(biggest / magnitude) * magnitude;
+
+  const label = Math.round(axisMax).toLocaleString("en-US");
+  // Digits and commas in the default sans stack average a little over half an
+  // em; commas are much narrower, so weight them separately.
+  const digits = (label.match(/\d/g) || []).length;
+  const seps = label.length - digits;
+  const width = digits * fontSize * 0.58 + seps * fontSize * 0.28;
+
+  // + axisLabel margin (8 by default) and a little breathing room.
+  return Math.round(Math.min(max, Math.max(min, width + 16)));
 }

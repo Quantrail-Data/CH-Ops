@@ -10,11 +10,11 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
 import { useState, useRef, useEffect, useCallback } from "react";
 import Select from "../common/Select.jsx";
+import DateTimePicker from "../layout/DateTimePicker.jsx";
 import Icon from "../common/Icon.jsx";
 import {
   ReactFlow,
   Controls,
-  MiniMap,
   Background,
   Handle,
   Position,
@@ -36,7 +36,6 @@ import {
   formatBytes,
   formatNum,
   formatDuration,
-  DEFAULT_WHERE,
   DEFAULT_KIND,
   DEFAULT_TYPE,
   defaultTimeRange,
@@ -49,6 +48,7 @@ import {
   buildQueryListSqlQuery_ID,
 } from "../../utils/processorsPipeline.js";
 import { useToast } from "../layout/Toast.jsx";
+import { Button, FormField, Notice } from "../ui/index.jsx";
 
 // Custom Node: Processor
 
@@ -66,7 +66,7 @@ function ProcessorNode({ data, selected }) {
 
   const textColor = heatColor ? "#1e293b" : "var(--text-primary)";
   const subTextColor = heatColor ? "rgba(0,0,0,0.6)" : "var(--text-muted)";
- 
+
   return (
     <div
       style={{
@@ -78,7 +78,7 @@ function ProcessorNode({ data, selected }) {
           : "1px solid var(--border-default)",
         background: heatColor || "var(--bg-card)",
         fontFamily: "var(--font-code)",
-        fontSize: "12px",
+        fontSize: "0.75rem",
         color: textColor,
         cursor: "pointer",
         transition: "border-color 0.15s",
@@ -106,7 +106,7 @@ function ProcessorNode({ data, selected }) {
         {shortLabel}
       </div>
       {elapsed && (
-        <div style={{ marginTop: 3, color: subTextColor, fontSize: "11px" }}>
+        <div style={{ marginTop: 3, color: subTextColor, fontSize: "0.6875rem" }}>
           {elapsed}
         </div>
       )}
@@ -160,7 +160,7 @@ function DetailPanel({ processorId, profile, onClose }) {
         border: "1px solid var(--border-default)",
         borderRadius: 8,
         padding: 16,
-        fontSize: "12px",
+        fontSize: "0.75rem",
         boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
       }}
     >
@@ -172,16 +172,15 @@ function DetailPanel({ processorId, profile, onClose }) {
           marginBottom: 12,
         }}
       >
-        <span style={{ fontWeight: 700, fontSize: "13px" }}>
+        <span style={{ fontWeight: 700, fontSize: "0.8125rem" }}>
           Processor Details
         </span>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={onClose}
-          style={{ fontSize: "13px" }}
         >
           <Icon className="ti ti-x" />
-        </button>
+        </Button>
       </div>
       <table
         style={{
@@ -229,7 +228,7 @@ function HeatmapLegend({ minUs, maxUs }) {
         display: "flex",
         alignItems: "center",
         gap: 8,
-        fontSize: "12px",
+        fontSize: "0.75rem",
         color: "var(--text-muted)",
       }}
     >
@@ -249,7 +248,7 @@ function HeatmapLegend({ minUs, maxUs }) {
           style={{
             marginLeft: 8,
             fontFamily: "var(--font-code)",
-            fontSize: "11px",
+            fontSize: "0.6875rem",
           }}
         >
           {formatUs(minUs)} - {formatUs(maxUs)}
@@ -263,7 +262,7 @@ function HeatmapLegend({ minUs, maxUs }) {
 
 const nodeTypes = { processor: ProcessorNode };
 
-function ProcessorsProfileInner( ) {
+function ProcessorsProfileInner() {
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
@@ -285,7 +284,7 @@ function ProcessorsProfileInner( ) {
   const [profileMap, setProfileMap] = useState({});
   const [heatRange, setHeatRange] = useState({ minUs: 0, maxUs: 0 });
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [initialNodes, setInitialNodes] = useNodesState([]);  
+  const [initialNodes, setInitialNodes] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [initialEdges, setInitialEdges] = useEdgesState([]);
   const [loadingPipeline, setLoadingPipeline] = useState(false);
@@ -306,9 +305,7 @@ function ProcessorsProfileInner( ) {
 
   const [isInteractive, setIsInteractive] = useState(true);
 
-  const toast = useToast()
-
-  
+  const toast = useToast();
 
   useEffect(() => {
     if (qidFromUrl) {
@@ -335,6 +332,7 @@ function ProcessorsProfileInner( ) {
   }, []);
 
   // Load pipeline for selected query
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Memoizing this would change how often the hook runs.
   const loadPipeline = async (queryId) => {
     const gen = ++generationRef.current;
     const isStale = () => gen !== generationRef.current || !mountedRef.current;
@@ -347,7 +345,13 @@ function ProcessorsProfileInner( ) {
     setEdges([]);
 
     try {
-      qidFromUrl && (await runQuery("SYSTEM FLUSH LOGS"));
+      if (qidFromUrl) {
+        try {
+          await runQuery("SYSTEM FLUSH LOGS");
+        } catch {
+          // Flushing the logs is optional.
+        }
+      }
       // Step 1: Fetch query text
       const textResult = await runQuery(buildQueryTextSql(queryId));
 
@@ -364,7 +368,9 @@ function ProcessorsProfileInner( ) {
       // Step 2: Flush logs (best-effort, non-fatal)
       try {
         await runQuery("SYSTEM FLUSH LOGS");
-      } catch {}
+      } catch {
+        // Flushing the logs is optional.
+      }
       if (isStale()) return;
 
       // Step 3: EXPLAIN PIPELINE graph
@@ -412,8 +418,8 @@ function ProcessorsProfileInner( ) {
       if (isStale()) return;
       setNodes(coloredNodes);
       setEdges(rfEdges);
-      setInitialNodes(coloredNodes)
-      setInitialEdges(rfEdges)
+      setInitialNodes(coloredNodes);
+      setInitialEdges(rfEdges);
 
       // Fit the view to show all nodes after a brief layout settle
       setTimeout(() => reactFlowInstance?.fitView({ padding: 0.15 }), 100);
@@ -524,7 +530,12 @@ function ProcessorsProfileInner( ) {
   function handleApply() {
     if (!startTime || !endTime) return;
     loadQueries(
-      composeProcessorsWhere({ start: startTime, end: endTime, queryKind, type }),
+      composeProcessorsWhere({
+        start: startTime,
+        end: endTime,
+        queryKind,
+        type,
+      }),
     );
   }
 
@@ -558,12 +569,59 @@ function ProcessorsProfileInner( ) {
     });
   }, []);
 
-
-  const handleResetView = () =>{
-    setNodes(initialNodes)
+  const handleResetView = () => {
+    setNodes(initialNodes);
     setEdges(initialEdges);
     reactFlowInstance?.fitView({ padding: 0.15 });
-  }
+  };
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const fmtAgo = (h) => {
+    const d = new Date(Date.now() - h * 3600000);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleDateOnChange = (dateValue, label) => {
+    if (label === "From") {
+      setStartTime(dateValue);
+
+      if (endTime && new Date(dateValue) > new Date(endTime)) {
+        const fallbackFrom = fmtAgo(168);
+        setStartTime(fallbackFrom);
+
+        const fallbackTo = new Date(
+          new Date(fallbackFrom).getTime() + 24 * 60 * 60 * 1000,
+        );
+        setEndTime(
+          new Date(
+            fallbackTo.getTime() - fallbackTo.getTimezoneOffset() * 60000,
+          )
+            .toISOString()
+            .slice(0, 16),
+        );
+
+        toast.warning("From Date must be earlier than To Date!");
+      } else {
+        const baseDate = new Date(dateValue);
+        const adjustedDate = new Date(baseDate.getTime() + 24 * 60 * 60 * 1000);
+        const formattedAdjusted = new Date(
+          adjustedDate.getTime() - adjustedDate.getTimezoneOffset() * 60000,
+        )
+          .toISOString()
+          .slice(0, 16);
+        setEndTime(formattedAdjusted);
+      }
+    }
+
+    if (label === "To") {
+      setEndTime(dateValue);
+      if (startTime && new Date(startTime) > new Date(dateValue)) {
+        const fallbackTo = fmtAgo(0);
+        setEndTime(fallbackTo);
+        toast.warning("To date cannot be less than From date!");
+      }
+    }
+  };
 
   // Render
 
@@ -581,80 +639,24 @@ function ProcessorsProfileInner( ) {
         style={{ padding: 16, marginBottom: 12, flexShrink: 0 }}
       >
         {!qidFromUrl && (
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "flex-end",
-              flexWrap: "wrap",
-              marginBottom: 10,
-            }}
-          >
-            <label
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                fontSize: "0.75rem",
-                color: "var(--text-muted)",
-              }}
-            >
-              Start time
-              <input
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                style={{
-                  padding: "7px 8px",
-                  fontFamily: "var(--font-code)",
-                  fontSize: "12px",
-                  background: "var(--bg-card)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border-default)",
-                  borderRadius: 6,
-                }}
-              />
-            </label>
-            <label
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                fontSize: "0.75rem",
-                color: "var(--text-muted)",
-              }}
-            >
-              End time
-              <input
-                type="datetime-local"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                style={{
-                  padding: "7px 8px",
-                  fontFamily: "var(--font-code)",
-                  fontSize: "12px",
-                  background: "var(--bg-card)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border-default)",
-                  borderRadius: 6,
-                }}
-              />
-            </label>
-            <label
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                fontSize: "0.75rem",
-                color: "var(--text-muted)",
-              }}
-            >
-              Query kind
+          <div className="search-form-row" style={{ marginBottom: 10 }}>
+            <DateTimePicker
+              label="Start time"
+              valueFormat="datetime-local"
+              value={startTime}
+              onChange={(newValue) => handleDateOnChange(newValue, "From")}
+            />
+            <DateTimePicker
+              label="End time"
+              valueFormat="datetime-local"
+              value={endTime}
+              onChange={(newValue) => handleDateOnChange(newValue, "To")}
+            />
+            <FormField label="Query kind" className="search-field-select">
               <Select
-                className="form-select cui-sm"
+                className="form-select"
                 value={queryKind}
                 onChange={(e) => setQueryKind(e.target.value)}
-                style={{ minWidth: 150 }}
               >
                 <option value="">All</option>
                 {(queryKind && !kindOptions.includes(queryKind)
@@ -666,22 +668,12 @@ function ProcessorsProfileInner( ) {
                   </option>
                 ))}
               </Select>
-            </label>
-            <label
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                fontSize: "0.75rem",
-                color: "var(--text-muted)",
-              }}
-            >
-              Type
+            </FormField>
+            <FormField label="Type" className="search-field-select">
               <Select
-                className="form-select cui-sm"
+                className="form-select"
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                style={{ minWidth: 150 }}
               >
                 <option value="">All</option>
                 {(type && !typeOptions.includes(type)
@@ -693,25 +685,25 @@ function ProcessorsProfileInner( ) {
                   </option>
                 ))}
               </Select>
-            </label>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                className="btn btn-primary btn-sm"
+            </FormField>
+            <div className="search-form-submit" style={{ gap: 6 }}>
+              <Button
+                variant="primary"
                 onClick={handleApply}
                 disabled={loadingQueries || !startTime || !endTime}
               >
                 {loadingQueries ? "Loading..." : "Apply"}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
+              </Button>
+              <Button
+                variant="secondary" size="sm"
                 onClick={handleReset}
                 disabled={loadingQueries}
               >
                 Reset
-              </button>
+              </Button>
             </div>
             {optsLoading && (
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                 Refreshing options...
               </span>
             )}
@@ -746,22 +738,25 @@ function ProcessorsProfileInner( ) {
               </option>
             ))}
           </Select>
-        ) : 
-        
-        
-        (
-          <div className="alert-banner info" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <h5>Query ID : {qidFromUrl}</h5>
-            <div onClick={()=>{
-              window?.navigator?.clipboard?.writeText(qidFromUrl && qidFromUrl);
-              toast.success('Query ID copied!')
+        ) : (
+          <Notice tone="info" style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}>
+            <h5>Query ID : {qidFromUrl}</h5>
+            <div
+              onClick={() => {
+                window?.navigator?.clipboard?.writeText(
+                  qidFromUrl && qidFromUrl,
+                );
+                toast.success("Query ID copied!");
+              }}
+            >
               <Icon className="ti ti-copy"></Icon>
             </div>
-          </div>
+          </Notice>
         )}
-
-      
       </div>
 
       {/* Query text (collapsible) */}
@@ -772,7 +767,7 @@ function ProcessorsProfileInner( ) {
             padding: "10px 16px",
             marginBottom: 12,
             flexShrink: 0,
-            fontSize: "12px",
+            fontSize: "0.75rem",
           }}
         >
           <summary
@@ -810,7 +805,7 @@ function ProcessorsProfileInner( ) {
             background: "rgba(239,68,68,0.1)",
             border: "1px solid rgba(239,68,68,0.3)",
             borderRadius: 6,
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--color-danger, #ef4444)",
             fontFamily: "var(--font-code)",
           }}
@@ -853,22 +848,22 @@ function ProcessorsProfileInner( ) {
         >
           <HeatmapLegend minUs={heatRange.minUs} maxUs={heatRange.maxUs} />
           <div style={{ display: "flex", gap: 4 }}>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               onClick={() => handleResetView()}
               title="Reset"
             >
               <Icon className="ti ti-zoom-reset" />
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
+            </Button>
+            <Button
+              variant="ghost" size="sm"
               onClick={() => setFullscreen(!fullscreen)}
               title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
               <Icon
                 className={`ti ${fullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
               />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -993,7 +988,7 @@ function ProcessorsProfileInner( ) {
                 padding: "8px 14px",
                 borderRadius: 6,
                 border: "1px solid var(--border-default)",
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 maxWidth: 500,
                 textAlign: "center",
@@ -1014,7 +1009,7 @@ function ProcessorsProfileInner( ) {
 export default function ProcessorsProfile() {
   return (
     <ReactFlowProvider>
-      <ProcessorsProfileInner  />
+      <ProcessorsProfileInner />
     </ReactFlowProvider>
   );
 }

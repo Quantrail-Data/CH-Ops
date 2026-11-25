@@ -1,16 +1,7 @@
-/**
- * dashboards.test.js - Unit tests for dashboard and chart controllers
- *
- * Tests CRUD operations for dashboards and charts using an in-memory
- * mock database. Dashboard tests cover creation with validation, listing,
- * updating, deletion, and fetching charts by dashboard ID. Chart tests
- * cover creation with required fields, listing, updating with config
- * parsing, and deletion. Edge cases like missing fields, invalid config
- * JSON, and DB errors are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// dashboards.test.js - unit tests for dashboard and chart controllers
+// Contributors - Praveen kumar, Kathirdhasan
+
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 const fakeDB = {
@@ -115,9 +106,12 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertRuleChannels: {},
   appSettings: {},
   appUsers: {},
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
-
-
 
 const {
   createDashboard,
@@ -198,9 +192,13 @@ describe("Dashboard Controllers", () => {
     createDashboard(req, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.jsonData).toBe(
-      "db.insert(dashboards).values is not a function. (In 'db.insert(dashboards).values({ name, columns: columns || 2 })', 'db.insert(dashboards).values' is undefined)",
-    );
+    // Shape, not wording. This used to assert the exact engine-generated
+    // message, which embedded a verbatim copy of the controller's source line -
+    // so any edit to that line broke the test for no real reason. Errors are
+    // now { error } objects rather than bare strings, because apiFetch reads
+    // data.error and a bare string was lost on the way to the user.
+    expect(typeof res.jsonData).toBe("object");
+    expect(res.jsonData.error).toBeTruthy();
   });
 
   it("returns 400 when dashboard name missing", () => {
@@ -325,6 +323,42 @@ describe("Dashboard Controllers", () => {
   });
 });
 
+describe("filters column", () => {
+  it("returns filters as an object on create", () => {
+    const { req, res } = mockReqRes({ name: "D", columns: 2 });
+    createDashboard(req, res);
+    expect(res.jsonData.filters).toEqual({});
+  });
+
+  it("persists filters through an update", () => {
+    fakeDB.dashboards.push({ id: 1, name: "D", columns: 2, filters: "{}" });
+    const { req, res } = mockReqRes(
+      { filters: { region: { label: "Region", order: 1 } } },
+      { id: "1" },
+    );
+    updateDashboard(req, res);
+    expect(res.jsonData.filters).toEqual({
+      region: { label: "Region", order: 1 },
+    });
+  });
+
+  it("reads a legacy row with no filters value as an empty object", () => {
+    // A dashboard row created before the column existed.
+    fakeDB.dashboards.push({ id: 1, name: "Legacy", columns: 2 });
+    const { req, res } = mockReqRes();
+    listDashboards(req, res);
+    expect(res.jsonData[0].filters).toEqual({});
+    expect(res.jsonData[0].name).toBe("Legacy");
+  });
+
+  it("reads malformed filters JSON as an empty object", () => {
+    fakeDB.dashboards.push({ id: 1, name: "D", columns: 2, filters: "kathis" });
+    const { req, res } = mockReqRes();
+    expect(() => listDashboards(req, res)).not.toThrow();
+    expect(res.jsonData[0].filters).toEqual({});
+  });
+});
+
 describe("Chart Controllers", () => {
   it("creates chart", () => {
     const { req, res } = mockReqRes({
@@ -436,10 +470,22 @@ describe("Chart Controllers", () => {
       }),
     }));
 
+    let selectCallCount = 0;
+
     dbMock.select = mock(() => ({
       from: () => ({
         where: () => ({
-          get: () => fakeRow,
+          get: () => {
+            selectCallCount++;
+
+            // First SELECT: duplicate name check
+            if (selectCallCount === 1) {
+              return undefined;
+            }
+
+            // Second SELECT: fetch updated chart
+            return fakeRow;
+          },
         }),
       }),
     }));
@@ -482,10 +528,18 @@ describe("Chart Controllers", () => {
       }),
     }));
 
+    let selectCallCount = 0;
+
     dbMock.select = mock(() => ({
       from: () => ({
         where: () => ({
-          get: () => fakeRow,
+          get: () => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              return undefined;
+            }
+            return fakeRow;
+          },
         }),
       }),
     }));
@@ -501,10 +555,17 @@ describe("Chart Controllers", () => {
     const { req, res } = mockReqRes(
       {
         name: "Fail Chart",
-        audit: {},
       },
       { id: "1" },
     );
+
+    dbMock.select = mock(() => ({
+      from: () => ({
+        where: () => ({
+          get: () => undefined,
+        }),
+      }),
+    }));
 
     dbMock.update = mock(() => ({
       set: () => ({
@@ -519,7 +580,9 @@ describe("Chart Controllers", () => {
     updateChart(req, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.jsonData).toBe("DB failure");
+    expect(res.jsonData).toEqual({
+      error: "DB failure",
+    });
   });
 
   it("delete chart", () => {
@@ -529,19 +592,19 @@ describe("Chart Controllers", () => {
       config: '{"theme":"light"}',
     });
 
-    const { req, res} = mockReqRes(
-      {},{
-        id:1,
-      }
-    )
+    const { req, res } = mockReqRes(
+      {},
+      {
+        id: 1,
+      },
+    );
 
-    deleteChart(req,res);
+    deleteChart(req, res);
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonData).toEqual({
-    deleted: true,
-  })
-
+      deleted: true,
+    });
   });
 
   it("should return 500 error", () => {
@@ -551,17 +614,17 @@ describe("Chart Controllers", () => {
       config: '{"theme":"light"}',
     });
 
-    const { req, res} = mockReqRes(
-      {},{
-        id:1,
-      }
-    )
+    const { req, res } = mockReqRes(
+      {},
+      {
+        id: 1,
+      },
+    );
 
     dbMock.delete = mock(() => false);
 
-    deleteChart(req,res);
+    deleteChart(req, res);
 
     expect(res.statusCode).toBe(500);
-
   });
 });

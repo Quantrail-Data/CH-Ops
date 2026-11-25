@@ -2,9 +2,9 @@
 
 ## What It Does
 
-The Processors Profile page shows you exactly how ClickHouse® executed a specific query as a visual pipeline diagram.
+The Processors Profile page shows you exactly how ClickHouse&reg; ran a specific query, as a visual pipeline diagram.
 
-When you run a query, ClickHouse® does not execute it as a single operation. It breaks the work into a chain of small steps called "processors." For example, a query like `SELECT count() FROM table WHERE x > 10` might flow through these steps:
+When you run a query, ClickHouse&reg; does not run it as a single operation. It breaks the work into a chain of small steps called "processors." For example, a query like `SELECT count() FROM table WHERE x > 10` might flow through these steps:
 
 ```
 Read data from disk
@@ -16,96 +16,95 @@ Count the matching rows
 Send the result to you
 ```
 
-In reality, ClickHouse® runs many of these steps in parallel across multiple threads, creating a tree-shaped pipeline with branches that fork and merge. The Processors Profile page renders this full pipeline as an interactive diagram where you can see how long each step took and where the bottleneck is.
+In reality, ClickHouse&reg; runs many of these steps in parallel across several threads, which turns the chain into a tree-shaped pipeline with branches that fork and merge. The Processors Profile page renders the full pipeline as an interactive diagram, where you can see how long each step took and where the bottleneck is.
 
 ## How to Use It
 
 ### Step 1: Open the page
 
-Go to **Query Tools > Processors Profile** in the sidebar.
+Go to **SQL Tools > Processors Profile** in the sidebar.
+
+You can also click **Pipeline** in the SQL Editor after a run. The page then opens with that query loaded, shows its query ID in a banner, and leaves out the filter row.
 
 ### Step 2: Load queries
 
-The page shows a filter box at the top. The default filter finds SELECT queries that finished in the last 24 hours. Click **Apply** to load matching queries into the dropdown below the filter.
+At the top is a filter row with four controls: **Start time**, **End time**, **Query kind**, and **Type**. CHOps builds the **Query kind** and **Type** options from what actually appears in your query log for the selected time range, so you choose from real values. Each list also has **All**. By default the filter is the last hour, query kind **Select**, and type **QueryFinish**.
 
-You can change the filter to narrow the results. The filter is a raw ClickHouse® WHERE clause against `system.query_log`. Examples:
+When you change **Start time**, CHOps sets **End time** to 24 hours after it. You can then change **End time**.
 
-| What you want | Filter |
-|---------------|--------|
-| Last 24 hours (default) | `type = 'QueryFinish' AND query_kind = 'Select' AND event_time > now() - INTERVAL 24 HOUR` |
-| Queries by a specific user | `type = 'QueryFinish' AND user = 'analyst' AND event_time > now() - INTERVAL 24 HOUR` |
-| Slow queries only | `type = 'QueryFinish' AND query_duration_ms > 5000 AND event_time > now() - INTERVAL 7 DAY` |
-| Queries on a specific table | `type = 'QueryFinish' AND query LIKE '%my_table%' AND event_time > now() - INTERVAL 24 HOUR` |
+Click **Apply** to load the matching queries into the dropdown below the filter. The dropdown shows at most the 300 most recent queries. Click **Reset** to go back to the default filter. To reach an older query, widen the time range, and to look at a different kind of statement, change the query kind.
 
 ### Step 3: Select a query
 
-Pick a query from the dropdown. Each entry shows: timestamp, user, duration, query ID, and a preview of the SQL.
+Pick a query from the dropdown. Each entry shows the timestamp, user, duration, query ID, and a preview of the SQL.
 
-The pipeline diagram renders automatically. The most recent query is auto-selected when you click Apply.
+The pipeline diagram renders automatically, and when you click Apply, CHOps selects the most recent query for you. Expand the query text above the diagram to read the full SQL.
 
 ### Step 4: Read the diagram
 
-The diagram shows the execution pipeline flowing top to bottom:
+The diagram shows the execution pipeline, top to bottom:
 
-- **Each box** is one processor (a step in the pipeline)
-- **Lines between boxes** show data flow from one step to the next
-- **Box color** indicates how long that step took:
-  - White = fast
-  - Light orange = moderate
-  - Deep orange = slow (the bottleneck)
-- The **legend bar** in the top-left corner shows the color scale with actual time values
+- **Each box** is one processor (a step in the pipeline).
+- **Lines between boxes** show data flow from one step to the next.
+- **Box color** shows how long that step took:
+  - White is fast.
+  - Light orange is moderate.
+  - Deep orange is slow (the bottleneck).
+- The **legend bar** above the diagram shows the color scale from "fast" to "slow".
 
 ### Step 5: Inspect a processor
 
-Click any box to open the detail panel on the right side. It shows:
+Click any box to open the detail panel on the right. It shows:
 
 | Field | What it means |
 |-------|---------------|
-| Processor | The processor type name (e.g., ReadFromMergeTree, AggregatingTransform) |
-| Uniq ID | The unique identifier for this specific processor instance |
+| Processor | The processor type name, for example ReadFromMergeTree or AggregatingTransform |
+| Uniq ID | The unique identifier for this processor instance |
 | Step | The execution step this processor belongs to |
-| Elapsed | Total time this processor spent doing work |
-| Input wait | Time waiting for data from the previous processor |
-| Output wait | Time waiting for the next processor to accept data |
-| Input rows | Number of rows received |
-| Input bytes | Volume of data received |
-| Output rows | Number of rows sent to the next processor |
-| Output bytes | Volume of data sent |
+| Elapsed | The total time this processor spent on work |
+| Input wait | The time it waited for data from the previous processor |
+| Output wait | The time it waited for the next processor to accept data |
+| Input rows | The number of rows received |
+| Input bytes | The volume of data received |
+| Output rows | The number of rows sent to the next processor |
+| Output bytes | The volume of data sent |
 
 ### Step 6: Navigate large pipelines
 
 For complex queries with many processors:
 
-- **Scroll wheel** to zoom in and out
-- **Click and drag** the canvas to pan
-- **MiniMap** (bottom-right corner) shows an overview of the full pipeline with heatmap colors. Click anywhere on it to jump to that area.
-- **Controls** (bottom-left corner) have zoom in, zoom out, and fit-to-view buttons
+- **Scroll wheel** to zoom in and out.
+- **Click and drag** the canvas to pan.
+- **Controls** (bottom-left corner) have zoom in, zoom out, fit-to-view, and lock buttons. The lock button turns zoom and pan on or off.
+- **Reset** (above the diagram) puts the diagram back in its first layout.
+- **Fullscreen** (above the diagram) gives the diagram the full window.
 
 ## What the Colors Tell You
 
-The heatmap makes bottlenecks visible at a glance. Here are common patterns:
+The heatmap makes bottlenecks visible at a glance. Here are common patterns.
 
 **One deep orange node, everything else white.** A single processor is the bottleneck. Look at its name:
-- `ReadFromMergeTree` = slow disk reads. Consider adding an index or using a more selective WHERE clause.
-- `AggregatingTransform` = expensive aggregation. Consider pre-aggregating with a materialized view.
-- `SortingTransform` = heavy sort. Consider an ORDER BY key that matches your query.
 
-**Multiple orange nodes in a chain.** The pipeline has a sequential bottleneck. Data flows slowly through several stages. Check if the upstream processor is passing too many rows (look at Output rows in the detail panel).
+- `ReadFromMergeTree` means slow disk reads. Consider an index or a more selective WHERE clause.
+- `AggregatingTransform` means expensive aggregation. Consider a pre-aggregation with a materialized view.
+- `SortingTransform` means a heavy sort. Consider an ORDER BY key that matches your query.
 
-**Orange "wait" values, low "elapsed."** A processor is fast but starved for input. The bottleneck is upstream. Look at the processor feeding data into this one.
+**Several orange nodes in a chain.** The pipeline has a sequential bottleneck, with data flowing slowly through several stages. Check whether the upstream processor passes too many rows (look at Output rows in the detail panel).
 
-**Everything is roughly the same color.** The workload is evenly distributed. There is no single bottleneck. Performance improvement requires reducing the overall data volume (better filtering, sampling, or fewer columns).
+**Orange "wait" values, low "elapsed."** A processor is fast but starved for input, so the bottleneck is upstream. Look at the processor that feeds data into this one.
+
+**Everything is roughly the same color.** The workload is spread evenly and there is no single bottleneck. To improve performance, reduce the overall data volume with better filtering, sampling, or fewer columns.
 
 ## When the Diagram is Empty
 
 If the diagram renders but all nodes are white with no heatmap:
 
-- The query may have run with `log_processors_profiles = 0` (the server setting that enables profiling). Ask your DBA to enable it.
-- The profile log entries may have aged out. ClickHouse® rotates `system.processors_profile_log` based on configured retention. Recent queries are more likely to have data.
+- The query may have run with `log_processors_profiles = 0`, the server setting that enables profiling. Ask your DBA to enable it.
+- The profile log entries may have aged out. ClickHouse&reg; rotates `system.processors_profile_log` on its configured retention. Recent queries are more likely to have data.
 
 ## Prerequisite: ClickHouse® Settings
 
-For the Processors Profile to show data, the ClickHouse® server needs:
+For the Processors Profile to show data, the ClickHouse&reg; server needs:
 
 ```xml
 <profiles>
@@ -115,18 +114,18 @@ For the Processors Profile to show data, the ClickHouse® server needs:
 </profiles>
 ```
 
-This is enabled by default in ClickHouse® 22.3 and later. If you are running an older version, ask your DBA to add it to the server configuration.
+This is on by default in ClickHouse&reg; 22.3 and later. On an older version, ask your DBA to add it to the server configuration.
 
 ## How It Differs from Query Profiler
 
-CHOps has two profiling tools. They answer different questions:
+CHOps has two profiling tools, and they answer different questions.
 
 | | Query Profiler (flame graph) | Processors Profile (pipeline diagram) |
 |-|------------------------------|---------------------------------------|
 | Data source | `system.trace_log` | `system.processors_profile_log` |
-| Shows | Which C++ functions inside ClickHouse® took time | Which logical pipeline steps took time |
-| Best for | ClickHouse® developers debugging engine internals | ClickHouse® users and DBAs optimizing queries |
+| Shows | Which C++ functions inside ClickHouse&reg; took time | Which logical pipeline steps took time |
+| Best for | ClickHouse&reg; developers who debug engine internals | ClickHouse&reg; users and DBAs who optimize queries |
 | Example insight | "72% of time in `ReadPoolExecution::read`" | "`ReadFromMergeTree` took 7.2s, `AggregatingTransform` took 0.3s" |
 | Actionable for users | Rarely (internal function names are opaque) | Always (processor names map to query plan steps) |
 
-Use the **Processors Profile** first. If it points to a specific processor but you need deeper detail on why that processor is slow, switch to the **Query Profiler** for function-level breakdown.
+Use the **Processors Profile** first. If it points to a specific processor but you need deeper detail on why that processor is slow, switch to the **Query Profiler** for a function-level breakdown.

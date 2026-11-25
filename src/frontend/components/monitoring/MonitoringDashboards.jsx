@@ -2,14 +2,17 @@
 // author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
 // Real-time monitoring dashboard for tracking heap allocation, memory leaks, and buffer pool consumption.
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Icon from "../common/Icon.jsx";
+import ScrollableTabBar from "../common/ScrollableTabBar.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import ChartCard from "../layout/ChartCard.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
 import { baseChartOption } from "../../utils/echarts.js";
 import { runQuery } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const fmtAgo = (h) => {
@@ -39,15 +42,8 @@ const ml = (field) =>
   `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(${field}) FROM merge('system', '^metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
 const aml = (metric, agg = "avg") =>
   `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-// Per-hostname variants
-const mlh = (field) =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, avg(${field}) FROM merge('system', '^metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to GROUP BY t, hostname ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-const amlh = (metric, agg = "avg") =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY t, hostname ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
-const amlhAll = (metric, agg = "avg") =>
-  `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, hostname, ${agg}(value) FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND metric = '${metric}' GROUP BY ALL ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`;
 
-const TABS = [
+export const TABS = [
   {
     id: "queries",
     label: "Queries",
@@ -418,15 +414,18 @@ const TABS = [
         label: "Concurrent connections",
         sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, max(CurrentMetric_TCPConnection) AS TCP, max(CurrentMetric_MySQLConnection) AS MySQL, max(CurrentMetric_HTTPConnection) AS HTTP, max(CurrentMetric_InterserverConnection) AS Interserver FROM merge('system', '^metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
       },
+      // ClickHouse 26.8 and later log "NetworkReceiveBytes" with the interface in the key column.
+      // Older versions log "NetworkReceiveBytes_eth0". A bucket with the new name uses only the new rows.
+      // Thus the chart does not count a server two times when it logs both forms.
       {
         key: "net_bytes",
         label: "Network Throughput (bytes/s)",
-        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, sumIf(value, startsWith(metric, 'NetworkReceiveBytes_')) AS Receive, sumIf(value, startsWith(metric, 'NetworkSendBytes_')) AS Send FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (startsWith(metric, 'NetworkReceiveBytes_') OR startsWith(metric, 'NetworkSendBytes_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
+        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, if(countIf(metric = 'NetworkReceiveBytes') > 0, sumIf(value, metric = 'NetworkReceiveBytes'), sumIf(value, startsWith(metric, 'NetworkReceiveBytes_'))) AS Receive, if(countIf(metric = 'NetworkSendBytes') > 0, sumIf(value, metric = 'NetworkSendBytes'), sumIf(value, startsWith(metric, 'NetworkSendBytes_'))) AS Send FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (metric IN ('NetworkReceiveBytes', 'NetworkSendBytes') OR startsWith(metric, 'NetworkReceiveBytes_') OR startsWith(metric, 'NetworkSendBytes_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
       },
       {
         key: "net_drops",
         label: "Network Packet Drops",
-        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, sumIf(value, startsWith(metric, 'NetworkReceiveDrop_')) AS "Receive Drops", sumIf(value, startsWith(metric, 'NetworkSendDrop_')) AS "Send Drops" FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (startsWith(metric, 'NetworkReceiveDrop_') OR startsWith(metric, 'NetworkSendDrop_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
+        sql: `WITH toDateTimeOrDefault({from:String}, '', now() - {seconds:UInt32}) AS from, toDateTimeOrDefault({to:String}, '', now()) AS to SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, if(countIf(metric = 'NetworkReceiveDrop') > 0, sumIf(value, metric = 'NetworkReceiveDrop'), sumIf(value, startsWith(metric, 'NetworkReceiveDrop_'))) AS "Receive Drops", if(countIf(metric = 'NetworkSendDrop') > 0, sumIf(value, metric = 'NetworkSendDrop'), sumIf(value, startsWith(metric, 'NetworkSendDrop_'))) AS "Send Drops" FROM merge('system', '^asynchronous_metric_log') WHERE event_date BETWEEN toDate(from) AND toDate(to) AND event_time BETWEEN from AND to AND (metric IN ('NetworkReceiveDrop', 'NetworkSendDrop') OR startsWith(metric, 'NetworkReceiveDrop_') OR startsWith(metric, 'NetworkSendDrop_')) GROUP BY t ORDER BY t WITH FILL FROM toStartOfInterval(toDateTime({from:String}), INTERVAL {rounding:UInt32} SECOND)::INT TO toStartOfInterval(toDateTime({to:String}), INTERVAL {rounding:UInt32} SECOND)::INT STEP {rounding:UInt32}`,
       },
     ],
   },
@@ -556,8 +555,6 @@ const TABS = [
   },
 ];
 
-const ALL_CHARTS = TABS.flatMap((t) => t.charts);
-
 // ECharts renders to canvas and does NOT understand CSS custom properties:
 // passing "var(--text-primary)" as a colour yields black in every theme. So we
 // resolve CSS variables to their concrete computed value at option-build time.
@@ -588,16 +585,16 @@ function legendTextStyle() {
 // out in one theme; these mid-tone hues stay legible on both light and dark
 // backgrounds (verified for contrast against near-white and near-black).
 const SERIES_PALETTE = [
-  "#3b82f6", // blue
-  "#ef4444", // red
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#a855f7", // purple
-  "#06b6d4", // cyan
-  "#ec4899", // pink
-  "#84cc16", // lime
-  "#f97316", // orange
-  "#14b8a6", // teal
+  "#3b82f6",
+  "#ef4444",
+  "#22c55e",
+  "#f59e0b",
+  "#a855f7",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
 ];
 
 // Shared x-axis for all time-series panels: true time spacing, ~3 labels
@@ -653,7 +650,7 @@ function ChartErrorCard({ title, message }) {
           alignItems: "flex-start",
           gap: 8,
           color: "var(--color-danger)",
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           lineHeight: 1.5,
           wordBreak: "break-word",
         }}
@@ -729,13 +726,13 @@ function StatCard({ label, value, unit, icon, warn, danger, invert, loading }) {
       {icon && (
         <Icon
           className={`ti ${icon}`}
-          style={{ fontSize: 32, color: "var(--accent)", opacity: 0.85 }}
+          style={{ fontSize: "2rem", color: "var(--accent)", opacity: 0.85 }}
         ></Icon>
       )}
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
             marginBottom: 6,
           }}
@@ -744,7 +741,7 @@ function StatCard({ label, value, unit, icon, warn, danger, invert, loading }) {
         </div>
         <div
           style={{
-            fontSize: "29px",
+            fontSize: "1.8125rem",
             fontWeight: 700,
             color: valueColor,
             lineHeight: 1,
@@ -768,7 +765,6 @@ export default function MonitoringDashboards() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [fetchErrors, setFetchErrors] = useState(0);
-  const [error, setError] = useState("");
   const [results, setResults] = useState({});
   const [activeTab, setActiveTab] = useState(routeTab);
   const [loadedTabs, setLoadedTabs] = useState(new Set());
@@ -784,7 +780,10 @@ export default function MonitoringDashboards() {
   // Per-chart error messages, keyed by chart key. A failing query shows its
   // exception inside that one chart's slot instead of failing the whole tab.
   const [chartErrors, setChartErrors] = useState({});
+
   const refreshRef = useRef(0);
+  const liveState = useLiveOverview();
+
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
@@ -795,6 +794,7 @@ export default function MonitoringDashboards() {
     if (routeTab !== activeTab && TABS.some((t) => t.id === routeTab)) {
       setActiveTab(routeTab);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [routeTab]);
 
   // Watch for light/dark theme changes and force charts to re-read colours.
@@ -900,17 +900,55 @@ export default function MonitoringDashboards() {
       const sorted = [...d].sort(
         (a, b) => (parseFloat(b[valCol]) || 0) - (parseFloat(a[valCol]) || 0),
       );
+
+      const tickCount = sorted.length;
+      const axisFontSize = tickCount > 80 ? 7 : tickCount > 60 ? 8 : tickCount > 40 ? 9 : tickCount > 24 ? 10 : 11;
+
+      const formatCompact = (v) => {
+        try {
+          const n = Number(v);
+          if (!Number.isFinite(n)) return String(v);
+          const abs = Math.abs(n);
+          if (abs >= 1000000) return `${(n / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
+          if (abs >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+          return n.toLocaleString();
+        } catch {
+          return v;
+        }
+      };
+
+      const maxLabelLen = tickCount > 80 ? 8 : tickCount > 60 ? 10 : tickCount > 40 ? 12 : 16;
+      const yLabelFormatter = (v) => {
+        try {
+          const s = String(v);
+          return s.length > maxLabelLen ? s.slice(0, maxLabelLen - 1) + "…" : s;
+        } catch { return v; }
+      };
+
+      const yRotate = tickCount > 20 ? 45 : 0;
+      const yLabelWidth = yRotate ? Math.min(260, Math.max(120, 12 * maxLabelLen)) : 220;
+
       return {
         ...baseChartOption(),
-        grid: { left: 12, right: 24, top: 12, bottom: 12, containLabel: true },
+        grid: { left: Math.max(12, yRotate ? yLabelWidth + 12 : 12), right: 24, top: 12, bottom: 12, containLabel: true },
         tooltip: {
           trigger: "axis",
           confine: true,
           axisPointer: { type: "shadow" },
+          formatter: function (params) {
+            try {
+              const p = params[0] || params;
+              const name = p.name || (p.data && p.data.name) || "";
+              const value = (p.data && (p.data.value ?? p.data)) || p.value || 0;
+              return `${name}<br/>${formatCompact(value)}`;
+            } catch {
+              return params;
+            }
+          }
         },
         xAxis: {
           type: "value",
-          axisLabel,
+          axisLabel: { ...axisLabel, formatter: formatCompact, margin: 8, fontSize: axisFontSize },
           axisLine,
           splitLine: { lineStyle: { color: splitColor, opacity: 0.4 } },
         },
@@ -918,7 +956,7 @@ export default function MonitoringDashboards() {
           type: "category",
           inverse: true,
           data: sorted.map((r) => String(r[labelCol])),
-          axisLabel: { ...axisLabel, width: 140, overflow: "truncate" },
+          axisLabel: { ...axisLabel, width: yLabelWidth, overflow: "truncate", rotate: yRotate, formatter: yLabelFormatter, fontSize: axisFontSize },
           axisLine,
         },
         series: [
@@ -955,6 +993,8 @@ export default function MonitoringDashboards() {
         color: SERIES_PALETTE,
         tooltip: { trigger: "item", confine: true },
         legend: { show: true, bottom: 0, textStyle: legendText },
+        xAxis: { show: false },
+        yAxis: { show: false },
         series: [
           {
             type: "pie",
@@ -992,7 +1032,7 @@ export default function MonitoringDashboards() {
         lineStyle: { width: 1.0 },
         data: realRows
           .filter((r) => r.hostname === h)
-          .map((r) => [r.t * 1000, parseFloat(r[valCol]) || 0]),
+          .map((r) => [parseInt(r.t) * 1000, parseFloat(r[valCol]) || 0]),
         emphasis: { focus: "series" },
       }));
       return {
@@ -1025,7 +1065,7 @@ export default function MonitoringDashboards() {
           symbol: "none",
           name: c,
           lineStyle: { width: 1.0 },
-          data: d.map((r) => [r.t * 1000, parseFloat(r[c]) || 0]),
+          data: d.map((r) => [parseInt(r.t) * 1000, parseFloat(r[c]) || 0]),
           emphasis: { focus: "series" },
         }));
       return {
@@ -1046,6 +1086,7 @@ export default function MonitoringDashboards() {
         series,
       };
     }
+    
     // Single series (light fill is fine when there's only one band)
     const valCol = cols.find((c) => c !== "t") || cols[1];
     return {
@@ -1070,7 +1111,7 @@ export default function MonitoringDashboards() {
           symbol: "none",
           name: label,
           lineStyle: { width: 1.0 },
-          data: d.map((r) => [r.t * 1000, parseFloat(r[valCol]) || 0]),
+          data: d.map((r) => [parseInt(r.t) * 1000, parseFloat(r[valCol]) || 0]),
           areaStyle: { opacity: 0.1 },
         },
       ],
@@ -1119,8 +1160,8 @@ export default function MonitoringDashboards() {
           <Icon className="ti ti-device-analytics"></Icon> Monitoring
         </h2>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setSectionFullscreen((v) => !v)}
             title={
               sectionFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen section"
@@ -1130,33 +1171,22 @@ export default function MonitoringDashboards() {
               className={`ti ${sectionFullscreen ? "ti-minimize" : "ti-maximize"}`}
             ></Icon>{" "}
             {sectionFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setFiltersOpen(!filtersOpen)}
           >
             <Icon
               className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
             ></Icon>{" "}
             {filtersOpen ? "Collapse" : "Expand"}
-          </button>
+          </Button>
         </div>
       </div>
       {filtersOpen && (
-        <div
-          className="card"
-          style={{
-            padding: 16,
-            marginBottom: 20,
-            display: "flex",
-            gap: 14,
-            flexWrap: "wrap",
-            alignItems: "flex-end",
-          }}
-        >
+        <div className="card search-form-row" style={{ padding: 16, marginBottom: 20 }}>
           {/* <div className="form-group"><label className="form-label">Quick</label><div style={{ display: 'flex', gap: 4 }}>{[1, 6, 24, 48, 168, 720].map(h => <button key={h} className="btn btn-secondary btn-sm" onClick={() => applyDuration(h)}>{h <= 48 ? h + 'h' : h === 168 ? '7d' : '30d'}</button>)}</div></div> */}
-          <div className="form-group">
-            <label className="form-label">Quick</label>
+          <FormField label="Quick">
             <div
               style={{
                 display: "flex",
@@ -1166,27 +1196,18 @@ export default function MonitoringDashboards() {
               }}
             >
               {[1, 6, 24, 48, 168, 720].map((h) => (
-                <button
+                <Button
                   key={h}
-                  style={{
-                    border:
-                      duration === h
-                        ? "1px soild transparent "
-                        : "1px soild red",
-                    padding: "10px",
-                    width: "50px ",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  className={`btn btn-sm ${duration === h ? "btn-primary" : "btn-secondary"}`}
+                  variant={duration === h ? "primary" : "secondary"}
+                  size="sm"
+                  aria-pressed={duration === h}
                   onClick={() => applyDuration(h)}
                 >
                   {h <= 48 ? h + "h" : h === 168 ? "7d" : "30d"}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
+          </FormField>
           <DateTimePicker
             label="From"
             value={from}
@@ -1199,26 +1220,23 @@ export default function MonitoringDashboards() {
             onChange={handleDateOnChange}
             name="To"
           />
-          <div className="form-group">
-            <label className="form-label">Rounding (s)</label>
-            <input
-              className="form-input"
+          <FormField label="Rounding (s)" className="search-field-small">
+            <Input
               type="number"
               min={5}
               value={rounding}
               onChange={(e) => setRounding(parseInt(e.target.value) || 60)}
-              style={{ width: 80 }}
             />
-          </div>
-          <button
-            className="btn btn-primary"
+          </FormField>
+          <Button
+            title={liveState?.isNotConnectedClusterNode() ? "No cluster nodes configured" : ""}
+            variant="primary"
             onClick={loadAllCurrentTab}
-            disabled={loading}
-            style={{ minWidth: 140 }}
+            disabled={loading || liveState?.isNotConnectedClusterNode()}
           >
             <Icon className="ti ti-player-play"></Icon>{" "}
             {loading ? "Loading..." : "Load Charts"}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -1243,7 +1261,7 @@ export default function MonitoringDashboards() {
           </div>
           <p
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--text-muted)",
               marginTop: 6,
             }}
@@ -1253,14 +1271,14 @@ export default function MonitoringDashboards() {
         </div>
       )}
       {fetchErrors > 0 && !loading && (
-        <div className="alert-banner danger" style={{ marginBottom: 16 }}>
-          <Icon className="ti ti-alert-circle"></Icon>{" "}
+        <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 16 }}>{" "}
           {fetchErrors} of {activeGroup.charts.length} charts failed to load.
           See the affected charts below for details.
-        </div>
+        </Notice>
       )}
 
-      <div className="tab-bar">
+      {/* Arrows show when the tabs do not fit. */}
+      <ScrollableTabBar activeKey={activeTab} label="Dashboard tabs">
         {TABS.map((g) => (
           <div
             key={g.id}
@@ -1270,10 +1288,10 @@ export default function MonitoringDashboards() {
             <Icon className={`ti ${g.icon}`}></Icon> {g.label} ({g.charts.length})
           </div>
         ))}
-      </div>
+      </ScrollableTabBar>
 
       {!loadedTabs.has(activeTab) && !loading && (
-        <div className="empty-state">
+        <div className="empty-state" style={{height:"50vh"}}>
           <Icon className="ti ti-chart-line"></Icon>
           <p>
             Select a time range and click Load Charts for the{" "}

@@ -1,0 +1,150 @@
+// SetupPassword - Mandatory first-login password change gate
+// Author: Kathir Moorthy
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+import { useState } from "react";
+import Icon from "../common/Icon.jsx";
+import { useAuth, useTheme } from "../../App.jsx";
+import { apiFetch } from "../../utils/api.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
+
+export default function SetupPassword({token}) {
+  const { login, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    if (confirmPassword !== newPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (confirmPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (confirmPassword.length > 256) {
+      setError("New password must not exceed 256 characters.");
+      return;
+    }
+    setLoading(true);
+    try {
+     const res =  await apiFetch("/api/auth/set-password", {
+        method: "POST",
+        body: JSON.stringify({ token, password:confirmPassword ,newPassword}),
+      });
+
+      login(res.user);
+    } catch (err) {
+      setError(err.message || "Failed to change password.");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+        background: "var(--bg-page)",
+      }}
+    >
+      <Button
+        variant="ghost" size="sm"
+        onClick={toggleTheme}
+        style={{ position: "absolute", top: "16px", right: "16px", zIndex: 9999 }}
+        title={theme === "dark" ? "Light mode" : "Dark mode"}
+      >
+        <Icon className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`} style={{ fontSize: "1.25rem" }}></Icon>
+      </Button>
+
+      <div className="card" style={{ padding: 32, width: "100%", maxWidth: 420 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <Icon className="ti ti-shield-lock" style={{ fontSize: "2rem", color: "var(--accent)" }}></Icon>
+          <h4 style={{ margin: "12px 0 4px" }}>Set Your Password</h4>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+            Your account requires to set password before you can continue
+            (first login, or a password reset by an administrator).
+          </p>
+        </div>
+
+        {error && (
+          <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 16 }}> {error}
+          </Notice>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <FormField label="New Password" style={{ marginBottom: 14 }}>
+            <div style={{ width: "100%", position: "relative" }}>
+              <Input
+                style={{ width: "100%", paddingRight: 35 }}
+                type={showCurrentPw ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                autoFocus
+              />
+              <button type="button" aria-label={showCurrentPw ? "Hide password" : "Show password"} aria-pressed={!!(showCurrentPw)}
+                className="password-eye"
+                style={{ position: "absolute", right: 15, top: "22%", cursor: "pointer" }}
+                title={showCurrentPw ? "hide" : "show"}
+                onClick={() => setShowCurrentPw(!showCurrentPw)}
+              >
+                {showCurrentPw ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
+              </button>
+            </div>
+          </FormField>
+          <div className="form-group" style={{ marginBottom: 14 }}>
+            <label className="form-label">Confirm Password</label>
+            <div style={{ width: "100%", position: "relative" }}>
+              <Input
+                style={{ width: "100%", paddingRight: 35 }}
+                type={showNewPw ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              <button type="button" aria-label={showNewPw ? "Hide password" : "Show password"} aria-pressed={!!(showNewPw)}
+                className="password-eye"
+                style={{ position: "absolute", right: 15, top: "22%", cursor: "pointer" }}
+                title={showNewPw ? "hide" : "show"}
+                onClick={() => setShowNewPw(!showNewPw)}
+              >
+                {showNewPw ? <Icon className="ti ti-eye-off" /> : <Icon className="ti ti-eye" />}
+              </button>
+            </div>
+            {/* {confirmPassword && confirm && confirmPassword === confirm && (
+              <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--success)', fontSize: '12px' }}>
+                <Icon className="ti ti-check" style={{ fontSize: '14px' }} />
+                <span>Passwords match</span>
+              </div>
+            )} */}
+          </div>
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", height: 42 }}
+          >
+            {loading ? "Changing..." : "Set Password & Continue"}
+          </Button>
+        </form>
+
+        <Button
+          variant="ghost" size="sm"
+          onClick={logout}
+          style={{ width: "100%", marginTop: 12 }}
+        >
+          Log out instead
+        </Button>
+      </div>
+    </div>
+  );
+}

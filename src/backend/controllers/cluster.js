@@ -7,32 +7,20 @@ import {
   saveClusters,
   MAX_CLUSTERS,
   MAX_TOTAL_NODES,
-  getClusterById,
-  getNodeByName,
+  maskClusterPasswords,
 } from "../services/clusterUtils.js";
 import { executeQuery } from "../services/clickhouse.js";
-
-// Never send decrypted node passwords to the client. Only expose whether one
-// is set; the frontend leaves the password field blank on edit to keep it
-// unchanged, and updateCluster() below preserves the stored value in that case.
-// Applied to every response that touches cluster/node data (list, create, update) -
-// not just listClusters - since createCluster/updateCluster otherwise echo back
-// the full decrypted node (including passwords merged in from storage).
-function maskClusterPasswords(cluster) {
-  return {
-    ...cluster,
-    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
-      ...rest,
-      hasPassword: !!password,
-    })),
-  };
-}
+import {
+  createTemplateRulesForCluster,
+  removeTemplateRulesForCluster,
+} from "../services/alertTemplates.js";
+import { log } from "../services/logger.js";
 
 export function listClusters(req, res) {
   res.json(getAllClusters().map(maskClusterPasswords));
 }
 
-export function createCluster(req, res) {
+export async function createCluster(req, res) {
   try {
     const role = req.user?.role;
 
@@ -68,11 +56,34 @@ export function createCluster(req, res) {
 
     const nodeArr = Array.isArray(nodes) ? nodes : [];
 
-    const err = validateNodes(nodeArr, clusters);
+    const err = validateNodes(nodeArr, clusters, undefined, req.body?.kind);
 
     if (err) {
       return res.status(400).json({
         error: err,
+      });
+    }
+
+    const failedNodes = [];
+
+    for (const node of nodeArr) {
+      try {
+        await testNodeConnection(node);
+      } catch (error) {
+        failedNodes.push({
+          name: node.name,
+          host: node.host,
+          port: node.port || 8123,
+          error: error.message || "Connection failed.",
+        });
+      }
+    }
+
+    if (failedNodes.length > 0) {
+      return res.json({
+        success: false,
+        error: "One or more nodes failed the connection test.",
+        nodes: failedNodes,
       });
     }
 
@@ -86,7 +97,18 @@ export function createCluster(req, res) {
 
     saveClusters(clusters);
 
-    return res.status(201).json(maskClusterPasswords(newCluster));
+    // The cluster is saved. A template problem must not fail the request.
+    try {
+      createTemplateRulesForCluster(newCluster.id);
+    } catch (error) {
+      log.error("Could not add the alert template rules", {
+        error: error.message,
+      });
+    }
+
+    return res
+      .status(201)
+      .json({ ...maskClusterPasswords(newCluster), success: true });
   } catch (error) {
     return res.status(500).json({
       error: error.message || "Internal server error",
@@ -94,7 +116,7 @@ export function createCluster(req, res) {
   }
 }
 
-export function updateCluster(req, res) {
+export async function updateCluster(req, res) {
   try {
     const role = req.user?.role;
     if (role !== "superadmin" && role !== "admin") {
@@ -107,7 +129,8 @@ export function updateCluster(req, res) {
       return res.status(404).json({ error: "Cluster not found." });
     }
 
-    const { name, nodes } = req.body;
+    const { name, nodes, chUser, chPassword, endpoint, port, secure } =
+      req.body;
     if (name !== undefined) {
       if (!name?.trim()) {
         return res.status(400).json({ error: "Cluster name required." });
@@ -120,30 +143,119 @@ export function updateCluster(req, res) {
       ) {
         return res.status(400).json({ error: "Cluster name must be unique." });
       }
+      // Inside the guard: a PUT that sends only `nodes` used to reach
+      // name.trim() with name undefined and throw a TypeError, surfacing as a
+      // 500 with no useful message.
+      clusters[idx].name = name.trim();
     }
-    clusters[idx].name = name.trim();
     if (nodes !== undefined) {
+      // Nodes on a Kubernetes cluster are derived from the installation and rewritten on every
+      if (clusters[idx].kind === "k8s") {
+        return res.status(400).json({
+          error:
+            "Nodes on a Kubernetes cluster come from the installation and cannot be edited. Use Refresh to re-read them.",
+        });
+      }
       const existingNodes = clusters[idx].nodes || [];
       // The client never receives decrypted passwords (see listClusters), so a
       // blank password here means "unchanged" rather than "clear it" - keep the
       // previously stored password for that node.
+      //
+      // Matched on host:port rather than name. Name is what the user edits, so
+      // matching on it meant renaming a node while leaving the password field
+      // blank (which the UI tells you to do) silently cleared its password.
+      // Host and port identify the same server across a rename.
+      const keyOf = (n) => `${n.host}:${n.port || 8123}`;
       const nodeArr = (Array.isArray(nodes) ? nodes : []).map((n) => {
         if (!n.password) {
-          const existing = existingNodes.find((e) => e.name === n.name);
+          const existing =
+            existingNodes.find((e) => keyOf(e) === keyOf(n)) ||
+            existingNodes.find((e) => e.name === n.name);
           if (existing?.password) return { ...n, password: existing.password };
         }
         return n;
       });
-      const err = validateNodes(nodeArr, clusters, idx);
+      const err = validateNodes(nodeArr, clusters, idx, clusters[idx].kind);
       if (err) return res.status(400).json({ error: err });
+
+      const failedNodes = [];
+
+      for (const node of nodeArr) {
+        try {
+          await testNodeConnection(node);
+        } catch (error) {
+          failedNodes.push({
+            name: node.name,
+            host: node.host,
+            port: node.port || 8123,
+            error: error.message || "Connection failed.",
+          });
+        }
+      }
+      if (failedNodes.length > 0) {
+        return res.json({
+          success: false,
+          error: "One or more nodes failed the connection test.",
+          nodes: failedNodes,
+        });
+      }
+
       clusters[idx].nodes = nodeArr;
+    }
+
+    if (chUser !== undefined) clusters[idx].chUser = chUser || "default";
+
+    if (chPassword) clusters[idx].chPassword = chPassword;
+
+    if (endpoint !== undefined) {
+      if (!endpoint?.trim()) {
+        return res
+          .status(400)
+          .json({ error: "ClickHouse address is required." });
+      }
+      clusters[idx].endpoint = endpoint.trim();
+    }
+
+    if (port !== undefined) {
+      const p = Number(port);
+      if (!Number.isInteger(p) || p < 1 || p > 65535) {
+        return res
+          .status(400)
+          .json({ error: "Port must be between 1 and 65535." });
+      }
+      clusters[idx].port = p;
+      // Sync port to all nodes. For K8s clusters, this ensures newly discovered nodes
+      // get the correct port. For direct clusters, this syncs the cluster-level default.
+      if (clusters[idx].nodes?.length) {
+        clusters[idx].nodes = clusters[idx].nodes.map((n) => ({
+          ...n,
+          port: p,
+        }));
+      }
+    }
+
+    if (secure !== undefined) {
+      clusters[idx].secure = !!secure;
+      // Sync secure flag to all nodes. For K8s clusters, this ensures all nodes use
+      // the same TLS setting as the cluster. For direct clusters, this syncs the default.
+      if (clusters[idx].nodes?.length) {
+        clusters[idx].nodes = clusters[idx].nodes.map((n) => ({
+          ...n,
+          secure: !!secure,
+        }));
+      }
     }
 
     saveClusters(clusters);
 
-    res.json(maskClusterPasswords(clusters[idx]));
+    const result = maskClusterPasswords(clusters[idx]);
+    const consistency = validateClusterNodeConsistency(clusters[idx]);
+    if (consistency?.warning) {
+      result._warning = consistency.details;
+    }
+    res.json({ ...result, success: true });
   } catch (error) {
-    res.status(500).json(error.message);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 }
 
@@ -159,22 +271,63 @@ export function deleteCluster(req, res) {
       return res.status(404).json({ error: "Cluster not found." });
 
     saveClusters(filtered);
+    try {
+      removeTemplateRulesForCluster(req.params.id);
+    } catch (error) {
+      log.error("Could not remove the alert template rules", {
+        error: error.message,
+      });
+    }
     res.json({ deleted: true });
   } catch (error) {
-    res.status(500).json(error.message);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 }
 
 export async function testConnection(req, res) {
+  const role = req.user?.role;
+  if (role !== "superadmin" && role !== "admin") {
+    return res.status(403).json({ error: "Admin access required." });
+  }
+
   const { host, port, user, password, secure } = req.body;
   if (!host) return res.status(400).json({ error: "Host required." });
+
+  const targetPort = port || 8123;
+
+  // A node that is already saved is matched against the stored configuration.
+  // Two reasons. The browser no longer holds decrypted passwords, so testing a
+  // saved node has to resolve the stored one server-side or it authenticates
+  // with a blank password and always fails. And matching bounds this endpoint
+  // to hosts an admin has already configured, so it cannot be used to probe
+  // arbitrary internal addresses.
+  const stored = getAllClusters()
+    .flatMap((c) => c.nodes || [])
+    .find((n) => n.host === host && (n.port || 8123) === targetPort);
+
+  // An unsaved node is still testable - that is the point of Test before Save -
+  // but it must carry its own credentials, and it never reaches the store.
+  if (!stored && password === undefined) {
+    return res.status(400).json({
+      error: "Enter a password to test a node that has not been saved yet.",
+    });
+  }
+
+  const resolvedUser = user || stored?.user || "default";
+  const resolvedPassword =
+    password !== undefined && password !== ""
+      ? password
+      : (stored?.password ?? "");
+  const resolvedSecure = secure !== undefined ? !!secure : !!stored?.secure;
+
   try {
     const result = await executeQuery({
       host,
-      port: port || 8123,
-      user: user || "default",
-      password: password || "",
-      secure: !!secure,
+      port: targetPort,
+      user: resolvedUser,
+      password: resolvedPassword,
+      secure: resolvedSecure,
+      timeoutMs: 10000,
       sql: "SELECT version() AS version, uptime() AS uptime",
     });
 
@@ -188,7 +341,7 @@ export async function testConnection(req, res) {
   }
 }
 
-function validateNodes(nodes, allClusters, excludeIdx) {
+function validateNodes(nodes, allClusters, excludeIdx, kind) {
   if (!Array.isArray(nodes)) return null;
   if (nodes?.length === 0)
     return `No nodes found. Add at least one node before creating the cluster.`;
@@ -198,13 +351,57 @@ function validateNodes(nodes, allClusters, excludeIdx) {
   if (new Set(names).size !== names.length)
     return "Node names must be unique within a cluster.";
 
-  // Check total node count across all clusters
+  // Check total node count across all clusters.
   const otherNodes = allClusters.reduce(
-    (sum, c, i) => sum + (i === excludeIdx ? 0 : c.nodes?.length || 0),
+    (sum, c, i) =>
+      sum + (i === excludeIdx || c.kind === "k8s" ? 0 : c.nodes?.length || 0),
     0,
   );
-  if (otherNodes + nodes.length > MAX_TOTAL_NODES)
+  if (kind !== "k8s" && otherNodes + nodes.length > MAX_TOTAL_NODES)
     return `Maximum ${MAX_TOTAL_NODES} total nodes across all clusters.`;
 
   return null;
+}
+
+function validateClusterNodeConsistency(cluster) {
+  if (!cluster?.nodes?.length) return null;
+  const clusterPort = cluster.port ?? 8123;
+  const clusterSecure = !!cluster.secure;
+
+  const inconsistentNodes = cluster.nodes.filter(
+    (n) => (n.port ?? 8123) !== clusterPort || !!n.secure !== clusterSecure,
+  );
+
+  if (inconsistentNodes.length > 0) {
+    const details = inconsistentNodes
+      .map(
+        (n) =>
+          `${n.name} (port ${n.port ?? 8123}, ${n.secure ? "TLS" : "no TLS"})`,
+      )
+      .join(", ");
+    return {
+      warning: "Cluster-node configuration mismatch detected",
+      details: `Cluster uses port ${clusterPort} (${clusterSecure ? "TLS" : "no TLS"}), but nodes ${details} differ. This can cause connection failures.`,
+    };
+  }
+
+  return null;
+}
+
+export async function testNodeConnection(node) {
+  const result = await executeQuery({
+    host: node.host,
+    port: node.port || 8123,
+    user: node.user || "default",
+    password: node.password || "",
+    secure: !!node.secure,
+    timeoutMs: 10000,
+    sql: "SELECT version() AS version, uptime() AS uptime",
+  });
+
+  return {
+    ok: true,
+    version: result.rows?.[0]?.version,
+    uptime: result.rows?.[0]?.uptime,
+  };
 }

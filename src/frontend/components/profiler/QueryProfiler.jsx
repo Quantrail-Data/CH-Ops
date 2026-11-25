@@ -8,14 +8,25 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Select from "../common/Select.jsx";
+import DateTimePicker from "../layout/DateTimePicker.jsx";
 import Icon from "../common/Icon.jsx";
 import { runQuery } from "../../utils/api.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
-import ChartToolbar, { useChartTools, savePng } from "../common/ChartToolbar.jsx";
+import ChartToolbar, {
+  useChartTools,
+} from "../common/ChartToolbar.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useSearchParams } from "react-router-dom";
+import ConfirmModal from "../layout/ConfirmModal.jsx";
+import { useConnection } from "../../App.jsx";
+import {
+  buildQueryListSql,
+  buildFlameGraphSql,
+  supportsMemoryContext,
+} from "../../utils/profilerSql.js";
+import { Button, Input, FormField, Notice } from "../ui/index.jsx";
 
 // Trace types
 
@@ -84,7 +95,7 @@ const MEMORY_CONTEXTS = [
   { value: "Thread", label: "Thread" },
 ];
 
-const QUERY_WARN_THRESHOLD = 200;
+const QUERY_WARN_THRESHOLD = 500;
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 // helpers functions
@@ -93,10 +104,6 @@ function toLocalDatetime(date) {
   const d = new Date(date);
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toChDatetime(val) {
-  return val.replace("T", " ") + ":00";
 }
 
 function validateRange(from, to) {
@@ -116,77 +123,11 @@ function isMemoryTraceType(traceType) {
   return t?.usesSize || false;
 }
 
-// Check if memory_context filter applies
-function supportsMemoryContext(traceType) {
-  return traceType === "Memory" || traceType === "MemoryPeak";
-}
-
-// sql build query
-
-function buildQueryListSql(from, to, traceType) {
-  const chFrom = toChDatetime(from);
-  const chTo = toChDatetime(to);
-
-  let traceFilter = "";
-  if (traceType) {
-    traceFilter = `\n  AND t.trace_type = '${traceType}'`;
-  }
-
-  return `
-SELECT
-  t.query_id,
-  min(t.event_time) AS first_seen,
-  count() AS sample_count,
-  substring(coalesce(q.query, ''), 1, 300) AS query_preview,
-  q.query_duration_ms
-FROM system.trace_log AS t
-JOIN (
-  SELECT query_id, query, query_duration_ms
-  FROM system.query_log
-  WHERE type = 'QueryFinish'
-    AND event_date >= toDate('${chFrom}') - 1
-  ORDER BY event_time DESC
-  LIMIT 1 BY query_id
-) AS q USING (query_id)
-WHERE t.query_id != ''
-  AND t.event_time >= '${chFrom}'
-  AND t.event_time <= '${chTo}'${traceFilter}
-GROUP BY t.query_id, q.query, q.query_duration_ms
-ORDER BY first_seen DESC
-LIMIT 500`.trim();
-}
-
 function buildFullQuerySql(queryId) {
   const safeId = queryId.replace(/'/g, "\\'");
   return `SELECT formatQuery(query) as query FROM system.query_log WHERE query_id = '${safeId}' AND type = 'QueryFinish' ORDER BY event_time DESC LIMIT 1`;
 }
 
-function buildFlameGraphSql({ traceType, queryId, from, to, memoryContext }) {
-  const chFrom = toChDatetime(from);
-  const chTo = toChDatetime(to);
-  const safeId = queryId.replace(/'/g, "\\'");
-
-  let traceFilter = "";
-  if (traceType) {
-    traceFilter = `\n  AND trace_type = '${traceType}'`;
-  }
-
-  let contextFilter = "";
-  if (memoryContext && supportsMemoryContext(traceType)) {
-    contextFilter = `\n  AND memory_context = '${memoryContext}'`;
-  }
-  return `
-SELECT
-  arrayStringConcat(
-    arrayReverse(arrayMap(x -> demangle(addressToSymbol(x)), trace)),
-    ';'
-  ) AS stack,
-  count() AS samples
-FROM system.trace_log
-WHERE query_id = '${safeId}'
-GROUP BY stack
-SETTINGS allow_introspection_functions = 1`.trim();
-}
 // flamegraph parser
 
 function parseFlameGraphRows(rows) {
@@ -413,15 +354,15 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
       <div className="profiler-popup" onClick={(e) => e.stopPropagation()}>
         <div className="profiler-popup-header">
           <span style={{ fontWeight: 600 }}>Query Details</span>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <Icon className="ti ti-x"></Icon>
-          </button>
+          </Button>
         </div>
 
         <div style={{ marginBottom: 12 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query ID
           </label>
@@ -429,7 +370,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             <code
               style={{
                 flex: 1,
-                fontSize: "13px",
+                fontSize: "0.8125rem",
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
                 wordBreak: "break-all",
@@ -437,16 +378,16 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             >
               {query.query_id}
             </code>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               onClick={() => {
                 navigator.clipboard.writeText(query.query_id);
-                toast.success("Query ID Copied Succesfully");
+                toast.success("Query ID Copied Successfully");
               }}
               title="Copy Query ID"
             >
               <Icon className="ti ti-copy"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -455,7 +396,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             display: "flex",
             gap: 20,
             marginBottom: 14,
-            fontSize: "12px",
+            fontSize: "0.75rem",
             color: "var(--text-muted)",
           }}
         >
@@ -473,7 +414,7 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
         <div style={{ marginBottom: 14 }}>
           <label
             className="form-label"
-            style={{ fontSize: "12px", marginBottom: 4 }}
+            style={{ fontSize: "0.75rem", marginBottom: 4 }}
           >
             Query Text
           </label>
@@ -505,27 +446,28 @@ function QueryDetailPopup({ query, fullText, loading, onSelect, onClose }) {
             alignItems: "center",
           }}
         >
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary" size="sm"
             onClick={() => {
               navigator.clipboard.writeText(
                 fullText || query.query_preview || "",
               );
-              toast.success("Query Text Copied Succesfully");
+              toast.success("Query Text Copied Successfully");
             }}
           >
-            <Icon className="ti ti-copy" style={{ marginRight: 4 }}></Icon> Copy Query
-          </button>
-          <button
-            className="btn btn-primary"
+            <Icon className="ti ti-copy" style={{ marginRight: 4 }}></Icon> Copy
+            Query
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => {
               onSelect(query.query_id);
               onClose();
             }}
           >
-            <Icon className="ti ti-check" style={{ marginRight: 4 }}></Icon> Use This
-            Query
-          </button>
+            <Icon className="ti ti-check" style={{ marginRight: 4 }}></Icon> Use
+            This Query
+          </Button>
         </div>
       </div>
     </div>
@@ -563,10 +505,18 @@ export default function QueryProfiler() {
   const treeRef = useRef(null);
   const flameInst = useRef(null);
   const flameHeightRef = useRef(null);
-  const flameTools = useChartTools(() => flameInst.current, { filename: "flame-graph" });
+  const flameTools = useChartTools(() => flameInst.current, {
+    filename: "flame-graph",
+  });
+  const conn = useConnection()
 
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
+
+  const [isLimitSetterQ, setIsLimitSetterQ] = useState({
+    status: false,
+    data: [],
+  });
 
   useEffect(() => {
     if (qidFromUrl) {
@@ -587,8 +537,13 @@ export default function QueryProfiler() {
 
   useEffect(() => {
     if (treeRef.current && chartRef.current && stats) {
-      flameInst.current = mountFlameGraph(chartRef.current, treeRef.current, traceType);
+      flameInst.current = mountFlameGraph(
+        chartRef.current,
+        treeRef.current,
+        traceType,
+      );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [themeKey]);
 
   useEffect(() => {
@@ -615,6 +570,16 @@ export default function QueryProfiler() {
     };
   }, [chartRef]);
 
+  const setterRowConfrim = () => {
+    setQueries(isLimitSetterQ?.status ? isLimitSetterQ?.data : []);
+    setIsLimitSetterQ({ status: false, data: [] });
+  };
+
+  const cancelSetterConfirm = () => {
+    setQueries([]);
+    setIsLimitSetterQ({ status: false, data: [] });
+  };
+
   const fetchQueries = useCallback(async () => {
     const err = validateRange(fromDt, toDt);
     if (err) {
@@ -633,15 +598,10 @@ export default function QueryProfiler() {
       const result = await runQuery(buildQueryListSql(fromDt, toDt, traceType));
       const rows = result.rows || [];
       if (rows.length >= 500) {
-        setQueriesError(
-          "More than 500 queries with trace data. Showing the latest 500. Narrow the range or search.",
-        );
-      } else if (rows.length > QUERY_WARN_THRESHOLD) {
-        setQueriesError(
-          `${rows.length} queries found. Consider narrowing the range.`,
-        );
+        setIsLimitSetterQ({ status: true, data: rows });
+      } else if (rows.length < QUERY_WARN_THRESHOLD) {
+        setQueries(rows);
       }
-      setQueries(rows);
     } catch (e) {
       setQueriesError(e.message || "Failed to load queries from trace_log");
     }
@@ -656,16 +616,23 @@ export default function QueryProfiler() {
     try {
       const result = await runQuery(buildFullQuerySql(query.query_id));
       if (result.rows?.[0]?.query) setPopupQueryText(result.rows[0].query);
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
     setPopupTextLoading(false);
   }, []);
 
   const filteredQueries = queries.filter((q) => {
     if (!searchText.trim()) return true;
-    const s = searchText.toLowerCase();
+    const s = searchText.toLowerCase().trim().replaceAll("\n", " ");
+
     return (
       q.query_id.toLowerCase().includes(s) ||
-      (q.query_preview || "").toLowerCase().includes(s)
+      (q.query_preview || "")
+        .toLowerCase()
+        .trim()
+        .replaceAll("\n", " ")
+        .includes(s)
     );
   });
 
@@ -693,10 +660,13 @@ export default function QueryProfiler() {
       to: toDt,
       memoryContext,
     });
-    setGeneratedSql(sql);
+
+    setGeneratedSql(sql + "\nSETTINGS allow_introspection_functions = 1");
 
     try {
-      const result = await runQuery(sql);
+      const result = await runQuery(sql, {
+        settings: { allow_introspection_functions: 1 },
+      });
       if (!result.rows?.length) {
         setError(
           'No trace data found for this query and trace type. Try a different trace type (e.g., "Real" instead of "CPU"). If none work, the query may have been too fast to sample.',
@@ -761,11 +731,35 @@ export default function QueryProfiler() {
     fullscreenFun: true,
   };
 
+    const getUnavailableMessage = () => {
+  const match = conn.unavailable.find(item => item.table === "system.trace_log");
+  return match ? match.message : null;
+};
+
+const unavailableMessage = getUnavailableMessage();
+
+if (unavailableMessage) {
+  return (
+    <div className="unavailable-container">
+      <div className="unavailable-icon-wrapper">
+        <Icon className="ti-git-branch" />
+      </div>
+      <div className="unavailable-text">
+        {unavailableMessage}
+      </div>
+    </div>
+  );
+}
+
+
   return (
     <div>
       <div className="section-header">
         <h2 className="section-title">
-          <Icon className="ti ti-flame" style={{ color: "var(--accent)" }}></Icon>{" "}
+          <Icon
+            className="ti ti-flame"
+            style={{ color: "var(--accent)" }}
+          ></Icon>{" "}
           Query Profiler
         </h2>
       </div>
@@ -775,7 +769,7 @@ export default function QueryProfiler() {
         style={{
           padding: 14,
           marginBottom: 16,
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           color: "var(--text-secondary)",
           lineHeight: 1.6,
         }}
@@ -788,39 +782,24 @@ export default function QueryProfiler() {
       </div>
 
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "end",
-            marginBottom: 14,
-          }}
-        >
-          <div className="form-group" style={{ minWidth: 200 }}>
-            <label className="form-label">From</label>
-            <input
-              className="form-input"
-              type="datetime-local"
-              value={fromDt}
-              onChange={(e) => handleAutoAdjustTODate(e)}
-            />
-          </div>
-          <div className="form-group" style={{ minWidth: 200 }}>
-            <label className="form-label">To</label>
-            <input
-              className="form-input"
-              type="datetime-local"
-              value={toDt}
-              onChange={(e) => setToDt(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <button
-              className="btn btn-secondary"
+        <div className="search-form-row">
+          <DateTimePicker
+            label="From"
+            valueFormat="datetime-local"
+            value={fromDt}
+            onChange={(newValue) => handleAutoAdjustTODate({ target: { value: newValue } })}
+          />
+          <DateTimePicker
+            label="To"
+            valueFormat="datetime-local"
+            value={toDt}
+            onChange={(newValue) => setToDt(newValue)}
+          />
+          <div className="search-form-submit">
+            <Button
+              variant="secondary"
               onClick={fetchQueries}
               disabled={queriesLoading}
-              style={{ height: 40 }}
             >
               {queriesLoading ? (
                 <>
@@ -832,39 +811,47 @@ export default function QueryProfiler() {
                 </>
               ) : (
                 <>
-                  <Icon className="ti ti-search" style={{ marginRight: 4 }}></Icon>{" "}
+                  <Icon
+                    className="ti ti-search"
+                    style={{ marginRight: 4 }}
+                  ></Icon>{" "}
                   Load Queries
                 </>
               )}
-            </button>
+            </Button>
           </div>
 
-          <div className="form-group" style={{ minWidth: 280, flex: "1 1 280px" }}>
-            <label className="form-label">
-              Query ID
+          <FormField label={<>Query ID
               {queriesLoading && (
-                <span className="loading-spinner" style={{ marginLeft: 8, width: 12, height: 12 }}></span>
+                <span
+                  className="loading-spinner"
+                  style={{ marginLeft: 8, width: 12, height: 12 }}
+                ></span>
               )}
               {!queriesLoading && queries.length > 0 && (
-                <span style={{ color: "var(--text-muted)", fontWeight: 400, marginLeft: 8 }}>
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontWeight: 400,
+                    marginLeft: 8,
+                  }}
+                >
                   ({queries.length} queries with trace data)
                 </span>
-              )}
-            </label>
-            <input
-              className="form-input"
+              )}</>} style={{ minWidth: 280, flex: "1 1 280px" }}>
+            <Input
               placeholder="Search by query text or query_id..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ fontFamily: "var(--font-code)", fontSize: "13px" ,height:39}}
+              style={{
+                fontFamily: "var(--font-code)",
+                fontSize: "0.8125rem",
+                height: 39,
+              }}
             />
-          </div>
+          </FormField>
 
-          <div
-            className="form-group"
-            style={{ minWidth: 180, marginLeft: "auto" }}
-          >
-            <label className="form-label">Trace Type</label>
+          <FormField label="Trace Type" style={{ minWidth: 180, marginLeft: "auto" }}>
             <Select
               className="form-input"
               value={traceType}
@@ -876,11 +863,10 @@ export default function QueryProfiler() {
                 </option>
               ))}
             </Select>
-          </div>
+          </FormField>
 
           {supportsMemoryContext(traceType) && (
-            <div className="form-group" style={{ minWidth: 160 }}>
-              <label className="form-label">Memory Context</label>
+            <FormField label="Memory Context" style={{ minWidth: 160 }}>
               <Select
                 className="form-input"
                 value={memoryContext}
@@ -892,29 +878,31 @@ export default function QueryProfiler() {
                   </option>
                 ))}
               </Select>
-            </div>
+            </FormField>
           )}
         </div>
 
         {rangeError && (
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--color-danger, #ef4444)",
               marginBottom: 10,
             }}
           >
-            <Icon className="ti ti-alert-circle" style={{ marginRight: 4 }}></Icon>{" "}
+            <Icon
+              className="ti ti-alert-circle"
+              style={{ marginRight: 4 }}
+            ></Icon>{" "}
             {rangeError}
           </div>
         )}
 
         <div style={{ marginBottom: 14 }}>
-
           {queriesError && (
             <div
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--color-warning, #f59e0b)",
                 marginBottom: 8,
               }}
@@ -964,7 +952,7 @@ export default function QueryProfiler() {
             !rangeError && (
               <div
                 style={{
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   color: "var(--text-muted)",
                   padding: "12px 0",
                 }}
@@ -980,7 +968,7 @@ export default function QueryProfiler() {
           <div
             style={{
               marginBottom: 14,
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--text-secondary)",
               display: "flex",
               alignItems: "center",
@@ -996,13 +984,13 @@ export default function QueryProfiler() {
               style={{
                 fontFamily: "var(--font-code)",
                 color: "var(--accent)",
-                fontSize: "12px",
+                fontSize: "0.75rem",
               }}
             >
               {selectedQueryId}
             </code>
-            <button
-              className="btn btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               onClick={() => {
                 setSelectedQueryId("");
                 setError("");
@@ -1013,16 +1001,16 @@ export default function QueryProfiler() {
                 }
                 chartRef.current = null;
               }}
-              style={{ marginLeft: 4, fontSize: "12px" }}
+              style={{ marginLeft: 4 }}
             >
               <Icon className="ti ti-x"></Icon> Clear
-            </button>
+            </Button>
           </div>
         )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={handleGenerate}
             disabled={loading || !selectedQueryId}
             style={{ minWidth: 200 }}
@@ -1041,10 +1029,10 @@ export default function QueryProfiler() {
                 Generate Flame Graph
               </>
             )}
-          </button>
+          </Button>
           <span
             style={{
-              fontSize: "12px",
+              fontSize: "0.75rem",
               color: "var(--text-muted)",
               marginLeft: "auto",
             }}
@@ -1065,9 +1053,8 @@ export default function QueryProfiler() {
       )}
 
       {error && (
-        <div className="alert-banner danger" style={{ marginBottom: 16 }}>
-          <Icon className="ti ti-alert-circle"></Icon> {error}
-        </div>
+        <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: 16 }}> {error}
+        </Notice>
       )}
 
       {stats && (
@@ -1076,7 +1063,7 @@ export default function QueryProfiler() {
             display: "flex",
             gap: 24,
             marginBottom: 12,
-            fontSize: "13px",
+            fontSize: "0.8125rem",
             color: "var(--text-secondary)",
           }}
         >
@@ -1098,22 +1085,21 @@ export default function QueryProfiler() {
 
       <div
         className="card"
-         style={
-              flameTools.fullscreen
-                ? {
-                    position: "fixed",
-                    zIndex: 9999,
-                    background: "var(--bg-page)",
-                    padding: 16,
-                    overflow: "auto",
-                    top: "0px",
-                    left: "0px",
-                    width: "100%",
-                    height: "100vh",
-                  }
-                :{ padding: 20, marginBottom: 16, minHeight: 200 }
-            }
-     
+        style={
+          flameTools.fullscreen
+            ? {
+                position: "fixed",
+                zIndex: 9999,
+                background: "var(--bg-page)",
+                padding: 16,
+                overflow: "auto",
+                top: "0px",
+                left: "0px",
+                width: "100%",
+                height: "100vh",
+              }
+            : { padding: 20, marginBottom: 16, minHeight: 200 }
+        }
       >
         {!stats && !loading && !error ? (
           <div
@@ -1127,7 +1113,7 @@ export default function QueryProfiler() {
             <Icon
               className="ti ti-flame"
               style={{
-                fontSize: 48,
+                fontSize: "3rem",
                 opacity: 0.3,
                 display: "block",
                 marginBottom: 12,
@@ -1139,13 +1125,28 @@ export default function QueryProfiler() {
         ) : (
           <div>
             {stats && (
-              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4,marginBottom:"10px" }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => flameInst.current?._flameReset?.()} title="Reset zoom" aria-label="Reset zoom"><Icon className="ti ti-zoom-reset"></Icon></button>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 4,
+                  marginBottom: "10px",
+                }}
+              >
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={() => flameInst.current?._flameReset?.()}
+                  title="Reset zoom"
+                  aria-label="Reset zoom"
+                >
+                  <Icon className="ti ti-zoom-reset"></Icon>
+                </Button>
                 <ChartToolbar
                   fullscreen={flameTools.fullscreen}
                   onSave={flameTools.save}
                   onToggleFullscreen={flameTools.toggleFullscreen}
-                  isWantFeature = {chartControlsFlags}
+                  isWantFeature={chartControlsFlags}
                 />
               </div>
             )}
@@ -1162,11 +1163,11 @@ export default function QueryProfiler() {
       </div>
 
       {generatedSql && (
-        <details style={{ marginBottom: 16 }}>
+        <details className="profiler-sql-panel" style={{ marginBottom: 16 }}>
           <summary
             style={{
               cursor: "pointer",
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--text-muted)",
               userSelect: "none",
             }}
@@ -1176,6 +1177,19 @@ export default function QueryProfiler() {
           </summary>
           <pre className="profiler-sql-preview">{generatedSql}</pre>
         </details>
+      )}
+
+      {isLimitSetterQ?.status && (
+        <ConfirmModal
+          onCancel={cancelSetterConfirm}
+          onConfirm={setterRowConfrim}
+          title={"Query Limit Reached"}
+          message={
+            "More than 500 queries with trace data were found. Only the latest 500 are shown. Would you like to narrow the date range or search criteria?"
+          }
+          confirmText="Okay"
+          cancelHide={true}
+        />
       )}
     </div>
   );

@@ -14,44 +14,30 @@
 // Copyright (C) 2026 Quantrail Data Private Limited
 
 import express from 'express';
-import { getClusterNodes } from '../services/clusterUtils.js';
+import { resolveTargetNode } from '../services/clusterUtils.js';
 import { executeQuery } from '../services/clickhouse.js';
+import { rateLimiter } from '../middleware/rateLimiter.js';
 import {
   setCredSession, getCredSessionStatus, clearCredSession, CRED_CONTEXTS,
 } from '../services/chCredStore.js';
 
 const router = express.Router();
 
-// SSRF protection: only hosts in the configured cluster are reachable.
-function resolveTargetNode(clusterId, node) {
-  const nodes = getClusterNodes(clusterId);
-  if (!nodes.length) {
-    const e = new Error('No cluster nodes configured.');
-    e.status = 400;
-    throw e;
-  }
-  const target = node ? nodes.find((n) => n.host === node) : nodes[0];
-  if (!target) {
-    const e = new Error('Node not found in cluster configuration.');
-    e.status = 400;
-    throw e;
-  }
-  return target;
-}
-
-router.post('/connect', async (req, res) => {
+router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.username || req.ip}`), async (req, res) => {
   try {
-    const { clusterId, node, port, user, password } = req.body || {};
+    const { clusterId, node, user, password } = req.body || {};
     if (!user) return res.status(400).json({ error: 'ClickHouse username is required.' });
 
     const target = resolveTargetNode(clusterId, node);
+
     // Validate the credentials by running a trivial query as that user.
     await executeQuery({
       host: target.host,
-      port: port || target.port || 8123,
+      port: target.port || 8123,
       secure: !!target.secure,
       user,
       password: password ?? '',
+      timeoutMs: 10000,
       sql: 'SELECT 1',
     });
 
@@ -60,8 +46,8 @@ router.post('/connect', async (req, res) => {
       context: CRED_CONTEXTS.EDITOR,
       appUser: req.user.username,
       clusterId,
-      node: target.host,
-      port: port || target.port || 8123,
+      node: target.name,
+      port: target.port || 8123,
       chUser: user,
       password: password ?? '',
     });

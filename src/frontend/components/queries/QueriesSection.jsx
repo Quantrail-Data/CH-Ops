@@ -7,7 +7,7 @@
 //
 // Author: Kathir Moorthy
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { useQuery } from "../../hooks/useQuery.js";
@@ -17,12 +17,31 @@ import ChartCard from "../layout/ChartCard.jsx";
 import { initChart, disposeChart, withZoomable } from "../../utils/echarts.js";
 import ChartToolbar, { useChartTools } from "../common/ChartToolbar.jsx";
 import { DateTimePicker } from "../layout/DateTimePicker.jsx";
-import ConfirmModal from "../layout/ConfirmModal.jsx";
 import { useToast } from "../layout/Toast.jsx";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../../App.jsx";
+import OpenInMenu from "./OpenInMenu.jsx";
+import CurrentQueries from "./CurrentQueries.jsx";
+import AdvancedFilters from "../logs/AdvancedFilters.jsx";
+import { buildWhere, extraColumns, extraSelectSql, loadAdvState } from "../../utils/advancedFilters.js";
+import { useLiveOverview } from "../overview/useLiveOverview.js";
+import { Button, Input, FormField } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
 
-const ROLE_LEVEL = { readonly: 0, editor: 1, admin: 2, superadmin: 3 };
+// Result names of the fixed SELECT in QueryLogSearch. The SQL dedupe uses this.
+const QUERY_LOG_SELECT_NAMES = [
+ "event_time", "type", "query_kind", "query_duration_ms",
+ "read_rows", "read_bytes", "written_rows", "written_bytes",
+ "result_rows", "result_bytes", "memory", "exception_code",
+ "initial_user", "query_preview",
+];
+
+// Columns the result table shows. Picked extras append after these.
+const QUERY_LOG_DISPLAY_COLS = [
+ "event_time", "type", "query_kind", "query_duration_ms",
+ "read_rows", "read_bytes", "memory", "exception_code",
+ "initial_user", "query_preview",
+];
+
 const pad = (n) => String(n).padStart(2, "0");
 const fmtNow = () => {
   const d = new Date();
@@ -292,7 +311,7 @@ function MetricBar({ label, value, max, color }) {
       <span
         style={{
           fontFamily: "var(--font-code, monospace)",
-          fontSize: "13px",
+          fontSize: "0.8125rem",
           whiteSpace: "nowrap",
         }}
       >
@@ -302,103 +321,6 @@ function MetricBar({ label, value, max, color }) {
   );
 }
 
-// Destinations a query_id can be opened in. All three pages read ?qid= from the
-// URL (HashRouter), so each link is /<route>?qid=<id>.
-const OPEN_IN_DESTINATIONS = [
-  { key: "profiler", label: "Query Profiler", icon: "ti-flame", route: "tools/profiler" },
-  { key: "pipeline", label: "Processors Profile", icon: "ti-hierarchy-2", route: "tools/pipeline" },
-  { key: "metrics", label: "Query Metrics", icon: "ti-chart-line", route: "tools/metrics" },
-];
-
-// Per-row "Open in..." menu. The popover is fixed-position (anchored to the
-// trigger via getBoundingClientRect) so the table's overflow does not clip it.
-function OpenInMenu({ queryId }) {
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const btnRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    window.addEventListener("keydown", onKey);
-    document.addEventListener("click", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("click", close);
-    };
-  }, [open]);
-
-  function toggle(e) {
-    e.stopPropagation();
-    const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 200) });
-    setOpen((v) => !v);
-  }
-
-  function go(route) {
-    navigate(`/${route}?qid=${encodeURIComponent(queryId)}`);
-    setOpen(false);
-  }
-
-  return (
-    <>
-      <button ref={btnRef} className="btn btn-secondary btn-sm" onClick={toggle}>
-        <Icon className="ti ti-external-link"></Icon> Open in...
-      </button>
-      {open && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            top: pos.top,
-            left: pos.left,
-            zIndex: 1200,
-            width: 210,
-            height: "auto",
-            maxHeight: "none",
-            display: "flex",
-            flexDirection: "column",
-            padding: 4,
-            background: "var(--glass-bg, rgba(24,28,38,0.85))",
-            backdropFilter: "blur(12px) saturate(140%)",
-            WebkitBackdropFilter: "blur(12px) saturate(140%)",
-            border: "1px solid var(--border-default, rgba(255,255,255,0.14))",
-            borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-            overflow: "visible",
-          }}
-        >
-          {OPEN_IN_DESTINATIONS.map((d) => (
-            <button
-              key={d.key}
-              className="btn btn-ghost btn-sm"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                width: "100%",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                whiteSpace: "nowrap",
-              }}
-              onClick={() => go(d.route)}
-            >
-              <Icon className={`ti ${d.icon}`}></Icon> {d.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
 
 function buildFullQuerySql(queryId) {
   const safeId = String(queryId).replace(/'/g, "\\'");
@@ -417,12 +339,7 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
   }, [onClose]);
   if (!queryId) return null;
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1300 }}>
-      <div
-        className="modal-box"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 820, width: "92%" }}
-      >
+    <Modal onClose={onClose} overlayStyle={{ zIndex: 1300 }} style={{ maxWidth: 820, width: "92%" }}>
         <div
           style={{
             display: "flex",
@@ -435,7 +352,7 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
           <code
             style={{
               fontFamily: "var(--font-code, monospace)",
-              fontSize: "13px",
+              fontSize: "0.8125rem",
               color: "var(--accent)",
               wordBreak: "break-all",
             }}
@@ -443,8 +360,8 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
             {queryId}
           </code>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary" size="sm"
               onClick={() => {
                 try {
                   navigator.clipboard?.writeText(fullText || preview || "");
@@ -455,10 +372,10 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
               }}
             >
               <Icon className="ti ti-copy"></Icon> Copy
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={onClose}>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               <Icon className="ti ti-x"></Icon>
-            </button>
+            </Button>
           </div>
         </div>
         {loading ? (
@@ -485,8 +402,7 @@ function QueryTextPopup({ queryId, preview, fullText, loading, onClose }) {
             {fullText || preview || "(query text not available)"}
           </pre>
         )}
-      </div>
-    </div>
+      </Modal>
   );
 }
 
@@ -502,6 +418,8 @@ function ScatterChart({ rows, title, note }) {
   const [loadingText, setLoadingText] = useState(false);
 
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = elRef.current;
     if (!elRef.current) return;
     chartRef.current = initChart(elRef.current);
     chartRef.current.setOption(withZoomable({ ...scatterOption(rows), toolbox: { show: false } }), true);
@@ -516,9 +434,10 @@ function ScatterChart({ rows, title, note }) {
     setTimeout(() => chartRef.current?.resize(), 50);
     return () => {
       window.removeEventListener("resize", onResize);
-      disposeChart(elRef.current);
+      disposeChart(chartEl);
       chartRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   useEffect(() => {
@@ -596,6 +515,8 @@ export default function QueriesSection({ sidebar }) {
   const { tab: routeTab = "current" } = useParams();
   const navigate = useNavigate();
 
+  const liveState = useLiveOverview()
+
   const handleTabChange = (newTab) => {
     navigate(`/overview/queries/${newTab}`, { replace: true });
   };
@@ -622,117 +543,13 @@ export default function QueriesSection({ sidebar }) {
           </div>
         ))}
       </div>
-      {routeTab === "current" && <CurrentQueries />}
-      {routeTab === "analytics" && <QueryAnalytics />}
-      {routeTab === "search" && <QueryLogSearch sidebar={sidebar} />}
+      {routeTab === "current" && <CurrentQueries isCN={liveState?.isNotConnectedClusterNode} />}
+      {routeTab === "analytics" && <QueryAnalytics isCN={liveState?.isNotConnectedClusterNode} />}
+      {routeTab === "search" && <QueryLogSearch isCN={liveState?.isNotConnectedClusterNode} sidebar={sidebar} />}
     </div>
   );
 }
 
-function CurrentQueries() {
-  const { auth } = useAuth();
-  const myRole = auth?.role || 'readonly';
-  const myLevel = ROLE_LEVEL[myRole] || 0;
-  const isAdmin = myLevel >= ROLE_LEVEL.admin;
-  const q = useQuery();
-  const [killModal, setKillModal] = useState(null);
-  const [killResult, setKillResult] = useState(null);
-  const load = useCallback(() => {
-    q.execute(
-      "SELECT query_id, user, toString(elapsed) AS elapsed, read_rows, formatReadableSize(read_bytes) AS read_bytes, formatReadableSize(memory_usage) AS memory_usage, substring(query,1,200) AS query_preview FROM system.processes ORDER BY elapsed DESC",
-    );
-  }, []);
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
-  }, []);
-
-  async function killQuery(qid, sync) {
-    try {
-      await runQuery(
-        `KILL QUERY WHERE query_id='${qid}'${sync ? " SYNC" : ""}`,
-      );
-      setKillResult({ ok: true, msg: `Query ${qid} killed` });
-      load();
-    } catch (e) {
-      setKillResult({ ok: false, msg: e.message });
-    }
-    setKillModal(null);
-  }
-
-  return (
-    <div>
-      <div className="alert-banner info" style={{ marginBottom: "16px" }}>
-        <Icon className="ti ti-info-circle"></Icon>
-        <span>
-          Some queries here are already history. ClickHouse® is so fast that
-          this monitor works like a telescope: you are observing the universe as
-          it was a moment ago, even as new stars are still igniting.
-        </span>
-      </div>
-      {killResult && (
-        <div
-          className={`alert-banner ${killResult.ok ? "success" : "danger"}`}
-          style={{ marginBottom: "12px" }}
-        >
-          <Icon className={`ti ${killResult.ok ? "ti-check" : "ti-x"}`}></Icon>{" "}
-          {killResult.msg}
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginLeft: "auto" }}
-            onClick={() => setKillResult(null)}
-          >
-            <Icon className="ti ti-x"></Icon>
-          </button>
-        </div>
-      )}
-      <DataTable
-        rows={q.data || []}
-        columns={[
-          "query_id",
-          "user",
-          "elapsed",
-          "read_rows",
-          "read_bytes",
-          "memory_usage",
-          "query_preview",
-        ]}
-        emptyMessage="No queries currently running."
-        variant="single"
-        actions={(row) => (
-          <div style={{ display: "flex", gap: "4px" }}>
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => setKillModal({ qid: row.query_id, sync: false })}
-              disabled={!isAdmin}
-              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
-            >
-              <Icon className="ti ti-player-stop"></Icon> Kill
-            </button>
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => setKillModal({ qid: row.query_id, sync: true })}
-              disabled={!isAdmin}
-              style={!isAdmin ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
-            >
-              <Icon className="ti ti-player-stop"></Icon> Kill Sync
-            </button>
-          </div>
-        )}
-      />
-      {killModal && (
-        <ConfirmModal
-          title="Kill Query"
-          message={`Kill query ${killModal.qid}${killModal.sync ? " with SYNC" : ""}?`}
-          onConfirm={() => killQuery(killModal.qid, killModal.sync)}
-          onCancel={() => setKillModal(null)}
-          danger
-        />
-      )}
-    </div>
-  );
-}
 
 function MetricCard({ label, value, danger }) {
   return (
@@ -742,7 +559,7 @@ function MetricCard({ label, value, danger }) {
     >
       <div
         style={{
-          fontSize: "12px",
+          fontSize: "0.75rem",
           color: "var(--text-muted)",
           marginBottom: 6,
         }}
@@ -762,7 +579,7 @@ function MetricCard({ label, value, danger }) {
   );
 }
 
-function QueryAnalytics() {
+function QueryAnalytics({isCN}) {
   const [from, setFrom] = useState(fmtAgo(168));
   const [to, setTo] = useState(fmtNow());
   const [duration, setDuration] = useState("7d");
@@ -776,7 +593,6 @@ function QueryAnalytics() {
   const [slowData, setSlowData] = useState(null);
   const [memIntData, setMemIntData] = useState(null);
   const [scatterData, setScatterData] = useState(null);
-  const navigate = useNavigate();
   const toast = useToast();
 
   useEffect(() => {
@@ -858,19 +674,8 @@ function QueryAnalytics() {
 
   return (
     <div>
-      <div
-        className="card"
-        style={{
-          padding: "16px",
-          marginBottom: "20px",
-          display: "flex",
-          gap: "14px",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-        }}
-      >
-        <div className="form-group">
-          <label className="form-label">Quick Range</label>
+      <div className="card search-form-row" style={{ padding: "16px", marginBottom: "20px" }}>
+        <FormField label="Quick Range">
           <div
             style={{
               display: "flex",
@@ -880,23 +685,18 @@ function QueryAnalytics() {
             }}
           >
             {["1h", "6h", "24h", "48h", "7d", "30d"].map((d) => (
-              <button
+              <Button
                 key={d}
-                style={{
-                  padding: "10px",
-                  width: "50px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                className={`btn btn-sm ${duration === d ? "btn-primary" : "btn-secondary"}`}
+                variant={duration === d ? "primary" : "secondary"}
+                size="sm"
+                aria-pressed={duration === d}
                 onClick={() => applyDuration(d)}
               >
                 {d}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
+        </FormField>
         <DateTimePicker
           label="From"
           value={from}
@@ -909,8 +709,7 @@ function QueryAnalytics() {
           onChange={handleDateOnChange}
           name="To"
         />
-        <div className="form-group">
-          <label className="form-label">Query Kind</label>
+        <FormField label="Query Kind" className="search-field-select">
           <Select
             className="form-select"
             value={queryKind}
@@ -921,11 +720,12 @@ function QueryAnalytics() {
               <option key={k}>{k}</option>
             ))}
           </Select>
-        </div>
-        <button
-          className="btn btn-primary"
+        </FormField>
+        <Button
+          title={isCN() ? "No cluster nodes configured" : ""}
+          variant="primary"
           onClick={runAnalytics}
-          disabled={loading}
+          disabled={loading || isCN()}
         >
           {loading ? (
             <>
@@ -936,7 +736,7 @@ function QueryAnalytics() {
               <Icon className="ti ti-chart-bar"></Icon> Analyze
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {summary && (
@@ -1012,7 +812,7 @@ function QueryAnalytics() {
 
       {slowData?.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", marginBottom: "12px" }}>
+          <h3 style={{ fontSize: "0.9375rem", marginBottom: "12px" }}>
             Top 100 Slowest Queries
           </h3>
           <DataTable
@@ -1045,7 +845,7 @@ function QueryAnalytics() {
       )}
       {memIntData?.length > 0 && (
         <>
-          <h3 style={{ fontSize: "15px", marginBottom: "12px" }}>
+          <h3 style={{ fontSize: "0.9375rem", marginBottom: "12px" }}>
             Top 100 Memory-Intensive Queries
           </h3>
           <DataTable
@@ -1073,7 +873,7 @@ function QueryAnalytics() {
   );
 }
 
-function QueryLogSearch({ sidebar }) {
+function QueryLogSearch({isCN}) {
   const toast = useToast();
   const [from, setFrom] = useState(fmtAgo(24));
   const [to, setTo] = useState(fmtNow());
@@ -1085,6 +885,8 @@ function QueryLogSearch({ sidebar }) {
   const [initialUser, setInitialUser] = useState("");
   const [sortField, setSortField] = useState("event_time");
   const [sortDir, setSortDir] = useState("DESC");
+  const [adv, setAdv] = useState(() => loadAdvState("query_log"));
+  const extras = extraColumns(QUERY_LOG_DISPLAY_COLS, adv.columns);
   const [submitted, setSubmitted] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const searchQ = useQuery(),
@@ -1104,10 +906,12 @@ function QueryLogSearch({ sidebar }) {
     usersQ.execute(
       "SELECT DISTINCT initial_user FROM system.query_log WHERE initial_user!='' ORDER BY initial_user",
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The query object is new on each render. Adding it would run the query again and again.
   }, []);
 
   useEffect(() => {
     if (searchQ.error) toast.error(searchQ.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a new object on each render. Adding it would repeat the message.
   }, [searchQ.error]);
 
   function handleSearch(e) {
@@ -1128,8 +932,16 @@ function QueryLogSearch({ sidebar }) {
     if (initialUser) conds.push(`initial_user='${initialUser}'`);
     setSubmitted(true);
     setFiltersOpen(false);
+    const where = buildWhere(conds, adv.filters);
     searchQ.execute(
-      `SELECT toString(event_time) AS event_time, type, query_kind, query_duration_ms, read_rows, read_bytes, written_rows, written_bytes, result_rows, result_bytes, formatReadableSize(memory_usage) AS memory, exception_code, initial_user, substring(query,1,200) AS query_preview FROM system.query_log WHERE ${conds.join(" AND ")} ORDER BY ${sortField} ${sortDir} LIMIT 500`,
+    `SELECT toString(event_time) AS event_time, type, query_kind,
+    query_duration_ms, read_rows, read_bytes, written_rows, written_bytes,
+    result_rows, result_bytes, formatReadableSize(memory_usage) AS memory,
+    exception_code, initial_user, substring(query,1,200) AS
+    query_preview${extraSelectSql(QUERY_LOG_SELECT_NAMES, adv.columns)} FROM
+    system.query_log WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT
+    500`,
+    { readOnly: true },
     );
   }
 
@@ -1163,13 +975,6 @@ function QueryLogSearch({ sidebar }) {
     { k: "memory_usage", l: "Memory" },
   ];
 
-  const widthStyle = {
-    width: `${(window?.innerWidth - (sidebar ? 250 : 1200)) / (sidebar ? 8 : 5)}px`,
-  };
-  const widthStyle_2 = {
-    width: `${(window?.innerWidth - (sidebar ? 450 : 900)) / (sidebar ? 4 : 3)}px `,
-  };
-
   return (
     <div>
       <div
@@ -1186,257 +991,183 @@ function QueryLogSearch({ sidebar }) {
             display: "flex",
             alignItems: "center",
             gap: "5px",
-            fontSize: "15px",
+            fontSize: "0.9375rem",
           }}
         >
-          <Icon className="ti ti-search" style={{ fontSize: "15px" }}></Icon>Search
+          <Icon className="ti ti-search" style={{ fontSize: "0.9375rem" }}></Icon>Search
         </label>
-        <button
-          className="btn btn-ghost btn-sm"
+        <Button
+          variant="ghost" size="sm"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
           <Icon
             className={`ti ${filtersOpen ? "ti-chevron-up" : "ti-chevron-down"}`}
           ></Icon>{" "}
           {filtersOpen ? "Collapse" : "Expand"} Filters
-        </button>
+        </Button>
       </div>
-      {filtersOpen && (
-        <div className="card" style={{ padding: "20px", marginBottom: "20px" }}>
-          <form onSubmit={handleSearch}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "10px",
-                marginBottom: "30px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-around",
-                  width: "24rem",
-                }}
-              >
-                <div
-                  style={{
-                    width: `${(window?.innerWidth - (sidebar ? 150 : 300)) / 5}px `,
-                  }}
-                >
-                  {" "}
-                  <DateTimePicker
-                    label="From (required)"
-                    value={from}
-                    onChange={handleDateOnChange}
-                    name="From"
-                  />
-                </div>
-                <div
-                  style={{
-                    width: `${(window?.innerWidth - (sidebar ? 150 : 300)) / 5}px `,
-                  }}
-                >
-                  {" "}
-                  <DateTimePicker
-                    label="To (required)"
-                    value={to}
-                    onChange={handleDateOnChange}
-                    name="To"
-                  />
-                </div>
-              </div>
+    {filtersOpen && (
+  <div
+    className="card"
+    style={{
+      padding: "20px",
+      marginBottom: "20px",
+      borderRadius: "12px",
+    }}
+  >
+    <form onSubmit={handleSearch}>
+      <div className="search-form-row">
+        <DateTimePicker
+          label="From (required)"
+          value={from}
+          onChange={handleDateOnChange}
+          name="From"
+        />
+        <DateTimePicker
+          label="To (required)"
+          value={to}
+          onChange={handleDateOnChange}
+          name="To"
+        />
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  width: "16rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Exception Code</label>
-                  <Select
-                    className="form-select"
-                    value={exceptionCode}
-                    onChange={(e) => setExceptionCode(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {codesQ.data?.map((r) => (
-                      <option key={r.exception_code}>{r.exception_code}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Is Initial</label>
-                  <Select
-                    className="form-select"
-                    value={isInitial}
-                    onChange={(e) => setIsInitial(e.target.value)}
-                  >
-                    <option value="">Any</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </Select>
-                </div>
-              </div>
+        <FormField label="Exception Code" className="search-field-select">
+          <Select
+            className="form-select"
+            value={exceptionCode}
+            onChange={(e) => setExceptionCode(e.target.value)}
+          >
+            <option value="">All</option>
+            {codesQ.data?.map((r) => (
+              <option key={r.exception_code}>
+                {r.exception_code}
+              </option>
+            ))}
+          </Select>
+        </FormField>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  width: "16rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Initial User</label>
-                  <Select
-                    className="form-select"
-                    value={initialUser}
-                    onChange={(e) => setInitialUser(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {usersQ.data?.map((r) => (
-                      <option key={r.initial_user}>{r.initial_user}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Direction</label>
-                  <Select
-                    className="form-select"
-                    value={sortDir}
-                    onChange={(e) => setSortDir(e.target.value)}
-                  >
-                    <option value="DESC">Desc</option>
-                    <option value="ASC">Asc</option>
-                  </Select>
-                </div>
-              </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  width: "16rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Sort By</label>
-                  <Select
-                    className="form-select"
-                    value={sortField}
-                    onChange={(e) => setSortField(e.target.value)}
-                  >
-                    {SORTS.map((s) => (
-                      <option key={s.k} value={s.k}>
-                        {s.l}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
+        <FormField label="Is Initial" className="search-field-select">
+          <Select
+            className="form-select"
+            value={isInitial}
+            onChange={(e) => setIsInitial(e.target.value)}
+          >
+            <option value="">Any</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </Select>
+        </FormField>
 
-                <div className="form-group">
-                  <label className="form-label">Query Kind</label>
-                  <Select
-                    className="form-select"
-                    value={queryKind}
-                    onChange={(e) => setQueryKind(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {kindsQ.data?.map((r) => (
-                      <option key={r.query_kind}>{r.query_kind}</option>
-                    ))}
-                  </Select>
-                </div>
+        <FormField label="Initial User" className="search-field-select">
+          <Select
+            className="form-select"
+            value={initialUser}
+            onChange={(e) => setInitialUser(e.target.value)}
+          >
+            <option value="">All</option>
+            {usersQ.data?.map((r) => (
+              <option key={r.initial_user}>
+                {r.initial_user}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        <FormField label="Direction" className="search-field-select">
+          <Select
+            className="form-select"
+            value={sortDir}
+            onChange={(e) => setSortDir(e.target.value)}
+          >
+            <option value="DESC">Desc</option>
+            <option value="ASC">Asc</option>
+          </Select>
+        </FormField>
+
+
+        <FormField label="Sort By" className="search-field-select">
+          <Select
+            className="form-select"
+            value={sortField}
+            onChange={(e) => setSortField(e.target.value)}
+          >
+            {SORTS.map((s) => (
+              <option key={s.k} value={s.k}>
+                {s.l}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+
+        <FormField label="Query Kind" className="search-field-select">
+          <Select
+            className="form-select"
+            value={queryKind}
+            onChange={(e) => setQueryKind(e.target.value)}
+          >
+            <option value="">All</option>
+            {kindsQ.data?.map((r) => (
+              <option key={r.query_kind}>
+                {r.query_kind}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        <FormField label="Type" className="search-field-select">
+          <Select
+            className="form-select"
+            value={queryType}
+            onChange={(e) => setQueryType(e.target.value)}
+          >
+            <option value="">All</option>
+            {typesQ.data?.map((r) => (
+              <option key={r.type}>
+                {r.type}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        <FormField label="Exception" className="search-field">
+          <Input
+            value={exceptionText}
+            onChange={(e) => setExceptionText(e.target.value)}
+            placeholder="Search exception..."
+          />
+        </FormField>
+
+        <div className="search-form-submit">
+          <Button
+            title={isCN() ? "No cluster nodes configured" : ""}
+            variant="primary"
+            type="submit"
+            disabled={searchQ.loading || isCN()}
+          >
+            {searchQ.loading ? (
+              <>
+              <span className="loading-spinner"></span>
+              Searching...
+              </>
+            ) : (
+                <>
+                <Icon className="ti ti-search"></Icon>
+                  Search
+                </>
+              )}
+               </Button>
               </div>
             </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "14px",
-                marginBottom: "30px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  width: "42rem",
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">Type</label>
-                  <Select
-                    style={widthStyle_2}
-                    className="form-select"
-                    value={queryType}
-                    onChange={(e) => setQueryType(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {typesQ.data?.map((r) => (
-                      <option key={r.type}>{r.type}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Exception (text)</label>
-                  <input
-                    className="form-input"
-                    value={exceptionText}
-                    style={widthStyle_2}
-                    onChange={(e) => setExceptionText(e.target.value)}
-                    placeholder="partial..."
-                  />
-                </div>
-              </div>
-              <button
-                className="btn btn-primary"
-                type="submit"
-                disabled={searchQ.loading}
-              >
-                {searchQ.loading ? (
-                  <>
-                    <span className="loading-spinner"></span> Searching...
-                  </>
-                ) : (
-                  <>
-                    <Icon className="ti ti-search"></Icon> Search
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          <AdvancedFilters table="query_log" value={adv} onChange={setAdv} />
+      </form>
+  </div>
+)}
+
       {submitted && !searchQ.loading && (
         <DataTable
           rows={searchQ.data || []}
-          columns={[
-            "event_time",
-            "type",
-            "query_kind",
-            "query_duration_ms",
-            "read_rows",
-            "read_bytes",
-            "memory",
-            "exception_code",
-            "initial_user",
-            "query_preview",
-          ]}
+          columns={[...QUERY_LOG_DISPLAY_COLS, ...extras]}
           emptyMessage="No entries found."
           variant="single"
         />

@@ -5,7 +5,7 @@
 // by the `view` prop ("replication" | "distribution"). No stored history;
 // refreshes on a timer with a delta-since-last-refresh.
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import DataTable from "../layout/DataTable.jsx";
 import QueueCards from "./QueueCards.jsx";
 import RankedBar from "./RankedBar.jsx";
@@ -13,6 +13,7 @@ import EmptyState from "./EmptyState.jsx";
 import { fmtInt, fmtAge } from "../../utils/queueFormat.js";
 import { fmtBytes } from "../../utils/costEstimator.js";
 import { loadReplication, loadDistribution } from "../../utils/queueQueries.js";
+import { Input } from "../ui/index.jsx";
 
 const REFRESH_MS = 30000;
 
@@ -24,7 +25,7 @@ function delta(curr, prev) {
   return d > 0 ? `+${fmtInt(d)}` : `${fmtInt(d)}`;
 }
 
-export default function DistReplTab({ view = "replication" }) {
+export default function DistReplTab({ view = "replication" ,unavailable}) {
   const isRepl = view === "replication";
 
   const [repl, setRepl] = useState(null);
@@ -80,6 +81,23 @@ export default function DistReplTab({ view = "replication" }) {
     });
   };
 
+const getUnavailableMessage = () => {
+  if(!isRepl) return ;
+  const match = unavailable.find(item => item.table === "system.replication_queue");
+  return match ? match.message : null;
+};
+
+const unavailableMessage = getUnavailableMessage();
+
+if (isRepl && unavailableMessage) {
+  return (
+    <EmptyState icon="ti-git-branch" title="No replicated tables">
+      {unavailableMessage}
+    </EmptyState>
+  );
+}
+
+
   // Replication view
   if (isRepl) {
     if (!repl?.present) {
@@ -133,7 +151,7 @@ export default function DistReplTab({ view = "replication" }) {
           <div className="queue-panel-head">
             <h3 className="queue-panel-title">Tasks (most retried first)</h3>
             <div className="queue-filter-row">
-              <input className="form-input" placeholder="Filter tasks..."
+              <Input  placeholder="Filter tasks..."
                 value={filter} onChange={(e) => setFilter(e.target.value)} />
               <button
                 className={"queue-chip" + (chips.executing ? " active" : "")}

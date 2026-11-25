@@ -1,13 +1,16 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// author -> (kathir Moorthy, kathir dhasan, Praveen kumar)
-// Authenticates users, handling argon2id hashing with legacy SHA-256 upgrades, brute-force lockouts, and secure .env backdoors.
-
+// Authors: Kathir Moorthy, Kathir Dhasan, Praveen Kumar
+//
+// Authenticates users using Argon2id password hashing with legacy SHA-256
+// upgrades, brute-force lockouts, and .env-based superadmin recovery.
 
 import { timingSafeEqual } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, appUsers } from "../db/index.js";
 import { create, verify, revokeToken } from "../services/jwt.js";
 import { loadEnv } from "../utils/env.js";
+import { getConfig } from "../services/appConfig.js";
+import { tokenVersionMatches } from "../middleware/auth.js";
 
 async function hashPassword(pw) {
   return Bun.password.hash(pw, {
@@ -18,51 +21,63 @@ async function hashPassword(pw) {
 }
 
 async function verifyPassword(pw, hash) {
-  // Old installs stored SHA-256 (64 hex chars, no $ prefix). Detect and handle.
+  // Old installations stored SHA-256 hashes (64 hex characters, no $ prefix).
+  // Detect them so legacy accounts can continue to authenticate.
   if (hash && hash.length === 64 && !hash.startsWith("$")) {
     const { createHash } = await import("crypto");
     const sha = createHash("sha256").update(pw).digest("hex");
+
     try {
       return timingSafeEqual(Buffer.from(sha), Buffer.from(hash));
     } catch {
       return false;
     }
   }
+
   return Bun.password.verify(pw, hash);
 }
 
-// Timing-safe string comparison for .env fallback (constant-time, no early exit)
+// Timing-safe string comparison for .env fallback credentials.
 function safeCompare(a, b) {
   try {
-    return timingSafeEqual(Buffer.from(String(a)), Buffer.from(String(b)));
+    const left = Buffer.from(String(a));
+    const right = Buffer.from(String(b));
+
+    // timingSafeEqual requires buffers of equal length.
+    if (left.length !== right.length) return false;
+
+    return timingSafeEqual(left, right);
   } catch {
     return false;
   }
 }
 
-// Brute-force lockout
-// Tracks failed login timestamps per username (lowercase).
-// 5 failures in 15 minutes = locked out.
 const loginAttempts = new Map();
-const MAX_FAILURES = 5;
-const LOCKOUT_MS = 15 * 60 * 1000;
 
 function checkLockout(username) {
   const key = username.toLowerCase().trim();
   const entry = loginAttempts.get(key);
+
   if (!entry) return false;
-  const cutoff = Date.now() - LOCKOUT_MS;
+
+  const cutoff = Date.now() - getConfig("security.lockoutMs");
   entry.times = entry.times.filter((t) => t > cutoff);
+
   if (entry.times.length === 0) {
     loginAttempts.delete(key);
     return false;
   }
-  return entry.times.length >= MAX_FAILURES;
+
+  return entry.times.length >= getConfig("security.maxFailures");
 }
 
 function recordFailure(username) {
   const key = username.toLowerCase().trim();
-  if (!loginAttempts.has(key)) loginAttempts.set(key, { times: [] });
+
+  if (!loginAttempts.has(key)) {
+    loginAttempts.set(key, { times: [] });
+  }
+
   loginAttempts.get(key).times.push(Date.now());
 }
 
@@ -70,8 +85,29 @@ function clearFailures(username) {
   loginAttempts.delete(username.toLowerCase().trim());
 }
 
+function loadUserForToken(payload) {
+  if (
+    !payload ||
+    typeof payload.userId !== "number" ||
+    typeof payload.username !== "string"
+  ) {
+    return null;
+  }
+
+  const found = db
+    .select()
+    .from(appUsers)
+    .where(eq(appUsers.id, payload.userId))
+    .get();
+
+  if (!found || found.username !== payload.username) return null;
+
+  return found;
+}
+
 export async function login(req, res) {
   const { username, password } = req.body || {};
+
   if (
     !username ||
     !password ||
@@ -82,6 +118,7 @@ export async function login(req, res) {
       .status(400)
       .json({ error: "Username and password are required." });
   }
+
   if (username.length > 128 || password.length > 256) {
     return res.status(400).json({ error: "Invalid credentials." });
   }
@@ -92,36 +129,35 @@ export async function login(req, res) {
       .json({ error: "Too many failed attempts. Please try again later." });
   }
 
-  // Try database user first
+  // Try the database user first.
   const user = db
     .select()
     .from(appUsers)
     .where(eq(appUsers.username, username.trim()))
     .get();
 
-  // Block local login for SSO users  - they must use the SSO button
-  if (user && user.authMethod === "sso") {
-    return res
-      .status(403)
-      .json({
-        error: "This account uses SSO. Please sign in with the SSO button.",
-      });
-  }
+  // There is currently no authMethod column in the schema or migration,
+  // and the SSO login button is disabled. Restore SSO-specific logic only
+  // after adding the schema field and its migration.
 
   if (user && (await verifyPassword(password, user.passwordHash))) {
-    // Upgrade legacy SHA-256 hash to argon2id so future logins are faster and safer
+    // Upgrade legacy SHA-256 hashes to Argon2id after successful login.
     if (user.passwordHash.length === 64 && !user.passwordHash.startsWith("$")) {
       const newHash = await hashPassword(password);
+
       db.update(appUsers)
         .set({ passwordHash: newHash })
         .where(eq(appUsers.id, user.id))
         .run();
     }
+
     clearFailures(username);
+
     db.update(appUsers)
       .set({ lastLoginAt: new Date().toISOString() })
       .where(eq(appUsers.id, user.id))
       .run();
+
     return res.json({
       username: user.username,
       role: user.role,
@@ -130,96 +166,181 @@ export async function login(req, res) {
         username: user.username,
         role: user.role,
         userId: user.id,
+        tokenVersion: user.tokenVersion,
       }),
     });
   }
 
-  // .env fallback (disabled when DISABLE_ENV_LOGIN=true)
+  // .env fallback (disabled when DISABLE_ENV_LOGIN=true).
   try {
     const env = loadEnv();
+
     if (!env.disableEnvLogin) {
       for (const sa of env.superAdmins) {
         if (
           safeCompare(username.trim(), sa.username) &&
           safeCompare(password, sa.password)
         ) {
+          // Recreate the account if missing, then issue a token containing
+          // userId because auth middleware uses it to identify the user.
+          let row = db
+            .select()
+            .from(appUsers)
+            .where(eq(appUsers.username, sa.username))
+            .get();
+
+          if (!row) {
+            const hash = await hashPassword(sa.password);
+
+            db.insert(appUsers)
+              .values({
+                username: sa.username,
+                passwordHash: hash,
+                role: "superadmin",
+                email: sa.email,
+                mustChangePassword: false,
+              })
+              .run();
+
+            row = db
+              .select()
+              .from(appUsers)
+              .where(eq(appUsers.username, sa.username))
+              .get();
+          }
+
+          if (!row) {
+            throw new Error("Unable to load the recovery account.");
+          }
+
           clearFailures(username);
+
+          db.update(appUsers)
+            .set({ lastLoginAt: new Date().toISOString() })
+            .where(eq(appUsers.id, row.id))
+            .run();
+
           return res.json({
-            username: username.trim(),
-            role: "superadmin",
-            token: create({ username: username.trim(), role: "superadmin" }),
+            username: row.username,
+            role: row.role,
+            mustChangePassword: row.mustChangePassword,
+            token: create({
+              username: row.username,
+              role: row.role,
+              userId: row.id,
+              tokenVersion: row.tokenVersion,
+            }),
           });
         }
       }
     }
-  } catch {}
+  } catch {
+    // Preserve the generic authentication failure response.
+  }
 
   recordFailure(username);
-  res.status(401).json({ error: "Invalid credentials." });
+
+  return res.status(401).json({ error: "Invalid credentials." });
 }
 
-// Logout: revoke the current token so it cannot be reused, which (via the
-// registered revoke hook) also clears this login's encrypted ClickHouse
-// credential sessions. Always succeeds from the client's perspective: even an
-// invalid or already-expired token means "you are logged out".
 export async function logout(req, res) {
   const authHeader = req.headers.authorization;
+
   if (authHeader?.startsWith("Bearer ")) {
     try {
       const payload = verify(authHeader.slice(7));
-      if (payload?.jti) revokeToken(payload.jti);
+      const found = loadUserForToken(payload);
+      if (!found) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      if (payload?.jti) {
+        revokeToken(payload.jti);
+      }
     } catch {
-      /* invalid/expired token: nothing to revoke, still a successful logout */
+      // Invalid or expired token: nothing to revoke.
     }
   }
-  res.json({ ok: true });
+
+  return res.json({ ok: true });
 }
 
 export async function changePassword(req, res) {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer "))
+
+  if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Unauthorized" });
+  }
+
   try {
     const payload = verify(authHeader.slice(7));
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword)
-      return res.status(400).json({ error: "Both passwords required." });
-    if (newPassword.length < 8)
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string" ||
+      !currentPassword ||
+      !newPassword
+    ) {
+      return res.status(400).json({ error: "Both passwords are required." });
+    }
+
+    if (newPassword.length < 8) {
       return res
         .status(400)
         .json({ error: "Password must be at least 8 characters." });
+    }
+
+    const found = loadUserForToken(payload);
+
+    if (!found || !tokenVersionMatches(payload, found)) {
+      return res.status(401).json({ error: "Invalid current password." });
+    }
+
     const user = db
       .select()
       .from(appUsers)
-      .where(eq(appUsers.username, payload.username))
+      .where(eq(appUsers.id, found.id))
       .get();
-    // Generic message for both "user not found" and "wrong password" (prevents enumeration)
-    if (!user) return res.status(401).json({ error: "Invalid credentials." });
-    if (!(await verifyPassword(currentPassword, user.passwordHash)))
-      return res.status(401).json({ error: "Invalid credentials." });
+
+    if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+      return res.status(401).json({ error: "Invalid current password." });
+    }
+
+    if (currentPassword === newPassword) {
+      return res
+        .status(400)
+        .json({ error: "New password must be different from the current one." });
+    }
+
     const newHash = await hashPassword(newPassword);
+
     db.update(appUsers)
       .set({
         passwordHash: newHash,
         mustChangePassword: false,
         updatedAt: new Date().toISOString(),
+        // This ends all sessions of the user, also the current one.
+        tokenVersion: sql`${appUsers.tokenVersion} + 1`,
       })
       .where(eq(appUsers.id, user.id))
       .run();
-    // Read back to confirm it actually persisted (SQLite WAL can be tricky)
+
+    // Read back to confirm the update persisted.
     const updated = db
       .select()
       .from(appUsers)
       .where(eq(appUsers.id, user.id))
       .get();
+
     if (!updated || updated.passwordHash !== newHash) {
       return res
         .status(500)
         .json({ error: "Password update failed to persist." });
     }
-    res.json({ ok: true });
+
+    return res.json({ ok: true });
   } catch {
-    res.status(401).json({ error: "Invalid token." });
+    return res.status(401).json({ error: "Invalid current password." });
   }
 }
-

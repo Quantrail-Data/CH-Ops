@@ -1,39 +1,103 @@
-/**
- * config.test.js - Unit tests for configuration controller
- *
- * Tests the getConnection endpoint which returns the current cluster
- * configuration. Uses mocked clusterUtils to verify that clusters are
- * fetched and returned correctly. Simple test ensuring the controller
- * returns the expected data structure.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+// config.test.js - unit tests for configuration controller
+// Contributors -> Kathirdhasan, Kathir Moorthy
 
+import { describe, it, expect, mock } from "bun:test";
+
+const CLUSTERS = [
+  {
+    id: "cluster1",
+    name: "Cluster-1",
+    nodes: [
+      {
+        name: "node1",
+        host: "10.0.0.1",
+        port: 8123,
+        user: "chops",
+        password: "super-secret",
+        secure: false,
+      },
+      {
+        name: "node2",
+        host: "10.0.0.2",
+        port: 8123,
+        user: "chops",
+        password: "",
+        secure: true,
+      },
+    ],
+  },
+];
 
 mock.module("../../src/backend/services/clusterUtils.js", () => ({
-  getAllClusters:  mock(() =>["node"]),
-  getNodeByName : mock(() =>true),
-  getClusterById : mock(() =>{}),
-  getClusterNodes:mock(()=>{}),
-  saveClusters : mock(() =>{}),
+  // Returns decrypted passwords, exactly as the real implementation does.
+  getAllClusters: mock(() => JSON.parse(JSON.stringify(CLUSTERS))),
+  maskClusterPasswords: (cluster) => ({
+    ...cluster,
+    nodes: (cluster.nodes || []).map(({ password, ...rest }) => ({
+      ...rest,
+      hasPassword: !!password,
+    })),
+  }),
+  getNodeByName: mock(() => true),
+  getClusterById: mock(() => {}),
+  getClusterNodes: mock(() => {}),
+  
+  saveClusters: mock(() => {}),
   getDefaultCluster: mock(() => null),
   migrateClusterData: mock(() => {}),
-  MAX_CLUSTERS:3,
-  MAX_TOTAL_NODES:18,
+  resolveTargetNode: mock(() => null),
+  MAX_CLUSTERS: 3,
+  MAX_TOTAL_NODES: 18,
 }));
 
-const { getConnection } =
-  await import("../../src/backend/controllers/config.js");
+// The controller now reads a feature flag and warms the capability cache, which
+// would pull in the Kubernetes services and the database at import time.
+mock.module("../../src/backend/services/capabilities.js", () => ({
+  ensureCapabilities: mock(async () => ({ probed: false, tables: null })),
+  unavailableFeatures: mock(() => []),
+  probeCapabilities: mock(async () => ({ probed: false })),
+  clearCapabilities: mock(() => {}),
+  hasCapability: mock(() => true),
+  explain: mock(() => ""),
+  probeSessionAffinity: mock(async () => ({ checked: false, sticky: null })),
+  classifyUsers: mock(async () => ({ checked: false, users: [] })),
+  rbacContext: mock(async () => null),
+  CAPABILITY: {},
+}));
 
-function mockReqRes(body = {}, params = {}) {
+// Mock database used by kubernetesEnabled()
+mock.module("../../src/backend/db/index.js", () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          get: () => ({ value: "true" }),
+        }),
+      }),
+    }),
+  },
+  appSettings: {
+    key: "key",
+  },
+  alertChannels:{},
+  clusters:{},
+}));
+
+const {
+  getConnection,
+  getCapabilities,
+  kubernetesEnabled
+} = await import("../../src/backend/controllers/config.js");
+
+
+function mockReqRes(role = "admin") {
   const req = {
-    body,
-    params,
+    body: {},
+    params: {},
     user: {
       username: "u1",
-      role: "admin",
+      role,
     },
     ip: "127.0.0.1",
   };
@@ -56,13 +120,124 @@ function mockReqRes(body = {}, params = {}) {
   return { req, res };
 }
 
-describe("Config JS file", () => {
-  it("check getConnnection function", async () => {
+describe("getConnection", () => {
+  it("returns the cluster and node topology", () => {
     const { req, res } = mockReqRes();
 
-    await getConnection(req, res);
+    getConnection(req, res);
+
+    expect(res.jsonData.clusters).toHaveLength(1);
+    const cluster = res.jsonData.clusters[0];
+    expect(cluster.id).toBe("cluster1");
+    expect(cluster.name).toBe("Cluster-1");
+    expect(cluster.nodes).toHaveLength(2);
+    expect(cluster.nodes[0].host).toBe("10.0.0.1");
+    expect(cluster.nodes[0].port).toBe(8123);
+    expect(cluster.nodes[0].user).toBe("chops");
+    expect(cluster.nodes[1].secure).toBe(true);
+  });
+
+  it("never sends a node password", () => {
+    const { req, res } = mockReqRes();
+
+    getConnection(req, res);
+
+    for (const node of res.jsonData.clusters[0].nodes) {
+      expect(node.password).toBeUndefined();
+    }
+    // Belt and braces: no password value anywhere in the serialized payload.
+    expect(JSON.stringify(res.jsonData)).not.toContain("super-secret");
+  });
+
+  it("reports whether a password is set without revealing it", () => {
+    const { req, res } = mockReqRes();
+
+    getConnection(req, res);
+
+    const [withPassword, withoutPassword] = res.jsonData.clusters[0].nodes;
+    expect(withPassword.hasPassword).toBe(true);
+    expect(withoutPassword.hasPassword).toBe(false);
+  });
+
+  it("masks for a readonly user too", () => {
+    const { req, res } = mockReqRes("readonly");
+
+    getConnection(req, res);
+
+    expect(JSON.stringify(res.jsonData)).not.toContain("super-secret");
+    expect(res.jsonData.clusters[0].nodes[0].hasPassword).toBe(true);
+  });
+});
+
+describe("getCapabilities", () => {
+  it("returns capability information", async () => {
+    const { req, res } = mockReqRes();
+
+    req.params.clusterId = CLUSTERS[0].id;
+
+    await getCapabilities(req, res);
+
+    expect(res.statusCode).toBe(200);
+
     expect(res.jsonData).toEqual({
-    clusters:["node"]
+      probed: false,
+      deployment: undefined,
+      version:null,
+      unavailable: [],
+    });
+  });
+
+  it("returns 500 when capability probe fails", async () => {
+    const { ensureCapabilities } = await import(
+      "../../src/backend/services/capabilities.js"
+    );
+
+    ensureCapabilities.mockImplementationOnce(async () => {
+      throw new Error("Probe failed");
+    });
+
+    const { req, res } = mockReqRes();
+
+    req.params.clusterId = CLUSTERS[0].id;
+
+    await getCapabilities(req, res);
+
+    expect(res.statusCode).toBe(500);
+    expect(res.jsonData).toEqual({
+      error: "Probe failed",
     });
   });
 });
+
+describe("kubernetesEnabled", () => {
+  it("returns true when setting is true", () => {
+    const result = kubernetesEnabled();
+
+    expect(result).toBe(true);
+  });
+
+  it("returns false when setting value is false", async () => {
+    const { db } = await import("../../src/backend/db/index.js");
+
+    db.select = () => ({
+      from: () => ({
+        where: () => ({
+          get: () => ({ value: "false" }),
+        }),
+      }),
+    });
+
+    expect(kubernetesEnabled()).toBe(false);
+  });
+
+  it("returns true when database throws an error", async () => {
+    const { db } = await import("../../src/backend/db/index.js");
+
+    db.select = () => {
+      throw new Error("Database error");
+    };
+
+    expect(kubernetesEnabled()).toBe(true);
+  });
+});
+

@@ -21,11 +21,17 @@ function ToastTrigger() {
   );
 }
 
+// Sonner adds a new toast on the next timer tick, so let that tick run.
+function showPendingToasts() {
+  act(() => vi.advanceTimersByTime(1));
+}
+
 describe('Toast', () => {
   it('shows success toast', () => {
     vi.useFakeTimers();
     render(<ToastProvider><ToastTrigger /></ToastProvider>);
     act(() => screen.getByText('S').click());
+    showPendingToasts();
     expect(screen.getByText('Done!')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(5000));
     vi.useRealTimers();
@@ -35,6 +41,7 @@ describe('Toast', () => {
     vi.useFakeTimers();
     render(<ToastProvider><ToastTrigger /></ToastProvider>);
     act(() => screen.getByText('E').click());
+    showPendingToasts();
     expect(screen.getByText('Fail!')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(5000));
     vi.useRealTimers();
@@ -44,6 +51,7 @@ describe('Toast', () => {
     vi.useFakeTimers();
     render(<ToastProvider><ToastTrigger /></ToastProvider>);
     act(() => { screen.getByText('S').click(); screen.getByText('W').click(); });
+    showPendingToasts();
     expect(screen.getByText('Done!')).toBeInTheDocument();
     expect(screen.getByText('Warn!')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(5000));
@@ -54,6 +62,7 @@ describe('Toast', () => {
     vi.useFakeTimers();
     render(<ToastProvider><ToastTrigger /></ToastProvider>);
     act(() => screen.getByText('I').click());
+    showPendingToasts();
     expect(screen.getByText('Info!')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(11000));
     expect(screen.queryByText('Info!')).toBeNull();
@@ -87,23 +96,23 @@ describe('ConfirmModal', () => {
     expect(screen.getByText('Yes, delete')).toBeInTheDocument();
   });
 
-  it('applies danger class when danger=true', () => {
+  it('uses the danger button when danger=true', () => {
     render(<ConfirmModal title="T" message="M" onConfirm={() => {}} onCancel={() => {}} danger confirmText="Delete" />);
-    expect(screen.getByText('Delete').className).toContain('btn-danger');
+    expect(screen.getByText('Delete').closest('button')).toHaveAttribute('data-variant', 'danger');
   });
 
-  it('has ARIA dialog role', () => {
+  it('has the ARIA alertdialog role', () => {
     render(<ConfirmModal title="T" message="M" onConfirm={() => {}} onCancel={() => {}} />);
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 
   it('disables confirm button when confirmDisabled is true', () => {
     render(<ConfirmModal title="T" message="M" onConfirm={() => {}} onCancel={() => {}} confirmDisabled={true} />);
-    expect(screen.getByText('Confirm').disabled).toBe(true);
+    expect(screen.getByText('Confirm').closest('button').disabled).toBe(true);
   });
 
   it('enables confirm button when confirmDisabled is false', () => {
     render(<ConfirmModal title="T" message="M" onConfirm={() => {}} onCancel={() => {}} confirmDisabled={false} />);
-    expect(screen.getByText('Confirm').disabled).toBe(false);
+    expect(screen.getByText('Confirm').closest('button').disabled).toBe(false);
   });
 });

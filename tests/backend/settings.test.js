@@ -16,20 +16,59 @@ const fakeDB = {
   settings: [],
 };
 
-const appSettings = {};
+const appSettings = {
+  key: { key: "key" },
+  value: { key: "value" },
+  category: { key: "category" },
+  id: { key: "id" },
+};
+
+const eq = (field, value) => {
+  return {
+    field: field.key,
+    value: value,
+  };
+};
+
+function extractCondition(cond) {
+  if (!cond) return null;
+
+  if (cond.field && cond.value !== undefined) {
+    return { field: cond.field, value: cond.value };
+  }
+
+  if (Array.isArray(cond.queryChunks)) {
+    let fieldName = null;
+    let value = undefined;
+
+    for (const chunk of cond.queryChunks) {
+      if (chunk && typeof chunk === "object" && chunk.key) {
+        fieldName = chunk.key;
+      } else if (chunk !== undefined && chunk !== null && typeof chunk !== "object") {
+        value = chunk;
+      } else if (chunk && chunk.value !== undefined && !fieldName) {
+        value = chunk.value;
+      }
+    }
+
+    if (fieldName && value !== undefined) {
+      return { field: fieldName, value };
+    }
+  }
+
+  return null;
+}
 
 function createQuery() {
   const data = fakeDB.settings;
 
   return {
     where: (cond) => {
+      const parsed = extractCondition(cond);
       let filtered = data;
 
-      if (cond?.field === "key") {
-        filtered = data.filter((s) => s.key === cond.value);
-      }
-      if (cond?.field === "category") {
-        filtered = data.filter((s) => s.category === cond.value);
+      if (parsed) {
+        filtered = data.filter((s) => s[parsed.field] === parsed.value);
       }
 
       return {
@@ -67,15 +106,17 @@ const db = {
     set: (v) => ({
       where: (cond) => ({
         run: () => {
-          const idx = fakeDB.settings.findIndex((s) => {
-            return s.id === cond.value || s.key === cond.value;
-          });
-
-          if (idx !== -1) {
-            fakeDB.settings[idx] = {
-              ...fakeDB.settings[idx],
-              ...v,
-            };
+          const parsed = extractCondition(cond);
+          if (parsed) {
+            for (let i = 0; i < fakeDB.settings.length; i++) {
+              if (fakeDB.settings[i][parsed.field] === parsed.value) {
+                fakeDB.settings[i] = {
+                  ...fakeDB.settings[i],
+                  ...v,
+                };
+                break;
+              }
+            }
           }
         },
       }),
@@ -85,11 +126,12 @@ const db = {
   delete: () => ({
     where: (cond) => ({
       run: () => {
-        const key = cond.value;
-
         const before = fakeDB.settings.length;
+        const parsed = extractCondition(cond);
 
-        fakeDB.settings = fakeDB.settings.filter((s) => s.key !== key);
+        if (parsed) {
+          fakeDB.settings = fakeDB.settings.filter((s) => s[parsed.field] !== parsed.value);
+        }
 
         return {
           changes: before - fakeDB.settings.length,
@@ -112,6 +154,11 @@ mock.module("../../src/backend/db/index.js", () => ({
   alertRuleChannels: {},
   dashboards:{},
   charts:{},
+  // clusterUtils imports these, so a suite loading the real module after this
+  // one needs them present.
+  clusters: {},
+  clusterNodes: {},
+  k8sConnections: {},
 }));
 
 
@@ -138,7 +185,7 @@ describe("Settings Controller", () => {
 
     const res = { json: jsonMock };
 
-    listSettings({ query: {} }, res);
+    listSettings({ query: {}, user: { role: "admin" } }, res);
 
     expect(jsonMock).toHaveBeenCalled();
   });
@@ -146,7 +193,7 @@ describe("Settings Controller", () => {
   it("getSetting returns 404 if missing", () => {
     const res = { status: statusMock };
 
-    getSetting({ params: { key: "missing" } }, res);
+    getSetting({ params: { key: "missing" }, user: { role: "admin" } }, res);
 
     expect(statusMock).toHaveBeenCalledWith(404);
   });
@@ -160,7 +207,7 @@ describe("Settings Controller", () => {
 
     const res = { json: jsonMock };
 
-    getSetting({ params: { key: "theme" } }, res);
+    getSetting({ params: { key: "theme" }, user: { role: "admin" } }, res);
 
     expect(jsonMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -169,19 +216,57 @@ describe("Settings Controller", () => {
     );
   });
 
+  it("getSetting refuses the JWT signing key to every role", () => {
+    fakeDB.settings.push({ key: "jwt.currentSecret", value: "secret", category: "jwt" });
+    for (const role of ["readonly", "editor", "admin", "superadmin"]) {
+      statusMock.mockClear();
+      const res = { status: statusMock };
+      getSetting({ params: { key: "jwt.currentSecret" }, user: { role } }, res);
+      expect(statusMock).toHaveBeenCalledWith(403);
+    }
+  });
+
+  it("getSetting refuses a general key to an editor", () => {
+    fakeDB.settings.push({ key: "theme", value: "dark", category: "ui" });
+    const res = { status: statusMock };
+    getSetting({ params: { key: "theme" }, user: { role: "editor" } }, res);
+    expect(statusMock).toHaveBeenCalledWith(403);
+  });
+
+  it("getSetting returns query bookmarks to a readonly user", () => {
+    fakeDB.settings.push({ key: "query_bookmarks:7", value: "[]", category: "general" });
+    const res = { json: jsonMock };
+    getSetting({ params: { key: "query_bookmarks" }, user: { role: "readonly", userId: 7 } }, res);
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "query_bookmarks:7" }),
+    );
+  });
+
+  it("listSettings never lists the JWT keys", () => {
+    fakeDB.settings.push({ key: "jwt.currentSecret", value: "secret", category: "jwt" });
+    fakeDB.settings.push({ key: "query_bookmarks", value: "[]", category: "general" });
+    for (const role of ["readonly", "admin"]) {
+      jsonMock.mockClear();
+      listSettings({ query: {}, user: { role } }, { json: jsonMock });
+      const keys = jsonMock.mock.calls[0][0].map((row) => row.key);
+      expect(keys).not.toContain("jwt.currentSecret");
+      expect(keys).toContain("query_bookmarks");
+    }
+  });
+
   it("upsertSetting creates setting", () => {
     const req = {
-      params: { key: "theme" },
+      params: { key: "query_bookmarks" },
       body: {
         value: "dark",
         category: "ui",
         audit: {},
       },
-      user: { role: "admin" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
-    const res = { json: jsonMock };
+    const res = { json: jsonMock, status: statusMock };
 
     upsertSetting(req, res);
 
@@ -190,34 +275,37 @@ describe("Settings Controller", () => {
   });
 
   it("upsertSetting updates existing setting", () => {
+    const existingId = 12345;
     fakeDB.settings.push({
-      id: 1,
-      key: "theme",
+      id: existingId,
+      key: "query_bookmarks:7",
       value: "light",
       category: "ui",
     });
 
     const req = {
-      params: { key: "theme" },
+      params: { key: "query_bookmarks" },
       body: {
         value: "dark",
         category: "ui",
         audit: {},
       },
-      user: { role: "admin" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
-    const res = { json: jsonMock };
+    const res = { json: jsonMock, status: statusMock };
 
     upsertSetting(req, res);
 
-    expect(fakeDB.settings[0].value).toBe("light");
+    const updated = fakeDB.settings.find(s => s.id === existingId);
+    expect(updated.value).toBe("dark");
+    expect(jsonMock).toHaveBeenCalled();
   });
 
   it("protected key blocks non-admin", () => {
     const req = {
-      params: { key: "backup_profiles" },
+      params: { key: "cluster.nodes" },
       body: {
         value: {},
         audit: {},
@@ -235,23 +323,28 @@ describe("Settings Controller", () => {
 
   it("deleteSetting removes setting", () => {
     fakeDB.settings.push({
-      key: "theme",
+      id: 99999,
+      key: "query_bookmarks:7",
       value: "dark",
     });
 
+    const beforeLength = fakeDB.settings.length;
+
     const req = {
-      params: { key: "theme" },
+      params: { key: "query_bookmarks" },
       body: { audit: {} },
-      user: { role: "admin" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
-    const res = { json: jsonMock };
+    const res = { json: jsonMock, status: statusMock };
 
     deleteSetting(req, res);
 
+    const afterLength = fakeDB.settings.length;
+    expect(afterLength).toBe(beforeLength - 1);
     expect(jsonMock).toHaveBeenCalledWith({
-      deleted: false,
+      deleted: true,
     });
   });
 
@@ -286,16 +379,17 @@ describe("Settings Controller", () => {
       alertRuleChannels: {},
       dashboards: {},
       charts: {},
+      clusters:{},
     }));
 
     const req = {
-      params: { key: "theme" },
+      params: { key: "query_bookmarks" },
       body: { value: "dark", audit: {} },
-      user: { role: "admin" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
-    const res = { status: statusMock };
+    const res = { status: statusMock, json: jsonMock };
 
     upsertSetting(req, res);
 
@@ -304,6 +398,13 @@ describe("Settings Controller", () => {
 
   it("deleteSetting handles DB error", () => {
     const badDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            get: () => null,
+          }),
+        }),
+      }),
       delete: () => {
         throw new Error("DB crash");
       },
@@ -318,16 +419,17 @@ describe("Settings Controller", () => {
       alertRuleChannels: {},
       dashboards: {},
       charts: {},
+      clusters:{},
     }));
 
     const req = {
-      params: { key: "theme" },
+      params: { key: "query_bookmarks" },
       body: { audit: {} },
-      user: { role: "admin" },
+      user: { role: "user", userId: 7 },
       ip: "127.0.0.1",
     };
 
-    const res = { status: statusMock };
+    const res = { status: statusMock, json: jsonMock };
 
     deleteSetting(req, res);
 

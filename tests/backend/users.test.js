@@ -1,17 +1,7 @@
-/**
- * users.test.js - Unit tests for user management controller
- *
- * Tests user CRUD operations with RBAC enforcement. Covers listing users,
- * creating users (admin/superadmin only, duplicate username rejection,
- * superadmin creation restricted), updating users (reset password, email,
- * role changes with hierarchy checks), deleting users (self-deletion
- * blocked, higher role deletion blocked). Middleware tests for requireAdmin,
- * requireEditor, and requireSuperAdmin. Edge cases like invalid roles,
- * DB errors, and 404 responses are covered.
- *
- * Author: Kathir Moorthy
- * Copyright (C) 2026 Quantrail™ Data Private Limited
- */
+// users.test.js - unit tests for user management controller
+// Contributors - Kathirdhasan
+// Copyright (C) 2026 Quantrail™ Data Private Limited
+
 import { describe, it, expect, beforeEach, beforeAll, mock } from "bun:test";
 
 const fakeDB = {
@@ -25,6 +15,7 @@ function createQuery() {
 
   return {
     where: (cond) => {
+      cond = eq(cond.queryChunks[1], cond.queryChunks[3]);
       let filtered = data;
 
       if (cond?.field === "id") {
@@ -33,6 +24,10 @@ function createQuery() {
 
       if (cond?.field === "username") {
         filtered = data.filter((u) => u.username === cond.value);
+      }
+
+      if (cond?.field === "email") {
+        filtered = data.filter((u) => u.email === cond.value);
       }
 
       return {
@@ -51,6 +46,8 @@ function createQuery() {
 }
 
 const db = {
+  transaction: (callback) => callback(db),
+
   select: () => ({
     from: () => createQuery(),
   }),
@@ -71,7 +68,8 @@ const db = {
     set: (u) => ({
       where: (cond) => ({
         run: () => {
-          const idx = fakeDB.users.findIndex((x) => x.id === cond.value);
+          const { value } = eq(cond.queryChunks[1], cond.queryChunks[3]);
+          const idx = fakeDB.users.findIndex((x) => x.id === value);
           if (idx !== -1) {
             fakeDB.users[idx] = {
               ...fakeDB.users[idx],
@@ -86,7 +84,8 @@ const db = {
   delete: () => ({
     where: (cond) => ({
       run: () => {
-        fakeDB.users = fakeDB.users.filter((u) => u.id !== cond.value);
+        const { value } = eq(cond.queryChunks[1], cond.queryChunks[3]);
+        fakeDB.users = fakeDB.users.filter((u) => u.id !== value);
         return { changes: 1 };
       },
     }),
@@ -108,7 +107,6 @@ let updateUser;
 let deleteUser;
 let requireAdmin;
 let requireEditor;
-let requireSuperAdmin;
 
 // Register mocks and load the controller inside beforeAll so that
 // mock.module() is guaranteed to run before the dynamic import is
@@ -117,13 +115,25 @@ let requireSuperAdmin;
 beforeAll(async () => {
   mock.module("../../src/backend/db/index.js", () => ({
     db,
-    appUsers: {},
+    rawSqlite: {},
+    appUsers: {
+      id: "id",
+      username: "username",
+      email: "email",
+      createdAt: "createdAt",
+      tokenVersion: "tokenVersion",
+    },
     alertRules: {},
     alertChannels: {},
     alertRuleChannels: {},
     appSettings: {},
     dashboards: {},
     charts: {},
+    // clusterUtils imports these, so a suite loading the real module after this
+    // one needs them present.
+    clusters: {},
+    clusterNodes: {},
+    k8sConnections: {},
   }));
 
   mock.module("../../src/backend/services/notifier.js", () => ({
@@ -138,7 +148,6 @@ beforeAll(async () => {
   deleteUser = mod.deleteUser;
   requireAdmin = mod.requireAdmin;
   requireEditor = mod.requireEditor;
-  requireSuperAdmin = mod.requireSuperAdmin;
 });
 
 describe("Users Controller", () => {
@@ -195,14 +204,15 @@ describe("Users Controller", () => {
     expect(statusMock).toHaveBeenCalledWith(400);
   });
 
-  it("createUser rejects duplicate username", async () => {
-    fakeDB.users.push({ id: 1, username: "john" });
+  it("createUser rejects duplicate email", async () => {
+    fakeDB.users.push({ id: 1, username: "john", email: "test@gmail.com" });
 
     await createUser(
       {
         user: { role: "admin" },
         body: {
-          username: "john",
+          username: "jane",
+          email: "test@gmail.com",
           audit: {},
         },
       },
@@ -213,12 +223,14 @@ describe("Users Controller", () => {
   });
 
   it("createUser blocks superadmin creation by admin", async () => {
+    console.log(fakeDB);
     await createUser(
       {
         user: { role: "admin" },
         body: {
           username: "root",
           role: "superadmin",
+          email: "test@gmail.com",
           audit: {},
         },
       },
@@ -266,7 +278,7 @@ describe("Users Controller", () => {
         params: { id: "1" },
         user: { userId: 2, role: "admin" },
         body: {
-          resetPassword: true,
+          resetPassword: false,
           audit: {},
         },
       },
@@ -303,11 +315,17 @@ describe("Users Controller", () => {
           role: "readonly",
           audit: {},
         },
+        protocol: "https",
+        get: () => "chops.example.com",
       },
       { status: statusMock, json: jsonMock },
     );
 
     expect(fakeDB.users.length).toBe(1);
+    expect(statusMock).toHaveBeenCalledWith(201);
+    expect(jsonMock.mock.calls.at(-1)[0].setPasswordUrl).toMatch(
+      /\/#\/set-password\?token=/,
+    );
   });
 
   it("check user admin counts ", async () => {
@@ -320,6 +338,8 @@ describe("Users Controller", () => {
           role: "superadmin",
           audit: {},
         },
+        protocol: "https",
+        get: () => "chops.example.com",
       },
       { status: statusMock, json: jsonMock },
     );
@@ -482,8 +502,8 @@ describe("Users Controller", () => {
     expect(nextMock).toHaveBeenCalled();
   });
 
-  it("requireSuperAdmin allows admin", () => {
-    requireSuperAdmin({ user: { role: "admin" } }, {}, nextMock);
+  it("requireAdmin allows admin", () => {
+    requireAdmin({ user: { role: "admin" } }, {}, nextMock);
     expect(nextMock).toHaveBeenCalled();
   });
 
@@ -497,6 +517,7 @@ describe("Users Controller", () => {
         user: { role: "admin" },
         body: {
           username: "john",
+          email: "test@gmail.com",
           audit: {},
         },
         ip: "127.0.0.1",

@@ -1,8 +1,14 @@
 // Copyright (C) 2026 Quantrail™ Data Private Limited
-// @Kathir -> Kathir Moorthy
+// Contributors -> Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Interactive SQL editor featuring syntax highlighting, query execution, and schema auto-completion.
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { format } from "sql-formatter";
@@ -14,30 +20,94 @@ import {
   editorDisconnect,
 } from "../../utils/api.js";
 import { useToast } from "../layout/Toast.jsx";
-import { useConnection, useTheme } from "../../App.jsx";
+import { useAuth, useConnection, useTheme } from "../../App.jsx";
+import {
+  useRbacContext,
+  SessionAffinityWarning,
+} from "../rbac/OnClusterBanner.jsx";
 import DataTable from "../layout/DataTable.jsx";
 import CostEstimatePanel from "./CostEstimatePanel.jsx";
+import QueryPreviewPanel from "./QueryPreviewPanel.jsx";
 import ModeSelect from "./ModeSelect.jsx";
-import { highlightSQL } from "../../utils/sqlHighlight.js";
+import ExportWizard from "./ExportWizard.jsx";
+import ShareDialog from "./ShareDialog.jsx";
+import BookmarkExport from "./BookmarkExport.jsx";
+import ConfirmDialog from "./ConfirmDialog.jsx";
+import MaxRowsControl, {
+  MAX_ROWS_KEY,
+  MAX_ROWS_WARN,
+  clampMaxRows,
+  readMaxRows,
+} from "./MaxRowsControl.jsx";
+import { readShareFromHash } from "../../utils/shareLink.js";
+import "./exportWizard.css";
 import { isDataQuery, analyzeSql } from "../../../shared/sqlClassify.js";
+import { normalizeForExport } from "../../../shared/sqlExport.js";
+import { findParameters, hasValue } from "../../../shared/sqlParams.js";
+import ParamStrip from "./ParamStrip.jsx";
+import QueryTabs from "./QueryTabs.jsx";
+import { useQueryTabs } from "./useQueryTabs.js";
+import SqlEditor from "./SqlEditor.jsx";
+import { buildCompletionOptions, loadFunctionRows } from "./sqlEditorSetup.js";
 import {
   runEstimate,
   lookupMemoryUsage,
   fmtBytes,
 } from "../../utils/costEstimator.js";
 import { initChart, disposeChart } from "../../utils/echarts.js";
+import { themeColor } from "../../utils/theme.js";
 import { treeSizeTB } from "../../utils/treeChart.js";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
 import { isValidSizeSqlQuery } from "../../utils/querySize.js";
+import ExplainOptions from "./ExplainOptions.jsx";
+import {
+  composeStatement,
+  settingsFor,
+  isVersion267OrLater,
+} from "./explainOptions.js";
 
-// VITE_SELECTEDAID_DBS=aiselectedid
-const SELECTLSKEY = import.meta.env.VITE_SELECTEDAID_DBS;
+import darkLogo from "../../assets/chops-dark.svg";
+import lightLogo from "../../assets/chops-light.svg";
+import AIDDLButton from "../common/AIDDLButton.jsx";
+import AIDDLModelComponent from "../common/AIDDLModelComponent.jsx";
+import { Button, Input, Notice } from "../ui/index.jsx";
+import { Modal } from "../ui/modal.jsx";
+import { fullChartDataURL } from "../common/ChartToolbar.jsx";
+
+const DDLTABLE_DATABASE_KEY = "chops-ddl-details";
 
 // Query history - stored in localStorage, capped at 100 entries
 const HISTORY_KEY = "chops_query_history";
 const HISTORY_MAX = 100;
+
+// Parameter values, keyed by variable name and shared across queries, so a
+// value typed once is prefilled wherever the same name appears.
+
+// Editor height, dragged by the splitter below the editor.
+
+const EDITOR_HEIGHT_KEY = "chops_editor_height";
+const EDITOR_HEIGHT_MIN = 90;
+const EDITOR_HEIGHT_DEFAULT = 240;
+
+// A running export outlives the browser:
+const ACTIVE_EXPORT_KEY = "chops_active_export";
+
+function forgetExport() {
+  try {
+    localStorage.removeItem(ACTIVE_EXPORT_KEY);
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
+}
+
+function getEditorHeight() {
+  const n = Number(localStorage.getItem(EDITOR_HEIGHT_KEY));
+  return Number.isFinite(n) && n >= EDITOR_HEIGHT_MIN
+    ? n
+    : EDITOR_HEIGHT_DEFAULT;
+}
 
 const LOADING_PHRASES = [
   "Generating ClickHouse query...",
@@ -51,6 +121,26 @@ const LOADING_PHRASES = [
   "Aggregating billions of rows of thought...",
   "Synthesizing blazing-fast SQL...",
 ];
+
+function responseBodyStructTableDatabase(genTables) {
+  if (!genTables) return [];
+
+  let result = [];
+  Object.keys(genTables)?.forEach((_v) => {
+    const tables = genTables[_v];
+    if (tables) {
+      tables?.forEach((_t) => {
+        if (_t?.isSelected) {
+          result.push({
+            database: _v,
+            table: _t?.table,
+          });
+        }
+      });
+    }
+  });
+  return result ? result : [];
+}
 
 function getHistory() {
   try {
@@ -66,25 +156,34 @@ function addHistory(entry) {
   if (h.length > HISTORY_MAX) h.length = HISTORY_MAX;
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
 function clearHistory() {
   try {
     localStorage.removeItem(HISTORY_KEY);
-  } catch {}
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
 
-// Export helpers - trigger browser download from in-memory data
-function downloadBlob(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+// To delete the single history, instead of clear all.
+function deleteHistory(id) {
+  const h = getHistory();
+  const index = h.findIndex((his) => his.id === id);
+  if (index === -1) return;
+  h.splice(index, 1);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  } catch {
+    // The browser can block storage. Continue without it.
+  }
 }
+
+// Export helpers - trigger browser download from in-memory data function
+// downloadBlob(content,
 
 function engineIcon(engine) {
   if (!engine) return "ti-table";
@@ -146,60 +245,620 @@ function engineIcon(engine) {
 }
 
 export default function QueryEditor({
+  // False while Comparison mode is showing. Both panes stay mounted, so the
+  // hidden one must not answer keyboard shortcuts.
+  active = true,
   onSidebarStateChange,
   mode,
   onModeChange,
 }) {
   const toast = useToast();
-  const navigate = useNavigate();
   const {
     selectedClusterId,
     selectedNode,
-    connected,
     port,
-    clusters,
-    clusterName,
-    user,
-    password,
     nodeName,
+    serverVersion,
   } = useConnection();
+
+  // Session affinity for the selected cluster. Null outside Kubernetes.
+  const affinityCtx = useRbacContext();
+  // const serverVersion = "26.3.9.8" || capabilities?.serverVersion || null ;
+  // Everything that used to be a useState above now belongs to a tab. The
+  // aliases below keep the names the rest of this file already uses.
+  const tabs_ = useQueryTabs();
+  const {
+    tabs,
+    activeId,
+    activeTab,
+    runtime,
+    activeRuntime,
+    canAddTab,
+    updateTab,
+    setRuntime,
+    setParam,
+  } = tabs_;
+
+  const sql = activeTab.sql;
+
+  const setSql = useCallback(
+    (v) => {
+      updateTab(activeId, {
+        sql: typeof v === "function" ? v(sql) : v,
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Kept on purpose. Removing it would change when this runs.
+    [activeId, sql, updateTab, tabs],
+  );
+
+  const {
+    result,
+    resultCols,
+    totalRows,
+    truncated,
+    error,
+    successMsg,
+    queryStats,
+    memoryUsage,
+    lastQueryId,
+    featureQueryId,
+    estimateResult,
+    estimating,
+    graphData,
+    graphTitle,
+    running,
+  } = activeRuntime;
+
+  // Setters bound to the ACTIVE tab, for the render tree.
+  const rt = useCallback(
+    (patch) => setRuntime(activeId, patch),
+    [activeId, setRuntime],
+  );
+  const setResult = useCallback((v) => rt({ result: v }), [rt]);
+  const setResultCols = useCallback((v) => rt({ resultCols: v }), [rt]);
+  const setSuccessMsg = useCallback((v) => rt({ successMsg: v }), [rt]);
+  const setQueryStats = useCallback((v) => rt({ queryStats: v }), [rt]);
+  const setMemoryUsage = useCallback((v) => rt({ memoryUsage: v }), [rt]);
+  const setLastQueryId = useCallback((v) => rt({ lastQueryId: v }), [rt]);
+  const setFeatureQueryId = useCallback((v) => rt({ featureQueryId: v }), [rt]);
+  const setGraphData = useCallback((v) => rt({ graphData: v }), [rt]);
+
+  const paramValues = activeTab.params;
+
+  /* A saved query, ready to drop into whatever is being written. */
+  const asSubquery = useCallback((text) => {
+    const one = normalizeForExport(text || "");
+    return one ? `( ${one} ) ` : "";
+  }, []);
+
+  /* Start a drag carrying plain text. */
+  const startTextDrag = useCallback((e, text, fromPanel = false) => {
+    if (!text) return;
+    e.dataTransfer.setData("text/plain", text);
+    e.dataTransfer.effectAllowed = "copy";
+    // The panel is a modal overlay AT zIndex 400, directly over the editor.
+    if (fromPanel) setPanelDragging(true);
+  }, []);
+
+  const endTextDrag = useCallback((e) => {
+    setPanelDragging(false);
+    // Close the panel once the row has actually landed somewhere.
+    if (e?.dataTransfer?.dropEffect && e.dataTransfer.dropEffect !== "none") {
+      setPanel(null);
+    }
+  }, []);
+
+  /* Open a saved query in a NEW tab rather than over the top of your work. */
+  const openInNewTab = useCallback(
+    (name, text, bookmark) => {
+      const created = tabs_.addTab({ name, sql: text || "" });
+      if (created && bookmark?.defaults) {
+        for (const [k, v] of Object.entries(bookmark.defaults)) {
+          setParam(created.id, k, v);
+        }
+      }
+      setPanel(null);
+      return created;
+    },
+    [tabs_, setParam],
+  );
+
+  const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
+
+  // A shared link, opened into its own tab so whatever the recipient already
+  // had open is untouched.
+  const sharedOpened = useRef(false);
+
+  useEffect(() => {
+    if (sharedOpened.current) return;
+
+    const shared = readShareFromHash();
+
+    if (!shared) return;
+
+    sharedOpened.current = true;
+
+    const created = tabs_.addTab({
+      sql: shared.sql,
+      params: shared.params || undefined,
+    });
+
+    if (!created) {
+      // At the tab cap. Say so rather than dropping the link silently.
+      toast.warning("Close a tab to open the shared query.");
+      sharedOpened.current = false;
+      return;
+    }
+
+    setSql(created?.sql);
+    try {
+      window.history.replaceState(null, "", "/#/editor/query");
+    } catch {
+      // The URL change is optional.
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
+  }, []);
+
+  const setParamValue = useCallback(
+    (name, value) => setParam(activeId, name, value),
+    [activeId, setParam],
+  );
+  const explainTicked = activeTab.explainTicked;
+  const ExplainOptionSelector = useMemo(
+    () => ({ type: activeTab.explainType }),
+    [activeTab.explainType],
+  );
+
+  // Live views of the collection, for doRun to read the tab it was asked to run
+  // rather than whichever one happens to be visible when it finishes.
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+  const doRunRef = useRef(null);
+
+  // Per tab, because a query finishing in one must not cancel the pending
+  // memory lookup of another. See hazard 1 in the design note.
+  const memoryTimers = useRef(new Map());
+  const [showLogo, setShowLogo] = useState(false);
   const [editorCreds, setEditorCreds] = useState(null);
+  const { auth } = useAuth();
   const editorConnected = !!editorCreds;
   const [connUser, setConnUser] = useState("");
   const [connPassword, setConnPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
-  const [connError, setConnError] = useState(null);
-  const textareaRef = useRef(null),
-    highlightRef = useRef(null),
-    selectedRef = useRef(null);
-  const [sql, setSql] = useState("SELECT version()");
+  const [, setConnError] = useState(null);
+  // The editor is a CodeMirror view now, reached through an imperative handle
+  // rather than three DOM refs.
+  const editorRef = useRef(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  // True while a row is being dragged out of the history or bookmarks panel.
+  const [panelDragging, setPanelDragging] = useState(false);
+  // The concurrent-run question.
+  const [runConfirm, setRunConfirm] = useState(null);
+  const [analyzeConfirm, setAnalyzeConfirm] = useState(null);
+  const [closeConfirm, setCloseConfirm] = useState(null);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(null);
+  const [onRefresh, setOnRefresh] = useState(false);
+  const [clearHistConfirmModal, setClearHistConfirmModal] = useState(false);
+
+  const [showDBModel, setShowDBModel] = useState(false);
+  const [genTables, setGenTables] = useState({});
+  const [estimateScore, setEstimateScore] = useState(null);
+  const [newSelection, setNewSelection] = useState([]);
+  const [isNewSelectAll, setIsNewSelectAll] = useState(false);
+  const [updateSelection, setUpdateSelection] = useState([]);
+  const [isUpdateSelectAll, setIsUpdateSelectAll] = useState(false);
+  const [dbLoading, setDBLoading] = useState({ flag: false, message: null });
+  const [alertMessage, setAlertMessage] = useState({
+    flag: false,
+    message: null,
+  });
+  const [apikey, setApiKey] = useState({
+    status: false,
+    id: null,
+    serviceName: null,
+    model: null,
+  });
+  const [, setApikeys] = useState([]);
+
+  useEffect(() => {
+    const fetchAPIKEY_Details = async () => {
+      try {
+        const { apiKey } = await apiFetch(`/api/qurioz/api-keys/active`);
+        const apiData = await apiFetch(`/api/qurioz/api-keys`);
+        setApikeys(apiData?.apiKeys);
+        setApiKey({
+          status: apiKey?.id ? true : false,
+          id: apiKey?.id || null,
+          serviceName: apiKey?.name || null,
+          model: apiKey?.model || null,
+        });
+      } catch {
+        setApiKey({
+          status: false,
+          id: null,
+          serviceName: null,
+        });
+      }
+    };
+
+    fetchAPIKEY_Details();
+  }, []);
+
+  useEffect(() => {
+    function setupDDLLS() {
+      const isThere = localStorage.getItem(DDLTABLE_DATABASE_KEY);
+      if (isThere) {
+        const { selectdbDDL, estimate } = JSON.parse(isThere);
+        setGenTables(selectdbDDL);
+        setEstimateScore(estimate);
+        return;
+      }
+
+      localStorage.setItem(
+        DDLTABLE_DATABASE_KEY,
+        JSON.stringify({ selectdbDDL: {}, estimate: null }),
+      );
+      setGenTables({});
+      setEstimateScore(null);
+      return;
+    }
+
+    setupDDLLS();
+  }, []);
+
+  function SelectTablehandler(db, table) {
+    const setter = { ...genTables };
+    setter[db] = setter[db]?.map((_v) => {
+      if (_v?.table === table) {
+        return { ..._v, isSelected: !_v?.isSelected };
+      }
+      return _v;
+    });
+    // SetterLSDDL(setter);
+    setGenTables(setter);
+  }
+
+  function selectAllHandler(type) {
+    if (type === "new") {
+      if (!isNewSelectAll) {
+        setNewSelection((prev) =>
+          prev?.map((_v) => ({ ..._v, isSelected: true })),
+        );
+        setIsNewSelectAll(true);
+        return;
+      }
+
+      setNewSelection((prev) =>
+        prev?.map((_v) => ({ ..._v, isSelected: false })),
+      );
+      setIsNewSelectAll(false);
+      return;
+    }
+    if (!isUpdateSelectAll) {
+      setUpdateSelection((prev) =>
+        prev?.map((_v) => ({ ..._v, isSelected: true })),
+      );
+      setIsUpdateSelectAll(true);
+      return;
+    }
+    setUpdateSelection((prev) =>
+      prev?.map((_v) => ({ ..._v, isSelected: false })),
+    );
+    setIsUpdateSelectAll(false);
+    return;
+  }
+
+  async function databaseSchemaSetterHandler(type) {
+    if (type === "refresh") {
+      setDBLoading({
+        flag: true,
+        message: "Refreshing the database schema ID. Please wait...",
+      });
+      try {
+        const req = updateSelection
+          ?.filter((_v) => _v?.isSelected)
+          ?.map((_v) => _v?.id);
+
+        const requestBody = JSON.stringify({
+          database_ids: req || [],
+        });
+
+        const responseRefresh = await apiFetch(
+          "/api/ai/database/refresh-schema",
+          {
+            method: "POST",
+            body: requestBody,
+          },
+        );
+        if (responseRefresh?.success) {
+          setUpdateSelection((prev) =>
+            prev?.map((_v) => ({
+              ..._v,
+              isSelected: false,
+            })),
+          );
+        }
+        setAlertMessage({
+          flag: true,
+          message: `Refreshing the database schema is completed successfully!`,
+        });
+        return;
+      } catch (err) {
+        setAlertMessage({
+          flag: true,
+          message: err?.message,
+        });
+      } finally {
+        setDBLoading({ flag: false, message: null });
+        isUpdateSelectAll && setIsUpdateSelectAll(false);
+        setTimeout(() => {
+          setAlertMessage({ flag: false, message: null });
+        }, 2000);
+      }
+    }
+    setDBLoading({
+      flag: true,
+      message: "Getting table information. Please wait…",
+    });
+    try {
+      const req = newSelection
+        ?.filter((_v) => _v?.isSelected)
+        ?.map((_v) => _v?.name);
+
+      const findDB =
+        Object.keys(genTables)?.length > 0
+          ? req?.filter((v) => {
+              const find = Object.keys(genTables)?.find((b) => b === v);
+
+              return find === undefined;
+            })
+          : req;
+
+      if (findDB?.length === 0) return;
+
+      const responseInsert = await apiFetch(
+        `/api/ai/tables?databases=${findDB?.join(",")}`,
+        {
+          method: "GET",
+        },
+      );
+
+      if (responseInsert?.tables) {
+        const { tables } = responseInsert;
+
+        const splitDatabaseTables = { ...genTables };
+        tables.forEach((_v) => {
+          const isFind = Object.keys(splitDatabaseTables).find(
+            (_key) => _key === _v?.database,
+          );
+          if (isFind) {
+            splitDatabaseTables[_v?.database] = [
+              ...splitDatabaseTables[_v?.database],
+              { isSelected: false, table: _v?.table },
+            ];
+          } else {
+            splitDatabaseTables[_v?.database] = [
+              { isSelected: false, table: _v?.table },
+            ];
+          }
+        });
+        setGenTables(splitDatabaseTables);
+        SetterLSDDL(splitDatabaseTables, estimateScore);
+      }
+    } catch (err) {
+      setAlertMessage({
+        flag: true,
+        message: err?.message,
+      });
+    } finally {
+      setDBLoading({ flag: false, message: null });
+      setTimeout(() => {
+        setAlertMessage({ flag: false, message: null });
+      }, 2000);
+      isNewSelectAll && setIsNewSelectAll(false);
+    }
+  }
+
+  async function GenerateDDL_EsitmateHandler() {
+    setDBLoading({
+      flag: true,
+      message: "Getting table information. Please wait…",
+    });
+    try {
+      const result = responseBodyStructTableDatabase(genTables);
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(genTables, tokensEstimated);
+    } catch (err) {
+      setAlertMessage({
+        flag: true,
+        message: err?.message,
+      });
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
+    }
+  }
+
+  function isEmptyTableAndDatabase() {
+    return Object.keys(genTables)?.length === 0;
+  }
+
+  async function DeleteDatabaseDDLHandler(db) {
+    setDBLoading({
+      flag: true,
+      message: "Deleting table and refreshing estimate information…",
+    });
+
+    const setter = { ...genTables };
+    delete setter[db];
+
+    try {
+      let result = [];
+      Object.keys(setter)?.forEach((_v) => {
+        const tables = genTables[_v];
+        if (tables) {
+          tables?.forEach((_t) => {
+            if (_t?.isSelected) {
+              result.push({
+                database: _v,
+                table: _t?.table,
+              });
+            }
+          });
+        }
+      });
+
+      setNewSelection((prev) =>
+        prev.map((_v) => {
+          const db = Object.keys(setter).find((_b) => _b === _v?.name);
+          if (!db) {
+            return { ..._v, isSelected: false };
+          }
+          return _v;
+        }),
+      );
+
+      if (!result) {
+        return;
+      }
+
+      const ddl_estimate_res = await apiFetch("/api/ai/ddl-estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          tables: result,
+        }),
+      });
+
+      const { tokensEstimated } = ddl_estimate_res;
+      setEstimateScore(tokensEstimated);
+      SetterLSDDL(setter, tokensEstimated);
+      setGenTables(setter);
+    } catch (err) {
+      if (err?.message === "empty") {
+        SetterLSDDL(setter, 0);
+        setGenTables(setter);
+        setEstimateScore(0);
+      } else {
+        setAlertMessage({
+          flag: true,
+          message: err?.message,
+        });
+      }
+    } finally {
+      setDBLoading({
+        flag: false,
+        message: null,
+      });
+    }
+  }
+
+  function isSelectDb(database, type) {
+    return type === "new"
+      ? newSelection?.some((_v) => _v?.name === database && _v?.isSelected)
+      : updateSelection?.some((_v) => _v?.name === database && _v?.isSelected);
+  }
+
+  function isDisableSelectDb(database) {
+    const dbSelected = Object.keys(genTables)?.find((_v) => _v === database);
+    return dbSelected ? true : false;
+  }
+
+  function isSelectTable(database, table) {
+    const value = genTables[database];
+    if (!value) return false;
+    return value?.find((_v) => _v?.table === table)?.isSelected ?? false;
+  }
+
+  function SetterLSDDL(data, estimate) {
+    localStorage.setItem(
+      DDLTABLE_DATABASE_KEY,
+      JSON.stringify({ selectdbDDL: data, estimate: estimate }),
+    );
+  }
+
+  function isEnableAddButton() {
+    return newSelection?.length > 0
+      ? newSelection?.some((_v) => _v?.isSelected)
+      : false;
+  }
+
+  async function selectDBGenerateID(database, type) {
+    if (type === "new") {
+      isNewSelectAll && setIsNewSelectAll(false);
+      // const tablesGen = await apiFetch(`/api/ai/tables`,{method:'GET'})
+      setNewSelection((prev) =>
+        prev?.map((_v) => {
+          if (_v?.name === database) {
+            return {
+              ..._v,
+              isSelected: !_v?.isSelected,
+            };
+          }
+          return _v;
+        }),
+      );
+    }
+  }
+
+  // How many rows to ask for.
+  const [maxRows, setMaxRowsState] = useState(() => {
+    try {
+      return readMaxRows();
+    } catch {
+      return 5000;
+    }
+  });
+  const maxRowsRef = useRef(maxRows);
+  maxRowsRef.current = maxRows;
+  const [rowsWarn, setRowsWarn] = useState(null);
+
+  const setMaxRows = useCallback((next) => {
+    const v = clampMaxRows(next);
+    // Ask before going somewhere expensive, and only on the way UP. Coming
+    // back down is always safe and never worth interrupting.
+    if (v > MAX_ROWS_WARN && v > maxRowsRef.current) {
+      setRowsWarn(v);
+      return;
+    }
+    setMaxRowsState(v);
+    try {
+      localStorage.setItem(MAX_ROWS_KEY, String(v));
+    } catch {
+      // The browser can block storage. Continue without it.
+    }
+  }, []);
   const [dbs, setDbs] = useState([]);
   const [selectedDb, setSelectedDb] = useState(null);
   const [tables, setTables] = useState([]);
   const [tablesLoading, setTablesLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [resultCols, setResultCols] = useState([]);
-  const [error, setError] = useState(null);
-  const [successMsg, setSuccessMsg] = useState(null);
-  const [queryStats, setQueryStats] = useState(null);
-  const [graphData, setGraphData] = useState(null);
-  const [graphFullscreen, setGraphFullscreen] = useState(false);
+  // One overlay shared by every tab. doRun shadows the setter so a background
+  // tab cannot open it; see hazard 4.
+  const [graphFullscreen, setGraphFullscreenShared] = useState(false);
+  const setGraphFullscreen = setGraphFullscreenShared;
   const [graphZoomLevel, setGraphZoomLevel] = useState(1);
-  const [graphTitle, setGraphTitle] = useState("");
   const [showGraphSqlModal, setShowGraphSqlModal] = useState(false);
   const graphRef = useRef(null);
   const graphInst = useRef(null);
-  const [selectedAIDB, setSelectedAIDB] = useState(null);
-  const [selectedAIDBID, setSelectedAIDBID] = useState(null);
-  const [isAILoading, setIsAILoading] = useState(false);
-  // Inside the component:
   const [searchParams] = useSearchParams();
   const qidFromUrl = searchParams.get("qid");
 
-  const [ExplainOptionSelector, setExplainOptionSelector] = useState({type:""}); // for selection explain function dropdown values
-
   const [isAILoadingGenerating, setIsAILoadingGenerating] = useState(false);
-  const [aiError, setAIError] = useState(null);
 
   // default cred password view flag
   const [isViewFlag, setIsViewFlag] = useState(false);
@@ -210,16 +869,18 @@ export default function QueryEditor({
     const interval = setInterval(() => {
       setIndex((prevIndex) => (prevIndex + 1) % LOADING_PHRASES.length);
       if (isAILoadingGenerating) {
-        console.log(LOADING_PHRASES[index]);
         setSql(LOADING_PHRASES[index]);
       }
     }, 2000);
 
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
   }, []);
 
   // Render ECharts tree when graphData changes
   useEffect(() => {
+    // React clears the ref before the cleanup runs on unmount, so keep the element here.
+    const chartEl = graphRef.current;
     if (!graphRef.current || !graphData || graphData._json) {
       if (graphInst.current) {
         disposeChart(graphRef.current);
@@ -230,7 +891,7 @@ export default function QueryEditor({
     try {
       const isDark =
         document.documentElement.getAttribute("data-theme") === "dark";
-      const lc = isDark ? "#cbd5e1" : "#374151";
+      const lc = themeColor("--text-secondary", isDark ? "#B6BECD" : "#384154");
 
       const CAT_MATCHERS = [
         { name: "ReadFrom", match: (n) => /read|scan|merge.*read/i.test(n) },
@@ -308,7 +969,7 @@ export default function QueryEditor({
           name: wrapLabel(node.name),
           itemStyle: {
             color: catColorMap.get(catName),
-            borderColor: isDark ? "#1e293b" : "#fff",
+            borderColor: themeColor("--bg-surface", isDark ? "#0D1324" : "#FFFFFF"),
             borderWidth: 2,
           },
           children: (childrenMap.get(id) || [])
@@ -322,7 +983,7 @@ export default function QueryEditor({
           ? buildTreeNode(roots[0].id)
           : {
               name: "Root",
-              itemStyle: { color: isDark ? "#64748b" : "#94a3b8" },
+              itemStyle: { color: themeColor("--text-muted", isDark ? "#8C95A8" : "#5B6478") },
               children: roots.map((r) => buildTreeNode(r.id)).filter(Boolean),
             };
 
@@ -358,17 +1019,17 @@ export default function QueryEditor({
               bottom: 80,
               right: 30,
               orient: "TB",
-              symbolSize: Math.round(12 * graphZoomLevel),
+              symbolSize: Math.round(16 * graphZoomLevel),
               edgeForkPosition: "60%",
               edgeShape: "polyline",
               label: {
                 position: "bottom",
                 verticalAlign: "top",
                 align: "center",
-                fontSize: 11,
-                fontFamily: "Red hat Mono, monospace",
+                fontSize: 13,
+                fontFamily: "Atkinson Hyperlegible Mono, monospace",
                 color: lc,
-                width: 140,
+                width: 200,
                 overflow: "truncate",
               },
               leaves: {
@@ -378,7 +1039,7 @@ export default function QueryEditor({
                   align: "center",
                 },
               },
-              lineStyle: { color: isDark ? "#475569" : "#94a3b8", width: 1.5 },
+              lineStyle: { color: themeColor("--border-strong", isDark ? "#2A3556" : "#CDD2DC"), width: 1.5 },
               emphasis: { focus: "descendant" },
               expandAndCollapse: true,
               initialTreeDepth: -1,
@@ -393,125 +1054,17 @@ export default function QueryEditor({
       console.error("Graph render error:", err.message);
     }
     return () => {
-      if (graphRef.current && graphInst.current) {
-        disposeChart(graphRef.current);
+      if (chartEl && graphInst.current) {
+        disposeChart(chartEl);
         graphInst.current = null;
       }
     };
   }, [graphData, graphZoomLevel, graphTitle]);
 
-  async function exportCSV(rows, columns) {
-    if (!rows?.length) return;
-
-    const cols = columns?.length ? columns : Object.keys(rows[0]);
-
-    const escape = (v) => {
-      const s = String(v ?? "");
-      return s.includes(",") || s.includes('"') || s.includes("\n")
-        ? '"' + s.replace(/"/g, '""') + '"'
-        : s;
-    };
-
-    const lines = [cols.join(",")];
-    for (const row of rows) {
-      lines.push(cols.map((c) => escape(row[c])).join(","));
-    }
-
-    const csvContent = lines.join("\n");
-
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: "query-results.csv",
-        types: [
-          {
-            description: "CSV Files",
-            accept: {
-              "text/csv": [".csv"],
-            },
-          },
-        ],
-      });
-
-      const writable = await handle.createWritable();
-      await writable.write(csvContent);
-      await writable.close();
-      toast.success(`Downloaded ${handle.name}`);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        toast.error("Export failed:", err);
-      }
-    }
-  }
-
-  async function exportTSV(rows, columns) {
-    if (!rows?.length) return;
-    const cols = columns?.length ? columns : Object.keys(rows[0]);
-    const lines = [cols.join("\t")];
-    for (const row of rows)
-      lines.push(
-        cols.map((c) => String(row[c] ?? "").replace(/\t/g, " ")).join("\t"),
-      );
-
-    const tsvContent = lines.join("\n");
-
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: "query-results.tsv",
-        types: [
-          {
-            description: "TSV Files",
-            accept: {
-              "text/tab-separated-values": [".tsv"],
-            },
-          },
-        ],
-      });
-
-      const writable = await handle.createWritable();
-      await writable.write(tsvContent);
-      await writable.close();
-      toast.success(`Downloaded ${handle.name}`);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        toast.error("TSV Export failed:", err);
-      }
-    }
-  }
-
-  async function exportJSON(rows) {
-    if (!rows?.length) return;
-    const jsonContent = JSON.stringify(rows, null, 2);
-
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: "query-results.json",
-        types: [
-          {
-            description: "JSON Files",
-            accept: {
-              "application/json": [".json"],
-            },
-          },
-        ],
-      });
-
-      const writable = await handle.createWritable();
-      await writable.write(jsonContent);
-      await writable.close();
-
-      console.log(handle);
-      console.log(writable);
-      toast.success(`Downloaded ${handle.name}`);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        toast.error("JSON Export failed:", err);
-      }
-    }
-  }
-
   function graphDownload() {
     if (!graphInst.current) return;
-    const url = graphInst.current.getDataURL({
+    // The whole chart, also when zoomed in.
+    const url = fullChartDataURL(graphInst.current, {
       type: "png",
       pixelRatio: 2,
       backgroundColor: "transparent",
@@ -524,16 +1077,7 @@ export default function QueryEditor({
   function graphZoom(f) {
     setGraphZoomLevel((z) => Math.max(0.3, Math.min(3, +(z * f).toFixed(2))));
   }
-  const [running, setRunning] = useState(false);
-  const [estimateResult, setEstimateResult] = useState(null);
-  const [estimating, setEstimating] = useState(false);
-  const [lastQueryId, setLastQueryId] = useState(null);
-  const [featureQueryId, setFeatureQueryId] = useState(null);
-  const [memoryUsage, setMemoryUsage] = useState(null);
-  const memoryTimerRef = useRef(null);
   const lastQueryIdRef = useRef(null);
-  // Always-current credentials, for use inside callbacks and effects that would
-  // otherwise capture a stale value.
   const editorCredsRef = useRef(null);
   const featureQueryIdRef = useRef(null);
   const [explorerOpen, setExplorerOpen] = useState(true);
@@ -541,83 +1085,38 @@ export default function QueryEditor({
   const [copied, setCopied] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [sqlCollapsed, setSqlCollapsed] = useState(false);
+  // acWords holds tagged completion options now rather than plain strings, so a
+  // candidate keeps its kind all the way to the popup.
   const [acWords, setAcWords] = useState([]);
-  const [acVisible, setAcVisible] = useState(false);
-  const [acFiltered, setAcFiltered] = useState([]);
-  const [acIndex, setAcIndex] = useState(0);
-  const [acPos, setAcPos] = useState({ top: 0, left: 0 });
-  const [ddlModal, setDdlModal] = useState(null); // { name, ddl, loading }
-  const [panel, setPanel] = useState(null); // 'history' | 'bookmarks' | null
+  const [sqlDialectData, setSqlDialectData] = useState(null);
+  const [ddlModal, setDdlModal] = useState(null);
+  const [panel, setPanel] = useState(null);
   const [history, setHistory] = useState(() => getHistory());
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarkName, setBookmarkName] = useState("");
+  const [saveDefaults, setSaveDefaults] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [editorHeight, setEditorHeight] = useState(() => {
+    try {
+      return getEditorHeight();
+    } catch {
+      return EDITOR_HEIGHT_DEFAULT;
+    }
+  });
 
   const lastSqlRef = useRef("");
   const lastRunMetaRef = useRef({ written: 0 });
 
+  useEffect(() => {
+    const timers = memoryTimers.current;
+    return () => {
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+    };
+  }, []);
+
   const { theme } = useTheme();
-
-  async function initSetup() {
-    const isExits = localStorage?.getItem(SELECTLSKEY);
-
-    if (isExits === undefined || isExits === null) {
-      let clusterAiId = {};
-      clusters?.forEach((value) => {
-        let nodeObj = {};
-        value?.nodes?.forEach((node) => {
-          nodeObj[node?.name] = [];
-        });
-        clusterAiId[value?.id] = nodeObj;
-      });
-
-      localStorage.setItem(SELECTLSKEY, JSON.stringify(clusterAiId));
-      return;
-    }
-
-    const selectDB = JSON.parse(localStorage?.getItem(SELECTLSKEY));
-    let updateCluster = { ...selectDB };
-
-    clusters.forEach((value) => {
-      const find = Object?.keys(selectDB).includes(value?.id);
-      if (find) {
-        let newNodes = {};
-        value?.nodes?.forEach((node) => {
-          const isInOldNodes = Object.keys(updateCluster[value?.id]).find(
-            (val) => val === node?.name,
-          );
-          if (!isInOldNodes) {
-            newNodes[node?.name] = [];
-          }
-        });
-        updateCluster[value?.id] = { ...selectDB[value?.id], ...newNodes };
-      } else {
-        let nodeObj = {};
-        value?.nodes?.forEach((node) => {
-          nodeObj[node?.name] = [];
-        });
-        updateCluster[value?.id] = nodeObj;
-      }
-    });
-    localStorage?.setItem(SELECTLSKEY, JSON.stringify(updateCluster));
-
-    if (Object.keys(updateCluster).length > 0) {
-      const SelectedClusterAndNode = updateCluster[selectedClusterId][nodeName];
-      SelectedClusterAndNode?.forEach((dbsConnections) => {
-        if (dbsConnections?.isSelected) {
-          setSelectedAIDB(dbsConnections?.dbName);
-          setSelectedAIDBID(dbsConnections?.ai_id);
-        }
-      });
-
-      return;
-    }
-
-    setSelectedAIDB(null);
-    setSelectedAIDBID(null);
-
-    return;
-  }
 
   useEffect(() => {
     featureQueryIdRef.current = featureQueryId;
@@ -628,13 +1127,11 @@ export default function QueryEditor({
       setLastQueryId(qidFromUrl);
       setFeatureQueryId(qidFromUrl);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [qidFromUrl]);
 
-  useEffect(() => {
-    if (ExplainOptionSelector.type) {
-      doRun();
-    }
-  }, [ExplainOptionSelector]);
+  // The effect that used to run a query whenever ExplainOptionSelector changed
+  // is gone.
 
   useEffect(() => {
     if (onSidebarStateChange) {
@@ -647,35 +1144,31 @@ export default function QueryEditor({
     };
   }, [onSidebarStateChange]);
 
-  // Validate the entered credentials by running a trivial query as that user.
-  // Only on success do we store them and unlock the editor.
   async function handleConnect() {
     if (!connUser.trim()) {
-      setConnError("Username is required.");
+      toast.error("Username is required.");
       return;
     }
     setConnecting(true);
     setConnError(null);
     const candidate = { user: connUser.trim(), password: connPassword };
     try {
-      // Validates the credentials and stores them encrypted server-side under
-      // (jti, 'editor'). The password is never held in client state afterwards.
       await editorConnect(candidate);
       setEditorCreds({ user: candidate.user });
       setConnPassword("");
+      toast.success("DB connected successfully");
     } catch (e) {
-      setConnError(e.message);
+      toast.error(e.message);
     } finally {
       setConnecting(false);
     }
   }
 
-  // Clear the server-side session and any loaded schema so nothing stale remains.
   async function handleDisconnect() {
     try {
       await editorDisconnect();
     } catch {
-      /* best effort; clear locally regardless */
+      // Ignore a failed disconnect.
     }
     setEditorCreds(null);
     setConnUser("");
@@ -711,13 +1204,37 @@ export default function QueryEditor({
     }
   }
 
-  const loadDbs = useCallback(() => {
+  const fetchDatabaseDetails = (creds) =>
+    new Promise((res, rej) => {
+      runEditorQuery("SELECT name FROM system.databases ORDER BY name", creds)
+        .then((r) => {
+          return res((r.rows || []).map((rs) => rs.name));
+        })
+        .catch(() => {
+          return rej([]);
+        });
+    });
+
+
+
+  const loadDbs = useCallback(async () => {
+    setOnRefresh(true);
     const creds = editorCredsRef.current;
     if (!creds) return;
-    runEditorQuery("SELECT name FROM system.databases ORDER BY name", creds)
-      .then((r) => setDbs((r.rows || []).map((r) => r.name)))
-      .catch(() => {});
-    initSetup();
+    const response = await fetchDatabaseDetails(creds);
+    setDbs(response);
+
+    // initSetup(response);
+    setNewSelection(
+      response?.map((_v) => ({
+        name: _v,
+        id: null,
+        isSelected: false,
+        isAllowForRequest: true,
+      })) || [],
+    );
+
+    setOnRefresh(false);
   }, []);
 
   async function loadBookmarks() {
@@ -738,40 +1255,29 @@ export default function QueryEditor({
           rows: [],
         }),
       ),
-      runEditorQuery("SELECT name FROM system.functions", creds).catch(() => ({
-        rows: [],
-      })),
+      // Asks for description, syntax and categories as well as the name, and
+      // falls back to bare names if the server does not know those columns.
+      loadFunctionRows((q) => runEditorQuery(q, creds)),
       runEditorQuery(
         "SELECT database, name FROM system.tables WHERE database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema') ORDER BY database, name",
         creds,
       ).catch(() => ({ rows: [] })),
-    ]).then(([kw, fn, tb]) => {
-      const words = [];
-      (kw.rows || []).forEach((r) => {
-        if (r.keyword) words.push(r.keyword.toUpperCase());
-      });
-      (fn.rows || []).forEach((r) => {
-        if (r.name) words.push(r.name);
-      });
-      const dbSet = new Set();
-      (tb.rows || []).forEach((r) => {
-        if (r.database) dbSet.add(r.database);
-        if (r.name) words.push(r.name);
-        if (r.database && r.name) words.push(`${r.database}.${r.name}`);
-      });
-      dbSet.forEach((d) => words.push(d));
-      setAcWords([...new Set(words)].sort());
+    ]).then(([kw, fnRows, tb]) => {
+      const keywords = (kw.rows || []).map((r) => r.keyword).filter(Boolean);
+      // Whole rows now, so a candidate carries its own documentation.
+      const functions = (fnRows || []).filter((r) => r && r.name);
+      const tables = tb.rows || [];
+
+      // Tagged options rather than plain strings, so each candidate keeps its
+      // kind and gets its own icon.
+      setAcWords(buildCompletionOptions({ keywords, functions, tables }));
+
+      // Built from the connected server's own lists, so highlighting matches
+      // the version in use.
+      setSqlDialectData({ keywords, functions: functions.map((r) => r.name) });
     });
   }
 
-  // Clean up the memory lookup timer if the component unmounts
-  useEffect(() => {
-    return () => {
-      if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
-    };
-  }, []);
-
-  // Keep ref in sync with state so async callbacks can check staleness.
   useEffect(() => {
     lastQueryIdRef.current = lastQueryId;
   }, [lastQueryId]);
@@ -780,9 +1286,6 @@ export default function QueryEditor({
     editorCredsRef.current = editorCreds;
   }, [editorCreds]);
 
-  // After a page reload the (jti, 'editor') credential session may still be live
-  // server-side (it shares the 2h JWT lifetime). Restore the connected state from
-  // it so the user does not have to reconnect. Never carries a password.
   useEffect(() => {
     let cancelled = false;
     editorConnectionStatus()
@@ -797,23 +1300,17 @@ export default function QueryEditor({
     };
   }, []);
 
-  // useEffect(() => {
-  //   loadDbs();
-  //   loadBookmarks();
-  //   loadAutocomplete();
-  // }, []);
+  // useEffect(() => { loadDbs(); loadBookmarks(); loadAutocomplete(); }, []);
 
   useEffect(() => {
     loadBookmarks();
   }, []);
 
-  // Load schema and autocomplete once the user connects, and again if they
-  // switch node or cluster in the navbar (credentials are kept across switches).
   useEffect(() => {
     if (!editorConnected) return;
     loadDbs();
     loadAutocomplete();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only when the listed values change, as before.
   }, [editorConnected, selectedClusterId, selectedNode]);
 
   useEffect(() => {
@@ -852,22 +1349,6 @@ export default function QueryEditor({
       .finally(() => setTablesLoading(false));
   }, [selectedDb, editorConnected]);
 
-  useEffect(() => {
-    setTimeout(() => {
-      selectedRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }, 0);
-  }, [acIndex]);
-
-  function syncScroll() {
-    if (highlightRef.current && textareaRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
-  }
-
   function parseDotGraph(dotText) {
     const nodes = new Map();
     const links = [];
@@ -895,9 +1376,6 @@ export default function QueryEditor({
     return { nodes: [...nodes.values()], links };
   }
 
-  // If an editor query failed because the server-side credential session expired
-  // (or was revoked), drop the connected state so the reconnect panel appears.
-  // Strict: we never silently fall back to the node/default user.
   function handleSessionExpiry(e) {
     if (e?.code === "CRED_SESSION_EXPIRED") {
       setEditorCreds(null);
@@ -910,17 +1388,137 @@ export default function QueryEditor({
     return false;
   }
 
-  const doRun = useCallback(async () => {
-    const text = sql.trim();
-    if (!text) return;
-    if (!editorConnected) {
-      setError("Connect with your ClickHouse credentials first.");
+  const [paramError, setParamError] = useState(null);
+  const params = useMemo(() => {
+    try {
+      const p = findParameters(sql);
+      setParamError(null);
+      return p;
+    } catch (e) {
+      setParamError(e.message);
+      return [];
+    }
+  }, [sql]);
+
+  const missingRequired = params.some(
+    (p) => p.required && !hasValue(paramValues[p.name]),
+  );
+
+  // Per tab, seeded from the shared preference.
+  function toggleExplainOption(key) {
+    tabs_.toggleExplainOption(activeId, key);
+  }
+
+  /* Run the visible tab. */
+  const runActiveTab = useCallback(() => {
+    const id = activeIdRef.current;
+    const thisTab = tabsRef.current.find((t) => t.id === id);
+    if (thisTab?.explainType === "EXPLAIN ANALYZE" && !analyzeConfirm) {
+      setAnalyzeConfirm({ id });
       return;
     }
 
-    if (!isValidSizeSqlQuery(text)) {
-      toast.warning("SQL content exceeds the 100 KB limit.");
-      setRunning(false);
+    const busy = tabsRef.current.filter(
+      (t) => t.id !== id && runtimeRef.current[t.id]?.running,
+    );
+    if (!busy.length) {
+      doRunRef.current?.(id);
+      return;
+    }
+    // Ask, and remember which tab the answer is for.
+    setRunConfirm({ id, names: busy.map((t) => t.name).join(", ") });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount, as before. The missing values would run it again.
+  }, []);
+
+  const doRun = useCallback(
+    async (runTabId) => {
+      // EVERYTHING BELOW IS SCOPED TO ONE TAB.
+      const tabId = runTabId || activeIdRef.current;
+      const runTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
+      const rowCap = maxRowsRef.current;
+
+      // removing the older export details in localstorage info
+      forgetExport();
+
+      const sql = runTab.sql;
+      const paramValues = runTab.params;
+      const explainTicked = runTab.explainTicked;
+      const ExplainOptionSelector = { type: runTab.explainType };
+      const missingRequired = findParameters(sql).some(
+        (p) => p.required && !hasValue(paramValues[p.name]),
+      );
+
+      const set = (patch) => setRuntime(tabId, patch);
+      // Caps what is HELD, not what is shown.
+      const setResult = (v) => {
+        if (!Array.isArray(v)) {
+          set({ result: v, totalRows: 0, truncated: false });
+          return;
+        }
+        // The request asks for one more than the cap, so receiving that extra row
+        // is how we know the server had more to give.
+        const truncated = v.length > rowCap;
+        set({
+          result: truncated ? v.slice(0, rowCap) : v,
+          totalRows: truncated ? rowCap : v.length,
+          truncated,
+          // Remembered per result, so the notice reports the limit that was in
+          // force when it ran rather than whatever the control says now.
+          rowCap,
+        });
+      };
+      const setResultCols = (v) => set({ resultCols: v });
+      const setError = (v) => set({ error: v });
+      const setSuccessMsg = (v) => set({ successMsg: v });
+      const setQueryStats = (v) => set({ queryStats: v });
+      const setMemoryUsage = (v) => set({ memoryUsage: v });
+      const setLastQueryId = (v) => set({ lastQueryId: v });
+      const setFeatureQueryId = (v) => set({ featureQueryId: v });
+      const setEstimateResult = (v) => set({ estimateResult: v });
+      const setEstimating = (v) => set({ estimating: v });
+      const setGraphData = (v) => set({ graphData: v });
+      const setGraphTitle = (v) => set({ graphTitle: v });
+      const setRunning = (v) => set({ running: v });
+
+      // HAZARD 4.
+      const setGraphFullscreen = (v) => {
+        if (tabId === activeIdRef.current) setGraphFullscreenShared(v);
+      };
+
+      const text = sql.trim();
+      if (!text) return;
+      if (!editorConnected) {
+        setError("Connect with your ClickHouse credentials first.");
+        return;
+      }
+      if (missingRequired) {
+        setError("Fill in every required parameter before running.");
+        return;
+      }
+
+      if (!isValidSizeSqlQuery(text)) {
+        toast.warning("SQL content exceeds the 100 KB limit.");
+        setRunning(false);
+        setError(null);
+        setResult(null);
+        setResultCols([]);
+        setSuccessMsg(null);
+        setGraphData(null);
+        setGraphTitle("");
+        setQueryStats(null);
+        setEstimateResult(null);
+        setEstimating(false);
+        setLastQueryId(null);
+        setFeatureQueryId(null);
+        setMemoryUsage(null);
+        return;
+      }
+
+      lastSqlRef.current = text;
+
+      lastRunMetaRef.current = { written: 0 };
+
+      setRunning(true);
       setError(null);
       setResult(null);
       setResultCols([]);
@@ -933,256 +1531,299 @@ export default function QueryEditor({
       setLastQueryId(null);
       setFeatureQueryId(null);
       setMemoryUsage(null);
-      return;
-    }
+      const tPrev = memoryTimers.current.get(tabId);
+      if (tPrev) clearTimeout(tPrev);
 
-    lastSqlRef.current = text;
-
-    lastRunMetaRef.current = { written: 0 };
-
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    setResultCols([]);
-    setSuccessMsg(null);
-    setGraphData(null);
-    setGraphTitle("");
-    setQueryStats(null);
-    setEstimateResult(null);
-    setEstimating(false);
-    setLastQueryId(null);
-    setFeatureQueryId(null);
-    setMemoryUsage(null);
-    if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
-
-    try {
-      const validExplain =
-        ExplainOptionSelector.type !== null &&
-        ExplainOptionSelector.type !== "" &&
-        ExplainOptionSelector.type !== "GENERAL RUN"
-          ? `${ExplainOptionSelector.type} ${text}`
+      try {
+        const isExplain =
+          ExplainOptionSelector.type !== null &&
+          ExplainOptionSelector.type !== "" &&
+          ExplainOptionSelector.type !== "GENERAL RUN";
+        const validExplain = isExplain
+          ? `${composeStatement(ExplainOptionSelector.type, explainTicked, serverVersion)} ${text}`
           : text;
-      const r = await runEditorQuery(validExplain, editorCreds);
-      if (r.stats) setQueryStats(r.stats);
 
-      // Capture query_id for profiling deep-links.
-      const qid = r.queryId || null;
-      setLastQueryId(qid);
-      setFeatureQueryId(qid);
+        const hasLimitClause =
+          /LIMIT\s+(\d+|\?)/i.test(text) ||
+          /\bLIMIT\s+(\d+|\?)\s*$/i.test(text) ||
+          /\bLIMIT\s+(\d+|\?)\s*(;|$)/i.test(text);
 
-      // Look up peak memory after ClickHouse flushes query_log (~300ms).
-      if (qid) {
-        const capturedQid = qid;
-        memoryTimerRef.current = setTimeout(async () => {
-          // Bail if a newer query has started or component unmounted.
-          if (lastQueryIdRef.current !== capturedQid) return;
-          const mem = await lookupMemoryUsage(
-            capturedQid,
-            editorCredsRef.current,
+        // Required settings travel as request settings, never appended to the
+        const settings = {
+          ...(isExplain
+            ? settingsFor(
+                explainTicked,
+                ExplainOptionSelector.type,
+                serverVersion,
+              )
+            : {}),
+          ...(isExplain ? settingsFor(explainTicked) : {}),
+        };
+
+        if (!hasLimitClause) {
+          settings.max_result_rows = rowCap + 1;
+          settings.result_overflow_mode = "break";
+        }
+
+        const r = await runEditorQuery(validExplain, editorCreds, {
+          params: paramValues,
+          settings: settings,
+        });
+        if (r.stats) setQueryStats(r.stats);
+
+        const qid = r.queryId || null;
+        setLastQueryId(qid);
+        setFeatureQueryId(qid);
+
+        if (qid) {
+          const capturedQid = qid;
+          // HAZARDS 1 and 2.
+          memoryTimers.current.set(
+            tabId,
+            setTimeout(async () => {
+              const cur = () => runtimeRef.current[tabId]?.lastQueryId;
+              if (cur() !== capturedQid) return;
+              const mem = await lookupMemoryUsage(
+                capturedQid,
+                editorCredsRef.current,
+              );
+              if (cur() === capturedQid && mem != null) setMemoryUsage(mem);
+            }, 300),
           );
-          if (lastQueryIdRef.current === capturedQid && mem != null) {
-            setMemoryUsage(mem);
-          }
-        }, 300);
-      }
-
-      const extractWritten = (res) => {
-        if (!res) return 0;
-        if (res.stats) {
-          const s = res.stats;
-          if (s.written_rows) return Number(s.written_rows);
-          if (s.written_rows_count) return Number(s.written_rows_count);
-          if (s.written) return Number(s.written);
         }
-        if (typeof res.written_rows !== "undefined")
-          return Number(res.written_rows) || 0;
-        if (typeof res.rows_written !== "undefined")
-          return Number(res.rows_written) || 0;
-        if (typeof res.inserted_rows !== "undefined")
-          return Number(res.inserted_rows) || 0;
-        if (typeof res.affected_rows !== "undefined")
-          return Number(res.affected_rows) || 0;
-        if (typeof res.row_count !== "undefined")
-          return Number(res.row_count) || 0;
-        if (
-          Array.isArray(res.rows) &&
-          res.rows.length === 0 &&
-          res.stats &&
-          res.stats.written_rows
-        )
-          return Number(res.stats.written_rows);
-        return 0;
-      };
-      const written = extractWritten(r);
-      lastRunMetaRef.current = { written };
 
-      if (r.rows?.length > 0) {
-        const firstVal = Object.values(r.rows[0])[0] || "";
-        const allText = r.rows
-          .map((row) => Object.values(row)[0] || "")
-          .join("\n");
-        if (
-          typeof firstVal === "string" &&
-          (allText.includes("digraph") || allText.includes("->"))
-        ) {
-          const parsed = parseDotGraph(allText);
-          if (parsed.nodes.length > 0) {
-            const isAstGraph = String(ExplainOptionSelector.type || "")
-              .toUpperCase()
-              .includes("EXPLAIN AST");
-            const isPipelineGraph = String(ExplainOptionSelector.type || "")
-              .toUpperCase()
-              .includes("EXPLAIN PIPELINE");
-            setGraphTitle(
-              isAstGraph
-                ? "AST Graph"
-                : isPipelineGraph
-                  ? "Pipeline Graph"
-                  : "EXPLAIN Graph",
-            );
-            setGraphData(parsed);
-            setGraphFullscreen(true);
-            setResult(r.rows);
-            setResultCols(r.columns || []);
-            setRunning(false);
-            return;
+        const extractWritten = (res) => {
+          if (!res) return 0;
+          if (res.stats) {
+            const s = res.stats;
+            if (s.written_rows) return Number(s.written_rows);
+            if (s.written_rows_count) return Number(s.written_rows_count);
+            if (s.written) return Number(s.written);
           }
-        }
-        if (
-          typeof firstVal === "string" &&
-          (firstVal.trim().startsWith("{") || firstVal.trim().startsWith("["))
-        ) {
-          try {
-            const parsed = JSON.parse(allText);
-            setResult(r.rows);
-            setResultCols(r.columns || []);
-            setGraphData({ _json: true, data: parsed });
-            setRunning(false);
-            return;
-          } catch {
+          if (typeof res.written_rows !== "undefined")
+            return Number(res.written_rows) || 0;
+          if (typeof res.rows_written !== "undefined")
+            return Number(res.rows_written) || 0;
+          if (typeof res.inserted_rows !== "undefined")
+            return Number(res.inserted_rows) || 0;
+          if (typeof res.affected_rows !== "undefined")
+            return Number(res.affected_rows) || 0;
+          if (typeof res.row_count !== "undefined")
+            return Number(res.row_count) || 0;
+          if (
+            Array.isArray(res.rows) &&
+            res.rows.length === 0 &&
+            res.stats &&
+            res.stats.written_rows
+          )
+            return Number(res.stats.written_rows);
+          return 0;
+        };
+        const written = extractWritten(r);
+        lastRunMetaRef.current = { written };
+
+        if (r.rows?.length > 0) {
+          const firstVal = Object.values(r.rows[0])[0] || "";
+          const allText = r.rows
+            .map((row) => Object.values(row)[0] || "")
+            .join("\n");
+          if (
+            typeof firstVal === "string" &&
+            (allText.includes("digraph") || allText.includes("->"))
+          ) {
+            const parsed = parseDotGraph(allText);
+            if (parsed.nodes.length > 0) {
+              const isAstGraph = String(ExplainOptionSelector.type || "")
+                .toUpperCase()
+                .includes("EXPLAIN AST");
+              const isPipelineGraph = String(ExplainOptionSelector.type || "")
+                .toUpperCase()
+                .includes("EXPLAIN PIPELINE");
+              setGraphTitle(
+                isAstGraph
+                  ? "AST Graph"
+                  : isPipelineGraph
+                    ? "Pipeline Graph"
+                    : "EXPLAIN Graph",
+              );
+              setGraphData(parsed);
+              setGraphFullscreen(true);
+              setResult(r.rows);
+              setResultCols(r.columns || []);
+              setRunning(false);
+              return;
+            }
+          }
+          if (
+            typeof firstVal === "string" &&
+            (firstVal.trim().startsWith("{") || firstVal.trim().startsWith("["))
+          ) {
             try {
-              const unescaped = allText
-                .replace(/\\n/g, "\n")
-                .replace(/\\t/g, "\t");
-              const parsed = JSON.parse(unescaped);
+              const parsed = JSON.parse(allText);
               setResult(r.rows);
               setResultCols(r.columns || []);
               setGraphData({ _json: true, data: parsed });
               setRunning(false);
               return;
-            } catch {}
+            } catch {
+              try {
+                const unescaped = allText
+                  .replace(/\\n/g, "\n")
+                  .replace(/\\t/g, "\t");
+                const parsed = JSON.parse(unescaped);
+                setResult(r.rows);
+                setResultCols(r.columns || []);
+                setGraphData({ _json: true, data: parsed });
+                setRunning(false);
+                return;
+              } catch {
+                // Not JSON. Continue with the normal result.
+              }
+            }
           }
+          setResult(r.rows);
+          setResultCols(r.columns || []);
+        } else if (isDataQuery(text)) {
+          setResult([]);
+          setResultCols(r.columns || []);
+          setSuccessMsg(null);
+        } else {
+          const firstWord = analyzeSql(text).statements[0]?.keyword || "";
+          const msgs = {
+            CREATE: "Created successfully.",
+            INSERT: "Insert executed successfully.",
+            ALTER: "Altered successfully.",
+            DROP: "Dropped successfully.",
+            GRANT: "Granted successfully.",
+            REVOKE: "Revoked successfully.",
+            SYSTEM: "System command executed.",
+            OPTIMIZE: "Optimize executed.",
+            TRUNCATE: "Truncated successfully.",
+            KILL: "Kill executed.",
+          };
+          let baseMsg = msgs[firstWord] || "Query executed successfully.";
+          if (written && written > 0) {
+            baseMsg = `${baseMsg} ${written.toLocaleString()} row(s) affected.`;
+          }
+          setSuccessMsg(baseMsg);
+          setResult([]);
+          setResultCols([]);
+          setShowLogo(true);
         }
-        setResult(r.rows);
-        setResultCols(r.columns || []);
-      } else if (isDataQuery(text)) {
-        // A row-returning statement (SELECT / SHOW / EXPLAIN / DESCRIBE / ...)
-        // that matched nothing. Show the empty result state with "0 row(s)
-        // returned" rather than a DDL-style "executed successfully" message.
-        setResult([]);
-        setResultCols(r.columns || []);
-        setSuccessMsg(null);
-      } else {
-        const firstWord = analyzeSql(text).statements[0]?.keyword || "";
-        const msgs = {
-          CREATE: "Created successfully.",
-          INSERT: "Insert executed successfully.",
-          ALTER: "Altered successfully.",
-          DROP: "Dropped successfully.",
-          GRANT: "Granted successfully.",
-          REVOKE: "Revoked successfully.",
-          SYSTEM: "System command executed.",
-          OPTIMIZE: "Optimize executed.",
-          TRUNCATE: "Truncated successfully.",
-          KILL: "Kill executed.",
-        };
-        let baseMsg = msgs[firstWord] || "Query executed successfully.";
-        if (written && written > 0) {
-          baseMsg = `${baseMsg} ${written.toLocaleString()} row(s) affected.`;
-        }
-        setSuccessMsg(baseMsg);
-        setResult([]);
-        setResultCols([]);
+      } catch (e) {
+        handleSessionExpiry(e);
+        setError(e.message);
+        setFeatureQueryId(null);
       }
-    } catch (e) {
-      handleSessionExpiry(e);
-      setError(e.message);
+      setRunning(false);
+
+      // History, written HERE rather than in an effect.
+      if (lastSqlRef.current) {
+        const finished = runtimeRef.current[tabId] || {};
+        addHistory({
+          id: crypto.randomUUID(),
+          sql: lastSqlRef.current,
+          timestamp: new Date().toISOString(),
+          rows: finished.totalRows || lastRunMetaRef.current?.written || 0,
+          status: finished.error ? "error" : "ok",
+          error: finished.error
+            ? String(finished.error).substring(0, 200)
+            : null,
+          elapsed: finished.queryStats?.elapsed_ns
+            ? (Number(finished.queryStats.elapsed_ns) / 1e9).toFixed(3) + "s"
+            : null,
+        });
+        setHistory(getHistory());
+        lastSqlRef.current = "";
+        lastRunMetaRef.current = { written: 0 };
+      }
+    },
+    [editorConnected, editorCreds, activeTab, setRuntime, toast, serverVersion],
+  );
+  doRunRef.current = doRun;
+
+  const doEstimate = useCallback(
+    async (estTabId) => {
+      // Scoped to one tab like doRun, so switching tabs mid-estimate does not
+      // drop the answer into the visible tab.
+      const tabId = estTabId || activeIdRef.current;
+      const estTab = tabsRef.current.find((t) => t.id === tabId) || activeTab;
+      const sql = estTab.sql;
+      const set = (patch) => setRuntime(tabId, patch);
+      const setEstimateResult = (v) => set({ estimateResult: v });
+      const setEstimating = (v) => set({ estimating: v });
+      const setError = (v) => set({ error: v });
+      const text =
+        sql.trim().split("*/").length > 1
+          ? sql.trim().split("*/")[1]
+          : sql?.trim();
+
+      if (!text) return;
+      if (!editorConnected) {
+        setError("Connect with your ClickHouse credentials first.");
+        return;
+      }
+
+      setEstimating(true);
+
+      setEstimating(true);
+      setEstimateResult(null);
+      setResult(null);
+      setResultCols([]);
+      setError(null);
+      setSuccessMsg(null);
+      setGraphData(null);
+      setQueryStats(null);
+      setLastQueryId(null);
       setFeatureQueryId(null);
-    }
-    setRunning(false);
-  }, [sql, ExplainOptionSelector, editorConnected, editorCreds]);
+      setMemoryUsage(null);
 
-  const doEstimate = useCallback(async () => {
-    const text =
-      sql.trim().split("*/").length > 1
-        ? sql.trim().split("*/")[1]
-        : sql?.trim();
+      try {
+        const est = await runEstimate(text, editorCreds);
+        setEstimateResult(est);
+      } catch (e) {
+        handleSessionExpiry(e);
+        setError("Estimate failed: " + e.message);
+      } finally {
+        setEstimating(false);
+      }
+    },
+    [
+      editorConnected,
+      editorCreds,
+      activeTab,
+      setRuntime,
+      setResult,
+      setResultCols,
+      setSuccessMsg,
+      setGraphData,
+      setQueryStats,
+      setLastQueryId,
+      setFeatureQueryId,
+      setMemoryUsage,
+    ],
+  );
 
-    if (!text) return;
-    if (!editorConnected) {
-      setError("Connect with your ClickHouse credentials first.");
-      return;
-    }
-
-    setEstimating(true);
-
-    setEstimating(true);
-    setEstimateResult(null);
-    setResult(null);
-    setResultCols([]);
-    setError(null);
-    setSuccessMsg(null);
-    setGraphData(null);
-    setQueryStats(null);
-    setLastQueryId(null);
-    setFeatureQueryId(null);
-    setMemoryUsage(null);
-
-    try {
-      const est = await runEstimate(text, editorCreds);
-      setEstimateResult(est);
-    } catch (e) {
-      handleSessionExpiry(e);
-      setError("Estimate failed: " + e.message);
-    } finally {
-      setEstimating(false);
-    }
-  }, [sql, editorConnected, editorCreds]);
-
-  useEffect(() => {
-    if (lastSqlRef.current === "") return;
-    if (running) return;
-    const text = lastSqlRef.current;
-    if (!text) return;
-    const rowsCount =
-      result && Array.isArray(result) && result.length > 0
-        ? result.length
-        : lastRunMetaRef.current?.written || 0;
-    addHistory({
-      sql: text,
-      timestamp: new Date().toISOString(),
-      rows: rowsCount,
-      status: error ? "error" : "ok",
-      error: error ? String(error).substring(0, 200) : null,
-      elapsed: queryStats?.elapsed_ns
-        ? (Number(queryStats.elapsed_ns) / 1e9).toFixed(3) + "s"
-        : null,
-    });
-    setHistory(getHistory());
-    lastSqlRef.current = "";
-    lastRunMetaRef.current = { written: 0 };
-  }, [result, error, running, queryStats]);
+  // The history effect that used to live here is gone.
 
   async function saveBookmark() {
     if (!bookmarkName.trim() || !sql.trim()) return;
-    const updated = [
-      ...bookmarks,
-      {
-        name: bookmarkName.trim(),
-        sql: sql.trim(),
-        createdAt: new Date().toISOString(),
-      },
-    ];
+    // Only write a defaults key when the user opted in, so a bookmark saved
+    // without the checkbox is byte-identical to one saved before this feature.
+    const entry = {
+      name: bookmarkName.trim(),
+      sql: sql.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    if (saveDefaults) {
+      const defaults = {};
+      for (const p of params) {
+        if (hasValue(paramValues[p.name]))
+          defaults[p.name] = paramValues[p.name];
+      }
+      if (Object.keys(defaults).length) entry.defaults = defaults;
+    }
+    const updated = [...bookmarks, entry];
     try {
       await apiFetch("/api/settings/query_bookmarks", {
         method: "PUT",
@@ -1193,7 +1834,27 @@ export default function QueryEditor({
       });
       setBookmarks(updated);
       setBookmarkName("");
-    } catch {}
+    } catch {
+      // Keep the current data when the request fails.
+    }
+  }
+
+  /* Write the whole bookmark list. */
+  async function writeBookmarks(updated) {
+    try {
+      await apiFetch("/api/settings/query_bookmarks", {
+        method: "PUT",
+        body: JSON.stringify({
+          value: JSON.stringify(updated),
+          category: "editor",
+        }),
+      });
+      setBookmarks(updated);
+      return true;
+    } catch {
+      toast.error("Could not save your bookmarks.");
+      return false;
+    }
   }
 
   async function deleteBookmark(idx) {
@@ -1207,116 +1868,17 @@ export default function QueryEditor({
         }),
       });
       setBookmarks(updated);
-    } catch {}
-  }
-
-  function handleKeyDown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      doRun();
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === "b") {
-      e.preventDefault();
-      setPanel(panel === "bookmarks" ? null : "bookmarks");
-      return;
-    }
-    if (e.key === "Tab" && !acVisible) {
-      e.preventDefault();
-      const ta = textareaRef.current;
-      const s = ta.selectionStart;
-      setSql(sql.substring(0, s) + "  " + sql.substring(ta.selectionEnd));
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = s + 2;
-      });
-      return;
-    }
-    if (acVisible) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setAcIndex((i) => Math.min(i + 1, acFiltered.length - 1));
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setAcIndex((i) => Math.max(i - 1, 0));
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        if (acFiltered.length) {
-          e.preventDefault();
-          insertAc(acFiltered[acIndex]);
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        setAcVisible(false);
-        return;
-      }
-    }
-    if (e.key === "Escape" && fullscreen) {
-      setFullscreen(false);
+    } catch {
+      // Keep the current data when the request fails.
     }
   }
 
-  function insertAc(word) {
-    const ta = textareaRef.current;
-    const pos = ta.selectionStart;
-    let ws = pos;
-    while (ws > 0 && /[\w.]/.test(sql[ws - 1])) ws--;
-    const ns = sql.substring(0, ws) + word + " " + sql.substring(pos);
-    setSql(ns);
-    setAcVisible(false);
-    requestAnimationFrame(() => {
-      ta.selectionStart = ta.selectionEnd = ws + word.length + 1;
-      ta.focus();
-    });
-  }
-
-  function handleInput(e) {
-    const val = e.target.value;
-    setSql(val);
-    const pos = e.target.selectionStart;
-    let ws = pos;
-    while (ws > 0 && /[\w.]/.test(val[ws - 1])) ws--;
-    const partial = val.substring(ws, pos);
-    if (partial.length >= 2) {
-      const up = partial.toUpperCase();
-      const filtered = acWords
-        .filter((w) => w.toUpperCase().startsWith(up))
-        .slice(0, 12);
-      if (filtered.length) {
-        setAcFiltered(filtered);
-        setAcIndex(0);
-        setAcVisible(true);
-        const lines = val.substring(0, pos).split("\n");
-        setAcPos({
-          top: lines.length * 21 + 4 - (textareaRef.current?.scrollTop || 0),
-          left:
-            lines[lines.length - 1].length * 8.4 +
-            50 -
-            (textareaRef.current?.scrollLeft || 0),
-        });
-        return;
-      }
-    }
-    setAcVisible(false);
-  }
-
+  // Insert at the caret through the editor's own transaction, so it is ONE
+  // undoable step.
   function insertText(t) {
-    const ta = textareaRef.current;
-    const p = ta.selectionStart;
-    setSql(sql.substring(0, p) + t + sql.substring(p));
-    requestAnimationFrame(() => {
-      ta.selectionStart = ta.selectionEnd = p + t.length;
-      ta.focus();
-    });
+    editorRef.current?.insertAtCursor(t);
   }
 
-  const lineNums = Array.from(
-    { length: sql.split("\n").length },
-    (_, i) => i + 1,
-  ).join("\n");
   const shellStyle = fullscreen
     ? {
         position: "fixed",
@@ -1327,89 +1889,12 @@ export default function QueryEditor({
         width: "100%",
         height: "100%",
       }
-    : { height: "90.5vh" };
+    : // NO HEIGHT HERE.
+      // This was 90.5vh, an inline style, which beats the stylesheet and is why
+      // fixing .editor-shell in global.css changed nothing at all.
+      { height: "90.5vh" };
 
   const effectiveQueryId = featureQueryId || lastQueryId || qidFromUrl || null;
-
-  async function selectHandler(db) {
-    try {
-      const localStorageData = JSON.parse(localStorage?.getItem(SELECTLSKEY));
-      const selected = db;
-
-      let SelectedClusterAndNode =
-        localStorageData[selectedClusterId][nodeName];
-
-      const find = SelectedClusterAndNode?.filter(
-        (db) => db?.dbName === selected,
-      );
-
-      if (find?.length === 0 && !isAILoading) {
-        setIsAILoading(true);
-        const responseData = await await apiFetch(`/api/ai/database/connect`, {
-          method: "POST",
-          body: JSON.stringify({
-            database_type: "clickhouse",
-            credentials: {
-              host: selectedNode,
-              port: port,
-              username: user,
-              password: password,
-              database: selected,
-            },
-            llm_provider: "string",
-            model_name: "string",
-          }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (responseData?.success) {
-          const obj = {
-            dbName: selected,
-            ai_id: responseData?.database_id,
-            isSelected: true,
-          };
-
-          let filtered = SelectedClusterAndNode?.map((db) => ({
-            ...db,
-            isSelected: false,
-          }));
-
-          filtered?.push(obj);
-
-          let filterData = { ...localStorageData };
-          filterData[selectedClusterId][nodeName] = filtered;
-
-          localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
-          setSelectedAIDB(selected);
-          setSelectedAIDBID(responseData?.database_id);
-          toast.success(`Successfully AI database id generated!`);
-        } else {
-          toast.error("Failed to load database ID. Please retry.");
-        }
-      } else {
-        setIsAILoading(true);
-        const filtered = localStorageData[selectedClusterId][nodeName].map(
-          (db) => {
-            if (db?.dbName === selected) {
-              return { ...db, isSelected: true };
-            }
-            return { ...db, isSelected: false };
-          },
-        );
-        let filterData = { ...localStorageData };
-        filterData[selectedClusterId][nodeName] = filtered;
-        localStorage?.setItem(SELECTLSKEY, JSON.stringify(filterData));
-        setSelectedAIDB(selected);
-        setSelectedAIDBID(find[0]?.ai_id);
-      }
-    } catch (err) {
-      toast?.error(`Failed to load database ID. Please retry.`);
-    } finally {
-      setIsAILoading(false);
-    }
-  }
 
   async function GeneratingSQLHandler() {
     const message =
@@ -1417,41 +1902,66 @@ export default function QueryEditor({
         ? sql?.trim()?.split("*/")[1]
         : sql?.trim();
 
-    if (message?.length > 0) {
-      setSql(LOADING_PHRASES[index]);
-      setIsAILoadingGenerating(true);
+    if (message?.length === 0) return; // return empty the user container is empty
 
-      try {
-        const responseAIQuery = await await apiFetch(
-          `/api/ai/sql/generate-sql`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON?.stringify({
-              database_id: selectedAIDBID,
-              user_question: message,
-            }),
-          },
-        );
+    // split the database value and selected tables data
+    const result = responseBodyStructTableDatabase(genTables);
 
-        if (responseAIQuery?.success) {
-          setSql(
-            `/*\n\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectedAIDB}\n\n*/\n\n${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
-          );
-        }
-      } catch (error) {
-        toast?.error(error?.message);
+    //  checking the database or node connected to the application by using auth of database
+    if (!editorCreds) {
+      toast.error("Authentication service is not connected. Please try again.");
+      return;
+    }
+
+    setSql(LOADING_PHRASES[index]);
+    setIsAILoadingGenerating(true);
+
+    try {
+
+
+      // generate the object or json for request body based the new chat or old chat
+      const requestBody = {
+        method: "POST",
+        body: JSON.stringify({
+          instruction: message,
+          tables: result,
+          clusterId: selectedClusterId,
+          node: nodeName,
+          previousInstruction: null,
+          previousSql: null,
+          forceRefreshDdl: false,
+          messageId: null,
+          isApiConfigured: apikey?.id ? true : false,
+        }),
+      };
+
+      const responseAIQuery = await await apiFetch(
+        "/api/ai/editor/generate",
+        requestBody,
+      );
+
+      if (!responseAIQuery?.error) {
         setSql(
-          `/*\n--QUESTION : ${message}? \n--DATABASE_NAME : ${selectedAIDB}\n*/\n\n-- Error : ${format(responseAIQuery?.generated_sql, { language: "clickhouse" })}`,
+          `/*\n\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n\n*/\n\n${format(responseAIQuery?.sql, { language: "clickhouse" })}`,
         );
-      } finally {
-        setIsAILoadingGenerating(false);
       }
+    } catch (error) {
+      toast?.error(error?.message);
+      setSql(
+        `/*\n--QUESTION : ${message?.includes("?") ? message : `${message} ?`} \n\n*/\n\n-- Error : ${error?.message}`,
+      );
+    } finally {
+      setIsAILoadingGenerating(false);
     }
   }
 
+  
+
+  function IsSelectedAiID() {
+      const result = responseBodyStructTableDatabase(genTables);
+
+    return result?.length > 0 ? true : false;
+  }
   return (
     <div
       className="editor-shell"
@@ -1462,18 +1972,20 @@ export default function QueryEditor({
           className="editor-sidebar"
           style={{
             width: explorerWidth,
-            minWidth: 160,
+            minWidth: 200,
             maxWidth: 500,
-            height: fullscreen ? "100%" : "90.5vh",
+            // Fills the shell rather than guessing at the viewport again.
+            height: "100%",
             position: "relative",
             marginLeft: 0,
+            overflow: "hidden",
           }}
         >
           <div style={{ flex: 1, overflowY: "auto" }}>
-            <div className="editor-sidebar-header">
+            <div className="editor-sidebar-header" style={{ width: "100%" }}>
               <Icon className="ti ti-database"></Icon> Explorer
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => {
                   loadDbs();
                   setSelectedDb(null);
@@ -1481,165 +1993,151 @@ export default function QueryEditor({
                 title="Refresh databases"
                 style={{ marginLeft: "auto" }}
               >
-                <Icon className="ti ti-refresh"></Icon>
-              </button>
+                {onRefresh ? (
+                  <div className="loading-spinner" />
+                ) : (
+                  <Icon className="ti ti-refresh"></Icon>
+                )}
+              </Button>
             </div>
-            {!editorConnected ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "28px 16px",
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                  fontSize: "13px",
-                }}
-              >
-                <Icon
-                  className="ti ti-lock"
-                  style={{ fontSize: 22, opacity: 0.6 }}
-                ></Icon>
-                <span>Connect to browse databases.</span>
-              </div>
-            ) : (
-              dbs.map((db) => (
-                <div key={db} style={{ display: "flex", alignItems: "start" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyItems: "center",
-                      width: "30px",
-                      height: "30px",
-                      marginTop: "5px",
-                      paddingLeft: "5px",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => selectHandler(db)}
-                    title="Select database for work AI"
-                  >
-                    {isAILoading ? (
-                      <div className="loading-spinner"></div>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill={
-                          selectedAIDB === db
-                            ? "var(--accent)"
-                            : theme === "dark"
-                              ? "lightgray"
-                              : "lightgray"
-                        }
-                        className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
-                      >
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M17.964 2.733c.156 .563 .312 1 .484 1.353c.342 .71 .758 1.125 1.47 1.467c.353 .17 .79 .326 1.352 .484c.98 .276 .97 1.668 -.013 1.93a8.3 8.3 0 0 0 -1.34 .481c-.71 .342 -1.127 .757 -1.463 1.453a8 8 0 0 0 -.486 1.352c-.258 .988 -1.658 1 -1.932 .015c-.156 -.565 -.312 -1.002 -.484 -1.354c-.342 -.71 -.758 -1.124 -1.458 -1.46a8 8 0 0 0 -1.374 -.495a.4 .4 0 0 1 -.06 -.02l-.044 -.017l-.045 -.02l-.049 -.025l-.035 -.02a.4 .4 0 0 1 -.049 -.03l-.032 -.023l-.043 -.034l-.033 -.028l-.036 -.035l-.034 -.035l-.028 -.033l-.035 -.043l-.022 -.032a.4 .4 0 0 1 -.032 -.049l-.02 -.035l-.025 -.05l-.02 -.044l-.017 -.043a.4 .4 0 0 1 -.02 -.06l-.01 -.034a.5 .5 0 0 1 -.02 -.098l-.006 -.065l-.005 -.035v-.05a.4 .4 0 0 1 .003 -.085a.5 .5 0 0 1 .013 -.093a.5 .5 0 0 1 .024 -.103a.4 .4 0 0 1 .02 -.06l.017 -.044l.02 -.045l.025 -.049l.02 -.035a.4 .4 0 0 1 .03 -.049l.023 -.032l.034 -.043l.028 -.033l.035 -.036l.035 -.034q .015 -.015 .033 -.028l.043 -.035l.032 -.022a.4 .4 0 0 1 .049 -.032l.035 -.02l.05 -.025l.044 -.02l.043 -.017a.4 .4 0 0 1 .06 -.02l.027 -.008a8.3 8.3 0 0 0 1.339 -.48c.71 -.342 1.127 -.757 1.47 -1.466c.17 -.354 .327 -.792 .483 -1.355c.272 -.976 1.657 -.976 1.928 0" />
-                        <path d="M10.965 6.737q .219 .801 .503 1.574c.856 2.28 1.945 3.363 4.23 4.22q .708 .265 1.571 .506c.976 .272 .974 1.656 -.002 1.927q -.798 .221 -1.568 .504c-2.288 .858 -3.376 1.94 -4.229 4.216a19 19 0 0 0 -.505 1.579c-.268 .983 -1.662 .983 -1.93 0a19 19 0 0 0 -.503 -1.574c-.856 -2.281 -1.944 -3.363 -4.226 -4.219a20 20 0 0 0 -1.594 -.513a.4 .4 0 0 1 -.054 -.018l-.044 -.017l-.043 -.02a.3 .3 0 0 1 -.048 -.024l-.036 -.02a.4 .4 0 0 1 -.048 -.03l-.032 -.024l-.044 -.034l-.033 -.029l-.037 -.034l-.034 -.037l-.03 -.033l-.033 -.044l-.023 -.032a.4 .4 0 0 1 -.03 -.048l-.021 -.036a.3 .3 0 0 1 -.024 -.048l-.02 -.043l-.017 -.044a.4 .4 0 0 1 -.018 -.054a.2 .2 0 0 1 -.01 -.039a.4 .4 0 0 1 -.014 -.059l-.007 -.04l-.007 -.056l-.003 -.044l-.002 -.05v-.05q 0 -.023 .004 -.044q .001 -.03 .007 -.057l.007 -.04a.4 .4 0 0 1 .017 -.076l.007 -.021a.4 .4 0 0 1 .018 -.054l.017 -.044l.02 -.043a.3 .3 0 0 1 .024 -.048l.02 -.036a.4 .4 0 0 1 .03 -.048l.024 -.032l.034 -.044l.029 -.033l.034 -.037l.037 -.034l.033 -.03l.044 -.033l.032 -.023a.4 .4 0 0 1 .048 -.03l.036 -.021a.3 .3 0 0 1 .048 -.024l.043 -.02l.044 -.017a.4 .4 0 0 1 .054 -.018l.021 -.007a20 20 0 0 0 1.568 -.504c2.287 -.858 3.375 -1.94 4.229 -4.216a19 19 0 0 0 .505 -1.579c.268 -.983 1.662 -.983 1.93 0" />
-                      </svg>
-                    )}
-                  </div>
-                  <div style={{ width: "100%" }}>
-                    <div
-                      className={
-                        "editor-db-item" + (selectedDb === db ? " active" : "")
-                      }
-                      onClick={() =>
-                        setSelectedDb(selectedDb === db ? null : db)
-                      }
-                    >
-                      <Icon className="ti ti-database-import"></Icon>
-                      <span style={{ flex: 1 }}>{db}</span>
-                      <Icon
-                        className={
-                          "ti ti-chevron-" +
-                          (selectedDb === db ? "down" : "right")
-                        }
-                        style={{ fontSize: 14, opacity: 0.5 }}
-                      ></Icon>
-                    </div>
-                    {selectedDb === db && (
-                      <div
-                        style={{
-                          borderLeft: "2px solid var(--accent-border)",
-                          marginLeft: 14,
-                        }}
-                      >
-                        {tablesLoading ? (
-                          <div
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: "13px",
-                              color: "var(--text-secondary)",
-                            }}
-                          >
-                            <span
-                              className="loading-spinner"
-                              style={{
-                                width: 12,
-                                height: 12,
-                                display: "inline-block",
-                                verticalAlign: "middle",
-                                marginRight: 6,
-                              }}
-                            ></span>{" "}
-                            Loading...
-                          </div>
-                        ) : tables.length === 0 ? (
-                          <div
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: "13px",
-                              color: "var(--text-muted)",
-                            }}
-                          >
-                            No tables
-                          </div>
-                        ) : (
-                          tables.map((t) => (
-                            <div
-                              key={t.name}
-                              className="editor-table-item"
-                              title={`${t.name} (${t.engine})`}
-                            >
-                              <Icon
-                                className={"ti " + engineIcon(t.engine)}
-                              ></Icon>
-                              <span
-                                style={{ flex: 1, cursor: "pointer" }}
-                                onClick={() =>
-                                  insertText(selectedDb + "." + t.name + " ")
-                                }
-                              >
-                                {t.name}
-                              </span>
-                              <Icon
-                                className="ti ti-code"
-                                title="View DDL"
-                                style={{
-                                  fontSize: 14,
-                                  cursor: "pointer",
-                                  opacity: 0.5,
-                                  flexShrink: 0,
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  showDdl(selectedDb, t.name);
-                                }}
-                              ></Icon>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+            <div style={{ flex: 1, overflowY: "auto", height: "93%" }}>
+              {!editorConnected ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "28px 16px",
+                    textAlign: "center",
+                    color: "var(--text-muted)",
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <Icon
+                    className="ti ti-lock"
+                    style={{ fontSize: "1.375rem", opacity: 0.6 }}
+                  ></Icon>
+                  <span>Connect to browse databases.</span>
                 </div>
-              ))
-            )}
+              ) : (
+                dbs.map((db) => (
+                  <div key={db} style={{ display: "flex" }}>
+                    {/* <div
+                      style={{
+                        marginLeft: "5px",
+                        paddingTop: "6px",
+                        display: "flex",
+                        alignItems: "start",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <AIKeyButton
+                        dbdetails={isFindDatabase(db)}
+                        dataSelectionHandler={dataSelectionHandler}
+                        connectDatabaseID={connectDatabaseID}
+                      />
+                    </div> */}
+
+                    <div style={{ width: "100%" }}>
+                      <div
+                        className={
+                          "editor-db-item" +
+                          (selectedDb === db ? " active" : "")
+                        }
+                        onClick={() =>
+                          setSelectedDb(selectedDb === db ? null : db)
+                        }
+                      >
+                        <Icon
+                          className={
+                            "ti ti-chevron-" +
+                            (selectedDb === db ? "down" : "right")
+                          }
+                          style={{ fontSize: "0.875rem", opacity: 0.5 }}
+                        ></Icon>
+                        <Icon className="ti ti-database-import"></Icon>
+                        <span style={{ flex: 1, fontSize: "0.75rem" }}>{db}</span>
+                      </div>
+                      {selectedDb === db && (
+                        <div
+                          style={{
+                            borderLeft: "2px solid var(--accent-border)",
+                            marginLeft: 14,
+                          }}
+                        >
+                          {tablesLoading ? (
+                            <div
+                              style={{
+                                padding: "8px 12px",
+                                fontSize: "0.8125rem",
+                                color: "var(--text-secondary)",
+                              }}
+                            >
+                              <span
+                                className="loading-spinner"
+                                style={{
+                                  width: 12,
+                                  height: 12,
+                                  display: "inline-block",
+                                  verticalAlign: "middle",
+                                  marginRight: 6,
+                                }}
+                              ></span>{" "}
+                              Loading...
+                            </div>
+                          ) : tables.length === 0 ? (
+                            <div
+                              style={{
+                                padding: "8px 12px",
+                                fontSize: "0.8125rem",
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              No tables
+                            </div>
+                          ) : (
+                            tables.map((t) => (
+                              <div
+                                key={t.name}
+                                className="editor-table-item"
+                                title={`${t.name} (${t.engine})`}
+                              >
+                                <Icon
+                                  className={"ti " + engineIcon(t.engine)}
+                                ></Icon>
+                                <span
+                                  style={{ flex: 1, cursor: "pointer" }}
+                                  onClick={() =>
+                                    insertText(selectedDb + "." + t.name + " ")
+                                  }
+                                >
+                                  {t.name}
+                                </span>
+                                <Icon
+                                  className="ti ti-code"
+                                  title="View DDL"
+                                  style={{
+                                    fontSize: "0.875rem",
+                                    cursor: "pointer",
+                                    opacity: 0.5,
+                                    flexShrink: 0,
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showDdl(selectedDb, t.name);
+                                  }}
+                                ></Icon>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
           <button
             className="sidebar-toggle"
@@ -1704,34 +2202,43 @@ export default function QueryEditor({
             background: "var(--sidebar-bg)",
           }}
         >
-          <div style={{ flex: 1 }}></div>
-          <div
+          {/* AT THE TOP, not the bottom.
+              
+              This used to sit under a flex: 1 spacer, which pinned it to the
+              bottom of a full-height rail. Anything that pushed the rail past
+              the fold took the only way back with it, so collapsing the explorer
+              could hide it permanently. The top of a column is the one place
+              that is always reachable. */}
+          <button
+            type="button"
+            onClick={() => setExplorerOpen(true)}
+            title="Open Explorer"
+            aria-label="Open Explorer"
             style={{
-              padding: "8px 0",
-              borderTop: "1px solid var(--sidebar-border)",
               display: "flex",
+              alignItems: "center",
               justifyContent: "center",
+              width: "100%",
+              height: 36,
+              padding: 0,
+              border: "none",
+              borderBottom: "1px solid var(--sidebar-border)",
+              background: "transparent",
+              color: "var(--icon-color)",
+              cursor: "pointer",
+              flexShrink: 0,
             }}
           >
-            <Icon
-              className="ti ti-folder-open"
-              style={{
-                fontSize: 18,
-                color: "var(--icon-color)",
-                cursor: "pointer",
-              }}
-              onClick={() => setExplorerOpen(true)}
-              title="Open Explorer"
-            ></Icon>
-          </div>
+            <Icon className="ti ti-folder-open" style={{ fontSize: "1.125rem" }}></Icon>
+          </button>
+          <div style={{ flex: 1, minHeight: 0 }}></div>
         </div>
       )}
 
       <div className="editor-main">
         <div className="editor-toolbar">
           <ModeSelect mode={mode} onChange={onModeChange} />
-          {/* Connect control: lives in the toolbar to save vertical space.
-              Icon-only fields (user/lock) with title + aria-label for access. */}
+          {}
           {!editorConnected ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span
@@ -1739,15 +2246,14 @@ export default function QueryEditor({
               >
                 <Icon
                   className="ti ti-user"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
-                <input
-                  className="form-input"
+                <Input
                   style={{
                     height: 28,
                     width: 150,
-                    fontSize: "12px",
+                    fontSize: "0.75rem",
                     padding: "0 6px",
                   }}
                   placeholder="user"
@@ -1766,7 +2272,7 @@ export default function QueryEditor({
               >
                 <Icon
                   className="ti ti-lock"
-                  style={{ fontSize: 15, opacity: 0.55 }}
+                  style={{ fontSize: "0.9375rem", opacity: 0.55 }}
                   // aria-hidden="true"
                 ></Icon>
                 <div
@@ -1774,13 +2280,12 @@ export default function QueryEditor({
                     position: "relative",
                   }}
                 >
-                  <input
-                    className="form-input"
+                  <Input
                     type={isViewFlag ? "text" : "password"}
                     style={{
                       height: 28,
                       width: 150,
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       padding: "0 6px",
                       paddingRight: "30px",
                     }}
@@ -1794,21 +2299,21 @@ export default function QueryEditor({
                     }}
                     autoComplete="off"
                   />
-                  <div onClick={() => setIsViewFlag(!isViewFlag)}>
+                  <button type="button" className="password-eye" aria-label={isViewFlag ? "Hide password" : "Show password"} aria-pressed={!!(isViewFlag)} onClick={() => setIsViewFlag(!isViewFlag)}>
                     <Icon
                       className={isViewFlag ? "ti ti-eye-off" : "ti ti-eye"}
                       style={{
                         position: "absolute",
                         right: "10px",
                         top: "17%",
-                        fontSize: "17px",
+                        fontSize: "1.0625rem",
                       }}
                     />
-                  </div>
+                  </button>
                 </div>
               </span>
-              <button
-                className="btn btn-primary btn-sm"
+              <Button
+                variant="primary" size="sm"
                 onClick={handleConnect}
                 disabled={connecting || !connUser.trim()}
                 title={`Connect to ${selectedNode || "node"}:${port}`}
@@ -1819,22 +2324,7 @@ export default function QueryEditor({
                   <Icon className="ti ti-plug"></Icon>
                 )}{" "}
                 Go
-              </button>
-              {connError && (
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--color-danger)",
-                    maxWidth: 200,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={connError}
-                >
-                  {connError}
-                </span>
-              )}
+              </Button>
             </div>
           ) : (
             <div
@@ -1842,13 +2332,13 @@ export default function QueryEditor({
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-secondary)",
               }}
             >
               <Icon
                 className="ti ti-plug-connected"
-                style={{ fontSize: 15, color: "var(--color-success)" }}
+                style={{ fontSize: "0.9375rem", color: "var(--color-success)" }}
               ></Icon>
               <span>
                 <strong style={{ color: "var(--text-primary)" }}>
@@ -1859,23 +2349,29 @@ export default function QueryEditor({
                   @ {selectedNode}:{port}
                 </span>
               </span>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={handleDisconnect}
                 title="Disconnect and clear credentials"
-                style={{ padding: "2px 6px" }}
               >
                 <Icon className="ti ti-logout"></Icon>
-              </button>
+              </Button>
             </div>
           )}
           {copied && (
-            <span style={{ fontSize: "12px", color: "var(--color-success)" }}>
-              <Icon className="ti ti-check" style={{ fontSize: 16 }}></Icon>{" "}
+            <span style={{ fontSize: "0.75rem", color: "var(--color-success)" }}>
+              <Icon className="ti ti-check" style={{ fontSize: "1rem" }}></Icon>{" "}
               Copied
             </span>
           )}
+
           <span style={{ flex: 1 }}></span>
+          <AIDDLButton
+            isDisabled={!editorConnected}
+            onClickEventMethod={() => {
+              setShowDBModel(true);
+            }}
+          />
           <button
             className={
               "btn btn-ghost btn-sm" + (panel === "history" ? " active" : "")
@@ -1894,38 +2390,28 @@ export default function QueryEditor({
           >
             <Icon className="ti ti-star"></Icon> Bookmarks
           </button>
-          {result?.length > 0 && !error && (
-            <span style={{ position: "relative", display: "inline-flex" }}>
-              <Select
-                className="form-select"
-                style={{
-                  height: 28,
-                  fontSize: "12px",
-                  padding: "0 6px",
-                  minWidth: "120px",
-                  width: 90,
-                }}
-                onChange={(e) => {
-                  if (e.target.value === "csv") {
-                    exportCSV(result, resultCols);
-                  } else if (e.target.value === "json") {
-                    exportJSON(result);
-                  } else if (e.target.value === "tsv") {
-                    exportTSV(result, resultCols);
-                  }
-                  e.target.value = "";
-                }}
-                defaultValue="EXPORT"
-              >
-                <option value="">Export</option>
-                <option value="csv">CSV</option>
-                <option value="json">JSON</option>
-                <option value="tsv">TSV</option>
-              </Select>
-            </span>
-          )}
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => setShareOpen(true)}
+            disabled={!sql?.trim()}
+            title="Copy a link to this query"
+          >
+            <Icon className="ti ti-link"></Icon>
+            <span className="navbar-btn-label">Share</span>
+          </Button>
+
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => setExportOpen(true)}
+            disabled={!sql?.trim()}
+            title="Export the results of this query"
+          >
+            <Icon className="ti ti-download"></Icon>
+            <span className="navbar-btn-label">Export</span>
+          </Button>
+
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setSqlCollapsed(!sqlCollapsed)}
             title={sqlCollapsed ? "Expand SQL" : "Collapse SQL"}
           >
@@ -1933,9 +2419,9 @@ export default function QueryEditor({
               className={`ti ${sqlCollapsed ? "ti-chevron-down" : "ti-chevron-up"}`}
             ></Icon>{" "}
             {sqlCollapsed ? "Expand SQL" : "Collapse SQL"}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button
+            variant="ghost" size="sm"
             onClick={() => setFullscreen(!fullscreen)}
             title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
           >
@@ -1943,56 +2429,154 @@ export default function QueryEditor({
               className={`ti ${fullscreen ? "ti-minimize" : "ti-maximize"}`}
             ></Icon>{" "}
             {fullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          </button>
+          </Button>
         </div>
 
+        {/* The strip sits above the parameter row and carries the hint that
+            used to live under the editor, so tabs add a row and remove one. */}
         {!sqlCollapsed && (
-          <div className="sql-editor-wrap">
-            <pre className="sql-line-numbers">{lineNums}</pre>
-            <div className="sql-editor-inner">
-              <pre
-                ref={highlightRef}
-                className="sql-highlight"
-                // aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: highlightSQL(sql) + "\n" }}
-              />
-              <textarea
-                ref={textareaRef}
-                className="sql-textarea"
-                value={sql}
-                onChange={handleInput}
-                onKeyDown={handleKeyDown}
-                onScroll={syncScroll}
-                spellCheck={false}
-                autoComplete="off"
-                autoCapitalize="off"
-              />
-              <div className="sql-hint">
-                Ctrl+Enter to run | Ctrl+B bookmarks
-              </div>
-              {acVisible && acFiltered.length > 0 && (
-                <div
-                  className="sql-autocomplete"
-                  style={{ top: acPos.top, left: acPos.left }}
-                >
-                  {acFiltered.map((w, i) => (
-                    <div
-                      key={w}
-                      ref={i === acIndex ? selectedRef : null}
-                      className={
-                        "sql-ac-item" + (i === acIndex ? " active" : "")
-                      }
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        insertAc(w);
-                      }}
-                    >
-                      {w}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          <QueryTabs
+            keyboardEnabled={active}
+            tabs={tabs}
+            activeId={activeId}
+            runtime={runtime}
+            canAdd={canAddTab}
+            onSelect={tabs_.selectTab}
+            onAdd={tabs_.addTab}
+            onClose={tabs_.closeTab}
+            confirmClose={(tab) => setCloseConfirm(tab)}
+            onRename={tabs_.renameTab}
+          />
+        )}
+
+        {!sqlCollapsed && (
+          <ParamStrip
+            params={params}
+            values={paramValues}
+            onChange={setParamValue}
+            previewOpen={previewOpen}
+            onPreviewToggle={() => setPreviewOpen((v) => !v)}
+          />
+        )}
+
+        {paramError && !sqlCollapsed && (
+          <Notice tone="danger" icon="ti-alert-circle" style={{ margin: "6px 16px" }}> {paramError}
+          </Notice>
+        )}
+
+        {/* Consecutive queries can reach different replicas behind a load balancer. */}
+        {!sqlCollapsed && (
+          <div style={{ margin: "0 16px" }}>
+            <SessionAffinityWarning rbac={affinityCtx} />
+          </div>
+        )}
+
+        {!sqlCollapsed && (
+          <div
+            className="sql-editor-wrap"
+            style={{ height: editorHeight, minHeight: EDITOR_HEIGHT_MIN }}
+          >
+            <SqlEditor
+              ref={editorRef}
+              docKey={activeId}
+              docKeys={tabIds}
+              value={sql}
+              onChange={setSql}
+              variant="full"
+              onRun={runActiveTab}
+              onBookmarks={() =>
+                setPanel(panel === "bookmarks" ? null : "bookmarks")
+              }
+              onEscape={() => {
+                if (fullscreen) setFullscreen(false);
+              }}
+              completions={acWords}
+              dialectData={sqlDialectData}
+              height="100%"
+            />
+          </div>
+        )}
+
+        {/* Splitter between the editor and everything below it.
+            A real drag handle rather than the CSS resize property: resize on a
+            flex item is unreliable, its handle is a 16px corner that the editor
+            sits on top of, and it gives no hover affordance. This mirrors the
+            explorer's column resizer a few hundred lines above. */}
+        {!sqlCollapsed && (
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize the SQL editor"
+            title="Drag to resize. Double click to reset."
+            style={{
+              height: 7,
+              flexShrink: 0,
+              cursor: "row-resize",
+              background: "var(--bg-sunken)",
+              borderBottom: "1px solid var(--border-default)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onDoubleClick={() => {
+              setEditorHeight(EDITOR_HEIGHT_DEFAULT);
+              try {
+                localStorage.setItem(
+                  EDITOR_HEIGHT_KEY,
+                  String(EDITOR_HEIGHT_DEFAULT),
+                );
+              } catch {
+                // The browser can block storage. Continue without it.
+              }
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const startY = e.clientY;
+              const startH = editorHeight;
+              // The editor must not grow past the window, or the results pane
+              // disappears with no way back other than dragging blind.
+              const maxH = Math.max(
+                EDITOR_HEIGHT_MIN,
+                window.innerHeight - 260,
+              );
+              // Selecting text across the page while dragging looks broken.
+              const priorSelect = document.body.style.userSelect;
+              document.body.style.userSelect = "none";
+              document.body.style.cursor = "row-resize";
+
+              const onMove = (ev) => {
+                const h = Math.max(
+                  EDITOR_HEIGHT_MIN,
+                  Math.min(maxH, startH + ev.clientY - startY),
+                );
+                setEditorHeight(h);
+              };
+              const onUp = () => {
+                document.removeEventListener("mousemove", onMove);
+                document.removeEventListener("mouseup", onUp);
+                document.body.style.userSelect = priorSelect;
+                document.body.style.cursor = "";
+                setEditorHeight((h) => {
+                  try {
+                    localStorage.setItem(EDITOR_HEIGHT_KEY, String(h));
+                  } catch {
+                    // The browser can block storage. Continue without it.
+                  }
+                  return h;
+                });
+              };
+              document.addEventListener("mousemove", onMove);
+              document.addEventListener("mouseup", onUp);
+            }}
+          >
+            <div
+              style={{
+                width: 46,
+                height: 3,
+                borderRadius: 2,
+                background: "var(--border-default)",
+              }}
+            />
           </div>
         )}
 
@@ -2001,17 +2585,19 @@ export default function QueryEditor({
             display: "flex",
             gap: "10px",
             alignItems: "center",
+            // Wraps rather than overflowing.
+            flexWrap: "wrap",
+            rowGap: 6,
             padding: "6px 16px",
             borderBottom: "1px solid var(--border-default)",
             background: "var(--glass-bg)",
-            backdropFilter: "blur(8px)",
             flexShrink: 0,
           }}
         >
           {result && !error && (
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--text-muted)",
                 flex: 1,
                 display: "flex",
@@ -2024,7 +2610,7 @@ export default function QueryEditor({
                 <>
                   <Icon
                     className="ti ti-check"
-                    style={{ color: "var(--color-success)", fontSize: 16 }}
+                    style={{ color: "var(--color-success)", fontSize: "1rem" }}
                   />
                   {successMsg}
                   {queryStats?.written_rows && queryStats.written_rows !== "0"
@@ -2035,9 +2621,20 @@ export default function QueryEditor({
                 <>
                   <Icon
                     className="ti ti-check"
-                    style={{ color: "var(--color-success)", fontSize: 16 }}
+                    style={{ color: "var(--color-success)", fontSize: "1rem" }}
                   />
-                  {result.length.toLocaleString()} row(s) returned
+                  {(totalRows || result.length).toLocaleString()} row(s)
+                  {truncated ? "+" : ""} returned
+                  {truncated && (
+                    <span
+                      style={{ color: "var(--color-warning)", marginLeft: 6 }}
+                      title={`The editor asked for at most ${(activeRuntime.rowCap || maxRows).toLocaleString()} rows, so a large result stays responsive. Raise Max rows, or use Export for the whole thing.`}
+                    >
+                      (first{" "}
+                      {(activeRuntime.rowCap || maxRows).toLocaleString()}, use
+                      Export for all)
+                    </span>
+                  )}
                 </>
               )}
               {queryStats && (
@@ -2058,63 +2655,56 @@ export default function QueryEditor({
               )}
               {effectiveQueryId && (
                 <span style={{ display: "inline-flex", gap: 4, marginLeft: 8 }}>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => {
                       navigator.clipboard?.writeText(effectiveQueryId);
-                      toast.success("Query ID Copied Succesfully");
+                      toast.success("Query ID Copied Successfully");
                     }}
                     title={"query_id: " + effectiveQueryId}
                   >
-                    <Icon className="ti ti-copy" style={{ fontSize: 12 }} />{" "}
+                    <Icon className="ti ti-copy" style={{ fontSize: "0.75rem" }} />{" "}
                     query_id
-                  </button>
-                  <button
+                  </Button>
+                  <Link
+                    to={`/tools/profiler?qid=${encodeURIComponent(effectiveQueryId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
-                    onClick={() => {
-                      navigate(
-                        `/tools/profiler?qid=${encodeURIComponent(effectiveQueryId)}`,
-                      );
-                    }}
+                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
                     title="Open in Query Profiler (flame graph)"
                   >
-                    <Icon className="ti ti-flame" style={{ fontSize: 12 }} />{" "}
+                    <Icon className="ti ti-flame" style={{ fontSize: "0.75rem" }} />{" "}
                     Flame Graph
-                  </button>
-                  <button
+                  </Link>
+                  <Link
+                    to={`/tools/pipeline?qid=${encodeURIComponent(effectiveQueryId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
-                    onClick={() => {
-                      navigate(
-                        `/tools/pipeline?qid=${encodeURIComponent(effectiveQueryId)}`,
-                      );
-                    }}
-                    title="Open in Processors Profile (pipeline DAG)"
+                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
+                    title="Open in Processors Profile"
                   >
                     <Icon
                       className="ti ti-git-branch"
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: "0.75rem" }}
                     />{" "}
                     Pipeline
-                  </button>
-                  <button
+                  </Link>
+                  <Link
+                    to={`/tools/metrics?qid=${encodeURIComponent(effectiveQueryId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: "11px", padding: "1px 6px" }}
-                    onClick={() => {
-                      navigate(
-                        `/tools/metrics?qid=${encodeURIComponent(effectiveQueryId)}`,
-                      );
-                    }}
+                    style={{ fontSize: "0.6875rem", padding: "1px 6px" }}
                     title="Open in Query Metrics"
                   >
                     <Icon
                       className="ti ti-chart-line"
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: "0.75rem" }}
                     />{" "}
                     Metrics
-                  </button>
+                  </Link>
                 </span>
               )}
             </span>
@@ -2122,7 +2712,7 @@ export default function QueryEditor({
           {error && (
             <span
               style={{
-                fontSize: "12px",
+                fontSize: "0.75rem",
                 color: "var(--color-danger)",
                 flex: 1,
               }}
@@ -2131,45 +2721,23 @@ export default function QueryEditor({
             </span>
           )}
           {!result && !error && <span style={{ flex: 1 }}></span>}
-          <Select
-            style={{
-              height: 40,
-              fontSize: "10px",
-              padding: "0 6px",
-              // border: "1px solid var(--border-default)",
-              borderRadius: "5px",
-              // background: "var(--input-bg)",
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-ui)",
-              fontWeight: "500",
-              width: "200px",
-            }}
-            onChange={(e) => {
-              if (e.target.value && e.target.value !== "GENERAL RUN") {
-                setExplainOptionSelector({ type: e.target.value });
-              }
-            }}
-            value={ExplainOptionSelector?.type || "GENERAL RUN"}
-            disabled={isAILoadingGenerating}
-          >
-            <option value="GENERAL RUN">GENERAL RUN</option>
-            <option value="EXPLAIN">EXPLAIN</option>
-            {/* <option value="EXPLAIN AST">AST</option> */}
-            <option value="EXPLAIN SYNTAX">SYNTAX</option>
-            <option value="EXPLAIN QUERY TREE">QUERY TREE</option>
-            <option value="EXPLAIN PLAN">PLAN</option>
-            <option value="EXPLAIN PIPELINE">PIPELINE</option>
-            <option value="EXPLAIN ESTIMATE">ESTIMATE</option>
-            <option value="EXPLAIN AST graph = 1">AST (graph)</option>
-            <option value="EXPLAIN PIPELINE graph = 1">PIPELINE (graph)</option>
-            <option value="EXPLAIN json = 1, description = 0">
-              PLAN (JSON)
-            </option>
-          </Select>
+          {/* ORDER: max rows, cost, generate, mode, go.
+              Left to right this reads as: how much, what will it cost, help me
+              write it, what kind of run, do it. The thing that acts is last and
+              on its own, which is where a primary action belongs. */}
+          <MaxRowsControl
+            value={maxRows}
+            onChange={setMaxRows}
+            disabled={running}
+          />
 
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={doEstimate}
+          <Button
+            variant="secondary" size="sm" className="sql-action-control"
+            /* NOT onClick={doEstimate}. That passes the click EVENT as the
+               first argument, which doEstimate takes as a tab id, so every
+               result was written under a key no tab has and the button looked
+               dead. */
+            onClick={() => doEstimate()}
             disabled={
               estimating || running || !editorConnected || isAILoadingGenerating
             }
@@ -2181,16 +2749,28 @@ export default function QueryEditor({
               </>
             ) : (
               <>
-                <Icon className="ti ti-calculator"></Icon> Estimate
+                <Icon className="ti ti-calculator"></Icon> Cost
               </>
             )}
-          </button>
+          </Button>
 
-          <button
-            className="ai-button "
-            style={{ color: theme === "dark" ? "white" : "black" }}
+          <Button
+            variant="secondary" className="ai-button sql-action-control"
+            /* The button's background is var(--accent), a purple in both
+               themes, so the label is white in both. It was black on the light
+               theme, which put dark text on a mid-purple fill.
+
+               nowrap and a tighter gap so the label cannot wrap as the row
+               fills up. The text is shortened rather than squeezed: a button
+               whose label wraps to two lines changes the height of the whole
+               row. */
+            /* Matched to btn-sm so it lines up with Cost and Go. It was sized
+               by .ai-button's own rules and came out noticeably shorter than
+               everything beside it. */
+            style={{ color: "#fff", flexShrink: 0 }}
             onClick={() => GeneratingSQLHandler()}
-            disabled={isAILoadingGenerating}
+            disabled={isAILoadingGenerating || !editorConnected || !IsSelectedAiID()}
+            title="Generate SQL from a question, using the selected AI database"
           >
             {isAILoadingGenerating ? (
               <>
@@ -2205,7 +2785,7 @@ export default function QueryEditor({
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
-                  fill={theme === "dark" ? "white" : "black"}
+                  fill="#fff"
                   className="icon icon-tabler icons-tabler-filled icon-tabler-sparkles-2"
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -2215,12 +2795,83 @@ export default function QueryEditor({
                 <span>Generate SQL</span>
               </>
             )}
-          </button>
+          </Button>
 
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setExplainOptionSelector({ type: "GENERAL RUN" })}
-            disabled={running || !editorConnected || isAILoadingGenerating}
+          <Select
+            className="sql-action-control"
+            style={{
+              // Smaller, because the labels are longer now that each one names
+              // the EXPLAIN it performs.
+              fontSize: "0.6563rem",
+              padding: "0 6px",
+              borderRadius: "5px",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-ui)",
+              fontWeight: "500",
+              // Shrinkable rather than fixed, so it gives way before the row
+              // has to wrap.
+              width: "auto",
+              boxSizing: "border-box",
+              // Both raised by 40px to hold "Explain pipeline (graph)" without
+              // reaching for the ellipsis on every EXPLAIN type.
+              minWidth: "160px",
+              maxWidth: "210px",
+              flexShrink: 1,
+            }}
+            /* Choosing a mode NO LONGER RUNS ANYTHING.
+               It used to run on change, which meant the dropdown was two
+               controls in one: a setting and a trigger. It also had a guard
+               that skipped the update for "GENERAL RUN", so once you picked an
+               EXPLAIN you could never get back to a plain run. Both are gone:
+               this sets the mode, Go performs it. */
+            onChange={(e) =>
+              updateTab(activeId, { explainType: e.target.value })
+            }
+            value={ExplainOptionSelector?.type || "GENERAL RUN"}
+            disabled={isAILoadingGenerating || running}
+            title="What Go will do with this query"
+          >
+            {/* The VALUE stays "GENERAL RUN". It is a stored constant: it lives
+                in every persisted tab and is compared against in doRun and in
+                explainOptions.js. Only the label changes. */}
+            {/* Sentence case rather than shouting, with SQL, AST and JSON left
+                alone. Taking "the remaining letters in lowercase" literally
+                would give "Ast" and "(json)", which reads as a mistake rather
+                than as a style. */}
+            <option value="GENERAL RUN">Select Explain</option>
+            <option value="EXPLAIN">Explain</option>
+            <option value="EXPLAIN SYNTAX">Explain syntax</option>
+            <option value="EXPLAIN QUERY TREE">Explain query tree</option>
+            <option value="EXPLAIN PLAN">Explain plan</option>
+            {isVersion267OrLater(serverVersion) && (
+              <option value="EXPLAIN ANALYZE">
+                Explain analyze (runs the query)
+              </option>
+            )}
+            <option value="EXPLAIN PIPELINE">Explain pipeline</option>
+            <option value="EXPLAIN ESTIMATE">Explain estimate</option>
+            <option value="EXPLAIN AST graph = 1">Explain AST (graph)</option>
+            <option value="EXPLAIN PIPELINE graph = 1">
+              Explain pipeline (graph)
+            </option>
+            <option value="EXPLAIN json = 1, description = 0">
+              Explain plan (JSON)
+            </option>
+          </Select>
+
+          <Button
+            variant="primary" size="sm" className="sql-action-control btn-shimmer"
+            /* The ONLY thing that runs a query. It performs whatever the
+               dropdown says, and does not change it: forcing GENERAL RUN here
+               would silently discard the mode the user had just chosen. */
+            onClick={() => runActiveTab()}
+            disabled={
+              running ||
+              !editorConnected ||
+              isAILoadingGenerating ||
+              missingRequired
+            }
+            title="Run this query"
           >
             {running ? (
               <>
@@ -2228,17 +2879,31 @@ export default function QueryEditor({
               </>
             ) : (
               <>
-                <Icon className="ti ti-player-play"></Icon> Run
+                <Icon className="ti ti-player-play"></Icon> Go
               </>
             )}
-          </button>
+          </Button>
         </div>
+        {ExplainOptionSelector?.type &&
+          ExplainOptionSelector.type !== "GENERAL RUN" && (
+            <ExplainOptions
+              explainType={ExplainOptionSelector.type}
+              ticked={explainTicked}
+              onToggle={toggleExplainOption}
+            />
+          )}
 
         {panel && (
           <div
             className="modal-overlay"
             onClick={() => setPanel(null)}
-            style={{ zIndex: 400 }}
+            style={{
+              zIndex: 400,
+              // Out of the way while dragging, so the drop reaches the editor.
+              pointerEvents: panelDragging ? "none" : undefined,
+              opacity: panelDragging ? 0.25 : undefined,
+              transition: "opacity 0.12s var(--ease)",
+            }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -2248,7 +2913,6 @@ export default function QueryEditor({
                 maxHeight: "80vh",
                 overflow: "auto",
                 background: "var(--glass-dropdown)",
-                backdropFilter: "blur(24px)",
                 border: "1px solid var(--border-default)",
                 borderRadius: "var(--radius-lg)",
                 padding: 0,
@@ -2268,41 +2932,39 @@ export default function QueryEditor({
                   >
                     <span
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         fontWeight: 700,
                         color: "var(--text-secondary)",
                       }}
                     >
                       <Icon
                         className="ti ti-history"
-                        style={{ fontSize: 16 }}
+                        style={{ fontSize: "1rem" }}
                       ></Icon>{" "}
                       Recent Queries ({history.length})
                     </span>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          clearHistory();
-                          setHistory([]);
-                        }}
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => setClearHistConfirmModal(true)}
                         title="Clear history"
                       >
                         <Icon className="ti ti-trash"></Icon>
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
+                        Clear History
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
                         onClick={() => setPanel(null)}
                       >
                         <Icon className="ti ti-x"></Icon>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   {history.length === 0 ? (
                     <div
                       style={{
                         color: "var(--text-muted)",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         padding: 8,
                       }}
                     >
@@ -2319,10 +2981,16 @@ export default function QueryEditor({
                       {history.map((h, i) => (
                         <div
                           key={i}
+                          draggable
+                          onDragStart={(e) =>
+                            startTextDrag(e, asSubquery(h.sql), true)
+                          }
+                          onDragEnd={endTextDrag}
+                          title="Drag into the editor to insert as a subquery"
                           style={{
                             padding: "6px 8px",
                             borderRadius: "var(--radius-sm)",
-                            fontSize: "13px",
+                            fontSize: "0.8125rem",
                             borderBottom: "1px solid var(--border-default)",
                           }}
                         >
@@ -2338,7 +3006,7 @@ export default function QueryEditor({
                                 "ti " +
                                 (h.status === "ok" ? "ti-check" : "ti-x")
                               }
-                              style={{ fontSize: 14, flexShrink: 0 }}
+                              style={{ fontSize: "0.875rem", flexShrink: 0 }}
                             ></Icon>
                             <span
                               style={{
@@ -2358,7 +3026,7 @@ export default function QueryEditor({
                             <span
                               style={{
                                 color: "var(--text-muted)",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                                 flexShrink: 0,
                               }}
                             >
@@ -2368,7 +3036,7 @@ export default function QueryEditor({
                               <span
                                 style={{
                                   color: "var(--text-muted)",
-                                  fontSize: "12px",
+                                  fontSize: "0.75rem",
                                   flexShrink: 0,
                                 }}
                               >
@@ -2378,7 +3046,7 @@ export default function QueryEditor({
                             <span
                               style={{
                                 color: "var(--text-muted)",
-                                fontSize: "12px",
+                                fontSize: "0.75rem",
                                 flexShrink: 0,
                                 minWidth: 110,
                                 textAlign: "right",
@@ -2386,15 +3054,14 @@ export default function QueryEditor({
                             >
                               {new Date(h.timestamp).toLocaleString()}
                             </span>
-                            <button
-                              className="btn btn-ghost btn-sm"
+                            <Button
+                              variant="ghost" size="sm"
                               onClick={() =>
                                 setExpandedIdx(expandedIdx === i ? null : i)
                               }
                               title={
                                 expandedIdx === i ? "Collapse" : "Expand SQL"
                               }
-                              style={{ padding: "2px 4px" }}
                             >
                               <Icon
                                 className={
@@ -2403,30 +3070,37 @@ export default function QueryEditor({
                                     ? "ti-chevron-up"
                                     : "ti-chevron-down")
                                 }
-                                style={{ fontSize: 14 }}
+                                style={{ fontSize: "0.875rem" }}
                               ></Icon>
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setSql(h.sql);
-                                setPanel(null);
-                              }}
-                              title="Load into editor"
-                              style={{
-                                padding: "2px 8px",
-                                fontSize: "12px",
-                              }}
+                            </Button>
+                            <Button
+                              variant="secondary" size="sm"
+                              onClick={() => openInNewTab("History", h.sql)}
+                              title="Open in a new tab"
                             >
                               <Icon
                                 className="ti ti-player-play"
                                 style={{
-                                  fontSize: 13,
+                                  fontSize: "0.8125rem",
                                   color: "var(--color-success)",
                                 }}
                               ></Icon>{" "}
                               Load
-                            </button>
+                            </Button>
+                            <Button
+                              variant="danger" size="sm"
+                              onClick={() =>
+                                setDeleteConfirmModal({
+                                  id: h?.id,
+                                  query: h.sql,
+                                })
+                              }
+                            >
+                              <Icon
+                                className="ti ti-trash"
+                                style={{ fontSize: "0.75rem", padding: "0" }}
+                              ></Icon>
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -2446,27 +3120,26 @@ export default function QueryEditor({
                   >
                     <span
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         fontWeight: 700,
                         color: "var(--text-secondary)",
                       }}
                     >
                       <Icon
                         className="ti ti-star"
-                        style={{ fontSize: 16 }}
+                        style={{ fontSize: "1rem" }}
                       ></Icon>{" "}
                       Bookmarks ({bookmarks.length})
                     </span>
-                    <button
-                      className="btn btn-ghost btn-sm"
+                    <Button
+                      variant="ghost" size="sm"
                       onClick={() => setPanel(null)}
                     >
                       <Icon className="ti ti-x"></Icon>
-                    </button>
+                    </Button>
                   </div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    <input
-                      className="form-input"
+                    <Input
                       placeholder="Bookmark name"
                       value={bookmarkName}
                       onChange={(e) => setBookmarkName(e.target.value)}
@@ -2474,24 +3147,48 @@ export default function QueryEditor({
                         if (e.key === "Enter") saveBookmark();
                       }}
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         padding: "4px 8px",
                         flex: 1,
                       }}
                     />
-                    <button
-                      className="btn btn-primary btn-sm"
+                    <Button
+                      variant="primary" size="sm"
                       onClick={saveBookmark}
                       disabled={!bookmarkName.trim() || !sql.trim()}
                     >
                       <Icon className="ti ti-star"></Icon> Save
-                    </button>
+                    </Button>
                   </div>
+
+                  {/* The other half of bookmark defaults. The save path has
+                      read saveDefaults since phase 1, but nothing ever rendered
+                      a way to set it, so the whole feature was unreachable from
+                      both ends. */}
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 10,
+                      fontSize: "0.75rem",
+                      color: "var(--text-muted)",
+                      cursor: "pointer",
+                    }}
+                    title="Store the current parameter values with this bookmark, so opening it later starts from them"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={saveDefaults}
+                      onChange={(e) => setSaveDefaults(e.target.checked)}
+                    />
+                    Save current parameter values as defaults
+                  </label>
                   {bookmarks.length === 0 ? (
                     <div
                       style={{
                         color: "var(--text-muted)",
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         padding: 8,
                       }}
                     >
@@ -2509,10 +3206,16 @@ export default function QueryEditor({
                       {bookmarks.map((b, i) => (
                         <div
                           key={i}
+                          draggable
+                          onDragStart={(e) =>
+                            startTextDrag(e, asSubquery(b.sql), true)
+                          }
+                          onDragEnd={endTextDrag}
+                          title="Drag into the editor to insert as a subquery"
                           style={{
                             padding: "6px 8px",
                             borderRadius: "var(--radius-sm)",
-                            fontSize: "13px",
+                            fontSize: "0.8125rem",
                             borderBottom: "1px solid var(--border-default)",
                           }}
                         >
@@ -2525,7 +3228,7 @@ export default function QueryEditor({
                           >
                             <Icon
                               className="ti ti-star"
-                              style={{ fontSize: 14, flexShrink: 0 }}
+                              style={{ fontSize: "0.875rem", flexShrink: 0 }}
                             ></Icon>
                             <span
                               style={{
@@ -2556,8 +3259,8 @@ export default function QueryEditor({
                             >
                               {b.sql}
                             </span>
-                            <button
-                              className="btn btn-ghost btn-sm"
+                            <Button
+                              variant="ghost" size="sm"
                               onClick={() =>
                                 setExpandedIdx(
                                   expandedIdx === "b" + i ? null : "b" + i,
@@ -2568,7 +3271,6 @@ export default function QueryEditor({
                                   ? "Collapse"
                                   : "Expand SQL"
                               }
-                              style={{ padding: "2px 4px" }}
                             >
                               <Icon
                                 className={
@@ -2577,46 +3279,46 @@ export default function QueryEditor({
                                     ? "ti-chevron-up"
                                     : "ti-chevron-down")
                                 }
-                                style={{ fontSize: 14 }}
+                                style={{ fontSize: "0.875rem" }}
                               ></Icon>
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setSql(b.sql);
-                                setPanel(null);
-                              }}
-                              title="Load into editor"
-                              style={{
-                                padding: "2px 8px",
-                                fontSize: "12px",
-                              }}
+                            </Button>
+                            <Button
+                              variant="secondary" size="sm"
+                              onClick={() => openInNewTab(b.name, b.sql, b)}
+                              title="Open in a new tab"
                             >
                               <Icon
                                 className="ti ti-player-play"
                                 style={{
-                                  fontSize: 13,
+                                  fontSize: "0.8125rem",
                                   color: "var(--color-success)",
                                 }}
                               ></Icon>{" "}
                               Load
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm"
                               onClick={() => deleteBookmark(i)}
                               title="Remove bookmark"
-                              style={{ padding: "2px 4px" }}
                             >
                               <Icon
                                 className="ti ti-trash"
-                                style={{ fontSize: 14 }}
+                                style={{ fontSize: "0.875rem" }}
                               ></Icon>
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
+
+                  <BookmarkExport
+                    bookmarks={bookmarks}
+                    onImport={async (merged) => {
+                      const ok = await writeBookmarks(merged);
+                      if (ok) toast.success("Bookmarks imported.");
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -2625,20 +3327,19 @@ export default function QueryEditor({
 
         <div className="editor-results">
           {error && (
-            <div className="alert-banner danger" style={{ margin: 12 }}>
-              <Icon className="ti ti-alert-circle"></Icon>
+            <Notice tone="danger" icon="ti-alert-circle" style={{ margin: 12 }}>
               <pre
                 style={{
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-all",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                   margin: 0,
                   flex: 1,
                 }}
               >
                 {error}
               </pre>
-            </div>
+            </Notice>
           )}
 
           {graphData && !graphData._json && graphFullscreen && (
@@ -2667,7 +3368,7 @@ export default function QueryEditor({
                   {graphTitle && (
                     <span
                       style={{
-                        fontSize: "13px",
+                        fontSize: "0.8125rem",
                         color: "var(--text-primary)",
                         fontWeight: 700,
                       }}
@@ -2679,58 +3380,58 @@ export default function QueryEditor({
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <span
                     style={{
-                      fontSize: "12px",
+                      fontSize: "0.75rem",
                       color: "var(--text-muted)",
                       marginRight: 4,
                     }}
                   >
                     {Math.round(graphZoomLevel * 100)}%
                   </span>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => graphZoom(1.25)}
                     title="Zoom in"
                   >
                     <Icon className="ti ti-zoom-in"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => graphZoom(0.8)}
                     title="Zoom out"
                   >
                     <Icon className="ti ti-zoom-out"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => setGraphZoomLevel(1)}
                     title="Reset zoom"
                   >
                     <Icon className="ti ti-zoom-reset"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={graphDownload}
                     title="Download PNG"
                     aria-label="Download PNG"
                   >
                     <Icon className="ti ti-download"></Icon>
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => setShowGraphSqlModal(true)}
                     title="View SQL"
                   >
                     <Icon className="ti ti-code"></Icon> View SQL
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
                     onClick={() => setGraphFullscreen(!graphFullscreen)}
                     title={graphFullscreen ? "Exit fullscreen" : "Fullscreen"}
                   >
                     <Icon
                       className={`ti ${graphFullscreen ? "ti-arrows-minimize" : "ti-arrows-maximize"}`}
                     ></Icon>
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div
@@ -2749,14 +3450,14 @@ export default function QueryEditor({
           {graphData?._json && (
             <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
               <div style={{ marginBottom: 8 }}>
-                <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
                   EXPLAIN JSON Output
                 </span>
               </div>
               <pre
                 style={{
                   fontFamily: "var(--font-code)",
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-all",
@@ -2786,37 +3487,33 @@ export default function QueryEditor({
               onCellClick={(v) => {
                 if (v != null) {
                   navigator.clipboard?.writeText(String(v));
-                  toast.success("Query Text Copied Succesfully");
+                  toast.success("Query Text Copied Successfully");
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }
               }}
+              isShowLogo={showLogo}
             />
           )}
-          {!result && !running && !error && !estimateResult && (
-            <div className="empty-state">
-              <Icon
-                className={
-                  "ti " + (editorConnected ? "ti-terminal-2" : "ti-lock")
-                }
-              ></Icon>
-              <p>
-                {editorConnected
-                  ? "Run a query to see results."
-                  : "Connect with your ClickHouse credentials to begin."}
-              </p>
-            </div>
-          )}
+          {!result &&
+            !running &&
+            !error &&
+            !estimateResult &&
+            (!editorConnected ? (
+              <div className="empty-state">
+                <Icon className="ti ti-lock"></Icon>
+                <p>Connect with your ClickHouse credentials to begin.</p>
+              </div>
+            ) : (
+              <div className="results-logo">
+                <img src={theme === "dark" ? lightLogo : darkLogo} alt="" />
+              </div>
+            ))}
         </div>
       </div>
 
       {ddlModal && (
-        <div className="modal-overlay" onClick={() => setDdlModal(null)}>
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 700, width: "95%" }}
-          >
+        <Modal onClose={() => setDdlModal(null)} style={{ maxWidth: 700, width: "95%" }}>
             <div
               style={{
                 display: "flex",
@@ -2840,12 +3537,12 @@ export default function QueryEditor({
                 ></Icon>{" "}
                 DDL: {ddlModal.name}
               </h3>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => setDdlModal(null)}
               >
                 <Icon className="ti ti-x"></Icon>
-              </button>
+              </Button>
             </div>
             {ddlModal.loading ? (
               <div
@@ -2862,7 +3559,7 @@ export default function QueryEditor({
                 <pre
                   style={{
                     fontFamily: "var(--font-code)",
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                     lineHeight: 1.6,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-all",
@@ -2885,32 +3582,60 @@ export default function QueryEditor({
                     gap: 8,
                   }}
                 >
-                  <button
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    variant="secondary" size="sm"
                     onClick={() => {
                       navigator.clipboard?.writeText(ddlModal.ddl);
-                      toast.success("DDL Text Copied Succesfully");
+                      toast.success("DDL Text Copied Successfully");
                     }}
                   >
                     <Icon className="ti ti-copy"></Icon> Copy
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
-          </div>
-        </div>
+          </Modal>
+      )}
+
+      {previewOpen && (
+        <Modal onClose={() => setPreviewOpen(false)} style={{ maxWidth: 700, width: "95%" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <Icon
+                  className="ti ti-code"
+                  style={{ color: "var(--accent)" }}
+                ></Icon>{" "}
+                Preview
+              </h3>
+              <Button
+                variant="ghost" size="sm"
+                onClick={() => setPreviewOpen(false)}
+              >
+                <Icon className="ti ti-x"></Icon>
+              </Button>
+            </div>
+
+            <QueryPreviewPanel sql={sql} values={paramValues} />
+          </Modal>
       )}
 
       {showGraphSqlModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowGraphSqlModal(false)}
-        >
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 900, width: "95%" }}
-          >
+        <Modal onClose={() => setShowGraphSqlModal(false)} style={{ maxWidth: 900, width: "95%" }}>
             <div
               style={{
                 display: "flex",
@@ -2934,18 +3659,18 @@ export default function QueryEditor({
                 ></Icon>{" "}
                 SQL
               </h3>
-              <button
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost" size="sm"
                 onClick={() => setShowGraphSqlModal(false)}
               >
                 <Icon className="ti ti-x"></Icon>
-              </button>
+              </Button>
             </div>
             <div>
               <pre
                 style={{
                   fontFamily: "var(--font-code)",
-                  fontSize: "14px",
+                  fontSize: "0.875rem",
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-all",
@@ -2968,19 +3693,158 @@ export default function QueryEditor({
                   gap: 8,
                 }}
               >
-                <button
-                  className="btn btn-secondary btn-sm"
+                <Button
+                  variant="secondary" size="sm"
                   onClick={() => {
                     navigator.clipboard?.writeText(sql);
-                    toast.success("Quer Text Copied Succesfully");
+                    toast.success("Quer Text Copied Successfully");
                   }}
                 >
                   <Icon className="ti ti-copy"></Icon> Copy
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </Modal>
+      )}
+      <ConfirmDialog
+        open={rowsWarn != null}
+        tone="danger"
+        title="That is a lot of rows to hold in a browser"
+        message={
+          rowsWarn
+            ? `Asking for ${rowsWarn.toLocaleString()} rows can make the editor slow to scroll and slow to switch tabs, and the whole result is held in memory.`
+            : ""
+        }
+        detail="Export writes the full result to a file without any of that, in any format ClickHouse supports."
+        confirmLabel="Use it anyway"
+        onCancel={() => setRowsWarn(null)}
+        onConfirm={() => {
+          const v = rowsWarn;
+          setRowsWarn(null);
+          setMaxRowsState(v);
+          try {
+            localStorage.setItem(MAX_ROWS_KEY, String(v));
+          } catch {
+            // The browser can block storage. Continue without it.
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!closeConfirm}
+        tone="danger"
+        title="Close this tab?"
+        message={
+          closeConfirm
+            ? `"${closeConfirm.name}" has not been run, so it is not in your history.`
+            : ""
+        }
+        detail="The text in it will be lost."
+        confirmLabel="Close it"
+        onCancel={() => setCloseConfirm(null)}
+        onConfirm={() => {
+          const id = closeConfirm?.id;
+          setCloseConfirm(null);
+          if (id) tabs_.closeTab(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!runConfirm}
+        title="Another query is running"
+        message={
+          runConfirm
+            ? `A query is still running in ${runConfirm.names}. Run this one as well?`
+            : ""
+        }
+        detail="It may have finished while you were reading this."
+        confirmLabel="Run anyway"
+        onCancel={() => setRunConfirm(null)}
+        onConfirm={() => {
+          const id = runConfirm?.id;
+          setRunConfirm(null);
+          if (id) doRunRef.current?.(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!analyzeConfirm}
+        title="Explain analyze runs your query"
+        message="Unlike the other explain options, this one runs the query to measure it. It reads the same data, takes the same time, and counts against your quota. It will not work on a distributed table, on a streaming read, or inside a transaction that has already failed."
+        detail="The results are discarded. Only the timings are shown."
+        confirmLabel="Run and measure"
+        onCancel={() => setAnalyzeConfirm(null)}
+        onConfirm={() => {
+          const id = analyzeConfirm?.id;
+          setAnalyzeConfirm(null);
+          if (id) doRunRef.current?.(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!deleteConfirmModal}
+        tone="danger"
+        title="Delete"
+        message="Do you want to delete this query ?"
+        sql={deleteConfirmModal?.query}
+        onCancel={() => setDeleteConfirmModal(null)}
+        onConfirm={() => {
+          deleteHistory(deleteConfirmModal?.id);
+          setDeleteConfirmModal(null);
+          setHistory(getHistory());
+        }}
+      />
+
+      <ConfirmDialog
+        open={clearHistConfirmModal}
+        tone="danger"
+        title="Delete"
+        message="Do you want to clear history"
+        onCancel={() => setClearHistConfirmModal(false)}
+        onConfirm={() => {
+          clearHistory();
+          setHistory([]);
+          setClearHistConfirmModal(false);
+        }}
+      />
+
+      {shareOpen && (
+        <ShareDialog
+          sql={sql}
+          params={paramValues}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      {exportOpen && (
+        <ExportWizard
+          sql={sql}
+          username={auth?.username}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
+
+      {showDBModel && (
+        <AIDDLModelComponent
+          SelectTablehandler={SelectTablehandler}
+          dbLoading={dbLoading}
+          newSelection={newSelection}
+          genTables={genTables}
+          setShowDBModel={setShowDBModel}
+          selectAllHandler={selectAllHandler}
+          databaseSchemaSetterHandler={databaseSchemaSetterHandler}
+          isNewSelectAll={isNewSelectAll}
+          isEnableAddButton={isEnableAddButton}
+          estimateScore={estimateScore}
+          GenerateDDL_EsitmateHandler={GenerateDDL_EsitmateHandler}
+          isEmptyTableAndDatabase={isEmptyTableAndDatabase}
+          DeleteDatabaseDDLHandler={DeleteDatabaseDDLHandler}
+          alertMessage={alertMessage}
+          isSelectDb={isSelectDb}
+          isDisableSelectDb={isDisableSelectDb}
+          isSelectTable={isSelectTable}
+          selectDBGenerateID={selectDBGenerateID}
+        />
       )}
     </div>
   );
