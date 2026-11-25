@@ -233,6 +233,7 @@ describe("two starts at the same time", () => {
     const [firstOutput, secondOutput] = await Promise.all([new Response(first.stdout).text(), new Response(second.stdout).text()]);
     await Promise.all([first.exited, second.exited]);
     const errors = (await new Response(first.stderr).text()) + (await new Response(second.stderr).text());
+    console.log(errors)
     expect(errors).toBe("");
     expect(first.exitCode).toBe(0);
     expect(second.exitCode).toBe(0);

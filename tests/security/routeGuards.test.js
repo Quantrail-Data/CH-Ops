@@ -154,6 +154,7 @@ const EXPECTED_GUARDS = {
   "PUT users.js /:id": "requireAdmin",
   "DELETE users.js /:id": "requireAdmin",
   "GET users.js /regenerate": "requireAdmin",
+  "GET schemaStudio.js /db":"none",
 };
 
 function findRouteGuards() {

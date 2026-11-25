@@ -2,7 +2,7 @@
 // Contributors - Kathir Moorthy, Kathirdhasan, Praveen kumar
 // Manages and renders the configuration rules for triggering system notification alerts.
 
-import  { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Select from "../common/Select.jsx";
 import Icon from "../common/Icon.jsx";
 import { apiFetch } from "../../utils/api.js";
@@ -32,7 +32,7 @@ function nodeName(node) {
   return node.name || node.host;
 }
 
-export default function AlertRules({mainRef}) {
+export default function AlertRules({ mainRef }) {
   const { auth } = useAuth();
   const myRole = auth?.role || "readonly";
   const myLevel = ROLE_LEVEL[myRole] || 0;
@@ -79,11 +79,9 @@ export default function AlertRules({mainRef}) {
   const [testResults, setTestResults] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
   const testResultsRef = useRef(null);
-  
 
-    // calculate the Height of application main container app-main
-  const {memoHeightAppMain} = useEmptyContainerHeight(900,mainRef)
-
+  // calculate the Height of application main container app-main
+  const { memoHeightAppMain } = useEmptyContainerHeight(900, mainRef);
 
   function normalizeCron(expr) {
     const parts = expr.trim().split(/\s+/).filter(Boolean);
@@ -114,7 +112,11 @@ export default function AlertRules({mainRef}) {
       }
       for (const value of p.split(",")) {
         const number = Number(value);
-        if (!Number.isInteger(number) || number < ranges[i][0] || number > ranges[i][1])
+        if (
+          !Number.isInteger(number) ||
+          number < ranges[i][0] ||
+          number > ranges[i][1]
+        )
           return `${names[i]} must be a number from ${ranges[i][0]} to ${ranges[i][1]}, or a comma list of numbers: ${value}`;
       }
     }
@@ -139,7 +141,9 @@ export default function AlertRules({mainRef}) {
       setClusterNodes(cluster ? cluster.nodes.map(nodeName) : []);
     } else {
       setClusterNodes(
-        (clusters || []).flatMap((cluster) => (cluster.nodes || []).map(nodeName)),
+        (clusters || []).flatMap((cluster) =>
+          (cluster.nodes || []).map(nodeName),
+        ),
       );
     }
   }, [f.cluster_id, clusters]);
@@ -241,7 +245,6 @@ export default function AlertRules({mainRef}) {
     setCronError("");
   }
 
-
   function templateFormValues(template) {
     return {
       name: template.name,
@@ -255,7 +258,6 @@ export default function AlertRules({mainRef}) {
       schedule: template.schedule,
     };
   }
-
 
   function startFromTemplate(template) {
     resetForm();
@@ -271,19 +273,16 @@ export default function AlertRules({mainRef}) {
     setTimeout(scrollFormToTop, 0);
   }
 
-
   function unitOfTemplate(templateId) {
     const template = templates.find((item) => item.id === templateId);
     return template ? template.unit : "";
   }
-
 
   function withUnit(value, unit) {
     if (!unit) return String(value);
     if (unit === "%") return `${value}%`;
     return `${value} ${unit}`;
   }
-
 
   function resetToTemplate() {
     const template = templates.find((item) => item.id === editingTemplateId);
@@ -322,7 +321,6 @@ export default function AlertRules({mainRef}) {
         return;
       }
 
-
       // const checkQuery = await runQuery(f.sql, { noRowLimit: true });
       const payload = {
         ...f,
@@ -356,7 +354,6 @@ export default function AlertRules({mainRef}) {
     }
   }
 
-
   async function testQuery() {
     setTestResults(null);
     setIsTesting(true);
@@ -381,7 +378,11 @@ export default function AlertRules({mainRef}) {
 
   // Show the test results: they are below the buttons, often out of view.
   useEffect(() => {
-    if (testResults) testResultsRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    if (testResults)
+      testResultsRef.current?.scrollIntoView?.({
+        behavior: "smooth",
+        block: "nearest",
+      });
   }, [testResults]);
 
   async function remove(id) {
@@ -404,7 +405,10 @@ export default function AlertRules({mainRef}) {
       // not look deleted.
       if (r.templateId && r.enabled) {
         setRulesKeptVisible((ids) => new Set(ids).add(r.id));
-        setResult({ ok: true, msg: `"${r.name}" is disabled. After a reload, turn on "Show template rules that are off" to see it.` });
+        setResult({
+          ok: true,
+          msg: `"${r.name}" is disabled. After a reload, turn on "Show template rules that are off" to see it.`,
+        });
       }
       load();
     } catch (e) {
@@ -428,13 +432,17 @@ export default function AlertRules({mainRef}) {
   function ruleNodeNames(rule) {
     if (!Array.isArray(rule.nodes)) return [];
     const allClusters = clusters || [];
-    const ruleCluster = allClusters.find((cluster) => cluster.id === rule.cluster_id);
+    const ruleCluster = allClusters.find(
+      (cluster) => cluster.id === rule.cluster_id,
+    );
     const nodes = rule.cluster_id
       ? ruleCluster?.nodes || []
       : allClusters.flatMap((cluster) => cluster.nodes || []);
     const names = rule.nodes.flatMap((value) => {
       if (nodes.some((node) => nodeName(node) === value)) return [value];
-      const namesOfHost = nodes.filter((node) => node.host === value).map(nodeName);
+      const namesOfHost = nodes
+        .filter((node) => node.host === value)
+        .map(nodeName);
       return namesOfHost.length > 0 ? namesOfHost : [value];
     });
     // Two saved values can give the same node name. The Set removes the duplicates.
@@ -467,13 +475,15 @@ export default function AlertRules({mainRef}) {
     setTimeout(scrollFormToTop, 0);
   }
 
-
   const templateRulesThatAreOff = rules.filter(
     (rule) => rule.templateId && !rule.enabled,
   );
   const visibleRules = showTemplateRulesThatAreOff
     ? rules
-    : rules.filter((rule) => !(rule.templateId && !rule.enabled) || rulesKeptVisible.has(rule.id));
+    : rules.filter(
+        (rule) =>
+          !(rule.templateId && !rule.enabled) || rulesKeptVisible.has(rule.id),
+      );
 
   const filteredTemplates = templates.filter((template) =>
     `${template.name} ${template.category} ${template.description}`
@@ -491,96 +501,18 @@ export default function AlertRules({mainRef}) {
         <h2 className="section-title">
           <Icon className="ti ti-bell-ringing"></Icon> Alert Rules
         </h2>
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-          {isAdmin && templateRulesThatAreOff.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "6px 14px",
-                borderRadius: 999,
-                background: "var(--accent-soft)",
-                border: "1px solid var(--accent-border)",
-                marginRight: 4,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 24,
-                  height: 24,
-                  borderRadius: 7,
-                  background: showTemplateRulesThatAreOff
-                    ? "var(--accent-solid)"
-                    : "var(--accent-soft)",
-                  color: showTemplateRulesThatAreOff ? "var(--on-accent)" : "var(--accent)",
-                  flexShrink: 0,
-                  transition: "background 0.2s ease, color 0.2s ease",
-                }}
-              >
-                <Icon
-                  className={
-                    showTemplateRulesThatAreOff ? "ti ti-eye" : "ti ti-eye-off"
-                  }
-                  style={{ fontSize: "0.875rem", color: "inherit" }}
-                />
-              </div>
-              <ToggleSwitch
-                checked={showTemplateRulesThatAreOff}
-                onChange={(e) =>
-                  setShowTemplateRulesThatAreOff(e.target.checked)
-                }
-                label={
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: "0.7813rem",
-                      fontWeight: 600,
-                      letterSpacing: "0.01em",
-                      color: showTemplateRulesThatAreOff
-                        ? "var(--text-primary)"
-                        : "var(--text-secondary)",
-                      transition: "color 0.2s ease",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Show template rules that are off
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 20,
-                        height: 18,
-                        padding: "0 6px",
-                        borderRadius: 999,
-                        fontSize: "0.6563rem",
-                        fontWeight: 700,
-                        background: showTemplateRulesThatAreOff
-                          ? "var(--accent-solid)"
-                          : "var(--accent-soft)",
-                        color: showTemplateRulesThatAreOff
-                          ? "var(--on-accent)"
-                          : "var(--accent)",
-                        transition:
-                          "background 0.2s ease, color 0.2s ease",
-                      }}
-                    >
-                      {templateRulesThatAreOff.length}
-                    </span>
-                  </span>
-                }
-                btnContainer
-              />
-            </div>
-          )}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginLeft: "auto",
+            alignItems: "center",
+          }}
+        >
+          {/* removed the alert template eye and toggle button */}
           <Button
-            variant="secondary" size="sm"
+            variant="secondary"
+            size="sm"
             onClick={handleRefresh}
             disabled={refreshing}
             title="Refresh"
@@ -596,7 +528,8 @@ export default function AlertRules({mainRef}) {
             ></Icon>
           </Button>
           <Button
-            variant="secondary" size="sm"
+            variant="secondary"
+            size="sm"
             onClick={() => setShowTemplatePicker(true)}
             disabled={!isAdmin}
             style={!isAdmin ? { opacity: 0.35, cursor: "not-allowed" } : {}}
@@ -604,7 +537,8 @@ export default function AlertRules({mainRef}) {
             <Icon className="ti ti-list-check"></Icon> New from template
           </Button>
           <Button
-            variant="primary" size="sm"
+            variant="primary"
+            size="sm"
             onClick={() => {
               resetForm();
               setShowForm(!showForm);
@@ -647,12 +581,22 @@ export default function AlertRules({mainRef}) {
         >
           <div className="modal-header">
             <div>
-              <div className="modal-title">{editing ? "Edit alert rule" : "New alert rule"}</div>
+              <div className="modal-title">
+                {editing ? "Edit alert rule" : "New alert rule"}
+              </div>
               <div className="modal-subtitle">
-                CHOps runs the SQL on a schedule and compares the value with the threshold.
+                CHOps runs the SQL on a schedule and compares the value with the
+                threshold.
               </div>
             </div>
-            <Button type="button" variant="secondary" size="sm" iconOnly onClick={cancelForm} aria-label="Close">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              iconOnly
+              onClick={cancelForm}
+              aria-label="Close"
+            >
               <Icon className="ti ti-x"></Icon>
             </Button>
           </div>
@@ -675,12 +619,19 @@ export default function AlertRules({mainRef}) {
                 className="form-select"
                 value={f.severity}
                 onChange={(e) => setF({ ...f, severity: e.target.value })}
+                isHigherZindex={99999}
               >
-                {SEVS.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
+                {SEVS.map((s) => {
+                  return (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  );
+                })}
               </Select>
+              
             </FormField>
+            
             <div className="form-group">
               <label className="form-label">Schedule (cron)</label>
               <Input
@@ -703,10 +654,9 @@ export default function AlertRules({mainRef}) {
                   {cronError}
                 </span>
               )}
-              <span
-                style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}
-              >
-                Supported: *, */n, and comma lists. Day of week is 0 to 6, and 0 is Sunday. Schedules run in the server&apos;s timezone.
+              <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                Supported: *, */n, and comma lists. Day of week is 0 to 6, and 0
+                is Sunday. Schedules run in the server&apos;s timezone.
               </span>
             </div>
             <FormField label="Operator">
@@ -714,6 +664,7 @@ export default function AlertRules({mainRef}) {
                 className="form-select"
                 value={f.operator}
                 onChange={(e) => setF({ ...f, operator: e.target.value })}
+                isHigherZindex={99999}
               >
                 {OPS.map((o) => (
                   <option key={o.k} value={o.k}>
@@ -722,10 +673,16 @@ export default function AlertRules({mainRef}) {
                 ))}
               </Select>
             </FormField>
-            <FormField label={<>Threshold
-                {unitOfTemplate(f.templateId)
-                  ? ` (${unitOfTemplate(f.templateId)})`
-                  : ""}</>}>
+            <FormField
+              label={
+                <>
+                  Threshold
+                  {unitOfTemplate(f.templateId)
+                    ? ` (${unitOfTemplate(f.templateId)})`
+                    : ""}
+                </>
+              }
+            >
               <Input
                 type="number"
                 value={f.threshold}
@@ -760,16 +717,26 @@ export default function AlertRules({mainRef}) {
             </FormField>
             <div
               className="form-group"
-              style={{ display: "flex", flexDirection:"row",justifyContent:"end", paddingTop: 20 ,gap:"4rem"}}
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "end",
+                paddingTop: 20,
+                gap: "4rem",
+              }}
             >
-              
-              <ToggleSwitch 
-                    checked={f.enabled}
-                    onChange={(e) => setF({ ...f, enabled: e.target.checked })}  label="Enabled"/>
-              <ToggleSwitch checked={f.noRowsMeansBreach}
-                    onChange={(e) =>
-                      setF({ ...f, noRowsMeansBreach: e.target.checked })
-                    } label="noRowsMeansBreach"/>
+              <ToggleSwitch
+                checked={f.enabled}
+                onChange={(e) => setF({ ...f, enabled: e.target.checked })}
+                label="Enabled"
+              />
+              <ToggleSwitch
+                checked={f.noRowsMeansBreach}
+                onChange={(e) =>
+                  setF({ ...f, noRowsMeansBreach: e.target.checked })
+                }
+                label="noRowsMeansBreach"
+              />
             </div>
           </div>
           <FormField label="SQL (single value)" style={{ marginBottom: 14 }}>
@@ -847,7 +814,9 @@ export default function AlertRules({mainRef}) {
                         }
                         width={20}
                       />
-                      <span style={{ fontSize: "0.8125rem", fontWeight: "600" }}>
+                      <span
+                        style={{ fontSize: "0.8125rem", fontWeight: "600" }}
+                      >
                         {ch.name}
                       </span>
                     </div>
@@ -869,6 +838,8 @@ export default function AlertRules({mainRef}) {
               onChange={(e) =>
                 setF((p) => ({ ...p, cluster_id: e.target.value, nodes: [] }))
               }
+              isHigherZindex={99999}
+              
             >
               <option value="">All clusters (default)</option>
               {(clusters || []).map((c) => (
@@ -879,16 +850,23 @@ export default function AlertRules({mainRef}) {
             </Select>
           </FormField>
           {clusterNodes.length > 0 && (
-            <FormField label={<>Target Nodes{" "}
-                <span
-                  style={{
-                    fontWeight: 400,
-                    color: "var(--text-muted)",
-                    fontSize: "0.8125rem",
-                  }}
-                >
-                  (empty = all nodes)
-                </span></>} style={{ marginBottom: 14 }}>
+            <FormField
+              label={
+                <>
+                  Target Nodes{" "}
+                  <span
+                    style={{
+                      fontWeight: 400,
+                      color: "var(--text-muted)",
+                      fontSize: "0.8125rem",
+                    }}
+                  >
+                    (empty = all nodes)
+                  </span>
+                </>
+              }
+              style={{ marginBottom: 14 }}
+            >
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {clusterNodes.map((chipNodeName) => (
                   <div
@@ -904,7 +882,9 @@ export default function AlertRules({mainRef}) {
                       backgroundColor: !f.nodes.includes(chipNodeName)
                         ? "#59595910"
                         : "var(--accent)",
-                      color: f.nodes.includes(chipNodeName) ? "white" : "var(--accent)",
+                      color: f.nodes.includes(chipNodeName)
+                        ? "white"
+                        : "var(--accent)",
                     }}
                     title={
                       f.nodes.includes(chipNodeName)
@@ -916,7 +896,9 @@ export default function AlertRules({mainRef}) {
                       setF((previousForm) => ({
                         ...previousForm,
                         nodes: previousForm.nodes.includes(chipNodeName)
-                          ? previousForm.nodes.filter((name) => name !== chipNodeName)
+                          ? previousForm.nodes.filter(
+                              (name) => name !== chipNodeName,
+                            )
                           : [...previousForm.nodes, chipNodeName],
                       }))
                     }
@@ -931,11 +913,15 @@ export default function AlertRules({mainRef}) {
                       <IconAlert
                         type="node"
                         color={
-                          f.nodes.includes(chipNodeName) ? "white" : "var(--accent)"
+                          f.nodes.includes(chipNodeName)
+                            ? "white"
+                            : "var(--accent)"
                         }
                         width={20}
                       />
-                      <span style={{ fontSize: "0.8125rem", fontWeight: "600" }}>
+                      <span
+                        style={{ fontSize: "0.8125rem", fontWeight: "600" }}
+                      >
                         {chipNodeName}
                       </span>
                     </div>
@@ -946,30 +932,6 @@ export default function AlertRules({mainRef}) {
                       />
                     )}
                   </div>
-                  // <label
-                  //   key={host}
-                  //   style={{
-                  //     display: "flex",
-                  //     gap: 4,
-                  //     fontSize: "14px",
-                  //     cursor: "pointer",
-                  //   }}
-                  // >
-                  //   <input
-                  //     type="checkbox"
-                  //     checked={f.nodes.includes(host)}
-                  //     onChange={() =>
-                  //       setF((p) => ({
-                  //         ...p,
-                  //         nodes: p.nodes.includes(host)
-                  //           ? p.nodes.filter((h) => h !== host)
-                  //           : [...p.nodes, host],
-                  //       }))
-                  //     }
-                  //     style={{ accentColor: "var(--accent)" }}
-                  //   />
-                  //   {host}
-                  // </label>
                 ))}
               </div>
             </FormField>
@@ -988,7 +950,8 @@ export default function AlertRules({mainRef}) {
             disabled={!f.name || !f.sql || !!cronError || isTesting}
             style={{ marginLeft: "10px" }}
           >
-            <Icon className="ti ti-send"></Icon> {isTesting ? "Testing..." : "Test"}
+            <Icon className="ti ti-send"></Icon>{" "}
+            {isTesting ? "Testing..." : "Test"}
           </Button>
           {editingTemplateId && (
             <Button
@@ -1007,7 +970,11 @@ export default function AlertRules({mainRef}) {
             <Icon className="ti ti-x"></Icon> Cancel
           </Button>
           {testResults && (
-            <table ref={testResultsRef} className="data-table" style={{ marginTop: 14 }}>
+            <table
+              ref={testResultsRef}
+              className="data-table"
+              style={{ marginTop: 14 }}
+            >
               <thead>
                 <tr>
                   <th>Node</th>
@@ -1022,7 +989,10 @@ export default function AlertRules({mainRef}) {
                     <td>
                       {nodeResult.value === null
                         ? "-"
-                        : withUnit(nodeResult.value, unitOfTemplate(f.templateId))}
+                        : withUnit(
+                            nodeResult.value,
+                            unitOfTemplate(f.templateId),
+                          )}
                     </td>
                     <td
                       style={{
@@ -1057,8 +1027,14 @@ export default function AlertRules({mainRef}) {
           <p>Alert rules management is only available for administrators.</p>
         </div>
       ) : visibleRules.length === 0 ? (
-         <div className="empty-state" style={{ padding: 40,height:`${memoHeightAppMain}px`}}>
-          <Icon className="ti ti-bell-plus" style={{ fontSize: "2.25rem" }}></Icon>
+        <div
+          className="empty-state"
+          style={{ padding: 40, height: `${memoHeightAppMain}px` }}
+        >
+          <Icon
+            className="ti ti-bell-plus"
+            style={{ fontSize: "2.25rem" }}
+          ></Icon>
           <p>No rules yet. Click New Rule.</p>
         </div>
       ) : (
@@ -1112,11 +1088,7 @@ export default function AlertRules({mainRef}) {
             return (
               // The card itself does not open the rule: only the Edit button
               // (and the rule name, a button) do.
-              <div
-                key={r.id}
-                className="card"
-                style={{ padding: 16 }}
-              >
+              <div key={r.id} className="card" style={{ padding: 16 }}>
                 <div
                   style={{
                     display: "flex",
@@ -1154,7 +1126,7 @@ export default function AlertRules({mainRef}) {
                     {r.severity}
                   </span>
                 </div>
-                {r.description && (
+                {r.description ? (
                   <p
                     style={{
                       color: "var(--text-muted)",
@@ -1164,7 +1136,11 @@ export default function AlertRules({mainRef}) {
                   >
                     {r.description}
                   </p>
-                )}
+                ) : <p style={{
+                      color: "var(--text-muted)",
+                      fontSize: "0.8125rem",
+                      marginBottom: 8,
+                    }}>No description available.</p>}
                 {showMarquee && (
                   <div
                     style={{
@@ -1234,7 +1210,10 @@ export default function AlertRules({mainRef}) {
                   )}
                   {Array.isArray(r.nodes) && r.nodes.length > 0 && (
                     <span
-                      style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "var(--text-muted)",
+                      }}
                     >
                       <Icon
                         className="ti ti-server"
@@ -1279,7 +1258,8 @@ export default function AlertRules({mainRef}) {
                 )}
                 <div style={{ display: "flex", gap: 6 }}>
                   <Button
-                    variant="secondary" size="sm"
+                    variant="secondary"
+                    size="sm"
                     aria-label="Edit rule"
                     title="Edit rule"
                     onClick={() => edit(r)}
@@ -1291,7 +1271,8 @@ export default function AlertRules({mainRef}) {
                     <Icon className="ti ti-edit"></Icon>
                   </Button>
                   <Button
-                    variant="secondary" size="sm"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => toggleEnabled(r)}
                     disabled={!isAdmin}
                     style={
@@ -1304,7 +1285,8 @@ export default function AlertRules({mainRef}) {
                     {r.enabled ? "Disable" : "Enable"}
                   </Button>
                   <Button
-                    variant="danger" size="sm"
+                    variant="danger"
+                    size="sm"
                     aria-label="Delete rule"
                     title="Delete rule"
                     onClick={() => isAdmin && setDel(r.id)}
@@ -1316,7 +1298,8 @@ export default function AlertRules({mainRef}) {
                     <Icon className="ti ti-trash"></Icon>
                   </Button>
                   <Button
-                    variant="secondary" size="sm"
+                    variant="secondary"
+                    size="sm"
                     title="History"
                     aria-label="History"
                     onClick={() => getHistory(r.id)}
@@ -1335,139 +1318,156 @@ export default function AlertRules({mainRef}) {
       )}
 
       {history && (
-        <Modal style={{
-              maxWidth: 800,
-              maxHeight: "min(40rem, 90vh)",
-              padding: "2px",
-              overflowY: "auto",
-            }}>
-            <div style={{ display: "flex", justifyContent: "space-between", margin:"1rem"}}>
-              <h2 className="section-title" style={{fontSize:"1.125rem"}}>
-                <Icon className="ti ti-clock"></Icon> History
-              </h2>
-              <div onClick={() => setHistory(null)}>
-                <Icon className="ti ti-x" />
-              </div>
+        <Modal
+          style={{
+            maxWidth: 800,
+            maxHeight: "min(40rem, 90vh)",
+            padding: "2px",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              margin: "1rem",
+            }}
+          >
+            <h2 className="section-title" style={{ fontSize: "1.125rem" }}>
+              <Icon className="ti ti-clock"></Icon> History
+            </h2>
+            <div onClick={() => setHistory(null)}>
+              <Icon className="ti ti-x" />
             </div>
+          </div>
 
-            <DataTable rows={history} allowFullscreen={false} />
-          </Modal>
+          <DataTable rows={history} allowFullscreen={false} />
+        </Modal>
       )}
 
       {showTemplatePicker && isAdmin && (
-        <Modal overlayStyle={{
+        <Modal
+          overlayStyle={{
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
             padding: "24px 16px",
             overflowY: "auto",
-          }} style={{
-              maxWidth: "min(800px, 100%)",
-              width: "100%",
-              height: "min(40rem, calc(100vh - 48px))",
-              maxHeight: "calc(100vh - 48px)",
-              overflowY: "auto",
+          }}
+          style={{
+            maxWidth: "min(800px, 100%)",
+            width: "100%",
+            height: "min(40rem, calc(100vh - 48px))",
+            maxHeight: "calc(100vh - 48px)",
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            margin: "0 auto",
+          }}
+        >
+          <div
+            style={{
               display: "flex",
-              flexDirection: "column",
-              margin: "0 auto",
-            }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 12,
-                flexShrink: 0,
+              justifyContent: "space-between",
+              marginBottom: 12,
+              flexShrink: 0,
+            }}
+          >
+            <h2 className="section-title" style={{ fontSize: "1.125rem" }}>
+              <Icon className="ti ti-list-check"></Icon> New from template
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setShowTemplatePicker(false);
+                setTemplateSearch("");
               }}
             >
-              <h2 className="section-title" style={{ fontSize: "1.125rem" }}>
-                <Icon className="ti ti-list-check"></Icon> New from template
-              </h2>
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => {
-                  setShowTemplatePicker(false);
-                  setTemplateSearch("");
+              <Icon className="ti ti-x" />
+            </Button>
+          </div>
+          <Input
+            placeholder="Search templates"
+            value={templateSearch}
+            onChange={(e) => setTemplateSearch(e.target.value)}
+            style={{ marginBottom: 12, flexShrink: 0 }}
+          />
+          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            {filteredTemplates.length === 0 ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
+                  color: "var(--text-muted)",
+                  fontSize: "0.875rem",
+                  gap: 8,
                 }}
               >
-                <Icon className="ti ti-x" />
-              </Button>
-            </div>
-            <Input
-              placeholder="Search templates"
-              value={templateSearch}
-              onChange={(e) => setTemplateSearch(e.target.value)}
-              style={{ marginBottom: 12, flexShrink: 0 }}
-            />
-            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-              {filteredTemplates.length === 0 ? (
-                <div
+                <Icon
+                  className="ti ti-list-search"
+                  style={{ fontSize: "2.25rem", opacity: 0.4 }}
+                />
+                <span>No Alert Templates Available</span>
+                {templateSearch && (
+                  <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>
+                    No templates match &ldquo;{templateSearch}&rdquo;
+                  </span>
+                )}
+              </div>
+            ) : (
+              filteredTemplates.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className="card"
+                  onClick={() => startFromTemplate(template)}
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "100%",
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    padding: 12,
+                    marginBottom: 8,
+                    cursor: "pointer",
                     color: "var(--text-muted)",
-                    fontSize: "0.875rem",
-                    gap: 8,
                   }}
                 >
-                  <Icon
-                    className="ti ti-list-search"
-                    style={{ fontSize: "2.25rem", opacity: 0.4 }}
-                  />
-                  <span>No Alert Templates Available</span>
-                  {templateSearch && (
-                    <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>
-                      No templates match &ldquo;{templateSearch}&rdquo;
-                    </span>
-                  )}
-                </div>
-              ) : (
-                filteredTemplates.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    className="card"
-                    onClick={() => startFromTemplate(template)}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: 12,
-                      marginBottom: 8,
-                      cursor: "pointer",
-                      color: "var(--text-muted)",
-                    }}
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
                   >
-                    <div
-                      style={{ display: "flex", justifyContent: "space-between" }}
-                    >
-                      <strong>{template.name}</strong>
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                        {template.category}
-                      </span>
-                    </div>
-                    <div
+                    <strong>{template.name}</strong>
+                    <span
                       style={{
-                        fontSize: "0.8125rem",
+                        fontSize: "0.75rem",
                         color: "var(--text-muted)",
-                        marginTop: 4,
                       }}
                     >
-                      {template.description}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", marginTop: 4 }}>
-                      Fires when the value is{" "}
-                      {template.operator === "gt" ? "above" : "below"}{" "}
-                      {withUnit(template.threshold, template.unit)}. Severity:{" "}
-                      {template.severity}.
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </Modal>
+                      {template.category}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.8125rem",
+                      color: "var(--text-muted)",
+                      marginTop: 4,
+                    }}
+                  >
+                    {template.description}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", marginTop: 4 }}>
+                    Fires when the value is{" "}
+                    {template.operator === "gt" ? "above" : "below"}{" "}
+                    {withUnit(template.threshold, template.unit)}. Severity:{" "}
+                    {template.severity}.
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </Modal>
       )}
 
       {del && isAdmin && (

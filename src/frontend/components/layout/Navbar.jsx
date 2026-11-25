@@ -415,12 +415,14 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
               </div>
               {fontScale !== null && (
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={switchToAutoFontScale}
                   className="tw:mt-1 tw:w-full tw:text-xs"
                 >
-                  Use Auto (fits the screen)
+                 {/* <i class="ti ti-maximize"></i> */}
+                 <Icon className="ti ti-maximize" />
+                 Fit to Scale
                 </Button>
               )}
             </div>
@@ -448,9 +450,9 @@ export default function Navbar({ route, onRefresh, onOpenSearch }) {
                 </span>
               </div>
               <div className="tw:flex tw:justify-between tw:gap-3">
-                <span className="tw:shrink-0">ClickHouse®</span>
+                <span className="tw:shrink-0 tw:cursor-default" title={"Supported ClickHouse Versions"}>CH Versions</span>
                 <span className="tw:text-right tw:text-[var(--text-secondary)]">
-                  {typeof __CH_VERSION__ !== "undefined" ? __CH_VERSION__ : "?"}
+                  {typeof __CH_VERSION__ !== "undefined" ? __CH_VERSION__?.replaceAll("LTS","").replace(/\s/g, "") : "?"}
                 </span>
               </div>
             </div>

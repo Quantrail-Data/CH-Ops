@@ -140,7 +140,8 @@ export function deleteApiKey(id) {
     throw new Error('API key not found.');
   }
   
-  const wasActive = key.isActive === 1;
+  // Drizzle gives is_active as true or false (mode: "boolean"), not 1 or 0.
+  const wasActive = !!key.isActive;
   db.delete(apiKeys).where(eq(apiKeys.id, id)).run();
   
   if (wasActive) {
