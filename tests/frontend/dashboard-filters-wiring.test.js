@@ -47,6 +47,11 @@ describe("selective re-run", () => {
     expect(view).not.toMatch(/for \(const chart of c\)\s*\{[\s\S]{0,400}?await runQuery/);
     expect(view).not.toMatch(/for \(const c of charts\)\s*\{[\s\S]{0,400}?await apiFetch/);
   });
+
+  it("marks only affected charts as rerunning and then clears them", () => {
+    expect(view).toContain("ids.has(c.id) ? { ...c, _rerunning: true } : c");
+    expect(view).toContain("_rerunning: false");
+  });
 });
 
 describe("regressions found in review", () => {
@@ -69,9 +74,9 @@ describe("regressions found in review", () => {
 
   it("handles guarded return branch after loadedDashRef match", () => {
     expect(view).toContain("if (transitioning)");
-    expect(view).toContain("setTransitionPhase(\"entering\")");
+    expect(view).toContain('setTransitionPhase("entering")');
     expect(view).toContain("setTransitioning(false)");
-    expect(view).toContain("setTransitionPhase(\"idle\")");
+    expect(view).toContain('setTransitionPhase("idle")');
   });
 
   it("clears the rerunning flag explicitly", () => {
@@ -108,6 +113,12 @@ describe("values travel as parameters", () => {
   it("sends only the parameters a chart declares", () => {
     expect(view).toContain("params.byChart.get(chart.id)");
   });
+
+  it("builds a chart-local params object before query execution", () => {
+    expect(view).toContain("const mine = {}");
+    expect(view).toContain("for (const p of params.byChart.get(chart.id) || [])");
+    expect(view).toContain("if (values[p.name] !== undefined) mine[p.name] = values[p.name]");
+  });
 });
 
 describe("required parameters", () => {
@@ -138,7 +149,7 @@ describe("URL state", () => {
   it("namespaces filter values so a parameter cannot collide with it", () => {
     // A parameter may legitimately be named `d`.
     expect(view).toContain("FILTER_PREFIX");
-    expect(view).toContain("\"f.\"");
+    expect(view).toContain('"f."');
   });
 
   it("writes filter values only on Apply", () => {
@@ -152,6 +163,21 @@ describe("URL state", () => {
   it("reads only namespaced filter params from URL", () => {
     expect(view).toContain("function readFilterParams(searchParams)");
     expect(view).toContain("k.startsWith(FILTER_PREFIX)");
+  });
+
+  it("keeps dashboard selection when applying filters and uses replace", () => {
+    expect(view).toContain("if (urlDashId) next.set(DASH_KEY, urlDashId)");
+    expect(view).toContain("setSearchParams(next, { replace: true })");
+  });
+
+  it("does nothing when Apply has no effective changes", () => {
+    expect(view).toContain("if (!changed.length) return;");
+  });
+
+  it("reset rebuilds defaults from settings and chart defaults", () => {
+    expect(view).toContain("const defaults = resolveValues(params.filters, {");
+    expect(view).toContain("dashboardDefaults: settings");
+    expect(view).toContain("chartDefaults");
   });
 });
 
@@ -173,6 +199,12 @@ describe("role gating matches the API", () => {
   it("restricts deleting a chart to admin, matching requireAdmin on the route", () => {
     expect(view).toMatch(/\{isAdmin && \(\s*<Button[^>]*onClick=\{onDelete\}/);
   });
+
+  it("keeps role-level mapping and permission thresholds explicit", () => {
+    expect(view).toContain("const ROLE_LEVEL =");
+    expect(view).toContain("const isAdmin = myLevel >= ROLE_LEVEL.admin");
+    expect(view).toContain("const canEdit = myLevel >= ROLE_LEVEL.editor");
+  });
 });
 
 describe("filter bar contract", () => {
@@ -191,7 +223,7 @@ describe("filter bar contract", () => {
   });
 
   it("compares the draft against what was applied, not against defaults", () => {
-    expect(bar).toContain("(draft[f.name] ?? \"\") !== (applied[f.name] ?? \"\")");
+    expect(bar).toContain('(draft[f.name] ?? "") !== (applied[f.name] ?? "")');
   });
 
   it("applies on Enter", () => {
@@ -273,7 +305,7 @@ describe("dashboard full screen", () => {
 
   it("leaves on Escape and re-measures the charts", () => {
     expect(view).toMatch(/pageFs[\s\S]{0,300}Escape/);
-    expect(view).toMatch(/new Event\(\"resize\"\)/);
+    expect(view).toMatch(/new Event\("resize"\)/);
   });
 
   it("layers below a tile full screen and below the modal", () => {
@@ -307,14 +339,65 @@ describe("transitions and legends", () => {
   it("keeps transition lifecycle guards", () => {
     expect(view).toContain("transitionTimerRef");
     expect(view).toContain("setTransitioning(true)");
-    expect(view).toContain("setTransitionPhase(\"exiting\")");
-    expect(view).toContain("setTransitionPhase(\"entering\")");
-    expect(view).toContain("setTransitionPhase(\"idle\")");
+    expect(view).toContain('setTransitionPhase("exiting")');
+    expect(view).toContain('setTransitionPhase("entering")');
+    expect(view).toContain('setTransitionPhase("idle")');
   });
 
   it("supports global legend toggle on eligible chart types", () => {
     expect(view).toContain("legendSupportedTypes");
     expect(view).toContain("const hasLegendCharts = charts.some");
     expect(view).toContain("showLegends");
+  });
+
+  it("keeps per-tile legend logic wired for desktop and small screens", () => {
+    expect(view).toContain("const supportsLegend =");
+    expect(view).toContain("needsLegend(chart.chartType, chart.chartSubtype)");
+    expect(view).toContain("legendFun: isSmallScreen && supportsLegend && hasLegend");
+  });
+});
+
+describe("dashboard mutations and layout persistence", () => {
+  it("trims and validates dashboard creation name", () => {
+    expect(view).toContain("if (!newName.trim()) return;");
+    expect(view).toContain('body: JSON.stringify({ name: newName.trim(), columns: newCols })');
+  });
+
+  it("prevents duplicate dashboard names during rename", () => {
+    expect(view).toContain("const duplicate = dashboards.some(");
+    expect(view).toContain("A dashboard with this name already exists.");
+  });
+
+  it("saves each chart position and clears unsaved marker", () => {
+    expect(view).toContain("apiFetch(`/api/dashboards/charts/${c.id}`");
+    expect(view).toContain("body: JSON.stringify({ gridRow: c.gridRow, gridCol: c.gridCol })");
+    expect(view).toContain("setHasUnsaved(false)");
+  });
+
+  it("swaps dragged chart coordinates and marks layout dirty", () => {
+    expect(view).toContain("const aRow = next[dragIdx].gridRow");
+    expect(view).toContain("aCol = next[dragIdx].gridCol");
+    expect(view).toContain("setHasUnsaved(true)");
+  });
+});
+
+describe("chart tile interaction contracts", () => {
+  it("uses portal rendering for tile fullscreen", () => {
+    expect(view).toContain("if (fs) return createPortal(tileContent, document.body);");
+  });
+
+  it("sanitizes file names before download", () => {
+    expect(view).toContain("function sanitizeFilename(name)");
+    expect(view).toContain('return sanitized || "chart";');
+  });
+
+  it("keeps explicit zoom controls and reset behavior", () => {
+    expect(view).toContain("function zoomIn()");
+    expect(view).toContain("function zoomOut()");
+    expect(view).toContain("function resetZoom()");
+  });
+
+  it("restores treemap and sunburst via root-to-node action when resetting", () => {
+    expect(view).toContain('type: isSunburstChart ? "sunburstRootToNode" : "treemapRootToNode"');
   });
 });

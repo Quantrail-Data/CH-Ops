@@ -404,7 +404,7 @@ async function resetPassword(id,initUser) {
           <Icon className="ti ti-users"></Icon> User Management
         </h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button
+          {tab !== "smtp" && <Button
             variant="secondary" size="sm"
             onClick={() => {
               setChangePw((p) => ({ ...p, show: !p.show }));
@@ -412,8 +412,8 @@ async function resetPassword(id,initUser) {
             }}
           >
             <Icon className="ti ti-key"></Icon> Change My Password
-          </Button>
-          {isAdmin && (
+          </Button>}
+          {(isAdmin && tab !== "smtp") &&  (
             <Button
               variant="primary" size="sm"
               onClick={() => {
