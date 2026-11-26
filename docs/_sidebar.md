@@ -70,4 +70,5 @@
   - [Building a Binary](/development/binary-build.md)
 - Deployment
   - [Production (Caddy + systemd)](/deployment/production.md)
+  - [Run in Kubernetes](/deployment/kubernetes.md)
 - [CHOps Pro & Legal](/guide/chops-pro.md)

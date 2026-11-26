@@ -35,7 +35,7 @@ The rule of thumb is **doing a thing** against **doing it on a schedule, across 
 
 ## Making a change
 
-Fork the repository, make your change on a branch, and test it locally before you open a pull request. The README covers how to run CHOps for development. Use Bun 1.4.2, the version that CI uses.
+Fork the repository, make your change on a branch, and test it locally before you open a pull request. The README covers how to run CHOps for development. Use Bun 1.4.4, the version that CI uses.
 
 ## Before you open a pull request
 
