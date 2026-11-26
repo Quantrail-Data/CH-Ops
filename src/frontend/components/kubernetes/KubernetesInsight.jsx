@@ -242,6 +242,16 @@ function HealthAlertsPanel({ clusterId }) {
 
   async function save() {
     try {
+      if(channelOptions.length === 0){
+        toast.error("No Notificational channel is configured");
+        return;
+      }
+
+      if(selectedChannelIds.length === 0) {
+        toast.error("You must select a Notification channel")
+        return
+      }
+
       await apiFetch(`/api/k8s/insight/${clusterId}/health-alerts`, {
         method: "PUT",
         body: { enabled, channels: selectedChannelIds.map(Number) },
@@ -274,7 +284,7 @@ function HealthAlertsPanel({ clusterId }) {
             placeholder="Choose channels..."
           />
         </div>
-        <Button variant="primary" size="sm" onClick={save}>
+        <Button variant="primary" size="sm" onClick={save} disabled={selectedChannelIds.length === 0}>
           Save
         </Button>
       </div>

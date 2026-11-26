@@ -59,7 +59,7 @@ export function pruneExpired() {
 
 // Store (or replace) the credential session for (jti, context). The password is
 // encrypted before it touches the database.
-export function setCredSession({ jti, context, appUser, clusterId, node, port, chUser, password }) {
+export function setCredSession({ jti, context, appUser, clusterId, node, port, chUser, password,nodeName }) {
   assertKey(jti, context);
   if (!chUser) throw new Error('Missing ClickHouse user.');
 
@@ -82,6 +82,7 @@ export function setCredSession({ jti, context, appUser, clusterId, node, port, c
         encryptedPassword,
         updatedAt: nowIso(),
         expiresAt,
+        nodeName,
       })
       .where(where)
       .run();
@@ -97,6 +98,7 @@ export function setCredSession({ jti, context, appUser, clusterId, node, port, c
         chUser,
         encryptedPassword,
         expiresAt,
+        nodeName,
       })
       .run();
   }
@@ -123,6 +125,7 @@ export function getCredSession(jti, context) {
     port: row.port,
     chUser: row.chUser,
     password: decrypt(row.encryptedPassword),
+    nodeName:row.nodeName
   };
 }
 
@@ -139,6 +142,7 @@ export function getCredSessionStatus(jti, context) {
     node: s.node,
     port: s.port,
     clusterId: s.clusterId,
+    nodeName:s.nodeName,
   };
 }
 

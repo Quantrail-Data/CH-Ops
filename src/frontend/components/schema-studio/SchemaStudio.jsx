@@ -98,7 +98,7 @@ export default function SchemaStudio() {
           <h1 className="studio-title"><Icon className="ti ti-table" /> Schema Studio</h1>
           <div className="studio-conn">
             <Icon className="ti ti-plug" />
-            <span>{conn.chUser}@{conn.node}{conn.port ? `:${conn.port}` : ""}</span>
+            <span>{conn.chUser}@{conn.nodeName}{conn.port ? `:${conn.port}` : ""}</span>
             <Button variant="ghost" className="studio-conn-btn" onClick={handleDisconnect}>Disconnect</Button>
           </div>
         </div>
@@ -170,7 +170,7 @@ function ConnectPanel({ onConnected }) {
   const g = getGlobalConnection();
   // Cluster, node, and port come from the navbar connection and are not editable
   // here. Schema Studio only asks for the ClickHouse username and password.
-  const target = { clusterId: g.clusterId || "", node: g.node || "", port: g.port || 8123 };
+  const target = { clusterId: g.clusterId || "", node: g.node || "", port: g.port || 8123,nodeName:g.nodeName|| "", };
   const [user, setUser] = useState(g.user || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

@@ -8,6 +8,7 @@
 import { writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveVersion } from "./resolveVersion.mjs";
+import { formatVersion } from "../src/shared/version.js";
 
 const version = resolveVersion();
 
@@ -30,7 +31,8 @@ if (semver) {
   info.minor = Number(semver[2]);
   info.patch = Number(semver[3]);
 }
-info.display = version;
+// For example "2.0.1 - beta".
+info.display = formatVersion(version, info.channel);
 
 const outPath = fileURLToPath(
   new URL("../src/backend/version.generated.js", import.meta.url),

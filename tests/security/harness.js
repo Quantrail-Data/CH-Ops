@@ -142,6 +142,7 @@ export async function startServer({ answerQuery } = {}) {
   }
 
   async function api(role, method, url, body) {
+    console.log(body)
     const headers = { "Content-Type": "application/json" };
     if (role) headers.Authorization = `Bearer ${tokens[role]}`;
     const bodyText = body === undefined ? undefined : JSON.stringify(body);

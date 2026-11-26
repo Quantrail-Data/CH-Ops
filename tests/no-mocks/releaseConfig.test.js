@@ -4,25 +4,11 @@
 import { describe, it, expect } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
+import { compareVersions, parseVersionInfo } from "../../src/shared/version.js";
 
 const repoRoot = path.resolve(import.meta.dir, "../..");
 const readRepoFile = (name) => fs.readFileSync(path.join(repoRoot, name), "utf8");
 const versionInfo = JSON.parse(readRepoFile("version.json"));
-
-// "2.0.0-beta" is a pre-release. "1.4.1" is a release.
-function isPreRelease(version) {
-  return version.includes("-");
-}
-
-// Compares the X.Y.Z part of two versions. Below 0: a is lower.
-function compareReleaseNumbers(a, b) {
-  const numbersOf = (version) => version.split("-")[0].split(".").map(Number);
-  const [aNumbers, bNumbers] = [numbersOf(a), numbersOf(b)];
-  for (let index = 0; index < 3; index++) {
-    if (aNumbers[index] !== bNumbers[index]) return aNumbers[index] - bNumbers[index];
-  }
-  return 0;
-}
 
 describe("CI workflows", () => {
   it("use Bun 1.4.4 in every job", () => {
@@ -57,39 +43,30 @@ describe("Kubernetes manifests", () => {
     }
   });
 
-  // A pre-release (for example 2.0.0-beta) has no image on Docker Hub yet,
-  // so the manifest keeps the last released image until the release.
-  it("use a published image: the current version, or the last release before a pre-release", () => {
+  // An alpha or beta version (for example 2.0.0 beta) has no image on Docker Hub
+  // before its release, so the manifest keeps the last stable image until then.
+  it("use a published image: the current stable version, or an older stable version", () => {
     const statefulSet = readRepoFile("statefulset.yaml");
     const imageTag = statefulSet.match(/image: quantrailadmin1\/ch-ops:(\S+)\n/)?.[1];
     expect(imageTag).toBeDefined();
-    if (isPreRelease(versionInfo.version)) {
-      expect(isPreRelease(imageTag)).toBe(false);
-      expect(compareReleaseNumbers(imageTag, versionInfo.version)).toBeLessThan(0);
-    } else {
+    const imageInfo = { version: imageTag, channel: "stable" };
+    if (versionInfo.channel === "stable") {
       expect(imageTag).toBe(versionInfo.version);
+    } else {
+      expect(compareVersions(imageInfo, versionInfo)).toBeLessThan(0);
     }
   });
 });
 
 describe("version.json", () => {
+  it("has a MAJOR.MINOR.BUGFIX version and a channel", () => {
+    expect(() => parseVersionInfo(versionInfo)).not.toThrow();
+  });
+
   it("states the tested ClickHouse versions", () => {
     expect(versionInfo.clickhouseVersion).toBe("26.3 LTS, 26.8 LTS");
     expect(versionInfo.clickhouseCompat).toBe(
       "Older and newer versions should work, but they are not tested.",
     );
-  });
-});
-
-describe("version helpers of this test", () => {
-  it("know a pre-release", () => {
-    expect(isPreRelease("2.0.0-beta")).toBe(true);
-    expect(isPreRelease("1.4.1")).toBe(false);
-  });
-
-  it("compare the numbers, not the text", () => {
-    expect(compareReleaseNumbers("1.4.1", "2.0.0-beta")).toBeLessThan(0);
-    expect(compareReleaseNumbers("1.10.0", "1.9.0")).toBeGreaterThan(0);
-    expect(compareReleaseNumbers("2.0.0", "2.0.0-beta")).toBe(0);
   });
 });

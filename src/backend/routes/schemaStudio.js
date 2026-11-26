@@ -94,7 +94,7 @@ router.post("/connect", async (req, res) => {
         .status(403)
         .json({ error: "Read-only accounts cannot use Schema Studio." });
     }
-    const { clusterId, node, port, user, password } = req.body || {};
+    const { clusterId, node, port, user, password,nodeName } = req.body || {};
     if (!user)
       return res
         .status(400)
@@ -121,6 +121,7 @@ router.post("/connect", async (req, res) => {
       port: port || target.port || 8123,
       chUser: user,
       password: password ?? "",
+      nodeName: nodeName ?? "",
     });
     res.json(getCredSessionStatus(req.user.jti, CRED_CONTEXTS.SCHEMA_STUDIO));
   } catch (e) {
@@ -321,7 +322,6 @@ router.post("/create", async (req, res) => {
       await sessionQuery(sess, { query: s, jsonEachRow: false });
       created.push(s);
     }
-    console.log(created)
     res.json({ ok: true, created });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });

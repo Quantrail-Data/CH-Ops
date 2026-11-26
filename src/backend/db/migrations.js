@@ -61,6 +61,8 @@ const ADDED_COLUMNS = [
   "ALTER TABLE alert_rule ADD COLUMN template_edited INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE ai_chat_message ADD COLUMN chart_name TEXT",
   "ALTER TABLE ai_chat_message ADD COLUMN dash_id TEXT",
+
+  "ALTER TABLE ch_cred_session ADD COLUMN node_name TEXT NOT NULL",
 ];
 
 // "duplicate column name": an older version already added the column.

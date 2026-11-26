@@ -1,0 +1,36 @@
+name: Version Check
+
+# Every pull request to main must change version.json to a newer version.
+# To block the merge when this check fails, make "Check version.json" a
+# required status check in the branch protection rule of main.
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: Check version.json
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0   # so that the version.json of main is available
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+
+      - name: Compare with main
+        run: |
+          git show "origin/${{ github.base_ref }}:version.json" > "$RUNNER_TEMP/main-version.json"
+          bun scripts/check-version-bump.mjs "$RUNNER_TEMP/main-version.json" version.json

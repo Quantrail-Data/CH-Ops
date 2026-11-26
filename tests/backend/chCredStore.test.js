@@ -26,6 +26,7 @@ sqlite.exec(`
     port INTEGER,
     ch_user TEXT NOT NULL,
     encrypted_password TEXT NOT NULL,
+    node_name TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     expires_at TEXT,
@@ -39,7 +40,7 @@ describe('chCredStore', () => {
   it('stores and resolves a credential session (password round-trips)', () => {
     store.setCredSession({
       jti: 'j-alice', context: EDITOR, appUser: 'alice',
-      clusterId: 'c1', node: 'n1.example', port: 9000, chUser: 'analyst', password: 's3cret',
+      clusterId: 'c1', node: 'n1.example', port: 9000, chUser: 'analyst', password: 's3cret',nodeName:"test-1"
     });
     const s = store.getCredSession('j-alice', EDITOR);
     expect(s).not.toBeNull();
@@ -51,7 +52,7 @@ describe('chCredStore', () => {
   });
 
   it('encrypts the password at rest (ciphertext is not the plaintext)', () => {
-    store.setCredSession({ jti: 'j-bob', context: EDITOR, appUser: 'bob', node: 'n', chUser: 'u', password: 'plaintextpw' });
+    store.setCredSession({ jti: 'j-bob', context: EDITOR, appUser: 'bob', node: 'n', chUser: 'u', password: 'plaintextpw' ,nodeName:"test-1"});
     const row = sqlite.query("SELECT encrypted_password FROM ch_cred_session WHERE jti = 'j-bob'").get();
     expect(row.encrypted_password).not.toBe('plaintextpw');
     // v1:iv:tag:ciphertext - the version prefix lets decrypt() tell a genuine
@@ -62,7 +63,7 @@ describe('chCredStore', () => {
   });
 
   it('status view never includes the password', () => {
-    store.setCredSession({ jti: 'j-carol', context: EDITOR, appUser: 'carol', node: 'n', chUser: 'u', password: 'pw' });
+    store.setCredSession({ jti: 'j-carol', context: EDITOR, appUser: 'carol', node: 'n', chUser: 'u', password: 'pw' ,nodeName:"test-1"});
     const status = store.getCredSessionStatus('j-carol', EDITOR);
     expect(status.connected).toBe(true);
     expect(status.chUser).toBe('u');
@@ -70,8 +71,8 @@ describe('chCredStore', () => {
   });
 
   it('keeps editor and schema-studio credentials separate under one login (jti)', () => {
-    store.setCredSession({ jti: 'j-multi', context: EDITOR, appUser: 'u', node: 'n', chUser: 'ed_user', password: 'ed_pw' });
-    store.setCredSession({ jti: 'j-multi', context: STUDIO, appUser: 'u', node: 'n', chUser: 'ss_user', password: 'ss_pw' });
+    store.setCredSession({ jti: 'j-multi', context: EDITOR, appUser: 'u', node: 'n', chUser: 'ed_user', password: 'ed_pw',nodeName:"test-1" });
+    store.setCredSession({ jti: 'j-multi', context: STUDIO, appUser: 'u', node: 'n', chUser: 'ss_user', password: 'ss_pw' ,nodeName:"test-1"});
     expect(store.getCredSession('j-multi', EDITOR).chUser).toBe('ed_user');
     expect(store.getCredSession('j-multi', STUDIO).chUser).toBe('ss_user');
     const count = sqlite.query("SELECT count(*) AS c FROM ch_cred_session WHERE jti = 'j-multi'").get();
@@ -79,8 +80,8 @@ describe('chCredStore', () => {
   });
 
   it('replaces the session on reconnect (one row per (jti, context))', () => {
-    store.setCredSession({ jti: 'j-dave', context: EDITOR, appUser: 'dave', node: 'n1', chUser: 'u1', password: 'p1' });
-    store.setCredSession({ jti: 'j-dave', context: EDITOR, appUser: 'dave', node: 'n2', chUser: 'u2', password: 'p2' });
+    store.setCredSession({ jti: 'j-dave', context: EDITOR, appUser: 'dave', node: 'n1', chUser: 'u1', password: 'p1',nodeName:"test-1" });
+    store.setCredSession({ jti: 'j-dave', context: EDITOR, appUser: 'dave', node: 'n2', chUser: 'u2', password: 'p2',nodeName:"test-1" });
     const s = store.getCredSession('j-dave', EDITOR);
     expect(s.node).toBe('n2');
     expect(s.chUser).toBe('u2');
@@ -90,12 +91,12 @@ describe('chCredStore', () => {
   });
 
   it('rejects an invalid context', () => {
-    expect(() => store.setCredSession({ jti: 'j-x', context: 'bogus', chUser: 'u', password: 'p' })).toThrow();
+    expect(() => store.setCredSession({ jti: 'j-x', context: 'bogus', chUser: 'u', password: 'p',nodeName:"test-1" })).toThrow();
     expect(store.getCredSession('j-x', 'bogus')).toBeNull();
   });
 
   it('treats an expired session as disconnected and clears it', () => {
-    store.setCredSession({ jti: 'j-erin', context: EDITOR, appUser: 'erin', node: 'n', chUser: 'u', password: 'pw' });
+    store.setCredSession({ jti: 'j-erin', context: EDITOR, appUser: 'erin', node: 'n', chUser: 'u', password: 'pw' ,nodeName:"test-1"});
     sqlite.exec("UPDATE ch_cred_session SET expires_at = '2000-01-01T00:00:00.000Z' WHERE jti = 'j-erin'");
     expect(store.getCredSession('j-erin', EDITOR)).toBeNull();
     expect(store.getCredSessionStatus('j-erin', EDITOR).connected).toBe(false);
@@ -104,24 +105,24 @@ describe('chCredStore', () => {
   });
 
   it('clears a single context on disconnect, leaving the other', () => {
-    store.setCredSession({ jti: 'j-frank', context: EDITOR, appUser: 'frank', node: 'n', chUser: 'u', password: 'pw' });
-    store.setCredSession({ jti: 'j-frank', context: STUDIO, appUser: 'frank', node: 'n', chUser: 'u', password: 'pw' });
+    store.setCredSession({ jti: 'j-frank', context: EDITOR, appUser: 'frank', node: 'n', chUser: 'u', password: 'pw' ,nodeName:"test-1"});
+    store.setCredSession({ jti: 'j-frank', context: STUDIO, appUser: 'frank', node: 'n', chUser: 'u', password: 'pw' ,nodeName:"test-1"});
     store.clearCredSession('j-frank', EDITOR);
     expect(store.getCredSession('j-frank', EDITOR)).toBeNull();
     expect(store.getCredSession('j-frank', STUDIO)).not.toBeNull();
   });
 
   it('clearCredSessionByJti removes every context for a login (logout/revoke)', () => {
-    store.setCredSession({ jti: 'j-gina', context: EDITOR, appUser: 'gina', node: 'n', chUser: 'u', password: 'pw' });
-    store.setCredSession({ jti: 'j-gina', context: STUDIO, appUser: 'gina', node: 'n', chUser: 'u', password: 'pw' });
+    store.setCredSession({ jti: 'j-gina', context: EDITOR, appUser: 'gina', node: 'n', chUser: 'u', password: 'pw' ,nodeName:"test-1"});
+    store.setCredSession({ jti: 'j-gina', context: STUDIO, appUser: 'gina', node: 'n', chUser: 'u', password: 'pw',nodeName:"test-1" });
     store.clearCredSessionByJti('j-gina');
     expect(store.getCredSession('j-gina', EDITOR)).toBeNull();
     expect(store.getCredSession('j-gina', STUDIO)).toBeNull();
   });
 
   it('pruneExpired deletes only expired rows (no orphans linger)', () => {
-    store.setCredSession({ jti: 'j-live', context: EDITOR, appUser: 'x', node: 'n', chUser: 'u', password: 'pw' });
-    store.setCredSession({ jti: 'j-dead', context: EDITOR, appUser: 'x', node: 'n', chUser: 'u', password: 'pw' });
+    store.setCredSession({ jti: 'j-live', context: EDITOR, appUser: 'x', node: 'n', chUser: 'u', password: 'pw' ,nodeName:"test-1"});
+    store.setCredSession({ jti: 'j-dead', context: EDITOR, appUser: 'x', node: 'n', chUser: 'u', password: 'pw' ,nodeName:"test-1"});
     sqlite.exec("UPDATE ch_cred_session SET expires_at = '2000-01-01T00:00:00.000Z' WHERE jti = 'j-dead'");
     store.pruneExpired();
     expect(sqlite.query("SELECT * FROM ch_cred_session WHERE jti = 'j-dead'").get()).toBeNull();
