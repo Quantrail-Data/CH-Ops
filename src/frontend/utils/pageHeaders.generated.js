@@ -944,7 +944,6 @@ export const PAGE_TEXT = {
     "Value:"
   ],
   "alerting/rules": [
-    "Show template rules that are off",
     "Alert rules management is only available for administrators.",
     "CHOps runs the SQL on a schedule and compares the value with the threshold.",
     "Schedule (cron)",
@@ -957,6 +956,7 @@ export const PAGE_TEXT = {
     "Loading...",
     "No rules yet. Click New Rule.",
     "template",
+    "No description available.",
     "Enabled",
     "Disabled",
     "FIRING",

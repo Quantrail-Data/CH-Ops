@@ -68,7 +68,7 @@ _credSqlite.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     app_user TEXT NOT NULL, jti TEXT NOT NULL, context TEXT NOT NULL,
     cluster_id TEXT, node TEXT, port INTEGER, ch_user TEXT NOT NULL,
-    encrypted_password TEXT NOT NULL, created_at TEXT, updated_at TEXT, expires_at TEXT,
+    encrypted_password TEXT NOT NULL, created_at TEXT, updated_at TEXT, expires_at TEXT,node_name TEXT NOT NULL,
     UNIQUE (jti, context)
   )
 `);
@@ -109,7 +109,7 @@ describe("POST /schema-studio/connect - role gate", () => {
     mockExecuteQuery.mockResolvedValue({ rows: [{ 1: 1 }] });
     const req = {
       user: { role: "editor", jti: "j2", username: "alice" },
-      body: { clusterId: "c1", user: "ch_user", password: "ch_pw" },
+      body: { clusterId: "c1", user: "ch_user", password: "ch_pw",nodeName:"test-1" },
     };
     const res = createRes();
     await handler(req, res);
@@ -125,7 +125,7 @@ describe("POST /schema-studio/connect - role gate", () => {
     mockExecuteQuery.mockResolvedValue({ rows: [{ 1: 1 }] });
     const req = {
       user: { role: "editor", jti: "j-node-name", username: "alice" },
-      body: { clusterId: "c1", node: "node-2", user: "ch_user", password: "ch_pw" },
+      body: { clusterId: "c1", node: "node-2", user: "ch_user", password: "ch_pw" ,nodeName:"test-1"},
     };
     const res = createRes();
     await handler(req, res);

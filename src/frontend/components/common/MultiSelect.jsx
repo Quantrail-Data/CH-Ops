@@ -105,7 +105,7 @@ ${className}`}
 ${v}`}
                     onClick={(e) => remove(v, e)}
                   >
-                    <Icon className="ti ti-x" />
+                    <Icon className="ti ti-x" style={{width:"14px"}}/>
                   </button>
                 </span>
               );

@@ -192,7 +192,11 @@ export default function StepGenerate({ columns, stats, sampleRows, form, onBack 
     try {
       const statements = form.distributed ? [ddlLocal, ddl] : [ddl];
       await createTables(statements);
-      toast.success("Table created successfully.");
+      if (/if\s+not\s+exists/i.test(statements)) {
+        toast.success("Query executed: Table created (or already existed).");
+      } else {
+        toast.success("Table created successfully.");
+      }
       setConfirming(false);
       clearForms();
       StepSource();

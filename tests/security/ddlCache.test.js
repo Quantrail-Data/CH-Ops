@@ -32,7 +32,9 @@ async function connectAs(role, clickHouseUser) {
     node: NODE_NAME,
     user: clickHouseUser,
     password: "pw",
+    nodeName:NODE_NAME,
   });
+  console.log(result)
   expect(result.status).toBe(200);
 }
 
