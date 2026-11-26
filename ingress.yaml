@@ -3,6 +3,8 @@ kind: Ingress
 metadata:
   name: chops
   annotations:
+    # These annotations are for the ingress-nginx controller. For another
+    # controller, set the same three things in its own way.
     # Export downloads can be gigabytes. Without these three the proxy either
     # rejects the request or gives up partway through a large download.
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
@@ -10,6 +12,12 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
 spec:
   ingressClassName: nginx
+  # Use HTTPS. Users send passwords to CHOps. With cert-manager, add the
+  # annotation cert-manager.io/cluster-issuer: <your issuer> and uncomment this.
+  # tls:
+  #   - hosts:
+  #       - chops.example.com
+  #     secretName: chops-tls
   rules:
     - host: chops.example.com
       http:

@@ -13,7 +13,10 @@ CHOps works with clusters on bare metal, VMs, Docker, Kubernetes under an operat
 
 If CHOps saves you time, please star this repository. It helps.
 
-<img width="1920" height="1080" alt="CHOps" src="https://github.com/user-attachments/assets/391efbe8-abbe-43d0-b735-05878e0730f1" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/images/tour-dark.gif">
+  <img width="1200" alt="A tour of CHOps: login, home, cluster overview, daily summary, queries, a custom dashboard, tables and parts, merges, queues, processors profile, memory allocator, Qurioz, RBAC, alert rules and user management" src=".github/images/tour-light.gif">
+</picture>
 
 </div>
 
@@ -100,6 +103,88 @@ SQL Tools also has an interactive flame-graph query profiler, a processors profi
 
 ---
 
+## Screenshots
+
+A custom dashboard. Each chart is one SQL query:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/images/dashboard-full-dark.png">
+  <img alt="A custom dashboard with line, donut, stacked bar, heatmap, bar, radar, KPI and gauge charts" src=".github/images/dashboard-full-light.png">
+</picture>
+
+<table>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/login-dark.png"><img alt="Login" src=".github/images/login-light.png"></picture><br><b>Login</b></td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/home-dark.png"><img alt="Home" src=".github/images/home-light.png"></picture><br><b>Home</b></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/cluster-overview-dark.png"><img alt="Cluster Overview" src=".github/images/cluster-overview-light.png"></picture><br><b>Cluster Overview</b></td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/daily-summary-dark.png"><img alt="Daily Summary" src=".github/images/daily-summary-light.png"></picture><br><b>Daily Summary</b></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/queries-dark.png"><img alt="Queries" src=".github/images/queries-light.png"></picture><br><b>Queries</b></td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/tables-and-parts-dark.png"><img alt="Tables and Parts" src=".github/images/tables-and-parts-light.png"></picture><br><b>Tables and Parts</b></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/replication-queue-dark.png"><img alt="Replication queue" src=".github/images/replication-queue-light.png"></picture><br><b>Replication queue</b></td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/processors-profile-dark.png"><img alt="Processors Profile" src=".github/images/processors-profile-light.png"></picture><br><b>Processors Profile</b></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/memory-allocator-dark.png"><img alt="Memory Allocator" src=".github/images/memory-allocator-light.png"></picture><br><b>Memory Allocator</b></td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/qurioz-dark.png"><img alt="Qurioz AI" src=".github/images/qurioz-light.png"></picture><br><b>Qurioz AI</b></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/rbac-overview-dark.png"><img alt="Database RBAC" src=".github/images/rbac-overview-light.png"></picture><br><b>Database RBAC</b></td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/new-alert-rule-dark.png"><img alt="New alert rule" src=".github/images/new-alert-rule-light.png"></picture><br><b>New alert rule</b></td>
+</tr>
+</table>
+
+The pictures show the dark or the light theme, the same as your GitHub theme.
+
+---
+
+## Documentation
+
+The same documentation is in the app: click the book icon in the top bar, or open `/docs/` on your CHOps server. It is also at [ch-ops.io/docs](https://ch-ops.io/docs). On GitHub, use these links:
+
+**Getting started**
+
+- [Overview](docs/getting-started/overview.md)
+- [Installation](docs/getting-started/installation.md)
+- [Configuration](docs/getting-started/configuration.md): all environment variables
+
+**User guide**
+
+| Section | Pages |
+|---|---|
+| Search | [Global Search](docs/guide/global-search.md) |
+| Overview | [Cluster Overview](docs/guide/cluster-overview.md), [Daily Summary](docs/guide/daily-summary.md), [Queries](docs/guide/queries.md), [Tables and Parts](docs/guide/tables-and-parts.md), [Merges and Mutations](docs/guide/merges-mutations.md), [Queues](docs/guide/queues.md), [The Kubernetes Page](docs/guide/kubernetes-page.md), [DDL and Readonly Tables](docs/guide/ddl-readonly.md) |
+| SQL Tools | [SQL Editor](docs/guide/sql-editor.md), [Query Comparison](docs/guide/query-comparison.md), [Query Profiler](docs/guide/query-profiler.md), [Processors Profile](docs/guide/processors-profile.md), [Query Metrics](docs/guide/query-metrics.md), [Schema Studio](docs/guide/schema-studio.md), [Qurioz](docs/guide/qurioz.md) |
+| Custom Dashboards | [Custom Dashboards](docs/guide/dashboards.md), [Dashboard Filters](docs/guide/dashboard-filters.md) |
+| Monitoring | [Monitoring Dashboards](docs/guide/monitoring.md), [Memory Allocator](docs/guide/memory-allocator.md) |
+| Logs | [Logs](docs/guide/logs.md) |
+| Schema Tools | [Schema Visualizer](docs/guide/schema-visualizer.md), [Indexes and Projections](docs/guide/indexes.md) |
+| Custom Alerts | [Alerting](docs/guide/alerting.md) |
+| DB RBAC | [Database RBAC](docs/guide/rbac.md) |
+| Backups | [Backups](docs/guide/backups.md) |
+| Control panel | [Administration](docs/guide/admin.md), [Connecting a Kubernetes Cluster](docs/guide/kubernetes-connect.md), [Connecting a Cluster Managed by OCKO](docs/guide/kubernetes-ocko.md), [AI API Keys](docs/guide/ai-api-keys.md) |
+| Editions | [CHOps Pro](docs/guide/chops-pro.md) |
+
+**Deployment**
+
+- [Production Deployment](docs/deployment/production.md): binary or source, systemd, Caddy, Docker
+- [Run CHOps in Kubernetes](docs/deployment/kubernetes.md): StatefulSet with a persistent volume
+
+**Development**
+
+- [Contributing](docs/development/contributing.md)
+- [Testing](docs/development/testing.md)
+- [Database Migrations](docs/development/database-migrations.md)
+- [Setting Up a Test Cluster](docs/development/test-cluster-setup.md)
+- [Building a Standalone Binary](docs/development/binary-build.md)
+
+---
+
 ## Run CHOps
 
 The fastest way to run CHOps is the Docker image, Docker Compose, or a prebuilt binary. You do not need Bun or a build step.
@@ -180,6 +265,23 @@ ENCRYPTION_SECRET=$(openssl rand -hex 32) \
 
 At startup, the binary makes `data/chops.db` and `data/crypto.salt` in its working directory. Keep both files, because stored passwords need the salt file and the same `ENCRYPTION_SECRET`.
 
+### Run in Kubernetes
+
+The repository has example manifests: `configmap.yaml`, `statefulset.yaml`, `service.yaml`, and `ingress.yaml`. They run one CHOps pod with a persistent volume for the database and the encryption salt.
+
+```bash
+kubectl create namespace chops
+kubectl create secret generic chops-secrets -n chops \
+  --from-literal=ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
+  --from-literal=SUPER_ADMIN_1=admin \
+  --from-literal=SUPER_ADMIN_1_PASSWORD='change-this-password' \
+  --from-literal=SUPER_ADMIN_1_EMAIL=you@example.com
+kubectl apply -n chops -f configmap.yaml -f statefulset.yaml -f service.yaml
+kubectl port-forward -n chops svc/chops 7720:7720
+```
+
+Then open `http://localhost:7720`. Keep one replica only. For the storage class, HTTPS on an Ingress, upgrades, and backup and restore, see [Run CHOps in Kubernetes](docs/deployment/kubernetes.md).
+
 ### Required configuration
 
 | Variable | Required | Purpose |
@@ -224,10 +326,10 @@ Build from source only if you want to change the code, or make your own image or
 
 You need two things.
 
-**1. Bun 1.4.2**, the JavaScript runtime CHOps is built on. We test CHOps with this version. Install it:
+**1. Bun 1.4.4**, the JavaScript runtime CHOps is built on. We test CHOps with this version. Install it:
 
 ```bash
-curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
+curl -fsSL https://bun.com/install | bash -s "bun-v1.4.4"
 ```
 
 Close and reopen your terminal. Then check the version:
@@ -456,45 +558,21 @@ CHOps ships with several hardening measures. Here is what each does and why it m
 
 **One instance per database**: Run only one CHOps process for one database. CHOps keeps reset codes, login failure counts, rate limits, and the alert scheduler in the memory of its process. Two instances on one database give wrong limits and duplicate alerts.
 
-**Reverse proxy**: Rate limiting is per client IP. Each limit counts only its own requests. Two limits count per CHOps user instead: connect attempts (10 a minute, shared by all the connect and connection-test routes) and AI SQL generation (60 a minute). Behind a proxy (such as the Caddy setup below), set `TRUST_PROXY` to the number of proxies in front of CHOps, or every client shares one bucket. Leave it unset when CHOps is exposed directly, so `X-Forwarded-For` cannot be spoofed.
+**Reverse proxy**: Rate limiting is per client IP. Each limit counts only its own requests. Two limits count per CHOps user instead: connect attempts (10 a minute, shared by all the connect and connection-test routes) and AI SQL generation (60 a minute). Behind a proxy (such as Caddy or a Kubernetes Ingress), set `TRUST_PROXY` to the number of proxies in front of CHOps, or every client shares one bucket. Leave it unset when CHOps is exposed directly, so `X-Forwarded-For` cannot be spoofed.
 
 ---
 
 ## Running Tests
 
-CHOps has an automated test suite for the backend and the frontend. The tests need no running ClickHouse&reg; server, no S3 bucket, and no external service, because they use mocks, static analysis, and a fake ClickHouse&reg; server.
+The tests need no ClickHouse&reg; server and no other service.
 
 ```bash
-# Everything (backend then frontend)
-bun run test
-
-# Backend suites only (Bun test runner)
-bun run test:backend
-
-# One backend folder
-bun test tests/security
-
-# Frontend only (Vitest)
-bunx vitest run tests/frontend
+bun run test            # backend, then frontend
+bun run test:coverage   # the same, with coverage
+bun run lint
 ```
 
-The backend suites are in `tests/backend`, `tests/isolated`, `tests/no-mocks`, `tests/db`, `tests/net`, and `tests/security`. `bun run test:backend` runs each file in `tests/backend` in its own process (`scripts/test-each-file.mjs`), so a module mock in one file cannot change another file. The suites in `tests/security` start the real server and need `data/crypto.salt` in the repository root. Run `bun run dev:backend` one time to make it.
-
-The frontend suites run under Vitest, not under Bun's test runner, because `vi.mock` needs Vite's transform pipeline and Bun's loader does not run it. Do not start Vitest with `bun --bun`, or the mocks do nothing.
-
-Backend tests cover password hashing, JWT handling, AES-256-GCM encryption, rate limiting, security headers, alert scheduling, SQL formatting, the Drizzle schema, environment parsing, the four-tier RBAC system, and the role check on every API route. Frontend tests cover route definitions, chart types, the plugin architecture, heatmap color scales, tree-chart utilities, scrollbar behavior, and UI contracts.
-
-Coverage runs are available too:
-
-```bash
-bun run test:coverage              # backend then frontend
-bun run test:backend:coverage      # backend only
-bun run test:frontend:coverage     # frontend only
-```
-
-The backend coverage script runs the same suites as `bun run test:backend` and writes one lcov report for each run to `coverage/backend/parts/`. The frontend run writes its report to `coverage/frontend`. `scripts/coverage-report.mjs` merges the reports into one summary.
-
-Most frontend tests are static analysis: they read source files as strings to verify structure, so runtime line coverage is low by design.
+[Testing](docs/development/testing.md) tells you about each test folder and the CI workflow.
 
 ---
 
@@ -510,50 +588,10 @@ This writes two files to `data/backups/`: a database copy made with SQLite's `VA
 
 ---
 
-## Deploying with Caddy and systemd
+## Deploying to Production
 
-For production, run CHOps behind [Caddy](https://caddyserver.com) for automatic HTTPS, and as a systemd service for automatic startup and crash recovery.
-
-**1.** Build CHOps (`bun run build` or `bun run build:binary:linux`).
-
-**2.** Make `/etc/systemd/system/chops.service`:
-
-```ini
-[Unit]
-Description=CHOps
-After=network.target
-
-[Service]
-Type=simple
-User=chops
-WorkingDirectory=/opt/chops
-ExecStart=/opt/chops/chops
-Restart=on-failure
-EnvironmentFile=/opt/chops/.env
-NoNewPrivileges=true
-ProtectSystem=strict
-ReadWritePaths=/opt/chops/data
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**3.** Configure Caddy at `/etc/caddy/Caddyfile`:
-
-```
-chops.example.com {
-    reverse_proxy localhost:7720
-}
-```
-
-**4.** Enable and start both:
-
-```bash
-sudo systemctl enable --now chops
-sudo systemctl restart caddy
-```
-
-Caddy obtains and renews Let's Encrypt certificates automatically. The full guide, with security hardening, IP allowlisting, and automated backups, is at [ch-ops.io/docs](https://ch-ops.io/docs).
+- [Production Deployment](docs/deployment/production.md): run the binary as a systemd service behind [Caddy](https://caddyserver.com) for automatic HTTPS, with security hardening, IP allowlisting, and automated backups.
+- [Run CHOps in Kubernetes](docs/deployment/kubernetes.md): a StatefulSet with a persistent volume, an Ingress with HTTPS, upgrades, and backup and restore.
 
 ---
 
@@ -588,7 +626,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically. The full guid
 Pull requests are open. Bug reports and feature requests are always welcome.
 
 - **Code.** Fork the repository, make your change, and open a pull request. Your first pull request asks you to sign our [Contributor License Agreement](CLA.md), a one-time step that takes a single comment. You keep the copyright, and the CLA lets us ship your work in the open core and in the commercial Pro edition.
-- **Bug reports.** Open an issue with your CHOps version (from `version.json`), your ClickHouse&reg; database version, and clear steps to reproduce.
+- **Bug reports.** Open an issue with your CHOps version (in the user menu at the top right, or in `version.json`), your ClickHouse&reg; database version, and clear steps to reproduce.
 - **Feature requests.** Open an issue that describes the problem you want solved. Tell us the use case, not just the proposed solution, so we can find the best fit.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide, and [SECURITY.md](SECURITY.md) to report vulnerabilities privately.

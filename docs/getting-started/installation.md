@@ -22,10 +22,10 @@ curl http://your-clickhouse-host:8123/ping
 
 If it prints `Ok.`, the server is reachable.
 
-**2. Bun 1.4.2 (source and binary build methods only).** Bun is the JavaScript runtime CHOps is built on. Install the tested version:
+**2. Bun 1.4.4 (source and binary build methods only).** Bun is the JavaScript runtime CHOps is built on. Install the tested version:
 
 ```bash
-curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
+curl -fsSL https://bun.com/install | bash -s "bun-v1.4.4"
 ```
 
 Close and reopen your terminal. Then check the version:
