@@ -117,6 +117,7 @@ export default function DashboardView({ sidebar,mainRef }) {
   const [showLegends, setShowLegends] = useState(true);
   const [renameId, setRenameId] = useState(null);
   const [renameName, setRenameName] = useState("");
+  const [renameCols, setRenameCols] = useState(2);
 
   // Filter state.
   //   params  - discovery result for the loaded charts
@@ -517,7 +518,7 @@ export default function DashboardView({ sidebar,mainRef }) {
     }
   }
 
-  async function renameDash(id, name) {
+  async function renameDash(id, name, cols) {
     const trimmed = name.trim();
     if (!trimmed) return;
     const duplicate = dashboards.some(
@@ -534,7 +535,7 @@ export default function DashboardView({ sidebar,mainRef }) {
     try {
       const updated = await apiFetch(`/api/dashboards/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ name: trimmed, columns: cols }),
       });
       setDashboards((prev) =>
         prev.map((d) => (d.id === updated.id ? updated : d)),
@@ -542,7 +543,8 @@ export default function DashboardView({ sidebar,mainRef }) {
       if (selDash?.id === updated.id) setSelDash(updated);
       setRenameId(null);
       setRenameName("");
-      toast.success("Dashboard renamed.");
+      setRenameCols(2);
+      toast.success("Dashboard updated.");
     } catch (e) {
       toast.error(e.message);
     }
@@ -830,12 +832,13 @@ export default function DashboardView({ sidebar,mainRef }) {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.stopPropagation();
-                      renameDash(d.id, renameName);
+                      renameDash(d.id, renameName, renameCols);
                     }
                     if (e.key === "Escape") {
                       e.stopPropagation();
                       setRenameId(null);
                       setRenameName("");
+                      setRenameCols(2);
                     }
                   }}
                   autoFocus
@@ -850,16 +853,48 @@ export default function DashboardView({ sidebar,mainRef }) {
                   {d.name}
                 </span>
               )}
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                {d.columns}col
-              </span>
+              {renameId === d.id ? (
+                <Select
+                  className="form-select"
+                  value={renameCols}
+                  onChange={(e) => setRenameCols(parseInt(e.target.value))}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.stopPropagation();
+                      renameDash(d.id, renameName, renameCols);
+                    }
+                    if (e.key === "Escape") {
+                      e.stopPropagation();
+                      setRenameId(null);
+                      setRenameName("");
+                      setRenameCols(2);
+                    }
+                  }}
+                  style={{
+                    fontSize: "0.8125rem",
+                    padding: "2px 6px",
+                    minWidth: 70,
+                  }}
+                >
+                  {[1, 2, 3, 4].map((n) => (
+                    <option key={n} value={n}>
+                      {n}col
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  {d.columns}col
+                </span>
+              )}
               {renameId === d.id ? (
                 <>
                   <Button
                     variant="ghost" size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      renameDash(d.id, renameName);
+                      renameDash(d.id, renameName, renameCols);
                     }}
                     title="Save name"
                   >
@@ -874,6 +909,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                       e.stopPropagation();
                       setRenameId(null);
                       setRenameName("");
+                      setRenameCols(2);
                     }}
                     title="Cancel"
                   >
@@ -887,6 +923,7 @@ export default function DashboardView({ sidebar,mainRef }) {
                     e.stopPropagation();
                     setRenameId(d.id);
                     setRenameName(d.name || "");
+                    setRenameCols(d.columns || 2);
                   }}
                   style={{ marginLeft: "auto", opacity: !canEdit ? 0.35 : 1, cursor: !canEdit ? "not-allowed" : "pointer" }}
                   disabled={!canEdit}

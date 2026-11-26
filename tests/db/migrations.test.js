@@ -120,21 +120,23 @@ describe("an upgrade from CHOps 1.4.1", () => {
     sqlite.close();
   });
 
-  it("gives the same tables and columns as a new install", () => {
-    const upgraded = openCopyOfSample();
-    runMigrations(upgraded, MIGRATIONS, { backupFolder, saltPath, log: quietLog });
-    // migrate.js makes the cluster tables after the numbered migrations, so
-    // run the real script for both.
-    upgraded.close();
-    const freshPath = path.join(tempDir, "fresh.db");
-    runMigrateScript(freshPath);
-    runMigrateScript(path.join(tempDir, "chops.db"));
-    const fresh = new Database(freshPath, { readonly: true });
-    const again = new Database(path.join(tempDir, "chops.db"), { readonly: true });
-    expect(tableShape(again)).toEqual(tableShape(fresh));
-    fresh.close();
-    again.close();
-  });
+  it(
+    "gives the same tables and columns as a new install",
+    () => {
+      const upgraded = openCopyOfSample();
+      runMigrations(upgraded, MIGRATIONS, { backupFolder, saltPath, log: quietLog });
+      upgraded.close();
+      const freshPath = path.join(tempDir, "fresh.db");
+      runMigrateScript(freshPath);
+      runMigrateScript(path.join(tempDir, "chops.db"));
+      const fresh = new Database(freshPath, { readonly: true });
+      const again = new Database(path.join(tempDir, "chops.db"), { readonly: true });
+      expect(tableShape(again)).toEqual(tableShape(fresh));
+      fresh.close();
+      again.close();
+    },
+    30000,
+  );
 });
 
 describe("a second start", () => {

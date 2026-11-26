@@ -132,7 +132,17 @@ export const PAGE_TEXT = {
     "Nodes online",
     "Queries per second",
     "Failed queries, 1 h",
-    "Firing alerts"
+    "Firing alerts",
+    "Esc",
+    "Down",
+    "to navigate",
+    "Enter",
+    "to open",
+    "to close",
+    "Find a page or feature by name or by what it does.",
+    "Search pages and features...",
+    "Search pages and features",
+    "Close search"
   ],
   "overview/cluster": [
     "Loading...",
@@ -146,6 +156,15 @@ export const PAGE_TEXT = {
     "Merges",
     "Mutations",
     "Readonly Tables",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Node",
     "Cluster topology",
     "Loading topology...",
@@ -181,7 +200,15 @@ export const PAGE_TEXT = {
     "Total Written",
     "Query errors + critical/fatal system log entries",
     "Query Errors",
-    "Critical / Fatal"
+    "Critical / Fatal",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions"
   ],
   "overview/queries": [
     "Click to view query",
@@ -214,6 +241,16 @@ export const PAGE_TEXT = {
     "Type",
     "Exception",
     "Search exception...",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "Time",
     "Open in...",
     "All users",
     "All kinds",
@@ -239,7 +276,6 @@ export const PAGE_TEXT = {
     "Memory",
     "Longest",
     "Read",
-    "Actions",
     "Cancelling",
     "Finished",
     "Cancellation requested. The query is winding down.",
@@ -293,6 +329,8 @@ export const PAGE_TEXT = {
     "Add filter",
     "Additional Result Columns",
     "Add columns to the result...",
+    "Select...",
+    "Type to filter...",
     "Value:"
   ],
   "overview/parts": [
@@ -303,14 +341,29 @@ export const PAGE_TEXT = {
     "Active Parts",
     "Inactive Parts",
     "Detached Parts",
-    "Broken Parts"
+    "Broken Parts",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "Generated SQL"
   ],
   "overview/operations": [
     "Loading...",
     "Merges",
     "Mutations",
     "Active Merges",
-    "Active Mutations"
+    "Active Mutations",
+    "Generated SQL",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions"
   ],
   "overview/ddl": [
     "Loading...",
@@ -319,7 +372,13 @@ export const PAGE_TEXT = {
     "(auto-refresh 30s)",
     "DDL Queue Length",
     "Median Processing Time",
-    "Failed DDLs"
+    "Failed DDLs",
+    "Generated SQL",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions"
   ],
   "overview/queues": [
     "Loading ingestion data...",
@@ -329,11 +388,21 @@ export const PAGE_TEXT = {
     "Search files",
     "File name contains",
     "Exception contains",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading queue state...",
     "Executing",
     "With errors",
     "Filter tasks...",
-    "Nothing pending."
+    "Nothing pending.",
+    "Something went wrong",
+    "Try Again"
   ],
   "overview/kubernetes": [
     "Loading...",
@@ -426,7 +495,16 @@ export const PAGE_TEXT = {
     "Context lines",
     "Fewer lines",
     "Lines to read",
-    "More lines"
+    "More lines",
+    "No options",
+    "Select...",
+    "Type to filter...",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Time"
   ],
   "editor/query": [
     "Explorer",
@@ -471,6 +549,12 @@ export const PAGE_TEXT = {
     "Resize the SQL editor",
     "Bookmark name",
     "Download PNG",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
     "Analyzing query...",
     "Cost Estimate",
     "Database",
@@ -544,6 +628,9 @@ export const PAGE_TEXT = {
     "Get Tables",
     "Database & Tables",
     "Generate DDL & Estimate",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Comparison (Estimated)",
     "better",
     "Metric",
@@ -582,7 +669,12 @@ export const PAGE_TEXT = {
     "From",
     "Trace Type",
     "Memory Context",
-    "Reset zoom"
+    "Reset zoom",
+    "No options",
+    "Time",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG"
   ],
   "tools/pipeline": [
     "Processor Details",
@@ -597,7 +689,9 @@ export const PAGE_TEXT = {
     "Start time",
     "End time",
     "Query kind",
-    "Type"
+    "Type",
+    "No options",
+    "Time"
   ],
   "tools/metrics": [
     "Query Details",
@@ -614,7 +708,11 @@ export const PAGE_TEXT = {
     "Select a query and click",
     "Show Query Metrics",
     "to visualize its resource usage over time.",
-    "From"
+    "From",
+    "Time",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG"
   ],
   "tools/qurioz": [
     "New Chat",
@@ -628,6 +726,7 @@ export const PAGE_TEXT = {
     "ClickHouse username",
     "password",
     "ClickHouse password",
+    "No options",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -639,6 +738,11 @@ export const PAGE_TEXT = {
     "Error occurs while executing the query",
     "Retry",
     "Chart View",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
     "Clickhouse Query",
     "Copy",
     "Run..",
@@ -658,6 +762,9 @@ export const PAGE_TEXT = {
     "Subtype",
     "Chart Name",
     "Show Legend",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Database Schema & Estimate Generator",
     "Databases",
     "Get Tables",
@@ -696,6 +803,7 @@ export const PAGE_TEXT = {
     "Secret access key",
     "Azure connection string",
     "Container",
+    "No options",
     "Review the inferred schema",
     "Column",
     "Type",
@@ -730,6 +838,8 @@ export const PAGE_TEXT = {
     "column or expression",
     "Remove projection",
     "SELECT country, count() GROUP BY country",
+    "Select...",
+    "Type to filter...",
     "Use expression:",
     "Move earlier",
     "Move later",
@@ -768,11 +878,23 @@ export const PAGE_TEXT = {
     "Signal Description",
     "Exception Trace",
     "Row Limit",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Time",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "AND",
     "Add filter",
     "Additional Result Columns",
     "Add columns to the result...",
+    "No options",
+    "Select...",
+    "Type to filter...",
     "Value:"
   ],
   "logs/error": [
@@ -799,11 +921,23 @@ export const PAGE_TEXT = {
     "partial...",
     "Row Limit",
     "Error Type (multi-select)",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Time",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "AND",
     "Add filter",
     "Additional Result Columns",
     "Add columns to the result...",
+    "No options",
+    "Select...",
+    "Type to filter...",
     "Value:"
   ],
   "logs/text": [
@@ -829,11 +963,23 @@ export const PAGE_TEXT = {
     "Message (text)",
     "partial...",
     "Row Limit",
+    "Time",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "AND",
     "Add filter",
     "Additional Result Columns",
     "Add columns to the result...",
+    "No options",
+    "Select...",
+    "Type to filter...",
     "Value:"
   ],
   "logs/session": [
@@ -862,11 +1008,23 @@ export const PAGE_TEXT = {
     "Failure Reason (text)",
     "Row Limit",
     "Event Type (multi-select)",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Time",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Loading columns...",
     "AND",
     "Add filter",
     "Additional Result Columns",
     "Add columns to the result...",
+    "No options",
+    "Select...",
+    "Type to filter...",
     "Value:"
   ],
   "monitoring/dashboards": [
@@ -875,6 +1033,10 @@ export const PAGE_TEXT = {
     "Rounding (s)",
     "Dashboard tabs",
     "Tabs",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "Time",
     "Value:"
   ],
   "monitoring/playback": [
@@ -884,6 +1046,16 @@ export const PAGE_TEXT = {
     "to start.",
     "From",
     "Step",
+    "No options",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "Time",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
     "Value:"
   ],
   "monitoring/allocator": [
@@ -941,6 +1113,10 @@ export const PAGE_TEXT = {
     "Virtual Memory",
     "Reclaimable",
     "Bookkeeping",
+    "No options",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Value:"
   ],
   "alerting/rules": [
@@ -976,7 +1152,13 @@ export const PAGE_TEXT = {
     "Cluster",
     "Edit rule",
     "Delete rule",
-    "Search templates"
+    "Search templates",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions"
   ],
   "rbac/view": [
     "User Grants",
@@ -989,6 +1171,12 @@ export const PAGE_TEXT = {
     "All Grants",
     "User",
     "Role",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
     "All granted roles",
     "Default roles only (as at login)",
     "Refresh",
@@ -1033,7 +1221,14 @@ export const PAGE_TEXT = {
     "Privilege",
     "Database",
     "Table",
-    "User"
+    "User",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Generated SQL"
   ],
   "rbac/roles": [
     "Loading...",
@@ -1055,7 +1250,14 @@ export const PAGE_TEXT = {
     "Privilege",
     "Database",
     "Table",
-    "Role"
+    "Role",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Generated SQL"
   ],
   "rbac/profiles": [
     "-- default --",
@@ -1074,6 +1276,13 @@ export const PAGE_TEXT = {
     "DROP PROFILES",
     "ADD PROFILES",
     "Profile",
+    "No options",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Generated SQL",
     "Value:"
   ],
   "indexes/visualizer": [
@@ -1098,6 +1307,7 @@ export const PAGE_TEXT = {
     "CREATE Statement",
     "All connected tables across databases will be shown",
     "Search table or column...",
+    "No options",
     "Value:"
   ],
   "indexes/secondary": [
@@ -1106,6 +1316,7 @@ export const PAGE_TEXT = {
     "All",
     "Database",
     "Table",
+    "No options",
     "Download PNG"
   ],
   "indexes/projections": [
@@ -1128,7 +1339,9 @@ export const PAGE_TEXT = {
     "WITH SETTINGS (optional)",
     "IF EXISTS",
     "IN PARTITION (optional)",
-    "Download PNG"
+    "Download PNG",
+    "Generated SQL",
+    "No options"
   ],
   "indexes/create": [
     "Create",
@@ -1165,7 +1378,9 @@ export const PAGE_TEXT = {
     "Dict Block Size",
     "Dict Frontcoding",
     "Posting Block Size",
-    "Posting Codec"
+    "Posting Codec",
+    "No options",
+    "Generated SQL"
   ],
   "custom/dashboards": [
     "Legends",
@@ -1175,6 +1390,7 @@ export const PAGE_TEXT = {
     "Drag charts to swap positions.",
     "Save Layout",
     "Columns",
+    "No options",
     "Chart filters",
     "Out of date",
     "Filter settings",
@@ -1190,7 +1406,15 @@ export const PAGE_TEXT = {
     "Cancel",
     "Save settings",
     "Close",
-    "Value:"
+    "Value:",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions"
   ],
   "backups/lifecycle": [
     "Loading...",
@@ -1226,7 +1450,9 @@ export const PAGE_TEXT = {
     "ON CLUSTER",
     "ASYNC",
     "EXCEPT TABLES",
-    "EXCEPT DATABASES"
+    "EXCEPT DATABASES",
+    "No options",
+    "Generated SQL"
   ],
   "admin/profiles": [
     "Storage Profiles is only available for super administrators.",
@@ -1238,7 +1464,8 @@ export const PAGE_TEXT = {
     "Edit",
     "Type",
     "Endpoint",
-    "Region"
+    "Region",
+    "No options"
   ],
   "admin/users": [
     "Loading...",
@@ -1271,7 +1498,8 @@ export const PAGE_TEXT = {
     "Password",
     "From address",
     "Use TLS",
-    "Send a test email to"
+    "Send a test email to",
+    "No options"
   ],
   "admin/cluster": [
     "Loading...",
@@ -1328,7 +1556,8 @@ export const PAGE_TEXT = {
     "kube-system",
     "production",
     "Display name",
-    "chops"
+    "chops",
+    "No options"
   ],
   "admin/app-backup": [
     "Loading...",
@@ -1352,7 +1581,8 @@ export const PAGE_TEXT = {
     "Storage Profile",
     "Frequency",
     "Day",
-    "Hour (24h)"
+    "Hour (24h)",
+    "No options"
   ],
   "admin/api-management": [
     "Loading...",
@@ -1372,7 +1602,8 @@ export const PAGE_TEXT = {
     "No, Cancel",
     "Yes, Delete",
     "Enter the Name",
-    "Fetch models to choose one"
+    "Fetch models to choose one",
+    "No options"
   ],
   "admin/channels": [
     "Loading...",
@@ -1382,7 +1613,8 @@ export const PAGE_TEXT = {
     "Last notification failed:",
     "Test",
     "Name",
-    "Type"
+    "Type",
+    "No options"
   ],
   "admin/trusted-cas": [
     "Trusted Certificate Authorities is only available for administrators.",
@@ -1400,7 +1632,8 @@ export const PAGE_TEXT = {
     "App Config is only available for administrators.",
     "Off",
     "Save",
-    "Reset"
+    "Reset",
+    "No options"
   ],
   "/qurioz": [
     "New Chat",
@@ -1414,6 +1647,7 @@ export const PAGE_TEXT = {
     "ClickHouse username",
     "password",
     "ClickHouse password",
+    "No options",
     "Press Enter to send, Shift+Enter for new line.",
     "Search for query...",
     "Chat input",
@@ -1425,6 +1659,11 @@ export const PAGE_TEXT = {
     "Error occurs while executing the query",
     "Retry",
     "Chart View",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
     "Clickhouse Query",
     "Copy",
     "Run..",
@@ -1444,6 +1683,9 @@ export const PAGE_TEXT = {
     "Subtype",
     "Chart Name",
     "Show Legend",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
     "Database Schema & Estimate Generator",
     "Databases",
     "Get Tables",
@@ -1471,8 +1713,19 @@ export const PAGE_TEXT = {
     "Chart Type",
     "Subtype",
     "Chart Name",
+    "No options",
     "(none)",
     "Value:",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "Actions",
+    "Something went wrong",
+    "Try Again",
     "Max rows",
     "Fewer rows",
     "Maximum rows to return",
@@ -1489,6 +1742,14 @@ export const PAGE_TEXT = {
     "Actions",
     "No charts found matching your criteria.",
     "Search charts by name...",
-    "Value:"
+    "Value:",
+    "Zoom in",
+    "Zoom out",
+    "Save PNG",
+    "value",
+    "key",
+    "(empty array)",
+    "(empty object)",
+    "No options"
   ]
 };
