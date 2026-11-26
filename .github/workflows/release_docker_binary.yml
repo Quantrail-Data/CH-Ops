@@ -3,6 +3,8 @@ name: Release
 # Manual trigger only. A person starts it from the Actions tab.
 # One run builds and publishes everything for a release:
 #   1. version: read and validate version.json, refuse an existing tag.
+#      version.json has "version" (MAJOR.MINOR.BUGFIX) and "channel"
+#      (alpha, beta or stable). See src/shared/version.js.
 #   2. build-binaries: the three standalone binaries, with a smoke test.
 #   3. build-docker: the multi-arch image, pushed to GHCR and Docker Hub.
 #   4. release: checksums, provenance, git tag, GitHub release with the
@@ -40,8 +42,10 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.ver.outputs.version }}
-      major: ${{ steps.ver.outputs.major }}
-      major_minor: ${{ steps.ver.outputs.major_minor }}
+      channel: ${{ steps.ver.outputs.channel }}
+      release_name: ${{ steps.ver.outputs.release_name }}
+      prerelease: ${{ steps.ver.outputs.prerelease }}
+      docker_tags: ${{ steps.ver.outputs.docker_tags }}
       sha: ${{ steps.ver.outputs.sha }}
 
     steps:
@@ -51,24 +55,25 @@ jobs:
           ref: main
           fetch-depth: 0   # so the tag check below can see all tags
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.4"
+
+      # Stable gets the tags X.Y.Z, X.Y, X and latest.
+      # Alpha and beta get X.Y.Z-<channel> and <channel>, never latest.
       - name: Read version
         id: ver
         run: |
-          VERSION=$(jq -r .version version.json)
-          echo "Read version: $VERSION"
-          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "ERROR: version.json version '$VERSION' is not X.Y.Z" >&2
-            exit 1
-          fi
-          echo "version=$VERSION"          >> "$GITHUB_OUTPUT"
-          echo "major=${VERSION%%.*}"      >> "$GITHUB_OUTPUT"
-          echo "major_minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+          bun scripts/release-info.mjs "$IMAGE_GHCR" "$IMAGE_DOCKERHUB" > "$RUNNER_TEMP/release-info.txt"
+          cat "$RUNNER_TEMP/release-info.txt"
+          cat "$RUNNER_TEMP/release-info.txt" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Check the tag does not exist
         run: |
-          if git rev-parse "v${{ steps.ver.outputs.version }}" >/dev/null 2>&1; then
-            echo "ERROR: tag v${{ steps.ver.outputs.version }} already exists. Bump version.json first." >&2
+          if git rev-parse "v${{ steps.ver.outputs.release_name }}" >/dev/null 2>&1; then
+            echo "ERROR: tag v${{ steps.ver.outputs.release_name }} already exists. Bump version.json first." >&2
             exit 1
           fi
 
@@ -188,7 +193,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build once, push to both registries, with four tag levels each.
+      # Build once, push to both registries. The tags come from version.json.
       - name: Build and push
         uses: docker/build-push-action@v6
         env:
@@ -199,15 +204,7 @@ jobs:
           push: true
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
-          tags: |
-            ${{ env.IMAGE_GHCR }}:latest
-            ${{ env.IMAGE_GHCR }}:${{ needs.version.outputs.version }}
-            ${{ env.IMAGE_GHCR }}:${{ needs.version.outputs.major_minor }}
-            ${{ env.IMAGE_GHCR }}:${{ needs.version.outputs.major }}
-            ${{ env.IMAGE_DOCKERHUB }}:latest
-            ${{ env.IMAGE_DOCKERHUB }}:${{ needs.version.outputs.version }}
-            ${{ env.IMAGE_DOCKERHUB }}:${{ needs.version.outputs.major_minor }}
-            ${{ env.IMAGE_DOCKERHUB }}:${{ needs.version.outputs.major }}
+          tags: ${{ needs.version.outputs.docker_tags }}
 
   release:
     name: Publish Release
@@ -248,11 +245,11 @@ jobs:
       - name: Create tag and GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          tag_name: v${{ needs.version.outputs.version }}
+          tag_name: v${{ needs.version.outputs.release_name }}
           target_commitish: ${{ needs.version.outputs.sha }}
-          name: v${{ needs.version.outputs.version }}
+          name: v${{ needs.version.outputs.release_name }}
           body: ${{ github.event.inputs.changelog }}
           files: release/*
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}

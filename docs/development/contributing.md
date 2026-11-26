@@ -28,7 +28,7 @@ Open a bug report or a feature request as an issue in our repository at [github.
 
 ## Set up a development environment
 
-Because CHOps uses the Apache License 2.0, you can run and change your own copy. We test CHOps with Bun 1.4.2. To set up a development environment:
+Because CHOps uses the Apache License 2.0, you can run and change your own copy. We test CHOps with Bun 1.4.4. To set up a development environment:
 
 ```bash
 git clone https://github.com/Quantrail-Data/CH-Ops.git
@@ -42,5 +42,39 @@ bun run dev
 ```
 
 The `dev` command starts the backend on port 7720 and the frontend development server on port 7721. Open `http://localhost:7721`. When you edit the code, the servers reload automatically. After you sign in, add your test cluster in **Control panel > Cluster Management**. To set up a local ClickHouse&reg; cluster for tests, see [Setting Up a Test Cluster](test-cluster-setup.md). Before you open a pull request, run `bun run test`, `bun run lint`, and `bun run check:sensitive-logging`. See [Testing](testing.md).
+
+## Versions
+
+`version.json` at the project root holds the version of CHOps:
+
+```json
+{
+  "version": "2.0.1",
+  "channel": "beta"
+}
+```
+
+- `version` is `MAJOR.MINOR.BUGFIX`, for example `2.0.1`.
+- `channel` is `alpha`, `beta` or `stable`.
+
+The app shows both, for example `v2.0.1 - beta`. In local development the app shows the branch and the commit in place of the version, for example `testing-1fbaae8 - beta`.
+
+**Every pull request to `main` must have a newer version.** The "Version Check" workflow compares `version.json` with the one on `main`. A version is newer when a number is higher. For the same numbers, `beta` is newer than `alpha`, and `stable` is newer than `beta`. For example, after `2.0.0 - beta` you can use `2.0.0 - stable` or `2.0.1 - beta`, but not `2.0.0 - beta` again. To check on your computer:
+
+```bash
+git fetch origin main
+git show origin/main:version.json > /tmp/main-version.json
+bun scripts/check-version-bump.mjs /tmp/main-version.json
+```
+
+The release pipeline uses the same file for the git tag and the Docker image tags:
+
+| Channel | Git tag | Docker image tags |
+|---|---|---|
+| `stable` | `v2.0.1` | `2.0.1`, `2.0`, `2`, `latest` |
+| `beta` | `v2.0.1-beta` | `2.0.1-beta`, `beta` |
+| `alpha` | `v2.0.1-alpha` | `2.0.1-alpha`, `alpha` |
+
+An `alpha` or `beta` release is a GitHub pre-release, and it never changes the `latest` image.
 
 Thank you again for your help. We are glad that you are here.
