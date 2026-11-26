@@ -8,6 +8,8 @@ spec:
   # Exactly one. Do not raise it. See
   # docs/deployment/production.md#run-one-chops-instance-only.
   replicas: 1
+  # A StatefulSet stops the old pod before it starts the new one, so two pods
+  # never write to the same database during an update.
   serviceName: chops
   selector:
     matchLabels:
@@ -23,7 +25,8 @@ spec:
 
       securityContext:
         # Makes the persistent disk writable by the container's user without
-        # needing to know which user id that is.
+        # needing to know which user id that is. Kubernetes adds this group to
+        # the container's process and gives the group write access to the disk.
         fsGroup: 1000
 
       containers:
@@ -100,8 +103,10 @@ spec:
           emptyDir:
             sizeLimit: 8Gi
 
-  # The persistent disk for the database. Kubernetes creates this the first time
-  # and reuses it forever after, including across upgrades.
+  # The persistent disk for /app/data: the database (chops.db), the encryption
+  # salt (crypto.salt) and the backups. Kubernetes creates it the first time
+  # and keeps it across restarts and upgrades. Deleting the StatefulSet does
+  # not delete it. Without crypto.salt, the stored passwords cannot be read.
   volumeClaimTemplates:
     - metadata:
         name: data
