@@ -13,6 +13,7 @@ import { executeQuery } from './clickhouse.js';
 import { getClusterNodes } from './clusterUtils.js';
 import { decrypt } from "./crypto.js";
 import { storageFromProfile, rawBlobFunction, insertFileSql, storageLocation, hideSecrets } from "../../shared/backupSql.js";
+import { formatVersion } from "../../shared/version.js";
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, 'chops.db');
@@ -194,7 +195,7 @@ export async function createAppBackup(profileName, backupType) {
     const manifest = {
       backup_id: ts,
       created_at: now.toISOString(),
-      app_version: appVersion.display || appVersion.version || "unknown",
+      app_version: appVersion.version ? formatVersion(appVersion.version, appVersion.channel) : "unknown",
       file_size_bytes: snapshot.size,
       file_size_display:
         snapshot.size < 1024 * 1024

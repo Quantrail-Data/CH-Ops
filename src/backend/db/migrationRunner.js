@@ -6,7 +6,7 @@
 //   PRAGMA user_version. A new database has 0.
 // - At start, only the migrations with a higher number run, in order.
 // - Before the first migration of an upgrade, the database is copied to
-//   <database folder>/backups/pre-upgrade-schema-<old>-to-<new>-<time>.db,
+//   <database folder>/backups/pre-upgrade-schema-<old>-to-<new>-<time>-<process id>.db,
 //   with the encryption salt. The last 5 of these copies are kept.
 // - Each migration runs in its own transaction, and its number is saved in
 //   the same transaction. If the migration fails, nothing of it stays.
@@ -68,7 +68,10 @@ function timestampForFileName(date = new Date()) {
 // upgrade. Returns the path of the copy.
 export function backUpBeforeUpgrade({ sqlite, backupFolder, saltPath, fromVersion, toVersion }) {
   fs.mkdirSync(backupFolder, { recursive: true });
-  const baseName = `${PRE_UPGRADE_PREFIX}${fromVersion}-to-${toVersion}-${timestampForFileName()}`;
+  // The process id keeps the name unique. Two copies of the app that start at
+  // the same time can both make a copy in the same millisecond, and two
+  // VACUUM INTO to one file fail with "table ... already exists".
+  const baseName = `${PRE_UPGRADE_PREFIX}${fromVersion}-to-${toVersion}-${timestampForFileName()}-${process.pid}`;
   const databaseCopy = path.join(backupFolder, `${baseName}.db`);
   // VACUUM INTO makes a complete, consistent copy, also in WAL mode.
   sqlite.exec(`VACUUM INTO '${databaseCopy.replace(/'/g, "''")}'`);
