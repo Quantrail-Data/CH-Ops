@@ -25,7 +25,7 @@ const router = express.Router();
 
 router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.username || req.ip}`), async (req, res) => {
   try {
-    const { clusterId, node, user, password } = req.body || {};
+    const { clusterId, node, user, password, nodeName } = req.body || {};
     if (!user) return res.status(400).json({ error: 'ClickHouse username is required.' });
 
     const target = resolveTargetNode(clusterId, node);
@@ -50,6 +50,7 @@ router.post('/connect', rateLimiter(10, 60, (req) => `connect:${req.user?.userna
       port: target.port || 8123,
       chUser: user,
       password: password ?? '',
+      nodeName: nodeName ?? target.name,
     });
     res.json(getCredSessionStatus(req.user.jti, CRED_CONTEXTS.EDITOR));
   } catch (e) {

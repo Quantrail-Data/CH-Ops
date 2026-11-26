@@ -101,8 +101,11 @@ describe('Login layout: follows the Login design (Login.dc.html)', () => {
     expect(ruleOf('.login-page')).not.toMatch(/overflow: hidden/);
   });
 
-  it('has the Forgot password link in the password label row', () => {
-    const row = code.slice(code.indexOf('className="login-password-row"'), code.indexOf('<PasswordInput id="login-password"'));
+  it('has the Forgot password link below the password input', () => {
+    const inputIndex = code.indexOf('<PasswordInput id="login-password"');
+    const rowIndex = code.indexOf('className="login-password-row"');
+    expect(inputIndex).toBeLessThan(rowIndex);
+    const row = code.slice(rowIndex, code.indexOf('</div>', rowIndex));
     expect(row).toContain('Forgot password?');
   });
 

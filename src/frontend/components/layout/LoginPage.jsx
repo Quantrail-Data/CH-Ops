@@ -233,7 +233,6 @@ const OTP_Component = ({ setFormStatus }) => {
 
       <form className="login-form-con" onSubmit={OPT_verifyHandle}>
         <div className="form-group" style={{ marginBottom: "14px" }}>
-          {/* <label className="form-label">Email-ID</label> */}
           <OtpInput
             value={otp}
             onChange={setOtp}
@@ -294,11 +293,11 @@ const OTP_Component = ({ setFormStatus }) => {
         </div>
 
         <Notice tone="info" style={{
-            margin: "15px 0px",
-            fontSize: "0.6875rem",
-            fontWeight: "bold",
-            textAlign: "center",
-          }}>
+          margin: "15px 0px",
+          fontSize: "0.6875rem",
+          fontWeight: "bold",
+          textAlign: "center",
+        }}>
           Verification code is going to expire in
           <span
             style={{
@@ -347,7 +346,7 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
   // A red border on the confirm field while it does not match.
   const isConfirmMismatch = Boolean(
     passwords?.confirmPassword &&
-      passwords?.confirmPassword !== passwords?.newPassword,
+    passwords?.confirmPassword !== passwords?.newPassword,
   );
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -421,7 +420,7 @@ const ChangePasswordComponent = ({ setFormStatus }) => {
           style={{ marginBottom: "20px", width: "100%" }}
         >
           <label className="form-label" htmlFor="new-password">New Password</label>
-          <PasswordInput id="new-password" autoComplete="new-password" className="tw:h-10" value={passwords?.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e?.target?.value }) } required />
+          <PasswordInput id="new-password" autoComplete="new-password" className="tw:h-10" value={passwords?.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e?.target?.value })} required />
         </div>
         <div
           className="form-group "
@@ -515,7 +514,7 @@ export default function LoginPage() {
 
   const [verfiyEmail, setVerifyEmail] = useState("");
 
-  useEffect(() => {});
+  useEffect(() => { });
 
   // Close the enlarged-image preview on Escape while it is open.
   useEffect(() => {
@@ -634,216 +633,232 @@ export default function LoginPage() {
       {/* Left: what CHOps is, with screenshots. Right: the sign-in card. */}
       {/* Both sides in one group in the middle of the window. */}
       <div className="login-layout">
-      <section className="login-showcase" aria-label="About CHOps">
-        <div className="login-intro">
-          <h1 className="login-headline">
-            ClickHouse® Database operations,{" "}
-            <span className="login-headline-accent">made easy</span>
-          </h1>
-          <p className="login-lede">
-            One UI to manage, monitor and troubleshoot every ClickHouse®
-            database cluster, wherever it runs.
-          </p>
-          <p className="login-proof">
-            <Icon className="ti ti-world-bolt" />
-            Powering hundreds of ClickHouse® database installations across
-            the globe.
-          </p>
-          {/* Feature chips move slowly to the left and stop on hover (Magic UI Marquee). */}
-          <div className="login-chips" aria-label="CHOps features">
-            <div className="login-chips-track">
-              {[...FEATURE_CHIPS, ...FEATURE_CHIPS].map((label, index) => (
-                <span key={index} className="login-chip" aria-hidden={index >= FEATURE_CHIPS.length ? true : undefined}>
-                  <span className="status-dot accent" />
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="login-carousel" role="region" aria-roledescription="carousel" aria-label="CHOps screens">
-          <div className="login-window">
-            <div className="login-window-bar">
-              <span className="login-window-dot" />
-              <span className="login-window-dot" />
-              <span className="login-window-dot" />
-              <span className="login-window-title">CHOps preview</span>
-            </div>
-            <Swiper
-              modules={[Autoplay]}
-              autoplay={{ delay: 5000, disableOnInteraction: false }}
-              loop={true}
-              onSwiper={(swiper) => {
-                screenshotSwiperRef.current = swiper;
-              }}
-              onRealIndexChange={onScreenshotChange}
-              className="login-window-swiper"
-            >
-              {leftImages.map((img, idx) => (
-                <SwiperSlide key={idx}>
-                  <img
-                    src={img}
-                    loading={idx === 0 ? "eager" : "lazy"}
-                    className="login-window-img"
-                    alt="CHOps screen"
-                    onClick={() => setLightboxSrc(img)}
-                  />
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          </div>
-
-          <div className="login-carousel-controls">
-            <div className="login-carousel-dots">
-              {leftImages.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  className={index === screenshotIndex ? "login-carousel-dot active" : "login-carousel-dot"}
-                  aria-label={`Show screen ${index + 1}`}
-                  aria-current={index === screenshotIndex ? "true" : undefined}
-                  onClick={() => screenshotSwiperRef.current?.slideToLoop(index)}
-                />
-              ))}
-            </div>
-            <div className="login-carousel-arrows">
-              <button
-                type="button"
-                className="login-carousel-arrow"
-                aria-label="Previous screen"
-                onClick={() => screenshotSwiperRef.current?.slidePrev()}
-              >
-                <Icon className="ti ti-chevron-left" />
-              </button>
-              <button
-                type="button"
-                className="login-carousel-arrow"
-                aria-label="Next screen"
-                onClick={() => screenshotSwiperRef.current?.slideNext()}
-              >
-                <Icon className="ti ti-chevron-right" />
-              </button>
+        <section className="login-showcase" aria-label="About CHOps">
+          <div className="login-intro">
+            <h1 className="login-headline">
+              ClickHouse® Database operations,{" "}
+              <span className="login-headline-accent">made easy</span>
+            </h1>
+            <p className="login-lede">
+              One UI to manage, monitor and troubleshoot every ClickHouse®
+              database cluster, wherever it runs.
+            </p>
+            <p className="login-proof">
+              <Icon className="ti ti-world-bolt" />
+              Powering hundreds of ClickHouse® database installations across
+              the globe.
+            </p>
+            {/* Feature chips move slowly to the left and stop on hover (Magic UI Marquee). */}
+            <div className="login-chips" aria-label="CHOps features">
+              <div className="login-chips-track">
+                {[...FEATURE_CHIPS, ...FEATURE_CHIPS].map((label, index) => (
+                  <span key={index} className="login-chip" aria-hidden={index >= FEATURE_CHIPS.length ? true : undefined}>
+                    <span className="status-dot accent" />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* The feature text moves with the screenshots, also when the user
-              clicks an arrow or a dot. */}
-          <div key={textIndex} className="login-slide-text" aria-live="polite">
-            <h2>{swiperDatas[textIndex]?.title}</h2>
-            <p>{swiperDatas[textIndex]?.subtitle}</p>
-          </div>
-        </div>
-
-        <p className="login-trademark">
-          ClickHouse® is a registered trademark of ClickHouse, Inc.
-        </p>
-      </section>
-
-      <section className="login-form-panel">
-        <img
-          className="login-brand"
-          src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
-          alt="CHOps"
-        />
-        {/* The card has a slowly turning light on its border (Magic UI Shine Border). */}
-        <div className="login-card-shine">
-          <div className="login-card">
-      {formStatus === "login" && (
-        <motion.div
-          initial={{ opacity: 0.2, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: "easeIn" }}
-          className="form-conatiner"
-        >
-          <div className="top-title-login">
-            <div
-              style={{
-                textAlign: "left",
-                marginBottom: "30px",
-                lineHeight: "30px",
-              }}
-              className="login-title"
-            >
-              <h4
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  margin: "0px",
+          <div className="login-carousel" role="region" aria-roledescription="carousel" aria-label="CHOps screens">
+            <div className="login-window">
+              <div className="login-window-bar">
+                <span className="login-window-dot" />
+                <span className="login-window-dot" />
+                <span className="login-window-dot" />
+                <span className="login-window-title">CHOps preview</span>
+              </div>
+              <Swiper
+                modules={[Autoplay]}
+                autoplay={{ delay: 5000, disableOnInteraction: false }}
+                loop={true}
+                onSwiper={(swiper) => {
+                  screenshotSwiperRef.current = swiper;
                 }}
+                onRealIndexChange={onScreenshotChange}
+                className="login-window-swiper"
               >
-                Login
-              </h4>
-              <p>Enter your username and password to continue</p>
+                {leftImages.map((img, idx) => (
+                  <SwiperSlide key={idx}>
+                    <img
+                      src={img}
+                      loading={idx === 0 ? "eager" : "lazy"}
+                      className="login-window-img"
+                      alt="CHOps screen"
+                      onClick={() => setLightboxSrc(img)}
+                    />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
             </div>
-          </div>
 
-          <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
-          {error && (
-            <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: "16px", width: "100%" }}> {error}
-            </Notice>
-          )}
-
-          {/* method, name and id help the browser to find the login form
-                and offer to save the password. */}
-            <form onSubmit={handleSubmit} method="post" className="login-form-con">
-            <FormField label="Username" style={{ marginBottom: "14px" }}>
-              <Input
-                id="login-username"
-                name="username"
-                style={{ height: "40px" }}
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                autoFocus
-              />
-            </FormField>
-            <div
-              className="form-group "
-              style={{ marginBottom: "20px", width: "100%" }}
-            >
-              <div className="login-password-row">
-                <label className="form-label" htmlFor="login-password">Password</label>
+            <div className="login-carousel-controls">
+              <div className="login-carousel-dots">
+                {leftImages.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={index === screenshotIndex ? "login-carousel-dot active" : "login-carousel-dot"}
+                    aria-label={`Show screen ${index + 1}`}
+                    aria-current={index === screenshotIndex ? "true" : undefined}
+                    onClick={() => screenshotSwiperRef.current?.slideToLoop(index)}
+                  />
+                ))}
+              </div>
+              <div className="login-carousel-arrows">
                 <button
                   type="button"
-                  className="login-text-link"
-                  onClick={() => {
-                    setError("");
-                    setFormStatus("forget-mail");
-                  }}
+                  className="login-carousel-arrow"
+                  aria-label="Previous screen"
+                  onClick={() => screenshotSwiperRef.current?.slidePrev()}
                 >
-                  Forgot password?
+                  <Icon className="ti ti-chevron-left" />
+                </button>
+                <button
+                  type="button"
+                  className="login-carousel-arrow"
+                  aria-label="Next screen"
+                  onClick={() => screenshotSwiperRef.current?.slideNext()}
+                >
+                  <Icon className="ti ti-chevron-right" />
                 </button>
               </div>
-              <PasswordInput id="login-password" name="password" autoComplete="current-password" className="tw:h-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
 
-            <div className="form-login-btn">
-              <button type="submit" className="login-submit" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="loading-spinner"></span> Signing in...
-                  </>
-                ) : (
-                  <span
-                    className=""
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexDirection: "row",
-                      gap: "10px",
-                    }}
-                  >
-                    <Icon className="ti ti-login" /> Login
-                  </span>
-                )}
-              </button>
+           {/* The feature text moves with the screenshots, also when the user
+              clicks an arrow or a dot. */}
+            <div key={textIndex} className="login-slide-text" aria-live="polite">
+              <h2>{swiperDatas[textIndex]?.title}</h2>
+              <p>{swiperDatas[textIndex]?.subtitle}</p>
             </div>
+          </div>
 
-            {/* <>
+          <p className="login-trademark">
+            ClickHouse® is a registered trademark of ClickHouse, Inc.
+          </p>
+        </section>
+
+        <section className="login-form-panel">
+          <img
+            className="login-brand"
+            src={theme === "dark" ? chopsLightLogo : chopsDarkLogo}
+            alt="CHOps"
+          />
+          {/* The card has a slowly turning light on its border (Magic UI Shine Border). */}
+          <div className="login-card-shine">
+            <div className="login-card">
+              {formStatus === "login" && (
+                <motion.div
+                  initial={{ opacity: 0.2, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, ease: "easeIn" }}
+                  className="form-conatiner"
+                >
+                  <div className="top-title-login">
+                    <div
+                      style={{
+                        textAlign: "left",
+                        marginBottom: "30px",
+                        lineHeight: "30px",
+                      }}
+                      className="login-title"
+                    >
+                      <h4
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
+                          margin: "0px",
+                        }}
+                      >
+                        Login
+                      </h4>
+                      <p>Enter your username and password to continue</p>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
+                  {error && (
+                    <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: "16px", width: "100%" }}> {error}
+                    </Notice>
+                  )}
+
+                {/* method, name and id help the browser to find the login form
+                and offer to save the password. */}
+                  <form onSubmit={handleSubmit} method="post" className="login-form-con">
+                    <FormField label="Username" style={{ marginBottom: "14px" }}>
+                      <Input
+                        id="login-username"
+                        name="username"
+                        style={{ height: "40px" }}
+                        autoComplete="username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </FormField>
+                    <div
+                      className="form-group "
+                      style={{ marginBottom: "20px", width: "100%" }}
+                    >
+                      <label className="form-label" htmlFor="login-password">Password</label>
+                      <PasswordInput
+                        id="login-password"
+                        name="password"
+                        autoComplete="current-password"
+                        className="tw:h-10"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <div
+                        className="login-password-row"
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          width: "100%",
+                          marginTop: "8px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="login-text-link"
+                          onClick={() => {
+                            setError("");
+                            setFormStatus("forget-mail");
+                          }}
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="form-login-btn">
+                      <button type="submit" className="login-submit" disabled={loading}>
+                        {loading ? (
+                          <>
+                            <span className="loading-spinner"></span> Signing in...
+                          </>
+                        ) : (
+                          <span
+                            className=""
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexDirection: "row",
+                              gap: "10px",
+                            }}
+                          >
+                            <Icon className="ti ti-login" /> Login
+                          </span>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* <>
         <button
           className="btn btn-secondary"
           
@@ -853,118 +868,118 @@ export default function LoginPage() {
         </button>
         <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>or sign in with username and password</div>
       </> */}
-          </form>
-        </motion.div>
-      )}
-      {formStatus === "forget-mail" && (
-        <motion.div
-          initial={{ opacity: 0.2, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: "easeIn" }}
-          className="form-conatiner"
-        >
-          <div className="top-title-login">
-            <div
-              style={{
-                textAlign: "left",
-                marginBottom: "30px",
-                lineHeight: "30px",
-                width: "300px",
-              }}
-              className="login-title"
-            >
-              <h4
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  margin: "0px",
-                }}
-              >
-                Forgot password
-              </h4>
-              <p>Enter your email to reset your password.</p>
-            </div>
-          </div>
-
-          <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
-          {error && (
-            <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: "16px", width: "100%" }}> {error}
-            </Notice>
-          )}
-
-          <form
-            onSubmit={handleEmailVerifiySubmit}
-            className="login-form-con"
-          >
-            <FormField label="Email-ID" style={{ marginBottom: "14px" }}>
-              <Input
-                style={{ height: "40px" }}
-                value={verfiyEmail}
-                onChange={(e) => setVerifyEmail(e.target.value)}
-                required
-                autoFocus
-              />
-            </FormField>
-
-            <div className="form-login-btn">
-              <Button
-                variant="primary"
-                type="submit"
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "45px",
-                  fontSize: "0.9375rem",
-                }}
-              >
-                {loading ? (
-                  <>
-                    <span className="loading-spinner"></span> Sending...
-                  </>
-                ) : (
-                  <span
-                    className=""
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexDirection: "row",
-                      gap: "10px",
-                    }}
-                  >
-                    Send Verification Code
-                  </span>
-                )}
-              </Button>
-            </div>
-            <div style={{ textAlign: "center", margin: "10px 0px" }}>
-              <p style={{ fontSize: "0.8125rem" }}>
-                Have an account?{" "}
-                <button
-                  type="button"
-                  className="login-text-link"
-                  onClick={() => setFormStatus("login")}
+                  </form>
+                </motion.div>
+              )}
+              {formStatus === "forget-mail" && (
+                <motion.div
+                  initial={{ opacity: 0.2, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, ease: "easeIn" }}
+                  className="form-conatiner"
                 >
-                  Back to Login
-                </button>
-              </p>
-            </div>
-          </form>
-        </motion.div>
-      )}
-      {formStatus === "forget-otp" && (
-        <OTP_Component setFormStatus={setFormStatus} />
-      )}
+                  <div className="top-title-login">
+                    <div
+                      style={{
+                        textAlign: "left",
+                        marginBottom: "30px",
+                        lineHeight: "30px",
+                        width: "300px",
+                      }}
+                      className="login-title"
+                    >
+                      <h4
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
+                          margin: "0px",
+                        }}
+                      >
+                        Forgot password
+                      </h4>
+                      <p>Enter your email to reset your password.</p>
+                    </div>
+                  </div>
 
-      {formStatus === "forget-change" && (
-        <ChangePasswordComponent setFormStatus={setFormStatus} />
-      )}
+                  <div style={{ textAlign: "center", marginBottom: "0px" }}></div>
+                  {error && (
+                    <Notice tone="danger" icon="ti-alert-circle" style={{ marginBottom: "16px", width: "100%" }}> {error}
+                    </Notice>
+                  )}
+
+                  <form
+                    onSubmit={handleEmailVerifiySubmit}
+                    className="login-form-con"
+                  >
+                    <FormField label="Email-ID" style={{ marginBottom: "14px" }}>
+                      <Input
+                        style={{ height: "40px" }}
+                        value={verfiyEmail}
+                        onChange={(e) => setVerifyEmail(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </FormField>
+
+                    <div className="form-login-btn">
+                      <Button
+                        variant="primary"
+                        type="submit"
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: "45px",
+                          fontSize: "0.9375rem",
+                        }}
+                      >
+                        {loading ? (
+                          <>
+                            <span className="loading-spinner"></span> Sending...
+                          </>
+                        ) : (
+                          <span
+                            className=""
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexDirection: "row",
+                              gap: "10px",
+                            }}
+                          >
+                            Send Verification Code
+                          </span>
+                        )}
+                      </Button>
+                    </div>
+                    <div style={{ textAlign: "center", margin: "10px 0px" }}>
+                      <p style={{ fontSize: "0.8125rem" }}>
+                        Have an account?{" "}
+                        <button
+                          type="button"
+                          className="login-text-link"
+                          onClick={() => setFormStatus("login")}
+                        >
+                          Back to Login
+                        </button>
+                      </p>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+              {formStatus === "forget-otp" && (
+                <OTP_Component setFormStatus={setFormStatus} />
+              )}
+
+              {formStatus === "forget-change" && (
+                <ChangePasswordComponent setFormStatus={setFormStatus} />
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
       </div>
 
       {lightboxSrc && (
