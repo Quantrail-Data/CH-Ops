@@ -109,6 +109,8 @@ describe("an upgrade from CHOps 1.4.1", () => {
     const sqlite = openCopyOfSample();
     const result = runMigrations(sqlite, MIGRATIONS, { backupFolder, saltPath, log: quietLog });
     expect(result.backupPath).toContain(`pre-upgrade-schema-0-to-${LATEST_SCHEMA_VERSION}-`);
+    // The process id keeps the names of two copies of the app apart.
+    expect(result.backupPath.endsWith(`-${process.pid}.db`)).toBe(true);
     const files = backupFiles();
     expect(files.filter((name) => name.endsWith(".db"))).toHaveLength(1);
     expect(files.filter((name) => name.endsWith(".salt"))).toHaveLength(1);
