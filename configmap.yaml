@@ -10,7 +10,7 @@ data:
   DB_PATH: "/app/data/chops.db"
 
   # Where export files are written. Deliberately NOT on the persistent disk.
-  # See docs/deployment/production.md#kubernetes-deployment.
+  # See docs/deployment/kubernetes.md.
   EXPORT_DIR: "/app/exports"
 
   # Total size all export files may occupy. Must stay below the 8Gi limit set on
@@ -20,3 +20,13 @@ data:
 
   # Largest single export. 4Gi.
   EXPORT_MAX_JOB_BYTES: "4294967296"
+
+  # The number of proxies in front of CHOps that add X-Forwarded-For. With the
+  # ingress controller only, this is 1. Without it, all users share one rate
+  # limit bucket, because every request comes from the ingress pod.
+  # Add one for each other HTTP proxy, for example a cloud load balancer in
+  # HTTP mode. Remove it if you do not use the Ingress.
+  TRUST_PROXY: "1"
+
+  # The address that users open. CHOps puts it in the links that set a password.
+  # FRONTEND_LINK: "https://chops.example.com"

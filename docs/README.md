@@ -24,7 +24,7 @@ CHOps connects to your ClickHouse&reg; cluster through the HTTP interface and gi
 
 ## Requirements
 
-- Bun 1.4.2. We test CHOps with this version.
+- Bun 1.4.4. We test CHOps with this version.
 - A ClickHouse&reg; cluster that you can reach over HTTP (port 8123 by default). Tested on 26.3 LTS and 26.8 LTS. Older and newer versions should work, but they are not tested.
 - A modern web browser (Chrome, Firefox, Safari, or Edge)
 

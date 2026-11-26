@@ -21,7 +21,7 @@ You need:
 ## Step 1: Install Bun
 
 ```bash
-curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
+curl -fsSL https://bun.com/install | bash -s "bun-v1.4.4"
 source ~/.bashrc
 bun --version
 ```
@@ -543,7 +543,7 @@ The server runs the database migration at each start. The migration is safe on a
 
 ## Docker Deployment
 
-CHOps ships with a Dockerfile and docker-compose.yml for a containerized deployment. The image uses `oven/bun:1.4.2-alpine` with a multi-stage build. Published images are also on Docker Hub (`quantrailadmin1/ch-ops`) and GitHub Container Registry (`ghcr.io/quantrail-data/ch-ops`).
+CHOps ships with a Dockerfile and docker-compose.yml for a containerized deployment. The image uses `oven/bun:1.4.4-alpine` with a multi-stage build. Published images are also on Docker Hub (`quantrailadmin1/ch-ops`) and GitHub Container Registry (`ghcr.io/quantrail-data/ch-ops`).
 
 ### Quick Start
 
@@ -632,7 +632,7 @@ docker inspect --format='{{.State.Health.Status}}' chops
 
 ### Image Details
 
-- Base: `oven/bun:1.4.2-alpine` (Alpine Linux and the Bun runtime).
+- Base: `oven/bun:1.4.4-alpine` (Alpine Linux and the Bun runtime).
 - Multi-stage build: dependencies and the frontend build in stage 1, a slim runtime in stage 2.
 - Non-root user (`chops`) for security.
 - Includes: the built React frontend, the backend source, the shared source (`src/shared`), production node_modules, and the docs.
@@ -642,31 +642,6 @@ docker inspect --format='{{.State.Health.Status}}' chops
 
 ## Kubernetes Deployment
 
-The repository has example manifests in its root folder: `configmap.yaml`, `statefulset.yaml`, `service.yaml`, and `ingress.yaml`. They run one CHOps pod with a persistent disk for `/app/data`.
+The repository has example manifests in its root folder: `configmap.yaml`, `statefulset.yaml`, `service.yaml`, and `ingress.yaml`. They run one CHOps pod with a persistent volume for `/app/data`.
 
-1. Put the image in a registry that your cluster can pull from. Then set the `image:` field in `statefulset.yaml`. The manifest names the published image `quantrailadmin1/ch-ops:<version>`, with the version of this release from `version.json` (for example `quantrailadmin1/ch-ops:1.4.0`). The tag must match the CHOps release that you deploy.
-2. Make a Secret named `chops-secrets` with the four required values:
-
-   ```bash
-   kubectl create secret generic chops-secrets \
-     --from-literal=ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
-     --from-literal=SUPER_ADMIN_1=admin \
-     --from-literal=SUPER_ADMIN_1_PASSWORD=your_strong_password_here \
-     --from-literal=SUPER_ADMIN_1_EMAIL=you@example.com
-   ```
-
-   Keep a copy of `ENCRYPTION_SECRET`. A new value makes the stored passwords unreadable.
-3. Apply the manifests:
-
-   ```bash
-   kubectl apply -f configmap.yaml -f statefulset.yaml -f service.yaml
-   ```
-
-4. Change the host name in `ingress.yaml`. Then apply it with `kubectl apply -f ingress.yaml`. The ingress example is for the NGINX ingress controller.
-
-What the manifests set:
-
-- `replicas: 1`. Do not raise it. See [Run one CHOps instance only](#run-one-chops-instance-only).
-- `DB_PATH=/app/data/chops.db` on the persistent disk. `crypto.salt` is also in `/app/data`.
-- `EXPORT_DIR=/app/exports` on an `emptyDir` volume with an 8Gi limit. Export files do not survive a pod restart. Keep `EXPORT_MAX_TOTAL_BYTES` below the volume limit.
-- A liveness probe and a startup probe on `/api/health`, and a readiness probe on `/api/ready`.
+The full steps are in [Run CHOps in Kubernetes](kubernetes.md): the Secret, the storage, the Ingress with HTTPS, upgrades, and backup and restore of the volume.

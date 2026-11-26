@@ -119,5 +119,18 @@ The browser clock is set to the time of the data, and the time zone is UTC.
 | `baseline/` | The accepted results (not in git, see above) |
 | `fake-clickhouse/` | The fake ClickHouse for recording |
 | `lib/` | Shared code |
+| `screenshots.mjs` | Takes the README screenshots and the tour GIF (see below) |
+| `sample-dashboard.js` | The sample dashboard in the README screenshots |
 
 The chart files themselves are guarded by `tests/frontend/chart-guard.test.js`.
+
+## README screenshots
+
+`screenshots.mjs` takes the screenshots in the README and makes the tour GIF. It uses the recorded `normal` data set and the sample dashboard in `sample-dashboard.js`. It needs the Vite dev server and ffmpeg:
+
+```bash
+VERSION="2.0.0 - beta" bunx vite        # in a second terminal
+bun tests/visual/screenshots.mjs
+```
+
+Set `VERSION` to the version that the pictures must show. Without it, the sidebar shows the branch and the commit. The pictures go to `.github/images/`, not to `docs/`, because the binary and the Docker image include all of `docs/`.
