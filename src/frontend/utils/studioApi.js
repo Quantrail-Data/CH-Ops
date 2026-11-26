@@ -38,10 +38,10 @@ async function handleRaw(res) {
 
 // Connection
 
-export function connect({ clusterId, node, port, user, password }) {
+export function connect({ clusterId, node, port, user, password,nodeName }) {
   return apiFetch(`${BASE}/connect`, {
     method: 'POST',
-    body: { clusterId, node, port, user, password },
+    body: { clusterId, node, port, user, password,nodeName },
   });
 }
 

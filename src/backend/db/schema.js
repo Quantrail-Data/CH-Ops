@@ -294,6 +294,7 @@ export const chCredSession = sqliteTable(
     port: integer("port"),
     chUser: text("ch_user").notNull(),
     encryptedPassword: text("encrypted_password").notNull(),
+    nodeName:text("node_name").notNull(),
     createdAt: text("created_at").default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").default(sql`(datetime('now'))`),
     expiresAt: text("expires_at"),

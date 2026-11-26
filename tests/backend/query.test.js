@@ -77,7 +77,7 @@ _credSqlite.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     app_user TEXT NOT NULL, jti TEXT NOT NULL, context TEXT NOT NULL,
     cluster_id TEXT, node TEXT, port INTEGER, ch_user TEXT NOT NULL,
-    encrypted_password TEXT NOT NULL, created_at TEXT, updated_at TEXT, expires_at TEXT,
+    encrypted_password TEXT NOT NULL, created_at TEXT, updated_at TEXT, expires_at TEXT,node_name TEXT NOT NULL,
     UNIQUE (jti, context)
   )
 `);
@@ -91,6 +91,7 @@ credStore.setCredSession({
   port: 8123,
   chUser: "ed_user",
   password: "ed_pw",
+  nodeName:"test-1",
 });
 
 function createRes() {
